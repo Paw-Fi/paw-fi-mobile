@@ -172,6 +172,29 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
 
     if (authHeaders == null) {
       trace.mark('build-skipped', const {'reason': 'missing-auth-headers'});
+      final cachedSessionWallets =
+          ref.read(walletsListSessionCacheProvider)[cacheKey];
+      if (cachedSessionWallets != null) {
+        trace.mark('session-cache-hit-without-auth-headers',
+            {'count': cachedSessionWallets.length});
+        return cachedSessionWallets;
+      }
+
+      final persistedWallets = readPersistedWalletsList(
+        ref,
+        userId: user.uid,
+        householdId: householdId,
+      );
+      if (persistedWallets != null) {
+        trace.mark('persisted-cache-hit-without-auth-headers',
+            {'count': persistedWallets.length});
+        ref.read(walletsListSessionCacheProvider.notifier).state = {
+          ...ref.read(walletsListSessionCacheProvider),
+          cacheKey: persistedWallets,
+        };
+        return persistedWallets;
+      }
+
       return const <WalletEntity>[];
     }
 

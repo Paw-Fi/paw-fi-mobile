@@ -162,6 +162,13 @@ class SupabaseWalletsDataService implements WalletsDataService {
       label: 'WalletsHistoryRpc',
       contextFields: _walletsScopeDebugFields(query),
     );
+    if (ref.read(walletAuthHeadersProvider) == null) {
+      trace.mark('history-rpc-skipped', const {
+        'reason': 'missing-auth-headers',
+      });
+      return _legacyLoader.fetchHistory(query);
+    }
+
     trace.mark('history-rpc-start', const {'rpc': 'get_wallets_history_v2'});
     try {
       final response = await _rpcRunner.run(
@@ -204,6 +211,13 @@ class SupabaseWalletsDataService implements WalletsDataService {
       label: 'WalletsMonthSnapshotRpc',
       contextFields: _walletsMonthDebugFields(query),
     );
+    if (ref.read(walletAuthHeadersProvider) == null) {
+      trace.mark('month-snapshot-rpc-skipped', const {
+        'reason': 'missing-auth-headers',
+      });
+      return _legacyLoader.fetchMonthSnapshot(query);
+    }
+
     trace.mark('month-snapshot-rpc-start',
         const {'rpc': 'get_wallets_month_snapshot_v2'});
     try {
@@ -402,44 +416,43 @@ class WalletsPageStateNotifier
   Future<WalletsPageState> build(WalletsScopeQuery arg) async {
     _query = arg;
     ref.watch(_walletsTransactionCacheInvalidationProvider);
-    final walletsRefreshSignal = ref.watch(walletsRefreshSignalProvider);
-    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(walletsRefreshSignalProvider);
+    ref.watch(dashboardRefreshSignalProvider);
     final bypassPersistedCache =
         ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
-    final bypassPageStateCache = bypassPersistedCache ||
-        walletsRefreshSignal > 0 ||
-        dashboardRefreshSignal > 0;
     final trace = _createWalletsTrace(
       ref,
       label: 'WalletsPageStateBuild',
       contextFields: _walletsScopeDebugFields(_query),
     );
     try {
-      trace.mark('build-start');
+      trace.mark('build-start', {
+        'bypassPersistedCache': bypassPersistedCache,
+      });
       final sessionCache = ref.read(walletsPageStateSessionCacheProvider);
       final sessionState = sessionCache[walletsPageStateCacheKey(_query)];
-      if (!bypassPageStateCache && sessionState != null) {
+      if (sessionState != null) {
         trace.mark('session-cache-hit', {
           'visibleMonths': sessionState.visibleMonths.length,
           'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
         });
-        return sessionState;
+        final overlaidState =
+            await _overlayPendingLocalWalletPageState(sessionState);
+        _scheduleBackgroundRefresh();
+        return overlaidState;
       }
 
-      if (!bypassPageStateCache) {
-        final cachedState = _readPersistedCachedPageState();
-        if (cachedState != null) {
-          trace.mark('cache-hit', {
-            'visibleMonths': cachedState.visibleMonths.length,
-            'snapshotCount': cachedState.cachedSnapshotsByMonth.length,
-          });
-          Future<void>(() async {
-            try {
-              await refresh();
-            } catch (_) {}
-          });
-          return cachedState;
-        }
+      final cachedState = _readPersistedCachedPageState();
+      if (cachedState != null) {
+        trace.mark('cache-hit', {
+          'visibleMonths': cachedState.visibleMonths.length,
+          'snapshotCount': cachedState.cachedSnapshotsByMonth.length,
+          'bypassPersistedCache': bypassPersistedCache,
+        });
+        final overlaidState =
+            await _overlayPendingLocalWalletPageState(cachedState);
+        _scheduleBackgroundRefresh();
+        return overlaidState;
       }
 
       trace.mark('cache-miss');
@@ -458,6 +471,13 @@ class WalletsPageStateNotifier
     final previous = state.valueOrNull;
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
     if (previous == null) {
+      final cachedState = _readPersistedCachedPageState();
+      if (cachedState != null) {
+        state = AsyncData(
+          await _overlayPendingLocalWalletPageState(cachedState),
+        );
+        return refresh();
+      }
       state = const AsyncLoading();
       state = await AsyncValue.guard(() => build(_query));
       return;
@@ -482,6 +502,10 @@ class WalletsPageStateNotifier
         ),
       ]);
       if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+        final latest = state.valueOrNull;
+        if (latest != null) {
+          state = AsyncData(latest.copyWith(isRefreshing: false));
+        }
         return;
       }
       final history = results[0] as WalletsHistorySummary;
@@ -677,6 +701,7 @@ class WalletsPageStateNotifier
           WalletsMonthQuery(scope: _query, monthStart: normalizedMonth),
         );
         if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+          _clearLoadingMonth(normalizedMonth);
           return;
         }
         final latest = state.valueOrNull;
@@ -733,6 +758,7 @@ class WalletsPageStateNotifier
         WalletsMonthQuery(scope: _query, monthStart: monthStart),
       );
       if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+        _clearLoadingMonth(monthStart);
         return;
       }
       final current = state.valueOrNull;
@@ -744,7 +770,8 @@ class WalletsPageStateNotifier
           ...current.cachedSnapshotsByMonth,
           monthStart: snapshot,
         },
-        loadingMonths: <DateTime>{...current.loadingMonths}..remove(monthStart),
+        loadingMonths: <DateTime>{...current.loadingMonths}
+          ..remove(monthStart),
         monthErrorsByMonth: <DateTime, Object>{
           ...current.monthErrorsByMonth,
         }..remove(monthStart),
@@ -760,7 +787,8 @@ class WalletsPageStateNotifier
         return;
       }
       state = AsyncData(current.copyWith(
-        loadingMonths: <DateTime>{...current.loadingMonths}..remove(monthStart),
+        loadingMonths: <DateTime>{...current.loadingMonths}
+          ..remove(monthStart),
         monthErrorsByMonth: <DateTime, Object>{
           ...current.monthErrorsByMonth,
           monthStart: error,
@@ -781,6 +809,29 @@ class WalletsPageStateNotifier
       cacheKey: pageState,
     };
     unawaited(persistWalletsPageState(ref, _query, pageState));
+  }
+
+  void _scheduleBackgroundRefresh() {
+    Future<void>(() async {
+      try {
+        await refresh();
+      } catch (_) {}
+    });
+  }
+
+  void _clearLoadingMonth(DateTime monthStart) {
+    final current = state.valueOrNull;
+    if (current == null) {
+      return;
+    }
+    final normalizedMonth = normalizeWalletMonthStart(monthStart);
+    if (!current.loadingMonths.contains(normalizedMonth)) {
+      return;
+    }
+    state = AsyncData(current.copyWith(
+      loadingMonths: <DateTime>{...current.loadingMonths}
+        ..remove(normalizedMonth),
+    ));
   }
 
   Future<WalletsPageState> _overlayPendingLocalWalletPageState(
@@ -899,7 +950,22 @@ Future<List<WalletEntity>> _fetchScopedWallets(
     Ref ref, String? householdId) async {
   final authHeaders = ref.read(walletAuthHeadersProvider);
   if (authHeaders == null) {
-    return const <WalletEntity>[];
+    final userId = ref.read(authProvider).uid;
+    if (userId.isEmpty) {
+      return const <WalletEntity>[];
+    }
+
+    final cacheKey = walletsListCacheKey(
+      userId: userId,
+      householdId: householdId,
+    );
+    return ref.read(walletsListSessionCacheProvider)[cacheKey] ??
+        readPersistedWalletsList(
+          ref,
+          userId: userId,
+          householdId: householdId,
+        ) ??
+        const <WalletEntity>[];
   }
 
   final response = await supabase.functions.invoke(

@@ -85,12 +85,9 @@ class AccountsPage extends HookConsumerWidget {
       return null;
     }, [auth.uid, walletAuthHeaders != null]);
 
-    if (!isPreviewMode &&
-        (auth.uid.isEmpty ||
-            (auth.uid.isNotEmpty && walletAuthHeaders == null))) {
+    if (!isPreviewMode && auth.uid.isEmpty) {
       pageTrace.mark('page-blocked-before-wallet-load', {
-        'reason':
-            auth.uid.isEmpty ? 'empty-user' : 'missing-wallet-auth-headers',
+        'reason': 'empty-user',
       });
       return const StatusBarOverlayRegion(
         child: AdaptiveScaffold(
