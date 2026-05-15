@@ -1162,7 +1162,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.monthVsLastMonth,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1214,7 +1214,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.watchFirst,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1239,7 +1239,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.cashFlow,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1377,7 +1377,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.allowance,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1497,7 +1497,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.watchFirst,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1530,7 +1530,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             title: context.l10n.unusualActivity,
             colorScheme: colorScheme,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           for (final item in report.anomalies.take(3)) ...[
             _MonthlyReportAdviceCard(
               colorScheme: colorScheme,
@@ -1548,15 +1548,14 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                         sourceTransactionIds: item.sourceTransactionIds,
                       )),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 4),
         ],
         _MonthlyReportSectionTitle(
           title: context.l10n.categoryPace,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1638,7 +1637,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.budgetPlan,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1731,7 +1730,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.categories,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1758,7 +1757,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.budgetNotes,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         for (final item in report.spendingPace.take(3)) ...[
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
@@ -1776,7 +1775,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                       sourceTransactionIds: item.sourceTransactionIds,
                     )),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
         ],
         const SizedBox(height: 12),
         _MonthlyReportAboutCard(
@@ -1849,7 +1848,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.categoryBuffer,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -1903,7 +1902,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             title: context.l10n.goals,
             colorScheme: colorScheme,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _MonthlyReportPreviewCard(
             colorScheme: colorScheme,
             children: [
@@ -2011,7 +2010,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             title: context.l10n.categoryMovement,
             colorScheme: colorScheme,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           for (final item in categories.take(3)) ...[
             _MonthlyReportAdviceCard(
               colorScheme: colorScheme,
@@ -2040,15 +2039,14 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 height: 58,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 4),
         ],
         _MonthlyReportSectionTitle(
           title: context.l10n.movers,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -2181,7 +2179,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.subscriptions,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -2236,7 +2234,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.billCalendar,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -2348,14 +2346,14 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           title: context.l10n.topMerchants,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         if (report.merchantConcentration.isNotEmpty) ...[
           _MonthlyReportMerchantShareChart(
             colorScheme: colorScheme,
             merchants: report.merchantConcentration.take(5).toList(),
             currencyCode: report.currencyCode,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
         ],
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
@@ -2495,7 +2493,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                         title: context.l10n.recurring,
                         colorScheme: colorScheme,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _MonthlyReportPreviewCard(
                         colorScheme: colorScheme,
                         children: [
@@ -2552,7 +2550,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                         title: context.l10n.goals,
                         colorScheme: colorScheme,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _MonthlyReportPreviewCard(
                         colorScheme: colorScheme,
                         children: [
@@ -2605,7 +2603,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                       title: context.l10n.transactions,
                       colorScheme: colorScheme,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     _MonthlyReportPreviewCard(
                       colorScheme: colorScheme,
                       children: [
@@ -2748,8 +2746,13 @@ class _MonthlyReportSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isInDetailShell =
+        context.findAncestorWidgetOfExactType<_MonthlyReportDetailShell>() !=
+            null;
     return Padding(
-      padding: const EdgeInsets.only(top: 0),
+      // Detail pages stack many sections; add separation there without
+      // inflating the main monthly report page layout.
+      padding: EdgeInsets.only(top: isInDetailShell ? 14 : 0),
       child: Row(
         children: [
           Expanded(
@@ -3020,13 +3023,24 @@ class _MonthlyReportPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _ReportCard(
       colorScheme: colorScheme,
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final child in children) child,
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i < children.length - 1)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                height: 1,
+                color: isDark
+                    ? colorScheme.homeCardBorder.withValues(alpha: 0.3)
+                    : colorScheme.homeCardBorder.withValues(alpha: 0.5),
+              ),
+          ],
         ],
       ),
     );
@@ -3128,7 +3142,7 @@ class _MonthlyReportDisclosureRow extends StatelessWidget {
               ],
             ),
             if (visual != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.only(left: 46, right: 30),
                 child: visual!,
@@ -3224,7 +3238,7 @@ class _MonthlyReportStaticRow extends StatelessWidget {
             ],
           ),
           if (visual != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             visual!,
           ],
         ],
