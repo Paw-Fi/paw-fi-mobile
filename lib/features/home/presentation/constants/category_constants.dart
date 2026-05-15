@@ -78,6 +78,7 @@ const List<String> _travelAndTransport = [
   'travel activities',
   'luggage & travel gear',
   'passport & visa fees',
+  'transportation',
 ];
 
 const List<String> _healthAndWellness = [
@@ -366,9 +367,10 @@ final Map<String, IconData> categoryIcons = {
   'travel activities': Icons.local_activity,
   'luggage & travel gear': Icons.card_travel,
   'passport & visa fees': Icons.assignment_ind,
+  'transportation': Icons.directions_bus,
 
   // Health & Wellness
-  'medical care': Icons.local_hospital,
+  'medical care': Icons.medical_services,
   'pharmacy': Icons.local_pharmacy,
   'dental care': Icons.medical_services,
   'eye care': Icons.visibility,
@@ -581,6 +583,7 @@ Map<String, String> _categoryTranslationsFor(AppLocalizations l10n) {
     'travel activities': l10n.categoryTravelActivities,
     'luggage & travel gear': l10n.categoryLuggageGear,
     'passport & visa fees': l10n.categoryPassportVisaFees,
+    'transportation': l10n.categoryTransportation,
 
     // Health & Wellness
     'medical care': l10n.categoryMedicalCare,

@@ -16,7 +16,7 @@ class _MonthlyReportMetricCard extends StatelessWidget {
     return _MonthlyReportTappableSurface(
       colorScheme: colorScheme,
       onTap: onTap,
-      padding: const EdgeInsets.all(16),
+      padding: _monthlyReportWidgetPadding,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 154),
         child: Column(

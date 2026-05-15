@@ -117,7 +117,7 @@ class _MonthlyReportHealthRingLegendRow extends StatelessWidget {
     final progressLabel = '${(metric.progress.clamp(0.0, 1.0) * 100).round()}%';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      padding: _monthlyReportRowPadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

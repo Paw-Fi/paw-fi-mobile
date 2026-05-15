@@ -80,45 +80,63 @@ GoRouter router(RouterRef ref) {
       ),
       GoRoute(
         path: '/insights/monthly-report/balance',
-        builder: (context, state) => const MonthlyReportDetailPage(
+        builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.balance,
+          query: monthlyReportQueryFromUri(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/safe-spend',
-        builder: (context, state) => const MonthlyReportDetailPage(
+        builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.safeSpend,
+          query: monthlyReportQueryFromUri(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/spending',
-        builder: (context, state) => const MonthlyReportDetailPage(
+        builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.spending,
+          query: monthlyReportQueryFromUri(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/budget',
-        builder: (context, state) => const MonthlyReportDetailPage(
+        builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.budget,
+          query: monthlyReportQueryFromUri(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/savings',
-        builder: (context, state) => const MonthlyReportDetailPage(
+        builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.savings,
+          query: monthlyReportQueryFromUri(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/categories',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.categories,
+          query: monthlyReportQueryFromUri(state.uri),
           selectedCategoryName: state.uri.queryParameters['name'],
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/recurring',
-        builder: (context, state) => const MonthlyReportDetailPage(
+        builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.recurring,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/drilldown',
+        builder: (context, state) => MonthlyReportDrillDownPage(
+          query: monthlyReportQueryFromUri(state.uri),
+          title: state.uri.queryParameters['title'],
+          subtitle: state.uri.queryParameters['subtitle'],
+          sourceTransactionIds: state.uri.queryParameters['ids'],
+          recurringId: state.uri.queryParameters['recurringId'],
+          goalId: state.uri.queryParameters['goalId'],
         ),
       ),
 

@@ -3,27 +3,6 @@ import 'dart:math' as math;
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/l10n/app_localizations_en.dart';
 
-extension MonthlyFinancialReportL10nCompat on AppLocalizations {
-  String get endOfMonth => 'End of month';
-  String get statusOnTrack => onTrack;
-  String get statusSpendingFast => 'Spending fast';
-  String get statusOverBudget => overBudget;
-  String get statusSafeToSpend => safeToSpend;
-  String get statusNeedsAttention => needsAttention;
-  String get statusUnusualSpending => unusualActivity;
-
-  String categorySpendingIsHigher(Object category) {
-    return '$category spending is higher';
-  }
-
-  String categorySpendingHigherThanLastMonth(
-    Object category,
-    Object percent,
-  ) {
-    return '$category spending is $percent% higher than last month.';
-  }
-}
-
 enum MonthlyReportStatus {
   onTrack,
   spendingFast,
@@ -52,12 +31,18 @@ class MonthlyReportInput {
     required this.futureTransactions,
     required this.recurringItems,
     required this.goals,
+    this.periodStart,
+    this.periodEnd,
+    this.compareMonthToDate = true,
     this.historicalTransactions = const [],
     this.previousNetWorth,
     this.goalsDataAvailable = true,
   });
 
   final DateTime monthStart;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final bool compareMonthToDate;
   final DateTime now;
   final String currencyCode;
   final double currentBalance;
@@ -132,8 +117,10 @@ class MonthlyReportGoalInput {
     required this.currencyCode,
     required this.targetDate,
     required this.isOnTrack,
+    this.id = '',
   });
 
+  final String id;
   final String title;
   final double targetAmount;
   final double currentAmount;
@@ -229,6 +216,7 @@ class MonthlySpendingPaceItem {
     required this.timeProgress,
     required this.status,
     required this.insight,
+    this.sourceTransactionIds = const <String>[],
   });
 
   final String label;
@@ -236,6 +224,7 @@ class MonthlySpendingPaceItem {
   final double timeProgress;
   final MonthlyReportStatus status;
   final String insight;
+  final List<String> sourceTransactionIds;
 }
 
 class MonthlyBudgetHealthItem {
@@ -245,6 +234,7 @@ class MonthlyBudgetHealthItem {
     required this.budgetAmount,
     required this.spent,
     required this.remaining,
+    this.sourceTransactionIds = const <String>[],
   });
 
   final String name;
@@ -252,6 +242,7 @@ class MonthlyBudgetHealthItem {
   final double budgetAmount;
   final double spent;
   final double remaining;
+  final List<String> sourceTransactionIds;
 }
 
 class MonthlyInsightItem {
@@ -261,6 +252,7 @@ class MonthlyInsightItem {
     required this.status,
     this.categoryName,
     this.increasePercent,
+    this.sourceTransactionIds = const <String>[],
   });
 
   final String title;
@@ -268,6 +260,7 @@ class MonthlyInsightItem {
   final MonthlyReportStatus status;
   final String? categoryName;
   final int? increasePercent;
+  final List<String> sourceTransactionIds;
 }
 
 class MonthlySubscriptionReport {
@@ -287,6 +280,7 @@ class MonthlySubscriptionItem {
     required this.nextDate,
     required this.status,
     required this.note,
+    this.recurringId,
   });
 
   final String name;
@@ -294,6 +288,7 @@ class MonthlySubscriptionItem {
   final DateTime nextDate;
   final MonthlySubscriptionStatus status;
   final String note;
+  final String? recurringId;
 }
 
 class MonthlyCashFlowItem {
@@ -302,22 +297,28 @@ class MonthlyCashFlowItem {
     required this.name,
     required this.amount,
     required this.type,
+    this.sourceTransactionId,
+    this.recurringId,
   });
 
   final DateTime date;
   final String name;
   final double amount;
   final String type;
+  final String? sourceTransactionId;
+  final String? recurringId;
 }
 
 class MonthlyCashFlowPoint {
   const MonthlyCashFlowPoint({
     required this.label,
     required this.balance,
+    this.sourceTransactionId,
   });
 
   final String label;
   final double balance;
+  final String? sourceTransactionId;
 }
 
 class MonthlyGoalReportItem {
@@ -328,8 +329,10 @@ class MonthlyGoalReportItem {
     required this.progress,
     required this.monthlyNeeded,
     required this.status,
+    this.id = '',
   });
 
+  final String id;
   final String title;
   final double targetAmount;
   final double currentAmount;
@@ -402,6 +405,7 @@ class MonthlyCategoryTrendItem {
     required this.baselineChangePercent,
     required this.status,
     required this.insight,
+    this.sourceTransactionIds = const <String>[],
   });
 
   final String name;
@@ -414,6 +418,7 @@ class MonthlyCategoryTrendItem {
   final double? baselineChangePercent;
   final MonthlyReportStatus status;
   final String insight;
+  final List<String> sourceTransactionIds;
 }
 
 class MonthlyMerchantSpendItem {
@@ -422,12 +427,14 @@ class MonthlyMerchantSpendItem {
     required this.amount,
     required this.transactionCount,
     required this.spendingShare,
+    this.sourceTransactionIds = const <String>[],
   });
 
   final String name;
   final double amount;
   final int transactionCount;
   final double spendingShare;
+  final List<String> sourceTransactionIds;
 }
 
 class MonthlyRecurringCommitmentSummary {
@@ -480,24 +487,30 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
 }) {
   final localizations = l10n ?? AppLocalizationsEn();
   final monthStart = _dateOnly(input.monthStart);
+  final periodStart = _dateOnly(input.periodStart ?? monthStart);
   final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
+  final periodEnd = _dateOnly(input.periodEnd ?? monthEnd);
   final today = _dateOnly(input.now);
-  final timeProgress = _monthProgress(today, monthStart, monthEnd);
+  final timeProgress = _periodProgress(today, periodStart, periodEnd);
   final currentTransactions = input.currentMonthTransactions
-      .where((tx) => _isInRange(tx.date, monthStart, monthEnd))
+      .where((tx) => _isInRange(tx.date, periodStart, periodEnd))
       .toList(growable: false);
-  final previousComparableTransactions = _previousMonthToDateTransactions(
-    input.previousMonthTransactions,
-    today: today,
-  );
-  final historicalComparableTransactions = _historicalMonthToDateTransactions(
-    input.historicalTransactions,
-    comparableDay: today.day,
-  );
+  final previousComparableTransactions = input.compareMonthToDate
+      ? _previousMonthToDateTransactions(
+          input.previousMonthTransactions,
+          today: today,
+        )
+      : input.previousMonthTransactions;
+  final historicalComparableTransactions = input.compareMonthToDate
+      ? _historicalMonthToDateTransactions(
+          input.historicalTransactions,
+          comparableDay: today.day,
+        )
+      : input.historicalTransactions;
   final income = _sumByType(currentTransactions, income: true);
   final spending = _sumByType(currentTransactions, income: false);
   final future = input.futureTransactions
-      .where((tx) => tx.date.isAfter(today) && !tx.date.isAfter(monthEnd))
+      .where((tx) => tx.date.isAfter(today) && !tx.date.isAfter(periodEnd))
       .toList(growable: false)
     ..sort((a, b) => a.date.compareTo(b.date));
   final futureIncome = _sumByType(future, income: true);
@@ -505,9 +518,14 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
   final forecastedBalance = _roundMoney(
     input.currentBalance + futureIncome - futureObligations,
   );
-  final budgetHealth = _buildBudgetHealth(input.budgetItems, timeProgress);
+  final budgetHealth = _buildBudgetHealth(
+    input.budgetItems,
+    currentTransactions,
+    timeProgress,
+  );
   final spendingPace = _buildSpendingPace(
     input.budgetItems,
+    currentTransactions,
     timeProgress,
     l10n: localizations,
   );
@@ -539,7 +557,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
   final constrainedPool = input.budgetItems.isEmpty
       ? cashSafePool
       : math.min(cashSafePool, budgetRemaining);
-  final daysRemaining = math.max(monthEnd.difference(today).inDays, 1);
+  final daysRemaining = math.max(periodEnd.difference(today).inDays, 1);
   final safeToSpend = MonthlySafeToSpend(
     dailyAmount: _roundMoney(constrainedPool / daysRemaining),
     daysRemaining: daysRemaining,
@@ -554,6 +572,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
           name: _cashFlowName(tx),
           amount: tx.amount.abs(),
           type: tx.type.toLowerCase() == 'income' ? 'income' : 'expense',
+          sourceTransactionId: tx.id,
         ),
       )
       .toList(growable: false);
@@ -570,10 +589,14 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
   );
   final anomalies = _buildAnomalies(
     currentTransactions: currentTransactions,
-    previousTransactions: input.previousMonthTransactions,
+    previousTransactions: previousComparableTransactions,
     l10n: localizations,
   );
-  final subscriptions = _buildSubscriptions(input.recurringItems, input.now);
+  final subscriptions = _buildSubscriptions(
+    input.recurringItems,
+    input.now,
+    l10n: localizations,
+  );
   final recurringCommitment = _buildRecurringCommitment(
     subscriptions: subscriptions,
     income: income,
@@ -631,6 +654,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
 
 List<MonthlyBudgetHealthItem> _buildBudgetHealth(
   List<MonthlyReportBudgetInput> budgets,
+  List<MonthlyReportTransactionInput> currentTransactions,
   double timeProgress,
 ) {
   final items = budgets
@@ -650,6 +674,10 @@ List<MonthlyBudgetHealthItem> _buildBudgetHealth(
       budgetAmount: _roundMoney(item.budgetAmount),
       spent: _roundMoney(item.spent),
       remaining: _roundMoney(item.budgetAmount - item.spent),
+      sourceTransactionIds: _transactionIdsForCategory(
+        currentTransactions,
+        item.name,
+      ),
     );
   }).toList(growable: false);
 
@@ -664,6 +692,7 @@ List<MonthlyBudgetHealthItem> _buildBudgetHealth(
 
 List<MonthlySpendingPaceItem> _buildSpendingPace(
   List<MonthlyReportBudgetInput> budgets,
+  List<MonthlyReportTransactionInput> currentTransactions,
   double timeProgress, {
   required AppLocalizations l10n,
 }) {
@@ -686,6 +715,10 @@ List<MonthlySpendingPaceItem> _buildSpendingPace(
         timeProgress,
         status,
         l10n,
+      ),
+      sourceTransactionIds: _transactionIdsForCategory(
+        currentTransactions,
+        item.name,
       ),
     );
   }).toList(growable: false)
@@ -711,14 +744,20 @@ List<MonthlyInsightItem> _buildAnomalies({
     final increasePercent = (increaseRatio * 100).round();
     anomalies.add(
       MonthlyInsightItem(
-        title: l10n.categorySpendingIsHigher(categoryName),
-        description: l10n.categorySpendingHigherThanLastMonth(
+        title: categoryName,
+        description: l10n.categoryPercentChangeThanComparator(
           categoryName,
+          l10n.lastMonth,
+          l10n.higher,
           increasePercent,
         ),
         status: MonthlyReportStatus.unusualSpending,
         categoryName: categoryName,
         increasePercent: increasePercent,
+        sourceTransactionIds: _transactionIdsForCategory(
+          currentTransactions,
+          categoryName,
+        ),
       ),
     );
   }
@@ -729,8 +768,9 @@ List<MonthlyInsightItem> _buildAnomalies({
 
 MonthlySubscriptionReport _buildSubscriptions(
   List<MonthlyReportRecurringInput> recurringItems,
-  DateTime now,
-) {
+  DateTime now, {
+  required AppLocalizations l10n,
+}) {
   final expenses = recurringItems
       .where((item) => item.type.toLowerCase() != 'income' && item.amount > 0)
       .toList(growable: false)
@@ -761,7 +801,13 @@ MonthlySubscriptionReport _buildSubscriptions(
       nextDate: item.nextDate,
       status: status,
       note: _subscriptionNote(
-          status, daysUntil, item.previousAmount, item.amount),
+        status,
+        daysUntil,
+        item.previousAmount,
+        item.amount,
+        l10n,
+      ),
+      recurringId: item.id,
     );
   }).toList(growable: false)
     ..sort((a, b) {
@@ -808,11 +854,12 @@ List<MonthlyCashFlowPoint> _buildCashFlowForecast({
       MonthlyCashFlowPoint(
         label: _cashFlowName(tx),
         balance: _roundMoney(running),
+        sourceTransactionId: tx.id,
       ),
     );
   }
   points.add(
-    MonthlyCashFlowPoint(label: l10n.endOfMonth, balance: forecastedBalance),
+    MonthlyCashFlowPoint(label: l10n.monthEndBuffer, balance: forecastedBalance),
   );
   return points;
 }
@@ -837,6 +884,7 @@ List<MonthlyGoalReportItem> _buildGoalReports(
       0,
     );
     return MonthlyGoalReportItem(
+      id: goal.id,
       title: goal.title,
       targetAmount: _roundMoney(goal.targetAmount),
       currentAmount: _roundMoney(goal.currentAmount),
@@ -973,6 +1021,10 @@ List<MonthlyCategoryTrendItem> _buildCategoryTrends({
           baselineChange,
           l10n,
         ),
+        sourceTransactionIds: _transactionIdsForCategory(
+          currentTransactions,
+          _titleCase(entry.key),
+        ),
       ),
     );
   }
@@ -996,6 +1048,7 @@ List<MonthlyMerchantSpendItem> _buildMerchantConcentration(
   final totals = <String, double>{};
   final counts = <String, int>{};
   final displayNames = <String, String>{};
+  final sourceIds = <String, List<String>>{};
   for (final tx in expenses) {
     final rawName = (tx.merchant ?? '').trim();
     if (rawName.isEmpty) continue;
@@ -1003,6 +1056,7 @@ List<MonthlyMerchantSpendItem> _buildMerchantConcentration(
     totals[key] = (totals[key] ?? 0) + tx.amount.abs();
     counts[key] = (counts[key] ?? 0) + 1;
     displayNames[key] = rawName;
+    sourceIds.putIfAbsent(key, () => <String>[]).add(tx.id);
   }
 
   final items = totals.entries.map((entry) {
@@ -1011,6 +1065,7 @@ List<MonthlyMerchantSpendItem> _buildMerchantConcentration(
       amount: _roundMoney(entry.value),
       transactionCount: counts[entry.key] ?? 0,
       spendingShare: _roundRatio(entry.value / totalSpending),
+      sourceTransactionIds: sourceIds[entry.key] ?? const <String>[],
     );
   }).toList(growable: false);
 
@@ -1304,10 +1359,12 @@ double _sumByType(
   }).fold<double>(0, (sum, tx) => sum + tx.amount.abs());
 }
 
-double _monthProgress(DateTime today, DateTime monthStart, DateTime monthEnd) {
-  if (today.isBefore(monthStart)) return 0;
-  if (today.isAfter(monthEnd)) return 1;
-  return (today.day / monthEnd.day).clamp(0.0, 1.0);
+double _periodProgress(DateTime today, DateTime start, DateTime end) {
+  if (today.isBefore(start)) return 0;
+  if (today.isAfter(end)) return 1;
+  final totalDays = math.max(end.difference(start).inDays + 1, 1);
+  final elapsedDays = math.max(today.difference(start).inDays + 1, 0);
+  return (elapsedDays / totalDays).clamp(0.0, 1.0);
 }
 
 bool _isInRange(DateTime value, DateTime start, DateTime end) {
@@ -1363,16 +1420,19 @@ String _subscriptionNote(
   int daysUntil,
   double? previousAmount,
   double amount,
+  AppLocalizations l10n,
 ) {
   switch (status) {
     case MonthlySubscriptionStatus.duplicatePossible:
-      return 'Possible duplicate recurring charge';
+      return l10n.duplicates;
     case MonthlySubscriptionStatus.priceIncrease:
-      return 'Amount increased from ${previousAmount!.toStringAsFixed(2)} to ${amount.toStringAsFixed(2)}';
+      return l10n.amountFromLastSnapshot(
+        '${previousAmount!.toStringAsFixed(2)} -> ${amount.toStringAsFixed(2)}',
+      );
     case MonthlySubscriptionStatus.upcoming:
-      return daysUntil <= 0 ? 'Due today' : 'Renews in $daysUntil days';
+      return daysUntil <= 0 ? l10n.today : l10n.renewsInDays(daysUntil);
     case MonthlySubscriptionStatus.active:
-      return 'Active recurring bill';
+      return l10n.active;
   }
 }
 
@@ -1380,7 +1440,20 @@ String _cashFlowName(MonthlyReportTransactionInput tx) {
   final merchant = tx.merchant?.trim();
   if (merchant != null && merchant.isNotEmpty) return merchant;
   final category = tx.category.trim();
-  return category.isEmpty ? 'Transaction' : _titleCase(category);
+  return category.isEmpty ? _titleCase(tx.type) : _titleCase(category);
+}
+
+List<String> _transactionIdsForCategory(
+  List<MonthlyReportTransactionInput> transactions,
+  String category,
+) {
+  final normalizedCategory = _normalizedName(category);
+  return transactions
+      .where(_isExpenseTransaction)
+      .where((tx) => _normalizedName(tx.category) == normalizedCategory)
+      .map((tx) => tx.id)
+      .where((id) => id.isNotEmpty)
+      .toList(growable: false);
 }
 
 String _normalizedName(String value) => value.trim().toLowerCase();
@@ -1400,29 +1473,33 @@ String monthlyReportStatusLabel(
   final localizations = l10n ?? AppLocalizationsEn();
   switch (status) {
     case MonthlyReportStatus.onTrack:
-      return localizations.statusOnTrack;
+      return localizations.onTrack;
     case MonthlyReportStatus.spendingFast:
-      return localizations.statusSpendingFast;
+      return localizations.spending;
     case MonthlyReportStatus.overBudget:
-      return localizations.statusOverBudget;
+      return localizations.overBudget;
     case MonthlyReportStatus.safeToSpend:
-      return localizations.statusSafeToSpend;
+      return localizations.safeToSpend;
     case MonthlyReportStatus.needsAttention:
-      return localizations.statusNeedsAttention;
+      return localizations.needsAttention;
     case MonthlyReportStatus.unusualSpending:
-      return localizations.statusUnusualSpending;
+      return localizations.unusualActivity;
   }
 }
 
-String monthlySubscriptionStatusLabel(MonthlySubscriptionStatus status) {
+String monthlySubscriptionStatusLabel(
+  MonthlySubscriptionStatus status, {
+  AppLocalizations? l10n,
+}) {
+  final localizations = l10n ?? AppLocalizationsEn();
   switch (status) {
     case MonthlySubscriptionStatus.active:
-      return 'Active';
+      return localizations.active;
     case MonthlySubscriptionStatus.upcoming:
-      return 'Upcoming';
+      return localizations.scheduled;
     case MonthlySubscriptionStatus.priceIncrease:
-      return 'Price changed';
+      return localizations.patternsChanged;
     case MonthlySubscriptionStatus.duplicatePossible:
-      return 'Duplicate?';
+      return localizations.duplicates;
   }
 }

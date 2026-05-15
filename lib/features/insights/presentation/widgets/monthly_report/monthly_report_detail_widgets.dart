@@ -8,6 +8,7 @@ class _MonthlyReportAdviceCard extends StatelessWidget {
     required this.body,
     required this.accent,
     required this.icon,
+    this.onTap,
     this.visual,
   });
 
@@ -17,66 +18,75 @@ class _MonthlyReportAdviceCard extends StatelessWidget {
   final String body;
   final Color accent;
   final IconData icon;
+  final VoidCallback? onTap;
   final Widget? visual;
 
   @override
   Widget build(BuildContext context) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(18),
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _MonthlyReportEyebrow(
-              colorScheme: colorScheme,
-              label: label,
-              accent: accent,
-              icon: icon,
+    final content = AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MonthlyReportEyebrow(
+            colorScheme: colorScheme,
+            label: label,
+            accent: accent,
+            icon: icon,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+              height: 1.2,
             ),
-            const SizedBox(height: 12),
+          ),
+          if (body.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
             Text(
-              title,
+              body.trim(),
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: colorScheme.foreground,
-                height: 1.2,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.mutedForeground,
+                height: 1.45,
               ),
             ),
-            if (body.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                body.trim(),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: colorScheme.mutedForeground,
-                  height: 1.45,
-                ),
-              ),
-            ],
-            if (visual != null) ...[
-              const SizedBox(height: 14),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  return Align(
-                    alignment: Alignment.centerRight,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: math.min(220.0, constraints.maxWidth),
-                      ),
-                      child: SizedBox(width: double.infinity, child: visual!),
-                    ),
-                  );
-                },
-              ),
-            ],
           ],
-        ),
+          if (visual != null) ...[
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.min(220.0, constraints.maxWidth),
+                    ),
+                    child: SizedBox(width: double.infinity, child: visual!),
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
       ),
+    );
+    if (onTap == null) {
+      return _ReportCard(
+        colorScheme: colorScheme,
+        padding: _monthlyReportWidgetPadding,
+        child: content,
+      );
+    }
+    return _MonthlyReportTappableSurface(
+      colorScheme: colorScheme,
+      onTap: onTap!,
+      child: content,
     );
   }
 }
@@ -101,7 +111,7 @@ class _MonthlyReportAboutCard extends StatelessWidget {
         const SizedBox(height: 10),
         _ReportCard(
           colorScheme: colorScheme,
-          padding: const EdgeInsets.all(18),
+          padding: _monthlyReportWidgetPadding,
           child: Text(
             body,
             style: TextStyle(
@@ -214,7 +224,7 @@ class _MonthlyReportMerchantShareChart extends StatelessWidget {
 
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(18),
+      padding: _monthlyReportWidgetPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -248,17 +258,18 @@ class _MonthlyReportMerchantShareChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 12,
-            runSpacing: 9,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var index = 0; index < merchants.length; index++)
+              for (var index = 0; index < merchants.length; index++) ...[
+                if (index > 0) const SizedBox(height: 9),
                 _MonthlyReportMerchantLegendItem(
                   colorScheme: colorScheme,
                   color: accents[index % accents.length],
                   merchant: merchants[index],
                   currencyCode: currencyCode,
                 ),
+              ],
             ],
           ),
         ],
@@ -282,53 +293,50 @@ class _MonthlyReportMerchantLegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
           ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              getCategoryTranslation(context, merchant.name),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.foreground,
-                height: 1.2,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          flex: 3,
+          child: Text(
+            getCategoryTranslation(context, merchant.name),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+              height: 1.2,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(width: 4),
-          Flexible(
-            flex: 2,
-            child: Text(
-              context.l10n.percentOfSpending(
-                _detailPercent(merchant.spendingShare),
-                formatCurrency(merchant.amount, currencyCode),
-              ),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-                height: 1.2,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            context.l10n.percentOfSpending(
+              _detailPercent(merchant.spendingShare),
+              formatCurrency(merchant.amount, currencyCode),
             ),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+              height: 1.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
