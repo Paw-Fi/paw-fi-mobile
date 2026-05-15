@@ -12,7 +12,9 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
+import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/profile/data/email_import_settings_service.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
@@ -124,6 +126,9 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
     final emailImportAsync = ref.watch(emailImportEnabledProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    final userHouseholdsAsync = authState.uid.isEmpty
+        ? null
+        : ref.watch(userHouseholdsProvider(authState.uid));
     final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
     final recurringHouseholdId = switch (householdScope.activeAccountType) {
@@ -180,16 +185,19 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     final messagingConnected = whatsappConnected || telegramConnected;
     final walletCaptureEnabled = walletCaptureAsync.valueOrNull ?? false;
     final emailImportEnabled = emailImportAsync.valueOrNull ?? false;
+    final hasSharedSpace = userHouseholdsAsync?.valueOrNull
+            ?.any((household) => !household.isPortfolio) ??
+        householdScope.isHouseholdView;
 
     final steps = _buildSteps(
       context: context,
-      authState: authState,
+      hasSharedSpace: hasSharedSpace,
       hasTransactionLogged: hasTransactionsAsync.valueOrNull ?? false,
       recurringExpensesAsync: recurringExpensesAsync,
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
       emailImportEnabled: emailImportEnabled,
-      onCreateAccount: () => _openRegister(context),
+      onCreateSpace: () => _openCreateSpace(context),
       onLogExpense: () => handleAiFreeFormText(context, ref),
       onRecurringExpense: () => showAddRecurringSheet(
         context,
@@ -298,9 +306,9 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     );
   }
 
-  void _openRegister(BuildContext context) {
+  void _openCreateSpace(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const RegisterScreen()),
+      MaterialPageRoute<void>(builder: (_) => const CreateSpacePage()),
     );
   }
 
@@ -352,13 +360,13 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
 
   List<_ChecklistStep> _buildSteps({
     required BuildContext context,
-    required AppUser authState,
+    required bool hasSharedSpace,
     required bool hasTransactionLogged,
     required AsyncValue<List<RecurringTransaction>> recurringExpensesAsync,
     required bool messagingConnected,
     required bool walletCaptureEnabled,
     required bool emailImportEnabled,
-    required VoidCallback onCreateAccount,
+    required VoidCallback onCreateSpace,
     required VoidCallback onLogExpense,
     required VoidCallback onRecurringExpense,
     required VoidCallback onConnectMessaging,
@@ -369,7 +377,6 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       data: (transactions) => transactions.isNotEmpty,
       orElse: () => false,
     );
-    final createAccountCompleted = authState.uid.isNotEmpty;
     final captureTitle = defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS
         ? context.l10n.applePayIntegration
@@ -377,14 +384,14 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
 
     return [
       _ChecklistStep(
-        id: 'create_account',
+        id: 'create_space',
         sortOrder: 0,
-        title: context.l10n.createAccount,
-        description: context.l10n.createAccountDescription,
-        buttonLabel: context.l10n.getStarted,
-        completed: createAccountCompleted,
-        icon: Icons.person_add_alt_1_rounded,
-        onTap: createAccountCompleted ? null : onCreateAccount,
+        title: context.l10n.createSpace,
+        description: context.l10n.createSpaceToShareExpenses,
+        buttonLabel: context.l10n.create,
+        completed: hasSharedSpace,
+        icon: Icons.group_add_rounded,
+        onTap: hasSharedSpace ? null : onCreateSpace,
       ),
       _ChecklistStep(
         id: 'log_expense',

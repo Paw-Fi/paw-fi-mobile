@@ -2864,5 +2864,6 @@
   "budgetPaceOverBudget": "{name} превысил бюджет. Приостановите или сократите эту категорию до конца месяца.",
   "budgetPaceSpendingFast": "Вы уже использовали {spentPct}% от {name}, но месяц прошёл только на {timePct}%.",
   "budgetPaceNeedsAttention": "{name} требует внимания, потому что расходы немного опережают темп месяца.",
-  "budgetPaceOnTrack": "{name} идёт в соответствии с текущим темпом месяца."
+  "budgetPaceOnTrack": "{name} идёт в соответствии с текущим темпом месяца.",
+  "createSpaceToShareExpenses": "Создайте пространство, чтобы делиться расходами с другими."
 }

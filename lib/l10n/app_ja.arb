@@ -2914,5 +2914,6 @@
   "budgetPaceOverBudget": "{name}は予算を超えています。今月の残り期間は、このカテゴリを控えるか減らしましょう。",
   "budgetPaceSpendingFast": "{name}の{spentPct}%をすでに使っていますが、今月はまだ{timePct}%しか進んでいません。",
   "budgetPaceNeedsAttention": "{name}は、支出が月の進み具合より少し先行しているため確認が必要です。",
-  "budgetPaceOnTrack": "{name}は今月のペースに沿って順調です。"
+  "budgetPaceOnTrack": "{name}は今月のペースに沿って順調です。",
+  "createSpaceToShareExpenses": "他の人と支出を共有するスペースを作成します。"
 }

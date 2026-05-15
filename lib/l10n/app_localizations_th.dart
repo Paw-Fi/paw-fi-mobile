@@ -7910,4 +7910,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String budgetPaceOnTrack(Object name) {
     return '$name เป็นไปตามจังหวะปัจจุบันของเดือน';
   }
+
+  @override
+  String get createSpaceToShareExpenses => 'สร้างพื้นที่สำหรับแชร์ค่าใช้จ่ายกับผู้อื่น';
 }

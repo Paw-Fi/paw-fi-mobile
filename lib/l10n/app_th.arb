@@ -2931,5 +2931,6 @@
   "budgetPaceOverBudget": "{name} เกินงบแล้ว ควรหยุดหรือลดหมวดนี้ในช่วงที่เหลือของเดือน",
   "budgetPaceSpendingFast": "คุณใช้ {name} ไปแล้ว {spentPct}% แต่เดือนนี้เพิ่งผ่านไปเพียง {timePct}%",
   "budgetPaceNeedsAttention": "{name} ต้องตรวจสอบ เพราะการใช้จ่ายเร็วกว่าจังหวะของเดือนเล็กน้อย",
-  "budgetPaceOnTrack": "{name} เป็นไปตามจังหวะปัจจุบันของเดือน"
+  "budgetPaceOnTrack": "{name} เป็นไปตามจังหวะปัจจุบันของเดือน",
+  "createSpaceToShareExpenses": "สร้างพื้นที่สำหรับแชร์ค่าใช้จ่ายกับผู้อื่น"
 }

@@ -2914,5 +2914,6 @@
   "budgetPaceOverBudget": "{name} dépasse le budget. Mettez cette catégorie en pause ou réduisez-la pour le reste du mois.",
   "budgetPaceSpendingFast": "Vous avez utilisé {spentPct} % de {name}, alors que le mois n’est avancé qu’à {timePct} %.",
   "budgetPaceNeedsAttention": "{name} mérite votre attention, car les dépenses sont légèrement en avance sur le rythme du mois.",
-  "budgetPaceOnTrack": "{name} suit le rythme actuel du mois."
+  "budgetPaceOnTrack": "{name} suit le rythme actuel du mois.",
+  "createSpaceToShareExpenses": "Créez un espace pour partager des dépenses avec d’autres."
 }

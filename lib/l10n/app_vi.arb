@@ -2913,5 +2913,6 @@
   "budgetPaceOverBudget": "{name} đã vượt ngân sách. Hãy tạm dừng hoặc giảm danh mục này trong phần còn lại của tháng.",
   "budgetPaceSpendingFast": "Bạn đã dùng {spentPct}% của {name}, nhưng tháng này mới trôi qua {timePct}%.",
   "budgetPaceNeedsAttention": "{name} cần được chú ý vì chi tiêu đang hơi nhanh hơn tiến độ của tháng.",
-  "budgetPaceOnTrack": "{name} đang đi đúng với tiến độ hiện tại của tháng."
+  "budgetPaceOnTrack": "{name} đang đi đúng với tiến độ hiện tại của tháng.",
+  "createSpaceToShareExpenses": "Tạo một không gian để chia sẻ chi phí với người khác."
 }

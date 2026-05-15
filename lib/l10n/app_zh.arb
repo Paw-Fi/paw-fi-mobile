@@ -2910,5 +2910,6 @@
   "budgetPaceOverBudget": "{name} 已超出预算。本月剩余时间请暂停或减少该类别支出。",
   "budgetPaceSpendingFast": "你已使用 {name} 的 {spentPct}%，但本月才过去 {timePct}%。",
   "budgetPaceNeedsAttention": "{name} 需要关注，因为支出略快于本月进度。",
-  "budgetPaceOnTrack": "{name} 符合当前本月进度。"
+  "budgetPaceOnTrack": "{name} 符合当前本月进度。",
+  "createSpaceToShareExpenses": "创建一个空间，与他人共享支出。"
 }
