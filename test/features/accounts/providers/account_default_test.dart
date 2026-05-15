@@ -36,6 +36,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        walletScopeHouseholdIdProvider.overrideWith((ref) => null),
         scopedWalletsProvider
             .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
       ],

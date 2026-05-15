@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:moneko/features/utils/currency.dart';
 
+// Pocket allocations are persisted in cents but constrained to one decimal place.
+const int pocketBudgetAllocationPrecisionStepCents = 10;
+
 const Map<String, double> pocketCurrencyBudgetBaselines = {
   // Keep in sync with currencyOptions in features/utils/currency.dart.
   'AED': 35000,
@@ -15,6 +18,7 @@ const Map<String, double> pocketCurrencyBudgetBaselines = {
   'CLP': 900000,
   'CNY': 20000,
   'COP': 40000000,
+  'CRC': 5000000,
   'CZK': 60000,
   'DKK': 40000,
   'DOP': 150000,
@@ -59,6 +63,7 @@ const Map<String, double> pocketCurrencyBudgetBaselines = {
   'UAH': 250000,
   'USD': 10000,
   'VND': 25000000,
+  'XAF': 6000000,
   'ZAR': 25000,
   'MMK': 5000000,
   'JOD': 7000,
@@ -127,13 +132,8 @@ int calculatePocketBudgetSliderDivisions(double min, double max, double step) {
   return math.max(1, math.min(divisions, 1200));
 }
 
-int pocketBudgetAdjustmentStepCents(String currencyCode) {
-  final sliderMax = calculatePocketBudgetSliderMax(
-    currencyCode: currencyCode,
-    values: const [],
-  );
-  final majorUnitStep = calculatePocketBudgetSliderStep(0, sliderMax);
-  return math.max(100, (majorUnitStep * 100).round());
+int pocketBudgetAdjustmentStepCents(String _) {
+  return pocketBudgetAllocationPrecisionStepCents;
 }
 
 int quantizePocketBudgetAmountCents(

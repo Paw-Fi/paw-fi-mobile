@@ -78,6 +78,7 @@ const List<String> _travelAndTransport = [
   'travel activities',
   'luggage & travel gear',
   'passport & visa fees',
+  'transportation',
 ];
 
 const List<String> _healthAndWellness = [
@@ -167,6 +168,22 @@ const List<String> _moneyInOut = [
   'taxes',
   'fines',
 ];
+
+const Set<String> _incomeCategoryKeys = <String>{
+  'income',
+  'salary',
+  'bonus',
+  'tips',
+  'freelance income',
+  'rental income',
+  'interest income',
+  'gift',
+  'cashback',
+  'pension',
+  'refunds',
+  'transfers',
+  'investments',
+};
 
 const List<String> _communityAndServices = [
   'government services',
@@ -350,9 +367,10 @@ final Map<String, IconData> categoryIcons = {
   'travel activities': Icons.local_activity,
   'luggage & travel gear': Icons.card_travel,
   'passport & visa fees': Icons.assignment_ind,
+  'transportation': Icons.directions_bus,
 
   // Health & Wellness
-  'medical care': Icons.local_hospital,
+  'medical care': Icons.medical_services,
   'pharmacy': Icons.local_pharmacy,
   'dental care': Icons.medical_services,
   'eye care': Icons.visibility,
@@ -565,6 +583,7 @@ Map<String, String> _categoryTranslationsFor(AppLocalizations l10n) {
     'travel activities': l10n.categoryTravelActivities,
     'luggage & travel gear': l10n.categoryLuggageGear,
     'passport & visa fees': l10n.categoryPassportVisaFees,
+    'transportation': l10n.categoryTransportation,
 
     // Health & Wellness
     'medical care': l10n.categoryMedicalCare,
@@ -695,6 +714,153 @@ Map<String, String> _buildBuiltinCategoryLookupAcrossLocales() {
   return Map<String, String>.unmodifiable(lookup);
 }
 
+const Map<String, String> _baseCategoryAliasMappings = <String, String>{
+  'food': 'food & drinks',
+  'food and drinks': 'food & drinks',
+  'restaurant': 'restaurants',
+  'dining': 'restaurants',
+  'breakfast': 'food & drinks',
+  'brunch': 'food & drinks',
+  'lunch': 'food & drinks',
+  'dinner': 'food & drinks',
+  'meal': 'food & drinks',
+  'meals': 'food & drinks',
+  'takeout': 'takeout & delivery',
+  'delivery': 'takeout & delivery',
+  'coffee': 'coffee & tea',
+  'tea': 'coffee & tea',
+  'snack': 'snacks',
+  'grocery': 'groceries',
+  'home': 'home repairs',
+  'furniture': 'furniture',
+  'appliance': 'appliances',
+  'decor': 'home decor',
+  'rent': 'rent',
+  'mortgage': 'mortgage',
+  'electric': 'electricity',
+  'gas': 'heating & gas',
+  'internet': 'internet',
+  'phone': 'phone bill',
+  'trash': 'trash & recycling',
+  'security': 'home security',
+  'laundry': 'laundry / dry cleaning',
+  'moving': 'moving costs',
+  'storage': 'storage',
+  'transport': 'public transport',
+  'public transportation': 'public transport',
+  'public transit': 'public transport',
+  'uber': 'taxi & ride apps',
+  'taxi': 'taxi & ride apps',
+  'bus': 'public transport',
+  'train': 'public transport',
+  'subway': 'public transport',
+  'metro': 'public transport',
+  'gasoline': 'fuel / gas',
+  'fuel': 'fuel / gas',
+  'parking': 'parking',
+  'tolls': 'tolls',
+  'car': 'car repairs',
+  'auto': 'car repairs',
+  'insurance': 'insurance',
+  'auto insurance': 'car insurance',
+  'vehicle insurance': 'car insurance',
+  'car insurance': 'car insurance',
+  'health insurance': 'health insurance',
+  'medical insurance': 'health insurance',
+  'life insurance': 'life insurance',
+  'home insurance': 'home insurance',
+  'house insurance': 'home insurance',
+  'renters insurance': 'renters insurance',
+  'renter insurance': 'renters insurance',
+  'healthcare': 'medical care',
+  'health care': 'medical care',
+  'health': 'medical care',
+  'dental': 'dental care',
+  'vision': 'eye care',
+  'pharmacy': 'pharmacy',
+  'doctor': 'medical care',
+  'hospital': 'medical care',
+  'gym': 'fitness & gym',
+  'fitness': 'fitness & gym',
+  'sports': 'sports & exercise',
+  'education': 'courses & classes',
+  'school': 'courses & classes',
+  'university': 'courses & classes',
+  'college': 'courses & classes',
+  'course': 'courses & classes',
+  'book': 'books & study materials',
+  'books': 'books & study materials',
+  'supplies': 'household supplies',
+  'clothing': 'clothing & shoes',
+  'shoes': 'clothing & shoes',
+  'accessories': 'clothing & shoes',
+  'entertainment': 'movies & shows',
+  'movie': 'movies & shows',
+  'cinema': 'movies & shows',
+  'theater': 'movies & shows',
+  'concert': 'concerts & events',
+  'music': 'music & streaming',
+  'game': 'games & apps',
+  'gaming': 'games & apps',
+  'streaming': 'music & streaming',
+  'netflix': 'music & streaming',
+  'disney': 'music & streaming',
+  'travel': 'travel',
+  'vacation': 'travel',
+  'hotel': 'hotels',
+  'airbnb': 'hotels',
+  'flight': 'flights',
+  'airline': 'flights',
+  'donation': 'charity',
+  'charity': 'charity',
+  'pet': 'pet supplies',
+  'pet food': 'pet food',
+  'pet supplies': 'pet supplies',
+  'vet': 'vet visits',
+  'personal': 'personal care',
+  'haircut': 'personal care',
+  'salon': 'personal care',
+  'spa': 'personal care',
+  'beauty': 'personal care',
+  'cosmetics': 'personal care',
+  'skincare': 'personal care',
+  'bank': 'bank fees',
+  'atm': 'bank fees',
+  'fee': 'bank fees',
+  'interest': 'interest income',
+  'tax': 'taxes',
+  'government': 'taxes',
+  'fine': 'fines',
+  'legal': 'professional services',
+  'lawyer': 'professional services',
+  'court': 'professional services',
+  'business': 'business expenses',
+  'office': 'business expenses',
+  'work': 'business expenses',
+  'professional': 'business expenses',
+};
+
+final Map<String, String> _categoryAliasMappings = _buildCategoryAliasMappings();
+
+Map<String, String> _buildCategoryAliasMappings() {
+  final mappings = <String, String>{..._baseCategoryAliasMappings};
+  for (final locale in AppLocalizations.supportedLocales) {
+    final l10n = lookupAppLocalizations(locale);
+    final translations = _categoryTranslationsFor(l10n);
+    for (final entry in translations.entries) {
+      final localizedKey = entry.value.trim().toLowerCase();
+      if (localizedKey.isEmpty) continue;
+      mappings.putIfAbsent(localizedKey, () => entry.key);
+
+      final foldedKey = _foldCategoryAliasKey(localizedKey);
+      if (foldedKey.isNotEmpty) {
+        mappings.putIfAbsent(foldedKey, () => entry.key);
+      }
+    }
+  }
+  return Map<String, String>.unmodifiable(mappings);
+}
+
 Map<String, String> _buildBuiltinCategoryLookupByFoldedKey() {
   final lookup = <String, String>{};
   for (final key in _builtinCategoryKeys) {
@@ -815,22 +981,9 @@ String getCategoryGroupTranslation(BuildContext context, String groupKey) {
 
 /// Income-only canonical categories for selection (must match BE)
 List<String> getIncomeCategories() {
-  const incomeCategories = <String>[
-    'income',
-    'salary',
-    'bonus',
-    'tips',
-    'freelance income',
-    'rental income',
-    'interest income',
-    'gift',
-    'cashback',
-    'pension',
-    'refunds',
-    'transfers',
-    'investments',
-  ];
-  return incomeCategories;
+  return _moneyInOut
+      .where(_incomeCategoryKeys.contains)
+      .toList(growable: false);
 }
 
 /// Expense-only canonical categories (all allowed minus income-focused and umbrella 'income')
@@ -855,131 +1008,9 @@ String normalizeCategory(String rawCategory) {
     return normalized;
   }
 
-  // Category mappings for common aliases
-  const categoryMappings = <String, String>{
-    'food': 'food & drinks',
-    'food and drinks': 'food & drinks',
-    'restaurant': 'restaurants',
-    'takeout': 'takeout & delivery',
-    'delivery': 'takeout & delivery',
-    'coffee': 'coffee & tea',
-    'tea': 'coffee & tea',
-    'snack': 'snacks',
-    'grocery': 'groceries',
-    'home': 'home repairs',
-    'furniture': 'furniture',
-    'appliance': 'appliances',
-    'decor': 'home decor',
-    'rent': 'rent',
-    'mortgage': 'mortgage',
-    'electric': 'electricity',
-    'gas': 'heating & gas',
-    'internet': 'internet',
-    'phone': 'phone bill',
-    'trash': 'trash & recycling',
-    'security': 'home security',
-    'laundry': 'laundry / dry cleaning',
-    'moving': 'moving costs',
-    'storage': 'storage',
-    'transport': 'public transport',
-    'public transportation': 'public transport',
-    'public transit': 'public transport',
-    'uber': 'taxi & ride apps',
-    'taxi': 'taxi & ride apps',
-    'bus': 'public transport',
-    'train': 'public transport',
-    'subway': 'public transport',
-    'metro': 'public transport',
-    'gasoline': 'fuel / gas',
-    'fuel': 'fuel / gas',
-    'parking': 'parking',
-    'tolls': 'tolls',
-    'car': 'car repairs',
-    'auto': 'car repairs',
-    // Insurance: keep generic input generic unless it is clearly scoped.
-    'insurance': 'insurance',
-    'auto insurance': 'car insurance',
-    'vehicle insurance': 'car insurance',
-    'car insurance': 'car insurance',
-    'health insurance': 'health insurance',
-    'medical insurance': 'health insurance',
-    'life insurance': 'life insurance',
-    'home insurance': 'home insurance',
-    'house insurance': 'home insurance',
-    'renters insurance': 'renters insurance',
-    'renter insurance': 'renters insurance',
-    'healthcare': 'medical care',
-    'health care': 'medical care',
-    'health': 'medical care',
-    'dental': 'dental care',
-    'vision': 'eye care',
-    'pharmacy': 'pharmacy',
-    'doctor': 'medical care',
-    'hospital': 'medical care',
-    'gym': 'fitness & gym',
-    'fitness': 'fitness & gym',
-    'sports': 'sports & exercise',
-    'education': 'courses & classes',
-    'school': 'courses & classes',
-    'university': 'courses & classes',
-    'college': 'courses & classes',
-    'course': 'courses & classes',
-    'book': 'books & study materials',
-    'books': 'books & study materials',
-    'supplies': 'household supplies',
-    'clothing': 'clothing & shoes',
-    'shoes': 'clothing & shoes',
-    'accessories': 'clothing & shoes',
-    'entertainment': 'movies & shows',
-    'movie': 'movies & shows',
-    'cinema': 'movies & shows',
-    'theater': 'movies & shows',
-    'concert': 'concerts & events',
-    'music': 'music & streaming',
-    'game': 'games & apps',
-    'gaming': 'games & apps',
-    'streaming': 'music & streaming',
-    'netflix': 'music & streaming',
-    'disney': 'music & streaming',
-    'travel': 'travel',
-    'vacation': 'travel',
-    'hotel': 'hotels',
-    'airbnb': 'hotels',
-    'flight': 'flights',
-    'airline': 'flights',
-    // map donation-related phrases to the existing expense category
-    'donation': 'charity',
-    'charity': 'charity',
-    'pet': 'pet supplies',
-    'pet food': 'pet food',
-    'pet supplies': 'pet supplies',
-    'vet': 'vet visits',
-    'personal': 'personal care',
-    'haircut': 'personal care',
-    'salon': 'personal care',
-    'spa': 'personal care',
-    'beauty': 'personal care',
-    'cosmetics': 'personal care',
-    'skincare': 'personal care',
-    'bank': 'bank fees',
-    'atm': 'bank fees',
-    'fee': 'bank fees',
-    'interest': 'interest income',
-    'tax': 'taxes',
-    'government': 'taxes',
-    'fine': 'fines',
-    'legal': 'professional services',
-    'lawyer': 'professional services',
-    'court': 'professional services',
-    'business': 'business expenses',
-    'office': 'business expenses',
-    'work': 'business expenses',
-    'professional': 'business expenses',
-  };
-
   // Direct mapping lookup
-  if (categoryMappings.containsKey(normalized)) {
-    return categoryMappings[normalized]!;
+  if (_categoryAliasMappings.containsKey(normalized)) {
+    return _categoryAliasMappings[normalized]!;
   }
 
   // Fuzzy matching for partial matches (prefer word-level matches)
@@ -987,7 +1018,7 @@ String normalizeCategory(String rawCategory) {
       .split(RegExp(r'[^a-z0-9]+'))
       .where((word) => word.isNotEmpty)
       .toList();
-  for (final entry in categoryMappings.entries) {
+  for (final entry in _categoryAliasMappings.entries) {
     final key = entry.key;
     if (key.contains(' ')) {
       if (normalized.contains(key)) {

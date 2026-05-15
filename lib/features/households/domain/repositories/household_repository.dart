@@ -14,6 +14,7 @@ abstract class HouseholdRepository {
     String? coverImageUrl,
     String? themeColor,
     bool isPortfolio = false,
+    bool? autoSplitEnabled,
   });
   Future<Household> updateHousehold({
     required String householdId,

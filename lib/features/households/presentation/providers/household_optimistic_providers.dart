@@ -4,18 +4,21 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 
 List<ExpenseEntry> mergeHouseholdExpenses(
   List<ExpenseEntry> base,
-  List<ExpenseEntry> optimistic,
-) {
-  if (optimistic.isEmpty) return base;
+  List<ExpenseEntry> optimistic, {
+  Set<String> deletedIds = const <String>{},
+}) {
+  if (optimistic.isEmpty && deletedIds.isEmpty) return base;
   final seen = <String>{};
   final merged = <ExpenseEntry>[];
 
   for (final entry in optimistic) {
     if (entry.id.isEmpty) continue;
+    if (deletedIds.contains(entry.id)) continue;
     if (seen.add(entry.id)) merged.add(entry);
   }
   for (final entry in base) {
     if (entry.id.isEmpty) continue;
+    if (deletedIds.contains(entry.id)) continue;
     if (seen.add(entry.id)) merged.add(entry);
   }
 
@@ -129,6 +132,46 @@ class OptimisticHouseholdExpensesNotifier
 final householdOptimisticExpensesProvider = StateNotifierProvider<
     OptimisticHouseholdExpensesNotifier, Map<String, List<ExpenseEntry>>>(
   (ref) => OptimisticHouseholdExpensesNotifier(),
+);
+
+class OptimisticHouseholdDeletedExpensesNotifier
+    extends StateNotifier<Map<String, Set<String>>> {
+  OptimisticHouseholdDeletedExpensesNotifier() : super(const {});
+
+  void markDeleted(String householdId, Iterable<String> expenseIds) {
+    final normalized =
+        expenseIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet();
+    if (normalized.isEmpty) return;
+
+    final current = state[householdId] ?? const <String>{};
+    state = {
+      ...state,
+      householdId: {...current, ...normalized},
+    };
+  }
+
+  void restore(String householdId, Iterable<String> expenseIds) {
+    final current = state[householdId];
+    if (current == null || current.isEmpty) return;
+
+    final removeIds =
+        expenseIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet();
+    if (removeIds.isEmpty) return;
+
+    final nextIds = current.difference(removeIds);
+    final next = {...state};
+    if (nextIds.isEmpty) {
+      next.remove(householdId);
+    } else {
+      next[householdId] = nextIds;
+    }
+    state = next;
+  }
+}
+
+final householdOptimisticDeletedExpenseIdsProvider = StateNotifierProvider<
+    OptimisticHouseholdDeletedExpensesNotifier, Map<String, Set<String>>>(
+  (ref) => OptimisticHouseholdDeletedExpensesNotifier(),
 );
 
 class OptimisticHouseholdSplitsNotifier

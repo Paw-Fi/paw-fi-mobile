@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
@@ -194,6 +195,7 @@ class _FakeHouseholdRepository implements HouseholdRepository {
     String? coverImageUrl,
     String? themeColor,
     bool isPortfolio = false,
+    bool? autoSplitEnabled,
   }) =>
       throw UnimplementedError();
 
@@ -367,6 +369,27 @@ WalletEntity _wallet({
   );
 }
 
+List<Override> _defaultWalletOverrides() => [
+      walletAuthHeadersProvider.overrideWith(
+        (ref) => const {'Authorization': 'Bearer test'},
+      ),
+      walletsByHouseholdIdProvider(null).overrideWith(
+        (ref) async => [
+          _wallet(id: 'w_personal', name: 'Personal Wallet', isDefault: true),
+        ],
+      ),
+      walletsByHouseholdIdProvider('h1').overrideWith(
+        (ref) async => [
+          _wallet(
+            id: 'w_household',
+            name: 'Household Wallet',
+            householdId: 'h1',
+            isDefault: true,
+          ),
+        ],
+      ),
+    ];
+
 RecurringTransaction _recurringExpense({
   required String id,
   String? householdId,
@@ -481,7 +504,23 @@ void main() {
         }),
         sharedPreferencesProvider.overrideWithValue(prefs),
         authProvider.overrideWith(() => _MockAuth()),
+        ..._defaultWalletOverrides(),
         householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1', ref)
+            ..state = AsyncValue.data(
+              [
+                Household(
+                  id: 'h1',
+                  name: 'Test Household',
+                  ownerId: 'user_1',
+                  currency: 'USD',
+                  createdAt: DateTime(2026, 1, 1),
+                  updatedAt: DateTime(2026, 1, 1),
+                ),
+              ],
+            ),
+        ),
         householdMembersProvider('h1').overrideWith(
           (ref) => HouseholdMembersNotifier(householdRepository, 'h1'),
         ),
@@ -629,7 +668,23 @@ void main() {
         }),
         sharedPreferencesProvider.overrideWithValue(prefs),
         authProvider.overrideWith(() => _MockAuth()),
+        ..._defaultWalletOverrides(),
         householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1', ref)
+            ..state = AsyncValue.data(
+              [
+                Household(
+                  id: 'h1',
+                  name: 'Test Household',
+                  ownerId: 'user_1',
+                  currency: 'USD',
+                  createdAt: DateTime(2026, 1, 1),
+                  updatedAt: DateTime(2026, 1, 1),
+                ),
+              ],
+            ),
+        ),
         householdMembersProvider('h1').overrideWith(
           (ref) => HouseholdMembersNotifier(householdRepository, 'h1'),
         ),
@@ -700,6 +755,11 @@ void main() {
 
   testWidgets('Delete button opens choice dialog and deletes entire series',
       (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final prefs = await SharedPreferences.getInstance();
     final householdRepository = _FakeHouseholdRepository(
       members: const [],
@@ -712,8 +772,24 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         authProvider.overrideWith(() => _MockAuth()),
+        ..._defaultWalletOverrides(),
         sharedPreferencesProvider.overrideWithValue(prefs),
         householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1', ref)
+            ..state = AsyncValue.data(
+              [
+                Household(
+                  id: 'h1',
+                  name: 'Test Household',
+                  ownerId: 'user_1',
+                  currency: 'USD',
+                  createdAt: DateTime(2026, 1, 1),
+                  updatedAt: DateTime(2026, 1, 1),
+                ),
+              ],
+            ),
+        ),
         recurringTransactionsProvider('h1').overrideWith((ref) {
           recurringNotifier = _TestRecurringTransactionsNotifier(
             ref,
@@ -765,14 +841,7 @@ void main() {
 
     final context = tester.element(find.byType(AddRecurringSheet));
     final l10n = AppLocalizations.of(context)!;
-    final deleteButton =
-        find.widgetWithText(OutlinedButton, l10n.deleteRecurringTransaction);
-
-    await tester.scrollUntilVisible(
-      deleteButton,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    final deleteButton = find.text(l10n.deleteRecurringTransaction);
 
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
@@ -792,6 +861,11 @@ void main() {
   });
 
   testWidgets('Delete dialog can skip the next occurrence', (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final prefs = await SharedPreferences.getInstance();
     final householdRepository = _FakeHouseholdRepository(
       members: const [],
@@ -805,8 +879,24 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         authProvider.overrideWith(() => _MockAuth()),
+        ..._defaultWalletOverrides(),
         sharedPreferencesProvider.overrideWithValue(prefs),
         householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1', ref)
+            ..state = AsyncValue.data(
+              [
+                Household(
+                  id: 'h1',
+                  name: 'Test Household',
+                  ownerId: 'user_1',
+                  currency: 'USD',
+                  createdAt: DateTime(2026, 1, 1),
+                  updatedAt: DateTime(2026, 1, 1),
+                ),
+              ],
+            ),
+        ),
         recurringTransactionsProvider('h1').overrideWith((ref) {
           recurringNotifier = _TestRecurringTransactionsNotifier(
             ref,
@@ -858,14 +948,7 @@ void main() {
 
     final context = tester.element(find.byType(AddRecurringSheet));
     final l10n = AppLocalizations.of(context)!;
-    final deleteButton =
-        find.widgetWithText(OutlinedButton, l10n.deleteRecurringTransaction);
-
-    await tester.scrollUntilVisible(
-      deleteButton,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    final deleteButton = find.text(l10n.deleteRecurringTransaction);
 
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
@@ -1041,5 +1124,6 @@ void main() {
     expect(saveNotifier!.lastUpdateArgs?['hasReminder'], isTrue);
     expect(saveNotifier!.lastUpdateArgs?['reminderValue'], 3);
     expect(saveNotifier!.lastUpdateArgs?['reminderUnit'], 'days');
+    await tester.pump(const Duration(seconds: 3));
   });
 }

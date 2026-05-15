@@ -8,8 +8,9 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 
 class PocketsHeaderCard extends StatelessWidget {
   const PocketsHeaderCard({
@@ -154,16 +155,32 @@ class PocketsHeaderCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 50, // Keep height consistent while text scales
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        formatLocalizedCurrency(effectiveBudget),
-                        style: TextStyle(
-                          fontSize: 42,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                          letterSpacing: -1.5,
-                          height: 1.1,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.2),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: FittedBox(
+                        key: ValueKey(effectiveBudget),
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          formatLocalizedCurrency(effectiveBudget),
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                            letterSpacing: -1.5,
+                            height: 1.1,
+                          ),
                         ),
                       ),
                     ),
@@ -247,32 +264,17 @@ class PocketsHeaderCard extends StatelessWidget {
 
   Future<void> _showBudgetInputSheet(
       BuildContext context, double currentAmount) async {
-    final result = await MonekoAlertDialog.show(
+    final value = await showCalculatorKeypadSheet(
       context: context,
-      title: context.l10n.setMonthlyBudgetTitle,
-      description: context.l10n.monthlyBudget,
-      confirmLabel: context.l10n.save,
-      cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        initialValue: currentAmount.toStringAsFixed(0),
-        placeholder: '0',
-        isRequired: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: false),
-        validationPattern: RegExp(r'^[0-9,]+$'),
-        validationMessage: 'Please enter a valid amount.',
-      ),
+      initialValue: currentAmount == 0 ? '' : formatAmount(currentAmount),
     );
+    if (value == null) return;
 
-    if (result == null || !result.confirmed || result.text == null) {
-      return;
-    }
-
-    final rawText = result.text!.trim();
-    final normalized = rawText.replaceAll(',', '');
-    final val = double.tryParse(normalized);
+    final cents = tryParseMoneyToCents(value);
+    final val = cents != null ? centsToAmount(cents) : null;
     if (val != null && val >= 0) {
-      onTotalChanged(val.roundToDouble());
-      await onSave?.call();
+      onTotalChanged(val);
+      onSave?.call();
     }
   }
 

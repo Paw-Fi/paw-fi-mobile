@@ -21,7 +21,6 @@ import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -38,6 +37,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
@@ -75,6 +75,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   static const bool _enableDebugLogs =
       bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+  static const double _dashboardScrollCacheExtent = 1600;
 
   void _debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -359,6 +360,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     final scrollView = CustomScrollView(
+      key: PageStorageKey<String>(
+        'home_page_${householdScope.activeAccountType.name}_${householdScope.activeAccountHouseholdId ?? 'personal'}',
+      ),
+      physics: const AlwaysScrollableScrollPhysics(),
+      cacheExtent: _dashboardScrollCacheExtent,
       slivers: [
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
@@ -589,20 +595,40 @@ class _HomePageState extends ConsumerState<HomePage> {
               final user = ref.read(authProvider);
               if (user.uid.isEmpty) return;
 
+              if (!ref.read(previewModeProvider).isActive) {
+                try {
+                  await ref
+                      .read(transactionsFeedServiceProvider)
+                      .refreshFromRemote(
+                        dashboardTransactionsQuery(
+                          DashboardScopeQuery(
+                            userId: user.uid,
+                            householdId: householdScope.activeAccountType ==
+                                    ActiveWalletType.personal
+                                ? null
+                                : householdScope.activeAccountHouseholdId,
+                            selectedCurrency: selectedCurrency,
+                            startDate: null,
+                            endDate: null,
+                          ),
+                          pageSize: 120,
+                        ),
+                      );
+                  ref
+                      .read(transactionsFeedRefreshSignalProvider.notifier)
+                      .state += 1;
+                } catch (_) {}
+              }
+
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {
-                // In household mode: invalidate ALL household-related providers
+                final householdId = householdScope.activeAccountHouseholdId;
                 _debugPrint('🔄 Pull-to-refresh: Refreshing household data');
-                ref.read(cacheInvalidatorProvider).invalidateAll();
-                ref.invalidate(userHouseholdsProvider(user.uid));
-                ref.invalidate(householdExpensesProvider);
-                ref.invalidate(cachedHouseholdExpensesProvider);
-                ref.invalidate(householdSplitsProvider);
-                ref.invalidate(cachedHouseholdSplitsProvider);
-                ref.invalidate(householdBudgetsProvider);
-                ref.invalidate(householdMembersProvider);
-                _debugPrint(
-                    '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, members');
+                if (householdId != null && householdId.isNotEmpty) {
+                  ref
+                      .read(cacheInvalidatorProvider)
+                      .invalidateHouseholdData(householdId);
+                }
               } else {
                 await ref.read(analyticsProvider.notifier).loadData(user.uid);
               }
@@ -610,7 +636,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
               // Keep other tabs and selectors consistent.
-              ref.invalidate(pocketsProvider);
               ref.invalidate(currencyTransactionCountsProvider);
               await Future.delayed(const Duration(milliseconds: 500));
             },

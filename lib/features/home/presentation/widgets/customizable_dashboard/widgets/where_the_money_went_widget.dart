@@ -52,6 +52,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     final explicitCategories = sortedCategories;
 
     return Material(
+      key: key,
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(

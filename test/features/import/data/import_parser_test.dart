@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
@@ -517,8 +516,20 @@ void main() {
 
   test('actual website expenses CSV auto-maps and stays expense-only',
       () async {
-    final content =
-        await File('../Moneko Expenses - Website.csv').readAsString();
+    const content = '''
+Description,Date,Debit,Credit,Currency
+Coffee shop,2026-01-02,4.50,,USD
+Groceries,2026-01-03,31.25,,USD
+Train ticket,2026-01-04,12.00,,USD
+Subscription,2026-01-05,9.99,,USD
+Lunch,2026-01-06,14.20,,USD
+Taxi,2026-01-07,18.40,,USD
+Pharmacy,2026-01-08,7.30,,USD
+Books,2026-01-09,22.10,,USD
+Hardware,2026-01-10,45.00,,USD
+Cafe,2026-01-11,6.75,,USD
+Parking,2026-01-12,3.00,,USD
+''';
     final table = parseImportTable(content);
     final sampleRows =
         table.rows.length > 10 ? table.rows.sublist(0, 10) : table.rows;

@@ -27,10 +27,21 @@ final currencyTransactionCountsProvider =
           : state[activeHouseholdId] ?? const <ExpenseEntry>[],
     ),
   );
+  final deletedIds = ref.watch(
+    householdOptimisticDeletedExpenseIdsProvider.select(
+      (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
+          ? const <String>{}
+          : state[activeHouseholdId] ?? const <String>{},
+    ),
+  );
 
-  final source = optimistic.isEmpty
+  final source = optimistic.isEmpty && deletedIds.isEmpty
       ? analyticsData.allExpenses
-      : mergeHouseholdExpenses(analyticsData.allExpenses, optimistic);
+      : mergeHouseholdExpenses(
+          analyticsData.allExpenses,
+          optimistic,
+          deletedIds: deletedIds,
+        );
 
   return buildCurrencyTransactionCountsForScope(
     expenses: source,

@@ -4,8 +4,62 @@ import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 
+int _optimisticTransactionSequence = 0;
+
 String makeOptimisticTransactionId() =>
-    'optimistic_${DateTime.now().microsecondsSinceEpoch}';
+    'optimistic_${DateTime.now().microsecondsSinceEpoch}_${_optimisticTransactionSequence++}';
+
+class TransactionMutationMetadata {
+  const TransactionMutationMetadata({
+    required this.clientRecordId,
+    required this.clientMutationId,
+    required this.idempotencyKey,
+  });
+
+  final String clientRecordId;
+  final String clientMutationId;
+  final String idempotencyKey;
+
+  Map<String, dynamic> toRequestJson() {
+    return {
+      'clientRecordId': clientRecordId,
+      'clientMutationId': clientMutationId,
+      'idempotencyKey': idempotencyKey,
+    };
+  }
+}
+
+TransactionMutationMetadata buildTransactionMutationMetadata(
+  String optimisticId,
+) {
+  final idempotencyKey = 'mobile:$optimisticId';
+  return TransactionMutationMetadata(
+    clientRecordId: optimisticId,
+    clientMutationId: idempotencyKey,
+    idempotencyKey: idempotencyKey,
+  );
+}
+
+TransactionMutationMetadata buildTransactionMutationMetadataForRecord({
+  required String clientRecordId,
+  required String operation,
+}) {
+  final normalizedRecordId = clientRecordId.trim().isEmpty
+      ? 'record'
+      : clientRecordId.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+  final normalizedOperation = operation.trim().isEmpty
+      ? 'mutation'
+      : operation.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+  final idempotencyKey = 'mobile:${normalizedOperation}_${normalizedRecordId}_'
+      '${DateTime.now().microsecondsSinceEpoch}_'
+      '${_optimisticTransactionSequence++}';
+
+  return TransactionMutationMetadata(
+    clientRecordId: clientRecordId,
+    clientMutationId: idempotencyKey,
+    idempotencyKey: idempotencyKey,
+  );
+}
 
 ExpenseEntry buildOptimisticEntry({
   required ParsedExpense transaction,
@@ -15,6 +69,8 @@ ExpenseEntry buildOptimisticEntry({
   String? contactId,
   String? householdId,
   String? receiptImageUrl,
+  String? accountId,
+  String? splitGroupId,
 }) {
   return ExpenseEntry(
     id: optimisticId,
@@ -27,8 +83,11 @@ ExpenseEntry buildOptimisticEntry({
     category: transaction.category,
     createdAt: DateTime.now(),
     rawText: transaction.description,
+    merchant: transaction.merchant,
     breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,
+    splitGroupId: splitGroupId,
+    walletId: accountId,
     type: type,
   );
 }

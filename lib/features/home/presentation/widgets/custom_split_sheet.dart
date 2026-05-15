@@ -9,6 +9,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 enum SplitType { equal, amount, percentage, shares }
 
@@ -1325,85 +1326,55 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     if (index < 0 || index >= _controllers.length) {
       return const SizedBox.shrink();
     }
-    String prefix = '';
-    String suffix = '';
-
-    switch (_selectedType) {
-      case SplitType.amount:
-        // Currency symbol before the amount, e.g. "$ 61.50"
-        prefix = '${widget.currencySymbol} ';
-        break;
-      case SplitType.percentage:
-        suffix = '%';
-        break;
-      case SplitType.shares:
-        break;
-      case SplitType.equal:
-        break;
-    }
-
-    return TextField(
-      controller: _controllers[index],
-      keyboardType: _selectedType == SplitType.shares
-          ? TextInputType.number
-          : const TextInputType.numberWithOptions(decimal: true),
-      textInputAction: TextInputAction.done,
-      textAlign: TextAlign.right,
-      enabled: enabled,
-      style: TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: enabled
-            ? colorScheme.foreground
-            : colorScheme.mutedForeground.withValues(alpha: 0.4),
-      ),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        filled: true,
-        fillColor: enabled
-            ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(
-            color: colorScheme.primary.withValues(alpha: 0.5),
-            width: 1.5,
+    return Builder(
+      builder: (context) => GestureDetector(
+        onTap: () async {
+          final value = await showCalculatorKeypadSheet(
+            context: context,
+            initialValue: _controllers[index].text,
+          );
+          if (value != null) {
+            _controllers[index].text = value;
+            _handleValueChange(index, value);
+          }
+        },
+        child: AbsorbPointer(
+          child: TextField(
+            controller: _controllers[index],
+            textInputAction: TextInputAction.done,
+            textAlign: TextAlign.right,
+            enabled: enabled,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: enabled
+                  ? colorScheme.foreground
+                  : colorScheme.mutedForeground.withValues(alpha: 0.4),
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: enabled
+                  ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: colorScheme.primary, width: 1),
+              ),
+            ),
           ),
         ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        prefixText: prefix.isNotEmpty ? prefix : null,
-        prefixStyle: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: enabled
-              ? colorScheme.foreground
-              : colorScheme.mutedForeground.withValues(alpha: 0.4),
-        ),
-        suffixText: suffix,
-        suffixStyle: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: enabled
-              ? colorScheme.foreground
-              : colorScheme.mutedForeground.withValues(alpha: 0.4),
-        ),
       ),
-      onSubmitted: (_) => FocusScope.of(context).unfocus(),
-      onTapOutside: (_) => FocusScope.of(context).unfocus(),
-      onChanged: (text) => _handleValueChange(index, text),
     );
   }
 

@@ -44,6 +44,7 @@ class HouseholdService {
     String? coverImageUrl,
     String? themeColor,
     bool isPortfolio = false,
+    bool? autoSplitEnabled,
   }) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
@@ -53,6 +54,7 @@ class HouseholdService {
         'coverImageUrl': coverImageUrl,
         'themeColor': themeColor,
         'isPortfolio': isPortfolio,
+        'autoSplitEnabled': autoSplitEnabled,
         'ownerId': userId,
       });
 
@@ -64,6 +66,8 @@ class HouseholdService {
             'cover_image_url': coverImageUrl,
             'theme_color': themeColor,
             'is_portfolio': isPortfolio,
+            if (autoSplitEnabled != null)
+              'ai_use_default_split': autoSplitEnabled,
             'owner_id': userId,
           })
           .select()

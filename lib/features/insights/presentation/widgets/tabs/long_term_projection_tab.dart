@@ -276,7 +276,7 @@ List<_LongTermSlideData> _longTermSlides(BuildContext context) {
       ],
     ),
     _LongTermSlideData(
-      title: 'Moves to consider',
+      title: context.l10n.movesToConsider,
       summary: context.l10n.longTermMovesToConsiderDesc,
       points: [
         context.l10n.schedulePaymentIncreases,

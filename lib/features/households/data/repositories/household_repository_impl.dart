@@ -30,6 +30,7 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
     String? coverImageUrl,
     String? themeColor,
     bool isPortfolio = false,
+    bool? autoSplitEnabled,
   }) async {
     final data = await _service.createHousehold(
       name: name,
@@ -37,6 +38,7 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
       coverImageUrl: coverImageUrl,
       themeColor: themeColor,
       isPortfolio: isPortfolio,
+      autoSplitEnabled: autoSplitEnabled,
     );
     return Household.fromJson(data);
   }

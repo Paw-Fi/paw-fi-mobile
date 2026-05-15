@@ -21,9 +21,9 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('fr'),
-        localizationsDelegates: const [
+      const MaterialApp(
+        locale: Locale('fr'),
+        localizationsDelegates: [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

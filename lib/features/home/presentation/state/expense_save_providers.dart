@@ -1,12 +1,16 @@
 // State providers for expense save flow
 
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
@@ -18,7 +22,6 @@ import 'package:moneko/features/households/presentation/providers/cached_provide
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
@@ -76,7 +79,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   /// Save expense to database
   /// If householdId provided, creates household split
   /// If customSplits provided, uses custom split configuration
-  Future<void> saveExpense({
+  Future<ExpenseEntry?> saveExpense({
     required ParsedExpense expense,
     String? householdId,
     String? accountId,
@@ -84,12 +87,32 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? clientRecordId,
+    String? clientMutationId,
+    String? idempotencyKey,
+    bool addHouseholdOptimisticData = true,
     bool invalidateProviders = true,
   }) async {
     state = const AsyncValue.loading();
+    String? queuedMutationId;
+    String? optimisticId;
+    ExpenseEntry? optimisticEntry;
 
     try {
       final user = ref.read(authProvider);
+      optimisticId = clientRecordId?.trim().isNotEmpty == true
+          ? clientRecordId!.trim()
+          : makeOptimisticTransactionId();
+      final mutationMetadata = TransactionMutationMetadata(
+        clientRecordId: optimisticId,
+        clientMutationId: clientMutationId?.trim().isNotEmpty == true
+            ? clientMutationId!.trim()
+            : 'mobile:$optimisticId',
+        idempotencyKey: idempotencyKey?.trim().isNotEmpty == true
+            ? idempotencyKey!.trim()
+            : 'mobile:$optimisticId',
+      );
+      queuedMutationId = mutationMetadata.clientMutationId;
 
       _debugPrint('💾 Saving expense request');
       if (householdId != null) {
@@ -118,6 +141,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         // Explicitly set type for new expenses
         'type': 'expense',
       };
+
+      requestBody.addAll(mutationMetadata.toRequestJson());
 
       final description = expense.description;
       if (description != null && description.trim().isNotEmpty) {
@@ -209,6 +234,26 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         requestBody['payerUserId'] = payerUserId;
       }
 
+      optimisticEntry = _buildOptimisticExpenseEntry(
+        expense: expense,
+        expenseId: optimisticId,
+        householdId: householdId,
+        userId: user.uid,
+        receiptImageUrl: receiptImageUrl,
+        createdAt: DateTime.now(),
+        accountId: accountId,
+      );
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransaction(
+        entry: optimisticEntry,
+        clientMutationId: mutationMetadata.clientMutationId,
+        operation: 'create',
+        payload: {
+          'functionName': 'save-expense',
+          'requestBody': requestBody,
+        },
+      );
+
       // Call save-expense edge function
       final response = await supabase.functions.invoke(
         'save-expense',
@@ -223,17 +268,32 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final responseMap = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : null;
-      _addOptimisticHouseholdData(
-        expense: expense,
-        householdId: householdId,
-        accountId: accountId,
-        payerUserId: payerUserId ?? user.uid,
-        receiptImageUrl: receiptImageUrl,
-        customSplitType: customSplitType,
-        customSplits: customSplits,
-        responseData: responseMap,
-        userId: user.uid,
-      );
+      final saved = responseMap?['data'];
+      final savedEntry =
+          saved is Map<String, dynamic> ? ExpenseEntry.fromJson(saved) : null;
+      if (savedEntry != null) {
+        await database.replaceOptimisticTransaction(
+          optimisticId: optimisticId,
+          savedEntry: savedEntry,
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
+      } else {
+        await database.markMutationSynced(mutationMetadata.clientMutationId);
+      }
+
+      if (addHouseholdOptimisticData) {
+        _addOptimisticHouseholdData(
+          expense: expense,
+          householdId: householdId,
+          accountId: accountId,
+          payerUserId: payerUserId ?? user.uid,
+          receiptImageUrl: receiptImageUrl,
+          customSplitType: customSplitType,
+          customSplits: customSplits,
+          responseData: responseMap,
+          userId: user.uid,
+        );
+      }
 
       if (invalidateProviders) {
         // Invalidate providers to trigger UI refresh
@@ -241,7 +301,29 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       state = const AsyncValue.data(null);
+      return savedEntry;
     } catch (error, stackTrace) {
+      if (queuedMutationId != null &&
+          optimisticId != null &&
+          optimisticEntry != null &&
+          ErrorHandler.isRetryable(error)) {
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        state = const AsyncValue.data(null);
+        return optimisticEntry;
+      }
+      if (queuedMutationId != null && optimisticId != null) {
+        try {
+          final database = await ref.read(localDatabaseProvider.future);
+          await database.rollbackOptimisticTransaction(
+            optimisticId: optimisticId,
+            clientMutationId: queuedMutationId,
+            error: error,
+          );
+        } catch (_) {
+          // Keep the original save error as the user-facing failure.
+        }
+      }
       _debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);
       rethrow;
@@ -321,7 +403,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   ExpenseEntry _buildOptimisticExpenseEntry({
     required ParsedExpense expense,
     required String expenseId,
-    required String householdId,
+    required String? householdId,
     required String userId,
     required String? receiptImageUrl,
     required DateTime createdAt,
@@ -508,7 +590,13 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   /// Invalidate appropriate providers based on sharing preference
-  Future<void> _invalidateProviders(String userId, String? householdId) async {
+  Future<void> _invalidateProviders(
+    String userId,
+    String? householdId, {
+    bool refreshAnalytics = true,
+    bool refreshTransactionFeed = true,
+    bool emitDashboardRefresh = true,
+  }) async {
     _debugPrint('🔄 Invalidating providers...');
 
     final isPortfolioSave = householdId != null &&
@@ -518,19 +606,42 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     // Refresh analytics for personal + portfolio saves.
     // Portfolio dashboards read from analytics state, so they need an immediate
     // refresh after save to reflect backend category remaps and server truth.
-    if (householdId == null || householdId.isEmpty || isPortfolioSave) {
+    if (refreshAnalytics &&
+        (householdId == null || householdId.isEmpty || isPortfolioSave)) {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
 
-    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
-        1;
+    if (refreshTransactionFeed) {
+      unawaited(() async {
+        try {
+          await ref.read(transactionsFeedServiceProvider).refreshFromRemote(
+                TransactionsFeedQuery(
+                  userId: userId,
+                  householdId: householdId,
+                  selectedCurrency: null,
+                  selectedCategory: null,
+                  selectedType: 'all',
+                  searchQuery: '',
+                  startDate: null,
+                  endDate: null,
+                  pageSize: 120,
+                ),
+              );
+          ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        } catch (_) {}
+      }());
+    }
+
+    if (emitDashboardRefresh) {
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      ref
+          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+          .state += 1;
+    }
     ref.read(walletActionsProvider).refreshAccountData();
 
-    // Refresh pockets so budget calculations reflect the new expense.
-    // Note: currencyTransactionCountsProvider auto-recomputes reactively
-    // via ref.watch(analyticsProvider), so no explicit invalidation needed.
-    ref.invalidate(pocketsProvider);
+    // Pockets providers listen to transaction/dashboard refresh signals and
+    // reconcile from SQLite without disposing the visible page.
 
     if (householdId != null) {
       // Shared expense: refresh household data
@@ -561,8 +672,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> invalidateAfterBatch({
     required String userId,
     String? householdId,
+    bool refreshAnalytics = true,
+    bool refreshTransactionFeed = true,
+    bool emitDashboardRefresh = true,
   }) async {
-    await _invalidateProviders(userId, householdId);
+    await _invalidateProviders(
+      userId,
+      householdId,
+      refreshAnalytics: refreshAnalytics,
+      refreshTransactionFeed: refreshTransactionFeed,
+      emitDashboardRefresh: emitDashboardRefresh,
+    );
   }
 
   /// Upload receipt image to storage (if needed)

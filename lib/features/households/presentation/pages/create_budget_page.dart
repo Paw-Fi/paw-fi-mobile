@@ -1,9 +1,9 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
@@ -165,23 +165,32 @@ class CreateBudgetPage extends HookConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: amountController,
-                    decoration: InputDecoration(
-                      hintText: context.l10n.zeroAmount,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  child: Builder(
+                    builder: (context) => GestureDetector(
+                      onTap: () async {
+                        final value = await showCalculatorKeypadSheet(
+                          context: context,
+                          initialValue: amountController.text,
+                        );
+                        if (value != null) {
+                          amountController.text = value;
+                        }
+                      },
+                      child: AbsorbPointer(
+                        child: TextField(
+                          controller: amountController,
+                          decoration: InputDecoration(
+                            hintText: context.l10n.zeroAmount,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            filled: true,
+                            fillColor: colorScheme.card,
+                            prefixText: context.l10n.dollarPrefix,
+                          ),
+                        ),
                       ),
-                      filled: true,
-                      fillColor: colorScheme.card,
-                      prefixText: context.l10n.dollarPrefix,
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d+\.?\d{0,2}')),
-                    ],
                   ),
                 ),
                 const SizedBox(width: 12),

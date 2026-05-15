@@ -573,6 +573,8 @@ class _HouseholdMembersSectionState
       final email = result!.text?.trim();
       final message = result.secondaryText?.trim();
 
+      if (!context.mounted) return;
+
       // Show blocking dialog
       showBlockingProcessingDialog(
         context: context,
@@ -606,26 +608,16 @@ class _HouseholdMembersSectionState
               householdName: householdName,
             );
 
-        if (mounted) {
-          Navigator.of(context).pop(); // Dismiss dialog
-          if (context.mounted) {
-            // ignore: use_build_context_synchronously
-            AppToast.success(
-                context, context.l10n.invitationCreatedSuccessfully);
-            final inviteUrl = buildInviteLink(token);
-            Clipboard.setData(ClipboardData(text: inviteUrl));
-            // ignore: use_build_context_synchronously
-            AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
-          }
-        }
+        if (!context.mounted) return;
+        Navigator.of(context).pop(); // Dismiss dialog
+        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
+        final inviteUrl = buildInviteLink(token);
+        Clipboard.setData(ClipboardData(text: inviteUrl));
+        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
       } catch (e) {
-        if (mounted) {
-          Navigator.of(context).pop(); // Dismiss dialog
-          if (context.mounted) {
-            // ignore: use_build_context_synchronously
-            AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
-          }
-        }
+        if (!context.mounted) return;
+        Navigator.of(context).pop(); // Dismiss dialog
+        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }

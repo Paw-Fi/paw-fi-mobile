@@ -188,24 +188,21 @@ void main() {
       user: AppUser.empty,
     );
 
-    // Intro slides 1-3
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
-    await tester.pump();
-    await tester.pump(const Duration(
-        milliseconds: 800)); // Wait for 650ms AnimatedSwitcher to complete
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
+    // Intro carousel slides into the plan builder screen.
+    for (var index = 0; index < 5; index += 1) {
+      final nextButton = find.byType(PrimaryAdaptiveButton);
+      expect(nextButton, findsOneWidget);
+      await tester.tap(nextButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+    }
 
-    // Intro slide 4
-    final getStartedButton = find.text('Get Started');
-    await tester.ensureVisible(getStartedButton);
-    await tester.tap(getStartedButton);
+    final getMyPlanButton = find.byType(PrimaryAdaptiveButton);
+    expect(getMyPlanButton, findsOneWidget);
+    await tester.tap(getMyPlanButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpAndSettle();
 
     expect(find.text('PreAuthOnboarding'), findsOneWidget);
   });

@@ -207,7 +207,7 @@ class ExpenseEntry {
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
-      walletId: accountId ?? this.walletId,
+      walletId: accountId ?? walletId,
       accountName: accountName ?? this.accountName,
       accountIcon: accountIcon ?? this.accountIcon,
       accountColor: accountColor ?? this.accountColor,

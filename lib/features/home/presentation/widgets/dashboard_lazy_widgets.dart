@@ -27,6 +27,29 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+Widget _buildDashboardSwitcher(Widget child) {
+  return AnimatedSize(
+    duration: const Duration(milliseconds: 220),
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      transitionBuilder: _buildDashboardSwitcherTransition,
+      child: child,
+    ),
+  );
+}
+
+Widget _buildDashboardSwitcherTransition(
+  Widget child,
+  Animation<double> animation,
+) {
+  return FadeTransition(
+    opacity: animation,
+    child: child,
+  );
+}
+
 class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
   const LazyDashboardSpendingSummaryCard({
     super.key,
@@ -82,34 +105,44 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return _buildSpendingSkeleton(
-        context,
-        colorScheme,
-        config.dateRange,
-        currency,
-        userNow,
+      return _buildDashboardSwitcher(
+        _buildSpendingSkeleton(
+          context,
+          colorScheme,
+          config.dateRange,
+          currency,
+          userNow,
+          key: const ValueKey('spending_skeleton'),
+        ),
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return _buildDashboardErrorCard(
-        context,
-        colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () =>
-            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () =>
+              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+          key: const ValueKey('spending_error'),
+        ),
       );
     }
 
-    return buildSpendingCard(
-      context,
-      colorScheme,
-      mergedTransactions,
-      contact,
-      config.dateRange,
-      referenceNow: userNow,
-      selectedCurrency: filterState.selectedCurrency,
-      customStartDate: config.customStartDate,
-      customEndDate: config.customEndDate,
+    return _buildDashboardSwitcher(
+      buildSpendingCard(
+        context,
+        colorScheme,
+        mergedTransactions,
+        contact,
+        config.dateRange,
+        key: ValueKey(
+            'spending_data_${config.id}_${filterState.selectedCurrency}'),
+        referenceNow: userNow,
+        selectedCurrency: filterState.selectedCurrency,
+        customStartDate: config.customStartDate,
+        customEndDate: config.customEndDate,
+      ),
     );
   }
 }
@@ -189,21 +222,34 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         (previousTransactionsAsync.isLoading &&
             !previousTransactionsAsync.hasValue &&
             previousBaseTransactions.isEmpty)) {
-      return _buildNetCashflowSkeleton(context, colorScheme, budgets, contact,
-          config, filterState.selectedCurrency);
+      return _buildDashboardSwitcher(
+        _buildNetCashflowSkeleton(
+          context,
+          colorScheme,
+          budgets,
+          contact,
+          config,
+          filterState.selectedCurrency,
+          key: const ValueKey('net_cashflow_skeleton'),
+        ),
+      );
     }
     if ((currentTransactionsAsync.hasError &&
             !currentTransactionsAsync.hasValue) ||
         (previousTransactionsAsync.hasError &&
             !previousTransactionsAsync.hasValue)) {
-      return _buildDashboardErrorCard(
-        context,
-        colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () {
-          ref.invalidate(dashboardCalendarTransactionsProvider(currentQuery));
-          ref.invalidate(dashboardCalendarTransactionsProvider(previousQuery));
-        },
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () {
+            ref.invalidate(dashboardCalendarTransactionsProvider(currentQuery));
+            ref.invalidate(
+                dashboardCalendarTransactionsProvider(previousQuery));
+          },
+          key: const ValueKey('net_cashflow_error'),
+        ),
       );
     }
 
@@ -224,17 +270,21 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       includeFutureOccurrences: false,
     );
 
-    return buildNetCashflowCard(
-      context,
-      colorScheme,
-      budgets.cast(),
-      currentTransactions,
-      previousTransactions,
-      contact,
-      config.dateRange,
-      selectedCurrency: filterState.selectedCurrency,
-      customStartDate: config.customStartDate,
-      customEndDate: config.customEndDate,
+    return _buildDashboardSwitcher(
+      buildNetCashflowCard(
+        context,
+        colorScheme,
+        budgets.cast(),
+        currentTransactions,
+        previousTransactions,
+        contact,
+        config.dateRange,
+        key: ValueKey(
+            'net_cashflow_data_${config.id}_${filterState.selectedCurrency}'),
+        selectedCurrency: filterState.selectedCurrency,
+        customStartDate: config.customStartDate,
+        customEndDate: config.customEndDate,
+      ),
     );
   }
 }
@@ -260,12 +310,16 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
 
-    return FinancialCalendarWidget(
-      userId: auth.uid,
-      householdId: scope.activeAccountHouseholdId,
-      recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
-      currency: selectedCurrency ?? fallbackCurrency,
-      isExpanded: config.viewMode == DashboardWidgetViewMode.full,
+    return _buildDashboardSwitcher(
+      FinancialCalendarWidget(
+        key: ValueKey(
+            'fin_cal_${config.id}_${selectedCurrency ?? fallbackCurrency}'),
+        userId: auth.uid,
+        householdId: scope.activeAccountHouseholdId,
+        recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
+        currency: selectedCurrency ?? fallbackCurrency,
+        isExpanded: config.viewMode == DashboardWidgetViewMode.full,
+      ),
     );
   }
 }
@@ -304,38 +358,47 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
     if (recentAsync.isLoading &&
         !recentAsync.hasValue &&
         recentTransactions.isEmpty) {
-      return _buildRecentTransactionsSkeleton(
-        context,
-        colorScheme,
-        filterState.selectedCurrency,
+      return _buildDashboardSwitcher(
+        _buildRecentTransactionsSkeleton(
+          context,
+          colorScheme,
+          filterState.selectedCurrency,
+          key: const ValueKey('recent_skeleton'),
+        ),
       );
     }
     if (recentAsync.hasError && !recentAsync.hasValue) {
-      return _buildDashboardErrorCard(
-        context,
-        colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(
-          dashboardRecentTransactionsProvider(
-            DashboardRecentTransactionsRequest(query: query, limit: 5),
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref.invalidate(
+            dashboardRecentTransactionsProvider(
+              DashboardRecentTransactionsRequest(query: query, limit: 5),
+            ),
           ),
+          key: const ValueKey('recent_error'),
         ),
       );
     }
 
-    return buildRecentTransactionsCard(
-      context,
-      colorScheme,
-      recentTransactions,
-      contact,
-      selectedCurrency: filterState.selectedCurrency,
-      onViewAll: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const TransactionsPage(),
-          ),
-        );
-      },
+    return _buildDashboardSwitcher(
+      buildRecentTransactionsCard(
+        context,
+        colorScheme,
+        recentTransactions,
+        contact,
+        selectedCurrency: filterState.selectedCurrency,
+        householdId: query.householdId,
+        onViewAll: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const TransactionsPage(),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -394,29 +457,41 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return _buildBreakdownSkeleton(colorScheme);
+      return _buildDashboardSwitcher(
+        _buildBreakdownSkeleton(
+          colorScheme,
+          key: const ValueKey('breakdown_skeleton'),
+        ),
+      );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return _buildDashboardErrorCard(
-        context,
-        colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () =>
-            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () =>
+              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+          key: const ValueKey('breakdown_error'),
+        ),
       );
     }
 
-    return buildSpendingBreakdownChart(
-      context,
-      colorScheme,
-      expenses,
-      const [],
-      analyticsContact,
-      config.dateRange,
-      referenceNow: userNow,
-      selectedCurrency: filterState.selectedCurrency,
-      customStartDate: config.customStartDate,
-      customEndDate: config.customEndDate,
+    return _buildDashboardSwitcher(
+      buildSpendingBreakdownChart(
+        context,
+        colorScheme,
+        expenses,
+        const [],
+        analyticsContact,
+        config.dateRange,
+        key: ValueKey(
+            'breakdown_data_${config.id}_${filterState.selectedCurrency}'),
+        referenceNow: userNow,
+        selectedCurrency: filterState.selectedCurrency,
+        customStartDate: config.customStartDate,
+        customEndDate: config.customEndDate,
+      ),
     );
   }
 }
@@ -473,23 +548,35 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return _buildWhereMoneyWentSkeleton(colorScheme);
+      return _buildDashboardSwitcher(
+        _buildWhereMoneyWentSkeleton(
+          colorScheme,
+          key: const ValueKey('where_money_went_skeleton'),
+        ),
+      );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return _buildDashboardErrorCard(
-        context,
-        colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () =>
-            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () =>
+              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+          key: const ValueKey('where_money_went_error'),
+        ),
       );
     }
 
-    return WhereTheMoneyWentWidget(
-      expenses: expenses,
-      currency: filterState.selectedCurrency,
-      onHelpTap: () => showCategoryGuide(context, colorScheme),
-      dateRange: config.dateRange,
+    return _buildDashboardSwitcher(
+      WhereTheMoneyWentWidget(
+        key: ValueKey(
+            'where_money_went_data_${config.id}_${filterState.selectedCurrency}'),
+        expenses: expenses,
+        currency: filterState.selectedCurrency,
+        onHelpTap: () => showCategoryGuide(context, colorScheme),
+        dateRange: config.dateRange,
+      ),
     );
   }
 }
@@ -532,9 +619,11 @@ Widget _buildSpendingSkeleton(
   ColorScheme colorScheme,
   DateRangeFilter dateFilter,
   String currency,
-  DateTime referenceNow,
-) {
+  DateTime referenceNow, {
+  Key? key,
+}) {
   return Skeletonizer(
+    key: key,
     effect: ShimmerEffect(
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
@@ -566,9 +655,11 @@ Widget _buildNetCashflowSkeleton(
   List budgets,
   UserContact? contact,
   DashboardWidgetConfig config,
-  String? selectedCurrency,
-) {
+  String? selectedCurrency, {
+  Key? key,
+}) {
   return Skeletonizer(
+    key: key,
     effect: ShimmerEffect(
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
@@ -591,9 +682,12 @@ Widget _buildNetCashflowSkeleton(
 Widget _buildRecentTransactionsSkeleton(
   BuildContext context,
   ColorScheme colorScheme,
-  String? selectedCurrency,
-) {
+  String? selectedCurrency, {
+  Key? key,
+}) {
+  final now = DateTime.now();
   return Skeletonizer(
+    key: key,
     effect: ShimmerEffect(
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
@@ -601,22 +695,16 @@ Widget _buildRecentTransactionsSkeleton(
     child: buildRecentTransactionsCard(
       context,
       colorScheme,
-      [
-        ExpenseEntry(
-          id: 'recent-skeleton-1',
-          date: DateTime.now(),
+      List.generate(
+        5,
+        (index) => ExpenseEntry(
+          id: 'recent-skeleton-$index',
+          date: now.subtract(Duration(minutes: index)),
           amountCents: 0,
-          createdAt: DateTime.now(),
+          createdAt: now.subtract(Duration(minutes: index)),
           currency: selectedCurrency ?? 'USD',
         ),
-        ExpenseEntry(
-          id: 'recent-skeleton-2',
-          date: DateTime.now(),
-          amountCents: 0,
-          createdAt: DateTime.now(),
-          currency: selectedCurrency ?? 'USD',
-        ),
-      ],
+      ),
       null,
       selectedCurrency: selectedCurrency,
       onViewAll: () {},
@@ -624,46 +712,64 @@ Widget _buildRecentTransactionsSkeleton(
   );
 }
 
-Widget _buildBreakdownSkeleton(ColorScheme colorScheme) {
+Widget _buildBreakdownSkeleton(ColorScheme colorScheme, {Key? key}) {
   return Skeletonizer(
+    key: key,
     effect: ShimmerEffect(
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
     ),
-    child: Card(
-      color: colorScheme.cardSurface,
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Spending breakdown'),
-            SizedBox(height: 8),
-            Text('Chart placeholder'),
-          ],
+    child: SizedBox(
+      height: 360,
+      child: Card(
+        color: colorScheme.cardSurface,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Spending breakdown'),
+              SizedBox(height: 8),
+              Text('Current period'),
+              SizedBox(height: 32),
+              Expanded(child: Center(child: Text('Chart placeholder'))),
+              SizedBox(height: 24),
+              Text('Legend placeholder'),
+            ],
+          ),
         ),
       ),
     ),
   );
 }
 
-Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme) {
+Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
   return Skeletonizer(
+    key: key,
     effect: ShimmerEffect(
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
     ),
-    child: Card(
-      color: colorScheme.cardSurface,
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Where the money went'),
-            SizedBox(height: 8),
-            Text('Row placeholder'),
-          ],
+    child: SizedBox(
+      height: 320,
+      child: Card(
+        color: colorScheme.cardSurface,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Where the money went'),
+              SizedBox(height: 8),
+              Text('Current period'),
+              SizedBox(height: 32),
+              Text('Category row placeholder'),
+              SizedBox(height: 16),
+              Text('Category row placeholder'),
+              SizedBox(height: 16),
+              Text('Category row placeholder'),
+            ],
+          ),
         ),
       ),
     ),
@@ -708,10 +814,8 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme) {
           DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
       return (start, end);
     case DateRangeFilter.last3Months:
-      final firstOfThisMonth = DateTime(now.year, now.month, 1);
-      final end = firstOfThisMonth.subtract(const Duration(seconds: 1));
-      final start = DateTime(end.year, end.month - 2, 1);
-      return (start, end);
+      final start = DateTime(now.year, now.month - 2, 1);
+      return (start, todayEnd);
     case DateRangeFilter.last30Days:
       final start = todayStart.subtract(const Duration(days: 29));
       return (start, todayEnd);
@@ -783,15 +887,9 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme) {
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
       return (prevStart, prevEnd);
     case DateRangeFilter.last3Months:
-      final firstOfThisMonth = DateTime(now.year, now.month, 1);
-      final currentStart = DateTime(now.year, now.month - 3, 1);
+      final currentStart = DateTime(now.year, now.month - 2, 1);
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
       final prevStart = DateTime(prevEnd.year, prevEnd.month - 2, 1);
-      if (prevEnd.isBefore(prevStart)) {
-        final fallbackEnd =
-            firstOfThisMonth.subtract(const Duration(seconds: 1));
-        return (currentStart, fallbackEnd);
-      }
       return (prevStart, prevEnd);
     case DateRangeFilter.last30Days:
       final currentStart = todayStart.subtract(const Duration(days: 29));
@@ -835,8 +933,10 @@ Widget _buildDashboardErrorCard(
   ColorScheme colorScheme,
   String message, {
   required VoidCallback onRetry,
+  Key? key,
 }) {
   return Card(
+    key: key,
     color: colorScheme.cardSurface,
     child: Padding(
       padding: const EdgeInsets.all(16),

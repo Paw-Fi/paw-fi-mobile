@@ -28,6 +28,8 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -906,18 +908,6 @@ class _PreAuthBudgetStep extends HookWidget {
       text: monthlyBudget > 0 ? monthlyBudget.toStringAsFixed(0) : '',
     );
 
-    useEffect(() {
-      void listener() {
-        final parsed = double.tryParse(controller.text.trim());
-        if (parsed != null && parsed > 0) {
-          onBudgetChanged(parsed);
-        }
-      }
-
-      controller.addListener(listener);
-      return () => controller.removeListener(listener);
-    }, [controller]);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
@@ -940,23 +930,38 @@ class _PreAuthBudgetStep extends HookWidget {
             ),
           ),
           const SizedBox(height: 24),
-          TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textInputAction: TextInputAction.done,
-            style: TextStyle(
-              color: colorScheme.foreground,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-            decoration: InputDecoration(
-              labelText: context.l10n.monthlyBudget,
-              hintText: context.l10n.monthlyBudgetHint,
-              filled: true,
-              fillColor: colorScheme.card,
-              border: OutlineInputBorder(
+          GestureDetector(
+            onTap: () async {
+              final value = await showCalculatorKeypadSheet(
+                context: context,
+                initialValue: controller.text,
+              );
+              if (value != null) {
+                controller.text = value;
+                final parsed = double.tryParse(value.trim());
+                if (parsed != null && parsed > 0) {
+                  onBudgetChanged(parsed);
+                }
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: colorScheme.card,
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: colorScheme.border),
+                border: Border.all(color: colorScheme.border),
+              ),
+              child: Text(
+                controller.text.isNotEmpty
+                    ? controller.text
+                    : context.l10n.monthlyBudgetHint,
+                style: TextStyle(
+                  color: controller.text.isNotEmpty
+                      ? colorScheme.foreground
+                      : colorScheme.mutedForeground.withValues(alpha: 0.5),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -1174,18 +1179,6 @@ class _PreAuthDebtStep extends HookWidget {
           debtMinimumPayments > 0 ? debtMinimumPayments.toStringAsFixed(0) : '',
     );
 
-    useEffect(() {
-      void listener() {
-        final parsed = double.tryParse(controller.text.trim());
-        if (parsed != null && parsed >= 0) {
-          onDebtChanged(parsed);
-        }
-      }
-
-      controller.addListener(listener);
-      return () => controller.removeListener(listener);
-    }, [controller]);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
@@ -1201,18 +1194,37 @@ class _PreAuthDebtStep extends HookWidget {
             style: TextStyle(color: colorScheme.mutedForeground),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: context.l10n.debtMinimumPayments,
-              hintText: context.l10n.debtMinimumPaymentsHint,
-              filled: true,
-              fillColor: colorScheme.card,
-              border: OutlineInputBorder(
+          GestureDetector(
+            onTap: () async {
+              final value = await showCalculatorKeypadSheet(
+                context: context,
+                initialValue: controller.text,
+              );
+              if (value != null) {
+                controller.text = value;
+                final parsed = double.tryParse(value.trim());
+                if (parsed != null && parsed >= 0) {
+                  onDebtChanged(parsed);
+                }
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: colorScheme.card,
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: colorScheme.border),
+                border: Border.all(color: colorScheme.border),
+              ),
+              child: Text(
+                controller.text.isNotEmpty
+                    ? controller.text
+                    : context.l10n.debtMinimumPaymentsHint,
+                style: TextStyle(
+                  color: controller.text.isNotEmpty
+                      ? colorScheme.foreground
+                      : colorScheme.mutedForeground.withValues(alpha: 0.5),
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
@@ -1734,7 +1746,8 @@ class _PreAuthStarterStep extends StatelessWidget {
         return;
       }
 
-      final parsed = double.tryParse(result.text!.trim().replaceAll(',', ''));
+      final cents = tryParseMoneyToCents(result.text!);
+      final parsed = cents != null ? centsToAmount(cents) : null;
       if (parsed == null) {
         return;
       }

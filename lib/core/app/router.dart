@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/insights/presentation/pages/monthly_report_page.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
@@ -76,6 +77,67 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const MainShell(),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/balance',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.balance,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/safe-spend',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.safeSpend,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/spending',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.spending,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/budget',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.budget,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/savings',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.savings,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/categories',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.categories,
+          query: monthlyReportQueryFromUri(state.uri),
+          selectedCategoryName: state.uri.queryParameters['name'],
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/recurring',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.recurring,
+          query: monthlyReportQueryFromUri(state.uri),
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/drilldown',
+        builder: (context, state) => MonthlyReportDrillDownPage(
+          query: monthlyReportQueryFromUri(state.uri),
+          title: state.uri.queryParameters['title'],
+          subtitle: state.uri.queryParameters['subtitle'],
+          sourceTransactionIds: state.uri.queryParameters['ids'],
+          recurringId: state.uri.queryParameters['recurringId'],
+          goalId: state.uri.queryParameters['goalId'],
+        ),
       ),
 
       // Auth Routes

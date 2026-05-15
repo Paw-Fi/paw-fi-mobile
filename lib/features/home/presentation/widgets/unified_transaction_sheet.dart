@@ -12,9 +12,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -22,13 +26,14 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
+import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/destructive_text_button.dart';
@@ -39,6 +44,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -55,6 +61,7 @@ import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
@@ -64,7 +71,6 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-const String _replaceReceiptPhotoLabel = 'Replace';
 const String _replaceReceiptPhotoTooltip = 'Replace receipt photo';
 
 /// Format date with relative terms
@@ -140,7 +146,7 @@ Future<bool?> showUnifiedTransactionSheet(
   return showModalBottomSheet<bool>(
     context: context,
     barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     isDismissible: true,
@@ -266,12 +272,9 @@ class _UnifiedTransactionSheetState
       final isSharedSpace = hasHousehold && !isPortfolio;
       final hasExistingSplitGroup =
           existingSplitGroupId != null && existingSplitGroupId.isNotEmpty;
-
       final defaultAccountType = () {
         if (isPortfolio && hasHousehold) return ActiveWalletType.portfolio;
-        if (isSharedSpace && hasExistingSplitGroup) {
-          return ActiveWalletType.household;
-        }
+        if (isSharedSpace) return ActiveWalletType.household;
         return ActiveWalletType.personal;
       }();
 
@@ -285,10 +288,9 @@ class _UnifiedTransactionSheetState
       debugPrint(
           '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
 
-      // If expense is shared with a household, initialize the household selection and load members
-      if (isSharedSpace &&
-          hasExistingSplitGroup &&
-          widget.existingExpense!.householdId != null) {
+      // A household-scoped expense remains in the household even when auto-split
+      // is disabled and no split group exists.
+      if (isSharedSpace && widget.existingExpense!.householdId != null) {
         debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -299,8 +301,9 @@ class _UnifiedTransactionSheetState
                 householdId;
             debugPrint('🏠 [EDIT EXPENSE] Loading household members');
             _loadMembers(householdId);
-
-            _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
+            if (hasExistingSplitGroup) {
+              _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
+            }
           } else {
             debugPrint(
                 '⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
@@ -742,6 +745,7 @@ class _UnifiedTransactionSheetState
       );
 
       if (photo != null) {
+        if (!mounted) return false;
         debugPrint('📷 Receipt photo selected');
         setState(() {
           _localImagePath = photo.path;
@@ -1030,8 +1034,9 @@ class _UnifiedTransactionSheetState
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
-                              label:
-                                  '${isIncomeMode ? context.l10n.source : context.l10n.merchant}',
+                              label: isIncomeMode
+                                  ? context.l10n.source
+                                  : context.l10n.merchant,
                               value: displayMerchant?.trim().isNotEmpty == true
                                   ? displayMerchant!.trim()
                                   : context.l10n.tapToSet,
@@ -1733,11 +1738,6 @@ class _UnifiedTransactionSheetState
                   return const SizedBox();
                 }
 
-                final existingSplitGroupId = _effectiveSplitGroupId;
-                if (isExistingExpense && existingSplitGroupId == null) {
-                  return const SizedBox();
-                }
-
                 if (isPortfolioSelection) {
                   return Container(
                     padding: const EdgeInsets.all(12),
@@ -1761,29 +1761,6 @@ class _UnifiedTransactionSheetState
                     ),
                     child: Text(
                       context.l10n.selectHouseholdToConfigureSplit,
-                      style: TextStyle(color: colorScheme.mutedForeground),
-                    ),
-                  );
-                }
-
-                // Respect the household's auto-split preference. When the
-                // household owner has disabled auto-splitting, the transaction
-                // still logs against the household but no split group is
-                // created. Hide the split editor for new transactions so the
-                // UI matches what the backend will persist.
-                final activeHousehold =
-                    _resolveHouseholdById(activeHouseholdId);
-                if (isNewExpense &&
-                    activeHousehold != null &&
-                    !activeHousehold.autoSplitEnabled) {
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Auto-split is turned off for this space. The transaction will be logged to the household without splitting among members.',
                       style: TextStyle(color: colorScheme.mutedForeground),
                     ),
                   );
@@ -1849,37 +1826,26 @@ class _UnifiedTransactionSheetState
 
   // Edit handlers - update local state for both new and existing
   void _handleEditAmount(double currentAmount) async {
-    final result = await MonekoAlertDialog.show(
+    final value = await showCalculatorKeypadSheet(
       context: context,
-      title: context.l10n.editAmount,
-      description: null,
-      confirmLabel: context.l10n.save,
-      cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        initialValue: currentAmount.toStringAsFixed(2),
-        placeholder: context.l10n.amount,
-        isRequired: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validationPattern: RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
-        validationMessage: context.l10n.pleaseEnterValidAmount,
-      ),
+      initialValue: currentAmount == 0 ? '' : formatAmount(currentAmount),
     );
+    if (value == null) return;
 
-    if (result != null && result.confirmed && result.text != null) {
-      final parsed = double.tryParse(result.text!.replaceAll(',', ''));
-      if (parsed == null || parsed <= 0) return;
+    final amountCents = tryParseMoneyToCents(value);
+    final parsed = amountCents != null ? centsToAmount(amountCents) : null;
+    if (parsed == null || parsed <= 0) return;
 
-      if (isNewExpense) {
-        final current = ref.read(pendingExpenseProvider);
-        if (current != null) {
-          ref.read(pendingExpenseProvider.notifier).state =
-              current.copyWith(amount: parsed);
-        }
-      } else {
-        setState(() {
-          _editedAmount = parsed;
-        });
+    if (isNewExpense) {
+      final current = ref.read(pendingExpenseProvider);
+      if (current != null) {
+        ref.read(pendingExpenseProvider.notifier).state =
+            current.copyWith(amount: parsed);
       }
+    } else {
+      setState(() {
+        _editedAmount = parsed;
+      });
     }
   }
 
@@ -2387,6 +2353,11 @@ class _UnifiedTransactionSheetState
           _selectedPayerUserId = validPayerId;
         });
 
+        _maybeSeedSinglePayerSplitDefaults(
+          householdId: householdId,
+          members: members,
+        );
+
         // Seed the split editor with the household's saved default split
         // template so users immediately see the configured behaviour for new
         // expenses. Only applies when adding a fresh expense (not income,
@@ -2626,6 +2597,57 @@ class _UnifiedTransactionSheetState
     return floorValues;
   }
 
+  void _maybeSeedSinglePayerSplitDefaults({
+    required String householdId,
+    required List<HouseholdMember> members,
+  }) {
+    if (members.isEmpty) return;
+    if (_customSplits != null || _customSplitType != null) return;
+
+    final household = _resolveHouseholdById(householdId);
+    if (household == null || household.isPortfolio) return;
+
+    final shouldSeedForNewExpense = isNewExpense && !household.autoSplitEnabled;
+    final existingHouseholdId = widget.existingExpense?.householdId;
+    final existingSplitGroupId = widget.existingExpense?.splitGroupId?.trim();
+    final shouldSeedForExistingUnsplitExpense = isExistingExpense &&
+        existingHouseholdId == householdId &&
+        (existingSplitGroupId == null || existingSplitGroupId.isEmpty);
+    if (!shouldSeedForNewExpense && !shouldSeedForExistingUnsplitExpense) {
+      return;
+    }
+
+    final currentUserId = ref.read(authProvider).uid;
+    final payerId = members.any((member) => member.userId == currentUserId)
+        ? currentUserId
+        : (_selectedPayerUserId != null &&
+                members.any((member) => member.userId == _selectedPayerUserId)
+            ? _selectedPayerUserId!
+            : members.first.userId);
+    final totalAmount =
+        (isNewExpense ? ref.read(pendingExpenseProvider)?.amount : null) ??
+            widget.newExpense?.amount ??
+            amount;
+
+    if (!mounted) return;
+    setState(() {
+      _selectedPayerUserId = payerId;
+      _customSplitType = SplitType.amount;
+      _customSplits = members
+          .map(
+            (member) => MemberSplit(
+              member: member,
+              amount: member.userId == payerId ? totalAmount : 0,
+              percentage: member.userId == payerId ? 100 : 0,
+              shares: member.userId == payerId ? 1 : null,
+              includedInAmount: member.userId == payerId,
+              includedInPercentage: member.userId == payerId,
+            ),
+          )
+          .toList(growable: false);
+    });
+  }
+
   List<MemberSplit> _toAmountEditorSplits({
     required SplitType sourceType,
     required List<MemberSplit> splits,
@@ -2860,8 +2882,7 @@ class _UnifiedTransactionSheetState
     ref.invalidate(householdBudgetsProvider);
     ref.invalidate(householdMembersProvider);
 
-    debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
-    ref.invalidate(pocketsProvider);
+    debugPrint('🔄 [REFRESH] Pockets providers refresh from dashboard signal');
     ref.invalidate(pocketDetailsProvider);
     ref.read(walletActionsProvider).refreshAccountData();
 
@@ -2879,10 +2900,7 @@ class _UnifiedTransactionSheetState
     debugPrint('👤 [REFRESH] Refreshing personal UI after expense change');
     ref.read(analyticsProvider.notifier).refresh(userId);
 
-    // CRITICAL: Invalidate ALL pocket providers, not just personal scope
-    // This ensures all months and all scopes refresh with new data
-    debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
-    ref.invalidate(pocketsProvider);
+    debugPrint('🔄 [REFRESH] Pockets providers refresh from dashboard signal');
     ref.invalidate(pocketDetailsProvider);
     ref.read(walletActionsProvider).refreshAccountData();
 
@@ -2893,6 +2911,461 @@ class _UnifiedTransactionSheetState
         1;
 
     debugPrint('✅ [REFRESH] Personal UI refresh complete');
+  }
+
+  ExpenseEntry _expenseEntryFromIncome(
+    IncomeEntry income, {
+    required String userId,
+  }) {
+    return ExpenseEntry(
+      id: income.id,
+      userId: userId,
+      householdId: income.householdId,
+      date: income.date,
+      amountCents: (income.amount * 100).round().abs(),
+      currency: income.currency,
+      category: income.category,
+      createdAt: income.createdAt,
+      updatedAt: income.updatedAt,
+      rawText: income.description,
+      merchant: income.source,
+      type: 'income',
+      isRecurring: income.isRecurring,
+    );
+  }
+
+  void _refreshUiAfterOptimisticSave({
+    required ProviderContainer container,
+    required String userId,
+    required String? savedHouseholdId,
+  }) {
+    container.read(analyticsProvider.notifier).refresh(userId);
+    container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    container
+        .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+        .state += 1;
+    container.invalidate(pocketDetailsProvider);
+    container.invalidate(currencyTransactionCountsProvider);
+    container.read(walletActionsProvider).refreshAccountData();
+
+    if (savedHouseholdId != null && savedHouseholdId.isNotEmpty) {
+      container
+          .read(cacheInvalidatorProvider)
+          .invalidateHouseholdData(savedHouseholdId);
+      container.invalidate(householdExpensesProvider);
+      container.invalidate(householdSplitsProvider);
+      container.invalidate(householdBudgetsProvider);
+      container.invalidate(cachedHouseholdExpensesProvider);
+      container.invalidate(cachedHouseholdSplitsProvider);
+    }
+  }
+
+  Future<MonekoDatabase?> _writeOptimisticTransactionToLocalStore({
+    required ProviderContainer container,
+    required ExpenseEntry optimisticEntry,
+    required TransactionMutationMetadata mutationMetadata,
+    required AppUser user,
+    required ParsedExpense expense,
+    required String? householdId,
+    required String? accountId,
+    required bool canUseHouseholdSplits,
+    required SplitType? customSplitType,
+    required List<MemberSplit>? customSplits,
+    required String? payerUserId,
+    required String? localImagePath,
+  }) async {
+    try {
+      final database = await container.read(localDatabaseProvider.future);
+      final requestBody = {
+        ...mutationMetadata.toRequestJson(),
+        'userId': user.uid,
+        'amount': expense.amount,
+        'category':
+            expense.category.isNotEmpty ? expense.category : 'uncategorized',
+        'currency': expense.currency,
+        'date': expense.date.toIso8601String(),
+        'clientCreatedAt': optimisticEntry.createdAt.toIso8601String(),
+        'description': expense.description,
+        'merchant': expense.merchant,
+        if (expense.breakdown != null) 'breakdown': expense.breakdown,
+        if (householdId != null) 'householdId': householdId,
+        if (accountId != null) 'accountId': accountId,
+        if (canUseHouseholdSplits && payerUserId != null)
+          'payerUserId': payerUserId,
+        if (canUseHouseholdSplits &&
+            customSplitType != null &&
+            customSplits != null)
+          'customSplits': _customSplitsPayload(
+            customSplitType,
+            customSplits,
+          ),
+      };
+      await database.writeOptimisticTransaction(
+        entry: optimisticEntry,
+        clientMutationId: mutationMetadata.clientMutationId,
+        operation: 'create',
+        payload: {
+          ...mutationMetadata.toRequestJson(),
+          'transaction': optimisticEntry.toJson(),
+          'functionName': expense.isIncome ? 'save-income' : 'save-expense',
+          'requestBody': requestBody,
+          if (!expense.isIncome &&
+              localImagePath != null &&
+              localImagePath.trim().isNotEmpty)
+            'localReceiptImagePath': localImagePath,
+        },
+      );
+      return database;
+    } catch (error) {
+      debugPrint(
+          '[LocalFirst] Failed to persist optimistic transaction: $error');
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _customSplitsPayload(
+    SplitType splitType,
+    List<MemberSplit> splits,
+  ) {
+    return {
+      'splitType': splitType.name,
+      'memberSplits': splits
+          .map((split) => {
+                'userId': split.member.userId,
+                if (split.amount != null) 'amount': split.amount,
+                if (split.percentage != null) 'percentage': split.percentage,
+                if (split.shares != null) 'shares': split.shares,
+              })
+          .toList(growable: false),
+    };
+  }
+
+  Future<void> _persistOptimisticNewTransaction({
+    required ProviderContainer container,
+    required BuildContext toastContext,
+    required AppUser user,
+    required ParsedExpense expense,
+    required String optimisticId,
+    required TransactionMutationMetadata mutationMetadata,
+    required Future<MonekoDatabase?> localWrite,
+    required String? householdId,
+    required String? accountId,
+    required bool canUseHouseholdSplits,
+    required SplitType? customSplitType,
+    required List<MemberSplit>? customSplits,
+    required String? payerUserId,
+    required String? localImagePath,
+  }) async {
+    final localDatabase = await localWrite;
+    String? receiptUrl;
+
+    try {
+      if (!expense.isIncome &&
+          localImagePath != null &&
+          localImagePath.trim().isNotEmpty) {
+        receiptUrl = await container
+            .read(expenseSaveNotifierProvider.notifier)
+            .uploadReceiptImage(File(localImagePath), user.uid);
+      }
+
+      if (expense.isIncome) {
+        final saved = await container
+            .read(incomeSaveProvider.notifier)
+            .saveIncome(
+              userId: user.uid,
+              amount: expense.amount,
+              category:
+                  expense.category.isNotEmpty ? expense.category : 'income',
+              currency: expense.currency,
+              date: expense.date,
+              description: expense.description,
+              merchant: expense.merchant,
+              householdId: householdId,
+              accountId: accountId,
+              clientRecordId: mutationMetadata.clientRecordId,
+              clientMutationId: mutationMetadata.clientMutationId,
+              idempotencyKey: mutationMetadata.idempotencyKey,
+              customSplitType: canUseHouseholdSplits ? customSplitType : null,
+              customSplits: canUseHouseholdSplits ? customSplits : null,
+              payerUserId: canUseHouseholdSplits ? payerUserId : null,
+            );
+
+        if (saved == null) {
+          final incomeState = container.read(incomeSaveProvider);
+          final error = incomeState.whenOrNull(error: (e, _) => e);
+          throw Exception(error ?? 'Failed to save income');
+        }
+
+        replaceOptimisticTransactionWithContainer(
+          container: container,
+          optimisticId: optimisticId,
+          savedEntry: _expenseEntryFromIncome(saved, userId: user.uid),
+          householdId: householdId,
+        );
+        await localDatabase?.replaceOptimisticTransaction(
+          optimisticId: optimisticId,
+          savedEntry: _expenseEntryFromIncome(saved, userId: user.uid),
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
+      } else {
+        final saved = await container
+            .read(expenseSaveNotifierProvider.notifier)
+            .saveExpense(
+              expense: expense,
+              householdId: householdId,
+              accountId: accountId,
+              receiptImageUrl: receiptUrl,
+              customSplitType: canUseHouseholdSplits ? customSplitType : null,
+              customSplits: canUseHouseholdSplits ? customSplits : null,
+              payerUserId: canUseHouseholdSplits ? payerUserId : null,
+              clientRecordId: mutationMetadata.clientRecordId,
+              clientMutationId: mutationMetadata.clientMutationId,
+              idempotencyKey: mutationMetadata.idempotencyKey,
+              addHouseholdOptimisticData: false,
+              invalidateProviders: false,
+            );
+
+        if (saved == null) {
+          throw Exception('Failed to save expense');
+        }
+
+        replaceOptimisticTransactionWithContainer(
+          container: container,
+          optimisticId: optimisticId,
+          savedEntry: saved,
+          householdId: householdId,
+        );
+        await localDatabase?.replaceOptimisticTransaction(
+          optimisticId: optimisticId,
+          savedEntry: saved,
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
+      }
+
+      _refreshUiAfterOptimisticSave(
+        container: container,
+        userId: user.uid,
+        savedHouseholdId: householdId,
+      );
+    } catch (error) {
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(error)) {
+        if (receiptUrl != null) {
+          await container
+              .read(expenseSaveNotifierProvider.notifier)
+              .deleteReceiptImage(receiptUrl);
+        }
+        container.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+            1;
+        container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        if (toastContext.mounted) {
+          AppToast.info(
+            toastContext,
+            toastContext.l10n.offlineSyncMessage,
+            duration: const Duration(seconds: 5),
+          );
+        }
+        return;
+      }
+
+      removeOptimisticTransactionWithContainer(
+        container: container,
+        optimisticId: optimisticId,
+        householdId: householdId,
+      );
+      await localDatabase?.rollbackOptimisticTransaction(
+        optimisticId: optimisticId,
+        clientMutationId: mutationMetadata.clientMutationId,
+        error: error,
+      );
+
+      if (toastContext.mounted) {
+        AppToast.error(
+          toastContext,
+          ErrorHandler.getUserFriendlyMessage(
+            error,
+            context: BackendErrorContext.generic,
+          ),
+          duration: const Duration(seconds: 5),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleNewTransactionOptimisticSave() async {
+    final user = ref.read(authProvider);
+    final accountTarget = _resolveAccountTarget();
+    final effectiveHouseholdId = accountTarget.householdId;
+    final isEffectivePortfolio = accountTarget.isPortfolio;
+    final isSharedHousehold =
+        _selectedAccountType == ActiveWalletType.household &&
+            effectiveHouseholdId != null;
+    final activeHousehold = effectiveHouseholdId == null
+        ? null
+        : _resolveHouseholdById(effectiveHouseholdId);
+    final hasEditableSplitConfig =
+        _customSplitType != null && _customSplits?.isNotEmpty == true;
+    final canUseHouseholdSplits = isSharedHousehold &&
+        !isEffectivePortfolio &&
+        (activeHousehold?.autoSplitEnabled != false || hasEditableSplitConfig);
+
+    if (isEffectivePortfolio) {
+      _selectedPayerUserId = user.uid;
+      _customSplitType = null;
+      _customSplits = null;
+    }
+
+    final expense = ref.read(pendingExpenseProvider);
+    if (expense == null) {
+      AppToast.error(context, context.l10n.noTransactionToSave);
+      return;
+    }
+
+    if (expense.amount <= 0) {
+      AppToast.error(
+        context,
+        context.l10n.pleaseEnterAValidAmountGreaterThan0,
+      );
+      return;
+    }
+
+    final availableAccounts = ref
+            .read(walletsByHouseholdIdProvider(effectiveHouseholdId))
+            .valueOrNull ??
+        const <WalletEntity>[];
+    var selectedFinancialAccountId =
+        _selectedFinancialAccountId ?? widget.existingExpense?.walletId;
+    final hasSelectedFinancialAccount = selectedFinancialAccountId != null &&
+        availableAccounts.any(
+          (account) => account.id == selectedFinancialAccountId,
+        );
+    if (!hasSelectedFinancialAccount) {
+      selectedFinancialAccountId =
+          _resolveDefaultFinancialAccountId(availableAccounts);
+    }
+
+    final expenseLocalDate = DateTime(
+      expense.date.year,
+      expense.date.month,
+      expense.date.day,
+    );
+    final expenseDateTime = DateTime(
+      expenseLocalDate.year,
+      expenseLocalDate.month,
+      expenseLocalDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+    var expenseWithTime = expense.copyWith(date: expenseDateTime);
+    final normalizedCategory = expenseWithTime.category.trim().toLowerCase();
+    if (normalizedCategory.isEmpty ||
+        normalizedCategory == 'other' ||
+        normalizedCategory == 'uncategorized') {
+      var predictionHistory = const <ExpenseEntry>[];
+      try {
+        predictionHistory =
+            (await ref.read(transactionsFeedServiceProvider).fetchPage(
+                      TransactionsFeedQuery(
+                        userId: user.uid,
+                        householdId: effectiveHouseholdId,
+                        selectedCurrency: null,
+                        selectedCategory: null,
+                        selectedType: 'all',
+                        searchQuery: '',
+                        startDate: null,
+                        endDate: null,
+                        pageSize: 200,
+                      ),
+                    ))
+                .items;
+      } catch (_) {
+        predictionHistory = const <ExpenseEntry>[];
+      }
+      final categoryPrediction = suggestCategoryForMerchant(
+        merchant: expenseWithTime.merchant,
+        history: predictionHistory,
+      );
+      if (categoryPrediction?.confidence == SmartInputConfidence.high) {
+        expenseWithTime = expenseWithTime.copyWith(
+          category: categoryPrediction!.category,
+        );
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    final optimisticId = makeOptimisticTransactionId();
+    final mutationMetadata = buildTransactionMutationMetadata(optimisticId);
+    final optimisticEntry = buildOptimisticEntry(
+      transaction: expenseWithTime,
+      optimisticId: optimisticId,
+      userId: user.uid,
+      householdId: effectiveHouseholdId,
+      accountId: selectedFinancialAccountId,
+      type: expenseWithTime.isIncome ? 'income' : 'expense',
+    );
+    final container = ProviderScope.containerOf(context, listen: false);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final toastContext = rootNavigator.context;
+    if (!toastContext.mounted) {
+      return;
+    }
+    final successMessage = expenseWithTime.isIncome
+        ? (isSharedHousehold
+            ? context.l10n.incomeSavedAndShared
+            : context.l10n.incomeSaved)
+        : context.l10n.expenseSaved;
+    final localWrite = _writeOptimisticTransactionToLocalStore(
+      container: container,
+      optimisticEntry: optimisticEntry,
+      mutationMetadata: mutationMetadata,
+      user: user,
+      expense: expenseWithTime,
+      householdId: effectiveHouseholdId,
+      accountId: selectedFinancialAccountId,
+      canUseHouseholdSplits: canUseHouseholdSplits,
+      customSplitType: _customSplitType,
+      customSplits: _customSplits,
+      payerUserId: _selectedPayerUserId,
+      localImagePath: expenseWithTime.localImagePath ?? widget.localImagePath,
+    );
+
+    addOptimisticTransactionWithContainer(
+      container: container,
+      entry: optimisticEntry,
+      householdId: effectiveHouseholdId,
+    );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+
+    ref.read(pendingExpenseProvider.notifier).state = null;
+    ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+
+    Navigator.of(context).pop(true);
+    AppToast.success(
+      toastContext,
+      successMessage,
+      duration: const Duration(seconds: 3),
+    );
+
+    unawaited(_persistOptimisticNewTransaction(
+      container: container,
+      toastContext: toastContext,
+      user: user,
+      expense: expenseWithTime,
+      optimisticId: optimisticId,
+      mutationMetadata: mutationMetadata,
+      localWrite: localWrite,
+      householdId: effectiveHouseholdId,
+      accountId: selectedFinancialAccountId,
+      canUseHouseholdSplits: canUseHouseholdSplits,
+      customSplitType: _customSplitType,
+      customSplits: _customSplits,
+      payerUserId: _selectedPayerUserId,
+      localImagePath: expenseWithTime.localImagePath ?? widget.localImagePath,
+    ));
   }
 
   Future<void> _handleSave() async {
@@ -2909,9 +3382,15 @@ class _UnifiedTransactionSheetState
       return;
     }
 
+    if (isNewExpense) {
+      await _handleNewTransactionOptimisticSave();
+      return;
+    }
+
     setState(() => _isSaving = true);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final toastContext = rootNavigator.context;
+    final expenseSaveNotifier = ref.read(expenseSaveNotifierProvider.notifier);
     var dialogOpen = false;
     showBlockingProcessingDialog(
       context: toastContext,
@@ -2924,6 +3403,8 @@ class _UnifiedTransactionSheetState
       if (rootNavigator.canPop()) rootNavigator.pop();
       dialogOpen = false;
     }
+
+    String? uploadedReplacementReceiptImageUrl;
 
     try {
       final user = ref.read(authProvider);
@@ -2959,9 +3440,12 @@ class _UnifiedTransactionSheetState
         final activeHousehold = effectiveHouseholdId == null
             ? null
             : _resolveHouseholdById(effectiveHouseholdId);
+        final hasEditableSplitConfig =
+            _customSplitType != null && _customSplits?.isNotEmpty == true;
         final canUseHouseholdSplits = isSharedHousehold &&
             !isEffectivePortfolio &&
-            activeHousehold?.autoSplitEnabled != false;
+            (activeHousehold?.autoSplitEnabled != false ||
+                hasEditableSplitConfig);
         debugPrint(
           '🧩 [AUTO SPLIT SAVE] household=$effectiveHouseholdId '
           'autoSplitEnabled=${activeHousehold?.autoSplitEnabled} '
@@ -3024,7 +3508,7 @@ class _UnifiedTransactionSheetState
           if (saved == null) {
             final incomeState = ref.read(incomeSaveProvider);
             final error = incomeState.whenOrNull(error: (e, _) => e);
-            if (!mounted) {
+            if (!mounted || !toastContext.mounted) {
               closeDialog();
               return;
             }
@@ -3080,7 +3564,7 @@ class _UnifiedTransactionSheetState
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
-          if (!mounted) {
+          if (!mounted || !toastContext.mounted) {
             closeDialog();
             return;
           }
@@ -3130,7 +3614,7 @@ class _UnifiedTransactionSheetState
               );
 
           debugPrint(' Expense saved successfully');
-          if (!mounted) {
+          if (!mounted || !toastContext.mounted) {
             closeDialog();
             return;
           }
@@ -3312,13 +3796,15 @@ class _UnifiedTransactionSheetState
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
           debugPrint(' Uploading new receipt image for existing expense');
-          final receiptUrl = await ref
-              .read(expenseSaveNotifierProvider.notifier)
-              .uploadReceiptImage(File(_localImagePath!), user.uid);
+          final receiptUrl = await expenseSaveNotifier.uploadReceiptImage(
+            File(_localImagePath!),
+            user.uid,
+          );
           debugPrint(' New receipt upload completed');
 
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
+            uploadedReplacementReceiptImageUrl = receiptUrl;
             replacedReceiptImageUrl = widget.existingExpense!.receiptImageUrl;
           }
         }
@@ -3380,7 +3866,7 @@ class _UnifiedTransactionSheetState
           // If the amount changed we must update split lines to stay consistent.
           // If we can't load the split config, fail fast instead of corrupting state.
           if (amountCentsChanged && !shouldSendSplitUpdate) {
-            if (!mounted) {
+            if (!mounted || !toastContext.mounted) {
               closeDialog();
               return;
             }
@@ -3497,7 +3983,7 @@ class _UnifiedTransactionSheetState
           '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
         );
 
-        if (!mounted) {
+        if (!mounted || !toastContext.mounted) {
           closeDialog();
           return;
         }
@@ -3507,6 +3993,10 @@ class _UnifiedTransactionSheetState
             await ref
                 .read(expenseSaveNotifierProvider.notifier)
                 .deleteReceiptImage(replacedReceiptImageUrl);
+            if (!mounted || !toastContext.mounted) {
+              closeDialog();
+              return;
+            }
           }
 
           //
@@ -3558,7 +4048,6 @@ class _UnifiedTransactionSheetState
           if (shouldPromptCategoryRemap && remapToCategory != null) {
             await _handleCategoryRemapPrompt(
               toastContext: toastContext,
-              userId: user.uid,
               transactionType:
                   (widget.existingExpense?.type?.toLowerCase() == 'income')
                       ? 'income'
@@ -3571,6 +4060,10 @@ class _UnifiedTransactionSheetState
             return;
           }
 
+          if (!mounted || !toastContext.mounted) {
+            closeDialog();
+            return;
+          }
           Navigator.of(context).pop(true);
 
           AppToast.success(
@@ -3579,14 +4072,22 @@ class _UnifiedTransactionSheetState
             duration: const Duration(seconds: 4),
           );
         } else {
+          if (uploadedReplacementReceiptImageUrl != null) {
+            await expenseSaveNotifier
+                .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
+          }
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
           debugPrint(
             '🧪 updateExpense failure state: error=${editState.error}',
           );
+          if (!toastContext.mounted) {
+            closeDialog();
+            return;
+          }
           final message = ErrorHandler.getUserFriendlyMessage(
-            editState.error ?? context.l10n.failedToUpdateExpense,
+            editState.error ?? toastContext.l10n.failedToUpdateExpense,
             context: BackendErrorContext.updateExpense,
           );
 
@@ -3601,7 +4102,11 @@ class _UnifiedTransactionSheetState
       }
     } catch (error) {
       debugPrint(' Error saving expense: $error');
-      if (!mounted) {
+      if (uploadedReplacementReceiptImageUrl != null) {
+        await expenseSaveNotifier
+            .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
+      }
+      if (!mounted || !toastContext.mounted) {
         closeDialog();
         return;
       }
@@ -3623,9 +4128,26 @@ class _UnifiedTransactionSheetState
     }
   }
 
+  bool _shouldKeepQueuedLocalMutation(Object error) {
+    if (error is SocketException || error is TimeoutException) return true;
+
+    final message = error.toString().toLowerCase();
+    return message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('failed host lookup') ||
+        message.contains('connection') ||
+        message.contains('timed out') ||
+        message.contains('timeout') ||
+        message.contains('status: 502') ||
+        message.contains('status: 503') ||
+        message.contains('status: 504') ||
+        message.contains('service is temporarily unavailable') ||
+        message.contains('supabase_edge_runtime_error') ||
+        message.contains('bad file descriptor');
+  }
+
   Future<void> _handleCategoryRemapPrompt({
     required BuildContext toastContext,
-    required String userId,
     required String transactionType,
     required String fromCategory,
     required String toCategory,
@@ -3648,12 +4170,14 @@ class _UnifiedTransactionSheetState
     if (!toastContext.mounted) return;
 
     if (result?.confirmed == true) {
-      final saved = await saveUserCategoryRemapPreferenceForUser(
-        userId: userId,
+      final saved = await saveUserCategoryRemapPreference(
+        ref: ref,
         fromCategory: fromCategory,
         toCategory: toCategory,
         transactionType: transactionType,
       );
+
+      if (!toastContext.mounted) return;
 
       if (saved) {
         AppToast.success(
@@ -3707,75 +4231,32 @@ class _UnifiedTransactionSheetState
     setState(() => _isDeleting = true);
 
     try {
-      final user = ref.read(authProvider);
-
-      debugPrint(' Deleting expense');
-
-      // Capture l10n before async call
       final failedToDeleteExpenseMsg = context.l10n.failedToDeleteExpense;
-
-      // Call delete API
-      final response = await supabase.functions.invoke(
-        'delete-expense',
-        body: {
-          'userId': user.uid,
-          'expenseIds': widget.existingExpense!.id,
-        },
+      debugPrint(' Deleting expense');
+      final deleted = await ref
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically(
+        [widget.existingExpense!],
       );
 
-      if (response.data == null || response.data['success'] != true) {
-        throw Exception(response.data?['error'] ?? failedToDeleteExpenseMsg);
+      if (!deleted) {
+        throw Exception(failedToDeleteExpenseMsg);
       }
 
       debugPrint(' Expense deleted successfully');
 
-      ref.read(analyticsProvider.notifier).refresh(user.uid);
+      if (!mounted || !toastContext.mounted) return;
 
-      // CRITICAL: Always invalidate ALL pocket providers (all scopes, all months)
-      // This ensures pockets page refreshes regardless of personal/household mode
-      debugPrint(' Invalidating ALL pockets provider families...');
-      ref.invalidate(pocketsProvider);
-      ref.invalidate(pocketDetailsProvider);
-      ref.read(walletActionsProvider).refreshAccountData();
-      ref.invalidate(currencyTransactionCountsProvider);
-      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-      ref
-          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
-          .state += 1;
-
-      // If this was a household expense, invalidate household providers
-      final householdId = widget.existingExpense!.householdId;
-      if (householdId != null) {
-        debugPrint(' Invalidating household providers for selected household');
-
-        // Clear cached data first
-        ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
-
-        // Invalidate household list to update counts
-        ref.invalidate(userHouseholdsProvider(user.uid));
-
-        // Invalidate ALL provider families so all parameterized instances refresh
-        ref.invalidate(householdExpensesProvider);
-        ref.invalidate(cachedHouseholdExpensesProvider);
-        ref.invalidate(householdSplitsProvider);
-        ref.invalidate(cachedHouseholdSplitsProvider);
-        ref.invalidate(householdBudgetsProvider);
-        ref.invalidate(householdMembersProvider);
-
-        debugPrint(' Invalidated household providers');
-      }
-
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
+      Navigator.of(context).pop(true);
 
       AppToast.success(
         toastContext,
-        context.l10n.expenseDeletedSuccessfully,
+        toastContext.l10n.expenseDeletedSuccessfully,
         duration: const Duration(seconds: 4),
       );
     } catch (error) {
       debugPrint(' Error deleting expense: $error');
+      if (!toastContext.mounted) return;
       AppToast.error(
         toastContext,
         ErrorHandler.getUserFriendlyMessage(

@@ -2,6 +2,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
@@ -83,10 +85,18 @@ final settlementOverviewProvider =
 final householdDerivedSummaryProvider =
     Provider.family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
   (ref, params) {
+    final currentUserId = supabase.auth.currentUser?.id;
+    final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
+    final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
+    final query = DashboardScopeQuery(
+      userId: currentUserId ?? '',
+      householdId: params.householdId,
+      selectedCurrency: params.currency,
+      startDate: rangeStart,
+      endDate: rangeEnd,
+    );
     final expensesAsync = ref.watch(
-      cachedHouseholdExpensesProvider(
-        HouseholdExpensesParams(householdId: params.householdId),
-      ),
+      dashboardCalendarTransactionsProvider(query),
     );
     final splitsAsync = ref.watch(
       cachedHouseholdSplitsProvider(
@@ -104,20 +114,20 @@ final householdDerivedSummaryProvider =
       params.householdId,
     ));
 
-    final currentUserId = supabase.auth.currentUser?.id;
     if (currentUserId != null &&
         currentUserId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier = ref.read(
+        recurringTransactionsProvider(params.householdId).notifier,
+      );
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(params.householdId).notifier)
-            .loadRecurringTransactions(currentUserId);
+        recurringNotifier.loadRecurringTransactions(currentUserId);
       });
     }
 
-    final expenses = expensesAsync.valueOrNull;
-    if (expenses == null) {
+    final baseExpenses = expensesAsync.valueOrNull;
+    if (baseExpenses == null) {
       if (expensesAsync.hasError) {
         return AsyncValue.error(
           expensesAsync.error!,
@@ -127,18 +137,31 @@ final householdDerivedSummaryProvider =
       return const AsyncValue.loading();
     }
 
+    final expenses = mergeDashboardTransactionsWithLocalOverlay(
+      base: baseExpenses,
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
+
     final optimisticExpenses = ref.watch(
       householdOptimisticExpensesProvider.select(
         (state) => state[params.householdId] ?? const <ExpenseEntry>[],
       ),
     );
-    final mergedExpenses = mergeHouseholdExpenses(expenses, optimisticExpenses);
+    final deletedIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => state[params.householdId] ?? const <String>{},
+      ),
+    );
+    final mergedExpenses = mergeHouseholdExpenses(
+      expenses,
+      optimisticExpenses,
+      deletedIds: deletedIds,
+    );
     final splits = splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
     final members = membersAsync.valueOrNull ?? const <HouseholdMember>[];
     final budgets = budgetsAsync.valueOrNull ?? const <SharedBudget>[];
 
-    final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
-    final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
     final expensesWithRecurring = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: mergedExpenses,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],

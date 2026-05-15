@@ -82,7 +82,7 @@ Future<MobileStripeCheckoutResult> showMobileStripeCheckoutSheet({
     useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
-    enableDrag: false,
+    enableDrag: true,
     backgroundColor: scheme.surface.withValues(alpha: 0.0),
     builder: (_) => FractionallySizedBox(
       heightFactor: 0.96,

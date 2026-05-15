@@ -129,6 +129,9 @@ void main() {
           currency: 'USD',
           date: DateTime(2026, 4, 20),
           householdId: 'hh_1',
+          clientRecordId: 'optimistic_income_1',
+          clientMutationId: 'mobile:optimistic_income_1',
+          idempotencyKey: 'mobile:optimistic_income_1',
           customSplitType: SplitType.amount,
           customSplits: [
             MemberSplit(member: members[0], amount: 80),
@@ -140,6 +143,9 @@ void main() {
     expect(saved?.id, 'income_1');
     expect(capturedSaveBody, isNotNull);
     expect(capturedSaveBody!['householdId'], 'hh_1');
+    expect(capturedSaveBody!['clientRecordId'], 'optimistic_income_1');
+    expect(capturedSaveBody!['clientMutationId'], 'mobile:optimistic_income_1');
+    expect(capturedSaveBody!['idempotencyKey'], 'mobile:optimistic_income_1');
     expect(capturedSaveBody!['payerUserId'], 'user_2');
     expect(capturedSaveBody!['customSplits'], {
       'splitType': 'amount',

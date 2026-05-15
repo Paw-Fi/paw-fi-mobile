@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
@@ -665,13 +666,16 @@ class HomeHeaderSliver extends ConsumerWidget {
       }
     }
 
-    menuItems.add(AdaptivePopupMenuItem(
-      label: context.l10n.editWidgets,
-      icon: PlatformInfo.isIOS26OrHigher()
-          ? 'square.grid.2x2'
-          : Icons.dashboard_customize_outlined,
-      value: 'edit_widgets',
-    ));
+    final currentIndex = ref.watch(mainShellTabIndexProvider);
+    if (currentIndex == 0) {
+      menuItems.add(AdaptivePopupMenuItem(
+        label: context.l10n.editWidgets,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'square.grid.2x2'
+            : Icons.dashboard_customize_outlined,
+        value: 'edit_widgets',
+      ));
+    }
 
     menuItems.add(AdaptivePopupMenuItem(
       label: context.l10n.exportTransactions,

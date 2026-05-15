@@ -170,6 +170,8 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     String? householdId,
     String? accountId,
     double? fxRate,
+    String? clientRecordId,
+    String? clientMutationId,
     String? idempotencyKey,
     List<Map<String, dynamic>>? attachments,
     bool isRecurring = false,
@@ -202,6 +204,10 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         if (householdId != null) 'isPortfolio': isPortfolio,
         if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
         if (fxRate != null) 'fxRate': fxRate,
+        if (clientRecordId != null && clientRecordId.isNotEmpty)
+          'clientRecordId': clientRecordId,
+        if (clientMutationId != null && clientMutationId.isNotEmpty)
+          'clientMutationId': clientMutationId,
         if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
         if (attachments != null) 'attachments': attachments,
         'isRecurring': isRecurring,

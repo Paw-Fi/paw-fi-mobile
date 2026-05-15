@@ -10,6 +10,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -39,7 +40,7 @@ Future<CreateEditWalletResult?> showCreateEditWalletSheet(
   return showModalBottomSheet<CreateEditWalletResult>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     builder: (context) => _CreateEditWalletSheet(initial: initial),
@@ -66,6 +67,8 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
           ? formatAmount(centsToAmount(initial!.openingBalanceCents))
           : '',
     );
+    useListenable(openingController);
+    useListenable(goalController);
     final selectedIcon = useState<String>(initial?.icon ?? 'wallet');
     final selectedColor = useState<String>(initial?.color ?? '#6B7280');
     final isDefault = useState<bool>(initial?.isDefault ?? false);
@@ -320,11 +323,40 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: openingController,
-                        placeholder: '',
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                      Builder(
+                        builder: (context) => GestureDetector(
+                          onTap: () async {
+                            final value = await showCalculatorKeypadSheet(
+                              context: context,
+                              initialValue: openingController.text,
+                            );
+                            if (value != null) {
+                              openingController.text = value;
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: colorScheme.card,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: colorScheme.border),
+                            ),
+                            child: Text(
+                              openingController.text.isNotEmpty
+                                  ? openingController.text
+                                  : context.l10n.tapToSet,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: openingController.text.isNotEmpty
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurface
+                                        .withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
                       Text(
@@ -336,11 +368,40 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: goalController,
-                        placeholder: '',
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                      Builder(
+                        builder: (context) => GestureDetector(
+                          onTap: () async {
+                            final value = await showCalculatorKeypadSheet(
+                              context: context,
+                              initialValue: goalController.text,
+                            );
+                            if (value != null) {
+                              goalController.text = value;
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: colorScheme.card,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: colorScheme.border),
+                            ),
+                            child: Text(
+                              goalController.text.isNotEmpty
+                                  ? goalController.text
+                                  : context.l10n.tapToSet,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: goalController.text.isNotEmpty
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurface
+                                        .withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 14),
                       SwitchListTile.adaptive(

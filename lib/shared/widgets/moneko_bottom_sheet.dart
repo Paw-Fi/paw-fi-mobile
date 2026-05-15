@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
@@ -28,52 +26,33 @@ class MonekoBottomSheet {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (Platform.isIOS) {
-      return showCupertinoModalPopup<T>(
-        context: context,
-        barrierDismissible: isDismissible,
-        useRootNavigator: useRootNavigator,
-        builder: (context) {
-          return _MonekoSheetContent(
-            builder: builder,
-            title: title,
-            onClose: onClose,
-            onConfirm: onConfirm,
-            isConfirmLoading: isConfirmLoading,
-            colorScheme: colorScheme,
-            backgroundColor: backgroundColor ?? colorScheme.sheetBackground,
-          );
-        },
-      );
-    } else {
-      return showModalBottomSheet<T>(
-        context: context,
-        backgroundColor: backgroundColor,
-        elevation: elevation,
-        shape: shape ??
-            const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-        clipBehavior: clipBehavior,
-        constraints: constraints,
-        isScrollControlled: isScrollControlled,
-        isDismissible: isDismissible,
-        enableDrag: enableDrag,
-        useRootNavigator: useRootNavigator,
-        useSafeArea: useSafeArea,
-        builder: (context) {
-          return _MonekoSheetContent(
-            builder: builder,
-            title: title,
-            onClose: onClose,
-            onConfirm: onConfirm,
-            isConfirmLoading: isConfirmLoading,
-            colorScheme: colorScheme,
-            backgroundColor: backgroundColor ?? colorScheme.sheetBackground,
-          );
-        },
-      );
-    }
+    return showModalBottomSheet<T>(
+      context: context,
+      backgroundColor: backgroundColor,
+      elevation: elevation,
+      shape: shape ??
+          const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+      clipBehavior: clipBehavior,
+      constraints: constraints,
+      isScrollControlled: isScrollControlled,
+      isDismissible: isDismissible,
+      enableDrag: enableDrag,
+      useRootNavigator: useRootNavigator,
+      useSafeArea: useSafeArea,
+      builder: (context) {
+        return _MonekoSheetContent(
+          builder: builder,
+          title: title,
+          onClose: onClose,
+          onConfirm: onConfirm,
+          isConfirmLoading: isConfirmLoading,
+          colorScheme: colorScheme,
+          backgroundColor: backgroundColor ?? colorScheme.sheetBackground,
+        );
+      },
+    );
   }
 }
 

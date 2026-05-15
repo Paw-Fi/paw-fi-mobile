@@ -4,11 +4,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
-import '../widgets/tabs/tabs.dart';
+import 'monthly_report_page.dart';
+import '../widgets/tabs/scenario_planning_tab.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -30,6 +32,8 @@ final insightsTabIndexProvider = StateProvider<int>((ref) => 0);
 
 class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   late final SpotlightTourController _insightsTourController;
+  int? _lastHandledTransactionRefreshSignal;
+  int? _lastHandledDashboardRefreshSignal;
 
   @override
   void initState() {
@@ -40,7 +44,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
   Future<void> _startInsightsTourIfNeeded(int currentTabIndex) async {
     if (currentTabIndex != 4) return;
-    if (ref.read(insightsTabIndexProvider) != 0) return;
+    if (ref.read(insightsTabIndexProvider) != 1) return;
     if (ref.read(authProvider).uid.isEmpty) return;
 
     await _insightsTourController.start(context);
@@ -52,6 +56,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authProvider);
     final analyticsData = ref.watch(analyticsProvider);
+    final transactionRefreshSignal =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final activeHouseholdId =
@@ -65,21 +72,48 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
             : state[activeHouseholdId] ?? const <ExpenseEntry>[],
       ),
     );
+    final activeScopeDeletedExpenseIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
+            ? const <String>{}
+            : state[activeHouseholdId] ?? const <String>{},
+      ),
+    );
 
-    final scopedAnalyticsData = activeScopeOptimisticExpenses.isEmpty
+    final scopedAnalyticsData = activeScopeOptimisticExpenses.isEmpty &&
+            activeScopeDeletedExpenseIds.isEmpty
         ? analyticsData
         : analyticsData.copyWith(
             expenses: mergeHouseholdExpenses(
               analyticsData.expenses,
               activeScopeOptimisticExpenses,
+              deletedIds: activeScopeDeletedExpenseIds,
             ),
             allExpenses: mergeHouseholdExpenses(
               analyticsData.allExpenses,
               activeScopeOptimisticExpenses,
+              deletedIds: activeScopeDeletedExpenseIds,
             ),
           );
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
     final preview = ref.watch(previewModeProvider);
+
+    if (!preview.isActive && auth.uid.isNotEmpty) {
+      final shouldHydratePendingLocalRows =
+          _lastHandledTransactionRefreshSignal != transactionRefreshSignal ||
+              _lastHandledDashboardRefreshSignal != dashboardRefreshSignal;
+      if (shouldHydratePendingLocalRows) {
+        _lastHandledTransactionRefreshSignal = transactionRefreshSignal;
+        _lastHandledDashboardRefreshSignal = dashboardRefreshSignal;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(analyticsProvider.notifier).hydrateFromLocalCache(
+                auth.uid,
+                householdId: activeHouseholdId,
+              );
+        });
+      }
+    }
 
     if (!preview.isActive &&
         auth.uid.isNotEmpty &&
@@ -104,7 +138,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       });
     }
 
-    if (currentTabIndex == 4 && currentInsightsTabIndex == 0) {
+    if (currentTabIndex == 4 && currentInsightsTabIndex == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _startInsightsTourIfNeeded(currentTabIndex);
@@ -131,14 +165,17 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
               Expanded(
                 child: MonekoTabBarView(
                   tabs: [
+                    context.l10n.monthlyReport,
                     context.l10n.scenarioTab,
-                    context.l10n.runningTab,
-                    context.l10n.day30Tab,
-                    context.l10n.longTermTab,
                   ],
                   children: [
                     _buildLazyInsightsTab(
                       index: 0,
+                      activeIndex: currentInsightsTabIndex,
+                      buildChild: () => const MonthlyReportPage(),
+                    ),
+                    _buildLazyInsightsTab(
+                      index: 1,
                       activeIndex: currentInsightsTabIndex,
                       buildChild: () => _buildScenarioPlanningTabWithProvider(
                         colorScheme,
@@ -148,37 +185,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       ),
                     ),
                     _buildLazyInsightsTab(
-                      index: 1,
-                      activeIndex: currentInsightsTabIndex,
-                      buildChild: () => buildRunningBalanceTab(
-                        context,
-                        colorScheme,
-                        scopedAnalyticsData,
-                        householdScope: householdScope,
-                        selectedCurrency: filterState.selectedCurrency,
-                      ),
-                    ),
-                    _buildLazyInsightsTab(
                       index: 2,
                       activeIndex: currentInsightsTabIndex,
-                      buildChild: () => build30DayLookAheadTab(
-                        context,
-                        colorScheme,
-                        scopedAnalyticsData,
-                        householdScope: householdScope,
-                        selectedCurrency: filterState.selectedCurrency,
-                      ),
-                    ),
-                    _buildLazyInsightsTab(
-                      index: 3,
-                      activeIndex: currentInsightsTabIndex,
-                      buildChild: () => buildLongTermProjectionTab(
-                        context,
-                        colorScheme,
-                        scopedAnalyticsData,
-                        householdScope: householdScope,
-                        selectedCurrency: filterState.selectedCurrency,
-                      ),
+                      buildChild: () => const SizedBox.shrink(),
                     ),
                   ],
                   onTabChanged: (index) {

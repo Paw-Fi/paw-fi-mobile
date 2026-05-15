@@ -71,12 +71,27 @@ class _ScenarioPlanningTabContentState
       TextEditingController();
   DateTime? _scenarioDate;
   bool _scenarioLoading = false;
+  Future<List<Map<String, dynamic>>>? _scenarioHistoryFuture;
+  String? _scenarioHistoryUserId;
+  String? _scenarioHistoryHouseholdId;
 
-  List<String> get _previewSavedScenarios => [
-        'Can I buy a \$1,200 laptop before Apr 15?',
-        'Can I fund my June wedding deposits before May 20?',
-        'Can I build a \$5,000 emergency fund before December 31?',
-      ];
+  List<String> _previewSavedScenarios(BuildContext context) {
+    final now = DateTime.now();
+    return [
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.buyALaptop,
+        _formatLocalizedDate(now.add(const Duration(days: 45))),
+      ),
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.insightsTourExampleRentGroceries,
+        _formatLocalizedDate(now.add(const Duration(days: 90))),
+      ),
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.insightsTourExampleEmergencyFund,
+        _formatLocalizedDate(now.add(const Duration(days: 150))),
+      ),
+    ];
+  }
 
   String _buildScenarioTourDescription() {
     final now = DateTime.now();
@@ -358,6 +373,13 @@ class _ScenarioPlanningTabContentState
             activeHouseholdId != null;
     final String? householdId = isHousehold ? activeHouseholdId : null;
     final preview = ref.watch(previewModeProvider);
+
+    if (!preview.isActive && user.uid.isNotEmpty) {
+      _ensureScenarioHistoryFuture(
+        user.uid,
+        isHousehold ? householdId : null,
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -876,11 +898,25 @@ class _ScenarioPlanningTabContentState
             child: preview.isActive
                 ? _buildPreviewScenarioList(colorScheme)
                 : FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _loadScenarioHistory(
-                      user.uid,
-                      isHousehold ? householdId : null,
-                    ),
+                    future: _scenarioHistoryFuture,
                     builder: (context, snapshot) {
+                      if (_scenarioHistoryFuture == null) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: Text(
+                              context.l10n.noSavedScenariosYet,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Padding(
                           padding: EdgeInsets.all(16.0),
@@ -945,10 +981,10 @@ class _ScenarioPlanningTabContentState
                                     householdId: householdId,
                                     scenarioId: id,
                                     onSaved: () {
-                                      setState(() {});
+                                      _refreshScenarioHistory();
                                     },
                                     onDeleted: () {
-                                      setState(() {});
+                                      _refreshScenarioHistory();
                                     },
                                   );
                                 },
@@ -1029,7 +1065,7 @@ class _ScenarioPlanningTabContentState
       children: [
         const Icon(Icons.history, size: 18),
         const SizedBox(height: 12),
-        ..._previewSavedScenarios.map(
+        ..._previewSavedScenarios(context).map(
           (s) => Padding(
             padding: const EdgeInsets.only(bottom: 10.0),
             child: Row(
@@ -1052,6 +1088,34 @@ class _ScenarioPlanningTabContentState
         ),
       ],
     );
+  }
+
+  void _ensureScenarioHistoryFuture(String userId, String? householdId) {
+    final normalizedHouseholdId = householdId?.isEmpty == true ? null : householdId;
+    final shouldRefresh = _scenarioHistoryFuture == null ||
+        _scenarioHistoryUserId != userId ||
+        _scenarioHistoryHouseholdId != normalizedHouseholdId;
+
+    if (!shouldRefresh) return;
+
+    _scenarioHistoryUserId = userId;
+    _scenarioHistoryHouseholdId = normalizedHouseholdId;
+    _scenarioHistoryFuture = _loadScenarioHistory(
+      userId,
+      normalizedHouseholdId,
+    );
+  }
+
+  void _refreshScenarioHistory() {
+    final userId = _scenarioHistoryUserId;
+    if (userId == null || userId.isEmpty) return;
+
+    setState(() {
+      _scenarioHistoryFuture = _loadScenarioHistory(
+        userId,
+        _scenarioHistoryHouseholdId,
+      );
+    });
   }
 }
 

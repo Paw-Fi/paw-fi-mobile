@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -14,7 +17,6 @@ import 'package:moneko/features/home/presentation/state/transactions_feed_provid
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -53,6 +55,15 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       clearError: true,
     );
 
+    final mutationMetadata = buildTransactionMutationMetadataForRecord(
+      clientRecordId: expenseId,
+      operation: 'update_transaction',
+    );
+    final user = ref.read(authProvider);
+    ExpenseEntry? optimisticExpense;
+    ExpenseEntry? originalForRollback;
+    MonekoDatabase? localDatabase;
+
     try {
       // ═══════════════════════════════════════════════════════════════
       // STEP 1: Try optimistic UI update (if expense is in local cache)
@@ -77,7 +88,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // If expense found in local cache, apply optimistic update
       if (cachedOriginalExpense != null) {
         // 2. Create optimistic update (what the UI will show immediately)
-        final optimisticExpense = _applyUpdates(cachedOriginalExpense, updates);
+        optimisticExpense = _applyUpdates(cachedOriginalExpense, updates);
+        originalForRollback = cachedOriginalExpense;
 
         _debugPrint('💾 Applying optimistic update');
 
@@ -86,6 +98,19 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         _applyOptimisticUpdateToProvider(
           optimisticExpense,
           originalExpense: cachedOriginalExpense,
+        );
+        localDatabase = await _writeOptimisticUpdateToLocalStore(
+          originalEntry: cachedOriginalExpense,
+          updatedEntry: optimisticExpense,
+          mutationMetadata: mutationMetadata,
+          payload: {
+            ...mutationMetadata.toRequestJson(),
+            'userId': user.uid,
+            'expenseId': expenseId,
+            'updates': updates,
+            if (extraBody != null && extraBody.isNotEmpty)
+              'extraBody': extraBody,
+          },
         );
       } else {
         // Expense not in cache - likely a household expense
@@ -100,11 +125,11 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // The backend update works for both personal and household expenses.
       // We continue regardless of whether optimistic update was applied.
       // ═══════════════════════════════════════════════════════════════
-      final user = ref.read(authProvider);
       final supabaseClient = ref.read(transactionEditSupabaseClientProvider);
       _debugPrint('🌐 Calling update-expense API...');
 
       final requestBody = <String, dynamic>{
+        ...mutationMetadata.toRequestJson(),
         'userId': user.uid,
         'expenseId': expenseId,
         'updates': updates,
@@ -127,7 +152,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         throw Exception('No response from server');
       }
 
-      final responseData = response.data as Map<String, dynamic>;
+      final responseData = _responseMap(response.data);
+      if (responseData == null) {
+        throw Exception('Invalid response from server');
+      }
       _debugPrint(
         '📥 update-expense response: success=${responseData['success']} code=${responseData['code']} error=${responseData['error']}',
       );
@@ -166,7 +194,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
               },
             );
 
-            final retryData = retryResponse.data as Map<String, dynamic>?;
+            final retryData = _responseMap(retryResponse.data);
             final retrySuccess = retryData?['success'] == true;
             final retryCategory = _normalizeCategoryValue(
               (retryData?['data'] as Map<String, dynamic>?)?['category'],
@@ -189,6 +217,21 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       }
 
       _debugPrint('✅ Backend update successful');
+
+      final responseExpense = _expenseFromResponseData(
+        responseData['data'],
+        fallback: optimisticExpense,
+      );
+      if (localDatabase != null && responseExpense != null) {
+        await localDatabase.markOptimisticTransactionUpdateSynced(
+          entry: responseExpense,
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
+      } else if (localDatabase != null) {
+        await localDatabase.markMutationSynced(
+          mutationMetadata.clientMutationId,
+        );
+      }
 
       // ═══════════════════════════════════════════════════════════════
       // STEP 3: Reload data from backend to sync all providers
@@ -222,8 +265,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       ref.read(cacheInvalidatorProvider).invalidateAll();
       _debugPrint('✅ Invalidated household providers');
 
-      // Keep other tabs in sync (pockets + currency counts).
-      ref.invalidate(pocketsProvider);
+      // Keep other tabs in sync. Pockets reconciles from refresh signals
+      // without disposing its visible provider.
       ref.invalidate(currencyTransactionCountsProvider);
       ref
           .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
@@ -241,8 +284,29 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // 6. Error: Rollback optimistic update
       _debugPrint('❌ Update failed: $e');
 
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(walletActionsProvider).refreshAccountData();
+        state = state.copyWith(
+          isLoading: false,
+          clearOptimisticUpdate: true,
+          clearError: true,
+        );
+        return true;
+      }
+
       try {
-        final originalHouseholdId = originalExpense?.householdId?.trim();
+        if (localDatabase != null && originalForRollback != null) {
+          await localDatabase.rollbackOptimisticTransactionUpdate(
+            originalEntry: originalForRollback,
+            clientMutationId: mutationMetadata.clientMutationId,
+            error: e,
+          );
+        }
+
+        final originalHouseholdId =
+            (originalForRollback ?? originalExpense)?.householdId?.trim();
         if (originalHouseholdId != null && originalHouseholdId.isNotEmpty) {
           ref
               .read(householdOptimisticExpensesProvider.notifier)
@@ -275,6 +339,233 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
       return false;
     }
+  }
+
+  Future<bool> deleteExpensesOptimistically(
+    List<ExpenseEntry> expenses,
+  ) async {
+    final targets = expenses
+        .where((entry) => entry.id.trim().isNotEmpty)
+        .toList(growable: false);
+    if (targets.isEmpty) return false;
+
+    final user = ref.read(authProvider);
+    final ids = targets.map((entry) => entry.id).toList(growable: false);
+    final mutationMetadata = buildTransactionMutationMetadataForRecord(
+      clientRecordId: ids.join('_'),
+      operation: 'delete_transaction',
+    );
+    MonekoDatabase? localDatabase;
+
+    try {
+      _applyOptimisticDeleteToProviders(targets);
+      localDatabase = await _writeOptimisticDeleteToLocalStore(
+        entries: targets,
+        mutationMetadata: mutationMetadata,
+        payload: {
+          ...mutationMetadata.toRequestJson(),
+          'userId': user.uid,
+          'expenseIds': ids.join(','),
+        },
+      );
+
+      final response = await ref
+          .read(transactionEditSupabaseClientProvider)
+          .functions
+          .invoke('delete-expense', body: {
+        ...mutationMetadata.toRequestJson(),
+        'userId': user.uid,
+        'expenseIds': ids.join(','),
+      });
+
+      final payload = _responseMap(response.data);
+      if (payload == null || payload['success'] != true) {
+        final message = (payload?['error'] as String?) ?? 'Delete failed';
+        final failedCount = payload?['failedCount'] as int?;
+        if (failedCount != null && failedCount > 0) {
+          throw Exception(message);
+        }
+        throw Exception(message);
+      }
+
+      if (localDatabase != null) {
+        await localDatabase.markOptimisticTransactionDeleteSynced(
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
+      }
+
+      await _refreshAfterTransactionMutation(user.uid);
+      _clearOptimisticDeletedIds(targets);
+      state = state.copyWith(clearError: true);
+      return true;
+    } catch (e) {
+      _debugPrint('❌ Delete failed: $e');
+
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        await _refreshAfterTransactionMutation(user.uid);
+        _clearOptimisticDeletedIds(targets);
+        state = state.copyWith(clearError: true);
+        return true;
+      }
+
+      if (localDatabase != null) {
+        await localDatabase.rollbackOptimisticTransactionDelete(
+          entries: targets,
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: e,
+        );
+      }
+
+      _rollbackOptimisticDeleteToProviders(targets);
+      state = state.copyWith(
+        error: ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.deleteExpense,
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<MonekoDatabase?> _writeOptimisticUpdateToLocalStore({
+    required ExpenseEntry originalEntry,
+    required ExpenseEntry updatedEntry,
+    required TransactionMutationMetadata mutationMetadata,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: originalEntry,
+        updatedEntry: updatedEntry,
+        clientMutationId: mutationMetadata.clientMutationId,
+        payload: payload,
+      );
+      return database;
+    } catch (error) {
+      _debugPrint('⚠️ Local optimistic update unavailable: $error');
+      return null;
+    }
+  }
+
+  Future<MonekoDatabase?> _writeOptimisticDeleteToLocalStore({
+    required List<ExpenseEntry> entries,
+    required TransactionMutationMetadata mutationMetadata,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransactionDelete(
+        entries: entries,
+        clientMutationId: mutationMetadata.clientMutationId,
+        payload: payload,
+      );
+      return database;
+    } catch (error) {
+      _debugPrint('⚠️ Local optimistic delete unavailable: $error');
+      return null;
+    }
+  }
+
+  ExpenseEntry? _expenseFromResponseData(
+    Object? data, {
+    required ExpenseEntry? fallback,
+  }) {
+    if (data is Map<String, dynamic>) {
+      return ExpenseEntry.fromJson(data);
+    }
+    if (data is Map) {
+      return ExpenseEntry.fromJson(Map<String, dynamic>.from(data));
+    }
+    return fallback;
+  }
+
+  Map<String, dynamic>? _responseMap(Object? data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return null;
+  }
+
+  Future<void> _refreshAfterTransactionMutation(String userId) async {
+    await ref.read(analyticsProvider.notifier).loadData(userId);
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+
+    ref.invalidate(userHouseholdsProvider(userId));
+    ref.invalidate(householdExpensesProvider);
+    ref.invalidate(householdSplitsProvider);
+    ref.invalidate(householdBudgetsProvider);
+    ref.invalidate(householdMembersProvider);
+    ref.invalidate(cachedHouseholdExpensesProvider);
+    ref.invalidate(cachedHouseholdSplitsProvider);
+    ref.read(cacheInvalidatorProvider).invalidateAll();
+
+    ref.invalidate(currencyTransactionCountsProvider);
+    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
+        1;
+    ref.read(walletActionsProvider).refreshAccountData();
+  }
+
+  void _applyOptimisticDeleteToProviders(List<ExpenseEntry> entries) {
+    final analytics = ref.read(analyticsProvider);
+    final ids = entries.map((entry) => entry.id).toSet();
+    ref.read(analyticsProvider.notifier).state = analytics.copyWith(
+      expenses: analytics.expenses
+          .where((entry) => !ids.contains(entry.id))
+          .toList(growable: false),
+      allExpenses: analytics.allExpenses
+          .where((entry) => !ids.contains(entry.id))
+          .toList(growable: false),
+    );
+
+    final byHousehold = _entriesByHousehold(entries);
+    final deletedNotifier =
+        ref.read(householdOptimisticDeletedExpenseIdsProvider.notifier);
+    for (final entry in byHousehold.entries) {
+      deletedNotifier.markDeleted(
+        entry.key,
+        entry.value.map((expense) => expense.id),
+      );
+    }
+  }
+
+  void _rollbackOptimisticDeleteToProviders(List<ExpenseEntry> entries) {
+    for (final entry in entries) {
+      final householdId = entry.householdId?.trim();
+      if (householdId != null && householdId.isNotEmpty) {
+        ref
+            .read(householdOptimisticExpensesProvider.notifier)
+            .replaceExpense(householdId, entry.id, entry);
+      } else {
+        ref.read(analyticsProvider.notifier).addOptimisticTransaction(entry);
+      }
+    }
+
+    _clearOptimisticDeletedIds(entries);
+  }
+
+  void _clearOptimisticDeletedIds(List<ExpenseEntry> entries) {
+    final byHousehold = _entriesByHousehold(entries);
+    final deletedNotifier =
+        ref.read(householdOptimisticDeletedExpenseIdsProvider.notifier);
+    for (final entry in byHousehold.entries) {
+      deletedNotifier.restore(
+        entry.key,
+        entry.value.map((expense) => expense.id),
+      );
+    }
+  }
+
+  Map<String, List<ExpenseEntry>> _entriesByHousehold(
+    List<ExpenseEntry> entries,
+  ) {
+    final grouped = <String, List<ExpenseEntry>>{};
+    for (final entry in entries) {
+      final householdId = entry.householdId?.trim();
+      if (householdId == null || householdId.isEmpty) continue;
+      grouped.putIfAbsent(householdId, () => <ExpenseEntry>[]).add(entry);
+    }
+    return grouped;
   }
 
   /// Apply field updates to an expense, creating a new instance
@@ -384,6 +675,21 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   void clearError() {
     state = state.copyWith(clearError: true);
   }
+}
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error');
 }
 
 final transactionEditSupabaseClientProvider = Provider<SupabaseClient>((ref) {

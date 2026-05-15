@@ -41,7 +41,10 @@ class SpendingCard extends StatefulWidget {
 class _SpendingCardState extends State<SpendingCard> {
   int _currentWindowStart = 0;
   static const int _windowSize = 7; // Show 7 data points at a time
+  static const Duration _entranceAnimationDuration =
+      Duration(milliseconds: 800);
   int? _touchedIndex;
+  bool _hasPlayedEntranceAnimation = false;
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +135,10 @@ class _SpendingCardState extends State<SpendingCard> {
     }).toList();
 
     final maxY = allCumulativeData.isEmpty ? 100.0 : allCumulativeData.last.y;
+    final animationStart = _hasPlayedEntranceAnimation ? 1.0 : 0.0;
+    final animationDuration = _hasPlayedEntranceAnimation
+        ? Duration.zero
+        : _entranceAnimationDuration;
 
     return Container(
       decoration: BoxDecoration(
@@ -196,9 +203,14 @@ class _SpendingCardState extends State<SpendingCard> {
           SizedBox(
             height: 160,
             child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 800),
+              tween: Tween<double>(begin: animationStart, end: 1),
+              duration: animationDuration,
               curve: Curves.easeOutCubic,
+              onEnd: () {
+                if (!_hasPlayedEntranceAnimation && mounted) {
+                  setState(() => _hasPlayedEntranceAnimation = true);
+                }
+              },
               builder: (context, animationValue, child) {
                 // Interpolate spots from 0 to actual values
                 final animatedSpots = adjustedVisibleData.map((spot) {
@@ -539,18 +551,20 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-/// Legacy function wrapper for backward compatibility
 Widget buildSpendingCard(
-    BuildContext context,
-    ColorScheme colorScheme,
-    List<ExpenseEntry> expenses,
-    UserContact? contact,
-    DateRangeFilter dateFilter,
-    {DateTime? referenceNow,
-    String? selectedCurrency,
-    DateTime? customStartDate,
-    DateTime? customEndDate}) {
+  BuildContext context,
+  ColorScheme colorScheme,
+  List<ExpenseEntry> expenses,
+  UserContact? contact,
+  DateRangeFilter dateFilter, {
+  Key? key,
+  DateTime? referenceNow,
+  String? selectedCurrency,
+  DateTime? customStartDate,
+  DateTime? customEndDate,
+}) {
   return SpendingCard(
+    key: key,
     colorScheme: colorScheme,
     expenses: expenses,
     contact: contact,

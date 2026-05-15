@@ -52,10 +52,31 @@ class CategoryDetailsPage extends ConsumerStatefulWidget {
 
 class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _dateFilterScrollController = ScrollController();
+  final GlobalKey _dateFilterScrollViewKey = GlobalKey();
+  final Map<DateRangeFilter, GlobalKey> _dateFilterChipKeys = {
+    for (final filter in _dateFilterOptions) filter: GlobalKey(),
+  };
+  bool _didScrollInitialDateFilterIntoView = false;
 
   late DateRangeFilter _selectedDateFilter;
   DateTime? _customStart;
   DateTime? _customEnd;
+
+  static const _dateFilterOptions = [
+    DateRangeFilter.last7Days,
+    DateRangeFilter.today,
+    DateRangeFilter.yesterday,
+    DateRangeFilter.thisWeek,
+    DateRangeFilter.lastWeek,
+    DateRangeFilter.thisMonth,
+    DateRangeFilter.lastMonth,
+    DateRangeFilter.last3Months,
+    DateRangeFilter.last30Days,
+    DateRangeFilter.thisYear,
+    DateRangeFilter.allTime,
+    DateRangeFilter.custom,
+  ];
 
   @override
   void initState() {
@@ -81,12 +102,58 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     }
 
     _scrollController.addListener(_onScroll);
+    _scheduleInitialDateFilterScroll();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _dateFilterScrollController.dispose();
     super.dispose();
+  }
+
+  void _scheduleInitialDateFilterScroll() {
+    if (_didScrollInitialDateFilterIntoView) {
+      return;
+    }
+    _didScrollInitialDateFilterIntoView = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollSelectedDateFilterIntoView();
+    });
+  }
+
+  void _scrollSelectedDateFilterIntoView() {
+    if (!mounted || !_dateFilterScrollController.hasClients) {
+      return;
+    }
+
+    final chipContext =
+        _dateFilterChipKeys[_selectedDateFilter]?.currentContext;
+    final scrollContext = _dateFilterScrollViewKey.currentContext;
+    if (chipContext == null || scrollContext == null) {
+      return;
+    }
+
+    final chipBox = chipContext.findRenderObject() as RenderBox?;
+    final scrollBox = scrollContext.findRenderObject() as RenderBox?;
+    if (chipBox == null || scrollBox == null) {
+      return;
+    }
+
+    final chipLeft = chipBox.localToGlobal(Offset.zero).dx;
+    final scrollLeft = scrollBox.localToGlobal(Offset.zero).dx;
+    final targetOffset = (_dateFilterScrollController.offset +
+            chipLeft -
+            scrollLeft -
+            (scrollBox.size.width - chipBox.size.width) / 2)
+        .clamp(0.0, _dateFilterScrollController.position.maxScrollExtent)
+        .toDouble();
+
+    _dateFilterScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _onScroll() {
@@ -259,7 +326,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             slivers: [
               SliverAppBar(
                 pinned: true,
-                backgroundColor: colorScheme.background,
+                backgroundColor: colorScheme.surface,
                 title: Text(
                   categoryName,
                   style: TextStyle(
@@ -275,7 +342,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 pinned: true,
                 delegate: _StickyFilterDelegate(
                   child: Container(
-                    color: colorScheme.background,
+                    color: colorScheme.surface,
                     child: _buildDateFilterChips(colorScheme),
                   ),
                 ),
@@ -595,6 +662,9 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     return SizedBox(
       height: 52,
       child: ListView.separated(
+        key: _dateFilterScrollViewKey,
+        controller: _dateFilterScrollController,
+        cacheExtent: 10000,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: filters.length,
@@ -615,6 +685,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           }
 
           return GestureDetector(
+            key: _dateFilterChipKeys[filter],
             onTap: () async {
               if (filter == DateRangeFilter.custom) {
                 final result = await showDateRangePicker(

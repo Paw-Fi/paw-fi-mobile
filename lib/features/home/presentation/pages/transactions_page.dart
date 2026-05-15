@@ -25,11 +25,9 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -82,16 +80,37 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   // Selection Mode State
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
-  bool _isDeleting = false;
+  final Set<String> _optimisticallyDeletedIds = {};
 
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _dateFilterScrollController = ScrollController();
+  final GlobalKey _dateFilterScrollViewKey = GlobalKey();
+  final Map<DateRangeFilter, GlobalKey> _dateFilterChipKeys = {
+    for (final filter in _dateFilterOptions) filter: GlobalKey(),
+  };
   Timer? _searchDebounce;
+  bool _didScrollInitialDateFilterIntoView = false;
 
   TransactionsFeedQuery? _activeFeedQuery;
   _TransactionsDerivedCacheKey? _derivedCacheKey;
   TransactionsPageDerivedData? _cachedDerivedData;
+
+  static const _dateFilterOptions = [
+    DateRangeFilter.last7Days,
+    DateRangeFilter.today,
+    DateRangeFilter.yesterday,
+    DateRangeFilter.thisWeek,
+    DateRangeFilter.lastWeek,
+    DateRangeFilter.thisMonth,
+    DateRangeFilter.lastMonth,
+    DateRangeFilter.last3Months,
+    DateRangeFilter.last30Days,
+    DateRangeFilter.thisYear,
+    DateRangeFilter.allTime,
+    DateRangeFilter.custom,
+  ];
 
   String _dateFilterPrefKey(String userId) =>
       'transactions_date_filter:$userId';
@@ -112,6 +131,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     _searchController.dispose();
     _chartPageController.dispose();
     _scrollController.dispose();
+    _dateFilterScrollController.dispose();
     super.dispose();
   }
 
@@ -155,6 +175,51 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       _customStart = customStart;
       _customEnd = customEnd;
     });
+    _scheduleInitialDateFilterScroll();
+  }
+
+  void _scheduleInitialDateFilterScroll() {
+    if (_didScrollInitialDateFilterIntoView) {
+      return;
+    }
+    _didScrollInitialDateFilterIntoView = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollSelectedDateFilterIntoView();
+    });
+  }
+
+  void _scrollSelectedDateFilterIntoView() {
+    if (!mounted || !_dateFilterScrollController.hasClients) {
+      return;
+    }
+
+    final chipContext =
+        _dateFilterChipKeys[_selectedDateFilter]?.currentContext;
+    final scrollContext = _dateFilterScrollViewKey.currentContext;
+    if (chipContext == null || scrollContext == null) {
+      return;
+    }
+
+    final chipBox = chipContext.findRenderObject() as RenderBox?;
+    final scrollBox = scrollContext.findRenderObject() as RenderBox?;
+    if (chipBox == null || scrollBox == null) {
+      return;
+    }
+
+    final chipLeft = chipBox.localToGlobal(Offset.zero).dx;
+    final scrollLeft = scrollBox.localToGlobal(Offset.zero).dx;
+    final targetOffset = (_dateFilterScrollController.offset +
+            chipLeft -
+            scrollLeft -
+            (scrollBox.size.width - chipBox.size.width) / 2)
+        .clamp(0.0, _dateFilterScrollController.position.maxScrollExtent)
+        .toDouble();
+
+    _dateFilterScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _persistDateFilterPreference() async {
@@ -302,16 +367,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     return _selectedDateFilter.getLabel(context);
-  }
-
-  void _showRootBlockingDialog(String message) {
-    final rootContext = rootNavigatorKey.currentContext;
-    if (rootContext == null) return;
-
-    showBlockingProcessingDialog(
-      context: rootContext,
-      message: message,
-    );
   }
 
   void _showRootSuccessToast(String message) {
@@ -483,7 +538,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     _activeFeedQuery = feedQuery;
 
     final feedState = ref.watch(transactionsFeedProvider(feedQuery));
-    _baseExpenses = feedState.items;
+    _baseExpenses = feedState.items
+        .where((entry) => !_optimisticallyDeletedIds.contains(entry.id))
+        .toList(growable: false);
     final shouldLoadCompleteGroupTotals = range != null &&
         range['from']!.year == range['to']!.year &&
         range['from']!.month == range['to']!.month;
@@ -885,20 +942,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ),
       floatingActionButton: _isSelectionMode && _selectedIds.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: _isDeleting ? null : _handleBulkDelete,
+              onPressed: _handleBulkDelete,
               backgroundColor: colorScheme.error,
               foregroundColor: colorScheme.onError,
               elevation: 4,
-              icon: _isDeleting
-                  ? SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                          color: colorScheme.onError, strokeWidth: 2))
-                  : const Icon(Icons.delete_outline_rounded),
-              label: Text(_isDeleting
-                  ? 'Deleting...'
-                  : '${context.l10n.delete} (${_selectedIds.length})'),
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: Text('${context.l10n.delete} (${_selectedIds.length})'),
             )
           : null,
     ));
@@ -1080,55 +1129,38 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     if (!confirmed) return;
 
-    setState(() => _isDeleting = true);
-    final supabase = Supabase.instance.client;
-    final user = ref.read(authProvider);
+    final selectedIds = Set<String>.from(_selectedIds);
+    final selectedExpenses = _baseExpenses
+        .where((expense) => selectedIds.contains(expense.id))
+        .toList(growable: false);
+    if (selectedExpenses.isEmpty) return;
 
-    int failCount = 0;
-    int successCount = 0;
+    setState(() {
+      _optimisticallyDeletedIds.addAll(selectedIds);
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
+    _showRootSuccessToast('Transactions deleted successfully');
 
-    try {
-      final response = await supabase.functions.invoke(
-        'delete-expense',
-        body: {
-          'userId': user.uid,
-          'expenseIds': _selectedIds.join(','),
-        },
-      );
+    final success = await ref
+        .read(transactionEditProvider.notifier)
+        .deleteExpensesOptimistically(selectedExpenses);
 
-      final payload = response.data as Map<String, dynamic>?;
-      if (payload == null || payload['success'] != true) {
-        failCount = payload?['failedCount'] as int? ?? _selectedIds.length;
-        successCount = payload?['deletedCount'] as int? ?? 0;
-      } else {
-        successCount = payload['deletedCount'] as int? ?? _selectedIds.length;
-        failCount = payload['failedCount'] as int? ?? 0;
-      }
-    } catch (e) {
-      failCount = _selectedIds.length;
-    }
+    if (!mounted) return;
 
-    await _refreshActiveFeed();
-
-    if (widget.householdId == null) {
-      await ref.read(analyticsProvider.notifier).loadData(user.uid);
-    }
-
-    if (mounted) {
+    if (!success) {
       setState(() {
-        _isDeleting = false;
-        _isSelectionMode = false;
-        _selectedIds.clear();
+        _optimisticallyDeletedIds.removeAll(selectedIds);
       });
-
-      if (failCount > 0) {
-        AppToast.error(context,
-            'Failed to delete $failCount items. Deleted $successCount successfully.',
-            duration: const Duration(seconds: 4));
-      } else {
-        AppToast.success(context, 'Transactions deleted successfully',
-            duration: const Duration(seconds: 3));
-      }
+      final error = ref.read(transactionEditProvider).error;
+      _showRootErrorToast(
+        ErrorHandler.getUserFriendlyMessage(
+          error,
+          context: BackendErrorContext.deleteExpense,
+        ),
+      );
+    } else {
+      await _refreshActiveFeed();
     }
   }
 
@@ -1145,138 +1177,129 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     if (result?.confirmed != true) return;
 
-    final rootNavigator = rootNavigatorKey.currentState;
-    if (rootNavigator == null) return;
+    setState(() {
+      _optimisticallyDeletedIds.add(expense.id);
+    });
+    _showRootSuccessToast(l10n.transactionDeleted);
 
-    _showRootBlockingDialog('${l10n.delete}...');
+    final success = await ref
+        .read(transactionEditProvider.notifier)
+        .deleteExpensesOptimistically([expense]);
 
-    try {
-      final user = ref.read(authProvider);
-      final res = await Supabase.instance.client.functions
-          .invoke('delete-expense', body: {
-        'userId': user.uid,
-        'expenseIds': expense.id,
+    if (!mounted) return;
+
+    if (!success) {
+      setState(() {
+        _optimisticallyDeletedIds.remove(expense.id);
       });
-
-      if (rootNavigator.canPop()) rootNavigator.pop();
-
-      if (res.data != null && (res.data['success'] == true)) {
-        await _refreshActiveFeed();
-        if (widget.householdId == null) {
-          await ref.read(analyticsProvider.notifier).loadData(user.uid);
-        }
-
-        _showRootSuccessToast(l10n.transactionDeleted);
-      } else {
-        final message = (res.data?['error'] as String?) ?? l10n.anErrorOccurred;
-        _showRootErrorToast(message);
-      }
-    } catch (e) {
-      if (rootNavigator.canPop()) rootNavigator.pop();
-      _showRootErrorToast(ErrorHandler.getUserFriendlyMessage(e));
+      final error = ref.read(transactionEditProvider).error;
+      _showRootErrorToast(
+        ErrorHandler.getUserFriendlyMessage(
+          error,
+          context: BackendErrorContext.deleteExpense,
+        ),
+      );
+    } else {
+      await _refreshActiveFeed();
     }
   }
 
   Widget _buildDateFilterChips(ColorScheme colorScheme) {
-    const filters = [
-      DateRangeFilter.last7Days,
-      DateRangeFilter.today,
-      DateRangeFilter.yesterday,
-      DateRangeFilter.thisWeek,
-      DateRangeFilter.lastWeek,
-      DateRangeFilter.thisMonth,
-      DateRangeFilter.lastMonth,
-      DateRangeFilter.last3Months,
-      DateRangeFilter.last30Days,
-      DateRangeFilter.thisYear,
-      DateRangeFilter.allTime,
-      DateRangeFilter.custom,
-    ];
-
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: SizedBox(
         height: 35,
-        child: ListView.separated(
+        child: SingleChildScrollView(
+          key: _dateFilterScrollViewKey,
+          controller: _dateFilterScrollController,
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: filters.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            final filter = filters[index];
-            final isSelected = _selectedDateFilter == filter;
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                for (final filter in _dateFilterOptions) ...[
+                  _buildDateFilterChip(colorScheme, filter),
+                  if (filter != _dateFilterOptions.last)
+                    const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-            String label;
-            if (filter == DateRangeFilter.custom &&
-                _customStart != null &&
-                _customEnd != null &&
-                isSelected) {
-              final fmt = DateFormat('MMM d');
-              label =
-                  '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
-            } else {
-              label = filter.getLabel(context);
-            }
+  Widget _buildDateFilterChip(
+    ColorScheme colorScheme,
+    DateRangeFilter filter,
+  ) {
+    final isSelected = _selectedDateFilter == filter;
 
-            return GestureDetector(
-              onTap: () async {
-                if (filter == DateRangeFilter.custom) {
-                  final result = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2000),
-                    lastDate: effectiveNow(
-                      preferredTimezone: ref
-                          .read(analyticsProvider)
-                          .contact
-                          ?.preferredTimezone,
-                    ),
-                    initialDateRange: _customStart != null && _customEnd != null
-                        ? DateTimeRange(start: _customStart!, end: _customEnd!)
-                        : null,
-                  );
-                  if (result != null) {
-                    setState(() {
-                      _selectedDateFilter = DateRangeFilter.custom;
-                      _customStart = result.start;
-                      _customEnd = result.end;
-                    });
-                    unawaited(_persistDateFilterPreference());
-                  }
-                } else {
-                  setState(() {
-                    _selectedDateFilter = filter;
-                    _customStart = null;
-                    _customEnd = null;
-                  });
-                  unawaited(_persistDateFilterPreference());
-                }
-              },
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? colorScheme.primary : colorScheme.card,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.border.withValues(alpha: 0.4),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? colorScheme.primaryForeground
-                        : colorScheme.foreground,
-                  ),
-                ),
-              ),
-            );
-          },
+    String label;
+    if (filter == DateRangeFilter.custom &&
+        _customStart != null &&
+        _customEnd != null &&
+        isSelected) {
+      final fmt = DateFormat('MMM d');
+      label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
+    } else {
+      label = filter.getLabel(context);
+    }
+
+    return GestureDetector(
+      key: _dateFilterChipKeys[filter],
+      onTap: () async {
+        if (filter == DateRangeFilter.custom) {
+          final result = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2000),
+            lastDate: effectiveNow(
+              preferredTimezone:
+                  ref.read(analyticsProvider).contact?.preferredTimezone,
+            ),
+            initialDateRange: _customStart != null && _customEnd != null
+                ? DateTimeRange(start: _customStart!, end: _customEnd!)
+                : null,
+          );
+          if (result != null) {
+            setState(() {
+              _selectedDateFilter = DateRangeFilter.custom;
+              _customStart = result.start;
+              _customEnd = result.end;
+            });
+            unawaited(_persistDateFilterPreference());
+          }
+        } else {
+          setState(() {
+            _selectedDateFilter = filter;
+            _customStart = null;
+            _customEnd = null;
+          });
+          unawaited(_persistDateFilterPreference());
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : colorScheme.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.border.withValues(alpha: 0.4),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            color: isSelected
+                ? colorScheme.primaryForeground
+                : colorScheme.foreground,
+          ),
         ),
       ),
     );

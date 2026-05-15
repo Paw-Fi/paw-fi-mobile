@@ -4,15 +4,20 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -167,6 +172,29 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
 
     if (authHeaders == null) {
       trace.mark('build-skipped', const {'reason': 'missing-auth-headers'});
+      final cachedSessionWallets =
+          ref.read(walletsListSessionCacheProvider)[cacheKey];
+      if (cachedSessionWallets != null) {
+        trace.mark('session-cache-hit-without-auth-headers',
+            {'count': cachedSessionWallets.length});
+        return cachedSessionWallets;
+      }
+
+      final persistedWallets = readPersistedWalletsList(
+        ref,
+        userId: user.uid,
+        householdId: householdId,
+      );
+      if (persistedWallets != null) {
+        trace.mark('persisted-cache-hit-without-auth-headers',
+            {'count': persistedWallets.length});
+        ref.read(walletsListSessionCacheProvider.notifier).state = {
+          ...ref.read(walletsListSessionCacheProvider),
+          cacheKey: persistedWallets,
+        };
+        return persistedWallets;
+      }
+
       return const <WalletEntity>[];
     }
 
@@ -315,6 +343,7 @@ class WalletActions {
       ...overrides,
       account.id: account,
     };
+    unawaited(_persistOptimisticWallet(account));
   }
 
   void clearOptimisticWallet(String accountId) {
@@ -385,22 +414,29 @@ class WalletActions {
       currentBalanceCents: openingBalanceCents,
     );
     setOptimisticWallet(optimisticWallet);
+    final requestBody = {
+      'name': name,
+      'icon': icon,
+      'color': color,
+      'openingBalanceCents': openingBalanceCents,
+      'goalAmountCents': goalAmountCents,
+      'isDefault': isDefault,
+      if (householdId != null) 'householdId': householdId,
+    };
+    final localDatabase = await _enqueueWalletMutation(
+      entityId: optimisticId,
+      functionName: 'save-wallet',
+      requestBody: requestBody,
+    );
 
     try {
       final response = await supabase.functions.invoke(
         'save-wallet',
         headers: authHeaders,
-        body: {
-          'name': name,
-          'icon': icon,
-          'color': color,
-          'openingBalanceCents': openingBalanceCents,
-          'goalAmountCents': goalAmountCents,
-          'isDefault': isDefault,
-          if (householdId != null) 'householdId': householdId,
-        },
+        body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to create wallet');
+      await localDatabase.markMutationSynced(_walletMutationId(optimisticId));
       clearOptimisticWallet(optimisticId);
 
       final payload = response.data;
@@ -411,7 +447,12 @@ class WalletActions {
         setOptimisticWallet(WalletEntity.fromJson(saved));
       }
       _invalidateAll();
-    } catch (_) {
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(optimisticId, error);
       clearOptimisticWallet(optimisticId);
       rethrow;
     }
@@ -456,28 +497,40 @@ class WalletActions {
       '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
 
+    final requestBody = {
+      'accountId': walletId,
+      if (name != null) 'name': name,
+      if (icon != null) 'icon': icon,
+      if (color != null) 'color': color,
+      if (openingBalanceCents != null)
+        'openingBalanceCents': openingBalanceCents,
+      if (includeGoalAmount || goalAmountCents != null)
+        'goalAmountCents': goalAmountCents,
+      if (isDefault != null) 'isDefault': isDefault,
+    };
     try {
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: walletId,
+        functionName: 'update-wallet',
+        requestBody: requestBody,
+      );
       final response = await supabase.functions.invoke(
         'update-wallet',
         headers: authHeaders,
-        body: {
-          'accountId': walletId,
-          if (name != null) 'name': name,
-          if (icon != null) 'icon': icon,
-          if (color != null) 'color': color,
-          if (openingBalanceCents != null)
-            'openingBalanceCents': openingBalanceCents,
-          if (includeGoalAmount || goalAmountCents != null)
-            'goalAmountCents': goalAmountCents,
-          if (isDefault != null) 'isDefault': isDefault,
-        },
+        body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to update wallet');
+      await localDatabase.markMutationSynced(_walletMutationId(walletId));
       debugPrint('[Accounts][Update] success accountId=$walletId');
       if (invalidate) {
         _invalidateAll();
       }
-    } catch (_) {
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        if (invalidate) _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(walletId, error);
       clearOptimisticWallet(walletId);
       rethrow;
     }
@@ -490,14 +543,26 @@ class WalletActions {
       setOptimisticWallet(existingWallet.copyWith(isArchived: true));
     }
     try {
+      final requestBody = {'accountId': accountId};
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: accountId,
+        functionName: 'archive-wallet',
+        requestBody: requestBody,
+      );
       final response = await supabase.functions.invoke(
         'archive-wallet',
         headers: authHeaders,
-        body: {'accountId': accountId},
+        body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to archive wallet');
+      await localDatabase.markMutationSynced(_walletMutationId(accountId));
       _invalidateAll();
-    } catch (_) {
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(accountId, error);
       clearOptimisticWallet(accountId);
       rethrow;
     }
@@ -513,14 +578,26 @@ class WalletActions {
       setOptimisticWallet(existingWallet.copyWith(isArchived: false));
     }
     try {
+      final requestBody = {'accountId': accountId};
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: accountId,
+        functionName: 'restore-wallet',
+        requestBody: requestBody,
+      );
       final response = await supabase.functions.invoke(
         'restore-wallet',
         headers: authHeaders,
-        body: {'accountId': accountId},
+        body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to restore wallet');
+      await localDatabase.markMutationSynced(_walletMutationId(accountId));
       _invalidateAll();
-    } catch (_) {
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(accountId, error);
       clearOptimisticWallet(accountId);
       rethrow;
     }
@@ -550,25 +627,155 @@ class WalletActions {
         currentBalanceCents: toWallet.currentBalanceCents + amountCents,
       ));
     }
+    final transferMutationEntityId =
+        '$fromAccountId:$toAccountId:${DateTime.now().microsecondsSinceEpoch}';
     try {
+      final requestBody = {
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
+        'amountCents': amountCents,
+        'currency': currency,
+        'date': formatDateOnlyYmd(date),
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      };
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: transferMutationEntityId,
+        functionName: 'create-wallet-transfer',
+        requestBody: requestBody,
+      );
       final response = await supabase.functions.invoke(
         'create-wallet-transfer',
         headers: authHeaders,
-        body: {
-          'fromAccountId': fromAccountId,
-          'toAccountId': toAccountId,
-          'amountCents': amountCents,
-          'currency': currency,
-          'date': formatDateOnlyYmd(date),
-          if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-        },
+        body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to create transfer');
+      await localDatabase.markMutationSynced(
+        _walletMutationId(transferMutationEntityId),
+      );
       _invalidateAll();
-    } catch (_) {
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(transferMutationEntityId, error);
       clearOptimisticWallet(fromAccountId);
       clearOptimisticWallet(toAccountId);
       rethrow;
+    }
+  }
+
+  Future<void> updateTransfer({
+    required WalletTransfer existingTransfer,
+    required String fromAccountId,
+    required String toAccountId,
+    required int amountCents,
+    required String currency,
+    required DateTime date,
+    String? note,
+  }) async {
+    final authHeaders = _requireAuthHeaders();
+    final mutationEntityId =
+        'update-transfer:${existingTransfer.id}:${DateTime.now().microsecondsSinceEpoch}';
+    _applyTransferBalanceDeltas([
+      MapEntry(existingTransfer.fromAccountId, existingTransfer.amountCents),
+      MapEntry(existingTransfer.toAccountId, -existingTransfer.amountCents),
+      MapEntry(fromAccountId, -amountCents),
+      MapEntry(toAccountId, amountCents),
+    ]);
+    try {
+      final requestBody = {
+        'transferId': existingTransfer.id,
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
+        'amountCents': amountCents,
+        'currency': currency,
+        'date': formatDateOnlyYmd(date),
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      };
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: mutationEntityId,
+        functionName: 'update-wallet-transfer',
+        requestBody: requestBody,
+      );
+      final response = await supabase.functions.invoke(
+        'update-wallet-transfer',
+        headers: authHeaders,
+        body: requestBody,
+      );
+      _throwIfFailed(response.data, 'Failed to update transfer');
+      await localDatabase
+          .markMutationSynced(_walletMutationId(mutationEntityId));
+      _invalidateAll();
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(mutationEntityId, error);
+      clearOptimisticWallet(existingTransfer.fromAccountId);
+      clearOptimisticWallet(existingTransfer.toAccountId);
+      clearOptimisticWallet(fromAccountId);
+      clearOptimisticWallet(toAccountId);
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransfer(WalletTransfer transfer) async {
+    final authHeaders = _requireAuthHeaders();
+    final mutationEntityId =
+        'delete-transfer:${transfer.id}:${DateTime.now().microsecondsSinceEpoch}';
+    _applyTransferBalanceDeltas([
+      MapEntry(transfer.fromAccountId, transfer.amountCents),
+      MapEntry(transfer.toAccountId, -transfer.amountCents),
+    ]);
+    try {
+      final requestBody = {'transferId': transfer.id};
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: mutationEntityId,
+        functionName: 'delete-wallet-transfer',
+        requestBody: requestBody,
+      );
+      final response = await supabase.functions.invoke(
+        'delete-wallet-transfer',
+        headers: authHeaders,
+        body: requestBody,
+      );
+      _throwIfFailed(response.data, 'Failed to delete transfer');
+      await localDatabase
+          .markMutationSynced(_walletMutationId(mutationEntityId));
+      _invalidateAll();
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(mutationEntityId, error);
+      clearOptimisticWallet(transfer.fromAccountId);
+      clearOptimisticWallet(transfer.toAccountId);
+      rethrow;
+    }
+  }
+
+  void _applyTransferBalanceDeltas(Iterable<MapEntry<String, int>> deltas) {
+    final deltasByWalletId = <String, int>{};
+    for (final delta in deltas) {
+      deltasByWalletId[delta.key] =
+          (deltasByWalletId[delta.key] ?? 0) + delta.value;
+    }
+    final wallets = ref.read(effectiveScopeWalletsProvider);
+    for (final entry in deltasByWalletId.entries) {
+      if (entry.value == 0) {
+        continue;
+      }
+      final wallet =
+          wallets.firstWhereOrNull((wallet) => wallet.id == entry.key);
+      if (wallet == null) {
+        continue;
+      }
+      setOptimisticWallet(wallet.copyWith(
+        currentBalanceCents: wallet.currentBalanceCents + entry.value,
+      ));
     }
   }
 
@@ -604,24 +811,101 @@ class WalletActions {
     );
 
     try {
+      final requestBody = {
+        'accountId': walletId,
+        'targetBalanceCents': targetBalanceCents,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      };
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: walletId,
+        functionName: 'update-wallet-balance',
+        requestBody: requestBody,
+      );
       final response = await supabase.functions.invoke(
         'update-wallet-balance',
         headers: authHeaders,
-        body: {
-          'accountId': walletId,
-          'targetBalanceCents': targetBalanceCents,
-          if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-        },
+        body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to update account balance');
+      await localDatabase.markMutationSynced(_walletMutationId(walletId));
       debugPrint('[Accounts][Balance] success accountId=$walletId');
       if (invalidate) {
         _invalidateAll();
       }
-    } catch (_) {
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        if (invalidate) _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(walletId, error);
       clearOptimisticWallet(walletId);
       rethrow;
     }
+  }
+
+  Future<void> _persistOptimisticWallet(WalletEntity account) async {
+    final user = ref.read(authProvider);
+    if (user.uid.isEmpty) return;
+    final householdId = account.householdId;
+    final cacheKey = walletsListCacheKey(
+      userId: user.uid,
+      householdId: householdId,
+    );
+    final current = ref.read(walletsListSessionCacheProvider)[cacheKey] ??
+        readPersistedWalletsList(
+          ref,
+          userId: user.uid,
+          householdId: householdId,
+        ) ??
+        ref.read(scopedWalletsProvider).valueOrNull ??
+        const <WalletEntity>[];
+    final next = _mergeOptimisticAccounts(current, {account.id: account});
+    ref.read(walletsListSessionCacheProvider.notifier).state = {
+      ...ref.read(walletsListSessionCacheProvider),
+      cacheKey: next,
+    };
+    await persistWalletsList(
+      ref,
+      userId: user.uid,
+      householdId: householdId,
+      wallets: next,
+    );
+  }
+
+  Future<MonekoDatabase> _enqueueWalletMutation({
+    required String entityId,
+    required String functionName,
+    required Map<String, dynamic> requestBody,
+  }) async {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.enqueueMutation(
+      clientMutationId: _walletMutationId(entityId),
+      entityType: 'wallet',
+      entityId: entityId,
+      operation: 'invoke_function',
+      payload: {
+        'functionName': functionName,
+        'requestBody': requestBody,
+      },
+    );
+    return database;
+  }
+
+  Future<void> _cancelWalletMutation(String entityId, Object error) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.markMutationCancelled(
+        clientMutationId: _walletMutationId(entityId),
+        error: error,
+      );
+    } catch (cancelError) {
+      debugPrint('[Accounts][Outbox] failed to cancel mutation: $cancelError');
+    }
+  }
+
+  String _walletMutationId(String entityId) {
+    final normalized = entityId.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    return 'mobile:wallet_$normalized';
   }
 
   void _throwIfFailed(dynamic data, String fallback) {
@@ -656,24 +940,19 @@ class WalletActions {
     ref.invalidate(walletsScopeQueryProvider);
     ref.invalidate(walletsPageStateProvider);
     ref.read(walletsRefreshSignalProvider.notifier).state += 1;
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     final userId = ref.read(authProvider).uid;
     if (userId.isNotEmpty) {
       ref.read(walletsListSessionCacheProvider.notifier).state = const {};
       ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
       ref.read(walletsPersistedCacheBypassCountProvider.notifier).state++;
       unawaited(
-        (() async {
-          try {
-            await clearAllWalletsCachesForUser(
-              ref,
-              userId: userId,
-            );
-          } finally {
-            final notifier =
-                ref.read(walletsPersistedCacheBypassCountProvider.notifier);
-            notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
-          }
-        })(),
+        Future<void>.microtask(() {
+          final notifier =
+              ref.read(walletsPersistedCacheBypassCountProvider.notifier);
+          notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
+        }),
       );
     }
     if (userId.isNotEmpty) {
@@ -695,3 +974,18 @@ class WalletActions {
 final walletActionsProvider = Provider<WalletActions>((ref) {
   return WalletActions(ref);
 });
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error');
+}

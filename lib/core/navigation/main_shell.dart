@@ -6,8 +6,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/util/constants.dart';
 
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
@@ -25,11 +27,16 @@ import 'package:moneko/features/home/presentation/state/home_page_command_provid
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
+import 'package:moneko/core/sync/mobile_delta_sync_provider.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -39,14 +46,39 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 
-const Duration _foregroundResyncMinInterval = Duration(minutes: 1);
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
+const Duration _networkReachabilityCheckInterval = Duration(seconds: 15);
+const Duration _networkReachabilityTimeout = Duration(seconds: 3);
+
+final Map<String, Future<void>> _mobileSyncInFlightByUser = {};
+
+final _networkReachabilityProvider =
+    StreamProvider.autoDispose<bool>((ref) async* {
+  while (true) {
+    yield await _hasNetworkAccess();
+    await Future<void>.delayed(_networkReachabilityCheckInterval);
+  }
+});
+
+Future<bool> _hasNetworkAccess() async {
+  final supabaseUrl = Constants.supabaseUrl.trim();
+  if (supabaseUrl.isEmpty) return true;
+
+  try {
+    await http
+        .head(Uri.parse(supabaseUrl))
+        .timeout(_networkReachabilityTimeout);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   _MainShellLifecycleObserver({required this.onResume});
@@ -65,8 +97,17 @@ void _silentResyncMainShellData(
     WidgetRef ref, String userId, int currentIndex) {
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
 
-  unawaited(_refreshActiveMainShellTab(ref, userId, currentIndex));
-  unawaited(_refreshDeferredMainShellData(ref, userId, currentIndex));
+  unawaited(_syncThenRefreshMainShellData(ref, userId, currentIndex));
+}
+
+Future<void> _syncThenRefreshMainShellData(
+  WidgetRef ref,
+  String userId,
+  int currentIndex,
+) async {
+  await _syncMobileTransactions(ref, userId);
+  await _refreshActiveMainShellTab(ref, userId, currentIndex);
+  await _refreshDeferredMainShellData(ref, userId, currentIndex);
 }
 
 String? _activeMainShellHouseholdId(WidgetRef ref) {
@@ -86,16 +127,15 @@ Future<void> _refreshActiveMainShellTab(
   try {
     switch (currentIndex) {
       case 0:
+        await _refreshActiveTransactionsWindow(ref, userId);
         final scope = ref.read(householdScopeProvider);
         if (scope.isHouseholdView) {
-          ref.read(cacheInvalidatorProvider).invalidateAll();
-          ref.invalidate(userHouseholdsProvider(userId));
-          ref.invalidate(householdExpensesProvider);
-          ref.invalidate(cachedHouseholdExpensesProvider);
-          ref.invalidate(householdSplitsProvider);
-          ref.invalidate(cachedHouseholdSplitsProvider);
-          ref.invalidate(householdBudgetsProvider);
-          ref.invalidate(householdMembersProvider);
+          final householdId = _activeMainShellHouseholdId(ref);
+          if (householdId != null && householdId.isNotEmpty) {
+            ref
+                .read(cacheInvalidatorProvider)
+                .invalidateHouseholdData(householdId);
+          }
         } else {
           ref.read(analyticsProvider.notifier).refresh(userId);
           ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
@@ -109,16 +149,42 @@ Future<void> _refreshActiveMainShellTab(
             .refresh(userId);
         return;
       case 2:
-        ref.invalidate(pocketsProvider);
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         return;
       case 3:
         await _refreshWalletsMainShellData(ref);
         return;
       case 4:
+        await _refreshActiveTransactionsWindow(ref, userId);
         ref.read(analyticsProvider.notifier).refresh(userId);
         return;
     }
   } catch (_) {}
+}
+
+Future<void> _refreshActiveTransactionsWindow(
+  WidgetRef ref,
+  String userId,
+) async {
+  if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
+
+  final selectedCurrency =
+      ref.read(homeFilterProvider).selectedCurrency?.trim().toUpperCase();
+  final query = dashboardTransactionsQuery(
+    DashboardScopeQuery(
+      userId: userId,
+      householdId: _activeMainShellHouseholdId(ref),
+      selectedCurrency: selectedCurrency == null || selectedCurrency.isEmpty
+          ? null
+          : selectedCurrency,
+      startDate: null,
+      endDate: null,
+    ),
+    pageSize: 120,
+  );
+
+  await ref.read(transactionsFeedServiceProvider).refreshFromRemote(query);
+  ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
 }
 
 Future<void> _refreshDeferredMainShellData(
@@ -157,6 +223,55 @@ Future<void> _refreshDeferredMainShellData(
   } catch (_) {}
 }
 
+Future<void> _pullMobileDelta(WidgetRef ref, String userId) async {
+  try {
+    final service = await ref.read(mobileDeltaSyncServiceProvider.future);
+    final delta = await service.pullAndApply(userId: userId);
+    if (delta.transactions.isNotEmpty ||
+        delta.deletedTransactionIds.isNotEmpty) {
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    }
+  } catch (_) {}
+}
+
+Future<void> _syncCategoryRemaps(WidgetRef ref, String userId) async {
+  try {
+    await syncUserCategoryRemapsFromSupabase(ref, userId: userId);
+  } catch (_) {}
+}
+
+Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
+  if (userId.isEmpty) return;
+
+  final inFlight = _mobileSyncInFlightByUser[userId];
+  if (inFlight != null) {
+    await inFlight;
+    return;
+  }
+
+  final sync = () async {
+    try {
+      await _drainMobileOutbox(ref);
+      await _syncCategoryRemaps(ref, userId);
+      await _pullMobileDelta(ref, userId);
+    } finally {
+      _mobileSyncInFlightByUser.remove(userId);
+    }
+  }();
+  _mobileSyncInFlightByUser[userId] = sync;
+  await sync;
+}
+
+Future<void> _drainMobileOutbox(WidgetRef ref) async {
+  try {
+    final coordinator = await ref.read(
+      mobileOutboxSyncCoordinatorProvider.future,
+    );
+    await coordinator.drainOutbox();
+  } catch (_) {}
+}
+
 Future<void> _refreshWalletsMainShellData(WidgetRef ref) async {
   await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
   final query = ref.read(walletsScopeQueryProvider);
@@ -174,7 +289,8 @@ class MainShell extends HookConsumerWidget {
     final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
-    final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
+    final hasNetworkAccess =
+        ref.watch(_networkReachabilityProvider).valueOrNull ?? true;
     final auth = ref.watch(authProvider);
     final walletAuthHeaders =
         previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
@@ -182,10 +298,10 @@ class MainShell extends HookConsumerWidget {
         ? null
         : ref.watch(walletScopeHouseholdIdProvider);
     final warmedWalletsKeyRef = useRef<String?>(null);
-    final lastForegroundResyncAtRef = useRef<DateTime?>(null);
-    final showSubscriptionVerificationBanner =
-        subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
-            subscriptionGateStatus == SubscriptionGateStatus.unknown;
+    final showNoNetworkBanner = !hasNetworkAccess;
+
+    final isSyncing = useState(false);
+    final syncKey = useState(UniqueKey());
 
     useEffect(() {
       if (visitedTabs.value.contains(currentIndex)) {
@@ -195,6 +311,19 @@ class MainShell extends HookConsumerWidget {
       visitedTabs.value = <int>{...visitedTabs.value, currentIndex};
       return null;
     }, [currentIndex]);
+
+    useEffect(() {
+      if (previewState.isActive || auth.uid.isEmpty) {
+        return null;
+      }
+
+      _silentResyncMainShellData(
+        ref,
+        auth.uid,
+        ref.read(mainShellTabIndexProvider),
+      );
+      return null;
+    }, [previewState.isActive, auth.uid]);
 
     useEffect(() {
       if (previewState.isActive ||
@@ -245,19 +374,16 @@ class MainShell extends HookConsumerWidget {
     useEffect(() {
       final observer = _MainShellLifecycleObserver(
         onResume: () {
+          ref.invalidate(_networkReachabilityProvider);
+
           final userId = ref.read(authProvider).uid;
           if (userId.isEmpty || ref.read(previewModeProvider).isActive) {
             return;
           }
 
-          final now = DateTime.now();
-          final last = lastForegroundResyncAtRef.value;
-          if (last != null &&
-              now.difference(last) < _foregroundResyncMinInterval) {
-            return;
-          }
+          isSyncing.value = true;
+          syncKey.value = UniqueKey();
 
-          lastForegroundResyncAtRef.value = now;
           unawaited(Future<void>.microtask(
             () => _silentResyncMainShellData(
               ref,
@@ -446,65 +572,71 @@ class MainShell extends HookConsumerWidget {
         body: SafeArea(
           child: Material(
             color: colorScheme.appBackground,
-            child: Column(
+            child: Stack(
               children: [
-                if (previewState.isActive)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: _PreviewModeBanner(
-                      currentIndex: currentIndex,
-                      onRegisterTap: () {
-                        unawaited(() async {
-                          await exitPreviewMode(restorePreauthOnExit: false);
-                          if (context.mounted) {
-                            context.go('/register');
-                          }
-                        }());
-                      },
-                      onExitTap: () {
-                        unawaited(() async {
-                          final returnRoute = await exitPreviewMode(
-                            restorePreauthOnExit: true,
-                          );
-                          if (context.mounted) {
-                            context.go(returnRoute ?? '/paywall');
-                          }
-                        }());
-                      },
-                    ),
-                  ),
-                if (!previewState.isActive &&
-                    showSubscriptionVerificationBanner)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: _SubscriptionVerificationBanner(
-                      status: subscriptionGateStatus,
-                      onRetryTap: () {
-                        unawaited(ref
-                            .read(subscriptionNotifierProvider.notifier)
-                            .refresh());
-                      },
-                      onManageTap: () {
-                        context.push('/paywall?mode=resubscribe');
-                      },
-                    ),
-                  ),
-                const TrialReminderBannerGate(),
-                const HomeHeaderSliver(),
-                Expanded(
-                  child: Stack(
-                    children: [
+                Column(
+                  children: [
+                    if (previewState.isActive)
                       Padding(
-                        padding: const EdgeInsets.only(top: 0.0),
-                        child: IndexedStack(
-                          index: currentIndex,
-                          children: pages,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _PreviewModeBanner(
+                          currentIndex: currentIndex,
+                          onRegisterTap: () {
+                            unawaited(() async {
+                              await exitPreviewMode(
+                                  restorePreauthOnExit: false);
+                              if (context.mounted) {
+                                context.go('/register');
+                              }
+                            }());
+                          },
+                          onExitTap: () {
+                            unawaited(() async {
+                              final returnRoute = await exitPreviewMode(
+                                restorePreauthOnExit: true,
+                              );
+                              if (context.mounted) {
+                                context.go(returnRoute ?? '/paywall');
+                              }
+                            }());
+                          },
                         ),
                       ),
-                      const WidgetSyncManager(),
-                    ],
-                  ),
+                    _AnimatedTopBannerSlot(
+                      visible: !previewState.isActive && showNoNetworkBanner,
+                      child: const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _SubscriptionVerificationBanner(),
+                      ),
+                    ),
+                    const TrialReminderBannerGate(),
+                    const HomeHeaderSliver(),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 0.0),
+                            child: IndexedStack(
+                              index: currentIndex,
+                              children: pages,
+                            ),
+                          ),
+                          const WidgetSyncManager(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                if (isSyncing.value)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: ReconcileProgressBar(
+                      key: syncKey.value,
+                      onComplete: () => isSyncing.value = false,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -543,6 +675,7 @@ class MainShell extends HookConsumerWidget {
           ],
           selectedIndex: currentIndex,
           onTap: (index) {
+            if (index == currentIndex) return;
             ref.read(mainShellTabIndexProvider.notifier).state = index;
           },
         ),
@@ -559,79 +692,92 @@ class MainShell extends HookConsumerWidget {
   }
 }
 
-class _SubscriptionVerificationBanner extends StatelessWidget {
-  const _SubscriptionVerificationBanner({
-    required this.status,
-    required this.onRetryTap,
-    required this.onManageTap,
+class _AnimatedTopBannerSlot extends StatelessWidget {
+  const _AnimatedTopBannerSlot({
+    required this.visible,
+    required this.child,
   });
 
-  final SubscriptionGateStatus status;
-  final VoidCallback onRetryTap;
-  final VoidCallback onManageTap;
+  static const _duration = Duration(milliseconds: 240);
+  static const _reverseDuration = Duration(milliseconds: 180);
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: _duration,
+      reverseDuration: _reverseDuration,
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        final offset = Tween<Offset>(
+          begin: const Offset(0, -0.08),
+          end: Offset.zero,
+        ).animate(animation);
+
+        return ClipRect(
+          child: SizeTransition(
+            sizeFactor: animation,
+            axisAlignment: -1,
+            child: FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: offset,
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
+      child: visible
+          ? KeyedSubtree(
+              key: const ValueKey('subscription_verification_banner'),
+              child: child,
+            )
+          : const SizedBox.shrink(
+              key: ValueKey('subscription_verification_banner_hidden'),
+            ),
+    );
+  }
+}
+
+class _SubscriptionVerificationBanner extends StatelessWidget {
+  const _SubscriptionVerificationBanner();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isGraceAccess = status == SubscriptionGateStatus.graceActive;
-    final title = isGraceAccess
-        ? 'You are in offline grace access'
-        : 'We can’t verify your subscription right now';
-    final subtitle = isGraceAccess
-        ? 'Your previous active subscription is kept for up to 72 hours while we reconnect.'
-        : 'You still have full access while we retry in the background. Your subscription is not removed.';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.warningSurface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colorScheme.warningBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colorScheme.warning,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+          Icon(
+            Icons.wifi_off_rounded,
+            color: colorScheme.warning,
+            size: 18,
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: colorScheme.foreground,
-              height: 1.3,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.l10n.offlineGraceAccess,
+              style: TextStyle(
+                color: colorScheme.foreground,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                style: FilledButton.styleFrom(
-                  foregroundColor: colorScheme.onPrimary,
-                  backgroundColor: colorScheme.warning,
-                  minimumSize: const Size(0, 34),
-                ),
-                onPressed: onRetryTap,
-                child: const Text('Retry now'),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colorScheme.foreground,
-                  side: BorderSide(color: colorScheme.border),
-                  minimumSize: const Size(0, 34),
-                ),
-                onPressed: onManageTap,
-                child: const Text('Manage plan'),
-              ),
-            ],
           ),
         ],
       ),
@@ -677,7 +823,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final title = Text(
-      'Preview mode is on · Demo data only',
+      context.l10n.previewModeTitle,
       style: TextStyle(
         color: colorScheme.warning,
         fontSize: 16,
@@ -724,7 +870,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                               ],
                             ),
                             Text(
-                              'Your progress won’t be saved. Create an account to keep your changes.',
+                              context.l10n.previewModeDescription,
                               style: TextStyle(
                                 color: colorScheme.foreground,
                                 height: 1.35,
@@ -742,7 +888,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                                 backgroundColor: colorScheme.warning,
                               ),
                               onPressed: widget.onExitTap,
-                              child: const Text('Exit tour'),
+                              child: Text(context.l10n.exitTour),
                             ),
                           ],
                         ),
@@ -757,7 +903,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Preview Mode - Data won\'t be saved',
+                    context.l10n.previewModeCollapsed,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -779,7 +925,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Exit',
+                      context.l10n.exit,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

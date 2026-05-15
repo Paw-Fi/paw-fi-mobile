@@ -16,9 +16,12 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
+const int _minimumAudioRecordingMs = 1000;
+const double _silentRecordingPeakDb = -160.0;
+const double _minimumVoicePeakDb = -55.0;
+
 Future<void> showTextInputDrawer(
   BuildContext parentContext,
-  TextEditingController textController,
   Future<void> Function(String text) onSubmit, {
   Future<void> Function(Uint8List audioBytes, String contentType)?
       onSubmitAudio,
@@ -28,13 +31,12 @@ Future<void> showTextInputDrawer(
   return showModalBottomSheet<void>(
     context: parentContext,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: colorScheme.sheetBackground,
     builder: (modalContext) => _TextInputContent(
       parentContext: parentContext,
-      textController: textController,
       colorScheme: colorScheme,
       onSubmit: onSubmit,
       onSubmitAudio: onSubmitAudio,
@@ -44,7 +46,6 @@ Future<void> showTextInputDrawer(
 
 class _TextInputContent extends ConsumerStatefulWidget {
   final BuildContext parentContext;
-  final TextEditingController textController;
   final ColorScheme colorScheme;
   final Future<void> Function(String text) onSubmit;
   final Future<void> Function(Uint8List audioBytes, String contentType)?
@@ -52,7 +53,6 @@ class _TextInputContent extends ConsumerStatefulWidget {
 
   const _TextInputContent({
     required this.parentContext,
-    required this.textController,
     required this.colorScheme,
     required this.onSubmit,
     this.onSubmitAudio,
@@ -68,9 +68,12 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   bool _isRecording = false;
   DateTime? _recordingStartTime;
   Timer? _mockTranscribingTimer;
+  Timer? _recordingAmplitudeTimer;
   final AudioRecorder _recorder = AudioRecorder();
   final FocusNode _textFocusNode = FocusNode();
+  late final TextEditingController _textController;
   double? _keyboardInsetOnRecordStart;
+  double _recordingPeakDb = _silentRecordingPeakDb;
 
   // Animation for the mic button scale
   late AnimationController _micScaleController;
@@ -79,6 +82,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   @override
   void initState() {
     super.initState();
+    _textController = TextEditingController();
     _micScaleController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 200));
     _micScaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
@@ -88,15 +92,19 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
   @override
   void dispose() {
+    _textController.dispose();
     _micScaleController.dispose();
     _mockTranscribingTimer?.cancel();
+    _recordingAmplitudeTimer?.cancel();
     _recorder.dispose();
     _textFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _processExpense() async {
-    final text = widget.textController.text.trim();
+    if (_isProcessing) return;
+
+    final text = _textController.text.trim();
     if (text.isEmpty) {
       AppToast.info(widget.parentContext,
           widget.parentContext.l10n.pleaseEnterExpenseDetails);
@@ -108,15 +116,24 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     });
 
     if (mounted) {
-      await widget.onSubmit(text);
-      widget.textController.clear();
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      try {
+        await widget.onSubmit(text);
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+        }
       }
     }
   }
 
   Future<void> _onRecordStart() async {
+    if (_isProcessing) return;
+
     HapticFeedback.heavyImpact();
 
     final hasPermission = await _recorder.hasPermission();
@@ -147,20 +164,44 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       const RecordConfig(encoder: AudioEncoder.aacLc),
       path: filePath,
     );
+    _startRecordingAmplitudeProbe();
+  }
+
+  void _startRecordingAmplitudeProbe() {
+    _recordingPeakDb = _silentRecordingPeakDb;
+    _recordingAmplitudeTimer?.cancel();
+    _recordingAmplitudeTimer =
+        Timer.periodic(const Duration(milliseconds: 100), (_) {
+      unawaited(_captureRecordingAmplitude());
+    });
+  }
+
+  Future<void> _captureRecordingAmplitude() async {
+    try {
+      final amp = await _recorder.getAmplitude();
+      final peak = max(amp.current, amp.max);
+      if (peak > _recordingPeakDb) {
+        _recordingPeakDb = peak;
+      }
+    } catch (_) {}
   }
 
   void _onRecordEnd() async {
+    if (_isProcessing) return;
+
     _micScaleController.reverse();
     final startedAt = _recordingStartTime;
     if (startedAt == null) {
       return;
     }
+    _recordingStartTime = null;
 
     final duration = DateTime.now().difference(startedAt);
     debugPrint(
         '🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
 
-    if (duration.inMilliseconds < 1000) {
+    final isTooShort = duration.inMilliseconds < _minimumAudioRecordingMs;
+    if (isTooShort) {
       HapticFeedback.vibrate();
     } else {
       HapticFeedback.lightImpact();
@@ -169,12 +210,45 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       _isRecording = false;
     });
 
+    await _captureRecordingAmplitude();
+    _recordingAmplitudeTimer?.cancel();
     final path = await _recorder.stop();
+    if (isTooShort) {
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingTooShort);
+      }
+      if (path != null) {
+        final file = File(path);
+        try {
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
+      return;
+    }
+
     if (path == null) {
       if (widget.parentContext.mounted) {
         AppToast.error(
             widget.parentContext, widget.parentContext.l10n.recordingFailed);
       }
+      return;
+    }
+
+    final hasVoiceInput = _recordingPeakDb > _minimumVoicePeakDb;
+    if (!hasVoiceInput) {
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
+      }
+      final file = File(path);
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
       return;
     }
 
@@ -199,9 +273,20 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     if (widget.onSubmitAudio != null) {
-      await widget.onSubmitAudio!(bytes, 'audio/aac');
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      setState(() {
+        _isProcessing = true;
+      });
+      try {
+        await widget.onSubmitAudio!(bytes, 'audio/aac');
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+        }
       }
     }
   }
@@ -288,7 +373,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                   // TextField always in tree to prevent keyboard dismissal
                   TextField(
                     key: const ValueKey('textField'),
-                    controller: widget.textController,
+                    controller: _textController,
                     focusNode: _textFocusNode,
                     autofocus: true,
                     maxLines: 4,

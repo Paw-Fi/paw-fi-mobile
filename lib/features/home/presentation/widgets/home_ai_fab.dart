@@ -14,19 +14,26 @@ import 'package:file_picker/file_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:crypto/crypto.dart';
 import 'package:in_app_review/in_app_review.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -37,6 +44,7 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
@@ -48,6 +56,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
 
@@ -67,6 +76,11 @@ const int _maxBatchSize = 400;
 const int _maxAiFileUploadBytes = 20 * 1024 * 1024;
 const double _recordCancelDragThreshold = 90;
 const int _minimumHoldRecordingMs = 1000;
+const double _silentRecordingPeakDb = -160.0;
+const double _minimumVoicePeakDb = -55.0;
+const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
+const int _smartInputMemoryLimit = 25;
+const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -125,12 +139,30 @@ String _friendlyProgressMessage(AnalysisProgressEvent event) {
 class _AiParsedItem {
   final ParsedExpense transaction;
   final String optimisticId;
+  final ExpenseEntry optimisticEntry;
   final Map<String, dynamic> raw;
 
   const _AiParsedItem({
     required this.transaction,
     required this.optimisticId,
+    required this.optimisticEntry,
     required this.raw,
+  });
+}
+
+class _AiPreparedMutation {
+  final _AiParsedItem item;
+  final TransactionMutationMetadata metadata;
+  final String functionName;
+  final Map<String, dynamic> individualRequestBody;
+  final Map<String, dynamic> batchRequestBody;
+
+  const _AiPreparedMutation({
+    required this.item,
+    required this.metadata,
+    required this.functionName,
+    required this.individualRequestBody,
+    required this.batchRequestBody,
   });
 }
 
@@ -176,6 +208,108 @@ Map<String, dynamic>? _asStringDynamicMap(Object? value) {
     );
   }
   return null;
+}
+
+String _smartInputMemoryKey({
+  required String userId,
+  required String? householdId,
+  required String? currency,
+  required String languageTag,
+}) {
+  final scope = [
+    userId.trim(),
+    householdId?.trim() ?? '',
+    currency?.trim().toUpperCase() ?? '',
+    languageTag.trim().toLowerCase(),
+  ].join('|');
+  final digest = sha256.convert(utf8.encode(scope)).toString();
+  return '${_smartInputMemoryKeyPrefix}_$digest';
+}
+
+List<SmartInputAnalysisMemory> _readSmartInputMemories(
+  SharedPreferences prefs,
+  String key,
+) {
+  final encoded = prefs.getStringList(key) ?? const <String>[];
+  final memories = <SmartInputAnalysisMemory>[];
+  for (final item in encoded) {
+    try {
+      final decoded = jsonDecode(item);
+      final memory = SmartInputAnalysisMemory.fromJson(decoded);
+      if (memory != null) {
+        memories.add(memory);
+      }
+    } catch (_) {}
+  }
+  return memories;
+}
+
+Map<String, dynamic>? _tryBuildSmartInputMemoryResponse({
+  required SharedPreferences prefs,
+  required String userId,
+  required String? householdId,
+  required String? currency,
+  required String languageTag,
+  required String inputText,
+  required String defaultDateYmd,
+}) {
+  final key = _smartInputMemoryKey(
+    userId: userId,
+    householdId: householdId,
+    currency: currency,
+    languageTag: languageTag,
+  );
+  for (final memory in _readSmartInputMemories(prefs, key)) {
+    final response = memory.tryBuildResponseFor(
+      inputText: inputText,
+      defaultDateYmd: defaultDateYmd,
+    );
+    if (response != null) {
+      return response;
+    }
+  }
+  return null;
+}
+
+Future<void> _rememberSmartInputAnalysis({
+  required SharedPreferences prefs,
+  required String userId,
+  required String? householdId,
+  required String? currency,
+  required String languageTag,
+  required String inputText,
+  required String defaultDateYmd,
+  required Map<String, dynamic> responseData,
+}) async {
+  final memory = SmartInputAnalysisMemory.fromAnalysisResponse(
+    inputText: inputText,
+    responseData: responseData,
+    defaultDateYmd: defaultDateYmd,
+  );
+  if (memory == null) return;
+
+  final key = _smartInputMemoryKey(
+    userId: userId,
+    householdId: householdId,
+    currency: currency,
+    languageTag: languageTag,
+  );
+  final previous = _readSmartInputMemories(prefs, key);
+  final updated = <SmartInputAnalysisMemory>[
+    memory,
+    ...previous.where(
+      (candidate) =>
+          candidate.measurement.orderedSignature !=
+              memory.measurement.orderedSignature ||
+          candidate.measurement.unorderedSignature !=
+              memory.measurement.unorderedSignature,
+    ),
+  ].take(_smartInputMemoryLimit).toList(growable: false);
+
+  await prefs.setStringList(
+    key,
+    updated.map((entry) => jsonEncode(entry.toJson())).toList(growable: false),
+  );
 }
 
 List<Map<String, dynamic>> _asMapList(Object? value) {
@@ -324,6 +458,168 @@ Map<String, dynamic>? _normalizeExplicitCustomSplits(Object? rawCustomSplits) {
   return customSplits;
 }
 
+String _resolveOptimisticAiCategory({
+  required Object? rawCategory,
+  required Object? rawDescription,
+  required bool isIncome,
+}) {
+  final fallback = isIncome ? 'income' : 'other';
+  final category = rawCategory?.toString().trim() ?? '';
+  final normalizedCategory = normalizeCategory(category);
+  final builtinCategory = resolveBuiltinCategoryKeyAcrossLocales(
+    normalizedCategory,
+  );
+  if (builtinCategory != null &&
+      builtinCategory != 'other' &&
+      builtinCategory != 'uncategorized') {
+    return builtinCategory;
+  }
+
+  final description = rawDescription?.toString().trim() ?? '';
+  final normalizedDescription = normalizeCategory(description);
+  final descriptionCategory = resolveBuiltinCategoryKeyAcrossLocales(
+    normalizedDescription,
+  );
+  if (descriptionCategory != null &&
+      descriptionCategory != 'other' &&
+      descriptionCategory != 'uncategorized') {
+    return descriptionCategory;
+  }
+
+  return builtinCategory ?? fallback;
+}
+
+Future<Map<String, String>> _loadLocalCategoryRemaps(
+  ProviderContainer container, {
+  required String userId,
+  required String transactionType,
+}) async {
+  if (userId.trim().isEmpty) return const <String, String>{};
+  try {
+    final database = await container.read(localDatabaseProvider.future);
+    return database.getCategoryRemaps(
+      userId: userId,
+      transactionType: transactionType,
+    );
+  } catch (error) {
+    _debugPrint('⚠️ Local category remaps unavailable: $error');
+    return const <String, String>{};
+  }
+}
+
+String _applyLocalCategoryRemap({
+  required String category,
+  required Map<String, String> remaps,
+}) {
+  if (remaps.isEmpty) return category;
+  final direct = category.trim().toLowerCase();
+  final normalized = normalizeCategory(category);
+  return remaps[direct] ?? remaps[normalized] ?? category;
+}
+
+SplitType? _parseSplitTypeForOptimisticGroup(Object? rawSplitType) {
+  final value = rawSplitType?.toString().trim().toLowerCase();
+  if (value == null || value.isEmpty || value == 'equal') return null;
+  try {
+    return SplitType.fromJson(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+ExpenseSplitGroup? _buildOptimisticSplitGroupFromPayload({
+  required String householdId,
+  required String expenseId,
+  required String payerUserId,
+  required double totalAmount,
+  required String currency,
+  required Object? rawCustomSplits,
+  String? description,
+  String? splitGroupId,
+}) {
+  final customSplits = _normalizeExplicitCustomSplits(rawCustomSplits);
+  if (customSplits == null) return null;
+
+  final splitType =
+      _parseSplitTypeForOptimisticGroup(customSplits['splitType']);
+  if (splitType == null) return null;
+
+  final rawMemberSplits = customSplits['memberSplits'];
+  if (rawMemberSplits is! List || rawMemberSplits.isEmpty) return null;
+
+  final totalCents = (totalAmount.abs() * 100).round();
+  final now = DateTime.now();
+  final normalizedGroupId = (splitGroupId?.trim().isNotEmpty == true)
+      ? splitGroupId!.trim()
+      : 'optimistic_split_$expenseId';
+
+  final rawMaps = rawMemberSplits
+      .whereType<Map>()
+      .map((entry) => Map<String, dynamic>.from(entry))
+      .where((entry) => entry['userId']?.toString().trim().isNotEmpty == true)
+      .toList(growable: false);
+  if (rawMaps.isEmpty) return null;
+
+  int amountCentsFor(Map<String, dynamic> entry) {
+    switch (splitType) {
+      case SplitType.amount:
+        return ((_parseAmountValue(entry['amount']) ?? 0).abs() * 100).round();
+      case SplitType.percentage:
+        final percentage = _parseAmountValue(entry['percentage']) ?? 0;
+        return ((totalCents * percentage) / 100).round();
+      case SplitType.shares:
+        final totalShares = rawMaps.fold<int>(
+          0,
+          (sum, item) => sum + ((item['shares'] as num?)?.toInt() ?? 0),
+        );
+        if (totalShares <= 0) return 0;
+        final shares = (entry['shares'] as num?)?.toInt() ?? 0;
+        return ((totalCents * shares) / totalShares).round();
+      case SplitType.equal:
+        return 0;
+    }
+  }
+
+  final cents = rawMaps.map(amountCentsFor).toList(growable: true);
+  final centsDiff =
+      totalCents - cents.fold<int>(0, (sum, value) => sum + value);
+  if (centsDiff != 0 && cents.isNotEmpty) {
+    cents[cents.length - 1] += centsDiff;
+  }
+
+  final lines = <ExpenseSplitLine>[];
+  for (var index = 0; index < rawMaps.length; index++) {
+    final entry = rawMaps[index];
+    lines.add(
+      ExpenseSplitLine(
+        id: '${normalizedGroupId}_line_$index',
+        splitGroupId: normalizedGroupId,
+        userId: entry['userId'].toString().trim(),
+        amountCents: cents[index],
+        percentage: _parseAmountValue(entry['percentage']),
+        shares: (entry['shares'] as num?)?.toInt(),
+        isSettled: false,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  return ExpenseSplitGroup(
+    id: normalizedGroupId,
+    householdId: householdId,
+    expenseId: expenseId,
+    payerUserId: payerUserId,
+    splitType: splitType,
+    currency: currency,
+    totalAmountCents: totalCents,
+    description: description,
+    createdAt: now,
+    updatedAt: now,
+    splitLines: lines,
+  );
+}
+
 String _normalizeMemberAlias(String value) {
   final lowered = value.toLowerCase().trim();
   if (lowered.isEmpty) return '';
@@ -387,8 +683,8 @@ String? _resolveMentionedMemberId({
 }
 
 double? _parseLooseAmount(String raw) {
-  final normalized = raw.replaceAll(',', '').trim();
-  return double.tryParse(normalized);
+  final cents = tryParseMoneyToCents(raw);
+  return cents != null ? centsToAmount(cents) : null;
 }
 
 String? _extractDescriptionHintFromTotalClause(String clause) {
@@ -414,6 +710,28 @@ bool _itemsContainExplicitCustomSplits(List<dynamic> items) {
   return false;
 }
 
+List<String> _expandAmountSplitClauses(String text) {
+  final baseClauses = text
+      .split(RegExp(r'[;,]'))
+      .expand((chunk) => chunk.split(RegExp(r'\band\b', caseSensitive: false)))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList(growable: false);
+
+  final repeatedAmountPattern = RegExp(
+    r'(?:\bsplit\s+)?(\d+(?:\.\d{1,2})?)\s*(?:for|to|with)\s+(.+?)(?=\s+(?:\bsplit\s+)?\d+(?:\.\d{1,2})?\s*(?:for|to|with)\b|$)',
+    caseSensitive: false,
+  );
+
+  return baseClauses.expand((clause) {
+    final matches = repeatedAmountPattern.allMatches(clause).toList();
+    if (matches.length <= 1) return <String>[clause];
+    return matches
+        .map((match) => match.group(0)?.trim() ?? '')
+        .where((match) => match.isNotEmpty);
+  }).toList(growable: false);
+}
+
 _ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
   required String text,
   required List<Map<String, dynamic>> householdMembers,
@@ -421,12 +739,7 @@ _ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
 }) {
   if (text.trim().isEmpty || householdMembers.isEmpty) return null;
 
-  final clauses = text
-      .split(RegExp(r'[;,]'))
-      .expand((chunk) => chunk.split(RegExp(r'\band\b', caseSensitive: false)))
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList(growable: false);
+  final clauses = _expandAmountSplitClauses(text);
 
   if (clauses.isEmpty) return null;
 
@@ -508,7 +821,13 @@ _ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
   final missingIds =
       allMemberIds.where((id) => !specifiedCents.containsKey(id)).toList();
   var remainderCents = totalCents - specifiedSumCents;
-  if (missingIds.isNotEmpty && remainderCents > 0) {
+  if (totalHint != null &&
+      remainderCents > 0 &&
+      missingIds.contains(callerUserId)) {
+    specifiedCents[callerUserId] = remainderCents;
+    specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
+    remainderCents = totalCents - specifiedSumCents;
+  } else if (missingIds.isNotEmpty && remainderCents > 0) {
     final per = remainderCents ~/ missingIds.length;
     var extra = remainderCents % missingIds.length;
     for (final id in missingIds) {
@@ -693,13 +1012,67 @@ Future<void> _persistAiTransactions(
   required String? householdId,
   required bool isPortfolio,
   required List<_AiParsedItem> transactions,
+  required String? accountId,
   String? localImagePath,
 }) async {
   if (transactions.isEmpty) return;
 
   final clientCreatedAtIso = DateTime.now().toUtc().toIso8601String();
-  final scopedDefaultAccountId =
-      container.read(defaultScopedAccountProvider)?.id;
+  final batchTraceBase = sha256
+      .convert(utf8.encode([
+        userId,
+        householdId ?? '',
+        clientCreatedAtIso,
+        ...transactions.map((item) => item.optimisticId),
+      ].join('|')))
+      .toString();
+  MonekoDatabase? localDatabase;
+  var queuedLocally = false;
+
+  Future<void> cacheSavedEntriesAndRefresh(
+    List<ExpenseEntry> savedEntries,
+  ) async {
+    final cacheable = savedEntries
+        .where((entry) => entry.userId?.trim().isNotEmpty == true)
+        .toList(growable: false);
+    if (cacheable.isEmpty) return;
+
+    try {
+      final MonekoDatabase database =
+          localDatabase ?? await container.read(localDatabaseProvider.future);
+      localDatabase = database;
+      await database.upsertTransactions(
+        cacheable,
+        syncStatus: localSyncStatusSynced,
+      );
+    } catch (error) {
+      _debugPrint('⚠️ Failed to cache AI saved transactions locally: $error');
+    }
+
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    container
+        .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+        .state += 1;
+  }
+
+  Future<void> replaceLocalOptimisticTransaction({
+    required String optimisticId,
+    required ExpenseEntry savedEntry,
+    required TransactionMutationMetadata metadata,
+  }) async {
+    try {
+      await localDatabase?.replaceOptimisticTransaction(
+        optimisticId: optimisticId,
+        savedEntry: savedEntry,
+        clientMutationId: metadata.clientMutationId,
+      );
+    } catch (error) {
+      _debugPrint(
+        '⚠️ Failed to replace local AI optimistic transaction: $error',
+      );
+    }
+  }
 
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
@@ -790,28 +1163,73 @@ Future<void> _persistAiTransactions(
     return normalizedRule;
   }
 
-  void upsertSavedEntry({
-    required String optimisticId,
+  Future<ExpenseEntry> upsertSavedEntry({
+    required _AiPreparedMutation prepared,
     required ExpenseEntry savedEntry,
-  }) {
+  }) async {
+    final optimisticId = prepared.item.optimisticId;
+    var entryToStore = savedEntry;
+    final savedHouseholdId = savedEntry.householdId?.trim();
+    if (savedHouseholdId != null &&
+        savedHouseholdId.isNotEmpty &&
+        !prepared.item.transaction.isIncome) {
+      final existingSplitGroupId = savedEntry.splitGroupId?.trim();
+      final optimisticSplitGroup = _buildOptimisticSplitGroupFromPayload(
+        householdId: savedHouseholdId,
+        expenseId: savedEntry.id,
+        payerUserId: (prepared.batchRequestBody['payerUserId'] as String?)
+                    ?.trim()
+                    .isNotEmpty ==
+                true
+            ? (prepared.batchRequestBody['payerUserId'] as String).trim()
+            : userId,
+        totalAmount: savedEntry.amount,
+        currency: savedEntry.currency ?? prepared.item.transaction.currency,
+        rawCustomSplits: prepared.batchRequestBody['customSplits'],
+        description:
+            savedEntry.rawText ?? prepared.item.transaction.description,
+        splitGroupId: existingSplitGroupId?.isNotEmpty == true
+            ? existingSplitGroupId
+            : null,
+      );
+      if (optimisticSplitGroup != null) {
+        container
+            .read(householdOptimisticSplitsProvider.notifier)
+            .addSplitGroup(savedHouseholdId, optimisticSplitGroup);
+        if (existingSplitGroupId == null || existingSplitGroupId.isEmpty) {
+          entryToStore =
+              savedEntry.copyWith(splitGroupId: optimisticSplitGroup.id);
+        }
+      }
+    }
     if (savedEntry.id.isNotEmpty) {
       container
           .read(householdOptimisticExpensesProvider.notifier)
           .removeExpenseByIdAcrossHouseholds(savedEntry.id);
     }
     final fromBucket = normalizeBucketId(householdId);
-    final toBucket = normalizeBucketId(savedEntry.householdId);
+    final toBucket = normalizeBucketId(entryToStore.householdId);
 
     if (fromBucket == toBucket) {
+      await replaceLocalOptimisticTransaction(
+        optimisticId: optimisticId,
+        savedEntry: entryToStore,
+        metadata: prepared.metadata,
+      );
       replaceOptimisticTransactionWithContainer(
         container: container,
         optimisticId: optimisticId,
-        savedEntry: savedEntry,
+        savedEntry: entryToStore,
         householdId: fromBucket,
       );
-      return;
+      return entryToStore;
     }
 
+    await replaceLocalOptimisticTransaction(
+      optimisticId: optimisticId,
+      savedEntry: entryToStore,
+      metadata: prepared.metadata,
+    );
     removeOptimisticTransactionWithContainer(
       container: container,
       optimisticId: optimisticId,
@@ -819,9 +1237,10 @@ Future<void> _persistAiTransactions(
     );
     addOptimisticTransactionWithContainer(
       container: container,
-      entry: savedEntry,
+      entry: entryToStore,
       householdId: toBucket,
     );
+    return entryToStore;
   }
 
   Future<void> attachOptimisticSplitsForSavedExpenses(
@@ -883,10 +1302,41 @@ Future<void> _persistAiTransactions(
 
   // Upload receipt image first (if any) - shared across all transactions
   String? receiptUrl;
+  final hasReceiptExpense = localImagePath != null &&
+      localImagePath.isNotEmpty &&
+      transactions.any((item) => !item.transaction.isIncome);
+  Object? receiptUploadError;
   if (localImagePath != null && localImagePath.isNotEmpty) {
-    receiptUrl = await container
-        .read(expenseSaveNotifierProvider.notifier)
-        .uploadReceiptImage(File(localImagePath), userId);
+    try {
+      receiptUrl = await _uploadReceiptImageForAiQueue(
+        File(localImagePath),
+        userId,
+      );
+    } catch (error) {
+      receiptUploadError = error;
+      _debugPrint(
+        '⚠️ Receipt upload failed before AI transaction queueing; continuing without receipt image: $error',
+      );
+    }
+  }
+  var shouldDeferForReceiptUpload = hasReceiptExpense &&
+      receiptUrl == null &&
+      receiptUploadError != null &&
+      _shouldKeepQueuedLocalMutation(receiptUploadError);
+  String? durableReceiptImagePath;
+  if (shouldDeferForReceiptUpload) {
+    try {
+      durableReceiptImagePath = await _copyPendingAiInputFile(
+        source: File(localImagePath),
+        prefix: 'receipt',
+        fallbackExtension: 'jpg',
+      );
+    } catch (error) {
+      shouldDeferForReceiptUpload = false;
+      _debugPrint(
+        '⚠️ Failed to keep receipt image for retry; saving without receipt: $error',
+      );
+    }
   }
 
   final autoSplitContext =
@@ -897,11 +1347,15 @@ Future<void> _persistAiTransactions(
             )
           : null;
 
-  // Build batch payload - all transactions in a single request
-  final batchTransactions = transactions.map((item) {
+  // Build both the batch payload and individual outbox payloads. The outbox
+  // makes AI saves survive weak/offline network and app restarts.
+  final preparedMutations = transactions.map((item) {
     final tx = item.transaction;
     final isIncome = tx.isIncome;
     final isRecurring = resolveIsRecurring(item.raw);
+    final mutationMetadata = buildTransactionMutationMetadata(
+      item.optimisticId,
+    );
     final recurrenceRule = normalizeRecurrenceRule(
       item.raw,
       formatDateOnlyYmd(tx.date),
@@ -919,9 +1373,9 @@ Future<void> _persistAiTransactions(
     );
     final autoSplitEnabled =
         autoSplitContext?.household.autoSplitEnabled != false;
-    final explicitCustomSplits = autoSplitEnabled
-        ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
-        : null;
+    final explicitCustomSplits = _normalizeExplicitCustomSplits(
+      item.raw['customSplits'],
+    );
     final defaultCustomSplits = householdId != null &&
             householdId.isNotEmpty &&
             !isPortfolio &&
@@ -936,30 +1390,92 @@ Future<void> _persistAiTransactions(
     _debugPrint(
       '[AI Batch Save] Auto-split payload decision: household=$householdId '
       'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
-      'sendPayer=${autoSplitEnabled && payerUserId != null} '
-      'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
+      'sendPayer=${(autoSplitEnabled || explicitCustomSplits != null) && payerUserId != null} '
+      'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'} '
+      'rawCustomSplits=${jsonEncode(item.raw['customSplits'])} '
+      'effectiveCustomSplits=${jsonEncode(effectiveCustomSplits)}',
     );
 
-    return <String, dynamic>{
-      'type': isIncome ? 'income' : 'expense',
+    final commonRequestBody = <String, dynamic>{
       'amount': tx.amount,
       'category': tx.category,
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
-      if (scopedDefaultAccountId != null && scopedDefaultAccountId.isNotEmpty)
-        'accountId': scopedDefaultAccountId,
+      if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
       'clientCreatedAt': clientCreatedAtIso,
+      ...mutationMetadata.toRequestJson(),
       if (isRecurring) 'isRecurring': true,
       if (isRecurring && recurrenceRule != null)
         'recurrence_rule': recurrenceRule,
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
-      if (autoSplitEnabled && payerUserId != null) 'payerUserId': payerUserId,
+      if ((autoSplitEnabled || explicitCustomSplits != null) &&
+          payerUserId != null)
+        'payerUserId': payerUserId,
       if (effectiveCustomSplits != null) 'customSplits': effectiveCustomSplits,
       // Income ownerType/privacyScope use backend defaults.
     };
+
+    return _AiPreparedMutation(
+      item: item,
+      metadata: mutationMetadata,
+      functionName: isIncome ? 'save-income' : 'save-expense',
+      individualRequestBody: <String, dynamic>{
+        'userId': userId,
+        ...commonRequestBody,
+        if (householdId != null && householdId.isNotEmpty)
+          'householdId': householdId,
+        if (householdId != null && householdId.isNotEmpty)
+          'isPortfolio': isPortfolio,
+      },
+      batchRequestBody: <String, dynamic>{
+        'type': isIncome ? 'income' : 'expense',
+        ...commonRequestBody,
+      },
+    );
   }).toList(growable: false);
+
+  final batchTransactions = preparedMutations
+      .map((prepared) => prepared.batchRequestBody)
+      .toList(growable: false);
+
+  try {
+    final database = await container.read(localDatabaseProvider.future);
+    localDatabase = database;
+    for (final prepared in preparedMutations) {
+      await database.writeOptimisticTransaction(
+        entry: prepared.item.optimisticEntry,
+        clientMutationId: prepared.metadata.clientMutationId,
+        operation: 'create',
+        payload: {
+          ...prepared.metadata.toRequestJson(),
+          'transaction': prepared.item.optimisticEntry.toJson(),
+          'functionName': prepared.functionName,
+          'requestBody': prepared.individualRequestBody,
+          if (shouldDeferForReceiptUpload &&
+              !prepared.item.transaction.isIncome)
+            'localReceiptImagePath': durableReceiptImagePath,
+        },
+      );
+    }
+    queuedLocally = true;
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+  } catch (error) {
+    _debugPrint('⚠️ Failed to queue AI transactions locally: $error');
+  }
+
+  if (shouldDeferForReceiptUpload && queuedLocally) {
+    _debugPrint(
+      '📦 Keeping queued AI transaction(s) for receipt upload retry',
+    );
+    scheduleMobileOutboxDrain(
+      container,
+      maxMutations: max(20, preparedMutations.length),
+    );
+    return;
+  }
 
   try {
     _debugPrint(
@@ -971,6 +1487,7 @@ Future<void> _persistAiTransactions(
 
     var didPersistAny = false;
     var savedExpenseCount = 0;
+    final savedEntries = <ExpenseEntry>[];
     final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
     for (var batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -982,6 +1499,7 @@ Future<void> _persistAiTransactions(
         'save-transactions-batch',
         body: {
           'userId': userId,
+          'debugTraceId': 'mobile-ai-$batchTraceBase-$batchOffset',
           if (householdId != null && householdId.isNotEmpty)
             'householdId': householdId,
           if (householdId != null && householdId.isNotEmpty)
@@ -1024,22 +1542,24 @@ Future<void> _persistAiTransactions(
           }
 
           final originalIndex = batchOffset + index;
-          if (originalIndex < 0 || originalIndex >= transactions.length) {
+          if (originalIndex < 0 || originalIndex >= preparedMutations.length) {
             continue;
           }
 
-          final originalItem = transactions[originalIndex];
+          final prepared = preparedMutations[originalIndex];
+          final originalItem = prepared.item;
 
           if (success && data != null) {
             final savedEntry = ExpenseEntry.fromJson(data);
-            upsertSavedEntry(
-              optimisticId: originalItem.optimisticId,
+            final storedEntry = await upsertSavedEntry(
+              prepared: prepared,
               savedEntry: savedEntry,
             );
             didPersistAny = true;
+            savedEntries.add(storedEntry);
             if (!originalItem.transaction.isIncome) {
               savedExpenseCount += 1;
-              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+              savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
             // Remove failed optimistic entry
@@ -1047,6 +1567,11 @@ Future<void> _persistAiTransactions(
               container: container,
               optimisticId: originalItem.optimisticId,
               householdId: householdId,
+            );
+            await localDatabase?.rollbackOptimisticTransaction(
+              optimisticId: originalItem.optimisticId,
+              clientMutationId: prepared.metadata.clientMutationId,
+              error: result['error'] ?? 'Batch item failed',
             );
             _debugPrint(
                 '❌ Failed to persist transaction at index $originalIndex: ${result['error'] ?? 'unknown error'}');
@@ -1062,6 +1587,7 @@ Future<void> _persistAiTransactions(
     }
 
     await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+    await cacheSavedEntriesAndRefresh(savedEntries);
 
     if (didPersistAny) {
       await container
@@ -1069,6 +1595,9 @@ Future<void> _persistAiTransactions(
           .invalidateAfterBatch(
             userId: userId,
             householdId: householdId,
+            refreshAnalytics: false,
+            refreshTransactionFeed: false,
+            emitDashboardRefresh: false,
           );
     }
 
@@ -1095,108 +1624,54 @@ Future<void> _persistAiTransactions(
       // Save transactions individually using existing endpoints
       var savedCount = 0;
       var savedExpenseCount = 0;
+      var keptQueuedForRetry = false;
+      final savedEntries = <ExpenseEntry>[];
       final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
-      for (final item in transactions) {
+      for (final prepared in preparedMutations) {
+        final item = prepared.item;
         try {
-          final tx = item.transaction;
-          final isIncome = tx.isIncome;
-          final isRecurring = resolveIsRecurring(item.raw);
-          final recurrenceRule = normalizeRecurrenceRule(
-            item.raw,
-            formatDateOnlyYmd(tx.date),
+          final response = await supabase.functions.invoke(
+            prepared.functionName,
+            body: prepared.individualRequestBody,
           );
-          final endpoint = isIncome ? 'save-income' : 'save-expense';
-
-          final requestBody = <String, dynamic>{
-            'userId': userId,
-            'amount': tx.amount,
-            'category': tx.category,
-            'currency': tx.currency,
-            'date': formatDateOnlyYmd(tx.date),
-            if (scopedDefaultAccountId != null &&
-                scopedDefaultAccountId.isNotEmpty)
-              'accountId': scopedDefaultAccountId,
-            'clientCreatedAt': clientCreatedAtIso,
-            if (isRecurring) 'isRecurring': true,
-            if (isRecurring && recurrenceRule != null)
-              'recurrence_rule': recurrenceRule,
-            if (tx.description?.isNotEmpty == true)
-              'description': tx.description,
-            if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
-            if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
-            if (householdId != null && householdId.isNotEmpty)
-              'householdId': householdId,
-            if (householdId != null && householdId.isNotEmpty)
-              'isPortfolio': isPortfolio,
-          };
-
-          final rawPayerUserId = item.raw['payerUserId'];
-          final payerUserId =
-              rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
-                  ? rawPayerUserId.trim()
-                  : null;
-
-          final hasExplicitCustomSplits = _hasExplicitCustomSplits(
-            item.raw['customSplits'],
-          );
-          final autoSplitEnabled =
-              autoSplitContext?.household.autoSplitEnabled != false;
-          final explicitCustomSplits = autoSplitEnabled
-              ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
-              : null;
-          final defaultCustomSplits = householdId != null &&
-                  householdId.isNotEmpty &&
-                  !isPortfolio &&
-                  autoSplitEnabled &&
-                  !hasExplicitCustomSplits
-              ? _resolveAutoSplitCustomSplitsPayload(
-                  autoSplitContext,
-                  totalAmount: tx.amount,
-                )
-              : null;
-          final effectiveCustomSplits =
-              explicitCustomSplits ?? defaultCustomSplits;
-          _debugPrint(
-            '[AI Fallback Save] Auto-split payload decision: household=$householdId '
-            'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
-            'sendPayer=${autoSplitEnabled && payerUserId != null} '
-            'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
-          );
-
-          if (autoSplitEnabled && payerUserId != null) {
-            requestBody['payerUserId'] = payerUserId;
-          }
-          if (effectiveCustomSplits != null) {
-            requestBody['customSplits'] = effectiveCustomSplits;
-          }
-
-          final response =
-              await supabase.functions.invoke(endpoint, body: requestBody);
 
           final savedPayload = _extractSavedEntryPayload(response.data);
 
           if (savedPayload != null) {
             final savedEntry = ExpenseEntry.fromJson(savedPayload);
-            upsertSavedEntry(
-              optimisticId: item.optimisticId,
+            final storedEntry = await upsertSavedEntry(
+              prepared: prepared,
               savedEntry: savedEntry,
             );
             savedCount++;
-            if (!isIncome) {
+            savedEntries.add(storedEntry);
+            if (!item.transaction.isIncome) {
               savedExpenseCount++;
-              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+              savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
             throw Exception(
-                'No saved transaction data returned from $endpoint');
+                'No saved transaction data returned from ${prepared.functionName}');
           }
         } catch (itemError) {
           _debugPrint('❌ Failed to save individual transaction: $itemError');
+          if (queuedLocally && _shouldKeepQueuedLocalMutation(itemError)) {
+            _debugPrint(
+              '📦 Keeping queued AI transaction ${item.optimisticId} for background retry',
+            );
+            keptQueuedForRetry = true;
+            continue;
+          }
           removeOptimisticTransactionWithContainer(
             container: container,
             optimisticId: item.optimisticId,
             householdId: householdId,
+          );
+          await localDatabase?.rollbackOptimisticTransaction(
+            optimisticId: item.optimisticId,
+            clientMutationId: prepared.metadata.clientMutationId,
+            error: itemError,
           );
         }
       }
@@ -1204,17 +1679,22 @@ Future<void> _persistAiTransactions(
       _debugPrint(
           '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
 
+      if (savedExpenseEntriesById.isNotEmpty) {
+        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+      }
+
+      await cacheSavedEntriesAndRefresh(savedEntries);
+
       if (savedCount > 0) {
         await container
             .read(expenseSaveNotifierProvider.notifier)
             .invalidateAfterBatch(
               userId: userId,
               householdId: householdId,
+              refreshAnalytics: false,
+              refreshTransactionFeed: false,
+              emitDashboardRefresh: false,
             );
-      }
-
-      if (savedExpenseEntriesById.isNotEmpty) {
-        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
       }
 
       if (savedExpenseCount > 0) {
@@ -1229,15 +1709,41 @@ Future<void> _persistAiTransactions(
         ));
       }
 
+      if (keptQueuedForRetry) {
+        scheduleMobileOutboxDrain(
+          container,
+          maxMutations: max(20, preparedMutations.length),
+        );
+      }
+
       return; // Exit successfully after fallback
     }
 
+    if (queuedLocally && _shouldKeepQueuedLocalMutation(error)) {
+      _debugPrint(
+        '📦 Keeping ${preparedMutations.length} queued AI transaction(s) for background retry',
+      );
+      container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      scheduleMobileOutboxDrain(
+        container,
+        maxMutations: max(20, preparedMutations.length),
+      );
+      return;
+    }
+
     // For non-recoverable errors, remove all optimistic entries and rethrow
-    for (final item in transactions) {
+    for (final prepared in preparedMutations) {
+      final item = prepared.item;
       removeOptimisticTransactionWithContainer(
         container: container,
         optimisticId: item.optimisticId,
         householdId: householdId,
+      );
+      await localDatabase?.rollbackOptimisticTransaction(
+        optimisticId: item.optimisticId,
+        clientMutationId: prepared.metadata.clientMutationId,
+        error: error,
       );
     }
 
@@ -1263,6 +1769,221 @@ bool shouldFallbackForBatchError(Object error) {
     return true;
   }
   return false;
+}
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  if (error is SocketException || error is TimeoutException) return true;
+
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error') ||
+      message.contains('bad file descriptor');
+}
+
+bool shouldQueueAiInputForRetry(Object error) =>
+    _shouldKeepQueuedLocalMutation(error);
+
+Map<String, dynamic> buildQueuedAiInputPayload({
+  required String userId,
+  required String? householdId,
+  required bool isPortfolio,
+  required String? accountId,
+  required Map<String, dynamic> analysisBody,
+  String? localImagePath,
+  String? imageContentType,
+  String? localAudioPath,
+  String? audioContentType,
+}) {
+  final body = Map<String, dynamic>.from(analysisBody)
+    ..remove('image')
+    ..remove('audio');
+  final normalizedHouseholdId = householdId?.trim();
+  final normalizedAccountId = accountId?.trim();
+  final normalizedImagePath = localImagePath?.trim();
+  final normalizedAudioPath = localAudioPath?.trim();
+
+  return <String, dynamic>{
+    'userId': userId,
+    'body': body,
+    if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty)
+      'householdId': normalizedHouseholdId,
+    if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty)
+      'isPortfolio': isPortfolio,
+    if (normalizedAccountId != null && normalizedAccountId.isNotEmpty)
+      'accountId': normalizedAccountId,
+    if (normalizedImagePath != null && normalizedImagePath.isNotEmpty)
+      'localImagePath': normalizedImagePath,
+    if (normalizedImagePath != null && normalizedImagePath.isNotEmpty)
+      'imageContentType': imageContentType ?? 'image/jpeg',
+    if (normalizedAudioPath != null && normalizedAudioPath.isNotEmpty)
+      'localAudioPath': normalizedAudioPath,
+    if (normalizedAudioPath != null && normalizedAudioPath.isNotEmpty)
+      'audioContentType': audioContentType ?? 'audio/mpeg',
+  };
+}
+
+String _fileExtensionFromPath(String path, {String fallback = 'bin'}) {
+  final name = path.split('/').last;
+  if (!name.contains('.')) return fallback;
+  final extension = name.split('.').last.toLowerCase().trim();
+  if (!RegExp(r'^[a-z0-9]{1,8}$').hasMatch(extension)) return fallback;
+  return extension;
+}
+
+String _imageContentTypeForPath(String path) {
+  final extension = _fileExtensionFromPath(path, fallback: 'jpg');
+  return switch (extension) {
+    'png' => 'image/png',
+    'heic' => 'image/heic',
+    'webp' => 'image/webp',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    _ => 'image/jpeg',
+  };
+}
+
+Future<Directory> _pendingAiInputDirectory() async {
+  final documents = await getApplicationDocumentsDirectory();
+  final directory =
+      Directory('${documents.path}/$_pendingAiInputDirectoryName');
+  if (!await directory.exists()) {
+    await directory.create(recursive: true);
+  }
+  return directory;
+}
+
+Future<String> _copyPendingAiInputFile({
+  required File source,
+  required String prefix,
+  String fallbackExtension = 'bin',
+}) async {
+  if (!await source.exists()) {
+    throw FileSystemException(
+        'Pending AI input file does not exist', source.path);
+  }
+  final directory = await _pendingAiInputDirectory();
+  final extension = _fileExtensionFromPath(
+    source.path,
+    fallback: fallbackExtension,
+  );
+  final fileName = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_'
+      '${Random.secure().nextInt(1 << 32)}.$extension';
+  final copy = await source.copy('${directory.path}/$fileName');
+  return copy.path;
+}
+
+Future<String> _writePendingAiInputBytes({
+  required Uint8List bytes,
+  required String prefix,
+  required String extension,
+}) async {
+  final directory = await _pendingAiInputDirectory();
+  final safeExtension =
+      RegExp(r'^[a-z0-9]{1,8}$').hasMatch(extension) ? extension : 'bin';
+  final fileName = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_'
+      '${Random.secure().nextInt(1 << 32)}.$safeExtension';
+  final file = File('${directory.path}/$fileName');
+  await file.writeAsBytes(bytes, flush: true);
+  return file.path;
+}
+
+Future<String> _uploadReceiptImageForAiQueue(
+    File imageFile, String userId) async {
+  final compressedBytes = await ImageCompressor.compressFile(
+    imageFile,
+    config: ImageCompressConfig.receipt,
+  );
+  final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+  final path = 'receipts/$userId/$fileName';
+  final response = await supabase.storage.from('expense-receipts').uploadBinary(
+        path,
+        compressedBytes,
+        fileOptions: const FileOptions(
+          contentType: 'image/jpeg',
+          cacheControl: '31536000',
+        ),
+      );
+  if (response.isEmpty) throw StateError('Receipt upload failed');
+  return supabase.storage.from('expense-receipts').getPublicUrl(path);
+}
+
+Future<bool> _queueAiInputForBackgroundRetry(
+  ProviderContainer container, {
+  required String userId,
+  required String? householdId,
+  required bool isPortfolio,
+  required String? accountId,
+  required Map<String, dynamic> analysisBody,
+  String? imagePath,
+  Uint8List? audioBytes,
+  String? audioContentType,
+}) async {
+  final hasText = analysisBody['text']?.toString().trim().isNotEmpty == true;
+  final hasAttachments = analysisBody['attachments'] is List &&
+      (analysisBody['attachments'] as List).isNotEmpty;
+  final hasImage = imagePath?.trim().isNotEmpty == true;
+  final hasAudio = audioBytes != null && audioBytes.isNotEmpty;
+  if (!hasText && !hasAttachments && !hasImage && !hasAudio) return false;
+
+  String? durableImagePath;
+  String? durableAudioPath;
+  if (hasImage) {
+    durableImagePath = await _copyPendingAiInputFile(
+      source: File(imagePath!),
+      prefix: 'image',
+      fallbackExtension: 'jpg',
+    );
+  }
+  if (hasAudio) {
+    final contentType = audioContentType ?? 'audio/mpeg';
+    final extension = contentType.contains('aac')
+        ? 'aac'
+        : contentType.contains('wav')
+            ? 'wav'
+            : contentType.contains('m4a')
+                ? 'm4a'
+                : 'mp3';
+    durableAudioPath = await _writePendingAiInputBytes(
+      bytes: audioBytes,
+      prefix: 'audio',
+      extension: extension,
+    );
+  }
+
+  final database = await container.read(localDatabaseProvider.future);
+  final queuedId = makeOptimisticTransactionId().replaceFirst(
+    'optimistic_',
+    'ai_input_',
+  );
+  final payload = buildQueuedAiInputPayload(
+    userId: userId,
+    householdId: householdId,
+    isPortfolio: isPortfolio,
+    accountId: accountId,
+    analysisBody: analysisBody,
+    localImagePath: durableImagePath,
+    imageContentType:
+        imagePath == null ? null : _imageContentTypeForPath(imagePath),
+    localAudioPath: durableAudioPath,
+    audioContentType: audioContentType,
+  );
+
+  await database.enqueueMutation(
+    clientMutationId: 'mobile:$queuedId',
+    entityType: 'ai_input',
+    entityId: queuedId,
+    operation: 'analyze_ai_input',
+    payload: payload,
+  );
+  return true;
 }
 
 List<List<T>> chunkList<T>(List<T> items, int maxSize) {
@@ -1373,35 +2094,28 @@ Future<void> handleAiFreeFormText(
   WidgetRef ref, {
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
-  final controller = TextEditingController();
-
-  try {
-    await showTextInputDrawer(
-      context,
-      controller,
-      (text) async {
-        if (!context.mounted) return;
-        await _processExpense(
-          context,
-          ref,
-          text: text,
-          onSuccess: onSuccess,
-        );
-      },
-      onSubmitAudio: (audioBytes, contentType) async {
-        if (!context.mounted) return;
-        await _processExpense(
-          context,
-          ref,
-          audioBytes: audioBytes,
-          audioContentType: contentType,
-          onSuccess: onSuccess,
-        );
-      },
-    );
-  } finally {
-    controller.dispose();
-  }
+  await showTextInputDrawer(
+    context,
+    (text) async {
+      if (!context.mounted) return;
+      await _processExpense(
+        context,
+        ref,
+        text: text,
+        onSuccess: onSuccess,
+      );
+    },
+    onSubmitAudio: (audioBytes, contentType) async {
+      if (!context.mounted) return;
+      await _processExpense(
+        context,
+        ref,
+        audioBytes: audioBytes,
+        audioContentType: contentType,
+        onSuccess: onSuccess,
+      );
+    },
+  );
 }
 
 Future<void> handleAiFileUpload(
@@ -1639,12 +2353,27 @@ Future<void> _processExpense(
   final effectiveUserId = preview.isActive
       ? (PreviewMockData.contact.userId ?? 'preview-user')
       : user.uid;
+  final locale = Localizations.localeOf(context);
+  final languageTag =
+      locale.countryCode != null && locale.countryCode!.isNotEmpty
+          ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
+          : locale.languageCode;
+  final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
+  final defaultDateYmd = formatDateOnlyYmd(today);
+  final filterState = ref.read(homeFilterProvider);
+  final selectedCurrency = filterState.selectedCurrency;
+  final effectiveCurrency =
+      (selectedCurrency != null && selectedCurrency.isNotEmpty)
+          ? selectedCurrency.toUpperCase()
+          : contact?.preferredCurrency?.toUpperCase();
+  final providerContainer = ProviderScope.containerOf(context, listen: false);
 
   // Determine if this is a potentially slow operation.
   final hasAttachments = attachments?.isNotEmpty ?? false;
   final hasImageInput = imagePath != null && imagePath.isNotEmpty;
   final hasAudioInput = audioBytes != null && audioBytes.isNotEmpty;
   final hasTextInput = text != null && text.trim().isNotEmpty;
+  final trimmedText = text?.trim();
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
           a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
@@ -1656,9 +2385,47 @@ Future<void> _processExpense(
       }) ??
       false;
 
-  final shouldStream =
-      hasAttachments || hasImageInput || hasAudioInput || hasTextInput;
-  final useEnhancedDialog = shouldStream || isPdfUpload || isLargeFile;
+  Map<String, dynamic>? responseData;
+  var analysisRequestBody = <String, dynamic>{};
+  Future<bool> queueCurrentAiInputForRetry() {
+    return _queueAiInputForBackgroundRetry(
+      providerContainer,
+      userId: user.uid,
+      householdId: householdId,
+      isPortfolio: isPortfolio,
+      accountId: ref.read(defaultScopedAccountProvider)?.id.trim(),
+      analysisBody: analysisRequestBody,
+      imagePath: imagePath,
+      audioBytes: audioBytes,
+      audioContentType: audioContentType,
+    );
+  }
+
+  final canUseSmartInputMemory = !preview.isActive &&
+      hasTextInput &&
+      trimmedText != null &&
+      !hasAttachments &&
+      !hasImageInput &&
+      !hasAudioInput;
+  var usedSmartInputMemory = false;
+  if (canUseSmartInputMemory) {
+    responseData = _tryBuildSmartInputMemoryResponse(
+      prefs: ref.read(sharedPreferencesProvider),
+      userId: effectiveUserId,
+      householdId: householdId,
+      currency: effectiveCurrency,
+      languageTag: languageTag,
+      inputText: trimmedText,
+      defaultDateYmd: defaultDateYmd,
+    );
+    usedSmartInputMemory = responseData != null;
+  }
+
+  final shouldShowProcessingDialog = !usedSmartInputMemory;
+  final shouldStream = shouldShowProcessingDialog &&
+      (hasAttachments || hasImageInput || hasAudioInput || hasTextInput);
+  final useEnhancedDialog = shouldShowProcessingDialog &&
+      (shouldStream || isPdfUpload || isLargeFile);
 
   // Show enhanced processing modal with timeout handling for PDFs
   BlockingProcessingController? dialogController;
@@ -1681,7 +2448,7 @@ Future<void> _processExpense(
       showElapsedTime: true,
       enableCancelAfterSeconds: 0,
     );
-  } else {
+  } else if (shouldShowProcessingDialog) {
     showBlockingProcessingDialog(
       context: context,
       message: imagePath != null
@@ -1691,14 +2458,6 @@ Future<void> _processExpense(
   }
 
   try {
-    final locale = Localizations.localeOf(context);
-    final languageTag =
-        locale.countryCode != null && locale.countryCode!.isNotEmpty
-            ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
-            : locale.languageCode;
-
-    final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
-    Map<String, dynamic>? responseData;
     List<Map<String, dynamic>> householdMembersContext =
         const <Map<String, dynamic>>[];
 
@@ -1712,7 +2471,7 @@ Future<void> _processExpense(
               'amount': 5.50,
               'currency': 'USD',
               'category': 'Dining',
-              'date': formatDateOnlyYmd(today),
+              'date': defaultDateYmd,
               'is_income': false,
             },
           ],
@@ -1720,12 +2479,13 @@ Future<void> _processExpense(
       };
     }
 
-    final Map<String, dynamic> body = {
+    analysisRequestBody = <String, dynamic>{
       'userId': effectiveUserId,
-      'date': formatDateOnlyYmd(today),
+      'date': defaultDateYmd,
       'language': languageTag,
       'typeHint': 'mixed',
     };
+    final body = analysisRequestBody;
 
     if (householdId != null && householdId.isNotEmpty) {
       body['householdId'] = householdId;
@@ -1742,12 +2502,8 @@ Future<void> _processExpense(
     // Always use selected currency as default (same as personal expense)
     // Backend will use this as a fallback if no currency is detected in the text/image.
     // If this is also missing, backend defaults to USD.
-    final filterState = ref.read(homeFilterProvider);
-    final selectedCurrency = filterState.selectedCurrency;
-    if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-      body['currency'] = selectedCurrency.toUpperCase();
-    } else if (contact?.preferredCurrency != null) {
-      body['currency'] = contact!.preferredCurrency!.toUpperCase();
+    if (effectiveCurrency != null && effectiveCurrency.isNotEmpty) {
+      body['currency'] = effectiveCurrency;
     }
 
     // Add either text, image, audio, or file attachments to the request
@@ -1845,8 +2601,23 @@ Future<void> _processExpense(
       }
     }
 
+    if (!usedSmartInputMemory &&
+        canUseSmartInputMemory &&
+        responseData != null) {
+      unawaited(_rememberSmartInputAnalysis(
+        prefs: ref.read(sharedPreferencesProvider),
+        userId: effectiveUserId,
+        householdId: householdId,
+        currency: effectiveCurrency,
+        languageTag: languageTag,
+        inputText: trimmedText,
+        defaultDateYmd: defaultDateYmd,
+        responseData: responseData,
+      ));
+    }
+
     // Close processing modal
-    if (context.mounted) {
+    if (shouldShowProcessingDialog && context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
     }
 
@@ -1861,6 +2632,20 @@ Future<void> _processExpense(
 
       if (innerData != null && innerData['items'] is List) {
         List items = List.from(innerData['items'] as List);
+        _debugPrint(
+          '[AI] Analysis split fields: ${jsonEncode(items.map((rawItem) {
+            final item = rawItem is Map
+                ? Map<String, dynamic>.from(rawItem)
+                : <String, dynamic>{};
+            return <String, dynamic>{
+              'amount': item['amount'],
+              'description': item['description'],
+              'payerUserId': item['payerUserId'],
+              'customSplits': item['customSplits'],
+            };
+          }).toList(growable: false))}',
+          wrapWidth: 1024,
+        );
         // Safety filter: drop total/subtotal rows when multiple items exist
         if (items.length > 1) {
           bool isTotalLike(dynamic it) {
@@ -1887,6 +2672,22 @@ Future<void> _processExpense(
 
         if (items.isNotEmpty) {
           final analyticsContactId = ref.read(appUserContactProvider)?.id;
+          final rawScopedDefaultAccountId =
+              ref.read(defaultScopedAccountProvider)?.id.trim();
+          final scopedDefaultAccountId =
+              rawScopedDefaultAccountId?.isEmpty == true
+                  ? null
+                  : rawScopedDefaultAccountId;
+          final expenseCategoryRemaps = await _loadLocalCategoryRemaps(
+            providerContainer,
+            userId: user.uid,
+            transactionType: 'expense',
+          );
+          final incomeCategoryRemaps = await _loadLocalCategoryRemaps(
+            providerContainer,
+            userId: user.uid,
+            transactionType: 'income',
+          );
 
           // Parse ALL items and immediately optimistic-log them.
           final parsed = items
@@ -1921,15 +2722,21 @@ Future<void> _processExpense(
                   _debugPrint('Skipping AI item with invalid amount/currency');
                   return null;
                 }
+                final resolvedCategory = _resolveOptimisticAiCategory(
+                  rawCategory: item['category'],
+                  rawDescription: item['description'],
+                  isIncome: isIncome,
+                );
+                final category = _applyLocalCategoryRemap(
+                  category: resolvedCategory,
+                  remaps:
+                      isIncome ? incomeCategoryRemaps : expenseCategoryRemaps,
+                );
                 final transaction = ParsedExpense(
                   isIncome: isIncome,
                   amount: amount,
                   // Normalize income categories to at least 'income' umbrella if model returns a granular one
-                  category: (item['category'] as String?)?.isNotEmpty == true
-                      ? (isIncome
-                          ? (item['category'] as String)
-                          : item['category'] as String)
-                      : (isIncome ? 'income' : 'other'),
+                  category: category,
                   currency: currency,
                   currencySymbol: item['currencySymbol'] as String? ?? '\$',
                   date: accountingDate,
@@ -1957,23 +2764,51 @@ Future<void> _processExpense(
                 );
 
                 final optimisticId = makeOptimisticTransactionId();
+                final optimisticSplitGroup = householdId != null &&
+                        householdId.isNotEmpty &&
+                        !isPortfolio &&
+                        !isIncome
+                    ? _buildOptimisticSplitGroupFromPayload(
+                        householdId: householdId,
+                        expenseId: optimisticId,
+                        payerUserId:
+                            transaction.payerUserId?.trim().isNotEmpty == true
+                                ? transaction.payerUserId!.trim()
+                                : user.uid,
+                        totalAmount: transaction.amount,
+                        currency: transaction.currency,
+                        rawCustomSplits: item['customSplits'],
+                        description: transaction.description,
+                      )
+                    : null;
                 final entry = buildOptimisticEntry(
                   transaction: transaction,
                   optimisticId: optimisticId,
                   userId: user.uid,
                   contactId: analyticsContactId,
                   householdId: householdId,
+                  accountId: scopedDefaultAccountId,
                   type: isIncome ? 'income' : 'expense',
+                  splitGroupId: optimisticSplitGroup?.id,
                 );
                 addOptimisticTransaction(
                   ref: ref,
                   entry: entry,
                   householdId: householdId,
                 );
+                if (optimisticSplitGroup != null) {
+                  ref
+                      .read(householdOptimisticSplitsProvider.notifier)
+                      .addSplitGroup(
+                        optimisticSplitGroup.householdId,
+                        optimisticSplitGroup,
+                      );
+                }
 
                 return _AiParsedItem(
                   transaction: transaction,
                   optimisticId: optimisticId,
+                  optimisticEntry: entry,
                   raw: item,
                 );
               })
@@ -2022,14 +2857,14 @@ Future<void> _processExpense(
           }
 
           if (!preview.isActive) {
-            final container = ProviderScope.containerOf(context, listen: false);
             unawaited(
               _persistAiTransactions(
-                container,
+                providerContainer,
                 userId: user.uid,
                 householdId: householdId,
                 isPortfolio: isPortfolio,
                 transactions: parsed,
+                accountId: scopedDefaultAccountId,
                 localImagePath: imagePath,
               ),
             );
@@ -2051,6 +2886,24 @@ Future<void> _processExpense(
         'code': responseData?['code'],
         'status': responseData?['status'],
       };
+      if (!preview.isActive && shouldQueueAiInputForRetry(errorPayload)) {
+        try {
+          final queued = await queueCurrentAiInputForRetry();
+          if (queued) {
+            if (context.mounted) {
+              AppToast.success(
+                context,
+                context.l10n.walletCaptureOfflineDescription,
+              );
+            }
+            return;
+          }
+        } catch (queueError) {
+          _debugPrint(
+            '⚠️ Failed to queue AI input for background retry: $queueError',
+          );
+        }
+      }
       if (context.mounted) {
         AppToast.error(
           context,
@@ -2065,8 +2918,26 @@ Future<void> _processExpense(
     _debugPrint('Error in analysis: $e');
 
     // Close processing modal
-    if (context.mounted) {
+    if (shouldShowProcessingDialog && context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    if (!preview.isActive && shouldQueueAiInputForRetry(e)) {
+      try {
+        final queued = await queueCurrentAiInputForRetry();
+        if (queued) {
+          if (context.mounted) {
+            AppToast.success(
+              context,
+              context.l10n.walletCaptureOfflineDescription,
+            );
+          }
+          return;
+        }
+      } catch (queueError) {
+        _debugPrint(
+            '⚠️ Failed to queue AI input for background retry: $queueError');
+      }
     }
 
     if (context.mounted) {
@@ -2117,10 +2988,13 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   double _holdDragDeltaX = 0;
   DateTime? _holdRecordingStartedAt;
   double? _holdStartGlobalX;
+  Timer? _holdAmplitudeTimer;
+  double _holdRecordingPeakDb = _silentRecordingPeakDb;
   bool _isFabOpen = false;
 
   @override
   void dispose() {
+    _holdAmplitudeTimer?.cancel();
     _holdRecorder.dispose();
     super.dispose();
   }
@@ -2220,7 +3094,9 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: filePath,
       );
+      _startHoldAmplitudeProbe();
     } catch (error) {
+      _holdAmplitudeTimer?.cancel();
       if (mounted) {
         setState(() {
           _isHoldRecording = false;
@@ -2239,6 +3115,25 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         );
       }
     }
+  }
+
+  void _startHoldAmplitudeProbe() {
+    _holdRecordingPeakDb = _silentRecordingPeakDb;
+    _holdAmplitudeTimer?.cancel();
+    _holdAmplitudeTimer =
+        Timer.periodic(const Duration(milliseconds: 100), (_) {
+      unawaited(_captureHoldRecordingAmplitude());
+    });
+  }
+
+  Future<void> _captureHoldRecordingAmplitude() async {
+    try {
+      final amp = await _holdRecorder.getAmplitude();
+      final peak = max(amp.current, amp.max);
+      if (peak > _holdRecordingPeakDb) {
+        _holdRecordingPeakDb = peak;
+      }
+    } catch (_) {}
   }
 
   void _applyHoldDragDelta(double deltaX) {
@@ -2289,11 +3184,14 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         _didCrossCancelThreshold = false;
         _holdDragDeltaX = 0;
         _holdStartGlobalX = null;
+        _holdRecordingStartedAt = null;
       });
     }
 
     File? audioFile;
     try {
+      await _captureHoldRecordingAmplitude();
+      _holdAmplitudeTimer?.cancel();
       final path = await _holdRecorder.stop();
       if (path == null) return;
       audioFile = File(path);
@@ -2308,6 +3206,14 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
               _minimumHoldRecordingMs) {
         if (mounted) {
           AppToast.error(context, context.l10n.recordingTooShort);
+        }
+        return;
+      }
+
+      final hasVoiceInput = _holdRecordingPeakDb > _minimumVoicePeakDb;
+      if (!hasVoiceInput) {
+        if (mounted) {
+          AppToast.error(context, context.l10n.recordingIsEmpty);
         }
         return;
       }

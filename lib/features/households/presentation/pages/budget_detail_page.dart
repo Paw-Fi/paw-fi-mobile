@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -128,15 +129,68 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                   const SizedBox(height: 16),
 
                   // Amount
-                  _buildField(
-                    label: '${context.l10n.amount} (${widget.budget.currency})',
-                    controller: _amountController,
-                    enabled: _isEditing,
-                    keyboardType: TextInputType.number,
-                    colorScheme: colorScheme,
-                    prefix: widget.budget.currency == 'USD'
-                        ? '\$'
-                        : widget.budget.currency,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${context.l10n.amount} (${widget.budget.currency})',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _isEditing
+                            ? () async {
+                                final value = await showCalculatorKeypadSheet(
+                                  context: context,
+                                  initialValue: _amountController.text,
+                                );
+                                if (value != null) {
+                                  setState(() {
+                                    _amountController.text = value;
+                                  });
+                                }
+                              }
+                            : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: colorScheme.border),
+                            borderRadius: BorderRadius.circular(8),
+                            color: !_isEditing
+                                ? colorScheme.muted.withValues(alpha: 0.3)
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                widget.budget.currency == 'USD'
+                                    ? '\$'
+                                    : widget.budget.currency,
+                                style: TextStyle(
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _amountController.text.isEmpty
+                                      ? '0'
+                                      : _amountController.text,
+                                  style: TextStyle(
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 16),

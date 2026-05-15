@@ -344,8 +344,8 @@ class EmailImportSettingsPage extends HookConsumerWidget {
             child: SafeArea(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding:  EdgeInsets.only(
-                         top: getSubPageTopPadding(context)-20,
+                padding: EdgeInsets.only(
+                  top: getSubPageTopPadding(context) - 20,
                   left: 20,
                   right: 20,
                   bottom: 40,
@@ -367,7 +367,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                               : colorScheme.mutedForeground,
                           iconBackgroundColor: colorScheme.muted,
                           title: context.l10n.emailFileImportEnableSwitchTitle,
-                         trailing: AdaptiveSwitch(
+                          trailing: AdaptiveSwitch(
                             value: current.enabled,
                             onChanged: isSaving.value ? null : toggleEnabled,
                           ),
@@ -449,7 +449,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                       const SizedBox(height: 36),
                       _SettingsGroup(
                         title: context.l10n.emailFileImportAllowedSenders,
-                        children: [                       
+                        children: [
                           _SenderEmailColumn(
                             emails: senderEmails,
                             removableEmails: current.whitelistEmails,
@@ -514,7 +514,7 @@ class _HeroIntro extends StatelessWidget {
               size: 38,
             ),
           ),
-                    const SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
             description,
             textAlign: TextAlign.center,
@@ -550,7 +550,6 @@ class _HeroIntro extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                   
                     Text(
                       context.l10n.howItWorksTitle,
                       style: TextStyle(
@@ -560,7 +559,7 @@ class _HeroIntro extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                     Icon(
+                    Icon(
                       Icons.help_outline,
                       size: 14,
                       color: colorScheme.foreground,
@@ -778,29 +777,6 @@ class _SettingsTile extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _SenderNote extends StatelessWidget {
-  const _SenderNote({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14,
-          color: colorScheme.mutedForeground,
-          height: 1.4,
-        ),
-      ),
     );
   }
 }
@@ -1109,7 +1085,7 @@ class _HowItWorksSheet extends StatelessWidget {
             email: inboundEmail,
             onCopy: onCopyEmail,
           ),
-           const SizedBox(height: 18),
+          const SizedBox(height: 18),
           _HowItWorksCard(
             step: 1,
             title: context.l10n.addApprovedSender,
@@ -1132,7 +1108,7 @@ class _HowItWorksSheet extends StatelessWidget {
             step: 4,
             title: context.l10n.getNotifiedWhenReady,
             description: context.l10n.getNotifiedWhenReadyDescription,
-          ),         
+          ),
         ],
       ),
     );

@@ -98,6 +98,31 @@ void main() {
     expect(merged.single.amountCents, 9999);
   });
 
+  test('mergeHouseholdExpenses hides optimistically deleted base rows', () {
+    final merged = mergeHouseholdExpenses(
+      [_entry('deleted'), _entry('kept')],
+      const [],
+      deletedIds: {'deleted'},
+    );
+
+    expect(merged.map((entry) => entry.id), ['kept']);
+  });
+
+  test('household optimistic deleted ids can be restored', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    const householdId = 'household-1';
+    final notifier =
+        container.read(householdOptimisticDeletedExpenseIdsProvider.notifier);
+
+    notifier.markDeleted(householdId, ['a', 'b']);
+    notifier.restore(householdId, ['a']);
+
+    final state = container.read(householdOptimisticDeletedExpenseIdsProvider);
+    expect(state[householdId], {'b'});
+  });
+
   test('addOrReplaceHousehold inserts and updates user household state', () {
     final container = ProviderContainer(
       overrides: [

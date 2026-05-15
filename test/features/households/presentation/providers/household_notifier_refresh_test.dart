@@ -183,7 +183,7 @@ void main() {
       final notifier = HouseholdMembersNotifier(repository, 'h1');
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
-      expect(notifier.state.valueOrNull, initialMembers);
+      expect(notifier.state.value, initialMembers);
 
       final refreshCompleter = Completer<List<HouseholdMember>>();
       when(() => repository.getHouseholdMembers('h1'))
@@ -191,13 +191,13 @@ void main() {
 
       final refresh = notifier.load();
 
-      expect(notifier.state.valueOrNull, initialMembers);
+      expect(notifier.state.value, initialMembers);
 
       final refreshedMembers = [_member('u3')];
       refreshCompleter.complete(refreshedMembers);
       await refresh;
 
-      expect(notifier.state.valueOrNull, refreshedMembers);
+      expect(notifier.state.value, refreshedMembers);
     });
 
     test('budgets refresh keeps the previous value visible while loading',
@@ -209,7 +209,7 @@ void main() {
       final notifier = HouseholdBudgetsNotifier(repository, 'h1');
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
-      expect(notifier.state.valueOrNull, initialBudgets);
+      expect(notifier.state.value, initialBudgets);
 
       final refreshCompleter = Completer<List<SharedBudget>>();
       when(() => repository.getHouseholdBudgets('h1'))
@@ -217,13 +217,13 @@ void main() {
 
       final refresh = notifier.load();
 
-      expect(notifier.state.valueOrNull, initialBudgets);
+      expect(notifier.state.value, initialBudgets);
 
       final refreshedBudgets = [_budget('b2')];
       refreshCompleter.complete(refreshedBudgets);
       await refresh;
 
-      expect(notifier.state.valueOrNull, refreshedBudgets);
+      expect(notifier.state.value, refreshedBudgets);
     });
   });
 }

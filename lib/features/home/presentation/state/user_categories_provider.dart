@@ -1,5 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/foundation.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -509,12 +511,125 @@ Future<bool> saveUserCategoryRemapPreference({
   final user = ref.read(authProvider);
   if (user.uid.isEmpty) return false;
 
-  return saveUserCategoryRemapPreferenceForUser(
+  final fromNormalized = _normalizeCategoryName(fromCategory);
+  final toNormalized = _normalizeCategoryName(toCategory);
+  final typeNormalized = _normalizeCategoryName(transactionType);
+  if (!_isValidCategoryRemap(
+    fromCategory: fromNormalized,
+    toCategory: toNormalized,
+    transactionType: typeNormalized,
+  )) {
+    return false;
+  }
+
+  final clientMutationId = _categoryRemapClientMutationId(
     userId: user.uid,
-    fromCategory: fromCategory,
-    toCategory: toCategory,
-    transactionType: transactionType,
+    transactionType: typeNormalized,
+    fromCategory: fromNormalized,
   );
+
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.saveCategoryRemapPreference(
+      userId: user.uid,
+      fromCategory: fromNormalized,
+      toCategory: toNormalized,
+      transactionType: typeNormalized,
+      clientMutationId: clientMutationId,
+    );
+
+    try {
+      final synced = await saveUserCategoryRemapPreferenceForUser(
+        userId: user.uid,
+        fromCategory: fromNormalized,
+        toCategory: toNormalized,
+        transactionType: typeNormalized,
+      );
+      if (synced) {
+        await database.markMutationSynced(clientMutationId);
+      }
+    } catch (_) {
+      // The local row and outbox entry already preserve the preference.
+    }
+
+    return true;
+  } catch (_) {
+    return saveUserCategoryRemapPreferenceForUser(
+      userId: user.uid,
+      fromCategory: fromNormalized,
+      toCategory: toNormalized,
+      transactionType: typeNormalized,
+    );
+  }
+}
+
+String _categoryRemapClientMutationId({
+  required String userId,
+  required String transactionType,
+  required String fromCategory,
+}) {
+  final entity = [userId, transactionType, fromCategory]
+      .join('_')
+      .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+  return 'mobile:category_remap_$entity';
+}
+
+bool _isValidCategoryRemap({
+  required String fromCategory,
+  required String toCategory,
+  required String transactionType,
+}) {
+  if (transactionType != 'expense' && transactionType != 'income') return false;
+  if (!_isValidCategoryName(fromCategory) ||
+      !_isValidCategoryName(toCategory)) {
+    return false;
+  }
+  if (fromCategory == toCategory) return false;
+  if (_isUnhidableCategory(fromCategory)) return false;
+  if (toCategory == 'other') return false;
+  return true;
+}
+
+Future<bool> _syncUserCategoryRemapPreferenceToSupabase({
+  required String userId,
+  required String fromCategory,
+  required String toCategory,
+  required String transactionType,
+}) async {
+  int nextUseCount = 1;
+  try {
+    final existing = await supabase
+        .from('user_category_remaps')
+        .select('use_count')
+        .eq('user_id', userId)
+        .eq('transaction_type', transactionType)
+        .eq('from_category_name', fromCategory)
+        .maybeSingle();
+    final existingUseCount = existing?['use_count'];
+    if (existingUseCount is num && existingUseCount > 0) {
+      nextUseCount = existingUseCount.toInt() + 1;
+    }
+  } catch (_) {
+    nextUseCount = 1;
+  }
+
+  try {
+    await supabase.from('user_category_remaps').upsert(
+      <String, dynamic>{
+        'user_id': userId,
+        'transaction_type': transactionType,
+        'from_category_name': fromCategory,
+        'to_category_name': toCategory,
+        'use_count': nextUseCount,
+        'last_used_at': DateTime.now().toUtc().toIso8601String(),
+      },
+      onConflict: 'user_id,transaction_type,from_category_name',
+    );
+  } catch (_) {
+    return false;
+  }
+
+  return true;
 }
 
 Future<bool> saveUserCategoryRemapPreferenceForUser({
@@ -529,47 +644,72 @@ Future<bool> saveUserCategoryRemapPreferenceForUser({
   final toNormalized = _normalizeCategoryName(toCategory);
   final typeNormalized = _normalizeCategoryName(transactionType);
 
-  if (typeNormalized != 'expense' && typeNormalized != 'income') return false;
-  if (!_isValidCategoryName(fromNormalized) ||
-      !_isValidCategoryName(toNormalized)) {
+  if (!_isValidCategoryRemap(
+    fromCategory: fromNormalized,
+    toCategory: toNormalized,
+    transactionType: typeNormalized,
+  )) {
     return false;
   }
-  if (fromNormalized == toNormalized) return false;
-  if (_isUnhidableCategory(fromNormalized)) return false;
-  if (toNormalized == 'other') return false;
 
-  int nextUseCount = 1;
-  try {
-    final existing = await supabase
-        .from('user_category_remaps')
-        .select('use_count')
-        .eq('user_id', userId)
-        .eq('transaction_type', typeNormalized)
-        .eq('from_category_name', fromNormalized)
-        .maybeSingle();
-    final existingUseCount = existing?['use_count'];
-    if (existingUseCount is num && existingUseCount > 0) {
-      nextUseCount = existingUseCount.toInt() + 1;
-    }
-  } catch (_) {
-    nextUseCount = 1;
-  }
+  return _syncUserCategoryRemapPreferenceToSupabase(
+    userId: userId,
+    fromCategory: fromNormalized,
+    toCategory: toNormalized,
+    transactionType: typeNormalized,
+  );
+}
 
-  try {
-    await supabase.from('user_category_remaps').upsert(
-      <String, dynamic>{
-        'user_id': userId,
-        'transaction_type': typeNormalized,
-        'from_category_name': fromNormalized,
-        'to_category_name': toNormalized,
-        'use_count': nextUseCount,
-        'last_used_at': DateTime.now().toUtc().toIso8601String(),
-      },
-      onConflict: 'user_id,transaction_type,from_category_name',
+Future<void> syncUserCategoryRemapsFromSupabase(
+  WidgetRef ref, {
+  required String userId,
+}) async {
+  final normalizedUserId = userId.trim();
+  if (normalizedUserId.isEmpty) return;
+
+  final rows = await supabase
+      .from('user_category_remaps')
+      .select(
+        'transaction_type,from_category_name,to_category_name,use_count,last_used_at',
+      )
+      .eq('user_id', normalizedUserId);
+  final remaps = <LocalCategoryRemapPreference>[];
+  for (final row in rows.cast<Map<String, dynamic>>()) {
+    final transactionType = _normalizeCategoryName(
+      row['transaction_type']?.toString() ?? '',
     );
-  } catch (_) {
-    return false;
+    final fromCategory = _normalizeCategoryName(
+      row['from_category_name']?.toString() ?? '',
+    );
+    final toCategory = _normalizeCategoryName(
+      row['to_category_name']?.toString() ?? '',
+    );
+    if (!_isValidCategoryRemap(
+      fromCategory: fromCategory,
+      toCategory: toCategory,
+      transactionType: transactionType,
+    )) {
+      continue;
+    }
+
+    final useCountRaw = row['use_count'];
+    final lastUsedAt = DateTime.tryParse(
+          row['last_used_at']?.toString() ?? '',
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    remaps.add(
+      LocalCategoryRemapPreference(
+        userId: normalizedUserId,
+        transactionType: transactionType,
+        fromCategory: fromCategory,
+        toCategory: toCategory,
+        useCount: useCountRaw is num ? useCountRaw.toInt() : 1,
+        lastUsedAt: lastUsedAt,
+      ),
+    );
   }
 
-  return true;
+  if (remaps.isEmpty) return;
+  final database = await ref.read(localDatabaseProvider.future);
+  await database.upsertCategoryRemapsFromRemote(remaps);
 }

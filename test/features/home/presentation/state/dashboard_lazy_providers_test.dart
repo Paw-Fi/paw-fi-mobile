@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
 ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
       id: id,
@@ -14,39 +15,44 @@ ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
       currency: 'USD',
     );
 
-class _FakeDashboardDataService implements DashboardDataService {
-  DashboardScopeQuery? lastSummaryQuery;
-  DashboardRecentTransactionsRequest? lastRecentRequest;
-  DashboardScopeQuery? lastCalendarQuery;
-
-  @override
-  Future<DashboardSnapshotSummary> fetchSnapshot(
-      DashboardScopeQuery query) async {
-    lastSummaryQuery = query;
-    return DashboardSnapshotSummary(
+class _FakeTransactionsFeedService extends TransactionsFeedService {
+  TransactionsFeedQuery? lastSummaryQuery;
+  TransactionsFeedQuery? lastPageQuery;
+  TransactionsFeedQuery? lastAllPagesQuery;
+  late final TransactionsFeedSummary summary = TransactionsFeedSummary(
       transactionCount: 2,
       expenseTotal: 20,
       incomeTotal: 0,
       hasMultipleCurrencies: false,
-      categorySummaries: <DashboardCategorySummary>[],
-      periodTotals: <DateTime, double>{DateTime(2026, 4, 1): 20},
+      categorySummaries: const <TransactionsFeedCategorySummary>[],
+      yearlyPeriodTotals: const <DateTime, double>{},
+      periodTotals: <DateTime, double>{DateTime(2026, 4, 1): 20});
+
+  @override
+  Future<TransactionsFeedPageResult> fetchPage(
+    TransactionsFeedQuery query, {
+    TransactionsFeedCursor? cursor,
+  }) async {
+    lastPageQuery = query;
+    return TransactionsFeedPageResult(
+      items: [_entry('recent', DateTime(2026, 4, 2))],
+      hasMore: false,
+      nextCursor: null,
     );
   }
 
   @override
-  Future<List<ExpenseEntry>> fetchRecentTransactions(
-    DashboardRecentTransactionsRequest request,
-  ) async {
-    lastRecentRequest = request;
-    return [_entry('recent', DateTime(2026, 4, 2))];
+  Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
+    lastAllPagesQuery = query;
+    return [_entry('range', DateTime(2026, 4, 3))];
   }
 
   @override
-  Future<List<ExpenseEntry>> fetchCalendarTransactions(
-    DashboardScopeQuery query,
+  Future<TransactionsFeedSummary> fetchSummary(
+    TransactionsFeedQuery query,
   ) async {
-    lastCalendarQuery = query;
-    return [_entry('range', DateTime(2026, 4, 3))];
+    lastSummaryQuery = query;
+    return summary;
   }
 }
 
@@ -61,9 +67,9 @@ void main() {
 
   test('dashboardSummaryProvider delegates to dashboard snapshot service',
       () async {
-    final service = _FakeDashboardDataService();
+    final service = _FakeTransactionsFeedService();
     final container = ProviderContainer(overrides: [
-      dashboardDataServiceProvider.overrideWithValue(service),
+      transactionsFeedServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
 
@@ -71,14 +77,15 @@ void main() {
         await container.read(dashboardSummaryProvider(buildQuery()).future);
 
     expect(summary.expenseTotal, 20);
-    expect(service.lastSummaryQuery, buildQuery());
+    expect(service.lastSummaryQuery?.selectedCurrency, 'USD');
+    expect(service.lastSummaryQuery?.summaryIntervalGranularity, isNull);
   });
 
-  test('dashboardRecentTransactionsProvider requests limited first page',
+  test('dashboardRecentTransactionsProvider requests local-first limited page',
       () async {
-    final service = _FakeDashboardDataService();
+    final service = _FakeTransactionsFeedService();
     final container = ProviderContainer(overrides: [
-      dashboardDataServiceProvider.overrideWithValue(service),
+      transactionsFeedServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
 
@@ -89,14 +96,14 @@ void main() {
     );
 
     expect(result.single.id, 'recent');
-    expect(service.lastRecentRequest?.limit, 5);
+    expect(service.lastPageQuery?.pageSize, 5);
   });
 
-  test('dashboardCalendarTransactionsProvider fetches all pages for range',
+  test('dashboardCalendarTransactionsProvider fetches local-first all pages',
       () async {
-    final service = _FakeDashboardDataService();
+    final service = _FakeTransactionsFeedService();
     final container = ProviderContainer(overrides: [
-      dashboardDataServiceProvider.overrideWithValue(service),
+      transactionsFeedServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
 
@@ -105,6 +112,6 @@ void main() {
     );
 
     expect(result.single.id, 'range');
-    expect(service.lastCalendarQuery, buildQuery());
+    expect(service.lastAllPagesQuery?.selectedCurrency, 'USD');
   });
 }

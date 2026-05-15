@@ -208,13 +208,13 @@ class _CurrencyHeroCard extends StatelessWidget {
         boxShadow: [
           // Very subtle shadow as per guidelines
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: colorScheme.onSurface.withOpacity(0.05),
+          color: colorScheme.onSurface.withValues(alpha: 0.05),
           width: 0.5,
         ),
       ),
@@ -244,7 +244,7 @@ class _CurrencyHeroCard extends StatelessWidget {
                       : '${context.l10n.spentThisMonth} ($currency)',
                   style: TextStyle(
                     fontSize: 15,
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -258,7 +258,7 @@ class _CurrencyHeroCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 6,
-                backgroundColor: colorScheme.onSurface.withOpacity(0.08),
+                backgroundColor: colorScheme.onSurface.withValues(alpha: 0.08),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   remaining < 0 ? colorScheme.error : colorScheme.primary,
                 ),
@@ -291,7 +291,7 @@ class _PageIndicator extends StatelessWidget {
           decoration: BoxDecoration(
             color: isActive
                 ? colorScheme.primary
-                : colorScheme.onSurface.withOpacity(0.2),
+                : colorScheme.onSurface.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(3),
           ),
         );

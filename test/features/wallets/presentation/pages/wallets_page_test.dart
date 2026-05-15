@@ -675,13 +675,6 @@ void main() {
     ]);
     addTearDown(container.dispose);
 
-    final scope = WalletsScopeQuery(
-      userId: 'u1',
-      householdId: null,
-      selectedCurrency: 'USD',
-      currentMonthStart: DateTime(2026, 4, 1),
-    );
-
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -691,13 +684,19 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    final scope = container.read(walletsScopeQueryProvider);
+    final walletsPageState =
+        container.read(walletsPageStateProvider(scope)).requireValue;
+    final olderMonthAnchor = walletsPageState.visibleMonths.last;
+
     await container
         .read(walletsPageStateProvider(scope).notifier)
-        .selectMonth(DateTime(2026, 2, 1));
+        .selectMonth(olderMonthAnchor);
     await tester.pump();
     await container
         .read(walletsPageStateProvider(scope).notifier)
         .selectMonth(DateTime(2026, 1, 1));
+    await tester.pump();
     await tester.pump();
 
     expect(

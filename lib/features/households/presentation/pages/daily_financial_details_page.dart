@@ -13,7 +13,6 @@ import 'package:moneko/features/recurring/presentation/widgets/recurring_transac
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
@@ -357,10 +356,7 @@ class _DailyFinancialDetailsPageState
           child: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(
-                  top: 0,
-                  left: 12,
-                  right: 12,
-                  bottom: 12),
+                  top: 0, left: 12, right: 12, bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

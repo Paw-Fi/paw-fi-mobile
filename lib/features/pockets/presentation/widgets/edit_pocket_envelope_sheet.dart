@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'dart:math' as math;
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -29,6 +30,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
@@ -100,31 +102,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         ? formatAmount(centsToAmount(existingEnvelope!.budgetAmountCents))
         : '';
     final amountController = useTextEditingController(text: initialAmountText);
-    final amountFocusNode = useFocusNode();
-    useListenable(amountFocusNode);
     useListenable(amountController);
-
-    useEffect(() {
-      void onFocusChange() {
-        if (!amountFocusNode.hasFocus) {
-          final amountCents = tryParseMoneyToCents(amountController.text);
-          if (amountCents == null) {
-            return;
-          }
-
-          final totalBudgetCents = (totalBudget * 100).round();
-          final maxBudgetCents = math.max(0, totalBudgetCents);
-          final clampedCents = quantizePocketBudgetAmountCents(
-            amountCents.clamp(0, maxBudgetCents).toInt(),
-            stepCents: pocketBudgetAdjustmentStepCents(selectedCurrency),
-          );
-          amountController.text = formatAmount(centsToAmount(clampedCents));
-        }
-      }
-
-      amountFocusNode.addListener(onFocusChange);
-      return () => amountFocusNode.removeListener(onFocusChange);
-    }, [amountFocusNode, totalBudget, selectedCurrency]);
 
     final selectedCategories = useState<List<String>>(
       existingEnvelope == null
@@ -153,9 +131,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         useState<String?>(existingEnvelope?.icon ?? template?.iconName);
     final isLoading = useState<bool>(false);
     final currency = selectedCurrency;
-    final totalBudgetCents = (totalBudget * 100).round();
-    final maxBudgetCents = math.max(0, totalBudgetCents);
     final allocationStepCents = pocketBudgetAdjustmentStepCents(currency);
+    final totalBudgetCents = quantizePocketBudgetAmountCents(
+      (totalBudget * 100).round(),
+      stepCents: allocationStepCents,
+    );
+    final maxBudgetCents = math.max(0, totalBudgetCents);
     final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
     final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
     final periodMonth =
@@ -247,8 +228,21 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         .toList(growable: false);
 
     String formatLocalizedAmount(num value) {
-      final normalized = double.parse(value.toStringAsFixed(0));
+      final normalized = double.parse(formatAmount(value.toDouble()));
       return formatLocalizedNumber(context, normalized);
+    }
+
+    String normalizeEnteredAmountText(String value) {
+      final amountCents = tryParseMoneyToCents(value);
+      if (amountCents == null) {
+        return value;
+      }
+
+      final normalizedCents = quantizePocketBudgetAmountCents(
+        amountCents.clamp(0, maxBudgetCents).toInt(),
+        stepCents: allocationStepCents,
+      );
+      return formatAmount(centsToAmount(normalizedCents));
     }
 
     Future<void> persistPocketAmount({
@@ -377,6 +371,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
 
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
+      String? queuedMutationId;
       try {
         final nowIso = DateTime.now().toIso8601String();
         final originalAmountCents = existingEnvelope?.budgetAmountCents ?? 0;
@@ -441,11 +436,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               lastUpdated: DateTime.now(),
             ),
         ];
-        ref.read(pocketsProvider(scopeParams).notifier).applyOptimisticPockets(
-              pockets: optimisticPockets,
-              totalBudget: totalBudget,
-              budgetId: budgetId,
-            );
+        final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+        pocketsNotifier.applyOptimisticPockets(
+          pockets: optimisticPockets,
+          totalBudget: totalBudget,
+          budgetId: budgetId,
+        );
+        queuedMutationId =
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
 
         Future<void> persistSiblingAllocations() async {
           for (var index = 0; index < siblingPockets.length; index++) {
@@ -535,6 +533,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           await supabase.from('envelope_category_links').insert(linksPayload);
         }
 
+        await ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .markQueuedPocketsSnapshotSynced(queuedMutationId);
+
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
         if (isScopedToHousehold && householdId != null) {
           debugPrint(
@@ -544,14 +546,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               .invalidateHouseholdData(householdId);
         }
 
-        // CRITICAL: Invalidate ALL pocket providers (all scopes, all months)
-        // This ensures pockets page refreshes in all views, not just current month/scope
+        // Keep the active page on its optimistic SQLite-backed state while the
+        // backend response reconciles in place.
         debugPrint(
-            '🗑️ [POCKET SAVE] Invalidating ALL pockets provider families...');
-        ref.invalidate(pocketsProvider);
+            '🔄 [POCKET SAVE] Refreshing active pockets provider silently...');
+        unawaited(ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .load(bypassCache: true));
 
-        debugPrint(
-            '✅ [POCKET SAVE] Pocket saved and all providers invalidated');
+        debugPrint('✅ [POCKET SAVE] Pocket saved and refresh scheduled');
 
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -560,6 +563,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, message);
         }
       } catch (e) {
+        if (queuedMutationId != null && shouldKeepQueuedPocketsMutation(e)) {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            AppToast.info(context, context.l10n.offlineSyncMessage);
+          }
+          return;
+        }
         ref
             .read(pocketsProvider(scopeParams).notifier)
             .restoreOptimisticPockets(previousPocketsState);
@@ -593,6 +603,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         isLoading.value = true;
       }
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
+      String? queuedMutationId;
       try {
         final remainingPockets = allPockets
             .where((pocket) => pocket.id != existingEnvelope!.id)
@@ -615,11 +626,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               budgetId: budgetId,
             ),
         ];
-        ref.read(pocketsProvider(scopeParams).notifier).applyOptimisticPockets(
-              pockets: optimisticRemaining,
-              totalBudget: totalBudget,
-              budgetId: budgetId,
-            );
+        final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+        pocketsNotifier.applyOptimisticPockets(
+          pockets: optimisticRemaining,
+          totalBudget: totalBudget,
+          budgetId: budgetId,
+        );
+        queuedMutationId =
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
 
         await supabase
             .from('budget_envelopes')
@@ -641,6 +655,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           );
         }
 
+        await ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .markQueuedPocketsSnapshotSynced(queuedMutationId);
+
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
         final isScopedToHousehold =
             scopeParams.scope != PocketsScopeType.personal;
@@ -653,14 +671,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               .invalidateHouseholdData(householdId);
         }
 
-        // CRITICAL: Invalidate ALL pocket providers (all scopes, all months)
-        // This ensures pockets page refreshes in all views, not just current month/scope
+        // Keep the active page on its optimistic SQLite-backed state while the
+        // backend response reconciles in place.
         debugPrint(
-            '🗑️ [POCKET DELETE] Invalidating ALL pockets provider families...');
-        ref.invalidate(pocketsProvider);
+            '🔄 [POCKET DELETE] Refreshing active pockets provider silently...');
+        unawaited(ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .load(bypassCache: true));
 
-        debugPrint(
-            '✅ [POCKET DELETE] Pocket deleted and all providers invalidated');
+        debugPrint('✅ [POCKET DELETE] Pocket deleted and refresh scheduled');
 
         if (context.mounted) {
           Navigator.of(context).pop(); // close sheet
@@ -668,6 +687,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, l10n.pocketDeleted);
         }
       } catch (e) {
+        if (queuedMutationId != null && shouldKeepQueuedPocketsMutation(e)) {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            onDeleteCompleted?.call();
+            AppToast.info(context, context.l10n.offlineSyncMessage);
+          }
+          return;
+        }
         ref
             .read(pocketsProvider(scopeParams).notifier)
             .restoreOptimisticPockets(previousPocketsState);
@@ -797,8 +824,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: colorScheme.sheetElementBackground,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: colorScheme.border),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.homeCardShadow,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -941,14 +974,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                                     AppTheme.pocketColorSweep,
                                               ),
                                         shape: BoxShape.circle,
-                                        border: isCustomColor
-                                            ? Border.all(
-                                                color: colorScheme.foreground,
-                                                width: 2)
-                                            : Border.all(
-                                                color: colorScheme.border),
-                                        boxShadow: const [
-                                          // Shadow removed as requested
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: colorScheme.homeCardShadow,
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
                                         ],
                                       ),
                                       child: AnimatedSwitcher(
@@ -989,14 +1020,21 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     decoration: BoxDecoration(
                                       color: color,
                                       shape: BoxShape.circle,
-                                      border: isSelected
-                                          ? Border.all(
-                                              color: colorScheme.foreground,
-                                              width: 2)
-                                          : null,
-                                      boxShadow: const [
-                                        // Shadow removed as requested
-                                      ],
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: colorScheme.homeCardShadow,
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: colorScheme.homeCardShadow,
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1),
+                                              ),
+                                            ],
                                     ),
                                     child: AnimatedSwitcher(
                                       duration:
@@ -1048,32 +1086,22 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                               return GestureDetector(
                                 onTap: () => selectedIcon.value = iconName,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
+                                child: Container(
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? selectedColorValue.withValues(
-                                            alpha: 0.1)
+                                            alpha: 0.2)
                                         : colorScheme.card,
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? selectedColorValue
-                                          : colorScheme.border,
-                                    ),
                                   ),
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Icon(
-                                      iconData,
-                                      key: ValueKey(isSelected),
-                                      color: isSelected
-                                          ? selectedColorValue
-                                          : colorScheme.mutedForeground,
-                                      size: 20,
-                                    ),
+                                  child: Icon(
+                                    iconData,
+                                    color: isSelected
+                                        ? selectedColorValue
+                                        : colorScheme.mutedForeground,
+                                    size: 20,
                                   ),
                                 ),
                               );
@@ -1086,7 +1114,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           decoration: BoxDecoration(
                             color: colorScheme.sheetElementBackground,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: colorScheme.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.homeCardShadow,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1110,58 +1144,54 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      SizedBox(
-                                        width: 200,
-                                        child: TextField(
-                                          controller: amountController,
-                                          focusNode: amountFocusNode,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          textInputAction: TextInputAction.done,
-                                          onEditingComplete: () =>
-                                              amountFocusNode.unfocus(),
-                                          style: TextStyle(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w700,
-                                            color: colorScheme.foreground,
-                                            letterSpacing: -0.5,
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final value =
+                                              await showCalculatorKeypadSheet(
+                                            context: context,
+                                            initialValue: amountController.text,
+                                          );
+                                          if (value != null) {
+                                            final normalizedValue =
+                                                normalizeEnteredAmountText(
+                                              value,
+                                            );
+                                            amountController.value =
+                                                TextEditingValue(
+                                              text: normalizedValue,
+                                              selection:
+                                                  TextSelection.collapsed(
+                                                offset: normalizedValue.length,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        child: Container(
+                                          width: 200,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
                                           ),
-                                          decoration: InputDecoration(
-                                            prefixText:
-                                                resolveCurrencySymbol(currency),
-                                            prefixStyle: TextStyle(
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: colorScheme.foreground,
+                                                width: 1,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            amountController.text.isNotEmpty
+                                                ? '${resolveCurrencySymbol(currency)}${amountController.text}'
+                                                : context.l10n.tapToSet,
+                                            style: TextStyle(
                                               fontSize: 28,
                                               fontWeight: FontWeight.w700,
-                                              color: colorScheme.foreground,
+                                              color: amountController
+                                                      .text.isNotEmpty
+                                                  ? colorScheme.foreground
+                                                  : colorScheme.mutedForeground,
                                               letterSpacing: -0.5,
                                             ),
-                                            isDense: true,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                    vertical: 4),
-                                            enabledBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.foreground,
-                                                  width: 1),
-                                            ),
-                                            focusedBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.foreground,
-                                                  width: 2),
-                                            ),
-                                            suffixIcon: amountFocusNode.hasFocus
-                                                ? IconButton(
-                                                    icon: Icon(
-                                                      Icons.check_rounded,
-                                                      color:
-                                                          colorScheme.primary,
-                                                    ),
-                                                    splashRadius: 18,
-                                                    onPressed: () =>
-                                                        amountFocusNode
-                                                            .unfocus(),
-                                                  )
-                                                : null,
                                           ),
                                         ),
                                       ),
@@ -1187,37 +1217,17 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 14),
-                              SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 4,
-                                  activeTrackColor: colorScheme.primary,
-                                  inactiveTrackColor:
-                                      colorScheme.border.withValues(alpha: 0.6),
-                                  thumbColor: colorScheme.primary,
-                                  overlayColor: colorScheme.primary
-                                      .withValues(alpha: 0.12),
-                                  valueIndicatorColor: colorScheme.primary,
-                                  valueIndicatorTextStyle: TextStyle(
-                                    color: colorScheme.primaryForeground,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                child: Slider(
+                              SizedBox(
+                                width: double.infinity,
+                                child: AdaptiveSlider(
                                   value: sliderPercent,
                                   min: 0,
                                   max: 100,
                                   divisions: 100,
-                                  label: '${sliderPercent.toStringAsFixed(0)}%',
-                                  semanticFormatterCallback: (value) =>
-                                      '${value.toStringAsFixed(0)} percent',
                                   onChanged: (maxBudgetCents <= 0 ||
                                           isLoading.value)
                                       ? null
                                       : (value) {
-                                          if (amountFocusNode.hasFocus) {
-                                            amountFocusNode.unfocus();
-                                          }
-
                                           final pct = value.clamp(0.0, 100.0);
                                           final newCents =
                                               quantizePocketBudgetAmountCents(
@@ -1227,15 +1237,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                                 .toInt(),
                                             stepCents: allocationStepCents,
                                           );
-                                          final formatted = formatAmount(
-                                            centsToAmount(newCents),
-                                          );
                                           amountController.value =
                                               TextEditingValue(
-                                            text: formatted,
-                                            selection: TextSelection.collapsed(
-                                              offset: formatted.length,
-                                            ),
+                                            text: formatAmount(
+                                                centsToAmount(newCents)),
                                           );
                                         },
                                 ),
@@ -1416,7 +1421,13 @@ class _BudgetDistributionPreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.sheetElementBackground,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

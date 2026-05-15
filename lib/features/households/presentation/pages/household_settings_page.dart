@@ -23,6 +23,7 @@ import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dar
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
+import '../widgets/auto_split_toggle_tile.dart';
 import '../widgets/create_household_form_content.dart';
 import '../widgets/household_members_panel.dart';
 import '../widgets/space_visibility_selector_card.dart';
@@ -392,19 +393,12 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
 
     return _buildSettingsSection(
       context,
-      title: 'Auto Split',
+      title: context.l10n.autoSplit,
       children: [
-        _buildSettingsTile(
-          context: context,
-          title: const Text('Auto split'),
-          subtitle: const Text(
-            'Set how shared expenses are split by default',
-          ),
-          trailing: AdaptiveSwitch(
-            value: isEnabled,
-            onChanged: canEdit ? _handleAutoSplitToggle : null,
-          ),
-          onTap: canEdit ? () => _handleAutoSplitToggle(!isEnabled) : null,
+        AutoSplitToggleTile(
+          value: isEnabled,
+          enabled: canEdit,
+          onChanged: _handleAutoSplitToggle,
         ),
         if (isEnabled)
           Padding(
@@ -444,7 +438,8 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                           );
                           return;
                         }
-                        final nextConfig = splitType == SplitType.equal
+                        final nextConfig = splitType == SplitType.equal ||
+                                _isEffectivelyEqualSplit(splitType, splits)
                             ? null
                             : serializeStoredSplitConfig(
                                 splitType: splitType,
@@ -718,6 +713,36 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     });
   }
 
+  bool _isEffectivelyEqualSplit(
+    SplitType splitType,
+    List<MemberSplit> splits,
+  ) {
+    if (splits.isEmpty) return true;
+
+    bool closeTo(double actual, double expected) =>
+        (actual - expected).abs() <= 0.01;
+
+    switch (splitType) {
+      case SplitType.equal:
+        return true;
+      case SplitType.percentage:
+        final expected = 100 / splits.length;
+        return splits.every(
+          (split) =>
+              split.includedInPercentage &&
+              closeTo(split.percentage ?? 0, expected),
+        );
+      case SplitType.shares:
+        return splits.every((split) => (split.shares ?? 0) == 1);
+      case SplitType.amount:
+        final expected = 1 / splits.length;
+        return splits.every(
+          (split) =>
+              split.includedInAmount && closeTo(split.amount ?? 0, expected),
+        );
+    }
+  }
+
   Future<void> _handleUnsavedBackNavigation() async {
     final result = await MonekoAlertDialog.show(
       context: context,
@@ -771,9 +796,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         final sharesRaw = normalizeNum(map['shares']);
         final shares = sharesRaw is int
             ? (sharesRaw > 0 ? sharesRaw : null)
-            : (sharesRaw is num && sharesRaw > 0
-                ? sharesRaw.round()
-                : null);
+            : (sharesRaw is num && sharesRaw > 0 ? sharesRaw.round() : null);
 
         normalizedSplits.add({
           'userId': userId,
@@ -797,8 +820,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     }
 
     normalizedSplits.sort(
-      (a, b) =>
-          (a['userId'] as String).compareTo(b['userId'] as String),
+      (a, b) => (a['userId'] as String).compareTo(b['userId'] as String),
     );
 
     num? normalizeRootNum(dynamic value) {

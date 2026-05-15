@@ -9,6 +9,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 
 final RegExp _opaqueImportIdPattern = RegExp(
   r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[A-Z0-9_-]{10,})$',
@@ -869,7 +870,7 @@ DateTime? parseDateValue(
   return null;
 }
 
-final List<String?> _dateParseLocales = <String?>[
+final List<String?> _dateParseLocales = <String?>{
   null,
   'en_US',
   ...AppLocalizations.supportedLocales.expand((locale) sync* {
@@ -879,7 +880,7 @@ final List<String?> _dateParseLocales = <String?>[
       yield locale.languageCode;
     }
   }),
-].toSet().toList(growable: false);
+}.toList(growable: false);
 
 DateTime? _parseYearFirstNumericDate(String value) {
   final match = RegExp(
@@ -1422,57 +1423,8 @@ String _extractPotentialAmountNumberText(String value) {
 ///   - EU format: thousands separator = period, decimal = comma  → "1.234,56"
 ///   - Plain: no separators                                      → "1234.56"
 double? _parseNumericString(String value) {
-  if (value.isEmpty) return null;
-
-  final normalizedGrouping = value.replaceAll(
-    RegExp(r"(?<=\d)[\s\u00A0\u202F'’](?=\d)"),
-    '',
-  );
-  value = normalizedGrouping;
-
-  final hasDot = value.contains('.');
-  final hasComma = value.contains(',');
-
-  if (hasDot && hasComma) {
-    // Both present — whichever appears last is the decimal separator.
-    final lastDot = value.lastIndexOf('.');
-    final lastComma = value.lastIndexOf(',');
-    if (lastComma > lastDot) {
-      // EU format: "1.234,56"
-      final normalized = value.replaceAll('.', '').replaceAll(',', '.');
-      return double.tryParse(normalized);
-    } else {
-      // US format: "1,234.56"
-      final normalized = value.replaceAll(',', '');
-      return double.tryParse(normalized);
-    }
-  }
-
-  if (hasComma && !hasDot) {
-    // Only commas — could be EU decimal ("1234,56") or US thousands ("1,234").
-    final parts = value.split(',');
-    if (parts.length == 2 && parts.last.length <= 2) {
-      // Looks like EU decimal: "1234,56" or "12,5"
-      return double.tryParse(value.replaceAll(',', '.'));
-    }
-    // Otherwise treat commas as thousands separators.
-    return double.tryParse(value.replaceAll(',', ''));
-  }
-
-  if (hasDot && !hasComma) {
-    // Only dots — could be EU thousands ("1.234") or US decimal ("1234.56").
-    final parts = value.split('.');
-    if (parts.length == 2 &&
-        parts.last.length == 3 &&
-        parts.first.length <= 3) {
-      // Ambiguous: "1.234" — treat as EU thousands, result is 1234.
-      final asInt = int.tryParse(value.replaceAll('.', ''));
-      if (asInt != null) return asInt.toDouble();
-    }
-    return double.tryParse(value);
-  }
-
-  return double.tryParse(value);
+  final cents = tryParseMoneyToCents(value);
+  return cents != null ? centsToAmount(cents) : null;
 }
 
 // ---------------------------------------------------------------------------

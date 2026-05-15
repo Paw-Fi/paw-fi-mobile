@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -20,6 +22,8 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
@@ -182,42 +186,50 @@ class _EditTransactionBottomSheetState
     } else if (widget.field == EditField.currency) {
       return _buildCurrencyPicker(colorScheme);
     } else {
-      return TextField(
-        controller: _controller,
-        autofocus: widget.field != EditField.date &&
-            widget.field != EditField.time &&
-            widget.field != EditField.currency,
-        keyboardType: _getKeyboardType(),
-        maxLines: widget.field == EditField.description ? 3 : 1,
-        inputFormatters: widget.field == EditField.amount
-            ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
-            : null,
-        style: TextStyle(
-          fontSize: 16,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
-        ),
-        decoration: InputDecoration(
-          labelText: _getLabel(),
-          labelStyle: TextStyle(color: colorScheme.foreground),
-          errorText: _error,
-          prefixText: widget.field == EditField.amount
-              ? resolveCurrencySymbol(widget.expense.currency)
-              : null,
-          prefixStyle: TextStyle(
-            fontSize: 16,
-            color: colorScheme.foreground,
-            fontWeight: FontWeight.w400,
+      return Builder(
+        builder: (context) => GestureDetector(
+          onTap: () async {
+            final value = await showCalculatorKeypadSheet(
+              context: context,
+              initialValue: _controller.text,
+            );
+            if (value != null) {
+              _controller.text = value;
+            }
+          },
+          child: AbsorbPointer(
+            child: TextField(
+              controller: _controller,
+              autofocus: widget.field != EditField.date &&
+                  widget.field != EditField.time &&
+                  widget.field != EditField.currency,
+              maxLines: widget.field == EditField.description ? 3 : 1,
+              inputFormatters: widget.field == EditField.amount
+                  ? [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}'))
+                    ]
+                  : null,
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.foreground,
+                fontWeight: FontWeight.w400,
+              ),
+              decoration: InputDecoration(
+                labelText: _getLabel(),
+                labelStyle: TextStyle(color: colorScheme.foreground),
+                errorText: _error,
+                prefixText: widget.field == EditField.amount
+                    ? resolveCurrencySymbol(widget.expense.currency)
+                    : null,
+                prefixStyle: TextStyle(
+                  fontSize: 16,
+                  color: colorScheme.foreground,
+                ),
+              ),
+            ),
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
         ),
-        onChanged: (_) {
-          if (_error != null) {
-            setState(() => _error = null);
-          }
-        },
       );
     }
   }
@@ -626,43 +638,38 @@ class _EditTransactionBottomSheetState
       return;
     }
 
-    // Call notifier with optimistic update
-    final success =
-        await ref.read(transactionEditProvider.notifier).updateExpense(
-              widget.expenseId,
-              updates,
-            );
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final toastContext = rootNavigator.context;
+    final shouldShowCurrencyNotification =
+        widget.field == EditField.currency && updates.containsKey('currency');
+    final newCurrency = updates['currency'] as String?;
 
-    if (!mounted) return;
+    Navigator.pop(context);
+    AppToast.success(toastContext, '${_getLabel()} updated successfully');
 
-    if (success) {
-      if (!mounted) return;
-      Navigator.pop(context);
+    unawaited(() async {
+      final success =
+          await ref.read(transactionEditProvider.notifier).updateExpense(
+                widget.expenseId,
+                updates,
+                originalExpense: widget.expense,
+              );
 
-      // Show currency change notification if currency was changed
-      if (widget.field == EditField.currency &&
-          updates.containsKey('currency')) {
-        // Close the transaction detail sheet as well
-        if (mounted) {
-          Navigator.pop(context);
+      if (success) {
+        if (shouldShowCurrencyNotification && newCurrency != null) {
+          await _showCurrencyChangeNotification(newCurrency);
         }
-
-        await _showCurrencyChangeNotification(updates['currency'] as String);
+        return;
       }
 
-      if (!mounted) return;
-      // Prefer AppToast over SnackBar for visibility above sheets
-      AppToast.success(context, '${_getLabel()} updated successfully');
-    } else {
       final error = ref.read(transactionEditProvider).error;
       final message = ErrorHandler.getUserFriendlyMessage(
         error,
         context: BackendErrorContext.updateExpense,
       );
-      setState(() => _error = message);
-
-      AppToast.error(context, message);
-    }
+      if (!toastContext.mounted) return;
+      AppToast.error(toastContext, message);
+    }());
   }
 
   Future<void> _showCurrencyChangeNotification(String newCurrency) async {
@@ -996,17 +1003,6 @@ class _EditTransactionBottomSheetState
         return 'Time';
       case EditField.currency:
         return 'Currency';
-    }
-  }
-
-  TextInputType _getKeyboardType() {
-    switch (widget.field) {
-      case EditField.amount:
-        return const TextInputType.numberWithOptions(decimal: true);
-      case EditField.currency:
-        return TextInputType.text;
-      default:
-        return TextInputType.text;
     }
   }
 

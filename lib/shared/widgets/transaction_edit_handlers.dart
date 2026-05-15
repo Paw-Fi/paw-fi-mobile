@@ -4,6 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 /// Shared edit handlers for transaction form fields.
 ///
@@ -17,23 +20,15 @@ class TransactionEditHandlers {
     BuildContext context, {
     required double currentAmount,
   }) async {
-    final result = await MonekoAlertDialog.show(
+    final initialValue = formatAmount(currentAmount);
+    final result = await showCalculatorKeypadSheet(
       context: context,
-      title: context.l10n.editAmount,
-      confirmLabel: context.l10n.save,
-      cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        initialValue: currentAmount.toStringAsFixed(2),
-        placeholder: context.l10n.amount,
-        isRequired: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validationPattern: RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
-        validationMessage: context.l10n.pleaseEnterValidAmount,
-      ),
+      initialValue: initialValue,
     );
 
-    if (result != null && result.confirmed && result.text != null) {
-      final parsed = double.tryParse(result.text!.replaceAll(',', ''));
+    if (result != null) {
+      final amountCents = tryParseMoneyToCents(result);
+      final parsed = amountCents != null ? centsToAmount(amountCents) : null;
       if (parsed == null || parsed <= 0) return null;
       return parsed;
     }

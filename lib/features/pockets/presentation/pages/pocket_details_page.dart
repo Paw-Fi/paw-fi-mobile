@@ -235,6 +235,7 @@ class PocketDetailsPage extends HookConsumerWidget {
         };
       }
 
+      if (!context.mounted) return;
       final didChange = await showTransactionDetailsSheet(
         context,
         expense: expense,
@@ -334,7 +335,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           context: context,
                           barrierColor:
                               colorScheme.scrim.withValues(alpha: 0.5),
-                          enableDrag: false,
+                          enableDrag: true,
                           useSafeArea: true,
                           isScrollControlled: true,
                           builder: (sheetContext) => EditPocketEnvelopeSheet(

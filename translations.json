@@ -1,19 +1,19 @@
 {
-  "helpCenter": {
-    "en": "Help Center",
-    "de": "Hilfe-Center",
-    "es": "Centro de ayuda",
-    "fr": "Centre d’aide",
-    "it": "Centro assistenza",
-    "ja": "ヘルプセンター",
-    "ko": "도움말 센터",
-    "nl": "Helpcentrum",
-    "ur": "مرکزِ مدد",
-    "ru": "Справочный центр",
-    "th": "ศูนย์ช่วยเหลือ",
-    "uk": "Довідковий центр",
-    "zh": "帮助中心",
-    "zh_TW": "說明中心",
-    "vi": "Trung tâm trợ giúp"
-  }
+"homeScreenWidgets": {
+"en": "Home Screen Widgets",
+"de": "Home-Bildschirm-Widgets",
+"es": "Widgets de pantalla de inicio",
+"fr": "Widgets de l’écran d’accueil",
+"it": "Widget della schermata Home",
+"ja": "ホーム画面ウィジェット",
+"ko": "홈 화면 위젯",
+"nl": "Widgets voor het beginscherm",
+"ur": "ہوم اسکرین ویجٹس",
+"ru": "Виджеты экрана «Домой»",
+"th": "วิดเจ็ตหน้าจอโฮม",
+"uk": "Віджети початкового екрана",
+"zh": "桌面小组件",
+"zh_TW": "主畫面小工具",
+"vi": "Tiện ích Màn hình chính"
+}
 }

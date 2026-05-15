@@ -230,9 +230,13 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final currentBalanceCents = detailsMonthSnapshotAsync
-            .valueOrNull?.walletBalances[latestWallet.id] ??
-        latestWallet.currentBalanceCents;
+    final snapshotBalanceCents =
+        detailsMonthSnapshotAsync.valueOrNull?.walletBalances[latestWallet.id];
+    final hasOptimisticBalance = serverAccount == null ||
+        latestWallet.currentBalanceCents != serverAccount.currentBalanceCents;
+    final currentBalanceCents = hasOptimisticBalance
+        ? latestWallet.currentBalanceCents
+        : snapshotBalanceCents ?? latestWallet.currentBalanceCents;
     // CRITICAL: the "this month" stat cards must include the same projected
     // recurring rows shown in the transaction list and wallet balance logic.
     // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
@@ -385,8 +389,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         if (context.mounted) {
           AppToast.success(context, context.l10n.save);
         }
-        // Refresh wallet data after successful transfer
-        actions.refreshAccountData();
+        await refreshWalletDetails();
       } catch (error) {
         if (context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));

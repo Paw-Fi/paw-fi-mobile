@@ -18,6 +18,7 @@ Widget buildHouseholdMemberSpendingCard(
   BuildContext context,
   ColorScheme colorScheme,
   HouseholdSummary? summary, {
+  Key? key,
   List<HouseholdMember>? members,
   String? householdId,
   List<ExpenseEntry>? transactions,
@@ -173,8 +174,15 @@ Widget buildHouseholdMemberSpendingCard(
     ),
   );
 
-  if (onTap == null) return card;
+  if (onTap == null) {
+    return Container(
+      key: key,
+      decoration: card.decoration,
+      child: card.child,
+    );
+  }
   return GestureDetector(
+    key: key,
     onTap: onTap,
     behavior: HitTestBehavior.opaque,
     child: card,

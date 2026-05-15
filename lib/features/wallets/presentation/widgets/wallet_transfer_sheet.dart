@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
@@ -62,6 +65,7 @@ Future<WalletTransferResult?> showWalletTransferSheet(
   BuildContext context, {
   required List<WalletEntity> wallets,
   String? defaultFromWalletId,
+  WalletTransfer? initialTransfer,
 }) {
   if (wallets.length < 2) {
     return Future.value(null);
@@ -70,12 +74,13 @@ Future<WalletTransferResult?> showWalletTransferSheet(
   return showModalBottomSheet<WalletTransferResult>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     builder: (context) => _WalletTransferSheet(
       wallets: wallets,
       defaultFromWalletId: defaultFromWalletId,
+      initialTransfer: initialTransfer,
     ),
   );
 }
@@ -84,10 +89,12 @@ class _WalletTransferSheet extends HookConsumerWidget {
   const _WalletTransferSheet({
     required this.wallets,
     this.defaultFromWalletId,
+    this.initialTransfer,
   });
 
   final List<WalletEntity> wallets;
   final String? defaultFromWalletId;
+  final WalletTransfer? initialTransfer;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -95,7 +102,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
     // Initialize from wallet - use defaultFromWalletId if provided, otherwise first wallet
     final fromIdState = useState<String>(
-      defaultFromWalletId ?? wallets.first.id,
+      initialTransfer?.fromAccountId ?? defaultFromWalletId ?? wallets.first.id,
     );
 
     // Initialize to wallet - first non-from wallet
@@ -103,11 +110,23 @@ class _WalletTransferSheet extends HookConsumerWidget {
       (w) => w.id != fromIdState.value,
       orElse: () => wallets.length > 1 ? wallets[1] : wallets.first,
     );
-    final toIdState = useState<String>(initialToWallet.id);
+    final toIdState = useState<String>(
+      initialTransfer?.toAccountId ?? initialToWallet.id,
+    );
 
-    final amountText = useState<String>('');
-    final noteController = useTextEditingController();
+    final amountText = useState<String>(
+      initialTransfer == null
+          ? ''
+          : formatAmount(centsToAmount(initialTransfer!.amountCents)),
+    );
+    final noteController = useTextEditingController(
+      text: initialTransfer?.note?.trim() ?? '',
+    );
+    final selectedDate = useState<DateTime>(
+      initialTransfer?.date ?? DateTime.now(),
+    );
     final isSaving = useState<bool>(false);
+    final isEditing = initialTransfer != null;
 
     // Get currency symbol for the amount field
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
@@ -119,86 +138,30 @@ class _WalletTransferSheet extends HookConsumerWidget {
     }
 
     Future<void> handleEditAmount() async {
-      final controller = TextEditingController(text: amountText.value);
-      final result = await showModalBottomSheet<String>(
+      final result = await showCalculatorKeypadSheet(
         context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.5),
-        enableDrag: false,
-        useSafeArea: true,
-        isScrollControlled: true,
-        builder: (context) {
-          return Container(
-            decoration: BoxDecoration(
-              color: colorScheme.sheetBackground,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const ModalSheetHandle(),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Text(
-                          context.l10n.amount,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: controller,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          textAlign: TextAlign.center,
-                          autofocus: true,
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: '0.00',
-                            hintStyle: TextStyle(
-                              color: colorScheme.mutedForeground,
-                            ),
-                            border: InputBorder.none,
-                            prefixText: symbol,
-                            prefixStyle: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: PrimaryAdaptiveButton(
-                            onPressed: () =>
-                                Navigator.of(context).pop(controller.text),
-                            child: Text(context.l10n.done),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+        initialValue: amountText.value,
       );
       if (result != null) {
         amountText.value = result;
+      }
+    }
+
+    Future<void> handleEditDate() async {
+      final now = DateTime.now();
+      final lastDate =
+          selectedDate.value.isAfter(now) ? selectedDate.value : now;
+      final firstDate = selectedDate.value.isBefore(DateTime(2020))
+          ? selectedDate.value
+          : DateTime(2020);
+      final result = await showDatePicker(
+        context: context,
+        initialDate: selectedDate.value,
+        firstDate: firstDate,
+        lastDate: lastDate,
+      );
+      if (result != null) {
+        selectedDate.value = result;
       }
     }
 
@@ -238,7 +201,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
           fromAccountId: fromIdState.value,
           toAccountId: toIdState.value,
           amountCents: amountCents,
-          date: DateTime.now(),
+          date: selectedDate.value,
           note: noteController.text.trim().isEmpty
               ? null
               : noteController.text.trim(),
@@ -600,6 +563,51 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
                       const SizedBox(height: 24),
 
+                      Text(
+                        context.l10n.date,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      MonekoInput(
+                        child: InkWell(
+                          onTap: isSaving.value ? null : handleEditDate,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 14.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    DateFormat.yMMMd(
+                                      Localizations.localeOf(context)
+                                          .toString(),
+                                    ).format(selectedDate.value),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorScheme.foreground,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 20,
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
                       // Note Field
                       Text(
                         context.l10n.noteOptional,
@@ -634,7 +642,9 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                     ),
                                   ),
                                 )
-                              : Text(context.l10n.transfer),
+                              : Text(isEditing
+                                  ? context.l10n.saveChanges
+                                  : context.l10n.transfer),
                         ),
                       ),
                     ],
@@ -662,7 +672,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
     return showModalBottomSheet<String>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.5),
-      enableDrag: false,
+      enableDrag: true,
       useSafeArea: true,
       builder: (context) {
         return Container(
