@@ -2911,5 +2911,6 @@
   "budgetPaceSpendingFast": "你已使用 {name} 的 {spentPct}%，但本月才过去 {timePct}%。",
   "budgetPaceNeedsAttention": "{name} 需要关注，因为支出略快于本月进度。",
   "budgetPaceOnTrack": "{name} 符合当前本月进度。",
-  "createSpaceToShareExpenses": "创建一个空间，与他人共享支出。"
+  "createSpaceToShareExpenses": "创建一个空间，与他人共享支出。",
+  "homeScreenWidgets": "桌面小组件"
 }

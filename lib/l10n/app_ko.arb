@@ -2719,5 +2719,6 @@
   "budgetPaceSpendingFast": "{name}의 {spentPct}%를 사용했지만, 이번 달은 아직 {timePct}%만 지났습니다.",
   "budgetPaceNeedsAttention": "{name}은(는) 지출이 이번 달 진행 속도보다 약간 앞서 있어 확인이 필요합니다.",
   "budgetPaceOnTrack": "{name}은(는) 이번 달 현재 속도에 맞춰 잘 진행 중입니다.",
-  "createSpaceToShareExpenses": "다른 사람들과 지출을 공유할 공간을 만드세요."
+  "createSpaceToShareExpenses": "다른 사람들과 지출을 공유할 공간을 만드세요.",
+  "homeScreenWidgets": "홈 화면 위젯"
 }

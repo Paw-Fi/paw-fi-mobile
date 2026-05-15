@@ -1058,6 +1058,15 @@ class SettingsPage extends HookConsumerWidget {
                       value: resolveSiriShortcutStatusText(),
                       onTap: handleSiriShortcutSetup,
                     ),
+                  if (Platform.isIOS)
+                    _SettingsTile(
+                      icon: Icons.widgets_rounded,
+                      label: context.l10n.homeScreenWidgets,
+                      onTap: () => launchIntegrationUrl(
+                        Uri.parse('https://moneko.io/help/ios-home-screen-widgets'),
+                        errorMessage: 'Could not open widgets help',
+                      ),
+                    ),
                   if (kDebugMode && Platform.isIOS)
                     _SettingsTile(
                       icon: Icons.bug_report_rounded,

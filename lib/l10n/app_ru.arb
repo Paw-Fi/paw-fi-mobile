@@ -2865,5 +2865,6 @@
   "budgetPaceSpendingFast": "Вы уже использовали {spentPct}% от {name}, но месяц прошёл только на {timePct}%.",
   "budgetPaceNeedsAttention": "{name} требует внимания, потому что расходы немного опережают темп месяца.",
   "budgetPaceOnTrack": "{name} идёт в соответствии с текущим темпом месяца.",
-  "createSpaceToShareExpenses": "Создайте пространство, чтобы делиться расходами с другими."
+  "createSpaceToShareExpenses": "Создайте пространство, чтобы делиться расходами с другими.",
+  "homeScreenWidgets": "Виджеты экрана «Домой»"
 }

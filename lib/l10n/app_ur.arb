@@ -2861,5 +2861,6 @@
   "budgetPaceSpendingFast": "آپ {name} کا {spentPct}% استعمال کر چکے ہیں، لیکن مہینہ ابھی صرف {timePct}% گزرا ہے۔",
   "budgetPaceNeedsAttention": "{name} پر توجہ درکار ہے کیونکہ خرچ مہینے کی رفتار سے تھوڑا آگے ہے۔",
   "budgetPaceOnTrack": "{name} موجودہ ماہانہ رفتار کے مطابق درست سمت میں ہے۔",
-  "createSpaceToShareExpenses": "دوسروں کے ساتھ اخراجات شیئر کرنے کے لیے ایک جگہ بنائیں۔"
+  "createSpaceToShareExpenses": "دوسروں کے ساتھ اخراجات شیئر کرنے کے لیے ایک جگہ بنائیں۔",
+  "homeScreenWidgets": "ہوم اسکرین ویجٹس"
 }

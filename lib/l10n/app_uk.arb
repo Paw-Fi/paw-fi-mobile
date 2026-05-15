@@ -2907,5 +2907,6 @@
   "budgetPaceSpendingFast": "Ви вже використали {spentPct}% від {name}, але місяць минув лише на {timePct}%.",
   "budgetPaceNeedsAttention": "{name} потребує уваги, бо витрати трохи випереджають темп місяця.",
   "budgetPaceOnTrack": "{name} відповідає поточному темпу місяця.",
-  "createSpaceToShareExpenses": "Створіть простір, щоб ділитися витратами з іншими."
+  "createSpaceToShareExpenses": "Створіть простір, щоб ділитися витратами з іншими.",
+  "homeScreenWidgets": "Віджети початкового екрана"
 }

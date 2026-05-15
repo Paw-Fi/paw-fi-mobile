@@ -7913,4 +7913,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get createSpaceToShareExpenses => 'สร้างพื้นที่สำหรับแชร์ค่าใช้จ่ายกับผู้อื่น';
+
+  @override
+  String get homeScreenWidgets => 'วิดเจ็ตหน้าจอโฮม';
 }

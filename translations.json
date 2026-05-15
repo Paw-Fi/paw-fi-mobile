@@ -1,19 +1,19 @@
 {
-"createSpaceToShareExpenses": {
-"en": "Create a space to share expenses with others.",
-"de": "Erstelle einen Bereich, um Ausgaben mit anderen zu teilen.",
-"es": "Crea un espacio para compartir gastos con otras personas.",
-"fr": "Créez un espace pour partager des dépenses avec d’autres.",
-"it": "Crea uno spazio per condividere le spese con altre persone.",
-"ja": "他の人と支出を共有するスペースを作成します。",
-"ko": "다른 사람들과 지출을 공유할 공간을 만드세요.",
-"nl": "Maak een ruimte om uitgaven met anderen te delen.",
-"ur": "دوسروں کے ساتھ اخراجات شیئر کرنے کے لیے ایک جگہ بنائیں۔",
-"ru": "Создайте пространство, чтобы делиться расходами с другими.",
-"th": "สร้างพื้นที่สำหรับแชร์ค่าใช้จ่ายกับผู้อื่น",
-"uk": "Створіть простір, щоб ділитися витратами з іншими.",
-"zh": "创建一个空间，与他人共享支出。",
-"zh_TW": "建立一個空間，與他人共享支出。",
-"vi": "Tạo một không gian để chia sẻ chi phí với người khác."
+"homeScreenWidgets": {
+"en": "Home Screen Widgets",
+"de": "Home-Bildschirm-Widgets",
+"es": "Widgets de pantalla de inicio",
+"fr": "Widgets de l’écran d’accueil",
+"it": "Widget della schermata Home",
+"ja": "ホーム画面ウィジェット",
+"ko": "홈 화면 위젯",
+"nl": "Widgets voor het beginscherm",
+"ur": "ہوم اسکرین ویجٹس",
+"ru": "Виджеты экрана «Домой»",
+"th": "วิดเจ็ตหน้าจอโฮม",
+"uk": "Віджети початкового екрана",
+"zh": "桌面小组件",
+"zh_TW": "主畫面小工具",
+"vi": "Tiện ích Màn hình chính"
 }
 }

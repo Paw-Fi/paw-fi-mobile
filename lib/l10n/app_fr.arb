@@ -2915,5 +2915,6 @@
   "budgetPaceSpendingFast": "Vous avez utilisé {spentPct} % de {name}, alors que le mois n’est avancé qu’à {timePct} %.",
   "budgetPaceNeedsAttention": "{name} mérite votre attention, car les dépenses sont légèrement en avance sur le rythme du mois.",
   "budgetPaceOnTrack": "{name} suit le rythme actuel du mois.",
-  "createSpaceToShareExpenses": "Créez un espace pour partager des dépenses avec d’autres."
+  "createSpaceToShareExpenses": "Créez un espace pour partager des dépenses avec d’autres.",
+  "homeScreenWidgets": "Widgets de l’écran d’accueil"
 }

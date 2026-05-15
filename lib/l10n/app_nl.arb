@@ -2862,5 +2862,6 @@
   "budgetPaceSpendingFast": "Je hebt {spentPct}% van {name} gebruikt, maar de maand is pas {timePct}% voorbij.",
   "budgetPaceNeedsAttention": "{name} heeft aandacht nodig omdat de uitgaven iets voorlopen op het tempo van de maand.",
   "budgetPaceOnTrack": "{name} ligt op schema met het huidige maandtempo.",
-  "createSpaceToShareExpenses": "Maak een ruimte om uitgaven met anderen te delen."
+  "createSpaceToShareExpenses": "Maak een ruimte om uitgaven met anderen te delen.",
+  "homeScreenWidgets": "Widgets voor het beginscherm"
 }

@@ -2862,5 +2862,6 @@
   "budgetPaceSpendingFast": "Hai usato il {spentPct}% di {name}, ma il mese è completato solo al {timePct}%.",
   "budgetPaceNeedsAttention": "{name} richiede attenzione perché la spesa è leggermente avanti rispetto al ritmo del mese.",
   "budgetPaceOnTrack": "{name} è in linea con il ritmo attuale del mese.",
-  "createSpaceToShareExpenses": "Crea uno spazio per condividere le spese con altre persone."
+  "createSpaceToShareExpenses": "Crea uno spazio per condividere le spese con altre persone.",
+  "homeScreenWidgets": "Widget della schermata Home"
 }
