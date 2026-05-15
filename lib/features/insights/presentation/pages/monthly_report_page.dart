@@ -23,6 +23,7 @@ part '../widgets/monthly_report/monthly_report_metric_card.dart';
 part '../widgets/monthly_report/monthly_report_health_ring.dart';
 part '../widgets/monthly_report/monthly_report_detail_widgets.dart';
 
+const _monthlyReportPageTitleFontSize = 28.0;
 const _monthlyReportSectionTitleFontSize = 20.0;
 const _monthlyReportPageHorizontalPadding = 20.0;
 const _monthlyReportWidgetPadding = EdgeInsets.all(24);
@@ -218,19 +219,13 @@ class MonthlyReportPage extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MonthlyReportSectionTitle(
+                _MonthlyReportPageTitle(
                   title: month,
                   colorScheme: colorScheme,
-                  trailing: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _MonthlyReportSyncStatus(
-                      key: ValueKey(
-                        '${snapshot.lastSyncedAt?.toIso8601String()}_${snapshot.isRefreshing}',
-                      ),
-                      colorScheme: colorScheme,
-                      lastSyncedAt: snapshot.lastSyncedAt,
-                      isRefreshing: snapshot.isRefreshing,
-                    ),
+                  trailing: _MonthlyReportSyncStatus(
+                    colorScheme: colorScheme,
+                    lastSyncedAt: snapshot.lastSyncedAt,
+                    isRefreshing: snapshot.isRefreshing,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1148,12 +1143,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             size: 184,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportHealthRingLegend(
           colorScheme: colorScheme,
           metrics: rings,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
           label: context.l10n.monthlyHealth,
@@ -1162,7 +1157,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           accent: statusColor,
           icon: Icons.favorite_rounded,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.monthVsLastMonth,
           colorScheme: colorScheme,
@@ -1214,7 +1209,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.watchFirst,
           colorScheme: colorScheme,
@@ -1239,7 +1234,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.cashFlow,
           colorScheme: colorScheme,
@@ -1324,9 +1319,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _buildForecastTimeline(context, colorScheme, report, query),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
           title: context.l10n.aboutFinancialHealth,
@@ -1366,7 +1361,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             size: 104,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
           label: context.l10n.allowance,
@@ -1377,7 +1372,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           accent: accent,
           icon: Icons.wallet_rounded,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.allowance,
           colorScheme: colorScheme,
@@ -1431,9 +1426,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _buildForecastTimeline(context, colorScheme, report, query),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
           title: context.l10n.aboutSafeToSpend,
@@ -1478,7 +1473,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ));
           },
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
           status: context.l10n.spending,
@@ -1497,7 +1492,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             height: 74,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.watchFirst,
           colorScheme: colorScheme,
@@ -1529,7 +1524,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         if (report.anomalies.isNotEmpty) ...[
           _MonthlyReportSectionTitle(
             title: context.l10n.unusualActivity,
@@ -1589,14 +1584,14 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           ],
         ),
         if (report.spendingPace.isNotEmpty) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _MonthlyReportAboutCard(
             colorScheme: colorScheme,
             title: context.l10n.aboutSpendingPace,
             body: context.l10n.spendingPaceBody,
           ),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _buildMerchantPreview(context, colorScheme, report, query),
       ],
     );
@@ -1638,7 +1633,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             size: 104,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.budgetPlan,
           colorScheme: colorScheme,
@@ -1717,7 +1712,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           ],
         ),
         if (stressedCategories.isNotEmpty) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
             label: context.l10n.budgetHealth,
@@ -1731,7 +1726,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             icon: Icons.track_changes_rounded,
           ),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.categories,
           colorScheme: colorScheme,
@@ -1758,7 +1753,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.budgetNotes,
           colorScheme: colorScheme,
@@ -1783,7 +1778,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           ),
           const SizedBox(height: 10),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
           title: context.l10n.aboutBudgetHealth,
@@ -1825,7 +1820,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             size: 104,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
           label: context.l10n.savings,
@@ -1849,7 +1844,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             height: 58,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.categoryBuffer,
           colorScheme: colorScheme,
@@ -1903,7 +1898,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           ],
         ),
         if (report.goals.isNotEmpty) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _MonthlyReportSectionTitle(
             title: context.l10n.goals,
             colorScheme: colorScheme,
@@ -1949,7 +1944,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ],
           ),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
           title: context.l10n.aboutSavings,
@@ -2010,7 +2005,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             height: 78,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         if (categories.isNotEmpty) ...[
           _MonthlyReportSectionTitle(
             title: context.l10n.categoryMovement,
@@ -2089,9 +2084,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _buildMerchantPreview(context, colorScheme, report, query),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
           title: context.l10n.aboutCategoryMovement,
@@ -2131,7 +2126,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             size: 104,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportPreviewCard(
           colorScheme: colorScheme,
           children: [
@@ -2170,7 +2165,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           ],
         ),
         if (commitment.monthlyAmount > 0) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
             label: context.l10n.recurringCommitment,
@@ -2181,7 +2176,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             icon: Icons.event_note_rounded,
           ),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.subscriptions,
           colorScheme: colorScheme,
@@ -2236,7 +2231,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                       ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportSectionTitle(
           title: context.l10n.billCalendar,
           colorScheme: colorScheme,
@@ -2281,7 +2276,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
           title: context.l10n.aboutRecurringCosts,
@@ -2493,7 +2488,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                         title: context.l10n.details,
                         body: subtitle!.trim(),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                     ],
                     if (selectedRecurring != null) ...[
                       _MonthlyReportSectionTitle(
@@ -2550,7 +2545,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                     ],
                     if (selectedGoal != null) ...[
                       _MonthlyReportSectionTitle(
@@ -2604,7 +2599,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                     ],
                     _MonthlyReportSectionTitle(
                       title: context.l10n.transactions,
@@ -2699,6 +2694,43 @@ String? _monthlyReportHouseholdId(HouseholdScope scope) {
   }
 }
 
+class _MonthlyReportPageTitle extends StatelessWidget {
+  const _MonthlyReportPageTitle({
+    required this.title,
+    required this.colorScheme,
+    this.trailing,
+  });
+
+  final String title;
+  final ColorScheme colorScheme;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.zero,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: _monthlyReportPageTitleFontSize,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.8,
+                color: colorScheme.foreground,
+                height: 1.05,
+              ),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
 class _MonthlyReportSectionTitle extends StatelessWidget {
   const _MonthlyReportSectionTitle({
     required this.title,
@@ -2717,7 +2749,7 @@ class _MonthlyReportSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(top: 0),
       child: Row(
         children: [
           Expanded(
@@ -2725,7 +2757,7 @@ class _MonthlyReportSectionTitle extends StatelessWidget {
               title,
               style: TextStyle(
                 fontSize: _monthlyReportSectionTitleFontSize,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
                 letterSpacing: -0.5,
                 color: colorScheme.foreground,
                 height: 1.05,
@@ -3519,7 +3551,7 @@ class _MonthlyReportEyebrow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: accent,
               height: 1.1,
@@ -4280,7 +4312,7 @@ class _MonthlyReportLoadingState extends HookWidget {
   }
 }
 
-class _MonthlyReportSyncStatus extends StatelessWidget {
+class _MonthlyReportSyncStatus extends StatefulWidget {
   const _MonthlyReportSyncStatus({
     super.key,
     required this.colorScheme,
@@ -4293,23 +4325,69 @@ class _MonthlyReportSyncStatus extends StatelessWidget {
   final bool isRefreshing;
 
   @override
+  State<_MonthlyReportSyncStatus> createState() =>
+      _MonthlyReportSyncStatusState();
+}
+
+class _MonthlyReportSyncStatusState extends State<_MonthlyReportSyncStatus>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_MonthlyReportSyncStatus oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRefreshing) {
+      _controller.repeat();
+    } else {
+      _controller.stop();
+      _controller.reset();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final foreground =
-        isRefreshing ? colorScheme.primary : colorScheme.mutedForeground;
+    final foreground = widget.isRefreshing
+        ? widget.colorScheme.primary
+        : widget.colorScheme.mutedForeground;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          isRefreshing ? Icons.sync_rounded : Icons.cloud_done_rounded,
-          size: 14,
-          color: foreground,
-        ),
+        if (widget.isRefreshing)
+          RotationTransition(
+            turns: _controller,
+            child: Icon(
+              Icons.sync_rounded,
+              size: 14,
+              color: foreground,
+            ),
+          )
+        else
+          Icon(
+            Icons.cloud_done_rounded,
+            size: 14,
+            color: foreground,
+          ),
         const SizedBox(width: 6),
         Text(
-          isRefreshing
+          widget.isRefreshing
               ? context.l10n.refreshingReport
-              : '${context.l10n.lastSynced} ${_formatLastSyncedAt(context, lastSyncedAt)}',
+              : '${context.l10n.lastSynced} ${_formatLastSyncedAt(context, widget.lastSyncedAt)}',
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,

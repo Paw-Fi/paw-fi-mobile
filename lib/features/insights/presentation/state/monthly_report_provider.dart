@@ -131,9 +131,8 @@ class MonthlyFinancialReportSnapshot {
   }
 }
 
-class MonthlyReportNotifier
-    extends FamilyAsyncNotifier<MonthlyFinancialReportSnapshot,
-        MonthlyReportQuery> {
+class MonthlyReportNotifier extends FamilyAsyncNotifier<
+    MonthlyFinancialReportSnapshot, MonthlyReportQuery> {
   late MonthlyReportQuery _query;
 
   @override
@@ -337,15 +336,9 @@ class MonthlyReportNotifier
         dashboardCalendarTransactionsProvider(previousQuery);
     final historicalProvider =
         dashboardCalendarTransactionsProvider(historicalQuery);
-    final currentBase = await (watchDependencies
-        ? ref.watch(currentProvider.future)
-        : ref.read(currentProvider.future));
-    final previousBase = await (watchDependencies
-        ? ref.watch(previousProvider.future)
-        : ref.read(previousProvider.future));
-    final historicalBase = await (watchDependencies
-        ? ref.watch(historicalProvider.future)
-        : ref.read(historicalProvider.future));
+    final currentBase = await ref.read(currentProvider.future);
+    final previousBase = await ref.read(previousProvider.future);
+    final historicalBase = await ref.read(historicalProvider.future);
     final currentTransactions = mergeDashboardTransactionsWithLocalOverlay(
       base: currentBase,
       localOverlay: watchDependencies
@@ -363,8 +356,10 @@ class MonthlyReportNotifier
     final historicalTransactions = mergeDashboardTransactionsWithLocalOverlay(
       base: historicalBase,
       localOverlay: watchDependencies
-          ? ref.watch(dashboardLocalOverlayTransactionsProvider(historicalQuery))
-          : ref.read(dashboardLocalOverlayTransactionsProvider(historicalQuery)),
+          ? ref
+              .watch(dashboardLocalOverlayTransactionsProvider(historicalQuery))
+          : ref
+              .read(dashboardLocalOverlayTransactionsProvider(historicalQuery)),
       query: historicalQuery,
     );
 
@@ -444,8 +439,9 @@ class MonthlyReportNotifier
             currentTransactions.map(_transactionInput).toList(growable: false),
         previousMonthTransactions:
             previousTransactions.map(_transactionInput).toList(growable: false),
-        historicalTransactions:
-            historicalTransactions.map(_transactionInput).toList(growable: false),
+        historicalTransactions: historicalTransactions
+            .map(_transactionInput)
+            .toList(growable: false),
         budgetItems: _budgetInputs(loadedPocketsState.editing),
         futureTransactions:
             futureTransactions.map(_transactionInput).toList(growable: false),
@@ -1092,9 +1088,7 @@ Future<List<RecurringTransaction>> _loadRecurringTransactions(
   final provider = recurringTransactionsProvider(householdId);
   final state = watchDependencies ? ref.watch(provider) : ref.read(provider);
   if (!state.hasLoadedOnce && !state.data.isLoading) {
-    await ref
-        .read(provider.notifier)
-        .loadRecurringTransactions(userId);
+    await ref.read(provider.notifier).loadRecurringTransactions(userId);
   }
   return ref.read(provider).data.valueOrNull ??
       state.data.valueOrNull ??
@@ -1120,7 +1114,9 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
       monthStart: monthStart,
     ),
   );
-  return watchDependencies ? ref.watch(provider.future) : ref.read(provider.future);
+  return watchDependencies
+      ? ref.read(provider.future)
+      : ref.read(provider.future);
 }
 
 Future<double?> _readPreviousNetWorth(
@@ -1139,8 +1135,7 @@ Future<double?> _readPreviousNetWorth(
       currentMonthStart: monthStart,
     ),
   );
-  final history =
-      await (watchDependencies ? ref.watch(provider.future) : ref.read(provider.future));
+  final history = await ref.read(provider.future);
   final priorPoints = history.netWorthSeries
       .where((point) => point.monthStart.isBefore(monthStart))
       .toList(growable: false)

@@ -4,6 +4,7 @@ import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 void showCreateGoalSheet(BuildContext context) {
   showModalBottomSheet(
@@ -142,22 +143,54 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                           children: [
                             Expanded(
                               flex: 3,
-                              child: TextFormField(
-                                controller: _targetAmountController,
-                                decoration: InputDecoration(
-                                  labelText: l10n.targetAmount,
-                                ),
-                                keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return l10n.pleaseEnterAmount;
+                              child: GestureDetector(
+                                onTap: () async {
+                                  final value = await showCalculatorKeypadSheet(
+                                    context: context,
+                                    initialValue: _targetAmountController.text,
+                                  );
+                                  if (value != null) {
+                                    setState(() {
+                                      _targetAmountController.text = value;
+                                    });
                                   }
-                                  final amount = double.tryParse(value);
-                                  if (amount == null || amount <= 0) {
-                                    return l10n.invalidAmount;
-                                  }
-                                  return null;
                                 },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Theme.of(context).colorScheme.border,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        l10n.targetAmount,
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .mutedForeground,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _targetAmountController.text.isEmpty
+                                              ? ''
+                                              : _targetAmountController.text,
+                                          style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .foreground,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -184,12 +217,54 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         ),
                         const SizedBox(height: 16),
                         // Current amount (optional)
-                        TextFormField(
-                          controller: _currentAmountController,
-                          decoration: InputDecoration(
-                            labelText: l10n.currentAmount,
+                        GestureDetector(
+                          onTap: () async {
+                            final value = await showCalculatorKeypadSheet(
+                              context: context,
+                              initialValue: _currentAmountController.text,
+                            );
+                            if (value != null) {
+                              setState(() {
+                                _currentAmountController.text = value;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.border,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  l10n.currentAmount,
+                                  style: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .mutedForeground,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _currentAmountController.text.isEmpty
+                                        ? ''
+                                        : _currentAmountController.text,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .foreground,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          keyboardType: TextInputType.number,
                         ),
                         const SizedBox(height: 16),
                         // Target date

@@ -15,6 +15,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 class PocketEntry {
   final String id;
@@ -80,7 +81,6 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
 
     // -- State --
     final budgetController = useTextEditingController(text: '');
-    final budgetFocusNode = useFocusNode();
     final selectedTemplate =
         useState<BudgetTemplate>(BudgetTemplates.all.first);
     final isSubmitting = useState(false);
@@ -93,12 +93,6 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
 
     // We store the editable pockets here
     final pockets = useState<List<PocketEntry>>([]);
-
-    // Auto-focus the budget input field when the sheet opens
-    useEffect(() {
-      Future.microtask(() => budgetFocusNode.requestFocus());
-      return null;
-    }, []);
 
     // Initialize pockets when template changes
     // We only want to do this when the *user selects a new template*, not on every rebuild.
@@ -130,63 +124,16 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
         pockets.value.fold(0.0, (sum, p) => sum + p.amount);
 
     // Sync Budget Controller <-> Pockets Sum
-    // If user edits the Budget Controller -> Update Pockets proportionally
-    useEffect(() {
-      void onBudgetChanged() {
-        if (budgetFocusNode.hasFocus) {
-          final text = budgetController.text.replaceAll(RegExp(r'[^0-9.]'), '');
-          final newTotal = double.tryParse(text) ?? 0.0;
-
-          // Avoid infinite loops or tiny updates
-          if ((newTotal - totalFromPockets).abs() < 0.01) return;
-
-          // If current total is 0, we can't use ratios. Use template weights.
-          if (totalFromPockets == 0) {
-            pockets.value = pockets.value.map((p) {
-              // Find original template weight if possible, or just split evenly?
-              // Better: Look up from current selected template.
-              final templatePockets = selectedTemplate.value.pockets;
-              if (templatePockets.isEmpty) {
-                return p.copyWith(amount: 0);
-              }
-              final templatePocket = templatePockets.firstWhere(
-                (tp) => tp.name == p.name,
-                orElse: () => templatePockets.first,
-              );
-              return p.copyWith(amount: newTotal * templatePocket.weight);
-            }).toList();
-          } else {
-            // Scale existing amounts
-            final ratio = newTotal / totalFromPockets;
-            pockets.value = pockets.value
-                .map((p) => p.copyWith(amount: p.amount * ratio))
-                .toList();
-          }
-        }
-      }
-
-      budgetController.addListener(onBudgetChanged);
-      return () => budgetController.removeListener(onBudgetChanged);
-    }, [
-      budgetController,
-      pockets.value,
-      totalFromPockets,
-      selectedTemplate.value
-    ]);
-
     // If user edits a Pocket (so totalFromPockets changes) -> Update Budget Controller
-    // Only if Budget Controller is NOT focused.
     useEffect(() {
-      if (!budgetFocusNode.hasFocus) {
-        final currentControllerValue = double.tryParse(
-                budgetController.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
-            0.0;
-        if ((currentControllerValue - totalFromPockets).abs() > 0.01) {
-          // Format elegantly
-          final formatted =
-              totalFromPockets == 0 ? '0' : formatAmount(totalFromPockets);
-          budgetController.text = formatted;
-        }
+      final currentControllerValue = double.tryParse(
+              budgetController.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+          0.0;
+      if ((currentControllerValue - totalFromPockets).abs() > 0.01) {
+        // Format elegantly
+        final formatted =
+            totalFromPockets == 0 ? '0' : formatAmount(totalFromPockets);
+        budgetController.text = formatted;
       }
       return null;
     }, [totalFromPockets]); // Run whenever the sum changes
@@ -319,28 +266,52 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: budgetController,
-                        focusNode: budgetFocusNode,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: scheme.primary,
-                        ),
-                        decoration: InputDecoration(
-                          prefixText: currencySymbol,
-                          prefixStyle: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: scheme.mutedForeground,
+                      GestureDetector(
+                        onTap: () async {
+                          final value = await showCalculatorKeypadSheet(
+                            context: context,
+                            initialValue: budgetController.text,
+                          );
+                          if (value != null) {
+                            budgetController.text = value;
+                            // Update pockets proportionally when budget changes
+                            final text = value.replaceAll(RegExp(r'[^0-9.]'), '');
+                            final newTotal = double.tryParse(text) ?? 0.0;
+
+                            if (totalFromPockets == 0) {
+                              pockets.value = pockets.value.map((p) {
+                                final templatePockets = selectedTemplate.value.pockets;
+                                if (templatePockets.isEmpty) {
+                                  return p.copyWith(amount: 0);
+                                }
+                                final templatePocket = templatePockets.firstWhere(
+                                  (tp) => tp.name == p.name,
+                                  orElse: () => templatePockets.first,
+                                );
+                                return p.copyWith(amount: newTotal * templatePocket.weight);
+                              }).toList();
+                            } else {
+                              final ratio = newTotal / totalFromPockets;
+                              pockets.value = pockets.value
+                                  .map((p) => p.copyWith(amount: p.amount * ratio))
+                                  .toList();
+                            }
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            budgetController.text.isNotEmpty
+                                ? '$currencySymbol${budgetController.text}'
+                                : '${currencySymbol}0',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: budgetController.text.isNotEmpty
+                                  ? scheme.primary
+                                  : scheme.mutedForeground.withValues(alpha: 0.3),
+                            ),
                           ),
-                          border: InputBorder.none,
-                          hintText: '0',
-                          hintStyle: TextStyle(
-                              color: scheme.mutedForeground
-                                  .withValues(alpha: 0.3)),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -789,36 +760,18 @@ class _PocketRow extends HookWidget {
 
     final controller =
         useTextEditingController(text: formatAmount(entry.amount));
-    final focusNode = useFocusNode();
 
-    // Sync external amount change to controller (if not focused)
+    // Sync external amount change to controller
     useEffect(() {
-      if (!focusNode.hasFocus) {
-        final textVal = double.tryParse(
-                controller.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
-            0.0;
-        // Only update if significantly different to avoid cursor jumps or formatting wars
-        if ((textVal - entry.amount).abs() > 0.01) {
-          controller.text = formatAmount(entry.amount);
-        }
+      final textVal = double.tryParse(
+              controller.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+          0.0;
+      // Only update if significantly different to avoid cursor jumps or formatting wars
+      if ((textVal - entry.amount).abs() > 0.01) {
+        controller.text = formatAmount(entry.amount);
       }
       return null;
     }, [entry.amount]);
-
-    // Handle user edits
-    useEffect(() {
-      void listener() {
-        if (focusNode.hasFocus) {
-          final val = double.tryParse(
-                  controller.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
-              0.0;
-          onAmountChanged(val);
-        }
-      }
-
-      controller.addListener(listener);
-      return () => controller.removeListener(listener);
-    }, [controller, focusNode]);
 
     final share = totalBudget > 0 ? (entry.amount / totalBudget) : 0.0;
 
@@ -879,31 +832,37 @@ class _PocketRow extends HookWidget {
                   ),
                 ),
               ),
-              SizedBox(
-                width: 100,
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  textAlign: TextAlign.end,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: scheme.foreground,
+              GestureDetector(
+                onTap: () async {
+                  final value = await showCalculatorKeypadSheet(
+                    context: context,
+                    initialValue: controller.text,
+                  );
+                  if (value != null) {
+                    controller.text = value;
+                    final val = double.tryParse(
+                            value.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                        0.0;
+                    onAmountChanged(val);
+                  }
+                },
+                child: Container(
+                  width: 100,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: scheme.border,
+                        width: 1,
+                      ),
+                    ),
                   ),
-                  decoration: InputDecoration(
-                    prefixText: currencySymbol,
-                    prefixStyle: TextStyle(
-                      color: scheme.mutedForeground,
+                  child: Text(
+                    '$currencySymbol${controller.text}',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    border: UnderlineInputBorder(
-                      borderSide: BorderSide(color: scheme.border),
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: scheme.primary, width: 2),
+                      color: scheme.foreground,
                     ),
                   ),
                 ),
