@@ -363,6 +363,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       key: PageStorageKey<String>(
         'home_page_${householdScope.activeAccountType.name}_${householdScope.activeAccountHouseholdId ?? 'personal'}',
       ),
+      physics: const AlwaysScrollableScrollPhysics(),
       cacheExtent: _dashboardScrollCacheExtent,
       slivers: [
         if (householdScope.isHouseholdView) ...[

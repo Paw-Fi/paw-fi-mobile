@@ -353,9 +353,11 @@ class _KeepAliveDashboardItemState extends State<_KeepAliveDashboardItem>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (!widget.enabled) {
+      return widget.child;
+    }
     return ReorderableDelayedDragStartListener(
       index: widget.index,
-      enabled: widget.enabled,
       child: widget.child,
     );
   }
@@ -385,41 +387,87 @@ class DraggableDashboardList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isEditMode = ref.watch(isEditModeProvider);
+    final visibleConfigs = isEditMode
+        ? configs
+        : configs
+            .where((config) =>
+                config.isVisible && widgetBuilders.containsKey(config.type))
+            .toList(growable: false);
+
+    if (!isEditMode) {
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildDashboardItem(
+            context,
+            visibleConfigs[index],
+            index,
+            isEditMode: false,
+          ),
+          childCount: visibleConfigs.length,
+          findChildIndexCallback: (key) =>
+              _findConfigIndexForKey(key, visibleConfigs),
+        ),
+      );
+    }
 
     return SliverReorderableList(
-      itemCount: configs.length,
+      itemCount: visibleConfigs.length,
       onReorder: onReorder,
       itemBuilder: (context, index) {
-        final config = configs[index];
-        final builder = widgetBuilders[config.type];
-
-        if (builder == null) {
-          return SizedBox.shrink(key: ValueKey(config.id));
-        }
-
-        if (!isEditMode && !config.isVisible) {
-          return SizedBox.shrink(key: ValueKey(config.id));
-        }
-
-        return _KeepAliveDashboardItem(
-          key: ValueKey(config.id),
-          index: index,
-          enabled: isEditMode,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: RepaintBoundary(
-              child: DashboardWidgetWrapper(
-                config: config,
-                onToggleVisibility: () => onToggleVisibility(config.id),
-                onEdit: () =>
-                    _showConfigPicker(context, config, onUpdateConfig),
-                child: builder(context, config),
-              ),
-            ),
-          ),
+        return _buildDashboardItem(
+          context,
+          visibleConfigs[index],
+          index,
+          isEditMode: true,
         );
       },
     );
+  }
+
+  Widget _buildDashboardItem(
+    BuildContext context,
+    DashboardWidgetConfig config,
+    int index, {
+    required bool isEditMode,
+  }) {
+    final builder = widgetBuilders[config.type];
+
+    if (builder == null) {
+      return SizedBox.shrink(key: ValueKey(config.id));
+    }
+
+    return _KeepAliveDashboardItem(
+      key: ValueKey(config.id),
+      index: index,
+      enabled: isEditMode,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16.0),
+        child: RepaintBoundary(
+          child: DashboardWidgetWrapper(
+            config: config,
+            onToggleVisibility: () => onToggleVisibility(config.id),
+            onEdit: () => _showConfigPicker(context, config, onUpdateConfig),
+            child: builder(context, config),
+          ),
+        ),
+      ),
+    );
+  }
+
+  int? _findConfigIndexForKey(
+    Key key,
+    List<DashboardWidgetConfig> visibleConfigs,
+  ) {
+    if (key is! ValueKey<String>) {
+      return null;
+    }
+    final id = key.value;
+    for (var index = 0; index < visibleConfigs.length; index += 1) {
+      if (visibleConfigs[index].id == id) {
+        return index;
+      }
+    }
+    return null;
   }
 
   void _showConfigPicker(

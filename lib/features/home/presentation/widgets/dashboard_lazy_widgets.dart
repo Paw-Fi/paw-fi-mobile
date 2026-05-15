@@ -28,10 +28,15 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:skeletonizer/skeletonizer.dart';
 
 Widget _buildDashboardSwitcher(Widget child) {
-  return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 350),
-    transitionBuilder: _buildDashboardSwitcherTransition,
-    child: child,
+  return AnimatedSize(
+    duration: const Duration(milliseconds: 220),
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      transitionBuilder: _buildDashboardSwitcherTransition,
+      child: child,
+    ),
   );
 }
 
@@ -680,6 +685,7 @@ Widget _buildRecentTransactionsSkeleton(
   String? selectedCurrency, {
   Key? key,
 }) {
+  final now = DateTime.now();
   return Skeletonizer(
     key: key,
     effect: ShimmerEffect(
@@ -689,22 +695,16 @@ Widget _buildRecentTransactionsSkeleton(
     child: buildRecentTransactionsCard(
       context,
       colorScheme,
-      [
-        ExpenseEntry(
-          id: 'recent-skeleton-1',
-          date: DateTime.now(),
+      List.generate(
+        5,
+        (index) => ExpenseEntry(
+          id: 'recent-skeleton-$index',
+          date: now.subtract(Duration(minutes: index)),
           amountCents: 0,
-          createdAt: DateTime.now(),
+          createdAt: now.subtract(Duration(minutes: index)),
           currency: selectedCurrency ?? 'USD',
         ),
-        ExpenseEntry(
-          id: 'recent-skeleton-2',
-          date: DateTime.now(),
-          amountCents: 0,
-          createdAt: DateTime.now(),
-          currency: selectedCurrency ?? 'USD',
-        ),
-      ],
+      ),
       null,
       selectedCurrency: selectedCurrency,
       onViewAll: () {},
@@ -719,17 +719,24 @@ Widget _buildBreakdownSkeleton(ColorScheme colorScheme, {Key? key}) {
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
     ),
-    child: Card(
-      color: colorScheme.cardSurface,
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Spending breakdown'),
-            SizedBox(height: 8),
-            Text('Chart placeholder'),
-          ],
+    child: SizedBox(
+      height: 360,
+      child: Card(
+        color: colorScheme.cardSurface,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Spending breakdown'),
+              SizedBox(height: 8),
+              Text('Current period'),
+              SizedBox(height: 32),
+              Expanded(child: Center(child: Text('Chart placeholder'))),
+              SizedBox(height: 24),
+              Text('Legend placeholder'),
+            ],
+          ),
         ),
       ),
     ),
@@ -743,17 +750,26 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
       baseColor: colorScheme.skeletonBase,
       highlightColor: colorScheme.skeletonHighlight,
     ),
-    child: Card(
-      color: colorScheme.cardSurface,
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Where the money went'),
-            SizedBox(height: 8),
-            Text('Row placeholder'),
-          ],
+    child: SizedBox(
+      height: 320,
+      child: Card(
+        color: colorScheme.cardSurface,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Where the money went'),
+              SizedBox(height: 8),
+              Text('Current period'),
+              SizedBox(height: 32),
+              Text('Category row placeholder'),
+              SizedBox(height: 16),
+              Text('Category row placeholder'),
+              SizedBox(height: 16),
+              Text('Category row placeholder'),
+            ],
+          ),
         ),
       ),
     ),

@@ -82,11 +82,35 @@ void _debugPrint(String? message) {
   }
 }
 
-class ConnectSocialBanner extends ConsumerWidget {
+class ConnectSocialBanner extends ConsumerStatefulWidget {
   const ConnectSocialBanner({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConnectSocialBanner> createState() =>
+      _ConnectSocialBannerState();
+}
+
+class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
+  String? _lastRecurringLoadKey;
+
+  void _scheduleRecurringLoad({
+    required String key,
+    required String userId,
+    required String? householdId,
+  }) {
+    if (_lastRecurringLoadKey == key) return;
+    _lastRecurringLoadKey = key;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lastRecurringLoadKey != key) return;
+      ref
+          .read(recurringTransactionsProvider(householdId).notifier)
+          .loadRecurringTransactions(userId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (ref.watch(previewModeProvider).isActive) {
       return const SizedBox.shrink();
     }
@@ -120,15 +144,14 @@ class ConnectSocialBanner extends ConsumerWidget {
     if ((authState.uid.isNotEmpty || shouldTriggerPreviewLoad) &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
-      Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(recurringHouseholdId).notifier)
-            .loadRecurringTransactions(
-              authState.uid.isNotEmpty
-                  ? authState.uid
-                  : PreviewMockData.contact.userId ?? 'preview-user',
-            );
-      });
+      final recurringLoadUserId = authState.uid.isNotEmpty
+          ? authState.uid
+          : PreviewMockData.contact.userId ?? 'preview-user';
+      _scheduleRecurringLoad(
+        key: '${recurringHouseholdId ?? 'personal'}|$recurringLoadUserId',
+        userId: recurringLoadUserId,
+        householdId: recurringHouseholdId,
+      );
     }
 
     final isBannerReady = !hasTransactionsAsync.isLoading &&

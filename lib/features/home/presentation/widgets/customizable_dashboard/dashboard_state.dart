@@ -212,11 +212,12 @@ class PersonalDashboardController
       if (oldIndex < newIndex) {
         newIndex -= 1;
       }
-      final item = configs.removeAt(oldIndex);
-      configs.insert(newIndex, item);
+      final reorderedConfigs = List<DashboardWidgetConfig>.from(configs);
+      final item = reorderedConfigs.removeAt(oldIndex);
+      reorderedConfigs.insert(newIndex, item);
 
       // Update order index in objects
-      final reordered = configs.asMap().entries.map((e) {
+      final reordered = reorderedConfigs.asMap().entries.map((e) {
         return e.value.copyWith(order: e.key);
       }).toList();
 
@@ -397,10 +398,11 @@ class HouseholdDashboardController
       if (oldIndex < newIndex) {
         newIndex -= 1;
       }
-      final item = configs.removeAt(oldIndex);
-      configs.insert(newIndex, item);
+      final reorderedConfigs = List<DashboardWidgetConfig>.from(configs);
+      final item = reorderedConfigs.removeAt(oldIndex);
+      reorderedConfigs.insert(newIndex, item);
 
-      final reordered = configs.asMap().entries.map((e) {
+      final reordered = reorderedConfigs.asMap().entries.map((e) {
         return e.value.copyWith(order: e.key);
       }).toList();
 

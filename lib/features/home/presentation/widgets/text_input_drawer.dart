@@ -16,7 +16,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
-const int _minimumAudioRecordingMs = 800;
+const int _minimumAudioRecordingMs = 1000;
 const double _silentRecordingPeakDb = -160.0;
 const double _minimumVoicePeakDb = -55.0;
 

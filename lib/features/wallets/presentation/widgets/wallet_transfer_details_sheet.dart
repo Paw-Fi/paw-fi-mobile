@@ -4,13 +4,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -27,12 +32,12 @@ String? extractWalletTransferIdFromExpenseId(String expenseId) {
 bool isWalletTransferExpenseEntry(ExpenseEntry expense) =>
     extractWalletTransferIdFromExpenseId(expense.id) != null;
 
-Future<void> showWalletTransferDetailsSheet(
+Future<bool?> showWalletTransferDetailsSheet(
   BuildContext context, {
   required ExpenseEntry transferExpense,
   required List<WalletEntity> wallets,
 }) {
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
     enableDrag: true,
@@ -57,10 +62,9 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final actions = ref.watch(walletActionsProvider);
     final locale = Localizations.localeOf(context).toString();
-    final currencyCode =
-        transferExpense.currency ?? ref.watch(selectedHomeCurrencyCodeProvider);
-    final symbol = resolveCurrencySymbol(currencyCode);
+    final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final direction = _WalletTransferDirection.fromExpense(transferExpense);
     final transferFuture = useMemoized(
       () => _loadTransferDetails(transferExpense.id),
@@ -68,6 +72,10 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
     );
     final transferSnapshot = useFuture(transferFuture);
     final transfer = transferSnapshot.data;
+    final isMutating = useState<bool>(false);
+    final currencyCode =
+        transfer?.currency ?? transferExpense.currency ?? selectedCurrencyCode;
+    final symbol = resolveCurrencySymbol(currencyCode);
     final fromWallet = transfer == null
         ? direction == _WalletTransferDirection.outgoing
             ? _walletById(wallets, transferExpense.walletId)
@@ -91,6 +99,83 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
         : colorScheme.foreground;
     final date = transfer?.date ?? transferExpense.date;
     final formattedDate = DateFormat.yMMMd(locale).format(date);
+    final canEditTransfer = transfer != null &&
+        wallets.length >= 2 &&
+        _walletById(wallets, transfer.fromAccountId) != null &&
+        _walletById(wallets, transfer.toAccountId) != null;
+
+    Future<void> handleEditTransfer() async {
+      final loadedTransfer = transfer;
+      if (loadedTransfer == null || !canEditTransfer || isMutating.value) {
+        return;
+      }
+      final result = await showWalletTransferSheet(
+        context,
+        wallets: wallets,
+        initialTransfer: loadedTransfer,
+      );
+      if (result == null || !context.mounted) {
+        return;
+      }
+      isMutating.value = true;
+      try {
+        await actions.updateTransfer(
+          existingTransfer: loadedTransfer,
+          fromAccountId: result.fromAccountId,
+          toAccountId: result.toAccountId,
+          amountCents: result.amountCents,
+          currency: currencyCode,
+          date: result.date,
+          note: result.note,
+        );
+        if (!context.mounted) {
+          return;
+        }
+        AppToast.success(context, context.l10n.saveChanges);
+        Navigator.of(context).pop(true);
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+      } finally {
+        if (context.mounted) {
+          isMutating.value = false;
+        }
+      }
+    }
+
+    Future<void> handleDeleteTransfer() async {
+      if (transfer == null || isMutating.value) {
+        return;
+      }
+      final confirm = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.delete,
+        description: context.l10n.areYouSureYouWantToDeleteThisTransaction,
+        confirmLabel: context.l10n.delete,
+        cancelLabel: context.l10n.cancel,
+      );
+      if (confirm?.confirmed != true || !context.mounted) {
+        return;
+      }
+      isMutating.value = true;
+      try {
+        await actions.deleteTransfer(transfer);
+        if (!context.mounted) {
+          return;
+        }
+        AppToast.success(context, context.l10n.delete);
+        Navigator.of(context).pop(true);
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+      } finally {
+        if (context.mounted) {
+          isMutating.value = false;
+        }
+      }
+    }
 
     return Container(
       constraints: BoxConstraints(
@@ -237,6 +322,30 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
                       ),
                     ],
                     const SizedBox(height: 24),
+                    if (transfer != null) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryAdaptiveButton(
+                          onPressed: isMutating.value || !canEditTransfer
+                              ? null
+                              : handleEditTransfer,
+                          child: Text(context.l10n.edit),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed:
+                              isMutating.value ? null : handleDeleteTransfer,
+                          child: Text(
+                            context.l10n.delete,
+                            style: TextStyle(color: colorScheme.destructive),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     SizedBox(
                       width: double.infinity,
                       child: PrimaryAdaptiveButton(

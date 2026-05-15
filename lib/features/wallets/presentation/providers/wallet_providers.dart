@@ -9,12 +9,15 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -639,6 +642,120 @@ class WalletActions {
     }
   }
 
+  Future<void> updateTransfer({
+    required WalletTransfer existingTransfer,
+    required String fromAccountId,
+    required String toAccountId,
+    required int amountCents,
+    required String currency,
+    required DateTime date,
+    String? note,
+  }) async {
+    final authHeaders = _requireAuthHeaders();
+    final mutationEntityId =
+        'update-transfer:${existingTransfer.id}:${DateTime.now().microsecondsSinceEpoch}';
+    _applyTransferBalanceDeltas([
+      MapEntry(existingTransfer.fromAccountId, existingTransfer.amountCents),
+      MapEntry(existingTransfer.toAccountId, -existingTransfer.amountCents),
+      MapEntry(fromAccountId, -amountCents),
+      MapEntry(toAccountId, amountCents),
+    ]);
+    try {
+      final requestBody = {
+        'transferId': existingTransfer.id,
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
+        'amountCents': amountCents,
+        'currency': currency,
+        'date': formatDateOnlyYmd(date),
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      };
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: mutationEntityId,
+        functionName: 'update-wallet-transfer',
+        requestBody: requestBody,
+      );
+      final response = await supabase.functions.invoke(
+        'update-wallet-transfer',
+        headers: authHeaders,
+        body: requestBody,
+      );
+      _throwIfFailed(response.data, 'Failed to update transfer');
+      await localDatabase
+          .markMutationSynced(_walletMutationId(mutationEntityId));
+      _invalidateAll();
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(mutationEntityId, error);
+      clearOptimisticWallet(existingTransfer.fromAccountId);
+      clearOptimisticWallet(existingTransfer.toAccountId);
+      clearOptimisticWallet(fromAccountId);
+      clearOptimisticWallet(toAccountId);
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransfer(WalletTransfer transfer) async {
+    final authHeaders = _requireAuthHeaders();
+    final mutationEntityId =
+        'delete-transfer:${transfer.id}:${DateTime.now().microsecondsSinceEpoch}';
+    _applyTransferBalanceDeltas([
+      MapEntry(transfer.fromAccountId, transfer.amountCents),
+      MapEntry(transfer.toAccountId, -transfer.amountCents),
+    ]);
+    try {
+      final requestBody = {'transferId': transfer.id};
+      final localDatabase = await _enqueueWalletMutation(
+        entityId: mutationEntityId,
+        functionName: 'delete-wallet-transfer',
+        requestBody: requestBody,
+      );
+      final response = await supabase.functions.invoke(
+        'delete-wallet-transfer',
+        headers: authHeaders,
+        body: requestBody,
+      );
+      _throwIfFailed(response.data, 'Failed to delete transfer');
+      await localDatabase
+          .markMutationSynced(_walletMutationId(mutationEntityId));
+      _invalidateAll();
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        _invalidateAll();
+        return;
+      }
+      await _cancelWalletMutation(mutationEntityId, error);
+      clearOptimisticWallet(transfer.fromAccountId);
+      clearOptimisticWallet(transfer.toAccountId);
+      rethrow;
+    }
+  }
+
+  void _applyTransferBalanceDeltas(Iterable<MapEntry<String, int>> deltas) {
+    final deltasByWalletId = <String, int>{};
+    for (final delta in deltas) {
+      deltasByWalletId[delta.key] =
+          (deltasByWalletId[delta.key] ?? 0) + delta.value;
+    }
+    final wallets = ref.read(effectiveScopeWalletsProvider);
+    for (final entry in deltasByWalletId.entries) {
+      if (entry.value == 0) {
+        continue;
+      }
+      final wallet =
+          wallets.firstWhereOrNull((wallet) => wallet.id == entry.key);
+      if (wallet == null) {
+        continue;
+      }
+      setOptimisticWallet(wallet.copyWith(
+        currentBalanceCents: wallet.currentBalanceCents + entry.value,
+      ));
+    }
+  }
+
   Future<void> updateBalance({
     required String walletId,
     required int targetBalanceCents,
@@ -800,6 +917,8 @@ class WalletActions {
     ref.invalidate(walletsScopeQueryProvider);
     ref.invalidate(walletsPageStateProvider);
     ref.read(walletsRefreshSignalProvider.notifier).state += 1;
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     final userId = ref.read(authProvider).uid;
     if (userId.isNotEmpty) {
       ref.read(walletsListSessionCacheProvider.notifier).state = const {};

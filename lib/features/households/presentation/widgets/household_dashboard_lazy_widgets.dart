@@ -50,10 +50,15 @@ HouseholdSummaryParams buildHouseholdSummaryParams({
 }
 
 Widget _buildDashboardSwitcher(Widget child) {
-  return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 350),
-    transitionBuilder: _buildDashboardSwitcherTransition,
-    child: child,
+  return AnimatedSize(
+    duration: const Duration(milliseconds: 220),
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      transitionBuilder: _buildDashboardSwitcherTransition,
+      child: child,
+    ),
   );
 }
 
@@ -112,14 +117,6 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
-    if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(household.id).notifier);
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(userId);
-      });
-    }
-
     Widget child;
 
     if (transactionsAsync.isLoading &&
@@ -271,16 +268,6 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
-    if (userId != null &&
-        userId.isNotEmpty &&
-        !recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading) {
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(household.id).notifier);
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(userId);
-      });
-    }
     final params = buildHouseholdSummaryParams(
       household: household,
       selectedCurrency: selectedCurrency,
@@ -492,16 +479,6 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
     );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
-    if (userId.isNotEmpty &&
-        !recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading) {
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(household.id).notifier);
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(userId);
-      });
-    }
-
     Widget child;
 
     if (transactionsAsync.isLoading &&
@@ -589,16 +566,6 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
     );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
-    if (userId.isNotEmpty &&
-        !recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading) {
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(household.id).notifier);
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(userId);
-      });
-    }
-
     Widget child;
 
     if (transactionsAsync.isLoading &&
@@ -683,6 +650,7 @@ Widget _buildRecentTransactionsSkeleton(
   String userId, {
   Key? key,
 }) {
+  final now = DateTime.now();
   return Skeletonizer(
     key: key,
     effect: ShimmerEffect(
@@ -692,16 +660,17 @@ Widget _buildRecentTransactionsSkeleton(
     child: buildRecentTransactionsCard(
       context,
       Theme.of(context).colorScheme,
-      [
-        ExpenseEntry(
-          id: 'skeleton-1',
-          date: DateTime.now(),
+      List.generate(
+        5,
+        (index) => ExpenseEntry(
+          id: 'household-recent-skeleton-$index',
+          date: now.subtract(Duration(minutes: index)),
           amountCents: 0,
-          createdAt: DateTime.now(),
+          createdAt: now.subtract(Duration(minutes: index)),
           userId: userId,
           currency: selectedCurrency,
         ),
-      ],
+      ),
       null,
       selectedCurrency: selectedCurrency,
       householdId: householdId,
@@ -711,34 +680,66 @@ Widget _buildRecentTransactionsSkeleton(
 }
 
 Widget _buildBreakdownSkeleton(BuildContext context, {Key? key}) {
+  final colorScheme = Theme.of(context).colorScheme;
   return Skeletonizer(
     key: key,
     effect: ShimmerEffect(
-      baseColor: Theme.of(context).colorScheme.skeletonBase,
-      highlightColor: Theme.of(context).colorScheme.skeletonHighlight,
+      baseColor: colorScheme.skeletonBase,
+      highlightColor: colorScheme.skeletonHighlight,
     ),
-    child: Card(
-      color: Theme.of(context).colorScheme.cardSurface,
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('Chart placeholder'),
+    child: SizedBox(
+      height: 360,
+      child: Card(
+        color: colorScheme.cardSurface,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Spending breakdown'),
+              SizedBox(height: 8),
+              Text('Current period'),
+              SizedBox(height: 32),
+              Expanded(child: Center(child: Text('Chart placeholder'))),
+              SizedBox(height: 24),
+              Text('Legend placeholder'),
+            ],
+          ),
+        ),
       ),
     ),
   );
 }
 
 Widget _buildWhereMoneyWentSkeleton(BuildContext context, {Key? key}) {
+  final colorScheme = Theme.of(context).colorScheme;
   return Skeletonizer(
     key: key,
     effect: ShimmerEffect(
-      baseColor: Theme.of(context).colorScheme.skeletonBase,
-      highlightColor: Theme.of(context).colorScheme.skeletonHighlight,
+      baseColor: colorScheme.skeletonBase,
+      highlightColor: colorScheme.skeletonHighlight,
     ),
-    child: Card(
-      color: Theme.of(context).colorScheme.cardSurface,
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('Row placeholder'),
+    child: SizedBox(
+      height: 320,
+      child: Card(
+        color: colorScheme.cardSurface,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Where the money went'),
+              SizedBox(height: 8),
+              Text('Current period'),
+              SizedBox(height: 32),
+              Text('Category row placeholder'),
+              SizedBox(height: 16),
+              Text('Category row placeholder'),
+              SizedBox(height: 16),
+              Text('Category row placeholder'),
+            ],
+          ),
+        ),
       ),
     ),
   );
@@ -795,16 +796,6 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
     );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
-    if (userId.isNotEmpty &&
-        !recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading) {
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(household.id).notifier);
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(userId);
-      });
-    }
-
     Widget child;
 
     if (summary == null && summaryAsync.hasError) {
@@ -925,16 +916,6 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
-    if (userId.isNotEmpty &&
-        !recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading) {
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(household.id).notifier);
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(userId);
-      });
-    }
-
     Widget child;
 
     if (summary == null && summaryAsync.hasError) {

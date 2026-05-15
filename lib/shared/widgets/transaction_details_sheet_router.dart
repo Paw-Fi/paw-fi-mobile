@@ -29,12 +29,11 @@ Future<bool?> showTransactionDetailsSheet(
   }
 
   if (isWalletTransferExpenseEntry(expense)) {
-    await showWalletTransferDetailsSheet(
+    return showWalletTransferDetailsSheet(
       context,
       transferExpense: expense,
       wallets: transferWallets,
     );
-    return null;
   }
 
   return showUnifiedTransactionSheet(

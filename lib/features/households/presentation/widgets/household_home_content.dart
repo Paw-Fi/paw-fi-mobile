@@ -42,6 +42,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   String? _dashboardWarmupKey;
   late final HomeDebugTrace _householdTrace;
   String? _lastHouseholdTraceSignature;
+  String? _lastSelectedHouseholdTraceSignature;
+  String? _lastRepositoryTraceSignature;
+  String? _lastDashboardConfigTraceSignature;
   bool _didLogFirstUsefulPaint = false;
 
   @override
@@ -408,7 +411,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     final ref = this.ref;
     final colorScheme = Theme.of(context).colorScheme;
     final userId = ref.watch(currentUserIdProvider);
-    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
+    final dashboardRefreshSignal = ref.read(dashboardRefreshSignalProvider);
 
     if (userId == null) {
       return SliverFillRemaining(
@@ -486,10 +489,19 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 )
               : households.first;
 
-          _householdTrace.mark('selected-household', {
-            'household': household.id,
-            'selectedId': selectedId,
-          });
+          final selectedHouseholdTraceSignature = [
+            'household=${household.id}',
+            'selectedId=${selectedId ?? '<none>'}',
+          ].join('|');
+          if (_lastSelectedHouseholdTraceSignature !=
+              selectedHouseholdTraceSignature) {
+            _lastSelectedHouseholdTraceSignature =
+                selectedHouseholdTraceSignature;
+            _householdTrace.mark('selected-household', {
+              'household': household.id,
+              'selectedId': selectedId,
+            });
+          }
 
           // Filters
           final filterState = ref.watch(homeFilterProvider);
@@ -516,11 +528,19 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
           final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
 
-          _householdTrace.mark('repository-async-state', {
-            'loading': repoAsync.isLoading,
-            'hasError': repoAsync.hasError,
-            'hasValue': repoAsync.hasValue,
-          });
+          final repositoryTraceSignature = [
+            'loading=${repoAsync.isLoading}',
+            'hasError=${repoAsync.hasError}',
+            'hasValue=${repoAsync.hasValue}',
+          ].join('|');
+          if (_lastRepositoryTraceSignature != repositoryTraceSignature) {
+            _lastRepositoryTraceSignature = repositoryTraceSignature;
+            _householdTrace.mark('repository-async-state', {
+              'loading': repoAsync.isLoading,
+              'hasError': repoAsync.hasError,
+              'hasValue': repoAsync.hasValue,
+            });
+          }
 
           return repoAsync.when(
             loading: () =>
@@ -536,13 +556,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               final dashboardAsync =
                   ref.watch(householdDashboardProvider(household.id));
 
-              _householdTrace.mark('dashboard-config-async-state', {
-                'household': household.id,
-                'loading': dashboardAsync.isLoading,
-                'hasError': dashboardAsync.hasError,
-                'hasValue': dashboardAsync.hasValue,
-                'widgetCount': dashboardAsync.valueOrNull?.length,
-              });
+              final dashboardConfigTraceSignature = [
+                'household=${household.id}',
+                'loading=${dashboardAsync.isLoading}',
+                'hasError=${dashboardAsync.hasError}',
+                'hasValue=${dashboardAsync.hasValue}',
+                'widgetCount=${dashboardAsync.valueOrNull?.length ?? 0}',
+              ].join('|');
+              if (_lastDashboardConfigTraceSignature !=
+                  dashboardConfigTraceSignature) {
+                _lastDashboardConfigTraceSignature =
+                    dashboardConfigTraceSignature;
+                _householdTrace.mark('dashboard-config-async-state', {
+                  'household': household.id,
+                  'loading': dashboardAsync.isLoading,
+                  'hasError': dashboardAsync.hasError,
+                  'hasValue': dashboardAsync.hasValue,
+                  'widgetCount': dashboardAsync.valueOrNull?.length,
+                });
+              }
 
               return dashboardAsync.when(
                 loading: () =>

@@ -430,13 +430,22 @@ class AccountsPage extends HookConsumerWidget {
           final previewSelectedSnapshot = isPreviewMode
               ? previewWalletsData?.snapshotForMonth(selectedMonth)
               : null;
-          final selectedSnapshot = previewSelectedSnapshot != null
+          final rawSelectedSnapshot = previewSelectedSnapshot != null
               ? _accountsSnapshotFromMonthSnapshot(previewSelectedSnapshot)
               : walletsPageState?.displayedSnapshot != null
                   ? _accountsSnapshotFromMonthSnapshot(
                       walletsPageState!.displayedSnapshot!,
                     )
                   : _buildOpeningSnapshot(wallets);
+          final shouldOverlaySelectedSnapshot = !isPreviewMode &&
+              _normalizeWalletMonth(selectedMonth) ==
+                  _normalizeWalletMonth(scopeQuery.currentMonthStart);
+          final displayedSelectedSnapshot = shouldOverlaySelectedSnapshot
+              ? _overlaySnapshotWalletBalances(
+                  rawSelectedSnapshot,
+                  wallets,
+                )
+              : rawSelectedSnapshot;
 
           return RefreshIndicator(
             onRefresh: onRefresh,
@@ -486,10 +495,23 @@ class AccountsPage extends HookConsumerWidget {
                               monthStart: monthStart,
                               selectedMonthStart: selectedMonth,
                               snapshot: monthSnapshot != null
-                                  ? _accountsSnapshotFromMonthSnapshot(
-                                      monthSnapshot,
-                                    )
-                                  : selectedSnapshot,
+                                  ? isPreviewMode
+                                      ? _accountsSnapshotFromMonthSnapshot(
+                                          monthSnapshot,
+                                        )
+                                      : _normalizeWalletMonth(monthStart) ==
+                                              _normalizeWalletMonth(
+                                                  scopeQuery.currentMonthStart)
+                                          ? _overlaySnapshotWalletBalances(
+                                              _accountsSnapshotFromMonthSnapshot(
+                                                monthSnapshot,
+                                              ),
+                                              wallets,
+                                            )
+                                          : _accountsSnapshotFromMonthSnapshot(
+                                              monthSnapshot,
+                                            )
+                                  : displayedSelectedSnapshot,
                               history: isPreviewMode
                                   ? previewWalletsData?.history
                                   : walletsPageState?.history,
@@ -540,7 +562,8 @@ class AccountsPage extends HookConsumerWidget {
                       child: _WalletAccountStack(
                         wallets: wallets,
                         currencyCode: selectedCurrencyCode,
-                        walletBalances: selectedSnapshot.walletBalances,
+                        walletBalances:
+                            displayedSelectedSnapshot.walletBalances,
                         isPreviewMode: isPreviewMode,
                       ),
                     ),
@@ -1715,6 +1738,41 @@ _AccountsSnapshot _accountsSnapshotFromMonthSnapshot(
     totalSpent: snapshot.spentTotalCents / 100.0,
     netWorth: snapshot.netWorthCents / 100.0,
     walletBalances: snapshot.walletBalances,
+  );
+}
+
+_AccountsSnapshot _overlaySnapshotWalletBalances(
+  _AccountsSnapshot snapshot,
+  List<WalletEntity> wallets,
+) {
+  if (wallets.isEmpty) {
+    return snapshot;
+  }
+
+  var changed = false;
+  final walletBalances = <String, int>{...snapshot.walletBalances};
+  for (final wallet in wallets) {
+    final balanceCents = wallet.currentBalanceCents;
+    if (walletBalances[wallet.id] == balanceCents) {
+      continue;
+    }
+    walletBalances[wallet.id] = balanceCents;
+    changed = true;
+  }
+
+  if (!changed) {
+    return snapshot;
+  }
+
+  final netWorthCents = walletBalances.values.fold<int>(
+    0,
+    (sum, balanceCents) => sum + balanceCents,
+  );
+  return _AccountsSnapshot(
+    totalIncome: snapshot.totalIncome,
+    totalSpent: snapshot.totalSpent,
+    netWorth: netWorthCents / 100.0,
+    walletBalances: walletBalances,
   );
 }
 
