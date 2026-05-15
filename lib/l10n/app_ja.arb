@@ -2902,5 +2902,17 @@
   "perDay": "{amount}/日",
   "financialHealthSemanticsLabel": "家計健全性の概要、100点中{score}、{status}。",
   "oneBudgetToWatch": "確認が必要な予算が1件",
-  "daysRemaining": "残り{count}日"
+  "daysRemaining": "残り{count}日",
+  "and": "と",
+  "recentAverage": "直近の平均",
+  "samePointLastMonth": "先月の同じ時点",
+  "categoryChangeThanComparator": "{category}は{comparator}より{change}{direction}です。",
+  "categoryPercentChangeThanComparator": "{category}は{comparator}より{percent}%{direction}です。",
+  "monthlyReportSummaryWatch": "今月は{status}です。使っても安心な金額は1日あたり{safeToSpend} {currencyCode}で、月末残高は{forecastedBalance} {currencyCode}と予測されています。{watchItems}は想定より速いペースで動いているため、注意して確認しましょう。",
+  "monthlyReportSummaryReview": "今月は{status}です。使っても安心な金額は1日あたり{safeToSpend} {currencyCode}で、月末残高は{forecastedBalance} {currencyCode}と予測されています。新しい支払い予定を追加する前に、通常と異なる支出アラートを確認しましょう。",
+  "monthlyReportSummaryKeep": "今月は{status}です。使っても安心な金額は1日あたり{safeToSpend} {currencyCode}で、月末残高は{forecastedBalance} {currencyCode}と予測されています。現在の支出ペースと予定済みの請求はそのまま維持しましょう。",
+  "budgetPaceOverBudget": "{name}は予算を超えています。今月の残り期間は、このカテゴリを控えるか減らしましょう。",
+  "budgetPaceSpendingFast": "{name}の{spentPct}%をすでに使っていますが、今月はまだ{timePct}%しか進んでいません。",
+  "budgetPaceNeedsAttention": "{name}は、支出が月の進み具合より少し先行しているため確認が必要です。",
+  "budgetPaceOnTrack": "{name}は今月のペースに沿って順調です。"
 }

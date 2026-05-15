@@ -2919,5 +2919,17 @@
   "perDay": "{amount}/วัน",
   "financialHealthSemanticsLabel": "สรุปสุขภาพทางการเงิน {score} จาก 100, {status}",
   "oneBudgetToWatch": "งบประมาณที่ต้องติดตาม 1 รายการ",
-  "daysRemaining": "เหลืออีก {count} วัน"
+  "daysRemaining": "เหลืออีก {count} วัน",
+  "and": "และ",
+  "recentAverage": "ค่าเฉลี่ยล่าสุด",
+  "samePointLastMonth": "ช่วงเดียวกันของเดือนที่แล้ว",
+  "categoryChangeThanComparator": "{category} {direction}กว่า{comparator} {change}",
+  "categoryPercentChangeThanComparator": "{category} {direction}กว่า{comparator} {percent}%",
+  "monthlyReportSummaryWatch": "เดือนนี้คุณอยู่ในสถานะ {status} ยอดที่ใช้ได้อย่างปลอดภัยคือ {safeToSpend} {currencyCode}/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ {forecastedBalance} {currencyCode} ควรติดตาม {watchItems} เพราะกำลังเพิ่มเร็วกว่าที่คาดไว้",
+  "monthlyReportSummaryReview": "เดือนนี้คุณอยู่ในสถานะ {status} ยอดที่ใช้ได้อย่างปลอดภัยคือ {safeToSpend} {currencyCode}/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ {forecastedBalance} {currencyCode} ตรวจสอบการแจ้งเตือนค่าใช้จ่ายผิดปกติก่อนเพิ่มภาระผูกพันใหม่",
+  "monthlyReportSummaryKeep": "เดือนนี้คุณอยู่ในสถานะ {status} ยอดที่ใช้ได้อย่างปลอดภัยคือ {safeToSpend} {currencyCode}/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ {forecastedBalance} {currencyCode} รักษาจังหวะการใช้จ่ายปัจจุบันและบิลที่กำหนดไว้โดยไม่ต้องเปลี่ยนแปลง",
+  "budgetPaceOverBudget": "{name} เกินงบแล้ว ควรหยุดหรือลดหมวดนี้ในช่วงที่เหลือของเดือน",
+  "budgetPaceSpendingFast": "คุณใช้ {name} ไปแล้ว {spentPct}% แต่เดือนนี้เพิ่งผ่านไปเพียง {timePct}%",
+  "budgetPaceNeedsAttention": "{name} ต้องตรวจสอบ เพราะการใช้จ่ายเร็วกว่าจังหวะของเดือนเล็กน้อย",
+  "budgetPaceOnTrack": "{name} เป็นไปตามจังหวะปัจจุบันของเดือน"
 }

@@ -1,5 +1,29 @@
 import 'dart:math' as math;
 
+import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/l10n/app_localizations_en.dart';
+
+extension MonthlyFinancialReportL10nCompat on AppLocalizations {
+  String get endOfMonth => 'End of month';
+  String get statusOnTrack => onTrack;
+  String get statusSpendingFast => 'Spending fast';
+  String get statusOverBudget => overBudget;
+  String get statusSafeToSpend => safeToSpend;
+  String get statusNeedsAttention => needsAttention;
+  String get statusUnusualSpending => unusualActivity;
+
+  String categorySpendingIsHigher(Object category) {
+    return '$category spending is higher';
+  }
+
+  String categorySpendingHigherThanLastMonth(
+    Object category,
+    Object percent,
+  ) {
+    return '$category spending is $percent% higher than last month.';
+  }
+}
+
 enum MonthlyReportStatus {
   onTrack,
   spendingFast,
@@ -235,11 +259,15 @@ class MonthlyInsightItem {
     required this.title,
     required this.description,
     required this.status,
+    this.categoryName,
+    this.increasePercent,
   });
 
   final String title;
   final String description;
   final MonthlyReportStatus status;
+  final String? categoryName;
+  final int? increasePercent;
 }
 
 class MonthlySubscriptionReport {
@@ -446,7 +474,11 @@ class MonthlyNetWorthTrend {
   final double? changePercent;
 }
 
-MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
+MonthlyFinancialReport buildMonthlyFinancialReport(
+  MonthlyReportInput input, {
+  AppLocalizations? l10n,
+}) {
+  final localizations = l10n ?? AppLocalizationsEn();
   final monthStart = _dateOnly(input.monthStart);
   final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
   final today = _dateOnly(input.now);
@@ -474,7 +506,11 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
     input.currentBalance + futureIncome - futureObligations,
   );
   final budgetHealth = _buildBudgetHealth(input.budgetItems, timeProgress);
-  final spendingPace = _buildSpendingPace(input.budgetItems, timeProgress);
+  final spendingPace = _buildSpendingPace(
+    input.budgetItems,
+    timeProgress,
+    l10n: localizations,
+  );
   final trendSummary = _buildTrendSummary(
     currentTransactions: currentTransactions,
     previousComparableTransactions: previousComparableTransactions,
@@ -488,6 +524,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
     currentTransactions: currentTransactions,
     previousComparableTransactions: previousComparableTransactions,
     historicalComparableTransactions: historicalComparableTransactions,
+    l10n: localizations,
   );
   final merchantConcentration =
       _buildMerchantConcentration(currentTransactions);
@@ -524,6 +561,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
     currentBalance: input.currentBalance,
     forecastedBalance: forecastedBalance,
     futureTransactions: future,
+    l10n: localizations,
   );
   final cashFlowHealth = _buildCashFlowHealth(
     currentBalance: input.currentBalance,
@@ -533,6 +571,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
   final anomalies = _buildAnomalies(
     currentTransactions: currentTransactions,
     previousTransactions: input.previousMonthTransactions,
+    l10n: localizations,
   );
   final subscriptions = _buildSubscriptions(input.recurringItems, input.now);
   final recurringCommitment = _buildRecurringCommitment(
@@ -585,6 +624,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
       budgetHealth: budgetHealth,
       anomalies: anomalies,
       currencyCode: input.currencyCode,
+      l10n: localizations,
     ),
   );
 }
@@ -624,8 +664,9 @@ List<MonthlyBudgetHealthItem> _buildBudgetHealth(
 
 List<MonthlySpendingPaceItem> _buildSpendingPace(
   List<MonthlyReportBudgetInput> budgets,
-  double timeProgress,
-) {
+  double timeProgress, {
+  required AppLocalizations l10n,
+}) {
   return budgets.where((item) => item.budgetAmount > 0).map((item) {
     final spentProgress = (item.spent / item.budgetAmount).clamp(0.0, 1.5);
     final status = _budgetStatus(
@@ -639,7 +680,13 @@ List<MonthlySpendingPaceItem> _buildSpendingPace(
       spentProgress: spentProgress,
       timeProgress: timeProgress,
       status: status,
-      insight: _paceInsight(item.name, spentProgress, timeProgress, status),
+      insight: _paceInsight(
+        item.name,
+        spentProgress,
+        timeProgress,
+        status,
+        l10n,
+      ),
     );
   }).toList(growable: false)
     ..sort((a, b) => (b.spentProgress - b.timeProgress)
@@ -649,6 +696,7 @@ List<MonthlySpendingPaceItem> _buildSpendingPace(
 List<MonthlyInsightItem> _buildAnomalies({
   required List<MonthlyReportTransactionInput> currentTransactions,
   required List<MonthlyReportTransactionInput> previousTransactions,
+  required AppLocalizations l10n,
 }) {
   final currentByCategory = _expenseTotalsByCategory(currentTransactions);
   final previousByCategory = _expenseTotalsByCategory(previousTransactions);
@@ -659,12 +707,18 @@ List<MonthlyInsightItem> _buildAnomalies({
     if (previous <= 0 || entry.value < 50) continue;
     final increaseRatio = (entry.value - previous) / previous;
     if (increaseRatio < 0.35) continue;
+    final categoryName = _titleCase(entry.key);
+    final increasePercent = (increaseRatio * 100).round();
     anomalies.add(
       MonthlyInsightItem(
-        title: '${_titleCase(entry.key)} spending is higher',
-        description:
-            '${_titleCase(entry.key)} spending is ${(increaseRatio * 100).round()}% higher than last month.',
+        title: l10n.categorySpendingIsHigher(categoryName),
+        description: l10n.categorySpendingHigherThanLastMonth(
+          categoryName,
+          increasePercent,
+        ),
         status: MonthlyReportStatus.unusualSpending,
+        categoryName: categoryName,
+        increasePercent: increasePercent,
       ),
     );
   }
@@ -741,10 +795,11 @@ List<MonthlyCashFlowPoint> _buildCashFlowForecast({
   required double currentBalance,
   required double forecastedBalance,
   required List<MonthlyReportTransactionInput> futureTransactions,
+  required AppLocalizations l10n,
 }) {
   var running = currentBalance;
   final points = <MonthlyCashFlowPoint>[
-    MonthlyCashFlowPoint(label: 'Today', balance: _roundMoney(running)),
+    MonthlyCashFlowPoint(label: l10n.today, balance: _roundMoney(running)),
   ];
   for (final tx in futureTransactions.take(6)) {
     running +=
@@ -757,7 +812,7 @@ List<MonthlyCashFlowPoint> _buildCashFlowForecast({
     );
   }
   points.add(
-    MonthlyCashFlowPoint(label: 'End of month', balance: forecastedBalance),
+    MonthlyCashFlowPoint(label: l10n.endOfMonth, balance: forecastedBalance),
   );
   return points;
 }
@@ -867,6 +922,7 @@ List<MonthlyCategoryTrendItem> _buildCategoryTrends({
   required List<MonthlyReportTransactionInput> currentTransactions,
   required List<MonthlyReportTransactionInput> previousComparableTransactions,
   required List<MonthlyReportTransactionInput> historicalComparableTransactions,
+  required AppLocalizations l10n,
 }) {
   final currentByCategory = _expenseTotalsByCategory(currentTransactions);
   final previousByCategory =
@@ -915,6 +971,7 @@ List<MonthlyCategoryTrendItem> _buildCategoryTrends({
           baselineChangePercent,
           previousChange,
           baselineChange,
+          l10n,
         ),
       ),
     );
@@ -1120,18 +1177,30 @@ String _categoryTrendInsight(
   double? baselinePercent,
   double previousChange,
   double baselineChange,
+  AppLocalizations l10n,
 ) {
   final useBaseline =
       (baselinePercent?.abs() ?? 0) > (previousPercent?.abs() ?? 0);
   final percent = useBaseline ? baselinePercent : previousPercent;
   final change = useBaseline ? baselineChange : previousChange;
-  final comparator = useBaseline ? 'recent average' : 'same point last month';
+  final comparator =
+      useBaseline ? l10n.recentAverage : l10n.samePointLastMonth;
   if (percent == null) {
-    final direction = change >= 0 ? 'higher' : 'lower';
-    return '$category is ${change.abs().toStringAsFixed(2)} $direction than the $comparator.';
+    final direction = change >= 0 ? l10n.higher : l10n.lower;
+    return l10n.categoryChangeThanComparator(
+      category,
+      change.abs().toStringAsFixed(2),
+      comparator,
+      direction,
+    );
   }
-  final direction = percent >= 0 ? 'higher' : 'lower';
-  return '$category is ${(percent.abs() * 100).round()}% $direction than the $comparator.';
+  final direction = percent >= 0 ? l10n.higher : l10n.lower;
+  return l10n.categoryPercentChangeThanComparator(
+    category,
+    comparator,
+    direction,
+    (percent.abs() * 100).round(),
+  );
 }
 
 MonthlyReportStatus _budgetStatus({
@@ -1177,19 +1246,39 @@ String _buildSummary({
   required List<MonthlyBudgetHealthItem> budgetHealth,
   required List<MonthlyInsightItem> anomalies,
   required String currencyCode,
+  required AppLocalizations l10n,
 }) {
   final watchItems = budgetHealth
       .where((item) => item.status != MonthlyReportStatus.onTrack)
       .map((item) => item.name.toLowerCase())
       .take(2)
-      .join(' and ');
-  final statusText = monthlyReportStatusLabel(status).toLowerCase();
-  final action = watchItems.isNotEmpty
-      ? ' Watch $watchItems because it is moving faster than expected.'
-      : anomalies.isNotEmpty
-          ? ' Review the unusual spending alerts before adding new commitments.'
-          : ' Keep current spending pace and scheduled bills unchanged.';
-  return 'You are $statusText this month. Safe-to-spend is ${safeToSpend.toStringAsFixed(2)} $currencyCode/day and the end-of-month balance is forecast at ${forecastedBalance.toStringAsFixed(2)} $currencyCode.$action';
+      .join(' ${l10n.and} ');
+  final statusText = monthlyReportStatusLabel(status, l10n: l10n).toLowerCase();
+  final safeToSpendText = safeToSpend.toStringAsFixed(2);
+  final forecastedBalanceText = forecastedBalance.toStringAsFixed(2);
+  if (watchItems.isNotEmpty) {
+    return l10n.monthlyReportSummaryWatch(
+      currencyCode,
+      forecastedBalanceText,
+      safeToSpendText,
+      statusText,
+      watchItems,
+    );
+  }
+  if (anomalies.isNotEmpty) {
+    return l10n.monthlyReportSummaryReview(
+      currencyCode,
+      forecastedBalanceText,
+      safeToSpendText,
+      statusText,
+    );
+  }
+  return l10n.monthlyReportSummaryKeep(
+    currencyCode,
+    forecastedBalanceText,
+    safeToSpendText,
+    statusText,
+  );
 }
 
 Map<String, double> _expenseTotalsByCategory(
@@ -1253,18 +1342,19 @@ String _paceInsight(
   double spentProgress,
   double timeProgress,
   MonthlyReportStatus status,
+  AppLocalizations l10n,
 ) {
   final spentPct = (spentProgress * 100).round();
   final timePct = (timeProgress * 100).round();
   switch (status) {
     case MonthlyReportStatus.overBudget:
-      return '$name is over budget. Pause or reduce this category for the rest of the month.';
+      return l10n.budgetPaceOverBudget(name);
     case MonthlyReportStatus.spendingFast:
-      return 'You have used $spentPct% of $name, but the month is only $timePct% complete.';
+      return l10n.budgetPaceSpendingFast(name, spentPct, timePct);
     case MonthlyReportStatus.needsAttention:
-      return '$name needs attention because spending is slightly ahead of the month pace.';
+      return l10n.budgetPaceNeedsAttention(name);
     default:
-      return '$name is on track with the current month pace.';
+      return l10n.budgetPaceOnTrack(name);
   }
 }
 
@@ -1303,20 +1393,24 @@ String _titleCase(String value) {
       .join(' ');
 }
 
-String monthlyReportStatusLabel(MonthlyReportStatus status) {
+String monthlyReportStatusLabel(
+  MonthlyReportStatus status, {
+  AppLocalizations? l10n,
+}) {
+  final localizations = l10n ?? AppLocalizationsEn();
   switch (status) {
     case MonthlyReportStatus.onTrack:
-      return 'On track';
+      return localizations.statusOnTrack;
     case MonthlyReportStatus.spendingFast:
-      return 'Spending fast';
+      return localizations.statusSpendingFast;
     case MonthlyReportStatus.overBudget:
-      return 'Over budget';
+      return localizations.statusOverBudget;
     case MonthlyReportStatus.safeToSpend:
-      return 'Safe to spend';
+      return localizations.statusSafeToSpend;
     case MonthlyReportStatus.needsAttention:
-      return 'Needs attention';
+      return localizations.statusNeedsAttention;
     case MonthlyReportStatus.unusualSpending:
-      return 'Unusual spending';
+      return localizations.statusUnusualSpending;
   }
 }
 

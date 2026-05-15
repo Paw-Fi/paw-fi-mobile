@@ -2898,5 +2898,17 @@
   "perDay": "{amount}/天",
   "financialHealthSemanticsLabel": "财务健康摘要，{score}/100，{status}。",
   "oneBudgetToWatch": "1 个需关注的预算",
-  "daysRemaining": "剩余 {count} 天"
+  "daysRemaining": "剩余 {count} 天",
+  "and": "和",
+  "recentAverage": "近期平均值",
+  "samePointLastMonth": "上月同期",
+  "categoryChangeThanComparator": "{category}比{comparator}{direction}{change}。",
+  "categoryPercentChangeThanComparator": "{category}比{comparator}{direction}{percent}%。",
+  "monthlyReportSummaryWatch": "你本月处于{status}状态。安全可支出金额为每天 {safeToSpend} {currencyCode}，预计月底余额为 {forecastedBalance} {currencyCode}。请关注 {watchItems}，因为它的变化速度快于预期。",
+  "monthlyReportSummaryReview": "你本月处于{status}状态。安全可支出金额为每天 {safeToSpend} {currencyCode}，预计月底余额为 {forecastedBalance} {currencyCode}。在新增固定支出前，请先查看异常支出提醒。",
+  "monthlyReportSummaryKeep": "你本月处于{status}状态。安全可支出金额为每天 {safeToSpend} {currencyCode}，预计月底余额为 {forecastedBalance} {currencyCode}。保持当前支出节奏和已安排账单不变。",
+  "budgetPaceOverBudget": "{name} 已超出预算。本月剩余时间请暂停或减少该类别支出。",
+  "budgetPaceSpendingFast": "你已使用 {name} 的 {spentPct}%，但本月才过去 {timePct}%。",
+  "budgetPaceNeedsAttention": "{name} 需要关注，因为支出略快于本月进度。",
+  "budgetPaceOnTrack": "{name} 符合当前本月进度。"
 }

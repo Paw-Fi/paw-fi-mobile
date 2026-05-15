@@ -2921,5 +2921,17 @@
   "perDay": "{amount}/day",
   "financialHealthSemanticsLabel": "Financial health summary, {score} out of 100, {status}.",
   "oneBudgetToWatch": "1 budget to watch",
-  "daysRemaining": "{count} days remaining"
+  "daysRemaining": "{count} days remaining",
+  "and": "and",
+  "recentAverage": "recent average",
+  "samePointLastMonth": "same point last month",
+  "categoryChangeThanComparator": "{category} is {change} {direction} than the {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} is {percent}% {direction} than the {comparator}.",
+  "monthlyReportSummaryWatch": "You are {status} this month. Safe-to-spend is {safeToSpend} {currencyCode}/day and the end-of-month balance is forecast at {forecastedBalance} {currencyCode}. Watch {watchItems} because it is moving faster than expected.",
+  "monthlyReportSummaryReview": "You are {status} this month. Safe-to-spend is {safeToSpend} {currencyCode}/day and the end-of-month balance is forecast at {forecastedBalance} {currencyCode}. Review the unusual spending alerts before adding new commitments.",
+  "monthlyReportSummaryKeep": "You are {status} this month. Safe-to-spend is {safeToSpend} {currencyCode}/day and the end-of-month balance is forecast at {forecastedBalance} {currencyCode}. Keep current spending pace and scheduled bills unchanged.",
+  "budgetPaceOverBudget": "{name} is over budget. Pause or reduce this category for the rest of the month.",
+  "budgetPaceSpendingFast": "You have used {spentPct}% of {name}, but the month is only {timePct}% complete.",
+  "budgetPaceNeedsAttention": "{name} needs attention because spending is slightly ahead of the month pace.",
+  "budgetPaceOnTrack": "{name} is on track with the current month pace."
 }

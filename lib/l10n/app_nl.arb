@@ -2849,5 +2849,17 @@
   "perDay": "{amount}/dag",
   "financialHealthSemanticsLabel": "Samenvatting financiële gezondheid, {score} van 100, {status}.",
   "oneBudgetToWatch": "1 budget om in de gaten te houden",
-  "daysRemaining": "Nog {count} dagen"
+  "daysRemaining": "Nog {count} dagen",
+  "and": "en",
+  "recentAverage": "recent gemiddelde",
+  "samePointLastMonth": "hetzelfde moment vorige maand",
+  "categoryChangeThanComparator": "{category} is {change} {direction} dan de {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} is {percent}% {direction} dan de {comparator}.",
+  "monthlyReportSummaryWatch": "Je bent deze maand {status}. Veilig te besteden is {safeToSpend} {currencyCode}/dag en het saldo aan het einde van de maand wordt geraamd op {forecastedBalance} {currencyCode}. Houd {watchItems} in de gaten, omdat dit sneller beweegt dan verwacht.",
+  "monthlyReportSummaryReview": "Je bent deze maand {status}. Veilig te besteden is {safeToSpend} {currencyCode}/dag en het saldo aan het einde van de maand wordt geraamd op {forecastedBalance} {currencyCode}. Bekijk de meldingen over ongebruikelijke uitgaven voordat je nieuwe verplichtingen toevoegt.",
+  "monthlyReportSummaryKeep": "Je bent deze maand {status}. Veilig te besteden is {safeToSpend} {currencyCode}/dag en het saldo aan het einde van de maand wordt geraamd op {forecastedBalance} {currencyCode}. Houd je huidige uitgaventempo en geplande rekeningen ongewijzigd.",
+  "budgetPaceOverBudget": "{name} zit boven budget. Pauzeer of verlaag deze categorie voor de rest van de maand.",
+  "budgetPaceSpendingFast": "Je hebt {spentPct}% van {name} gebruikt, maar de maand is pas {timePct}% voorbij.",
+  "budgetPaceNeedsAttention": "{name} heeft aandacht nodig omdat de uitgaven iets voorlopen op het tempo van de maand.",
+  "budgetPaceOnTrack": "{name} ligt op schema met het huidige maandtempo."
 }

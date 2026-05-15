@@ -298,7 +298,7 @@ class _MonthlyReportMerchantLegendItem extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              merchant.name,
+              getCategoryTranslation(context, merchant.name),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,

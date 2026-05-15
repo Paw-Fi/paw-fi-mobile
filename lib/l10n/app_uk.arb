@@ -2894,5 +2894,17 @@
   "perDay": "{amount}/день",
   "financialHealthSemanticsLabel": "Підсумок фінансового стану: {score} зі 100, {status}.",
   "oneBudgetToWatch": "1 бюджет для контролю",
-  "daysRemaining": "Залишилося {count} дн."
+  "daysRemaining": "Залишилося {count} дн.",
+  "and": "і",
+  "recentAverage": "нещодавнє середнє",
+  "samePointLastMonth": "той самий момент минулого місяця",
+  "categoryChangeThanComparator": "{category} на {change} {direction}, ніж {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} на {percent}% {direction}, ніж {comparator}.",
+  "monthlyReportSummaryWatch": "Цього місяця ваш статус: {status}. Безпечна сума для витрат — {safeToSpend} {currencyCode}/день, а прогнозований баланс на кінець місяця — {forecastedBalance} {currencyCode}. Стежте за {watchItems}, бо цей показник рухається швидше, ніж очікувалося.",
+  "monthlyReportSummaryReview": "Цього місяця ваш статус: {status}. Безпечна сума для витрат — {safeToSpend} {currencyCode}/день, а прогнозований баланс на кінець місяця — {forecastedBalance} {currencyCode}. Перегляньте сповіщення про незвичні витрати, перш ніж додавати нові зобов’язання.",
+  "monthlyReportSummaryKeep": "Цього місяця ваш статус: {status}. Безпечна сума для витрат — {safeToSpend} {currencyCode}/день, а прогнозований баланс на кінець місяця — {forecastedBalance} {currencyCode}. Залиште поточний темп витрат і заплановані рахунки без змін.",
+  "budgetPaceOverBudget": "{name} перевищив бюджет. Призупиніть або скоротіть цю категорію до кінця місяця.",
+  "budgetPaceSpendingFast": "Ви вже використали {spentPct}% від {name}, але місяць минув лише на {timePct}%.",
+  "budgetPaceNeedsAttention": "{name} потребує уваги, бо витрати трохи випереджають темп місяця.",
+  "budgetPaceOnTrack": "{name} відповідає поточному темпу місяця."
 }

@@ -7858,23 +7858,56 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get endOfMonth => 'End of month';
+  String get and => 'และ';
 
   @override
-  String get statusOnTrack => 'On track';
+  String get recentAverage => 'ค่าเฉลี่ยล่าสุด';
 
   @override
-  String get statusSpendingFast => 'Spending fast';
+  String get samePointLastMonth => 'ช่วงเดียวกันของเดือนที่แล้ว';
 
   @override
-  String get statusOverBudget => 'Over budget';
+  String categoryChangeThanComparator(Object category, Object change, Object comparator, Object direction) {
+    return '$category $directionกว่า$comparator $change';
+  }
 
   @override
-  String get statusSafeToSpend => 'Safe to spend';
+  String categoryPercentChangeThanComparator(Object category, Object comparator, Object direction, Object percent) {
+    return '$category $directionกว่า$comparator $percent%';
+  }
 
   @override
-  String get statusNeedsAttention => 'Needs attention';
+  String monthlyReportSummaryWatch(Object currencyCode, Object forecastedBalance, Object safeToSpend, Object status, Object watchItems) {
+    return 'เดือนนี้คุณอยู่ในสถานะ $status ยอดที่ใช้ได้อย่างปลอดภัยคือ $safeToSpend $currencyCode/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ $forecastedBalance $currencyCode ควรติดตาม $watchItems เพราะกำลังเพิ่มเร็วกว่าที่คาดไว้';
+  }
 
   @override
-  String get statusUnusualSpending => 'Unusual spending';
+  String monthlyReportSummaryReview(Object currencyCode, Object forecastedBalance, Object safeToSpend, Object status) {
+    return 'เดือนนี้คุณอยู่ในสถานะ $status ยอดที่ใช้ได้อย่างปลอดภัยคือ $safeToSpend $currencyCode/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ $forecastedBalance $currencyCode ตรวจสอบการแจ้งเตือนค่าใช้จ่ายผิดปกติก่อนเพิ่มภาระผูกพันใหม่';
+  }
+
+  @override
+  String monthlyReportSummaryKeep(Object currencyCode, Object forecastedBalance, Object safeToSpend, Object status) {
+    return 'เดือนนี้คุณอยู่ในสถานะ $status ยอดที่ใช้ได้อย่างปลอดภัยคือ $safeToSpend $currencyCode/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ $forecastedBalance $currencyCode รักษาจังหวะการใช้จ่ายปัจจุบันและบิลที่กำหนดไว้โดยไม่ต้องเปลี่ยนแปลง';
+  }
+
+  @override
+  String budgetPaceOverBudget(Object name) {
+    return '$name เกินงบแล้ว ควรหยุดหรือลดหมวดนี้ในช่วงที่เหลือของเดือน';
+  }
+
+  @override
+  String budgetPaceSpendingFast(Object name, Object spentPct, Object timePct) {
+    return 'คุณใช้ $name ไปแล้ว $spentPct% แต่เดือนนี้เพิ่งผ่านไปเพียง $timePct%';
+  }
+
+  @override
+  String budgetPaceNeedsAttention(Object name) {
+    return '$name ต้องตรวจสอบ เพราะการใช้จ่ายเร็วกว่าจังหวะของเดือนเล็กน้อย';
+  }
+
+  @override
+  String budgetPaceOnTrack(Object name) {
+    return '$name เป็นไปตามจังหวะปัจจุบันของเดือน';
+  }
 }

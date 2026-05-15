@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
@@ -22,6 +23,7 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String _monthlyReportCacheNamespace = 'monthly_report';
@@ -58,6 +60,8 @@ class MonthlyReportNotifier
     final preview = ref.watch(previewModeProvider);
     final userId = user.uid;
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final appLocale = resolveSupportedAppLocale(ref.watch(localeProvider));
+    final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
@@ -74,6 +78,7 @@ class MonthlyReportNotifier
       householdId: householdId,
       monthStart: monthStart,
       currencyCode: currencyCode,
+      localeTag: appLocale.toLanguageTag(),
     );
 
     if (preview.isActive) {
@@ -99,6 +104,7 @@ class MonthlyReportNotifier
             recurringItems: const [],
             goals: const [],
           ),
+          l10n: l10n,
         ),
       );
     }
@@ -117,6 +123,7 @@ class MonthlyReportNotifier
             historicalStart: historicalStart,
             pocketsScope: pocketsScope,
             cacheKey: cacheKey,
+            l10n: l10n,
             publish: true,
             watchDependencies: false,
           ));
@@ -135,6 +142,7 @@ class MonthlyReportNotifier
       historicalStart: historicalStart,
       pocketsScope: pocketsScope,
       cacheKey: cacheKey,
+      l10n: l10n,
       publish: false,
       watchDependencies: true,
     );
@@ -162,6 +170,7 @@ class MonthlyReportNotifier
         historicalStart: context.historicalStart,
         pocketsScope: context.pocketsScope,
         cacheKey: context.cacheKey,
+        l10n: context.l10n,
         publish: false,
         watchDependencies: false,
       );
@@ -179,6 +188,8 @@ class MonthlyReportNotifier
     final user = ref.read(authProvider);
     final userId = user.uid;
     final currencyCode = ref.read(selectedHomeCurrencyCodeProvider);
+    final appLocale = resolveSupportedAppLocale(ref.read(localeProvider));
+    final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.read(appPreferredTimezoneProvider);
     final householdScope = ref.read(householdScopeProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
@@ -206,7 +217,9 @@ class MonthlyReportNotifier
         householdId: householdId,
         monthStart: monthStart,
         currencyCode: currencyCode,
+        localeTag: appLocale.toLanguageTag(),
       ),
+      l10n: l10n,
     );
   }
 
@@ -222,6 +235,7 @@ class MonthlyReportNotifier
     required DateTime historicalStart,
     required PocketsScopeType pocketsScope,
     required String cacheKey,
+    required AppLocalizations l10n,
     required bool publish,
     required bool watchDependencies,
   }) async {
@@ -366,6 +380,7 @@ class MonthlyReportNotifier
         previousNetWorth: previousNetWorth,
         goalsDataAvailable: goalInputsResult.dataAvailable,
       ),
+      l10n: l10n,
     );
     final completedAt = DateTime.now().toUtc();
     final snapshot = MonthlyFinancialReportSnapshot(
@@ -427,6 +442,7 @@ class _MonthlyReportContext {
     required this.historicalStart,
     required this.pocketsScope,
     required this.cacheKey,
+    required this.l10n,
   });
 
   final String userId;
@@ -440,6 +456,7 @@ class _MonthlyReportContext {
   final DateTime historicalStart;
   final PocketsScopeType pocketsScope;
   final String cacheKey;
+  final AppLocalizations l10n;
 }
 
 final monthlyFinancialReportProvider = AsyncNotifierProvider<
@@ -453,10 +470,11 @@ String _monthlyReportCacheKey({
   required String? householdId,
   required DateTime monthStart,
   required String currencyCode,
+  required String localeTag,
 }) {
   final month =
       '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}';
-  return 'monthly-report:v1:$userId:$scope:${householdId ?? 'personal'}:$month:${currencyCode.toUpperCase()}';
+  return 'monthly-report:v1:$userId:$scope:${householdId ?? 'personal'}:$month:${currencyCode.toUpperCase()}:$localeTag';
 }
 
 Map<String, dynamic> _monthlyReportToJson(MonthlyFinancialReport report) {
@@ -611,6 +629,8 @@ Map<String, dynamic> _insightToJson(MonthlyInsightItem item) {
     'title': item.title,
     'description': item.description,
     'status': item.status.name,
+    'category_name': item.categoryName,
+    'increase_percent': item.increasePercent,
   };
 }
 
@@ -797,6 +817,8 @@ MonthlyInsightItem _insightFromJson(Map<String, dynamic> json) {
     title: json['title'] as String? ?? '',
     description: json['description'] as String? ?? '',
     status: _monthlyReportStatus(json['status']),
+    categoryName: json['category_name'] as String?,
+    increasePercent: (json['increase_percent'] as num?)?.toInt(),
   );
 }
 

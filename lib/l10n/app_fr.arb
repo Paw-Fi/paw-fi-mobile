@@ -2902,5 +2902,17 @@
   "perDay": "{amount}/jour",
   "financialHealthSemanticsLabel": "Résumé de santé financière, {score} sur 100, {status}.",
   "oneBudgetToWatch": "1 budget à surveiller",
-  "daysRemaining": "{count} jours restants"
+  "daysRemaining": "{count} jours restants",
+  "and": "et",
+  "recentAverage": "moyenne récente",
+  "samePointLastMonth": "même moment le mois dernier",
+  "categoryChangeThanComparator": "{category} est {change} {direction} que la {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} est {percent} % {direction} que la {comparator}.",
+  "monthlyReportSummaryWatch": "Vous êtes {status} ce mois-ci. Le montant sûr à dépenser est de {safeToSpend} {currencyCode}/jour et le solde de fin de mois est estimé à {forecastedBalance} {currencyCode}. Surveillez {watchItems}, car il évolue plus vite que prévu.",
+  "monthlyReportSummaryReview": "Vous êtes {status} ce mois-ci. Le montant sûr à dépenser est de {safeToSpend} {currencyCode}/jour et le solde de fin de mois est estimé à {forecastedBalance} {currencyCode}. Vérifiez les alertes de dépenses inhabituelles avant d’ajouter de nouveaux engagements.",
+  "monthlyReportSummaryKeep": "Vous êtes {status} ce mois-ci. Le montant sûr à dépenser est de {safeToSpend} {currencyCode}/jour et le solde de fin de mois est estimé à {forecastedBalance} {currencyCode}. Gardez le rythme de dépenses actuel et les factures programmées inchangés.",
+  "budgetPaceOverBudget": "{name} dépasse le budget. Mettez cette catégorie en pause ou réduisez-la pour le reste du mois.",
+  "budgetPaceSpendingFast": "Vous avez utilisé {spentPct} % de {name}, alors que le mois n’est avancé qu’à {timePct} %.",
+  "budgetPaceNeedsAttention": "{name} mérite votre attention, car les dépenses sont légèrement en avance sur le rythme du mois.",
+  "budgetPaceOnTrack": "{name} suit le rythme actuel du mois."
 }

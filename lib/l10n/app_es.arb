@@ -2904,5 +2904,17 @@
   "perDay": "{amount}/día",
   "financialHealthSemanticsLabel": "Resumen de salud financiera, {score} de 100, {status}.",
   "oneBudgetToWatch": "1 presupuesto por revisar",
-  "daysRemaining": "Quedan {count} días"
+  "daysRemaining": "Quedan {count} días",
+  "and": "y",
+  "recentAverage": "promedio reciente",
+  "samePointLastMonth": "mismo punto del mes pasado",
+  "categoryChangeThanComparator": "{category} está {change} {direction} que el {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} está {percent}% {direction} que el {comparator}.",
+  "monthlyReportSummaryWatch": "Este mes estás {status}. Puedes gastar de forma segura {safeToSpend} {currencyCode}/día y se prevé que el saldo de fin de mes sea de {forecastedBalance} {currencyCode}. Vigila {watchItems}, porque avanza más rápido de lo esperado.",
+  "monthlyReportSummaryReview": "Este mes estás {status}. Puedes gastar de forma segura {safeToSpend} {currencyCode}/día y se prevé que el saldo de fin de mes sea de {forecastedBalance} {currencyCode}. Revisa las alertas de gasto inusual antes de añadir nuevos compromisos.",
+  "monthlyReportSummaryKeep": "Este mes estás {status}. Puedes gastar de forma segura {safeToSpend} {currencyCode}/día y se prevé que el saldo de fin de mes sea de {forecastedBalance} {currencyCode}. Mantén el ritmo de gasto actual y las facturas programadas sin cambios.",
+  "budgetPaceOverBudget": "{name} superó el presupuesto. Pausa o reduce esta categoría durante el resto del mes.",
+  "budgetPaceSpendingFast": "Has usado el {spentPct}% de {name}, pero el mes solo va por el {timePct}%.",
+  "budgetPaceNeedsAttention": "{name} necesita atención porque el gasto va un poco por delante del ritmo del mes.",
+  "budgetPaceOnTrack": "{name} va en línea con el ritmo actual del mes."
 }

@@ -2848,5 +2848,17 @@
   "perDay": "{amount}/دن",
   "financialHealthSemanticsLabel": "مالی صحت کا خلاصہ، 100 میں سے {score}، {status}۔",
   "oneBudgetToWatch": "نظر رکھنے کے لیے 1 بجٹ",
-  "daysRemaining": "{count} دن باقی"
+  "daysRemaining": "{count} دن باقی",
+  "and": "اور",
+  "recentAverage": "حالیہ اوسط",
+  "samePointLastMonth": "پچھلے ماہ اسی وقت",
+  "categoryChangeThanComparator": "{category}، {comparator} کے مقابلے میں {change} {direction} ہے۔",
+  "categoryPercentChangeThanComparator": "{category}، {comparator} کے مقابلے میں {percent}% {direction} ہے۔",
+  "monthlyReportSummaryWatch": "اس ماہ آپ {status} ہیں۔ محفوظ خرچ {safeToSpend} {currencyCode}/دن ہے اور ماہ کے آخر کا بیلنس {forecastedBalance} {currencyCode} متوقع ہے۔ {watchItems} پر نظر رکھیں کیونکہ یہ توقع سے زیادہ تیزی سے بڑھ رہا ہے۔",
+  "monthlyReportSummaryReview": "اس ماہ آپ {status} ہیں۔ محفوظ خرچ {safeToSpend} {currencyCode}/دن ہے اور ماہ کے آخر کا بیلنس {forecastedBalance} {currencyCode} متوقع ہے۔ نئی مالی ذمہ داریاں شامل کرنے سے پہلے غیر معمولی اخراجات کی الرٹس دیکھیں۔",
+  "monthlyReportSummaryKeep": "اس ماہ آپ {status} ہیں۔ محفوظ خرچ {safeToSpend} {currencyCode}/دن ہے اور ماہ کے آخر کا بیلنس {forecastedBalance} {currencyCode} متوقع ہے۔ موجودہ خرچ کی رفتار اور شیڈول شدہ بلوں کو تبدیل نہ کریں۔",
+  "budgetPaceOverBudget": "{name} بجٹ سے زیادہ ہو گیا ہے۔ باقی مہینے کے لیے اس زمرے کو روکیں یا کم کریں۔",
+  "budgetPaceSpendingFast": "آپ {name} کا {spentPct}% استعمال کر چکے ہیں، لیکن مہینہ ابھی صرف {timePct}% گزرا ہے۔",
+  "budgetPaceNeedsAttention": "{name} پر توجہ درکار ہے کیونکہ خرچ مہینے کی رفتار سے تھوڑا آگے ہے۔",
+  "budgetPaceOnTrack": "{name} موجودہ ماہانہ رفتار کے مطابق درست سمت میں ہے۔"
 }

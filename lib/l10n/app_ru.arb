@@ -2852,5 +2852,17 @@
   "perDay": "{amount}/день",
   "financialHealthSemanticsLabel": "Сводка финансового состояния: {score} из 100, {status}.",
   "oneBudgetToWatch": "1 бюджет для контроля",
-  "daysRemaining": "Осталось {count} дн."
+  "daysRemaining": "Осталось {count} дн.",
+  "and": "и",
+  "recentAverage": "недавнее среднее",
+  "samePointLastMonth": "тот же момент прошлого месяца",
+  "categoryChangeThanComparator": "{category} на {change} {direction}, чем {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} на {percent}% {direction}, чем {comparator}.",
+  "monthlyReportSummaryWatch": "В этом месяце ваш статус: {status}. Безопасная сумма для трат — {safeToSpend} {currencyCode}/день, а прогноз баланса на конец месяца — {forecastedBalance} {currencyCode}. Следите за {watchItems}, потому что показатель растёт быстрее ожидаемого.",
+  "monthlyReportSummaryReview": "В этом месяце ваш статус: {status}. Безопасная сумма для трат — {safeToSpend} {currencyCode}/день, а прогноз баланса на конец месяца — {forecastedBalance} {currencyCode}. Проверьте предупреждения о необычных расходах, прежде чем добавлять новые обязательства.",
+  "monthlyReportSummaryKeep": "В этом месяце ваш статус: {status}. Безопасная сумма для трат — {safeToSpend} {currencyCode}/день, а прогноз баланса на конец месяца — {forecastedBalance} {currencyCode}. Сохраняйте текущий темп расходов и запланированные счета без изменений.",
+  "budgetPaceOverBudget": "{name} превысил бюджет. Приостановите или сократите эту категорию до конца месяца.",
+  "budgetPaceSpendingFast": "Вы уже использовали {spentPct}% от {name}, но месяц прошёл только на {timePct}%.",
+  "budgetPaceNeedsAttention": "{name} требует внимания, потому что расходы немного опережают темп месяца.",
+  "budgetPaceOnTrack": "{name} идёт в соответствии с текущим темпом месяца."
 }

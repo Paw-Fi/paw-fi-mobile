@@ -468,8 +468,10 @@ class MonthlyReportPage extends HookConsumerWidget {
       for (final anomaly in report.anomalies.take(2)) {
         items.add(
           _MonthlyHighlightItem(
-            title: anomaly.title,
-            label: _shortInsightCopy(anomaly.description),
+            title: _localizedAnomalyTitle(context, anomaly),
+            label: _shortInsightCopy(
+              _localizedAnomalyDescription(context, anomaly),
+            ),
             status: anomaly.status,
             icon: Icons.manage_search_rounded,
             route: _monthlyReportSpendingRoute,
@@ -549,7 +551,7 @@ class MonthlyReportPage extends HookConsumerWidget {
   String _shortCategoryInsight(
       BuildContext context, MonthlyCategoryTrendItem item) {
     final change = item.previousChangePercent ?? item.baselineChangePercent;
-    if (change == null) return item.insight;
+    if (change == null) return _localizedCategoryTrendInsight(context, item);
     final direction = change >= 0 ? context.l10n.higher : context.l10n.lower;
     return context.l10n.categoryIsPercentDirection(
         getCategoryTranslation(context, item.name),
@@ -804,6 +806,80 @@ class MonthlyReportPage extends HookConsumerWidget {
       ),
     );
   }
+}
+
+String _localizedPaceInsight(
+  BuildContext context,
+  MonthlySpendingPaceItem item,
+) {
+  final name = getCategoryTranslation(context, item.label);
+  final spentPct = (item.spentProgress * 100).round();
+  final timePct = (item.timeProgress * 100).round();
+  switch (item.status) {
+    case MonthlyReportStatus.overBudget:
+      return context.l10n.budgetPaceOverBudget(name);
+    case MonthlyReportStatus.spendingFast:
+      return context.l10n.budgetPaceSpendingFast(name, spentPct, timePct);
+    case MonthlyReportStatus.needsAttention:
+      return context.l10n.budgetPaceNeedsAttention(name);
+    default:
+      return context.l10n.budgetPaceOnTrack(name);
+  }
+}
+
+String _localizedCategoryTrendInsight(
+  BuildContext context,
+  MonthlyCategoryTrendItem item,
+) {
+  final useBaseline = (item.baselineChangePercent?.abs() ?? 0) >
+      (item.previousChangePercent?.abs() ?? 0);
+  final percent =
+      useBaseline ? item.baselineChangePercent : item.previousChangePercent;
+  final change = useBaseline ? item.baselineChange : item.previousChange;
+  final comparator =
+      useBaseline ? context.l10n.recentAverage : context.l10n.samePointLastMonth;
+  final direction =
+      (percent ?? change) >= 0 ? context.l10n.higher : context.l10n.lower;
+  final category = getCategoryTranslation(context, item.name);
+  if (percent == null) {
+    return context.l10n.categoryChangeThanComparator(
+      category,
+      change.abs().toStringAsFixed(2),
+      comparator,
+      direction,
+    );
+  }
+  return context.l10n.categoryPercentChangeThanComparator(
+    category,
+    comparator,
+    direction,
+    (percent.abs() * 100).round(),
+  );
+}
+
+String _localizedAnomalyTitle(BuildContext context, MonthlyInsightItem item) {
+  final categoryName = item.categoryName;
+  if (categoryName == null || categoryName.trim().isEmpty) return item.title;
+  return context.l10n.categorySpendingIsHigher(
+    getCategoryTranslation(context, categoryName),
+  );
+}
+
+String _localizedAnomalyDescription(
+  BuildContext context,
+  MonthlyInsightItem item,
+) {
+  final categoryName = item.categoryName;
+  final increasePercent = item.increasePercent;
+  if (categoryName == null ||
+      categoryName.trim().isEmpty ||
+      increasePercent == null) {
+    return item.description;
+  }
+  return context.l10n.categorySpendingHigherThanLastMonth(
+    getCategoryTranslation(context, categoryName),
+    increasePercent,
+  );
 }
 
 class MonthlyReportDetailPage extends HookConsumerWidget {
@@ -1274,9 +1350,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             for (final item in watchCategories)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: item.label,
+                title: getCategoryTranslation(context, item.label),
                 value: '${(item.spentProgress * 100).round()}%',
-                subtitle: monthlyReportStatusLabel(item.status),
+                subtitle: _localizedStatusLabel(context, item.status),
                 accent: _detailStatusColor(item.status, colorScheme),
                 visual: _MonthlyReportPaceComparisonBar(
                   colorScheme: colorScheme,
@@ -1298,8 +1374,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             _MonthlyReportAdviceCard(
               colorScheme: colorScheme,
               label: context.l10n.patternCheck,
-              title: item.title,
-              body: item.description,
+              title: _localizedAnomalyTitle(context, item),
+              body: _localizedAnomalyDescription(context, item),
               accent: _detailStatusColor(item.status, colorScheme),
               icon: Icons.manage_search_rounded,
             ),
@@ -1318,9 +1394,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             for (final item in report.spendingPace.take(6))
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: item.label,
+                title: getCategoryTranslation(context, item.label),
                 value: '${(item.spentProgress * 100).round()}%',
-                subtitle: monthlyReportStatusLabel(item.status),
+                subtitle: _localizedStatusLabel(context, item.status),
                 accent: _detailStatusColor(item.status, colorScheme),
                 visual: _MonthlyReportPaceComparisonBar(
                   colorScheme: colorScheme,
@@ -1503,8 +1579,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
             label: _localizedStatusLabel(context, item.status),
-            title: item.label,
-            body: item.insight,
+            title: getCategoryTranslation(context, item.label),
+            body: _localizedPaceInsight(context, item),
             accent: _detailStatusColor(item.status, colorScheme),
             icon: Icons.speed_rounded,
           ),
@@ -1736,7 +1812,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               label: context.l10n.categoryMovement,
               title: getCategoryTranslation(context, item.name),
               body:
-                  '${item.insight} ${context.l10n.currentSpendIs} ${formatCurrency(item.currentSpent, report.currencyCode)}.',
+                  '${_localizedCategoryTrendInsight(context, item)} ${context.l10n.currentSpendIs} ${formatCurrency(item.currentSpent, report.currencyCode)}.',
               accent: _detailStatusColor(item.status, colorScheme),
               icon: Icons.category_rounded,
               visual: _MonthlyReportMiniBarChart(
@@ -2011,7 +2087,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               for (final item in report.merchantConcentration.take(6))
                 _MonthlyReportStaticRow(
                   colorScheme: colorScheme,
-                  title: item.name,
+                  title: getCategoryTranslation(context, item.name),
                   value: formatCurrency(item.amount, report.currencyCode),
                   subtitle: context.l10n.ofSpendingLabel,
                   accent: colorScheme.info,
@@ -3292,7 +3368,7 @@ String _detailShortDate(BuildContext context, DateTime date) {
 String _detailCategoryCopy(
     BuildContext context, MonthlyCategoryTrendItem item) {
   final change = item.previousChangePercent ?? item.baselineChangePercent;
-  if (change == null) return item.insight;
+  if (change == null) return _localizedCategoryTrendInsight(context, item);
   final direction = change >= 0 ? context.l10n.higher : context.l10n.lower;
   return context.l10n
       .percentDirectionThanComparison(_detailPercent(change.abs()), direction);

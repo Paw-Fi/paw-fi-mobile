@@ -2901,5 +2901,17 @@
   "perDay": "{amount}/ngày",
   "financialHealthSemanticsLabel": "Tóm tắt sức khỏe tài chính, {score}/100, {status}.",
   "oneBudgetToWatch": "1 ngân sách cần theo dõi",
-  "daysRemaining": "Còn {count} ngày"
+  "daysRemaining": "Còn {count} ngày",
+  "and": "và",
+  "recentAverage": "mức trung bình gần đây",
+  "samePointLastMonth": "cùng thời điểm tháng trước",
+  "categoryChangeThanComparator": "{category} {direction} {change} so với {comparator}.",
+  "categoryPercentChangeThanComparator": "{category} {direction} {percent}% so với {comparator}.",
+  "monthlyReportSummaryWatch": "Tháng này bạn đang {status}. Số tiền an toàn để chi là {safeToSpend} {currencyCode}/ngày và số dư cuối tháng được dự báo là {forecastedBalance} {currencyCode}. Hãy theo dõi {watchItems} vì mục này đang tăng nhanh hơn dự kiến.",
+  "monthlyReportSummaryReview": "Tháng này bạn đang {status}. Số tiền an toàn để chi là {safeToSpend} {currencyCode}/ngày và số dư cuối tháng được dự báo là {forecastedBalance} {currencyCode}. Hãy xem lại các cảnh báo chi tiêu bất thường trước khi thêm cam kết mới.",
+  "monthlyReportSummaryKeep": "Tháng này bạn đang {status}. Số tiền an toàn để chi là {safeToSpend} {currencyCode}/ngày và số dư cuối tháng được dự báo là {forecastedBalance} {currencyCode}. Hãy giữ nguyên tốc độ chi tiêu hiện tại và các hóa đơn đã lên lịch.",
+  "budgetPaceOverBudget": "{name} đã vượt ngân sách. Hãy tạm dừng hoặc giảm danh mục này trong phần còn lại của tháng.",
+  "budgetPaceSpendingFast": "Bạn đã dùng {spentPct}% của {name}, nhưng tháng này mới trôi qua {timePct}%.",
+  "budgetPaceNeedsAttention": "{name} cần được chú ý vì chi tiêu đang hơi nhanh hơn tiến độ của tháng.",
+  "budgetPaceOnTrack": "{name} đang đi đúng với tiến độ hiện tại của tháng."
 }

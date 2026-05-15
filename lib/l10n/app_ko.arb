@@ -2706,5 +2706,17 @@
   "perDay": "{amount}/일",
   "financialHealthSemanticsLabel": "재정 건강도 요약, 100점 만점에 {score}, {status}.",
   "oneBudgetToWatch": "확인할 예산 1개",
-  "daysRemaining": "{count}일 남음"
+  "daysRemaining": "{count}일 남음",
+  "and": "및",
+  "recentAverage": "최근 평균",
+  "samePointLastMonth": "지난달 같은 시점",
+  "categoryChangeThanComparator": "{category}은(는) {comparator}보다 {change} {direction}입니다.",
+  "categoryPercentChangeThanComparator": "{category}은(는) {comparator}보다 {percent}% {direction}입니다.",
+  "monthlyReportSummaryWatch": "이번 달은 {status} 상태입니다. 안전하게 쓸 수 있는 금액은 하루 {safeToSpend} {currencyCode}이며, 월말 잔액은 {forecastedBalance} {currencyCode}로 예상됩니다. {watchItems}이(가) 예상보다 빠르게 움직이고 있으니 확인하세요.",
+  "monthlyReportSummaryReview": "이번 달은 {status} 상태입니다. 안전하게 쓸 수 있는 금액은 하루 {safeToSpend} {currencyCode}이며, 월말 잔액은 {forecastedBalance} {currencyCode}로 예상됩니다. 새 고정 지출을 추가하기 전에 평소와 다른 지출 알림을 확인하세요.",
+  "monthlyReportSummaryKeep": "이번 달은 {status} 상태입니다. 안전하게 쓸 수 있는 금액은 하루 {safeToSpend} {currencyCode}이며, 월말 잔액은 {forecastedBalance} {currencyCode}로 예상됩니다. 현재 지출 속도와 예정된 청구서는 그대로 유지하세요.",
+  "budgetPaceOverBudget": "{name}이(가) 예산을 초과했습니다. 이번 달 남은 기간에는 이 카테고리를 잠시 멈추거나 줄여보세요.",
+  "budgetPaceSpendingFast": "{name}의 {spentPct}%를 사용했지만, 이번 달은 아직 {timePct}%만 지났습니다.",
+  "budgetPaceNeedsAttention": "{name}은(는) 지출이 이번 달 진행 속도보다 약간 앞서 있어 확인이 필요합니다.",
+  "budgetPaceOnTrack": "{name}은(는) 이번 달 현재 속도에 맞춰 잘 진행 중입니다."
 }
