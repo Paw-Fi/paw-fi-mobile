@@ -6,10 +6,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/util/constants.dart';
 
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
@@ -53,32 +52,8 @@ import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
-const Duration _networkReachabilityCheckInterval = Duration(seconds: 15);
-const Duration _networkReachabilityTimeout = Duration(seconds: 3);
 
 final Map<String, Future<void>> _mobileSyncInFlightByUser = {};
-
-final _networkReachabilityProvider =
-    StreamProvider.autoDispose<bool>((ref) async* {
-  while (true) {
-    yield await _hasNetworkAccess();
-    await Future<void>.delayed(_networkReachabilityCheckInterval);
-  }
-});
-
-Future<bool> _hasNetworkAccess() async {
-  final supabaseUrl = Constants.supabaseUrl.trim();
-  if (supabaseUrl.isEmpty) return true;
-
-  try {
-    await http
-        .head(Uri.parse(supabaseUrl))
-        .timeout(_networkReachabilityTimeout);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
 
 class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   _MainShellLifecycleObserver({required this.onResume});
@@ -96,6 +71,7 @@ class _MainShellLifecycleObserver extends WidgetsBindingObserver {
 void _silentResyncMainShellData(
     WidgetRef ref, String userId, int currentIndex) {
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
+  if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
   unawaited(_syncThenRefreshMainShellData(ref, userId, currentIndex));
 }
@@ -105,6 +81,7 @@ Future<void> _syncThenRefreshMainShellData(
   String userId,
   int currentIndex,
 ) async {
+  if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   await _syncMobileTransactions(ref, userId);
   await _refreshActiveMainShellTab(ref, userId, currentIndex);
   await _refreshDeferredMainShellData(ref, userId, currentIndex);
@@ -124,6 +101,7 @@ Future<void> _refreshActiveMainShellTab(
   String userId,
   int currentIndex,
 ) async {
+  if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   try {
     switch (currentIndex) {
       case 0:
@@ -195,6 +173,7 @@ Future<void> _refreshDeferredMainShellData(
   try {
     await Future<void>.delayed(_foregroundDeferredResyncDelay);
     if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
+    if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
     ref.invalidate(userHouseholdsProvider(userId));
     ref.invalidate(householdProvider);
@@ -243,6 +222,7 @@ Future<void> _syncCategoryRemaps(WidgetRef ref, String userId) async {
 
 Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
   if (userId.isEmpty) return;
+  if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
   final inFlight = _mobileSyncInFlightByUser[userId];
   if (inFlight != null) {
@@ -273,6 +253,7 @@ Future<void> _drainMobileOutbox(WidgetRef ref) async {
 }
 
 Future<void> _refreshWalletsMainShellData(WidgetRef ref) async {
+  if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
   final query = ref.read(walletsScopeQueryProvider);
   await ref.read(walletsPageStateProvider(query).future);
@@ -290,7 +271,7 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
     final hasNetworkAccess =
-        ref.watch(_networkReachabilityProvider).valueOrNull ?? true;
+        ref.watch(networkReachabilityProvider).valueOrNull ?? true;
     final auth = ref.watch(authProvider);
     final walletAuthHeaders =
         previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
@@ -316,6 +297,9 @@ class MainShell extends HookConsumerWidget {
       if (previewState.isActive || auth.uid.isEmpty) {
         return null;
       }
+      if (!hasNetworkAccess) {
+        return null;
+      }
 
       _silentResyncMainShellData(
         ref,
@@ -323,7 +307,7 @@ class MainShell extends HookConsumerWidget {
         ref.read(mainShellTabIndexProvider),
       );
       return null;
-    }, [previewState.isActive, auth.uid]);
+    }, [previewState.isActive, auth.uid, hasNetworkAccess]);
 
     useEffect(() {
       if (previewState.isActive ||
@@ -374,10 +358,13 @@ class MainShell extends HookConsumerWidget {
     useEffect(() {
       final observer = _MainShellLifecycleObserver(
         onResume: () {
-          ref.invalidate(_networkReachabilityProvider);
+          ref.invalidate(networkReachabilityProvider);
 
           final userId = ref.read(authProvider).uid;
           if (userId.isEmpty || ref.read(previewModeProvider).isActive) {
+            return;
+          }
+          if (ref.read(networkReachabilityProvider).valueOrNull == false) {
             return;
           }
 

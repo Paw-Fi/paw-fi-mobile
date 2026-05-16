@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -108,6 +109,15 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         );
         debugPrint(
             '[Analytics] Empty userId, setting error state with hasLoadedOnce=true');
+        return;
+      }
+
+      if (ref.read(networkReachabilityProvider).valueOrNull == false) {
+        state = state.copyWith(
+          isLoading: false,
+          hasLoadedOnce: true,
+          clearError: true,
+        );
         return;
       }
 

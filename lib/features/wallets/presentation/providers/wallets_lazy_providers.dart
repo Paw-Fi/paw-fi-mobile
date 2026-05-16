@@ -6,6 +6,7 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -411,6 +412,8 @@ class WalletsPageStateNotifier
   static const _appendMonthBatchSize = 3;
 
   WalletsDataService get _service => ref.read(walletsDataServiceProvider);
+  bool get _isOffline =>
+      ref.read(networkReachabilityProvider).valueOrNull == false;
 
   @override
   Future<WalletsPageState> build(WalletsScopeQuery arg) async {
@@ -438,7 +441,9 @@ class WalletsPageStateNotifier
         });
         final overlaidState =
             await _overlayPendingLocalWalletPageState(sessionState);
-        _scheduleBackgroundRefresh();
+        if (!_isOffline) {
+          _scheduleBackgroundRefresh();
+        }
         return overlaidState;
       }
 
@@ -451,8 +456,15 @@ class WalletsPageStateNotifier
         });
         final overlaidState =
             await _overlayPendingLocalWalletPageState(cachedState);
-        _scheduleBackgroundRefresh();
+        if (!_isOffline) {
+          _scheduleBackgroundRefresh();
+        }
         return overlaidState;
+      }
+
+      if (_isOffline) {
+        trace.mark('offline-cache-miss');
+        return _overlayPendingLocalWalletPageState(_emptyPageState());
       }
 
       trace.mark('cache-miss');
@@ -470,6 +482,16 @@ class WalletsPageStateNotifier
   Future<void> refresh() async {
     final previous = state.valueOrNull;
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
+    if (_isOffline) {
+      if (previous != null) {
+        state = AsyncData(previous.copyWith(isRefreshing: false));
+      } else {
+        state = AsyncData(await _overlayPendingLocalWalletPageState(
+          _readPersistedCachedPageState() ?? _emptyPageState(),
+        ));
+      }
+      return;
+    }
     if (previous == null) {
       final cachedState = _readPersistedCachedPageState();
       if (cachedState != null) {
@@ -667,6 +689,7 @@ class WalletsPageStateNotifier
   }
 
   Future<void> _prefetchMonths(Iterable<DateTime> months) async {
+    if (_isOffline) return;
     final monthsList =
         months.map(normalizeWalletMonthStart).toList(growable: false);
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
@@ -743,6 +766,10 @@ class WalletsPageStateNotifier
   }
 
   Future<void> _resolveSelectedMonth(DateTime monthStart) async {
+    if (_isOffline) {
+      _clearLoadingMonth(monthStart);
+      return;
+    }
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
     final trace = _createWalletsTrace(
       ref,
@@ -812,11 +839,31 @@ class WalletsPageStateNotifier
   }
 
   void _scheduleBackgroundRefresh() {
+    if (_isOffline) return;
     Future<void>(() async {
       try {
         await refresh();
       } catch (_) {}
     });
+  }
+
+  WalletsPageState _emptyPageState() {
+    final selectedMonth = normalizeWalletMonthStart(_query.currentMonthStart);
+    return WalletsPageState(
+      history: const WalletsHistorySummary(
+        availableMonths: <DateTime>[],
+        netWorthSeries: <WalletNetWorthPoint>[],
+      ),
+      visibleMonths: buildWalletMonthWindow(
+        anchorMonth: _query.currentMonthStart,
+        count: _initialVisibleMonthCount,
+      ),
+      selectedMonthStart: selectedMonth,
+      cachedSnapshotsByMonth: const <DateTime, WalletsMonthSnapshot>{},
+      loadingMonths: const <DateTime>{},
+      monthErrorsByMonth: const <DateTime, Object>{},
+      lastResolvedSelectedMonthStart: selectedMonth,
+    );
   }
 
   void _clearLoadingMonth(DateTime monthStart) {

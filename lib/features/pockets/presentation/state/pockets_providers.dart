@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -1570,6 +1571,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final now = DateTime.now();
       final hasPendingLocalChanges =
           await _hasPendingLocalPocketMutations(authUser.uid);
+      final isOffline = ref.read(networkReachabilityProvider).valueOrNull ==
+          false;
       if (!bypassCache) {
         final cached = _pocketsMonthCache.getAny(cacheKey, now);
         if (cached != null) {
@@ -1585,7 +1588,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           state = cached.copyWith(isLoading: false, clearError: true);
 
           // If stale, refresh in the background (deduped per key).
-          if (!isFresh) {
+          if (!isFresh && !isOffline) {
             final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
             if (existingInFlight == null) {
               trace.mark('background-refresh-start');
@@ -1644,7 +1647,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               _pocketsMonthCache.set(cacheKey, persistedState, now);
               if (!mounted) return;
               state = persistedState;
-              if (!isFresh) {
+              if (!isFresh && !isOffline) {
                 final backgroundRefreshRevision = _refreshRevision;
                 Future<void>(() async {
                   try {
@@ -1673,6 +1676,33 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             }
           }
         }
+      }
+
+      if (isOffline) {
+        trace.mark('offline-cache-miss', {'periodMonth': periodMonth});
+        if (state.hasDisplayData) {
+          state = state.copyWith(isLoading: false, clearError: true);
+        } else {
+          state = PocketsState(
+            isLoading: false,
+            error: null,
+            saved: const [],
+            editing: const [],
+            budgetId: null,
+            periodMonth: monthStart,
+            previousBudget: 0,
+            hasPreviousMonthPockets: false,
+            currency: selectedCurrency,
+            totalBudget: 0,
+            savedTotalBudget: 0,
+            unallocatedSpend: 0,
+            uncategorized: const [],
+            uncategorizedExpenses: const {},
+            envelopeCategories: const {},
+          );
+        }
+        await _applyFastLocalPocketExpenseOverlay();
+        return;
       }
 
       // No cache (or bypass requested), show loader.

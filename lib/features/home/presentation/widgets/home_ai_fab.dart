@@ -23,14 +23,15 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
-import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -54,6 +55,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -517,109 +519,6 @@ String _applyLocalCategoryRemap({
   return remaps[direct] ?? remaps[normalized] ?? category;
 }
 
-SplitType? _parseSplitTypeForOptimisticGroup(Object? rawSplitType) {
-  final value = rawSplitType?.toString().trim().toLowerCase();
-  if (value == null || value.isEmpty || value == 'equal') return null;
-  try {
-    return SplitType.fromJson(value);
-  } catch (_) {
-    return null;
-  }
-}
-
-ExpenseSplitGroup? _buildOptimisticSplitGroupFromPayload({
-  required String householdId,
-  required String expenseId,
-  required String payerUserId,
-  required double totalAmount,
-  required String currency,
-  required Object? rawCustomSplits,
-  String? description,
-  String? splitGroupId,
-}) {
-  final customSplits = _normalizeExplicitCustomSplits(rawCustomSplits);
-  if (customSplits == null) return null;
-
-  final splitType =
-      _parseSplitTypeForOptimisticGroup(customSplits['splitType']);
-  if (splitType == null) return null;
-
-  final rawMemberSplits = customSplits['memberSplits'];
-  if (rawMemberSplits is! List || rawMemberSplits.isEmpty) return null;
-
-  final totalCents = (totalAmount.abs() * 100).round();
-  final now = DateTime.now();
-  final normalizedGroupId = (splitGroupId?.trim().isNotEmpty == true)
-      ? splitGroupId!.trim()
-      : 'optimistic_split_$expenseId';
-
-  final rawMaps = rawMemberSplits
-      .whereType<Map>()
-      .map((entry) => Map<String, dynamic>.from(entry))
-      .where((entry) => entry['userId']?.toString().trim().isNotEmpty == true)
-      .toList(growable: false);
-  if (rawMaps.isEmpty) return null;
-
-  int amountCentsFor(Map<String, dynamic> entry) {
-    switch (splitType) {
-      case SplitType.amount:
-        return ((_parseAmountValue(entry['amount']) ?? 0).abs() * 100).round();
-      case SplitType.percentage:
-        final percentage = _parseAmountValue(entry['percentage']) ?? 0;
-        return ((totalCents * percentage) / 100).round();
-      case SplitType.shares:
-        final totalShares = rawMaps.fold<int>(
-          0,
-          (sum, item) => sum + ((item['shares'] as num?)?.toInt() ?? 0),
-        );
-        if (totalShares <= 0) return 0;
-        final shares = (entry['shares'] as num?)?.toInt() ?? 0;
-        return ((totalCents * shares) / totalShares).round();
-      case SplitType.equal:
-        return 0;
-    }
-  }
-
-  final cents = rawMaps.map(amountCentsFor).toList(growable: true);
-  final centsDiff =
-      totalCents - cents.fold<int>(0, (sum, value) => sum + value);
-  if (centsDiff != 0 && cents.isNotEmpty) {
-    cents[cents.length - 1] += centsDiff;
-  }
-
-  final lines = <ExpenseSplitLine>[];
-  for (var index = 0; index < rawMaps.length; index++) {
-    final entry = rawMaps[index];
-    lines.add(
-      ExpenseSplitLine(
-        id: '${normalizedGroupId}_line_$index',
-        splitGroupId: normalizedGroupId,
-        userId: entry['userId'].toString().trim(),
-        amountCents: cents[index],
-        percentage: _parseAmountValue(entry['percentage']),
-        shares: (entry['shares'] as num?)?.toInt(),
-        isSettled: false,
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
-  }
-
-  return ExpenseSplitGroup(
-    id: normalizedGroupId,
-    householdId: householdId,
-    expenseId: expenseId,
-    payerUserId: payerUserId,
-    splitType: splitType,
-    currency: currency,
-    totalAmountCents: totalCents,
-    description: description,
-    createdAt: now,
-    updatedAt: now,
-    splitLines: lines,
-  );
-}
-
 String _normalizeMemberAlias(String value) {
   final lowered = value.toLowerCase().trim();
   if (lowered.isEmpty) return '';
@@ -1028,6 +927,7 @@ Future<void> _persistAiTransactions(
       .toString();
   MonekoDatabase? localDatabase;
   var queuedLocally = false;
+  _AutoSplitContext? autoSplitContext;
 
   Future<void> cacheSavedEntriesAndRefresh(
     List<ExpenseEntry> savedEntries,
@@ -1174,7 +1074,7 @@ Future<void> _persistAiTransactions(
         savedHouseholdId.isNotEmpty &&
         !prepared.item.transaction.isIncome) {
       final existingSplitGroupId = savedEntry.splitGroupId?.trim();
-      final optimisticSplitGroup = _buildOptimisticSplitGroupFromPayload(
+      final optimisticSplitGroup = buildOptimisticHouseholdSplitGroup(
         householdId: savedHouseholdId,
         expenseId: savedEntry.id,
         payerUserId: (prepared.batchRequestBody['payerUserId'] as String?)
@@ -1185,6 +1085,9 @@ Future<void> _persistAiTransactions(
             : userId,
         totalAmount: savedEntry.amount,
         currency: savedEntry.currency ?? prepared.item.transaction.currency,
+        members: autoSplitContext?.members ?? const <HouseholdMember>[],
+        autoSplitEnabled: autoSplitContext?.household.autoSplitEnabled ?? true,
+        autoSplitConfig: autoSplitContext?.household.autoSplitConfig,
         rawCustomSplits: prepared.batchRequestBody['customSplits'],
         description:
             savedEntry.rawText ?? prepared.item.transaction.description,
@@ -1243,13 +1146,15 @@ Future<void> _persistAiTransactions(
     return entryToStore;
   }
 
-  Future<void> attachOptimisticSplitsForSavedExpenses(
+  Future<Map<String, ExpenseEntry>> attachOptimisticSplitsForSavedExpenses(
     Map<String, ExpenseEntry> savedExpensesById,
   ) async {
-    if (savedExpensesById.isEmpty) return;
+    if (savedExpensesById.isEmpty) return const <String, ExpenseEntry>{};
     final targetHouseholdId = householdId?.trim();
-    if (targetHouseholdId == null || targetHouseholdId.isEmpty) return;
-    if (isPortfolio) return;
+    if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
+      return const <String, ExpenseEntry>{};
+    }
+    if (isPortfolio) return const <String, ExpenseEntry>{};
 
     try {
       final repository = container.read(householdRepositoryProvider);
@@ -1277,12 +1182,17 @@ Future<void> _persistAiTransactions(
         await Future.delayed(delay);
       }
 
-      if (splitsByExpenseId.isEmpty) return;
+      if (splitsByExpenseId.isEmpty) return const <String, ExpenseEntry>{};
+      await cacheHouseholdSplitsSnapshot(
+        params: HouseholdSplitsParams(householdId: targetHouseholdId),
+        splits: splits,
+      );
 
       final splitsNotifier =
           container.read(householdOptimisticSplitsProvider.notifier);
       final expensesNotifier =
           container.read(householdOptimisticExpensesProvider.notifier);
+      final updatedEntries = <String, ExpenseEntry>{};
 
       for (final entry in savedExpensesById.values) {
         final group = splitsByExpenseId[entry.id];
@@ -1290,14 +1200,35 @@ Future<void> _persistAiTransactions(
         splitsNotifier.addSplitGroup(targetHouseholdId, group);
 
         final splitGroupId = entry.splitGroupId?.trim();
-        if (splitGroupId == null || splitGroupId.isEmpty) {
+        if (splitGroupId != group.id) {
           final updated = entry.copyWith(splitGroupId: group.id);
+          updatedEntries[updated.id] = updated;
           expensesNotifier.replaceExpense(targetHouseholdId, entry.id, updated);
         }
       }
+
+      if (updatedEntries.isNotEmpty) {
+        try {
+          final MonekoDatabase database = localDatabase ??
+              await container.read(localDatabaseProvider.future);
+          localDatabase = database;
+          await database.upsertTransactions(
+            updatedEntries.values.toList(growable: false),
+            syncStatus: localSyncStatusSynced,
+            preserveLocalPending: false,
+          );
+        } catch (error) {
+          _debugPrint(
+            '⚠️ Failed to persist AI split group ids locally: $error',
+          );
+        }
+      }
+
+      return updatedEntries;
     } catch (error) {
       _debugPrint('❌ [AI Batch Save] Failed to attach split groups: $error');
     }
+    return const <String, ExpenseEntry>{};
   }
 
   // Upload receipt image first (if any) - shared across all transactions
@@ -1339,7 +1270,7 @@ Future<void> _persistAiTransactions(
     }
   }
 
-  final autoSplitContext =
+  autoSplitContext =
       householdId != null && householdId.isNotEmpty && !isPortfolio
           ? await _loadAutoSplitContext(
               container,
@@ -1586,7 +1517,15 @@ Future<void> _persistAiTransactions(
       batchOffset += batch.length;
     }
 
-    await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+    final splitAdjustedEntries =
+        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+    if (splitAdjustedEntries.isNotEmpty) {
+      for (var index = 0; index < savedEntries.length; index++) {
+        savedEntries[index] =
+            splitAdjustedEntries[savedEntries[index].id] ?? savedEntries[index];
+      }
+      savedExpenseEntriesById.addAll(splitAdjustedEntries);
+    }
     await cacheSavedEntriesAndRefresh(savedEntries);
 
     if (didPersistAny) {
@@ -1680,7 +1619,17 @@ Future<void> _persistAiTransactions(
           '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
 
       if (savedExpenseEntriesById.isNotEmpty) {
-        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+        final splitAdjustedEntries =
+            await attachOptimisticSplitsForSavedExpenses(
+                savedExpenseEntriesById);
+        if (splitAdjustedEntries.isNotEmpty) {
+          for (var index = 0; index < savedEntries.length; index++) {
+            savedEntries[index] =
+                splitAdjustedEntries[savedEntries[index].id] ??
+                    savedEntries[index];
+          }
+          savedExpenseEntriesById.addAll(splitAdjustedEntries);
+        }
       }
 
       await cacheSavedEntriesAndRefresh(savedEntries);
@@ -2559,6 +2508,24 @@ Future<void> _processExpense(
       return;
     }
 
+    final isOffline =
+        ref.read(networkReachabilityProvider).valueOrNull == false;
+    if (!preview.isActive && responseData == null && isOffline) {
+      if (shouldShowProcessingDialog && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      final queued = await queueCurrentAiInputForRetry();
+      if (queued) {
+        if (context.mounted) {
+          AppToast.success(
+            context,
+            context.l10n.walletCaptureOfflineDescription,
+          );
+        }
+        return;
+      }
+    }
+
     // Use SSE streaming when media is involved to show real-time progress.
     if (responseData == null && shouldStream && dialogController != null) {
       try {
@@ -2688,6 +2655,13 @@ Future<void> _processExpense(
             userId: user.uid,
             transactionType: 'income',
           );
+          final optimisticAutoSplitContext =
+              householdId != null && householdId.isNotEmpty && !isPortfolio
+                  ? await _loadAutoSplitContext(
+                      providerContainer,
+                      householdId: householdId,
+                    )
+                  : null;
 
           // Parse ALL items and immediately optimistic-log them.
           final parsed = items
@@ -2768,7 +2742,7 @@ Future<void> _processExpense(
                         householdId.isNotEmpty &&
                         !isPortfolio &&
                         !isIncome
-                    ? _buildOptimisticSplitGroupFromPayload(
+                    ? buildOptimisticHouseholdSplitGroup(
                         householdId: householdId,
                         expenseId: optimisticId,
                         payerUserId:
@@ -2777,6 +2751,13 @@ Future<void> _processExpense(
                                 : user.uid,
                         totalAmount: transaction.amount,
                         currency: transaction.currency,
+                        members: optimisticAutoSplitContext?.members ??
+                            const <HouseholdMember>[],
+                        autoSplitEnabled: optimisticAutoSplitContext
+                                ?.household.autoSplitEnabled ??
+                            true,
+                        autoSplitConfig: optimisticAutoSplitContext
+                            ?.household.autoSplitConfig,
                         rawCustomSplits: item['customSplits'],
                         description: transaction.description,
                       )

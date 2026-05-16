@@ -180,7 +180,14 @@ class OptimisticHouseholdSplitsNotifier
 
   void addSplitGroup(String householdId, ExpenseSplitGroup group) {
     final existing = state[householdId] ?? const <ExpenseSplitGroup>[];
-    if (existing.any((g) => g.expenseId == group.expenseId)) return;
+    if (existing.any((g) => g.expenseId == group.expenseId)) {
+      final updated = existing
+          .map((candidate) =>
+              candidate.expenseId == group.expenseId ? group : candidate)
+          .toList(growable: false);
+      state = {...state, householdId: updated};
+      return;
+    }
     final updated = <ExpenseSplitGroup>[group, ...existing];
     state = {...state, householdId: updated};
   }

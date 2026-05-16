@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -568,14 +569,17 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   const LocalFirstTransactionsFeedService({
     required MonekoDatabase database,
     required TransactionsFeedService remote,
+    bool remoteEnabled = true,
   })  : _database = database,
-        _remote = remote;
+        _remote = remote,
+        _remoteEnabled = remoteEnabled;
 
   final MonekoDatabase _database;
   final TransactionsFeedService _remote;
+  final bool _remoteEnabled;
 
   @override
-  bool get supportsBackgroundRefresh => true;
+  bool get supportsBackgroundRefresh => _remoteEnabled;
 
   @override
   Future<TransactionsFeedPageResult> fetchPage(
@@ -590,6 +594,9 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _localQuery(query),
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    if (!_remoteEnabled) {
+      return _pageFromLocal(localPage, query);
+    }
     if (isComplete ||
         cursor != null ||
         hasPendingLocalRows ||
@@ -622,6 +629,9 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       localQuery,
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    if (!_remoteEnabled) {
+      return _summaryFromLocal(localSummary);
+    }
     if (isComplete) {
       return _summaryFromLocal(localSummary);
     }
@@ -647,6 +657,9 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _localQuery(query),
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    if (!_remoteEnabled) {
+      return localItems;
+    }
     if (isComplete) {
       return localItems;
     }
@@ -693,6 +706,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
 
   @override
   Future<void> refreshFromRemote(TransactionsFeedQuery query) async {
+    if (!_remoteEnabled) return;
     final results = await Future.wait<dynamic>([
       _remote.fetchSummary(query),
       _remote.fetchPage(query),
@@ -875,10 +889,13 @@ final transactionsFeedServiceProvider =
     Provider<TransactionsFeedService>((ref) {
   final remote = ref.watch(transactionsRemoteFeedServiceProvider);
   final localDatabase = ref.watch(localDatabaseProvider);
+  final hasNetworkAccess =
+      ref.watch(networkReachabilityProvider).valueOrNull ?? true;
   return localDatabase.when(
     data: (database) => LocalFirstTransactionsFeedService(
       database: database,
       remote: remote,
+      remoteEnabled: hasNetworkAccess,
     ),
     error: (_, __) => remote,
     loading: () => const EmptyTransactionsFeedService(),

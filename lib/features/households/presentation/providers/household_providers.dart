@@ -1,5 +1,6 @@
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -132,6 +133,17 @@ Future<void> _writeHouseholdCachedList<T>(
         'items': items.map(encode).toList(growable: false),
       },
     }),
+  );
+}
+
+Future<void> cacheHouseholdSplitsSnapshot({
+  required HouseholdSplitsParams params,
+  required List<ExpenseSplitGroup> splits,
+}) {
+  return _writeHouseholdCachedList(
+    _householdSplitsCacheKey(params),
+    splits,
+    (split) => split.toJson(),
   );
 }
 
@@ -328,6 +340,17 @@ class UserHouseholdsNotifier
         state = const AsyncValue.loading();
       }
 
+      if (_ref.read(networkReachabilityProvider).valueOrNull == false) {
+        if (!mounted) return;
+        if (!state.hasValue) {
+          state = AsyncValue.data(cached?.items ?? const <Household>[]);
+        }
+        trace.mark('offline-skip-network', {
+          'cachedCount': cached?.items.length ?? 0,
+        });
+        return;
+      }
+
       final result = await AsyncValue.guard(() async {
         final households = await _repository.getUserHouseholds(_userId);
         unawaited(_writeHouseholdCachedList(
@@ -470,8 +493,9 @@ class HouseholdMembersNotifier
     extends StateNotifier<AsyncValue<List<HouseholdMember>>> {
   final HouseholdRepository _repository;
   final String _householdId;
+  final Ref? _ref;
 
-  HouseholdMembersNotifier(this._repository, this._householdId)
+  HouseholdMembersNotifier(this._repository, this._householdId, [this._ref])
       : super(const AsyncValue.loading()) {
     load();
   }
@@ -488,6 +512,13 @@ class HouseholdMembersNotifier
       state = AsyncValue.data(cached.items);
     } else if (!state.hasValue) {
       state = const AsyncValue.loading();
+    }
+    if (_ref?.read(networkReachabilityProvider).valueOrNull == false) {
+      if (!mounted) return;
+      if (!state.hasValue) {
+        state = AsyncValue.data(cached?.items ?? const <HouseholdMember>[]);
+      }
+      return;
     }
     final result = await AsyncValue.guard(() async {
       final members = await _repository.getHouseholdMembers(_householdId);
@@ -522,7 +553,7 @@ final householdMembersProvider = StateNotifierProvider.family<
     HouseholdMembersNotifier, AsyncValue<List<HouseholdMember>>, String>(
   (ref, householdId) {
     final repository = ref.watch(householdRepositoryProvider);
-    return HouseholdMembersNotifier(repository, householdId);
+    return HouseholdMembersNotifier(repository, householdId, ref);
   },
 );
 
@@ -554,6 +585,13 @@ class HouseholdBudgetsNotifier
       state = AsyncValue.data(cached.items);
     } else if (!state.hasValue) {
       state = const AsyncValue.loading();
+    }
+    if (_ref?.read(networkReachabilityProvider).valueOrNull == false) {
+      if (!mounted) return;
+      if (!state.hasValue) {
+        state = AsyncValue.data(cached?.items ?? const <SharedBudget>[]);
+      }
+      return;
     }
     final result = await AsyncValue.guard(() async {
       final budgets = await _repository.getHouseholdBudgets(_householdId);
@@ -876,6 +914,14 @@ final householdSummaryProvider =
       cacheKey,
       HouseholdSummary.fromJson,
     );
+    if (ref.watch(networkReachabilityProvider).valueOrNull == false) {
+      if (cached != null) {
+        trace.mark('offline-cache-hit');
+        return cached;
+      }
+      trace.mark('offline-cache-miss');
+      return null;
+    }
 
     // Use a tighter timeout so dashboard widgets fail fast instead of
     // appearing to load forever when the backend is slow/unresponsive.
@@ -966,6 +1012,7 @@ final householdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
     final repository = ref.watch(householdRepositoryProvider);
+    final isOffline = ref.watch(networkReachabilityProvider).valueOrNull == false;
     final optimistic = ref.watch(
       householdOptimisticSplitsProvider
           .select((state) => state[params.householdId] ?? const []),
@@ -992,6 +1039,10 @@ final householdSplitsProvider =
         });
       }
       return cachedMerged;
+    }
+
+    if (isOffline) {
+      return mergeHouseholdSplits(const <ExpenseSplitGroup>[], optimistic);
     }
 
     // Get splits for the household
@@ -1060,6 +1111,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
     final supabase = ref.watch(supabaseClientProvider);
+    final isOffline = ref.watch(networkReachabilityProvider).valueOrNull == false;
     final optimistic = ref.watch(
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),
@@ -1078,6 +1130,13 @@ final householdExpensesProvider = FutureProvider.autoDispose
         _isFresh(cached.cachedAt, _householdTransactionCacheTtl)) {
       return mergeHouseholdExpenses(
         cached.items,
+        optimistic,
+        deletedIds: deletedIds,
+      );
+    }
+    if (isOffline) {
+      return mergeHouseholdExpenses(
+        cached?.items ?? const <ExpenseEntry>[],
         optimistic,
         deletedIds: deletedIds,
       );

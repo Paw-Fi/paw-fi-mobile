@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
@@ -254,16 +255,29 @@ class RecurringTransactionsNotifier
 
     if (!mounted) return;
 
+    final isOffline = ref.read(networkReachabilityProvider).valueOrNull == false;
     if (!forceRefresh) {
       final hydrated = await _hydrateFromLocalCache(userId, limit: limit);
       if (hydrated) {
-        unawaited(_refreshRecurringTransactionsFromNetwork(
-          userId,
-          limit,
-          preserveCachedDataOnError: true,
-        ));
+        if (!isOffline) {
+          unawaited(_refreshRecurringTransactionsFromNetwork(
+            userId,
+            limit,
+            preserveCachedDataOnError: true,
+          ));
+        }
         return;
       }
+    }
+
+    if (isOffline) {
+      state = state.copyWith(
+        data: state.data.hasValue
+            ? state.data
+            : const AsyncValue.data(<RecurringTransaction>[]),
+        hasLoadedOnce: true,
+      );
+      return;
     }
 
     // Skip loading if already loaded successfully (unless forced refresh)
