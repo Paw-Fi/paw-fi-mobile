@@ -232,38 +232,35 @@ class MonthlyReportPage extends HookConsumerWidget {
                 _buildBalanceSummaryCard(context, colorScheme, report, query),
                 const SizedBox(height: 12),
                 _buildSummaryMetricGrid(context, colorScheme, report, query),
-                const SizedBox(height: 26),
+                const SizedBox(height: 16),
                 _MonthlyReportSectionTitle(
                   title: context.l10n.highlights,
-                  actionLabel: context.l10n.showAll,
+                  actionLabel: "",
                   onActionTap: () => context.push(
                     _monthlyReportRoute(_monthlyReportSpendingRoute, query),
                   ),
                   colorScheme: colorScheme,
                 ),
-                const SizedBox(height: 12),
                 _buildHighlights(context, colorScheme, report, query),
-                const SizedBox(height: 26),
+                const SizedBox(height: 15),
                 _MonthlyReportSectionTitle(
                   title: context.l10n.categories,
-                  actionLabel: context.l10n.details,
+                  actionLabel: "",
                   onActionTap: () => context.push(
                     _monthlyReportRoute(_monthlyReportCategoriesRoute, query),
                   ),
                   colorScheme: colorScheme,
                 ),
-                const SizedBox(height: 12),
                 _buildCategoryPreview(context, colorScheme, report, query),
-                const SizedBox(height: 26),
+                const SizedBox(height: 16),
                 _MonthlyReportSectionTitle(
                   title: context.l10n.upcomingBills,
-                  actionLabel: context.l10n.details,
+                  actionLabel: "",
                   onActionTap: () => context.push(
                     _monthlyReportRoute(_monthlyReportRecurringRoute, query),
                   ),
                   colorScheme: colorScheme,
                 ),
-                const SizedBox(height: 12),
                 _buildUpcomingPreview(context, colorScheme, report, query),
               ],
             ),
@@ -4346,6 +4343,7 @@ class _MonthlyReportSyncStatus extends StatefulWidget {
 class _MonthlyReportSyncStatusState extends State<_MonthlyReportSyncStatus>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  late Animation<double> _animation;
 
   @override
   void initState() {
@@ -4354,6 +4352,7 @@ class _MonthlyReportSyncStatusState extends State<_MonthlyReportSyncStatus>
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
+    _animation = Tween<double>(begin: 1.0, end: 0.0).animate(_controller);
   }
 
   @override
@@ -4384,7 +4383,7 @@ class _MonthlyReportSyncStatusState extends State<_MonthlyReportSyncStatus>
       children: [
         if (widget.isRefreshing)
           RotationTransition(
-            turns: _controller,
+            turns: _animation,
             child: Icon(
               Icons.sync_rounded,
               size: 14,
