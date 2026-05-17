@@ -4353,6 +4353,7 @@ class _MonthlyReportSyncStatusState extends State<_MonthlyReportSyncStatus>
       vsync: this,
     );
     _animation = Tween<double>(begin: 1.0, end: 0.0).animate(_controller);
+    _syncAnimationState(isRefreshing: widget.isRefreshing);
   }
 
   @override
@@ -4364,12 +4365,18 @@ class _MonthlyReportSyncStatusState extends State<_MonthlyReportSyncStatus>
   @override
   void didUpdateWidget(_MonthlyReportSyncStatus oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isRefreshing) {
-      _controller.repeat();
-    } else {
-      _controller.stop();
-      _controller.reset();
+    if (oldWidget.isRefreshing != widget.isRefreshing) {
+      _syncAnimationState(isRefreshing: widget.isRefreshing);
     }
+  }
+
+  void _syncAnimationState({required bool isRefreshing}) {
+    if (isRefreshing) {
+      _controller.repeat();
+      return;
+    }
+    _controller.stop();
+    _controller.reset();
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -164,8 +165,13 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     );
 
     if (preview.isActive) {
-      throw UnsupportedError(
-        'Monthly financial health uses real account data and is unavailable in preview mode.',
+      return _buildPreviewSnapshot(
+        query: _query,
+        period: period,
+        now: now,
+        currencyCode: currencyCode,
+        l10n: l10n,
+        householdScope: householdScope,
       );
     }
 
@@ -228,6 +234,19 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
   }
 
   Future<void> refreshReport() async {
+    if (ref.read(previewModeProvider).isActive) {
+      final context = _currentReportContext();
+      final snapshot = _buildPreviewSnapshot(
+        query: _query,
+        period: context.period,
+        now: context.now,
+        currencyCode: context.currencyCode,
+        l10n: context.l10n,
+        householdScope: ref.read(householdScopeProvider),
+      );
+      state = AsyncData(snapshot);
+      return;
+    }
     final previous = state.valueOrNull;
     if (previous != null) {
       state = AsyncData(previous.copyWith(isRefreshing: true));
@@ -624,6 +643,402 @@ MonthlyReportPeriod _monthlyReportPeriod(
         compareMonthToDate: false,
       );
   }
+}
+
+MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
+  required MonthlyReportQuery query,
+  required MonthlyReportPeriod period,
+  required DateTime now,
+  required String currencyCode,
+  required AppLocalizations l10n,
+  required HouseholdScope householdScope,
+}) {
+  final baseEntries = _previewBaseExpenses(
+    householdScope: householdScope,
+    currencyCode: currencyCode,
+  );
+  final previewEntries = _expandPreviewExpenses(
+    baseEntries: baseEntries,
+    monthStart: query.monthStart,
+  );
+  final currentTransactions =
+      _filterEntriesInRange(previewEntries, period.start, period.end);
+  final previousTransactions = _filterEntriesInRange(
+    previewEntries,
+    period.previousStart,
+    period.previousEnd,
+  );
+  final historicalTransactions = _filterEntriesInRange(
+    previewEntries,
+    period.historicalStart,
+    period.previousEnd,
+  );
+  final budgetInputs = _previewBudgetInputs(householdScope, currencyCode);
+  final recurringTransactions = _previewRecurringTransactions(
+    householdScope: householdScope,
+    currencyCode: currencyCode,
+  );
+  final futureTransactions = _futureTransactionsForReport(
+    actualTransactions: currentTransactions,
+    recurringTransactions: recurringTransactions,
+    now: now,
+    monthEnd: period.end,
+    currencyCode: currencyCode,
+  );
+  final recurringItems = _recurringItemsForReport(
+    recurringTransactions,
+    previousTransactions: previousTransactions,
+    now: now,
+    monthStart: query.monthStart,
+    monthEnd: period.end,
+    currencyCode: currencyCode,
+  );
+  final currentBalance = _previewCurrentBalance(householdScope: householdScope);
+  final previousNetWorth = _previewPreviousNetWorth(
+    currentBalance: currentBalance,
+    currentTransactions: currentTransactions,
+  );
+  final report = buildMonthlyFinancialReport(
+    MonthlyReportInput(
+      monthStart: query.monthStart,
+      periodStart: period.start,
+      periodEnd: period.end,
+      compareMonthToDate: period.compareMonthToDate,
+      now: now,
+      currencyCode: currencyCode,
+      currentBalance: currentBalance,
+      currentMonthTransactions:
+          currentTransactions.map(_transactionInput).toList(growable: false),
+      previousMonthTransactions:
+          previousTransactions.map(_transactionInput).toList(growable: false),
+      historicalTransactions:
+          historicalTransactions.map(_transactionInput).toList(growable: false),
+      budgetItems: budgetInputs,
+      futureTransactions:
+          futureTransactions.map(_transactionInput).toList(growable: false),
+      recurringItems: recurringItems,
+      goals: _previewGoalInputs(currencyCode, now),
+      previousNetWorth: previousNetWorth,
+      goalsDataAvailable: true,
+    ),
+    l10n: l10n,
+  );
+  final sourceTransactions = _dedupeSourceTransactions([
+    ...currentTransactions,
+    ...previousTransactions,
+    ...historicalTransactions,
+    ...futureTransactions,
+  ]);
+  return MonthlyFinancialReportSnapshot(
+    report: report,
+    lastSyncedAt: now.subtract(const Duration(minutes: 6)),
+    sourceTransactions: sourceTransactions,
+    isRefreshing: false,
+  );
+}
+
+List<ExpenseEntry> _previewBaseExpenses({
+  required HouseholdScope householdScope,
+  required String currencyCode,
+}) {
+  final normalizedCurrency = currencyCode.trim().toUpperCase();
+  List<ExpenseEntry> scoped = PreviewMockData.expenses.where((entry) {
+    final matchesCurrency = normalizedCurrency.isEmpty ||
+        (entry.currency ?? '').trim().toUpperCase() == normalizedCurrency;
+    if (!matchesCurrency) return false;
+    return _matchesPreviewScope(entry, householdScope);
+  }).toList(growable: false);
+  if (scoped.isNotEmpty) {
+    return scoped;
+  }
+  scoped = PreviewMockData.expenses
+      .where((entry) => _matchesPreviewScope(entry, householdScope))
+      .toList(growable: false);
+  if (scoped.isNotEmpty) {
+    return scoped;
+  }
+  scoped = PreviewMockData.expenses.where((entry) {
+    if (normalizedCurrency.isEmpty) return true;
+    return (entry.currency ?? '').trim().toUpperCase() == normalizedCurrency;
+  }).toList(growable: false);
+  if (scoped.isNotEmpty) {
+    return scoped;
+  }
+  return PreviewMockData.expenses
+      .map((entry) => entry.copyWith())
+      .toList(growable: false);
+}
+
+List<ExpenseEntry> _expandPreviewExpenses({
+  required List<ExpenseEntry> baseEntries,
+  required DateTime monthStart,
+}) {
+  final normalizedMonth = DateTime(monthStart.year, monthStart.month, 1);
+  const maxMonthOffsets = 11;
+  final expanded = <ExpenseEntry>[];
+
+  for (var offset = 0; offset <= maxMonthOffsets; offset++) {
+    final targetMonth =
+        DateTime(normalizedMonth.year, normalizedMonth.month - offset, 1);
+    final tag =
+        '${targetMonth.year}${targetMonth.month.toString().padLeft(2, '0')}';
+    expanded.addAll(
+      baseEntries.map((entry) {
+        final adjustedDate =
+            _previewDateForMonth(entry.date, targetMonth, offset);
+        final scaledAmount = _scalePreviewAmount(entry.amountCents, offset);
+        return entry.copyWith(
+          id: 'preview-$tag-${entry.id}',
+          date: adjustedDate,
+          createdAt: adjustedDate.subtract(const Duration(hours: 2)),
+          updatedAt: null,
+          amountCents: scaledAmount,
+        );
+      }),
+    );
+  }
+
+  return expanded;
+}
+
+DateTime _previewDateForMonth(
+  DateTime source,
+  DateTime monthStart,
+  int offset,
+) {
+  final daysInMonth = DateTime(monthStart.year, monthStart.month + 1, 0).day;
+  final shift = offset * 3;
+  var day = ((source.day + shift) % daysInMonth);
+  if (day <= 0) {
+    day += daysInMonth;
+  }
+  return DateTime(
+    monthStart.year,
+    monthStart.month,
+    day,
+    source.hour,
+    source.minute,
+    source.second,
+  );
+}
+
+int _scalePreviewAmount(int amountCents, int offset) {
+  final scale = 1 - (offset * 0.05);
+  final scaled = (amountCents * scale).round();
+  return scaled <= 0 ? 1 : scaled;
+}
+
+List<RecurringTransaction> _previewRecurringTransactions({
+  required HouseholdScope householdScope,
+  required String currencyCode,
+}) {
+  final normalizedCurrency = currencyCode.trim().toUpperCase();
+  List<RecurringTransaction> scoped =
+      PreviewMockData.recurringTransactions.where((transaction) {
+    final matchesCurrency = normalizedCurrency.isEmpty ||
+        transaction.currency.trim().toUpperCase() == normalizedCurrency;
+    if (!matchesCurrency) return false;
+    return _matchesRecurringScope(transaction, householdScope);
+  }).toList(growable: false);
+  if (scoped.isNotEmpty) {
+    return scoped;
+  }
+  scoped = PreviewMockData.recurringTransactions
+      .where(
+          (transaction) => _matchesRecurringScope(transaction, householdScope))
+      .toList(growable: false);
+  if (scoped.isNotEmpty) {
+    return scoped;
+  }
+  scoped = PreviewMockData.recurringTransactions.where((transaction) {
+    if (normalizedCurrency.isEmpty) return true;
+    return transaction.currency.trim().toUpperCase() == normalizedCurrency;
+  }).toList(growable: false);
+  if (scoped.isNotEmpty) {
+    return scoped;
+  }
+  return PreviewMockData.recurringTransactions
+      .map(_copyPreviewRecurring)
+      .toList(growable: false);
+}
+
+bool _matchesRecurringScope(
+  RecurringTransaction transaction,
+  HouseholdScope scope,
+) {
+  final transactionHouseholdId = transaction.householdId?.trim();
+  final targetHouseholdId = _reportHouseholdId(scope);
+  switch (scope.activeAccountType) {
+    case ActiveWalletType.personal:
+      return transactionHouseholdId == null || transactionHouseholdId.isEmpty;
+    case ActiveWalletType.portfolio:
+    case ActiveWalletType.household:
+      if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
+        return transactionHouseholdId == null || transactionHouseholdId.isEmpty;
+      }
+      return transactionHouseholdId == targetHouseholdId;
+  }
+}
+
+RecurringTransaction _copyPreviewRecurring(RecurringTransaction transaction) {
+  return RecurringTransaction(
+    id: transaction.id,
+    userId: transaction.userId,
+    date: transaction.date,
+    category: transaction.category,
+    description: transaction.description,
+    source: transaction.source,
+    merchant: transaction.merchant,
+    amount: transaction.amount,
+    currency: transaction.currency,
+    ownerType: transaction.ownerType,
+    privacyScope: transaction.privacyScope,
+    householdId: transaction.householdId,
+    payerUserId: transaction.payerUserId,
+    splitGroupId: transaction.splitGroupId,
+    accountId: transaction.accountId,
+    recurrenceRule: transaction.recurrenceRule,
+    type: transaction.type,
+    attachments: transaction.attachments,
+    createdAt: transaction.createdAt,
+    updatedAt: transaction.updatedAt,
+  );
+}
+
+List<ExpenseEntry> _filterEntriesInRange(
+  List<ExpenseEntry> entries,
+  DateTime start,
+  DateTime end,
+) {
+  final startDate = DateTime(start.year, start.month, start.day);
+  final endDate = DateTime(end.year, end.month, end.day);
+  return entries.where((entry) {
+    final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
+    return !date.isBefore(startDate) && !date.isAfter(endDate);
+  }).toList(growable: false);
+}
+
+bool _matchesPreviewScope(ExpenseEntry entry, HouseholdScope scope) {
+  final entryHouseholdId = entry.householdId?.trim();
+  final targetHouseholdId = _reportHouseholdId(scope);
+  switch (scope.activeAccountType) {
+    case ActiveWalletType.personal:
+      return entryHouseholdId == null || entryHouseholdId.isEmpty;
+    case ActiveWalletType.portfolio:
+    case ActiveWalletType.household:
+      if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
+        return entryHouseholdId == null || entryHouseholdId.isEmpty;
+      }
+      return entryHouseholdId == targetHouseholdId;
+  }
+}
+
+List<MonthlyReportBudgetInput> _previewBudgetInputs(
+  HouseholdScope scope,
+  String currencyCode,
+) {
+  final normalizedCurrency = currencyCode.trim().toUpperCase();
+  final pockets = PreviewMockData.pockets.where((pocket) {
+    if (normalizedCurrency.isEmpty) return true;
+    return pocket.currency.trim().toUpperCase() == normalizedCurrency;
+  }).toList(growable: false);
+  Iterable<PocketEnvelope> scoped = switch (scope.activeAccountType) {
+    ActiveWalletType.personal => pockets,
+    ActiveWalletType.portfolio => pockets.where(
+        (pocket) => pocket.householdId == _reportHouseholdId(scope),
+      ),
+    ActiveWalletType.household => pockets.where(
+        (pocket) => pocket.householdId == _reportHouseholdId(scope),
+      ),
+  };
+  final resolved = scoped.isEmpty ? pockets : scoped;
+  return resolved
+      .map(
+        (pocket) => MonthlyReportBudgetInput(
+          name: pocket.name,
+          budgetAmount: pocket.budgetAmountCents / 100.0,
+          spent: pocket.spent,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<MonthlyReportGoalInput> _previewGoalInputs(
+  String currencyCode,
+  DateTime now,
+) {
+  final futureA = DateTime(now.year, now.month + 6, 1);
+  final futureB = DateTime(now.year, now.month + 10, 1);
+  final futureC = DateTime(now.year, now.month + 4, 1);
+  final normalizedCurrency = currencyCode.trim().toUpperCase();
+  return [
+    MonthlyReportGoalInput(
+      id: 'preview-goal-1',
+      title: 'Emergency buffer',
+      targetAmount: 6000,
+      currentAmount: 2400,
+      currencyCode: normalizedCurrency,
+      targetDate: futureA.toIso8601String(),
+      isOnTrack: true,
+    ),
+    MonthlyReportGoalInput(
+      id: 'preview-goal-2',
+      title: 'Japan trip',
+      targetAmount: 3200,
+      currentAmount: 1100,
+      currencyCode: normalizedCurrency,
+      targetDate: futureB.toIso8601String(),
+      isOnTrack: false,
+    ),
+    MonthlyReportGoalInput(
+      id: 'preview-goal-3',
+      title: 'Car maintenance',
+      targetAmount: 1200,
+      currentAmount: 650,
+      currencyCode: normalizedCurrency,
+      targetDate: futureC.toIso8601String(),
+      isOnTrack: true,
+    ),
+  ];
+}
+
+double _previewCurrentBalance({required HouseholdScope householdScope}) {
+  final wallets = PreviewMockData.wallets;
+  final targetHouseholdId = _reportHouseholdId(householdScope);
+  final scoped = switch (householdScope.activeAccountType) {
+    ActiveWalletType.personal => wallets.where(
+        (wallet) => wallet.householdId == null || wallet.householdId!.isEmpty,
+      ),
+    ActiveWalletType.portfolio => wallets.where(
+        (wallet) => wallet.householdId == targetHouseholdId,
+      ),
+    ActiveWalletType.household => wallets.where(
+        (wallet) => wallet.householdId == targetHouseholdId,
+      ),
+  };
+  final resolved = scoped.isEmpty ? wallets : scoped;
+  final totalCents = resolved.fold<int>(
+    0,
+    (sum, wallet) => sum + wallet.currentBalanceCents,
+  );
+  return totalCents == 0 ? 2850 : totalCents / 100.0;
+}
+
+double _previewPreviousNetWorth({
+  required double currentBalance,
+  required List<ExpenseEntry> currentTransactions,
+}) {
+  final income = currentTransactions
+      .where((entry) => (entry.type ?? 'expense').toLowerCase() == 'income')
+      .fold<double>(0, (sum, entry) => sum + entry.amount.abs());
+  final spending = currentTransactions
+      .where((entry) => (entry.type ?? 'expense').toLowerCase() != 'income')
+      .fold<double>(0, (sum, entry) => sum + entry.amount.abs());
+  final netCashFlow = income - spending;
+  if (netCashFlow == 0) {
+    return currentBalance - 450;
+  }
+  return currentBalance - netCashFlow;
 }
 
 List<ExpenseEntry> _dedupeSourceTransactions(Iterable<ExpenseEntry> entries) {
