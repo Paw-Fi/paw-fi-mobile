@@ -1,19 +1,19 @@
 {
-"homeScreenWidgets": {
-"en": "Home Screen Widgets",
-"de": "Home-Bildschirm-Widgets",
-"es": "Widgets de pantalla de inicio",
-"fr": "Widgets de l’écran d’accueil",
-"it": "Widget della schermata Home",
-"ja": "ホーム画面ウィジェット",
-"ko": "홈 화면 위젯",
-"nl": "Widgets voor het beginscherm",
-"ur": "ہوم اسکرین ویجٹس",
-"ru": "Виджеты экрана «Домой»",
-"th": "วิดเจ็ตหน้าจอโฮม",
-"uk": "Віджети початкового екрана",
-"zh": "桌面小组件",
-"zh_TW": "主畫面小工具",
-"vi": "Tiện ích Màn hình chính"
+"manualMode": {
+"de": "Manueller Modus",
+"en": "Manual mode",
+"es": "Modo manual",
+"fr": "Mode manuel",
+"it": "Modalità manuale",
+"ja": "手動モード",
+"ko": "수동 모드",
+"nl": "Handmatige modus",
+"ur": "دستی موڈ",
+"ru": "Ручной режим",
+"th": "โหมดกำหนดเอง",
+"uk": "Ручний режим",
+"zh": "手动模式",
+"zh_TW": "手動模式",
+"vi": "Chế độ thủ công"
 }
 }

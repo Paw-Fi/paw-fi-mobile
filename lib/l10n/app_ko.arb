@@ -2720,5 +2720,15 @@
   "budgetPaceNeedsAttention": "{name}은(는) 지출이 이번 달 진행 속도보다 약간 앞서 있어 확인이 필요합니다.",
   "budgetPaceOnTrack": "{name}은(는) 이번 달 현재 속도에 맞춰 잘 진행 중입니다.",
   "createSpaceToShareExpenses": "다른 사람들과 지출을 공유할 공간을 만드세요.",
-  "homeScreenWidgets": "홈 화면 위젯"
+  "homeScreenWidgets": "홈 화면 위젯",
+  "balancedMode": "균형 모드",
+  "autoAdjustSubtitle": "전체 금액이 예산을 넘지 않도록 다른 포켓이 자동으로 조정됩니다.",
+  "manualAdjustSubtitle": "다른 포켓은 그대로 유지됩니다. 사용하지 않은 예산은 미배정 금액으로 남습니다.",
+  "previewPocketUpdated": "미리보기: 데모용 포켓이 업데이트되었습니다(저장되지 않음).",
+  "previewPocketCreated": "미리보기: 데모용 포켓이 생성되었습니다(저장되지 않음).",
+  "failedToCreateEnvelope": "봉투를 만들지 못했습니다",
+  "previewPocketRemovalSkipped": "미리보기: 포켓 삭제를 건너뛰었습니다(데모 데이터만 해당).",
+  "balancedManualModeTooltip": "균형 모드는 남은 예산을 다른 포켓에 다시 배분합니다. 수동 모드는 다른 포켓을 그대로 유지하고 남은 예산을 미배정 금액으로 표시합니다.",
+  "unassigned": "미배정",
+  "manualMode": "수동 모드"
 }

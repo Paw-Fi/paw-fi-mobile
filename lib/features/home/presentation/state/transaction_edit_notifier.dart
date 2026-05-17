@@ -222,6 +222,19 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         responseData['data'],
         fallback: optimisticExpense,
       );
+      final affectedHouseholdIds = <String>{
+        if (originalExpense?.householdId?.trim().isNotEmpty == true)
+          originalExpense!.householdId!.trim(),
+        if (originalForRollback?.householdId?.trim().isNotEmpty == true)
+          originalForRollback!.householdId!.trim(),
+        if (optimisticExpense?.householdId?.trim().isNotEmpty == true)
+          optimisticExpense!.householdId!.trim(),
+        if (responseExpense?.householdId?.trim().isNotEmpty == true)
+          responseExpense!.householdId!.trim(),
+      };
+      await Future.wait(
+        affectedHouseholdIds.map(clearHouseholdPersistentCacheForHousehold),
+      );
       if (localDatabase != null && responseExpense != null) {
         await localDatabase.markOptimisticTransactionUpdateSynced(
           entry: responseExpense,

@@ -2916,5 +2916,15 @@
   "budgetPaceNeedsAttention": "{name} braucht Aufmerksamkeit, weil die Ausgaben etwas schneller steigen als der Monatsverlauf.",
   "budgetPaceOnTrack": "{name} liegt im aktuellen Monatstempo im Plan.",
   "createSpaceToShareExpenses": "Erstelle einen Bereich, um Ausgaben mit anderen zu teilen.",
-  "homeScreenWidgets": "Home-Bildschirm-Widgets"
+  "homeScreenWidgets": "Home-Bildschirm-Widgets",
+  "balancedMode": "Ausgeglichener Modus",
+  "autoAdjustSubtitle": "Andere Töpfe werden automatisch angepasst, damit die Gesamtsumme im Budget bleibt.",
+  "manualAdjustSubtitle": "Andere Töpfe bleiben unverändert. Nicht genutztes Budget bleibt nicht zugewiesen.",
+  "previewPocketUpdated": "Vorschau: Topf für die Demo aktualisiert (nicht gespeichert).",
+  "previewPocketCreated": "Vorschau: Topf für die Demo erstellt (nicht gespeichert).",
+  "failedToCreateEnvelope": "Umschlag konnte nicht erstellt werden",
+  "previewPocketRemovalSkipped": "Vorschau: Entfernen des Topfs übersprungen (nur Demodaten).",
+  "balancedManualModeTooltip": "Der ausgeglichene Modus verteilt das verbleibende Budget auf andere Töpfe. Der manuelle Modus lässt andere Töpfe unverändert und zeigt übriges Budget als nicht zugewiesen an.",
+  "unassigned": "Nicht zugewiesen",
+  "manualMode": "Manueller Modus"
 }

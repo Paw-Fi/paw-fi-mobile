@@ -2935,5 +2935,15 @@
   "budgetPaceNeedsAttention": "{name} needs attention because spending is slightly ahead of the month pace.",
   "budgetPaceOnTrack": "{name} is on track with the current month pace.",
   "createSpaceToShareExpenses": "Create a space to share expenses with others.",
-  "homeScreenWidgets": "Home Screen Widgets"
+  "homeScreenWidgets": "Home Screen Widgets",
+  "balancedMode": "Balanced mode",
+  "autoAdjustSubtitle": "Other pockets adjust automatically so the total stays within budget.",
+  "manualAdjustSubtitle": "Other pockets stay fixed. Any unused budget remains unassigned.",
+  "previewPocketUpdated": "Preview: pocket updated for demo (not saved).",
+  "previewPocketCreated": "Preview: pocket created for demo (not saved).",
+  "failedToCreateEnvelope": "Failed to create envelope",
+  "previewPocketRemovalSkipped": "Preview: pocket removal skipped (demo data only).",
+  "balancedManualModeTooltip": "Balanced mode redistributes the remaining budget across other pockets. Manual mode keeps other pockets fixed and shows any leftover budget as unassigned.",
+  "unassigned": "Unassigned",
+  "manualMode": "Manual mode"
 }

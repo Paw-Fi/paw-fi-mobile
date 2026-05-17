@@ -1783,7 +1783,7 @@ class _UnifiedTransactionSheetState
                   initialSplitType: _customSplitType,
                   initialSplits: _customSplits,
                   splitEditorKey: ValueKey(
-                    'split_${_customSplitType}_${_customSplits?.length}',
+                    'split_${_customSplitType}_${_initialSplitSignature ?? 'pending'}',
                   ),
                   showNotYetSplitBanner: false,
                   onSplitChanged: (splitType, splits) {
@@ -2737,10 +2737,24 @@ class _UnifiedTransactionSheetState
       final householdId = widget.existingExpense!.householdId;
       if (householdId == null) return;
 
-      // Load splits for this household
-      final splitsAsync = await ref.read(householdSplitsProvider(
-        HouseholdSplitsParams(householdId: householdId),
-      ).future);
+      final params = HouseholdSplitsParams(householdId: householdId);
+      ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+      ref.invalidate(householdSplitsProvider(params));
+      ref.invalidate(cachedHouseholdSplitsProvider(params));
+
+      List<household_split.ExpenseSplitGroup> splitsAsync;
+      try {
+        splitsAsync = await ref
+            .read(householdRepositoryProvider)
+            .getHouseholdSplits(householdId: householdId);
+        await clearHouseholdPersistentCacheForHousehold(householdId);
+        unawaited(cacheHouseholdSplitsSnapshot(
+          params: params,
+          splits: splitsAsync,
+        ));
+      } catch (_) {
+        splitsAsync = await ref.read(householdSplitsProvider(params).future);
+      }
 
       // Find the split group for this expense
       final splitGroup = splitsAsync.firstWhere(
@@ -2848,8 +2862,8 @@ class _UnifiedTransactionSheetState
       setState(() {
         _customSplitType = uiSplitType;
         _customSplits = memberSplits;
-        _initialSplitSignature ??= signature;
-        _loadedSplitGroupType ??= dbSplitType;
+        _initialSplitSignature = signature;
+        _loadedSplitGroupType = dbSplitType;
       });
 
       debugPrint(
@@ -2863,8 +2877,10 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  void _refreshHouseholdUiAfterExpenseChange(String householdId) {
+  Future<void> _refreshHouseholdUiAfterExpenseChange(String householdId) async {
     debugPrint('🔄 [REFRESH] Starting household UI refresh');
+
+    await clearHouseholdPersistentCacheForHousehold(householdId);
 
     // CRITICAL: Invalidate RequestDeduplicator cache FIRST
     // This ensures fresh data is fetched, not the 30-second cached data
@@ -3547,7 +3563,7 @@ class _UnifiedTransactionSheetState
           // Refresh the household where income was saved (if shared)
           if (effectiveHouseholdId != null) {
             debugPrint(' Refreshing saved household UI');
-            _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
+            await _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
           // ALSO refresh the current view
@@ -3557,7 +3573,7 @@ class _UnifiedTransactionSheetState
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
             debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != effectiveHouseholdId) {
-              _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
+              await _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
             debugPrint(' Also refreshing CURRENT personal view');
@@ -3646,7 +3662,7 @@ class _UnifiedTransactionSheetState
           // Step 1: Refresh the household where expense was saved (if shared)
           if (effectiveHouseholdId != null) {
             debugPrint(' Refreshing saved household UI');
-            _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
+            await _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
           // Step 2: ALSO refresh the current view (household or personal)
@@ -3659,7 +3675,7 @@ class _UnifiedTransactionSheetState
             debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != effectiveHouseholdId) {
               // Different household than where we saved - need to refresh it too
-              _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
+              await _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
             // Currently viewing personal mode - refresh it
@@ -4007,7 +4023,7 @@ class _UnifiedTransactionSheetState
           // Refresh the scope where the expense now exists.
           if (editedHouseholdId != null) {
             debugPrint(' Refreshing expense household UI');
-            _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
+            await _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
           } else {
             debugPrint(' Refreshing expense personal UI');
             _refreshPersonalUiAfterExpenseChange(user.uid);
@@ -4020,7 +4036,7 @@ class _UnifiedTransactionSheetState
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
             debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != editedHouseholdId) {
-              _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
+              await _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
             debugPrint(' Also refreshing CURRENT personal view');
@@ -4032,7 +4048,7 @@ class _UnifiedTransactionSheetState
                 originalHouseholdId != currentHouseholdId &&
                 originalHouseholdId != editedHouseholdId) {
               debugPrint(' Refreshing PREVIOUS household view');
-              _refreshHouseholdUiAfterExpenseChange(originalHouseholdId);
+              await _refreshHouseholdUiAfterExpenseChange(originalHouseholdId);
             } else if (originalHouseholdId == null &&
                 currentScope.isHouseholdView &&
                 editedHouseholdId != null) {
@@ -4045,6 +4061,9 @@ class _UnifiedTransactionSheetState
           closeDialog();
 
           final remapToCategory = nextCategoryForRemap;
+          if (!mounted || !toastContext.mounted) {
+            return;
+          }
           if (shouldPromptCategoryRemap && remapToCategory != null) {
             await _handleCategoryRemapPrompt(
               toastContext: toastContext,

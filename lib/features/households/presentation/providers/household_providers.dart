@@ -147,6 +147,25 @@ Future<void> cacheHouseholdSplitsSnapshot({
   );
 }
 
+Future<void> clearHouseholdPersistentCacheForHousehold(
+    String householdId) async {
+  final prefs = await _householdPrefsOrNull();
+  if (prefs == null) return;
+
+  final prefixes = [
+    'households:members:v1:$householdId',
+    'households:budgets:v1:$householdId',
+    'households:splits:v1:$householdId:',
+    'households:expenses:v1:$householdId:',
+    'households:summary:v1:$householdId:',
+  ];
+
+  final keys = prefs.getKeys().where(
+        (key) => prefixes.any(key.startsWith),
+      );
+  await Future.wait(keys.map(prefs.remove));
+}
+
 Future<void> _writeHouseholdCachedObject<T>(
   String key,
   T item,
@@ -1012,7 +1031,8 @@ final householdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
     final repository = ref.watch(householdRepositoryProvider);
-    final isOffline = ref.watch(networkReachabilityProvider).valueOrNull == false;
+    final isOffline =
+        ref.watch(networkReachabilityProvider).valueOrNull == false;
     final optimistic = ref.watch(
       householdOptimisticSplitsProvider
           .select((state) => state[params.householdId] ?? const []),
@@ -1111,7 +1131,8 @@ final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
     final supabase = ref.watch(supabaseClientProvider);
-    final isOffline = ref.watch(networkReachabilityProvider).valueOrNull == false;
+    final isOffline =
+        ref.watch(networkReachabilityProvider).valueOrNull == false;
     final optimistic = ref.watch(
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),

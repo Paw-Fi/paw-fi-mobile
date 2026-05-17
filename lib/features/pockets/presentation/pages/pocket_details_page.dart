@@ -163,7 +163,7 @@ class PocketDetailsPage extends HookConsumerWidget {
     );
     final pocketDetailsParams = PocketTransactionsParams(
       pocketId: pocketId,
-      scopeParams: detailScopeParams,
+      scopeParams: scopeParams,
     );
     final detailsAsync = ref.watch(
       pocketDetailsProvider(pocketDetailsParams),
@@ -339,7 +339,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           useSafeArea: true,
                           isScrollControlled: true,
                           builder: (sheetContext) => EditPocketEnvelopeSheet(
-                            scopeParams: detailScopeParams,
+                            scopeParams: scopeParams,
                             existingEnvelope: pocket,
                             totalBudget: totalBudget,
                             unallocatedBudget: unallocatedBudget,

@@ -7916,4 +7916,34 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get homeScreenWidgets => 'วิดเจ็ตหน้าจอโฮม';
+
+  @override
+  String get balancedMode => 'โหมดสมดุล';
+
+  @override
+  String get autoAdjustSubtitle => 'กระเป๋าอื่น ๆ จะปรับอัตโนมัติ เพื่อให้ยอดรวมยังอยู่ในงบประมาณ';
+
+  @override
+  String get manualAdjustSubtitle => 'กระเป๋าอื่น ๆ จะคงเดิม งบประมาณที่ไม่ได้ใช้จะยังไม่ถูกจัดสรร';
+
+  @override
+  String get previewPocketUpdated => 'ตัวอย่าง: อัปเดตกระเป๋าสำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
+
+  @override
+  String get previewPocketCreated => 'ตัวอย่าง: สร้างกระเป๋าสำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
+
+  @override
+  String get failedToCreateEnvelope => 'สร้างซองงบประมาณไม่สำเร็จ';
+
+  @override
+  String get previewPocketRemovalSkipped => 'ตัวอย่าง: ข้ามการลบกระเป๋าแล้ว (ข้อมูลเดโมเท่านั้น)';
+
+  @override
+  String get balancedManualModeTooltip => 'โหมดสมดุลจะกระจายงบประมาณที่เหลือไปยังกระเป๋าอื่น ๆ ส่วนโหมดกำหนดเองจะคงกระเป๋าอื่นไว้เหมือนเดิม และแสดงงบที่เหลือเป็นงบที่ยังไม่ได้จัดสรร';
+
+  @override
+  String get unassigned => 'ยังไม่ได้จัดสรร';
+
+  @override
+  String get manualMode => 'โหมดกำหนดเอง';
 }

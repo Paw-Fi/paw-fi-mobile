@@ -2863,5 +2863,15 @@
   "budgetPaceNeedsAttention": "{name} heeft aandacht nodig omdat de uitgaven iets voorlopen op het tempo van de maand.",
   "budgetPaceOnTrack": "{name} ligt op schema met het huidige maandtempo.",
   "createSpaceToShareExpenses": "Maak een ruimte om uitgaven met anderen te delen.",
-  "homeScreenWidgets": "Widgets voor het beginscherm"
+  "homeScreenWidgets": "Widgets voor het beginscherm",
+  "balancedMode": "Gebalanceerde modus",
+  "autoAdjustSubtitle": "Andere potjes worden automatisch aangepast, zodat het totaal binnen je budget blijft.",
+  "manualAdjustSubtitle": "Andere potjes blijven ongewijzigd. Ongebruikt budget blijft niet toegewezen.",
+  "previewPocketUpdated": "Voorbeeld: potje bijgewerkt voor de demo (niet opgeslagen).",
+  "previewPocketCreated": "Voorbeeld: potje aangemaakt voor de demo (niet opgeslagen).",
+  "failedToCreateEnvelope": "Envelop kon niet worden aangemaakt",
+  "previewPocketRemovalSkipped": "Voorbeeld: potje verwijderen overgeslagen (alleen demogegevens).",
+  "balancedManualModeTooltip": "De gebalanceerde modus verdeelt het resterende budget over andere potjes. De handmatige modus houdt andere potjes vast en toont overgebleven budget als niet toegewezen.",
+  "unassigned": "Niet toegewezen",
+  "manualMode": "Handmatige modus"
 }

@@ -25,6 +25,7 @@ import 'package:moneko/features/pockets/presentation/constants/budget_templates.
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -33,6 +34,9 @@ import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+
+const _autoAdjustOtherPocketsPreferenceKey =
+    'pockets_auto_adjust_other_pockets';
 
 class EditPocketEnvelopeSheet extends HookConsumerWidget {
   const EditPocketEnvelopeSheet({
@@ -130,6 +134,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final selectedIcon =
         useState<String?>(existingEnvelope?.icon ?? template?.iconName);
     final isLoading = useState<bool>(false);
+    final prefs = ref.read(sharedPreferencesProvider);
+    final autoAdjustOtherPockets = useState<bool>(
+      prefs.getBool(_autoAdjustOtherPocketsPreferenceKey) ?? true,
+    );
     final currency = selectedCurrency;
     final allocationStepCents = pocketBudgetAdjustmentStepCents(currency);
     final totalBudgetCents = quantizePocketBudgetAmountCents(
@@ -157,6 +165,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         .toList(growable: false);
 
     bool shouldRebalanceSiblingBudgets(int currentAmountCents) {
+      if (!autoAdjustOtherPockets.value) {
+        return false;
+      }
+
       if (siblingPockets.isEmpty) {
         return false;
       }
@@ -187,6 +199,28 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     final previewSiblingAmounts =
         buildRebalancedSiblingAmounts(previewAmountCents);
+    final previewAllocatedCents = previewAmountCents +
+        previewSiblingAmounts.fold<int>(0, (sum, amount) => sum + amount);
+    final previewExceededBudgetCents =
+        math.max(0, previewAllocatedCents - totalBudgetCents);
+    final l10n = context.l10n;
+    final autoAdjustTitle =
+        autoAdjustOtherPockets.value ? l10n.balancedMode : l10n.manualMode;
+    final autoAdjustSubtitle = autoAdjustOtherPockets.value
+        ? l10n.autoAdjustSubtitle
+        : l10n.manualAdjustSubtitle;
+    final autoAdjustAccent = autoAdjustOtherPockets.value
+        ? colorScheme.primary
+        : colorScheme.warning;
+
+    void setAutoAdjustOtherPockets(bool value) {
+      autoAdjustOtherPockets.value = value;
+      unawaited(
+        prefs
+            .setBool(_autoAdjustOtherPocketsPreferenceKey, value)
+            .then<void>((_) {}),
+      );
+    }
 
     useEffect(() {
       if (!isEditing) {
@@ -318,8 +352,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         AppToast.success(
           context,
           existingEnvelope != null
-              ? 'Preview: pocket updated for demo (not saved).'
-              : 'Preview: pocket created for demo (not saved).',
+              ? l10n.previewPocketUpdated
+              : l10n.previewPocketCreated,
         );
         return;
       }
@@ -509,7 +543,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
           final id = insertRes != null ? insertRes['id'] as String? : null;
           if (id == null) {
-            throw Exception('Failed to create envelope');
+            throw Exception(l10n.failedToCreateEnvelope);
           }
           envelopeId = id;
 
@@ -590,7 +624,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         Navigator.of(context, rootNavigator: true).pop();
         AppToast.info(
           context,
-          'Preview: pocket removal skipped (demo data only).',
+          context.l10n.previewPocketRemovalSkipped,
         );
         return;
       }
@@ -1023,14 +1057,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                       boxShadow: isSelected
                                           ? [
                                               BoxShadow(
-                                                color: colorScheme.homeCardShadow,
+                                                color:
+                                                    colorScheme.homeCardShadow,
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 2),
                                               ),
                                             ]
                                           : [
                                               BoxShadow(
-                                                color: colorScheme.homeCardShadow,
+                                                color:
+                                                    colorScheme.homeCardShadow,
                                                 blurRadius: 4,
                                                 offset: const Offset(0, 1),
                                               ),
@@ -1132,6 +1168,111 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: isLoading.value
+                                    ? null
+                                    : () {
+                                        setAutoAdjustOtherPockets(
+                                          !autoAdjustOtherPockets.value,
+                                        );
+                                      },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOutCubic,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: autoAdjustAccent.withValues(
+                                      alpha: autoAdjustOtherPockets.value
+                                          ? 0.10
+                                          : 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: autoAdjustAccent.withValues(
+                                        alpha: autoAdjustOtherPockets.value
+                                            ? 0.22
+                                            : 0.30,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                AnimatedSwitcher(
+                                                  duration: const Duration(
+                                                    milliseconds: 180,
+                                                  ),
+                                                  child: Text(
+                                                    autoAdjustTitle,
+                                                    key: ValueKey(
+                                                        autoAdjustTitle),
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: colorScheme
+                                                          .foreground,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Tooltip(
+                                                  message: l10n.balancedManualModeTooltip,
+                                                  triggerMode:
+                                                      TooltipTriggerMode.tap,
+                                                  child: Icon(
+                                                    Icons.help_outline_rounded,
+                                                    size: 18,
+                                                    color: colorScheme
+                                                        .mutedForeground,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            AnimatedSwitcher(
+                                              duration: const Duration(
+                                                milliseconds: 180,
+                                              ),
+                                              child: Align(
+                                                key: ValueKey(
+                                                    autoAdjustSubtitle),
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  autoAdjustSubtitle,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    height: 1.25,
+                                                    color: colorScheme
+                                                        .mutedForeground,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      AdaptiveSwitch(
+                                        value: autoAdjustOtherPockets.value,
+                                        onChanged: isLoading.value
+                                            ? null
+                                            : setAutoAdjustOtherPockets,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -1269,27 +1410,38 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              if (unallocatedBudget < 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded,
-                                          size: 16, color: colorScheme.error),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '${context.l10n.budgetExceededByLabel} ${formatLocalizedAmount(unallocatedBudget.abs())}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: colorScheme.error,
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: previewExceededBudgetCents > 0
+                                    ? Padding(
+                                        key: const ValueKey(
+                                            'budget_exceeded_warning'),
+                                        padding: const EdgeInsets.only(top: 12),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.warning_amber_rounded,
+                                              size: 16,
+                                              color: colorScheme.error,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                '${context.l10n.budgetExceededByLabel} ${formatLocalizedAmount(previewExceededBudgetCents / 100.0)}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: colorScheme.error,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
+                                      )
+                                    : const SizedBox.shrink(
+                                        key: ValueKey('no_budget_warning'),
                                       ),
-                                    ],
-                                  ),
-                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1304,6 +1456,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                               ? context.l10n.thisPocketFallback
                               : nameController.text.trim(),
                           colorScheme: colorScheme,
+                          showUnassignedBudget: !autoAdjustOtherPockets.value,
                         ),
                         const SizedBox(height: 24),
                         SizedBox(
@@ -1366,6 +1519,7 @@ class _BudgetDistributionPreview extends StatelessWidget {
     required this.currentPocketColor,
     required this.currentPocketName,
     required this.colorScheme,
+    required this.showUnassignedBudget,
   });
 
   final double totalBudget;
@@ -1375,26 +1529,25 @@ class _BudgetDistributionPreview extends StatelessWidget {
   final String? currentPocketColor;
   final String currentPocketName;
   final ColorScheme colorScheme;
+  final bool showUnassignedBudget;
 
   @override
   Widget build(BuildContext context) {
     if (totalBudget <= 0) return const SizedBox.shrink();
+    final l10n = context.l10n;
 
     final totalBudgetCents = (totalBudget * 100).round();
-    final currentShare = totalBudgetCents > 0
-        ? (currentAmountCents.clamp(0, totalBudgetCents) / totalBudgetCents) *
-            100
-        : 0.0;
-
-    // Build segments with calculated shares
-    final segments = <_Segment>[
+    final unassignedColor = colorScheme.surfaceContainerHighest;
+    final rawSegments = <_Segment>[
       for (var index = 0; index < otherPockets.length; index++)
         _Segment(
           label: otherPockets[index].name.isEmpty
               ? context.l10n.pocketSegmentLabel
               : otherPockets[index].name,
           share: totalBudgetCents > 0
-              ? (otherPocketAmountsCents[index] / totalBudgetCents) * 100
+              ? (math.max(0, otherPocketAmountsCents[index]) /
+                      totalBudgetCents) *
+                  100
               : 0.0,
           color: _hexOrPrimary(otherPockets[index].color, colorScheme),
         ),
@@ -1402,19 +1555,46 @@ class _BudgetDistributionPreview extends StatelessWidget {
         label: currentPocketName.isEmpty
             ? context.l10n.thisPocketSegmentLabel
             : currentPocketName,
-        share: currentShare,
+        share: totalBudgetCents > 0
+            ? (math.max(0, currentAmountCents) / totalBudgetCents) * 100
+            : 0.0,
         color: _hexOrPrimary(currentPocketColor, colorScheme),
         isCurrent: true,
       ),
     ];
-
-    // Since we're showing calculated shares, they should always add up to 100
-    final totalRebalanced =
-        segments.fold<double>(0.0, (sum, s) => sum + s.share);
-    final remaining = (100.0 - totalRebalanced).clamp(0, 100);
-
-    // For display, segments should already be balanced to 100%
-    final normalizedSegments = segments;
+    final totalAllocatedShare =
+        rawSegments.fold<double>(0.0, (sum, segment) => sum + segment.share);
+    final unassignedShare =
+        (100.0 - totalAllocatedShare).clamp(0.0, 100.0).toDouble();
+    final visibleSegments = <_Segment>[];
+    var remainingCapacity = 100.0;
+    for (final segment in rawSegments) {
+      if (remainingCapacity <= 0) break;
+      final visibleShare =
+          segment.share.clamp(0.0, remainingCapacity).toDouble();
+      if (visibleShare > 0) {
+        visibleSegments.add(segment.copyWith(share: visibleShare));
+        remainingCapacity -= visibleShare;
+      }
+    }
+    if (showUnassignedBudget && unassignedShare > 0) {
+      visibleSegments.add(_Segment(
+        label: l10n.unassigned,
+        share: unassignedShare,
+        color: unassignedColor,
+        isUnassigned: true,
+      ));
+    }
+    final legendSegments = <_Segment>[
+      ...rawSegments.where((segment) => segment.share > 0),
+      if (showUnassignedBudget && unassignedShare > 0)
+        _Segment(
+          label: l10n.unassigned,
+          share: unassignedShare,
+          color: unassignedColor,
+          isUnassigned: true,
+        ),
+    ];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1454,18 +1634,26 @@ class _BudgetDistributionPreview extends StatelessWidget {
               color: colorScheme.surfaceContainerHighest,
               child: Row(
                 children: [
-                  for (final seg in normalizedSegments)
+                  for (final seg in visibleSegments)
                     if (seg.share > 0)
                       Flexible(
                         flex: math.max(1, (seg.share * 10).round()),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          color: seg.color,
+                          decoration: BoxDecoration(
+                            color: seg.color,
+                            border: seg.isUnassigned
+                                ? Border.all(
+                                    color: colorScheme.outline
+                                        .withValues(alpha: 0.12),
+                                  )
+                                : null,
+                          ),
                         ),
                       ),
-                  if (remaining > 0)
+                  if (!showUnassignedBudget && remainingCapacity > 0)
                     Flexible(
-                      flex: math.max(1, (remaining * 10).round()),
+                      flex: math.max(1, (remainingCapacity * 10).round()),
                       child: Container(
                         color: colorScheme.surface.withValues(alpha: 0.0),
                       ),
@@ -1479,11 +1667,12 @@ class _BudgetDistributionPreview extends StatelessWidget {
             spacing: 12,
             runSpacing: 8,
             children: [
-              for (final seg in normalizedSegments)
+              for (final seg in legendSegments)
                 _LegendItem(
                   color: seg.color,
                   label: seg.label,
                   colorScheme: colorScheme,
+                  outlined: seg.isUnassigned,
                 ),
             ],
           ),
@@ -1499,12 +1688,14 @@ class _Segment {
     required this.share,
     required this.color,
     this.isCurrent = false,
+    this.isUnassigned = false,
   });
 
   final String label;
   final double share;
   final Color color;
   final bool isCurrent;
+  final bool isUnassigned;
 
   _Segment copyWith({double? share}) {
     return _Segment(
@@ -1512,6 +1703,7 @@ class _Segment {
       share: share ?? this.share,
       color: color,
       isCurrent: isCurrent,
+      isUnassigned: isUnassigned,
     );
   }
 }
@@ -1531,11 +1723,13 @@ class _LegendItem extends StatelessWidget {
     required this.color,
     required this.label,
     required this.colorScheme,
+    this.outlined = false,
   });
 
   final Color color;
   final String label;
   final ColorScheme colorScheme;
+  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
@@ -1548,6 +1742,11 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
+            border: outlined
+                ? Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.35),
+                  )
+                : null,
           ),
         ),
         const SizedBox(width: 4),

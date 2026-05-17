@@ -2918,5 +2918,15 @@
   "budgetPaceNeedsAttention": "{name} necesita atención porque el gasto va un poco por delante del ritmo del mes.",
   "budgetPaceOnTrack": "{name} va en línea con el ritmo actual del mes.",
   "createSpaceToShareExpenses": "Crea un espacio para compartir gastos con otras personas.",
-  "homeScreenWidgets": "Widgets de pantalla de inicio"
+  "homeScreenWidgets": "Widgets de pantalla de inicio",
+  "balancedMode": "Modo equilibrado",
+  "autoAdjustSubtitle": "Otros bolsillos se ajustan automáticamente para que el total se mantenga dentro del presupuesto.",
+  "manualAdjustSubtitle": "Los demás bolsillos se mantienen igual. Cualquier presupuesto sin usar queda sin asignar.",
+  "previewPocketUpdated": "Vista previa: bolsillo actualizado para la demo (no guardado).",
+  "previewPocketCreated": "Vista previa: bolsillo creado para la demo (no guardado).",
+  "failedToCreateEnvelope": "No se pudo crear el sobre",
+  "previewPocketRemovalSkipped": "Vista previa: se omitió la eliminación del bolsillo (solo datos de demo).",
+  "balancedManualModeTooltip": "El modo equilibrado redistribuye el presupuesto restante entre otros bolsillos. El modo manual mantiene los demás bolsillos fijos y muestra el presupuesto sobrante como sin asignar.",
+  "unassigned": "Sin asignar",
+  "manualMode": "Modo manual"
 }

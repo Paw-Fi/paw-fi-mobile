@@ -2916,5 +2916,15 @@
   "budgetPaceNeedsAttention": "{name}は、支出が月の進み具合より少し先行しているため確認が必要です。",
   "budgetPaceOnTrack": "{name}は今月のペースに沿って順調です。",
   "createSpaceToShareExpenses": "他の人と支出を共有するスペースを作成します。",
-  "homeScreenWidgets": "ホーム画面ウィジェット"
+  "homeScreenWidgets": "ホーム画面ウィジェット",
+  "balancedMode": "バランスモード",
+  "autoAdjustSubtitle": "合計が予算内に収まるように、他のポケットが自動で調整されます。",
+  "manualAdjustSubtitle": "他のポケットは固定されたままです。未使用の予算は未割り当てのまま残ります。",
+  "previewPocketUpdated": "プレビュー：デモ用にポケットを更新しました（保存されていません）。",
+  "previewPocketCreated": "プレビュー：デモ用にポケットを作成しました（保存されていません）。",
+  "failedToCreateEnvelope": "封筒を作成できませんでした",
+  "previewPocketRemovalSkipped": "プレビュー：ポケットの削除はスキップされました（デモデータのみ）。",
+  "balancedManualModeTooltip": "バランスモードでは、残りの予算が他のポケットに再配分されます。手動モードでは他のポケットは固定され、余った予算は未割り当てとして表示されます。",
+  "unassigned": "未割り当て",
+  "manualMode": "手動モード"
 }

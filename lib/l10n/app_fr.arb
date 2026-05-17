@@ -2916,5 +2916,15 @@
   "budgetPaceNeedsAttention": "{name} mérite votre attention, car les dépenses sont légèrement en avance sur le rythme du mois.",
   "budgetPaceOnTrack": "{name} suit le rythme actuel du mois.",
   "createSpaceToShareExpenses": "Créez un espace pour partager des dépenses avec d’autres.",
-  "homeScreenWidgets": "Widgets de l’écran d’accueil"
+  "homeScreenWidgets": "Widgets de l’écran d’accueil",
+  "balancedMode": "Mode équilibré",
+  "autoAdjustSubtitle": "Les autres enveloppes s’ajustent automatiquement afin que le total reste dans le budget.",
+  "manualAdjustSubtitle": "Les autres enveloppes restent inchangées. Tout budget non utilisé reste non attribué.",
+  "previewPocketUpdated": "Aperçu : enveloppe mise à jour pour la démo (non enregistrée).",
+  "previewPocketCreated": "Aperçu : enveloppe créée pour la démo (non enregistrée).",
+  "failedToCreateEnvelope": "Impossible de créer l’enveloppe",
+  "previewPocketRemovalSkipped": "Aperçu : suppression de l’enveloppe ignorée (données de démo uniquement).",
+  "balancedManualModeTooltip": "Le mode équilibré répartit le budget restant entre les autres enveloppes. Le mode manuel garde les autres enveloppes inchangées et affiche le budget restant comme non attribué.",
+  "unassigned": "Non attribué",
+  "manualMode": "Mode manuel"
 }

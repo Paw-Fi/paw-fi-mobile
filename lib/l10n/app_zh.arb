@@ -2912,5 +2912,15 @@
   "budgetPaceNeedsAttention": "{name} 需要关注，因为支出略快于本月进度。",
   "budgetPaceOnTrack": "{name} 符合当前本月进度。",
   "createSpaceToShareExpenses": "创建一个空间，与他人共享支出。",
-  "homeScreenWidgets": "桌面小组件"
+  "homeScreenWidgets": "桌面小组件",
+  "balancedMode": "均衡模式",
+  "autoAdjustSubtitle": "其他口袋会自动调整，确保总额不超出预算。",
+  "manualAdjustSubtitle": "其他口袋保持不变。未使用的预算将保持未分配状态。",
+  "previewPocketUpdated": "预览：已为演示更新口袋（未保存）。",
+  "previewPocketCreated": "预览：已为演示创建口袋（未保存）。",
+  "failedToCreateEnvelope": "创建信封失败",
+  "previewPocketRemovalSkipped": "预览：已跳过删除口袋（仅限演示数据）。",
+  "balancedManualModeTooltip": "均衡模式会将剩余预算重新分配到其他口袋。手动模式会保持其他口袋不变，并将剩余预算显示为未分配。",
+  "unassigned": "未分配",
+  "manualMode": "手动模式"
 }

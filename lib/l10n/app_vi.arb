@@ -2915,5 +2915,15 @@
   "budgetPaceNeedsAttention": "{name} cần được chú ý vì chi tiêu đang hơi nhanh hơn tiến độ của tháng.",
   "budgetPaceOnTrack": "{name} đang đi đúng với tiến độ hiện tại của tháng.",
   "createSpaceToShareExpenses": "Tạo một không gian để chia sẻ chi phí với người khác.",
-  "homeScreenWidgets": "Tiện ích Màn hình chính"
+  "homeScreenWidgets": "Tiện ích Màn hình chính",
+  "balancedMode": "Chế độ cân bằng",
+  "autoAdjustSubtitle": "Các khoản khác sẽ tự động điều chỉnh để tổng số tiền vẫn nằm trong ngân sách.",
+  "manualAdjustSubtitle": "Các khoản khác sẽ được giữ nguyên. Ngân sách chưa dùng sẽ vẫn chưa được phân bổ.",
+  "previewPocketUpdated": "Xem trước: khoản đã được cập nhật cho bản demo (chưa lưu).",
+  "previewPocketCreated": "Xem trước: khoản đã được tạo cho bản demo (chưa lưu).",
+  "failedToCreateEnvelope": "Không thể tạo phong bì",
+  "previewPocketRemovalSkipped": "Xem trước: đã bỏ qua việc xóa khoản (chỉ là dữ liệu demo).",
+  "balancedManualModeTooltip": "Chế độ cân bằng sẽ phân bổ lại ngân sách còn lại sang các khoản khác. Chế độ thủ công giữ nguyên các khoản khác và hiển thị phần ngân sách còn dư là chưa phân bổ.",
+  "unassigned": "Chưa phân bổ",
+  "manualMode": "Chế độ thủ công"
 }

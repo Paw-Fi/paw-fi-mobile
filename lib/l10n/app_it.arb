@@ -2863,5 +2863,15 @@
   "budgetPaceNeedsAttention": "{name} richiede attenzione perché la spesa è leggermente avanti rispetto al ritmo del mese.",
   "budgetPaceOnTrack": "{name} è in linea con il ritmo attuale del mese.",
   "createSpaceToShareExpenses": "Crea uno spazio per condividere le spese con altre persone.",
-  "homeScreenWidgets": "Widget della schermata Home"
+  "homeScreenWidgets": "Widget della schermata Home",
+  "balancedMode": "Modalità bilanciata",
+  "autoAdjustSubtitle": "Le altre tasche si regolano automaticamente, così il totale resta entro il budget.",
+  "manualAdjustSubtitle": "Le altre tasche restano invariate. L’eventuale budget non utilizzato rimane non assegnato.",
+  "previewPocketUpdated": "Anteprima: tasca aggiornata per la demo (non salvata).",
+  "previewPocketCreated": "Anteprima: tasca creata per la demo (non salvata).",
+  "failedToCreateEnvelope": "Impossibile creare la busta",
+  "previewPocketRemovalSkipped": "Anteprima: rimozione della tasca saltata (solo dati demo).",
+  "balancedManualModeTooltip": "La modalità bilanciata ridistribuisce il budget rimanente tra le altre tasche. La modalità manuale mantiene fisse le altre tasche e mostra l’eventuale budget residuo come non assegnato.",
+  "unassigned": "Non assegnato",
+  "manualMode": "Modalità manuale"
 }
