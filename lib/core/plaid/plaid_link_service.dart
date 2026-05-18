@@ -4,7 +4,7 @@ import 'package:plaid_flutter/plaid_flutter.dart';
 
 class PlaidLinkResult {
   PlaidLinkResult({
-    required this.publicToken,
+    this.publicToken,
     this.institutionId,
     this.institutionName,
     this.linkRequestId,
@@ -12,7 +12,7 @@ class PlaidLinkResult {
     this.selectedAccounts = const <PlaidLinkSelectedAccount>[],
   });
 
-  final String publicToken;
+  final String? publicToken;
   final String? institutionId;
   final String? institutionName;
   final String? linkRequestId;

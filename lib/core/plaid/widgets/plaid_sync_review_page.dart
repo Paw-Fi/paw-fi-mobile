@@ -595,13 +595,10 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<_ConnectionSyncSnapshot> _fetchConnectionSyncSnapshot() async {
-    final row = await Supabase.instance.client
-        .from('bank_connections')
-        .select(
-          'status, item_status, relink_state, last_successful_sync_at, metadata',
-        )
-        .eq('id', widget.session.connectionId)
-        .maybeSingle();
+    final row = await Supabase.instance.client.rpc(
+      'get_mobile_bank_connection_sync_snapshot',
+      params: {'p_connection_id': widget.session.connectionId},
+    ).maybeSingle();
 
     if (row == null) {
       return const _ConnectionSyncSnapshot();
