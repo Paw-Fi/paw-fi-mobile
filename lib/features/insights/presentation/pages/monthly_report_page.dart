@@ -2732,14 +2732,12 @@ class _MonthlyReportSectionTitle extends StatelessWidget {
     required this.colorScheme,
     this.actionLabel,
     this.onActionTap,
-    this.trailing,
   });
 
   final String title;
   final String? actionLabel;
   final VoidCallback? onActionTap;
   final ColorScheme colorScheme;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -2782,7 +2780,6 @@ class _MonthlyReportSectionTitle extends StatelessWidget {
                 ),
               ),
             ),
-          if (trailing != null) trailing!,
         ],
       ),
     );
@@ -4325,7 +4322,6 @@ class _MonthlyReportLoadingState extends HookWidget {
 
 class _MonthlyReportSyncStatus extends StatefulWidget {
   const _MonthlyReportSyncStatus({
-    super.key,
     required this.colorScheme,
     required this.lastSyncedAt,
     required this.isRefreshing,

@@ -98,6 +98,19 @@ class AccountsPage extends HookConsumerWidget {
       );
     }
 
+    if (!isPreviewMode && walletAuthHeaders == null) {
+      pageTrace.mark('page-blocked-before-wallet-load', {
+        'reason': 'missing-auth-headers',
+      });
+      return const StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
+          body: SafeArea(
+            child: _WalletsPageSkeleton(),
+          ),
+        ),
+      );
+    }
+
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);
@@ -635,8 +648,6 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                          AppToast.info(context,  context.l10n.comingSoon);
-                          return;
                           if (isPreviewMode) {
                             AppToast.info(
                               context,
@@ -1235,7 +1246,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
                               color: colorScheme.foreground,
-                              letterSpacing: -1.0,
+                              letterSpacing: 0,
                               height: 1.1,
                             ),
                           ),
@@ -1339,7 +1350,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                                   color: colorScheme.foreground,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
-                                  letterSpacing: -0.3,
+                                  letterSpacing: 0,
                                 ),
                               );
                             }).toList();
