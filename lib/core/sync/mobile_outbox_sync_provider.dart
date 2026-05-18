@@ -178,6 +178,9 @@ Future<void> _dispatchMobileMutation(
     case 'save_category_remap':
       await _saveCategoryRemap(payload);
       return;
+    case 'delete_category_remap':
+      await _deleteCategoryRemap(payload);
+      return;
     case 'update_transaction':
       final responseBody = await _invokeMutationFunction('update-expense', {
         ..._metadataFromPayload(payload),
@@ -294,6 +297,27 @@ Future<void> _saveCategoryRemap(Map<String, dynamic> payload) async {
     },
     onConflict: 'user_id,transaction_type,from_category_name',
   );
+}
+
+Future<void> _deleteCategoryRemap(Map<String, dynamic> payload) async {
+  final userId = payload['userId']?.toString().trim();
+  final transactionType = payload['transactionType']?.toString().trim();
+  final fromCategory = payload['fromCategory']?.toString().trim();
+  if (userId == null ||
+      userId.isEmpty ||
+      transactionType == null ||
+      (transactionType != 'expense' && transactionType != 'income') ||
+      fromCategory == null ||
+      fromCategory.isEmpty) {
+    throw ArgumentError('Invalid category remap delete payload');
+  }
+
+  await supabase
+      .from('user_category_remaps')
+      .delete()
+      .eq('user_id', userId)
+      .eq('transaction_type', transactionType)
+      .eq('from_category_name', fromCategory);
 }
 
 Future<Map<String, dynamic>> _invokeMutationFunction(

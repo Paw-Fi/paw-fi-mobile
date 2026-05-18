@@ -210,6 +210,39 @@ void main() {
           DateTime.utc(2026, 4, 7, 12).toIso8601String());
     });
 
+    test('deletes category remaps locally and queues sync mutation', () async {
+      await database.saveCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        toCategory: 'Groceries',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_delete',
+      );
+
+      await database.deleteCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_delete',
+      );
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'dining',
+        transactionType: 'expense',
+      );
+      final mutations = await database.getOutboxMutations();
+      final payload = jsonDecode(mutations.single.payloadJson) as Map;
+
+      expect(mapped, isNull);
+      expect(mutations.single.clientMutationId, 'mobile:category_remap_delete');
+      expect(mutations.single.entityType, 'category_remap');
+      expect(mutations.single.entityId, 'user_1:expense:dining');
+      expect(mutations.single.operation, 'delete_category_remap');
+      expect(payload['fromCategory'], 'dining');
+      expect(payload['transactionType'], 'expense');
+    });
+
     test('reconciles remote category remaps without queueing mutations',
         () async {
       await database.upsertCategoryRemapsFromRemote([
@@ -265,6 +298,57 @@ void main() {
 
       expect(mapped, 'food');
       expect(mutations.single.status, localMutationStatusQueued);
+    });
+
+    test('remote category remap snapshot clears stale synced local rows',
+        () async {
+      await database.upsertCategoryRemapsFromRemote([
+        LocalCategoryRemapPreference(
+          userId: 'user_1',
+          transactionType: 'expense',
+          fromCategory: 'Dining',
+          toCategory: 'Groceries',
+          useCount: 3,
+          lastUsedAt: DateTime.utc(2026, 4, 8, 12),
+        ),
+      ]);
+
+      await database.replaceCategoryRemapsFromRemote(
+        userId: 'user_1',
+        remaps: const <LocalCategoryRemapPreference>[],
+      );
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'dining',
+        transactionType: 'expense',
+      );
+
+      expect(mapped, isNull);
+    });
+
+    test('remote category remap snapshot preserves pending local saves',
+        () async {
+      await database.saveCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        toCategory: 'Groceries',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_1',
+      );
+
+      await database.replaceCategoryRemapsFromRemote(
+        userId: 'user_1',
+        remaps: const <LocalCategoryRemapPreference>[],
+      );
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'dining',
+        transactionType: 'expense',
+      );
+
+      expect(mapped, 'groceries');
     });
 
     test('replaces optimistic transaction with server row and marks synced',

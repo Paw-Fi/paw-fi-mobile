@@ -1297,6 +1297,44 @@ class MonekoDatabase {
     });
   }
 
+  Future<void> deleteCategoryRemapPreference({
+    required String userId,
+    required String fromCategory,
+    required String transactionType,
+    required String clientMutationId,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedFrom = _normalizeCategoryRemapValue(fromCategory);
+    final normalizedType = _normalizeCategoryRemapValue(transactionType);
+    if (normalizedUserId.isEmpty ||
+        normalizedFrom.isEmpty ||
+        (normalizedType != 'expense' && normalizedType != 'income')) {
+      return;
+    }
+
+    final entityId = '$normalizedUserId:$normalizedType:$normalizedFrom';
+    _runInTransaction(() {
+      _db.execute(
+        '''
+        DELETE FROM local_category_remaps
+        WHERE user_id = ? AND transaction_type = ? AND from_category_name = ?
+        ''',
+        [normalizedUserId, normalizedType, normalizedFrom],
+      );
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'category_remap',
+        entityId: entityId,
+        operation: 'delete_category_remap',
+        payload: {
+          'userId': normalizedUserId,
+          'fromCategory': normalizedFrom,
+          'transactionType': normalizedType,
+        },
+      );
+    });
+  }
+
   Future<String?> resolveCategoryRemap({
     required String userId,
     required String category,
@@ -1328,8 +1366,98 @@ class MonekoDatabase {
   Future<void> upsertCategoryRemapsFromRemote(
     Iterable<LocalCategoryRemapPreference> remaps,
   ) async {
+    await replaceCategoryRemapsFromRemote(userId: null, remaps: remaps);
+  }
+
+  Future<void> replaceCategoryRemapsFromRemote({
+    required String? userId,
+    required Iterable<LocalCategoryRemapPreference> remaps,
+  }) async {
+    final normalizedSnapshotUserId = userId?.trim();
+    final pendingRows = _db.select(
+      '''
+      SELECT entity_id, operation
+      FROM local_mutation_outbox
+      WHERE entity_type = ? AND status != ?
+      ''',
+      ['category_remap', localMutationStatusSynced],
+    );
+    final pendingSaveEntityIds = <String>{};
+    final pendingDeleteEntityIds = <String>{};
+    for (final row in pendingRows) {
+      final entityId = row['entity_id']?.toString();
+      final operation = row['operation']?.toString();
+      if (entityId == null || entityId.isEmpty) continue;
+      if (operation == 'delete_category_remap') {
+        pendingDeleteEntityIds.add(entityId);
+      } else if (operation == 'save_category_remap') {
+        pendingSaveEntityIds.add(entityId);
+      }
+    }
+
+    final remoteRemaps = <String, LocalCategoryRemapPreference>{};
+    for (final remap in remaps) {
+      final normalizedUserId = remap.userId.trim();
+      final normalizedFrom = _normalizeCategoryRemapValue(remap.fromCategory);
+      final normalizedTo = _normalizeCategoryRemapValue(remap.toCategory);
+      final normalizedType =
+          _normalizeCategoryRemapValue(remap.transactionType);
+      if (normalizedUserId.isEmpty ||
+          normalizedFrom.isEmpty ||
+          normalizedTo.isEmpty ||
+          (normalizedType != 'expense' && normalizedType != 'income')) {
+        continue;
+      }
+      final entityId = _categoryRemapEntityId(
+        normalizedUserId,
+        normalizedType,
+        normalizedFrom,
+      );
+      if (pendingDeleteEntityIds.contains(entityId)) continue;
+      remoteRemaps[entityId] = remap;
+    }
+
     _runInTransaction(() {
-      for (final remap in remaps) {
+      if (normalizedSnapshotUserId != null &&
+          normalizedSnapshotUserId.isNotEmpty) {
+        final existingRows = _db.select(
+          '''
+          SELECT transaction_type, from_category_name
+          FROM local_category_remaps
+          WHERE user_id = ?
+          ''',
+          [normalizedSnapshotUserId],
+        );
+        for (final row in existingRows) {
+          final type = _normalizeCategoryRemapValue(
+            row['transaction_type']?.toString() ?? '',
+          );
+          final from = _normalizeCategoryRemapValue(
+            row['from_category_name']?.toString() ?? '',
+          );
+          if (type.isEmpty || from.isEmpty) continue;
+          final entityId = _categoryRemapEntityId(
+            normalizedSnapshotUserId,
+            type,
+            from,
+          );
+          if (remoteRemaps.containsKey(entityId) ||
+              pendingSaveEntityIds.contains(entityId)) {
+            continue;
+          }
+          _db.execute(
+            '''
+            DELETE FROM local_category_remaps
+            WHERE user_id = ? AND transaction_type = ? AND from_category_name = ?
+            ''',
+            [normalizedSnapshotUserId, type, from],
+          );
+        }
+      }
+
+      for (final entry in remoteRemaps.entries) {
+        if (pendingSaveEntityIds.contains(entry.key)) continue;
+        final remap = entry.value;
         final normalizedUserId = remap.userId.trim();
         final normalizedFrom = _normalizeCategoryRemapValue(remap.fromCategory);
         final normalizedTo = _normalizeCategoryRemapValue(remap.toCategory);
@@ -1385,6 +1513,58 @@ class MonekoDatabase {
         );
       }
     });
+  }
+
+  String _categoryRemapEntityId(
+    String userId,
+    String transactionType,
+    String fromCategory,
+  ) =>
+      '${userId.trim()}:${_normalizeCategoryRemapValue(transactionType)}:${_normalizeCategoryRemapValue(fromCategory)}';
+
+  Future<List<LocalCategoryRemapPreference>> getCategoryRemapPreferences({
+    required String userId,
+  }) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return const <LocalCategoryRemapPreference>[];
+
+    final rows = _db.select(
+      '''
+      SELECT transaction_type, from_category_name, to_category_name, use_count, last_used_at
+      FROM local_category_remaps
+      WHERE user_id = ?
+      ORDER BY use_count DESC, last_used_at DESC
+      ''',
+      [normalizedUserId],
+    );
+    return rows
+        .map((row) {
+          final transactionType = _normalizeCategoryRemapValue(
+            row['transaction_type']?.toString() ?? '',
+          );
+          final fromCategory = _normalizeCategoryRemapValue(
+            row['from_category_name']?.toString() ?? '',
+          );
+          final toCategory = _normalizeCategoryRemapValue(
+            row['to_category_name']?.toString() ?? '',
+          );
+          if (fromCategory.isEmpty ||
+              toCategory.isEmpty ||
+              (transactionType != 'expense' && transactionType != 'income')) {
+            return null;
+          }
+          return LocalCategoryRemapPreference(
+            userId: normalizedUserId,
+            transactionType: transactionType,
+            fromCategory: fromCategory,
+            toCategory: toCategory,
+            useCount: (row['use_count'] as int?) ?? 1,
+            lastUsedAt: _parseNullableDate(row['last_used_at']?.toString()) ??
+                DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          );
+        })
+        .whereType<LocalCategoryRemapPreference>()
+        .toList(growable: false);
   }
 
   Future<Map<String, String>> getCategoryRemaps({
