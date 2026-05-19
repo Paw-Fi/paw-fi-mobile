@@ -222,8 +222,11 @@ class _FinancialCalendarWidgetState
         ref.invalidate(dashboardCalendarTransactionsProvider(query));
       });
     }
-    final resolvedTransactions =
-        transactionsAsync.valueOrNull ?? widget.transactions;
+    final resolvedTransactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? widget.transactions,
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,
       rangeStart: rangeStart,

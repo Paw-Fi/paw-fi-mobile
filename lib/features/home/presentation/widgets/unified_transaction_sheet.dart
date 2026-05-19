@@ -37,6 +37,7 @@ import 'package:moneko/features/pockets/presentation/state/pocket_details_provid
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/destructive_text_button.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -2737,28 +2738,42 @@ class _UnifiedTransactionSheetState
       final householdId = widget.existingExpense!.householdId;
       if (householdId == null) return;
 
+      final optimisticSplits =
+          ref.read(householdOptimisticSplitsProvider)[householdId] ??
+              const <household_split.ExpenseSplitGroup>[];
+
       final params = HouseholdSplitsParams(householdId: householdId);
       ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
       ref.invalidate(householdSplitsProvider(params));
       ref.invalidate(cachedHouseholdSplitsProvider(params));
 
-      List<household_split.ExpenseSplitGroup> splitsAsync;
-      try {
-        splitsAsync = await ref
-            .read(householdRepositoryProvider)
-            .getHouseholdSplits(householdId: householdId);
-        await clearHouseholdPersistentCacheForHousehold(householdId);
-        unawaited(cacheHouseholdSplitsSnapshot(
-          params: params,
-          splits: splitsAsync,
-        ));
-      } catch (_) {
-        splitsAsync = await ref.read(householdSplitsProvider(params).future);
+      List<household_split.ExpenseSplitGroup> splitsAsync = optimisticSplits;
+      final hasOptimisticMatch = optimisticSplits.any(
+        (group) =>
+            group.id == splitGroupId ||
+            group.expenseId == widget.existingExpense!.id,
+      );
+
+      if (!hasOptimisticMatch) {
+        try {
+          final remoteSplits = await ref
+              .read(householdRepositoryProvider)
+              .getHouseholdSplits(householdId: householdId);
+          await clearHouseholdPersistentCacheForHousehold(householdId);
+          unawaited(cacheHouseholdSplitsSnapshot(
+            params: params,
+            splits: remoteSplits,
+          ));
+          splitsAsync = mergeHouseholdSplits(remoteSplits, optimisticSplits);
+        } catch (_) {
+          splitsAsync = await ref.read(householdSplitsProvider(params).future);
+        }
       }
 
       // Find the split group for this expense
       final splitGroup = splitsAsync.firstWhere(
-        (g) => g.id == splitGroupId,
+        (g) =>
+            g.id == splitGroupId || g.expenseId == widget.existingExpense!.id,
         orElse: () => throw Exception('Split group not found'),
       );
 

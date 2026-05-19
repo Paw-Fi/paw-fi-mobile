@@ -429,6 +429,16 @@ Household? _resolveHouseholdForAutoSplit(
       container.read(householdProvider(householdId)).valueOrNull;
   if (providerHousehold?.id == householdId) return providerHousehold;
 
+  final userId = container.read(authProvider).uid;
+  if (userId.isNotEmpty) {
+    final households =
+        container.read(userHouseholdsProvider(userId)).valueOrNull ??
+            const <Household>[];
+    for (final household in households) {
+      if (household.id == householdId) return household;
+    }
+  }
+
   return null;
 }
 
@@ -818,7 +828,13 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
           await container.read(householdRepositoryProvider).getHousehold(
                 householdId,
               );
-      if (fresh != null) return fresh;
+      if (fresh != null) {
+        if (selectedHousehold != null &&
+            selectedHousehold.updatedAt.isAfter(fresh.updatedAt)) {
+          return selectedHousehold;
+        }
+        return fresh;
+      }
     } catch (error) {
       _debugPrint('⚠️ Failed to load fresh household split settings: $error');
     }

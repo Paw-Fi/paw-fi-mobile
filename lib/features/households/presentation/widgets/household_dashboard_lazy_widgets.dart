@@ -16,7 +16,9 @@ import 'package:moneko/features/home/presentation/widgets/spending_breakdown_cha
 import 'package:moneko/features/home/presentation/widgets/spending_card.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -115,6 +117,15 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
     );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[household.id] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
+    final splits = mergeHouseholdSplits(
+      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
+      optimisticSplits,
+    );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     Widget child;
@@ -151,7 +162,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
         transactions: mergedTransactions,
         from: range['from']!,
         to: range['to']!,
-        splits: splitsAsync.valueOrNull ?? const [],
+        splits: splits,
         selectedCurrency: selectedCurrency,
       );
       final spentByUser = totals.totalForUser(userId);
@@ -266,6 +277,15 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
     );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[household.id] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
+    final splits = mergeHouseholdSplits(
+      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
+      optimisticSplits,
+    );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     final params = buildHouseholdSummaryParams(
@@ -335,7 +355,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         members: membersAsync.valueOrNull,
         householdId: household.id,
         transactions: mergedTransactions,
-        splits: splitsAsync.valueOrNull,
+        splits: splits,
         from: range['from'],
         to: range['to'],
         selectedCurrency: selectedCurrency,
@@ -914,6 +934,15 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
     );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[household.id] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
+    final splits = mergeHouseholdSplits(
+      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
+      optimisticSplits,
+    );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     Widget child;
@@ -952,7 +981,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
             'fairness_data_${mergedTransactions.length}_$selectedCurrency'),
         summary: summary,
         transactions: mergedTransactions,
-        splits: splitsAsync.valueOrNull,
+        splits: splits,
         from: range['from'],
         to: range['to'],
         currency: selectedCurrency,

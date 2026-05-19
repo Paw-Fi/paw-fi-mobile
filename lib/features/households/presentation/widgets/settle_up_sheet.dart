@@ -12,6 +12,7 @@ import 'package:moneko/features/households/presentation/pages/settlement_calcula
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
+import '../providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
@@ -190,9 +191,15 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
     if (!mounted) return;
 
-    final groups = providerSplits.isNotEmpty
-        ? providerSplits
-        : (widget.splits ?? const <ExpenseSplitGroup>[]);
+    final optimisticSplits =
+        ref.read(householdOptimisticSplitsProvider)[widget.householdId] ??
+            const <ExpenseSplitGroup>[];
+    final groups = mergeHouseholdSplits(
+      providerSplits.isNotEmpty
+          ? providerSplits
+          : (widget.splits ?? const <ExpenseSplitGroup>[]),
+      optimisticSplits,
+    );
     final settlementPayments = allPayments.where((payment) {
       return (payment.payerUserId == memberId &&
               payment.participantUserId == currentUserId) ||
@@ -275,10 +282,17 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(
       HouseholdSplitsParams(householdId: widget.householdId),
     ));
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[widget.householdId] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
     final userId = Supabase.instance.client.auth.currentUser?.id;
     final transactions = expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
-    final effectiveSplits =
-        splitsAsync.valueOrNull ?? widget.splits ?? const <ExpenseSplitGroup>[];
+    final effectiveSplits = mergeHouseholdSplits(
+      splitsAsync.valueOrNull ?? widget.splits ?? const <ExpenseSplitGroup>[],
+      optimisticSplits,
+    );
 
     final hasSelectedMember =
         _selectedMemberId != null || widget.specificMemberId != null;
