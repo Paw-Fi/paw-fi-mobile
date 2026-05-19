@@ -166,6 +166,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
       final totals = computeSplitAwareMemberSpendingTotals(
@@ -349,6 +350,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
 
@@ -536,6 +538,7 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
       final displayExpenses = (selectedCurrencyFilters?.length ?? 0) > 1
@@ -632,6 +635,7 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
       final displayExpenses = (selectedCurrencyFilters?.length ?? 0) > 1
@@ -879,6 +883,7 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
       final convertedTransactions = (selectedCurrencyFilters?.length ?? 0) > 1
@@ -1003,6 +1008,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
 

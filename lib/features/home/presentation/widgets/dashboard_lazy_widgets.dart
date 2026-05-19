@@ -108,6 +108,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
       selectedCurrency: filterState.selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       includeFutureOccurrences: false,
     );
 
@@ -270,6 +271,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       rangeStart: currentRange.$1,
       rangeEnd: currentRange.$2,
       selectedCurrency: filterState.selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       includeFutureOccurrences: false,
     );
     final previousTransactions = mergeActualExpensesWithProjectedRecurring(
@@ -278,6 +280,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       rangeStart: previousRange.$1,
       rangeEnd: previousRange.$2,
       selectedCurrency: filterState.selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       includeFutureOccurrences: false,
     );
     final shouldConvertCurrencies =
@@ -484,6 +487,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
       selectedCurrency: filterState.selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       includeFutureOccurrences: false,
     );
     final displayExpenses =
@@ -588,6 +592,7 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
       selectedCurrency: filterState.selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       includeFutureOccurrences: false,
     );
     final displayExpenses =

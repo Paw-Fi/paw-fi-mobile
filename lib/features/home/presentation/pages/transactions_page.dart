@@ -506,6 +506,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             rangeStart: DateTime(2000),
             rangeEnd: userNow,
             selectedCurrency: selectedCurrency,
+            selectedCurrencies: selectedCurrencies,
           );
     final recurringTransactionsById = {
       for (final transaction in recurringTransactions)

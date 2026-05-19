@@ -59,7 +59,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final transactionRefreshSignal =
         ref.watch(transactionsFeedRefreshSignalProvider);
     final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
-    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final activeHouseholdId =
         householdScope.activeAccountType == ActiveWalletType.personal
@@ -180,7 +180,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       buildChild: () => _buildScenarioPlanningTabWithProvider(
                         colorScheme,
                         scopedAnalyticsData,
-                        filterState.selectedCurrency,
+                        selectedCurrencyCode,
                         _insightsTourController,
                       ),
                     ),

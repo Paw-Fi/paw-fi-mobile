@@ -160,6 +160,8 @@ class _DailyFinancialDetailsPageState
     required List<ExpenseEntry> actualTransactions,
     required DateTime rangeStart,
     required DateTime rangeEnd,
+    required List<String>? selectedCurrencies,
+    required CurrencyRateTable rates,
   }) {
     final merged = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: actualTransactions,
@@ -167,6 +169,7 @@ class _DailyFinancialDetailsPageState
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: widget.currency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: true,
     );
 
@@ -187,7 +190,16 @@ class _DailyFinancialDetailsPageState
         },
       );
 
-      final amount = entry.amountCents.abs() / 100.0;
+      final sourceCurrency =
+          (entry.currency ?? widget.currency).trim().toUpperCase();
+      final amount = convertAmountCentsToCurrency(
+            entry.amountCents.abs(),
+            fromCurrency:
+                sourceCurrency.isEmpty ? widget.currency : sourceCurrency,
+            targetCurrency: widget.currency,
+            rates: rates,
+          ) /
+          100.0;
       final type = (entry.type ?? 'expense').toLowerCase();
       if (type == 'income') {
         item['income'] = (item['income'] ?? 0) + amount;
@@ -291,6 +303,8 @@ class _DailyFinancialDetailsPageState
       actualTransactions: resolvedTransactions,
       rangeStart: monthStart,
       rangeEnd: monthEnd,
+      selectedCurrencies: selectedCurrencies,
+      rates: rates,
     );
 
     // Filter transactions for this specific day
@@ -308,18 +322,26 @@ class _DailyFinancialDetailsPageState
           t.date.day == _selectedDate.day;
     }).toList(growable: false);
 
-    final projectedRecurringEntriesForDay =
+    final rawProjectedRecurringEntriesForDay =
         mergeActualExpensesWithProjectedRecurring(
       actualExpenses: dailyTransactions,
       recurringTransactions: widget.recurringTransactions,
       rangeStart: _selectedDate,
       rangeEnd: _selectedDate,
       selectedCurrency: widget.currency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: true,
     ).where((expense) {
       return extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
           null;
     }).toList();
+    final projectedRecurringEntriesForDay = isMultiCurrencySelection
+        ? convertTransactionsToCurrency(
+            rawProjectedRecurringEntriesForDay,
+            targetCurrency: widget.currency,
+            rates: rates,
+          )
+        : rawProjectedRecurringEntriesForDay;
 
     String? tryExtractRecurringId(String syntheticId) {
       final d =

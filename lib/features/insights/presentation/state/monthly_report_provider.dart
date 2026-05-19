@@ -437,6 +437,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       now: now,
       monthEnd: period.end,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      rates: rates,
     );
     final recurringItems = _recurringItemsForReport(
       recurringTransactions,
@@ -445,6 +447,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       monthStart: monthStart,
       monthEnd: period.end,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      rates: rates,
     );
 
     final pocketsParams = PocketsScopeParams(
@@ -724,12 +728,18 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     householdScope: householdScope,
     currencyCode: currencyCode,
   );
+  const previewRates = CurrencyRateTable(
+    baseCurrency: 'USD',
+    rates: CurrencyRates.rates,
+    isStale: true,
+  );
   final futureTransactions = _futureTransactionsForReport(
     actualTransactions: currentTransactions,
     recurringTransactions: recurringTransactions,
     now: now,
     monthEnd: period.end,
     currencyCode: currencyCode,
+    rates: previewRates,
   );
   final recurringItems = _recurringItemsForReport(
     recurringTransactions,
@@ -738,6 +748,7 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     monthStart: query.monthStart,
     monthEnd: period.end,
     currencyCode: currencyCode,
+    rates: previewRates,
   );
   final currentBalance = _previewCurrentBalance(householdScope: householdScope);
   final previousNetWorth = _previewPreviousNetWorth(
@@ -1684,6 +1695,8 @@ List<ExpenseEntry> _futureTransactionsForReport({
   required DateTime now,
   required DateTime monthEnd,
   required String currencyCode,
+  List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
 }) {
   final today = DateTime(now.year, now.month, now.day);
   final actualFuture = actualTransactions.where((entry) {
@@ -1695,13 +1708,22 @@ List<ExpenseEntry> _futureTransactionsForReport({
     rangeStart: today.add(const Duration(days: 1)),
     rangeEnd: monthEnd,
     selectedCurrency: currencyCode,
+    selectedCurrencies: selectedCurrencies,
   );
   final dedupedProjected = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projected,
     actualExpenses: actualFuture,
   );
 
-  return <ExpenseEntry>[...actualFuture, ...dedupedProjected]
+  final convertedProjected = (selectedCurrencies?.length ?? 0) > 1
+      ? convertTransactionsToCurrency(
+          dedupedProjected,
+          targetCurrency: currencyCode,
+          rates: rates,
+        )
+      : dedupedProjected;
+
+  return <ExpenseEntry>[...actualFuture, ...convertedProjected]
     ..sort((a, b) => a.date.compareTo(b.date));
 }
 
@@ -1712,20 +1734,35 @@ List<MonthlyReportRecurringInput> _recurringItemsForReport(
   required DateTime monthStart,
   required DateTime monthEnd,
   required String currencyCode,
+  List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
 }) {
   final nowDay = DateTime(now.year, now.month, now.day);
+  final selectedCurrencySet = selectedCurrencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  final hasMultiCurrencySelection = (selectedCurrencySet?.length ?? 0) > 1;
   return recurringTransactions.where((item) {
-    return item.isActive &&
-        item.currency.toUpperCase() == currencyCode.toUpperCase();
+    if (!item.isActive) return false;
+    final itemCurrency = item.currency.trim().toUpperCase();
+    if (selectedCurrencySet != null && selectedCurrencySet.isNotEmpty) {
+      return selectedCurrencySet.contains(itemCurrency);
+    }
+    return itemCurrency == currencyCode.toUpperCase();
   }).map((item) {
     final nextDate = item
         .getNextOccurrence(nowDay.subtract(const Duration(microseconds: 1)));
+    final itemCurrency = item.currency.trim().toUpperCase();
+    final amount = hasMultiCurrencySelection
+        ? rates.convert(item.amount.abs(), itemCurrency, currencyCode)
+        : item.amount.abs();
     return MonthlyReportRecurringInput(
       id: item.id,
       name: _recurringName(item),
-      amount: item.amount.abs(),
+      amount: amount,
       type: item.type,
-      currencyCode: item.currency.toUpperCase(),
+      currencyCode: hasMultiCurrencySelection ? currencyCode : itemCurrency,
       nextDate: nextDate,
       previousAmount: _previousAmountForRecurring(item, previousTransactions),
     );

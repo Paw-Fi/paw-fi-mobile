@@ -60,6 +60,8 @@ class _FinancialCalendarWidgetState
     required List<ExpenseEntry> actualTransactions,
     required DateTime rangeStart,
     required DateTime rangeEnd,
+    required List<String>? selectedCurrencies,
+    required CurrencyRateTable rates,
   }) {
     final merged = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: actualTransactions,
@@ -67,6 +69,7 @@ class _FinancialCalendarWidgetState
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: widget.currency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: true,
     );
     final projected = merged
@@ -86,7 +89,16 @@ class _FinancialCalendarWidgetState
                 'income': 0.0,
               });
 
-      final amount = e.amountCents.abs() / 100.0;
+      final sourceCurrency =
+          (e.currency ?? widget.currency).trim().toUpperCase();
+      final amount = convertAmountCentsToCurrency(
+            e.amountCents.abs(),
+            fromCurrency:
+                sourceCurrency.isEmpty ? widget.currency : sourceCurrency,
+            targetCurrency: widget.currency,
+            rates: rates,
+          ) /
+          100.0;
       final type = (e.type ?? 'expense').toLowerCase();
       if (type == 'income') {
         entry['income'] = (entry['income'] ?? 0) + amount;
@@ -243,10 +255,13 @@ class _FinancialCalendarWidgetState
           rates: CurrencyRates.rates,
           isStale: true,
         );
+    final selectedCurrencies = query.normalizedCurrencies;
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
+      selectedCurrencies: selectedCurrencies,
+      rates: rates,
     );
 
     return GestureDetector(

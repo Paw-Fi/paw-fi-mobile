@@ -176,6 +176,7 @@ final householdDerivedSummaryProvider =
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: params.currency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
     final shouldConvertCurrencies =

@@ -1000,6 +1000,7 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     recurringTransactions: recurringTransactions,
     actualTransactions: actualTransactions,
     selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedSelectedCurrencies,
     rangeStart: projectionRangeStart,
     rangeEndInclusive: endInclusive,
   );
@@ -1386,6 +1387,7 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
   required List<RecurringTransaction> recurringTransactions,
   required List<ExpenseEntry> actualTransactions,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required DateTime rangeStart,
   required DateTime rangeEndInclusive,
 }) {
@@ -1401,6 +1403,7 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
     rangeStart: rangeStart,
     rangeEnd: rangeEndInclusive,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
   ).map((expense) {
     final recurringId =
         extractRecurringTransactionIdFromProjectedExpenseId(expense.id);

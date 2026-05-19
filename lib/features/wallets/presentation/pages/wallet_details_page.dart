@@ -217,6 +217,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             rangeStart: projectedRecurringRangeStart,
             rangeEnd: userNow,
             selectedCurrency: selectedCurrencyCode,
+            selectedCurrencies: selectedCurrencyFilters,
             wallet: latestWallet,
           );
     // CRITICAL: keep the wallet detail list aligned with the recurring-aware
@@ -236,6 +237,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             rangeStart: monthStart,
             rangeEnd: userNow,
             selectedCurrency: selectedCurrencyCode,
+            selectedCurrencies: selectedCurrencyFilters,
             wallet: latestWallet,
           );
     final walletColor =
@@ -740,6 +742,7 @@ List<ExpenseEntry> _projectWalletRecurringExpenses({
   required DateTime rangeStart,
   required DateTime rangeEnd,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required WalletEntity wallet,
 }) {
   // CRITICAL: wallet detail projections must be deduped against actual wallet
@@ -753,6 +756,7 @@ List<ExpenseEntry> _projectWalletRecurringExpenses({
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
     ).map((expense) {
       return expense.copyWith(
         accountId: wallet.id,

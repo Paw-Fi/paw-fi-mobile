@@ -116,10 +116,14 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
   required DateTime rangeStart,
   required DateTime rangeEnd,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
 }) {
   if (rangeEnd.isBefore(rangeStart)) return const <ExpenseEntry>[];
 
-  final currencyFilter = selectedCurrency?.trim().toUpperCase();
+  final currencyFilters = _normalizeCurrencySet(selectedCurrencies) ??
+      _normalizeCurrencySet(
+        selectedCurrency == null ? null : <String>[selectedCurrency],
+      );
   final startDay = _dateOnly(rangeStart);
   final endDay = _dateOnly(rangeEnd);
 
@@ -128,8 +132,8 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
 
   for (final r in recurringTransactions) {
     if (!r.isActive) continue;
-    if (currencyFilter != null && currencyFilter.isNotEmpty) {
-      if (r.currency.trim().toUpperCase() != currencyFilter) continue;
+    if (currencyFilters != null && currencyFilters.isNotEmpty) {
+      if (!currencyFilters.contains(r.currency.trim().toUpperCase())) continue;
     }
 
     final rule = r.recurrenceRule;
@@ -275,6 +279,7 @@ List<ExpenseEntry> projectUpcomingRecurringTransactionsAsExpenseEntries({
   required DateTime monthStart,
   required DateTime now,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
 }) {
   final currentDay = _dateOnly(now);
   final targetMonthStart = _dateOnly(monthStart);
@@ -295,6 +300,7 @@ List<ExpenseEntry> projectUpcomingRecurringTransactionsAsExpenseEntries({
     rangeStart: rangeStart,
     rangeEnd: monthEnd,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
   );
 }
 
@@ -320,6 +326,7 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   required DateTime rangeStart,
   required DateTime rangeEnd,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
   bool includeFutureOccurrences = true,
   DateTime? now,
 }) {
@@ -328,18 +335,21 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   final today = _dateOnly(now ?? DateTime.now());
   final projectionEnd =
       includeFutureOccurrences ? normalizedEnd : _minDate(normalizedEnd, today);
-  final currencyFilter = selectedCurrency?.trim().toUpperCase();
+  final currencyFilters = _normalizeCurrencySet(selectedCurrencies) ??
+      _normalizeCurrencySet(
+        selectedCurrency == null ? null : <String>[selectedCurrency],
+      );
   final filteredActualExpenses = actualExpenses.where((expense) {
     final expenseDay = _dateOnly(expense.date);
     if (expenseDay.isBefore(normalizedStart) ||
         expenseDay.isAfter(projectionEnd)) {
       return false;
     }
-    if (currencyFilter == null || currencyFilter.isEmpty) {
+    if (currencyFilters == null || currencyFilters.isEmpty) {
       return true;
     }
     final expenseCurrency = expense.currency?.trim().toUpperCase() ?? '';
-    return expenseCurrency.isEmpty || expenseCurrency == currencyFilter;
+    return expenseCurrency.isEmpty || currencyFilters.contains(expenseCurrency);
   }).toList(growable: false);
 
   if (recurringTransactions.isEmpty) {
@@ -355,6 +365,7 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
     rangeStart: normalizedStart,
     rangeEnd: projectionEnd,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
   );
   final dedupedProjectedExpenses = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
@@ -369,6 +380,15 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
     ...filteredActualExpenses,
     ...dedupedProjectedExpenses,
   ];
+}
+
+Set<String>? _normalizeCurrencySet(Iterable<String>? currencies) {
+  final normalized = currencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  if (normalized == null || normalized.isEmpty) return null;
+  return normalized;
 }
 
 String _projectedExpenseComparisonKey(ExpenseEntry expense) {

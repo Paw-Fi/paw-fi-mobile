@@ -262,6 +262,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             rangeStart: DateTime(2000),
             rangeEnd: userNow,
             selectedCurrency: query.selectedCurrency,
+            selectedCurrencies: query.normalizedCurrencies,
           );
     final normalizedCategory = widget.categoryKey.trim().toLowerCase();
     final projectedRecurringInCategory = projectedRecurring.where((expense) {
