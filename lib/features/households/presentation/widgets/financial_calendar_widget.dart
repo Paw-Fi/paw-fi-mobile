@@ -247,14 +247,18 @@ class _FinancialCalendarWidgetState
         ref.invalidate(dashboardCalendarTransactionsProvider(query));
       });
     }
-    final resolvedTransactions =
-        transactionsAsync.valueOrNull ?? widget.transactions;
-    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
-        const CurrencyRateTable(
-          baseCurrency: 'USD',
-          rates: CurrencyRates.rates,
-          isStale: true,
-        );
+ final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
+    const CurrencyRateTable(
+      baseCurrency: 'USD',
+      rates: CurrencyRates.rates,
+      isStale: true,
+    );
+
+final resolvedTransactions = mergeDashboardTransactionsWithLocalOverlay(
+  base: transactionsAsync.valueOrNull ?? widget.transactions,
+  localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+  query: query,
+);
     final selectedCurrencies = query.normalizedCurrencies;
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,

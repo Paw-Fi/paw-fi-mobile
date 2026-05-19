@@ -1564,12 +1564,56 @@ class SettlementBreakdownV2Params {
 final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
     .family<List<SettlementPairwiseBalance>, PairwiseSettlementBalancesParams>(
   (ref, params) async {
-    ref.watch(
+    final splitsAsync = ref.watch(
       cachedHouseholdSplitsProvider(
         HouseholdSplitsParams(householdId: params.householdId),
       ),
     );
-    ref.watch(householdSettlementPaymentsProvider(params.householdId));
+    final paymentsAsync =
+        ref.watch(householdSettlementPaymentsProvider(params.householdId));
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[params.householdId] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
+
+    if (optimisticSplits.isNotEmpty) {
+      final currentUserId =
+          ref.watch(supabaseClientProvider).auth.currentUser?.id;
+      if (currentUserId == null || currentUserId.isEmpty) {
+        return const <SettlementPairwiseBalance>[];
+      }
+
+      final splits = mergeHouseholdSplits(
+        splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
+        optimisticSplits,
+      );
+      final payments =
+          paymentsAsync.valueOrNull ?? const <SettlementPaymentRecord>[];
+      final nets = computeSettlementNets(
+        splits: splits,
+        currentUserId: currentUserId,
+        currencyFilter: params.currency,
+        settlementPayments: payments,
+      );
+
+      return nets.entries.map((entry) {
+        final result = entry.value;
+        return SettlementPairwiseBalance(
+          otherUserId: entry.key,
+          currency: params.currency ??
+              splits
+                  .map((split) => split.currency.trim().toUpperCase())
+                  .firstWhere((currency) => currency.isNotEmpty,
+                      orElse: () => 'USD'),
+          splitToCents: result.splitToCents,
+          splitFromCents: result.splitFromCents,
+          paidToCents: result.paidToCents,
+          paidFromCents: result.paidFromCents,
+          netCents: result.netCents,
+        );
+      }).toList(growable: false);
+    }
 
     final service = ref.watch(householdServiceProvider);
     final rows = await service.getPairwiseSettlementBalancesV2(
