@@ -192,6 +192,19 @@ class OptimisticHouseholdSplitsNotifier
     state = {...state, householdId: updated};
   }
 
+  void removeSplitByExpenseIdAcrossHouseholds(String expenseId) {
+    if (expenseId.isEmpty) return;
+    final next = <String, List<ExpenseSplitGroup>>{};
+    for (final entry in state.entries) {
+      final filtered =
+          entry.value.where((group) => group.expenseId != expenseId).toList();
+      if (filtered.isNotEmpty) {
+        next[entry.key] = filtered;
+      }
+    }
+    state = next;
+  }
+
   void pruneIfInServer(String householdId, List<ExpenseSplitGroup> server) {
     final existing = state[householdId];
     if (existing == null || existing.isEmpty) return;

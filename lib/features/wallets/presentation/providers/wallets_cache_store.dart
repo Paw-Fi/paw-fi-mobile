@@ -17,7 +17,12 @@ final walletsPersistedCacheBypassCountProvider = StateProvider<int>((ref) => 0);
 String walletsListCacheKey({
   required String userId,
   required String? householdId,
+  String? selectedCurrency,
+  DateTime? currentMonthStart,
 }) {
+  if (selectedCurrency != null && currentMonthStart != null) {
+    return 'wallets:list:v3:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}';
+  }
   return 'wallets:list:v2:$userId:${householdId ?? 'personal'}';
 }
 
@@ -29,13 +34,20 @@ List<WalletEntity>? readPersistedWalletsList(
   Ref ref, {
   required String userId,
   required String? householdId,
+  String? selectedCurrency,
+  DateTime? currentMonthStart,
 }) {
   final prefs = _readPrefsOrNull(ref);
   if (prefs == null) {
     return null;
   }
   final raw = prefs.getString(
-    walletsListCacheKey(userId: userId, householdId: householdId),
+    walletsListCacheKey(
+      userId: userId,
+      householdId: householdId,
+      selectedCurrency: selectedCurrency,
+      currentMonthStart: currentMonthStart,
+    ),
   );
   if (raw == null || raw.isEmpty) {
     return null;
@@ -56,6 +68,8 @@ Future<void> persistWalletsList(
   Ref ref, {
   required String userId,
   required String? householdId,
+  String? selectedCurrency,
+  DateTime? currentMonthStart,
   required List<WalletEntity> wallets,
 }) {
   final prefs = _readPrefsOrNull(ref);
@@ -63,7 +77,12 @@ Future<void> persistWalletsList(
     return Future<void>.value();
   }
   return prefs.setString(
-    walletsListCacheKey(userId: userId, householdId: householdId),
+    walletsListCacheKey(
+      userId: userId,
+      householdId: householdId,
+      selectedCurrency: selectedCurrency,
+      currentMonthStart: currentMonthStart,
+    ),
     jsonEncode(
         wallets.map((wallet) => wallet.toJson()).toList(growable: false)),
   );
@@ -126,6 +145,14 @@ Future<void> clearWalletsCaches(
 
   if (selectedCurrency != null && currentMonthStart != null) {
     await prefs.remove(
+      walletsListCacheKey(
+        userId: userId,
+        householdId: householdId,
+        selectedCurrency: selectedCurrency,
+        currentMonthStart: currentMonthStart,
+      ),
+    );
+    await prefs.remove(
       walletsPageStateCacheKey(
         WalletsScopeQuery(
           userId: userId,
@@ -150,14 +177,15 @@ Future<void> clearAllWalletsCachesForUser(
     return;
   }
 
-  final listPrefix = 'wallets:list:v2:$userId:';
+  const listPrefix = 'wallets:list:';
   final pageStatePrefix = 'wallets:page-state:v2:$userId:';
 
   final keysToRemove = prefs
       .getKeys()
       .where(
         (String key) =>
-            key.startsWith(listPrefix) || key.startsWith(pageStatePrefix),
+            (key.startsWith(listPrefix) && key.contains(':$userId:')) ||
+            key.startsWith(pageStatePrefix),
       )
       .toList(growable: false);
 
