@@ -625,12 +625,33 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       hasMore: feedState.hasMore,
     );
 
+    final chartActualExpenses = chartSourceState?.valueOrNull;
+    final chartExpenses = isMultiCurrencySelection &&
+            chartActualExpenses != null
+        ? deriveTransactionsPageData(
+            TransactionsPageFilterInput(
+              baseExpenses: chartActualExpenses,
+              projectedRecurringExpenses: projectedRecurringExpenses,
+              searchQuery: _debouncedSearchQuery,
+              selectedCategory: selectedCategory,
+              selectedType: selectedType,
+              selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
+              selectedDateFilter: _selectedDateFilter,
+              customStart: _customStart,
+              customEnd: _customEnd,
+              now: userNow,
+              pinnedHouseholdId: widget.householdId,
+              activeAccountType: householdScope.activeAccountType,
+              activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
+              selectedHouseholdId: householdScope.selectedHouseholdId,
+            ),
+          ).filteredExpenses
+        : projectedOnlyDerivedData.filteredExpenses;
+
     final chartSummary = isMultiCurrencySelection
         ? summarizeTransactionsInCurrency(
-            [
-              ...?chartSourceState?.valueOrNull,
-              ...projectedOnlyDerivedData.filteredExpenses,
-            ],
+            chartExpenses,
             targetCurrency: selectedCurrency ?? 'USD',
             rates: rateTable,
             intervalGranularity:

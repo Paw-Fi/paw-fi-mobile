@@ -289,9 +289,15 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       return true;
     }).toList();
 
+    final dedupedProjectedRecurringInCategory =
+        dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: projectedRecurringInCategory,
+      actualExpenses: feedState.items,
+    );
+
     final expenses = [
       ...feedState.items,
-      ...projectedRecurringInCategory,
+      ...dedupedProjectedRecurringInCategory,
     ]..sort((a, b) {
         final byDate = b.date.compareTo(a.date);
         if (byDate != 0) return byDate;
@@ -305,10 +311,15 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       visibleExpenseCount: expenses.length,
     );
 
+    final aggregateActualExpenses =
+        allItemsAsync?.valueOrNull ?? const <ExpenseEntry>[];
     final aggregateExpenses = isMultiCurrencySelection
         ? [
-            ...(allItemsAsync?.valueOrNull ?? const <ExpenseEntry>[]),
-            ...projectedRecurringInCategory,
+            ...aggregateActualExpenses,
+            ...dedupeProjectedRecurringExpenseEntries(
+              projectedExpenses: projectedRecurringInCategory,
+              actualExpenses: aggregateActualExpenses,
+            ),
           ]
         : expenses;
     final aggregateSummary = isMultiCurrencySelection
@@ -317,7 +328,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             targetCurrency: query.selectedCurrency ?? 'USD',
             rates: rateTable,
           )
-        : feedState.summary.addingExpenses(projectedRecurringInCategory);
+        : feedState.summary.addingExpenses(dedupedProjectedRecurringInCategory);
     final totalSpent = aggregateSummary.expenseTotal.abs();
     final count = aggregateSummary.transactionCount;
     final avg = count > 0 ? totalSpent / count : 0.0;

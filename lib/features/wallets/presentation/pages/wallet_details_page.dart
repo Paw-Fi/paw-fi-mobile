@@ -261,12 +261,20 @@ class WalletDetailsPage extends HookConsumerWidget {
     // recurring rows shown in the transaction list and wallet balance logic.
     // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
     // summary, or wallet totals and visible recurring tiles will disagree.
+    final monthActualExpenses = monthAllItemsAsync?.valueOrNull;
+    final monthSummaryExpenses =
+        shouldConvertCurrencies && monthActualExpenses != null
+            ? [
+                ...monthActualExpenses,
+                ...dedupeProjectedRecurringExpenseEntries(
+                  projectedExpenses: projectedMonthRecurringExpenses,
+                  actualExpenses: monthActualExpenses,
+                ),
+              ]
+            : projectedMonthRecurringExpenses;
     final monthSummary = shouldConvertCurrencies
         ? summarizeTransactionsInCurrency(
-            [
-              ...?monthAllItemsAsync?.valueOrNull,
-              ...projectedMonthRecurringExpenses,
-            ],
+            monthSummaryExpenses,
             targetCurrency: selectedCurrencyCode,
             rates: rateTable,
           )

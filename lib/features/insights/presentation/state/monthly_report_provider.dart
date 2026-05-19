@@ -439,7 +439,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       watchDependencies: watchDependencies,
     );
     final futureTransactions = _futureTransactionsForReport(
-      actualTransactions: reportCurrentTransactions,
+      actualTransactions: currentTransactions,
       recurringTransactions: recurringTransactions,
       now: now,
       monthEnd: period.end,
@@ -1739,16 +1739,18 @@ List<ExpenseEntry> _futureTransactionsForReport({
     actualExpenses: actualFuture,
   );
 
-  final convertedProjected = (selectedCurrencies?.length ?? 0) > 1
+  final futureTransactions = <ExpenseEntry>[
+    ...actualFuture,
+    ...dedupedProjected
+  ]..sort((a, b) => a.date.compareTo(b.date));
+
+  return (selectedCurrencies?.length ?? 0) > 1
       ? convertTransactionsToCurrency(
-          dedupedProjected,
+          futureTransactions,
           targetCurrency: currencyCode,
           rates: rates,
         )
-      : dedupedProjected;
-
-  return <ExpenseEntry>[...actualFuture, ...convertedProjected]
-    ..sort((a, b) => a.date.compareTo(b.date));
+      : futureTransactions;
 }
 
 List<MonthlyReportRecurringInput> _recurringItemsForReport(
