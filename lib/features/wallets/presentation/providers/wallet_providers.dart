@@ -28,6 +28,28 @@ final walletScopeHouseholdIdProvider = Provider<String?>((ref) {
       : scope.activeAccountHouseholdId;
 });
 
+Map<String, dynamic> _listWalletsFunctionBody({
+  required String? householdId,
+  required String selectedCurrency,
+  required DateTime currentMonthStart,
+  bool includeArchived = false,
+}) {
+  return {
+    if (includeArchived) 'includeArchived': true,
+    if (householdId != null && householdId.trim().isNotEmpty)
+      'householdId': householdId,
+    'currency': selectedCurrency.trim().toUpperCase(),
+    'monthStart': _formatListWalletsDate(currentMonthStart),
+  };
+}
+
+String _formatListWalletsDate(DateTime date) {
+  final year = date.year.toString().padLeft(4, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
 final walletsByHouseholdIdProvider =
     FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
@@ -40,6 +62,7 @@ final walletsByHouseholdIdProvider =
     },
   );
   final authHeaders = ref.watch(walletAuthHeadersProvider);
+  final scopeQuery = ref.watch(walletsScopeQueryProvider);
   if (authHeaders == null) {
     // Avoid caching a transient unauthorized fetch during the post-login
     // handoff before auth state is ready in Riverpod.
@@ -53,10 +76,11 @@ final walletsByHouseholdIdProvider =
     final response = await supabase.functions.invoke(
       'list-wallets',
       headers: authHeaders,
-      body: {
-        if (householdId != null && householdId.trim().isNotEmpty)
-          'householdId': householdId,
-      },
+      body: _listWalletsFunctionBody(
+        householdId: householdId,
+        selectedCurrency: scopeQuery.selectedCurrency,
+        currentMonthStart: scopeQuery.currentMonthStart,
+      ),
     );
 
     final payload = response.data as Map<String, dynamic>?;
@@ -115,13 +139,16 @@ final archivedScopedAccountsProvider =
   }
 
   final householdId = ref.watch(walletScopeHouseholdIdProvider);
+  final scopeQuery = ref.watch(walletsScopeQueryProvider);
   final response = await supabase.functions.invoke(
     'list-wallets',
     headers: authHeaders,
-    body: {
-      'includeArchived': true,
-      if (householdId != null) 'householdId': householdId,
-    },
+    body: _listWalletsFunctionBody(
+      householdId: householdId,
+      selectedCurrency: scopeQuery.selectedCurrency,
+      currentMonthStart: scopeQuery.currentMonthStart,
+      includeArchived: true,
+    ),
   );
 
   final payload = response.data as Map<String, dynamic>?;
@@ -148,12 +175,15 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
   Future<List<WalletEntity>> build() async {
     final user = ref.watch(authProvider);
     final householdId = ref.watch(walletScopeHouseholdIdProvider);
+    final scopeQuery = ref.watch(walletsScopeQueryProvider);
     final authHeaders = ref.watch(walletAuthHeadersProvider);
     final bypassPersistedCache =
         ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
     final cacheKey = walletsListCacheKey(
       userId: user.uid,
       householdId: householdId,
+      selectedCurrency: scopeQuery.selectedCurrency,
+      currentMonthStart: scopeQuery.currentMonthStart,
     );
     final trace = WalletsDebugTrace(
       label: 'ScopedWalletsProvider',
@@ -184,6 +214,8 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         ref,
         userId: user.uid,
         householdId: householdId,
+        selectedCurrency: scopeQuery.selectedCurrency,
+        currentMonthStart: scopeQuery.currentMonthStart,
       );
       if (persistedWallets != null) {
         trace.mark('persisted-cache-hit-without-auth-headers',
@@ -210,6 +242,8 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         ref,
         userId: user.uid,
         householdId: householdId,
+        selectedCurrency: scopeQuery.selectedCurrency,
+        currentMonthStart: scopeQuery.currentMonthStart,
       );
       if (persistedWallets != null) {
         trace.mark('persisted-cache-hit', {'count': persistedWallets.length});
@@ -235,6 +269,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
   Future<List<WalletEntity>> refreshFromNetwork() async {
     final user = ref.read(authProvider);
     final householdId = ref.read(walletScopeHouseholdIdProvider);
+    final scopeQuery = ref.read(walletsScopeQueryProvider);
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
     if (user.uid.isEmpty) {
       return const <WalletEntity>[];
@@ -247,6 +282,8 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
             ref,
             userId: user.uid,
             householdId: householdId,
+            selectedCurrency: scopeQuery.selectedCurrency,
+            currentMonthStart: scopeQuery.currentMonthStart,
           ) ??
           const <WalletEntity>[];
     }
@@ -254,12 +291,16 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     final requestKey = walletsListCacheKey(
       userId: user.uid,
       householdId: householdId,
+      selectedCurrency: scopeQuery.selectedCurrency,
+      currentMonthStart: scopeQuery.currentMonthStart,
     );
     final wallets =
         await ref.read(walletsByHouseholdIdProvider(householdId).future);
     final currentKey = walletsListCacheKey(
       userId: ref.read(authProvider).uid,
       householdId: ref.read(walletScopeHouseholdIdProvider),
+      selectedCurrency: ref.read(walletsScopeQueryProvider).selectedCurrency,
+      currentMonthStart: ref.read(walletsScopeQueryProvider).currentMonthStart,
     );
     if (requestKey != currentKey ||
         refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
@@ -275,6 +316,8 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         ref,
         userId: user.uid,
         householdId: householdId,
+        selectedCurrency: scopeQuery.selectedCurrency,
+        currentMonthStart: scopeQuery.currentMonthStart,
         wallets: wallets,
       ),
     );
@@ -847,15 +890,20 @@ class WalletActions {
     final user = ref.read(authProvider);
     if (user.uid.isEmpty) return;
     final householdId = account.householdId;
+    final scopeQuery = ref.read(walletsScopeQueryProvider);
     final cacheKey = walletsListCacheKey(
       userId: user.uid,
       householdId: householdId,
+      selectedCurrency: scopeQuery.selectedCurrency,
+      currentMonthStart: scopeQuery.currentMonthStart,
     );
     final current = ref.read(walletsListSessionCacheProvider)[cacheKey] ??
         readPersistedWalletsList(
           ref,
           userId: user.uid,
           householdId: householdId,
+          selectedCurrency: scopeQuery.selectedCurrency,
+          currentMonthStart: scopeQuery.currentMonthStart,
         ) ??
         ref.read(scopedWalletsProvider).valueOrNull ??
         const <WalletEntity>[];
@@ -868,6 +916,8 @@ class WalletActions {
       ref,
       userId: user.uid,
       householdId: householdId,
+      selectedCurrency: scopeQuery.selectedCurrency,
+      currentMonthStart: scopeQuery.currentMonthStart,
       wallets: next,
     );
   }

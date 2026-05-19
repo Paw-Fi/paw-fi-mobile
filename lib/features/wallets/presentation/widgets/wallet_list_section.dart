@@ -12,10 +12,12 @@ class WalletListSection extends StatelessWidget {
     required this.onArchive,
     required this.onSetDefault,
     required this.onAdjustBalance,
+    this.walletBalances = const <String, int>{},
   });
 
   final List<WalletEntity> wallets;
   final String currencyCode;
+  final Map<String, int> walletBalances;
   final ValueChanged<WalletEntity> onEdit;
   final ValueChanged<WalletEntity> onArchive;
   final ValueChanged<WalletEntity> onSetDefault;
@@ -37,6 +39,7 @@ class WalletListSection extends StatelessWidget {
         return WalletCard(
           wallet: wallet,
           currencyCode: currencyCode,
+          displayBalanceCents: walletBalances[wallet.id],
           onTap: () => onEdit(wallet),
           onArchive: () => onArchive(wallet),
           onSetDefault: () => onSetDefault(wallet),
