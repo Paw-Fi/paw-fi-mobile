@@ -828,7 +828,13 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
           await container.read(householdRepositoryProvider).getHousehold(
                 householdId,
               );
-      if (fresh != null) return fresh;
+      if (fresh != null) {
+        if (selectedHousehold != null &&
+            selectedHousehold.updatedAt.isAfter(fresh.updatedAt)) {
+          return selectedHousehold;
+        }
+        return fresh;
+      }
     } catch (error) {
       _debugPrint('⚠️ Failed to load fresh household split settings: $error');
     }

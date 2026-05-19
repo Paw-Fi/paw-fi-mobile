@@ -140,10 +140,12 @@ class _SettlementSuggestionsCardState
                 nameFor,
               )
             : _buildLegacySuggestions(
-                overview?.splits ??
-                    (optimisticSplits.isNotEmpty
-                        ? optimisticSplits
-                        : widget.splits),
+                optimisticSplits.isNotEmpty
+                    ? mergeHouseholdSplits(
+                        overview?.splits ?? const <ExpenseSplitGroup>[],
+                        optimisticSplits,
+                      )
+                    : overview?.splits ?? widget.splits,
                 widget.currency,
                 currentUserId,
                 nameFor,
