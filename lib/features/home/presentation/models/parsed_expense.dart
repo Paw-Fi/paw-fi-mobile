@@ -3,6 +3,7 @@
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 class ParsedExpense {
   // true = income, false = expense
@@ -129,5 +130,5 @@ class ParsedExpense {
   int get amountCents => (amount * 100).round();
 
   // Format for display
-  String get formattedAmount => '$currencySymbol${amount.toStringAsFixed(2)}';
+  String get formattedAmount => '$currencySymbol${formatAmount(amount)}';
 }

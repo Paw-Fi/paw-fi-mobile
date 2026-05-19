@@ -1045,6 +1045,7 @@ Future<List<WalletEntity>> _fetchScopedWallets(
       userId: userId,
       householdId: householdId,
       selectedCurrency: query.selectedCurrency,
+      selectedCurrencies: query.normalizedSelectedCurrencies,
       currentMonthStart: query.currentMonthStart,
     );
     return ref.read(walletsListSessionCacheProvider)[cacheKey] ??
@@ -1053,6 +1054,7 @@ Future<List<WalletEntity>> _fetchScopedWallets(
           userId: userId,
           householdId: householdId,
           selectedCurrency: query.selectedCurrency,
+          selectedCurrencies: query.normalizedSelectedCurrencies,
           currentMonthStart: query.currentMonthStart,
         ) ??
         const <WalletEntity>[];

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import '../../../../../core/l10n/l10n.dart';
@@ -67,7 +68,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${netBalance.abs().toStringAsFixed(2)}',
+                        '\$${formatAmount(netBalance.abs())}',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -179,7 +180,7 @@ class _BalanceRow extends StatelessWidget {
           ],
         ),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
+          '\$${formatAmount(amount)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,

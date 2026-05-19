@@ -124,6 +124,7 @@ class _CurrencySelectorScreenState
   String? _primaryCurrency;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<String>? _stableCurrencyCodes;
 
   @override
   void initState() {
@@ -143,6 +144,7 @@ class _CurrencySelectorScreenState
         setState(() {
           _customOrder = order;
           _selectedCurrencies = selectedCurrencies;
+          _stableCurrencyCodes = order;
         });
       } else if (mounted) {
         setState(() {
@@ -162,11 +164,33 @@ class _CurrencySelectorScreenState
       if (mounted) {
         setState(() {
           _customOrder = order;
+          _stableCurrencyCodes = order;
         });
       }
     } catch (e) {
       debugPrint('Error saving currency order: $e');
     }
+  }
+
+  void _initializeStableCurrencyList(List<CurrencySummary> activeCurrencies,
+      List<CurrencySummary> inactiveCurrencies, String primaryCurrency) {
+    if (_stableCurrencyCodes != null) return;
+
+    final allOrdered = <CurrencySummary>[
+      ...activeCurrencies,
+      ...inactiveCurrencies,
+    ];
+
+    // Initial sort: Primary at top
+    if (primaryCurrency.isNotEmpty) {
+      final index = allOrdered.indexWhere((s) => s.currencyCode == primaryCurrency);
+      if (index > 0) {
+        final selected = allOrdered.removeAt(index);
+        allOrdered.insert(0, selected);
+      }
+    }
+
+    _stableCurrencyCodes = allOrdered.map((s) => s.currencyCode).toList();
   }
 
   @override
@@ -314,43 +338,16 @@ class _CurrencySelectorScreenState
     }).toList();
 
     // Separate currencies into active (with transactions) and inactive
-    var activeCurrencies = allCurrencySummaries.where((s) {
+    final activeCurrencies = allCurrencySummaries.where((s) {
       final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
       return txCount > 0;
     }).toList();
 
-    var inactiveCurrencies = allCurrencySummaries.where((s) {
+    final inactiveCurrencies = allCurrencySummaries.where((s) {
       final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
       return txCount == 0;
     }).toList()
       ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
-
-    // Apply custom order
-    activeCurrencies = _applyCustomOrder(activeCurrencies);
-    inactiveCurrencies = _applyCustomOrder(inactiveCurrencies);
-
-    // Full ordered list (active + inactive)
-    final allOrderedCurrencies = <CurrencySummary>[
-      ...activeCurrencies,
-      ...inactiveCurrencies,
-    ];
-
-    // Apply search filter (by currency code or symbol)
-    final query = _searchQuery.trim().toLowerCase();
-    List<CurrencySummary> visibleCurrencies;
-    if (query.isNotEmpty) {
-      // When searching, bypass the "show all" toggle and search across all currencies
-      visibleCurrencies = allOrderedCurrencies.where((s) {
-        final code = s.currencyCode.toLowerCase();
-        final symbol = (currencyOptions[s.currencyCode] ?? '').toLowerCase();
-        return code.contains(query) || symbol.contains(query);
-      }).toList();
-    } else {
-      // Default behavior respecting the "show all currencies" toggle
-      visibleCurrencies = _showAllCurrencies
-          ? List<CurrencySummary>.from(allOrderedCurrencies)
-          : List<CurrencySummary>.from(activeCurrencies);
-    }
 
     final fallbackPrimary = ref.watch(selectedHomeCurrencyCodeProvider);
     final primaryCurrency =
@@ -363,52 +360,69 @@ class _CurrencySelectorScreenState
           <String>[primaryCurrency],
     ).toSet();
 
-    // Always put primary and selected currencies at the top and ensure visible.
-    if (primaryCurrency.isNotEmpty) {
-      final selectedIndex = visibleCurrencies.indexWhere(
-        (s) => s.currencyCode == primaryCurrency,
+    // Initialize stable list on first load
+    if (_stableCurrencyCodes == null && allCurrencySummaries.isNotEmpty) {
+      _initializeStableCurrencyList(
+        _applyCustomOrder(activeCurrencies),
+        _applyCustomOrder(inactiveCurrencies),
+        primaryCurrency,
       );
-
-      if (selectedIndex > 0) {
-        // Move primary currency to the front.
-        final selected = visibleCurrencies.removeAt(selectedIndex);
-        visibleCurrencies.insert(0, selected);
-      } else if (selectedIndex == -1 && query.isEmpty && _showAllCurrencies) {
-        // When showing all currencies and not searching, ensure the primary currency is visible.
-        final selectedFromInactive = inactiveCurrencies.firstWhere(
-          (s) => s.currencyCode == primaryCurrency,
-          orElse: () => allCurrencySummaries.firstWhere(
-            (s) => s.currencyCode == primaryCurrency,
-            orElse: () => CurrencySummary(
-              currencyCode: primaryCurrency,
-              totalExpenses: 0,
-              totalIncome: 0,
-              totalBudget: 0,
-              transactionCount: 0,
-            ),
-          ),
-        );
-        visibleCurrencies.insert(0, selectedFromInactive);
-      }
     }
 
-    visibleCurrencies.sort((left, right) {
-      int rank(CurrencySummary summary) {
-        if (summary.currencyCode == primaryCurrency) return 0;
-        if (selectedCurrencySet.contains(summary.currencyCode)) return 1;
-        return 2;
-      }
+    // Map stable codes back to summaries (preserving the stable order)
+    final stableSummaries = (_stableCurrencyCodes ?? []).map((code) {
+      return allCurrencySummaries.firstWhere(
+        (s) => s.currencyCode == code,
+        orElse: () => CurrencySummary(
+          currencyCode: code,
+          totalExpenses: 0,
+          totalIncome: 0,
+          totalBudget: 0,
+          transactionCount: 0,
+        ),
+      );
+    }).toList();
 
-      final rankCompare = rank(left).compareTo(rank(right));
-      if (rankCompare != 0) return rankCompare;
-      return 0;
-    });
+    // Apply search filter (by currency code or symbol)
+    final query = _searchQuery.trim().toLowerCase();
+    List<CurrencySummary> visibleCurrencies;
+    if (query.isNotEmpty) {
+      // When searching, bypass the "show all" toggle and search across all summaries
+      visibleCurrencies = allCurrencySummaries.where((s) {
+        final code = s.currencyCode.toLowerCase();
+        final symbol = (currencyOptions[s.currencyCode] ?? '').toLowerCase();
+        return code.contains(query) || symbol.contains(query);
+      }).toList();
+      // Sort search results by primary and selected (optional, but good for UX)
+      visibleCurrencies.sort((left, right) {
+        int rank(CurrencySummary summary) {
+          if (summary.currencyCode == primaryCurrency) return 0;
+          if (selectedCurrencySet.contains(summary.currencyCode)) return 1;
+          return 2;
+        }
+        return rank(left).compareTo(rank(right));
+      });
+    } else {
+      // Respect the "show all currencies" toggle using the stable list
+      if (_showAllCurrencies) {
+        visibleCurrencies = stableSummaries;
+      } else {
+        visibleCurrencies = stableSummaries.where((s) {
+          final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
+          // Always show primary or included currencies even if inactive
+          return txCount > 0 ||
+              s.currencyCode == primaryCurrency ||
+              selectedCurrencySet.contains(s.currencyCode);
+        }).toList();
+      }
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
         backgroundColor: colorScheme.card,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: Icon(Icons.close, color: colorScheme.foreground),
           onPressed: () => Navigator.pop(context, null),
@@ -417,17 +431,26 @@ class _CurrencySelectorScreenState
           context.l10n.selectCurrency,
           style: TextStyle(
             color: colorScheme.foreground,
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => _saveSelection(
-              primaryCurrency: primaryCurrency,
-              selectedCurrencies: selectedCurrencySet.toList(growable: false),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              onPressed: () => _saveSelection(
+                primaryCurrency: primaryCurrency,
+                selectedCurrencies: selectedCurrencySet.toList(growable: false),
+              ),
+              child: Text(
+                context.l10n.save,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -435,7 +458,7 @@ class _CurrencySelectorScreenState
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) {
@@ -446,12 +469,14 @@ class _CurrencySelectorScreenState
                 decoration: InputDecoration(
                   prefixIcon: Icon(
                     Icons.search,
+                    size: 20,
                     color: colorScheme.mutedForeground,
                   ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: Icon(
                             Icons.clear,
+                            size: 18,
                             color: colorScheme.mutedForeground,
                           ),
                           onPressed: () {
@@ -464,28 +489,24 @@ class _CurrencySelectorScreenState
                       : null,
                   hintText: context.l10n.search,
                   filled: true,
-                  fillColor: colorScheme.card,
+                  fillColor: colorScheme.muted.withValues(alpha: 0.5),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: colorScheme.border,
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: colorScheme.border,
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: colorScheme.primary,
-                      width: 1.5,
+                      color: colorScheme.primary.withValues(alpha: 0.5),
+                      width: 1,
                     ),
                   ),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
             ),
@@ -493,30 +514,43 @@ class _CurrencySelectorScreenState
               child: visibleCurrencies.isEmpty && query.isNotEmpty
                   ? _buildEmptySearchState(context, colorScheme, query)
                   : ReorderableListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       onReorderStart: (index) {
-                        // Provide haptic feedback when drag starts
                         HapticFeedback.mediumImpact();
                       },
                       onReorder: (oldIndex, newIndex) {
-                        // Provide haptic feedback on successful reorder
                         HapticFeedback.lightImpact();
 
-                        // Adjust index if moving down
                         if (newIndex > oldIndex) {
                           newIndex -= 1;
                         }
 
-                        // Reorder the list
+                        // Reorder the current visible list
                         final reorderedList =
                             List<CurrencySummary>.from(visibleCurrencies);
                         final item = reorderedList.removeAt(oldIndex);
                         reorderedList.insert(newIndex, item);
 
-                        // Save new order
-                        final newOrder =
-                            reorderedList.map((s) => s.currencyCode).toList();
-                        _saveCustomOrder(newOrder);
+                        // Update the stable list with the new position of this item
+                        if (_stableCurrencyCodes != null) {
+                          final newStableOrder =
+                              List<String>.from(_stableCurrencyCodes!);
+                          final code = item.currencyCode;
+                          newStableOrder.remove(code);
+                          
+                          // Find where to insert in the stable list relative to its neighbors in visible list
+                          // If it's the first in visible, put it at index 0 of stable or after other filtered out items
+                          // For simplicity, we can just rebuild the stable order by taking all codes in the reordered visible list
+                          // and keeping the rest (filtered out) at the end.
+                          
+                          final visibleCodes = reorderedList.map((s) => s.currencyCode).toSet();
+                          final updatedStableOrder = [
+                            ...reorderedList.map((s) => s.currencyCode),
+                            ..._stableCurrencyCodes!.where((c) => !visibleCodes.contains(c)),
+                          ];
+                          
+                          _saveCustomOrder(updatedStableOrder);
+                        }
                       },
                       children: [
                         // Individual currency cards
@@ -534,8 +568,10 @@ class _CurrencySelectorScreenState
                               isPrimary:
                                   primaryCurrency == summary.currencyCode,
                               onTap: () {
+                                HapticFeedback.lightImpact();
                                 final next = selectedCurrencySet.toSet();
                                 if (summary.currencyCode == primaryCurrency) {
+                                  // Primary must be included
                                   next.add(summary.currencyCode);
                                 } else if (next
                                     .contains(summary.currencyCode)) {
@@ -548,6 +584,7 @@ class _CurrencySelectorScreenState
                                 });
                               },
                               onPrimaryTap: () {
+                                HapticFeedback.mediumImpact();
                                 setState(() {
                                   _primaryCurrency = summary.currencyCode;
                                   _selectedCurrencies =
@@ -560,34 +597,29 @@ class _CurrencySelectorScreenState
                             ),
                           ),
 
-                        // Show all currencies toggle button - minimal Apple-style design
-                        if (inactiveCurrencies.isNotEmpty)
+                        // Show all currencies toggle button
+                        if (inactiveCurrencies.isNotEmpty && query.isEmpty)
                           GestureDetector(
                             key: const Key('show_all_toggle'),
                             onTap: () {
+                              HapticFeedback.selectionClick();
                               setState(() {
                                 _showAllCurrencies = !_showAllCurrencies;
                               });
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      _showAllCurrencies
-                                          ? context.l10n.showLessCurrencies
-                                          : context.l10n.showAllCurrencies(
-                                              inactiveCurrencies.length),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
+                                child: Text(
+                                  _showAllCurrencies
+                                      ? context.l10n.showLessCurrencies
+                                      : context.l10n.showAllCurrencies(
+                                          inactiveCurrencies.length),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.primary,
+                                  ),
                                 ),
                               ),
                             ),
@@ -688,45 +720,44 @@ class _CurrencyIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final flagPath = getCurrencyFlagPath(currencyCode);
 
-    if (flagPath != null) {
-      return Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.3), width: 1),
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.1),
+          width: 1,
         ),
-        child: ClipOval(
-          child: Image.asset(
-            flagPath,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              // Fallback to symbol if flag image fails to load
-              return _buildSymbolFallback();
-            },
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-        ),
-      );
-    }
-
-    // No flag available, use symbol
-    return _buildSymbolFallback();
+        ],
+      ),
+      child: ClipOval(
+        child: flagPath != null
+            ? Image.asset(
+                flagPath,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildSymbolFallback(),
+              )
+            : _buildSymbolFallback(),
+      ),
+    );
   }
 
   Widget _buildSymbolFallback() {
     return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: colorScheme.muted,
-        shape: BoxShape.circle,
-      ),
+      color: colorScheme.muted,
       child: Center(
         child: Text(
           currencySymbol,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: colorScheme.primary,
           ),
@@ -760,94 +791,168 @@ class _CurrencyCard extends StatelessWidget {
     final currencySymbol = resolveCurrencySymbol(summary.currencyCode);
 
     return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
+            color: isPrimary
+                ? colorScheme.primary.withValues(alpha: 0.04)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isPrimary
-                  ? colorScheme.primary
-                  : isIncluded
-                      ? colorScheme.success
-                      : colorScheme.border,
-              width: isPrimary || isIncluded ? 2 : 1,
+                  ? colorScheme.primary.withValues(alpha: 0.3)
+                  : colorScheme.surfaceBorder.withValues(alpha: 0.12),
+              width: isPrimary ? 1.5 : 1,
             ),
+            boxShadow: isPrimary
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : null,
           ),
           child: Row(
             children: [
-              // Currency icon with flag image or symbol fallback
+              // 1. Checkbox on the very left
+              Icon(
+                isIncluded
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 24,
+                color: isIncluded
+                    ? colorScheme.success
+                    : colorScheme.mutedForeground.withValues(alpha: 0.4),
+              ),
+              const SizedBox(width: 12),
+
+              // 2. Currency Icon
               _CurrencyIcon(
                 currencyCode: summary.currencyCode,
                 currencySymbol: currencySymbol,
                 colorScheme: colorScheme,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
 
-              // Currency code
-              SizedBox(
-                width: 40,
-                child: Text(
-                  summary.currencyCode,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Right side: transaction count only
+              // 3. Body: Currency Code & Transaction Count
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$transactionCount ${transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary.currencyCode,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.2,
                       ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: onPrimaryTap,
-                        child: Icon(
-                          isPrimary
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          size: 22,
-                          color: isPrimary
-                              ? colorScheme.primary
-                              : colorScheme.mutedForeground,
-                        ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$transactionCount ${transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
                       ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        isIncluded
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        size: 22,
-                        color: isIncluded
-                            ? colorScheme.success
-                            : colorScheme.mutedForeground,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+
+              // 4. Primary Selection on the right
+              if (isIncluded)
+                _PrimaryPill(
+                  isPrimary: isPrimary,
+                  onTap: onPrimaryTap,
+                  colorScheme: colorScheme,
+                ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A pill-shaped toggle for setting the primary currency with an external tooltip
+class _PrimaryPill extends StatelessWidget {
+  final bool isPrimary;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+
+  const _PrimaryPill({
+    required this.isPrimary,
+    required this.onTap,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const tooltipMessage =
+        'Your primary currency is used as the default for all totals and budgeting across the app.';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isPrimary ? colorScheme.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isPrimary
+                    ? colorScheme.primary
+                    : colorScheme.primary.withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              isPrimary ? context.l10n.primary : 'Set as Main',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isPrimary ? Colors.white : colorScheme.primary,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+        ),
+        if (isPrimary) ...[
+          const SizedBox(width: 8),
+          Tooltip(
+            message: tooltipMessage,
+            triggerMode: TooltipTriggerMode.tap,
+            preferBelow: false,
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.foreground.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: TextStyle(
+              color: colorScheme.appBackground,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 18,
+              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

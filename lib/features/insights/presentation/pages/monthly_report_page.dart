@@ -974,7 +974,7 @@ String _localizedCategoryTrendInsight(
   if (percent == null) {
     return context.l10n.categoryChangeThanComparator(
       category,
-      change.abs().toStringAsFixed(2),
+      formatAmount(change.abs()),
       comparator,
       direction,
     );

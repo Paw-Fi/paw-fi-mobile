@@ -880,7 +880,6 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     rangeEnd: DateTime(monthStart.year, monthStart.month + 1, 0),
     selectedCurrency:
         normalizedSelectedCurrencies == null ? selectedCurrency : null,
-    selectedCurrencies: normalizedSelectedCurrencies,
   ).where((expense) {
     return _allowsPocketExpenseCurrency(
       expense,
@@ -1453,6 +1452,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       householdId: params.householdId,
       monthStart: monthStart,
       selectedCurrency: state.currency,
+      selectedCurrencies: params.normalizedSelectedCurrencies,
       syncStatuses: const [localSyncStatusLocal],
     );
     if (!mounted || state.hasChanges || localExpenses.isEmpty) return;

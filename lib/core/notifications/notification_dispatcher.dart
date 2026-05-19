@@ -24,6 +24,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/widgets/budget_status_sheet.dart';
 import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_page_command_provider.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 class NotificationDispatcher {
   NotificationDispatcher(
@@ -448,8 +449,8 @@ class NotificationDispatcher {
     final percent = intent.args['percentage_used']?.toString() ?? '0';
     final budgetName = intent.args['budget_name']?.toString() ?? 'Budget';
 
-    final detail = '${(spentCents / 100).toStringAsFixed(2)} / '
-        '${(budgetCents / 100).toStringAsFixed(2)} ($percent%)';
+    final detail = '${formatAmount(spentCents / 100)} / '
+        '${formatAmount(budgetCents / 100)} ($percent%)';
 
     await showBudgetStatusSheet(
       context,

@@ -358,10 +358,10 @@ class _MultiTransactionReviewSheetState
     if (payerId == currentUserId) {
       final owed = total - userShare;
       if (owed <= 0.01) return null;
-      return '${context.l10n.youAreOwed} ${draft.value.currencySymbol}${owed.toStringAsFixed(2)}';
+      return '${context.l10n.youAreOwed} ${draft.value.currencySymbol}${formatAmount(owed)}';
     }
 
-    return '${context.l10n.youOwe} ${draft.value.currencySymbol}${userShare.toStringAsFixed(2)}';
+    return '${context.l10n.youOwe} ${draft.value.currencySymbol}${formatAmount(userShare)}';
   }
 
   void _selectAll() {
@@ -635,7 +635,7 @@ class _MultiTransactionReviewSheetState
 
     final totals = _selectedTotalsByCurrency;
     final totalsLabel = totals.entries
-        .map((e) => '${e.key} ${e.value.toStringAsFixed(2)}')
+        .map((e) => '${e.key} ${formatAmount(e.value)}')
         .join(' • ');
     final allSelected = _drafts.isNotEmpty && _selectedCount == _drafts.length;
     final selectionLabel =
@@ -936,7 +936,7 @@ class _MultiTransactionReviewSheetState
                                 },
                         ),
                         title: Text(
-                          '${_isIncomeMode ? '+' : '-'}${tx.currencySymbol}${tx.amount.toStringAsFixed(2)}  •  $categoryLabel',
+                          '${_isIncomeMode ? '+' : '-'}${tx.currencySymbol}${formatAmount(tx.amount)}  •  $categoryLabel',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

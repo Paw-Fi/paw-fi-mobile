@@ -859,7 +859,8 @@ List<MonthlyCashFlowPoint> _buildCashFlowForecast({
     );
   }
   points.add(
-    MonthlyCashFlowPoint(label: l10n.monthEndBuffer, balance: forecastedBalance),
+    MonthlyCashFlowPoint(
+        label: l10n.monthEndBuffer, balance: forecastedBalance),
   );
   return points;
 }
@@ -1238,13 +1239,12 @@ String _categoryTrendInsight(
       (baselinePercent?.abs() ?? 0) > (previousPercent?.abs() ?? 0);
   final percent = useBaseline ? baselinePercent : previousPercent;
   final change = useBaseline ? baselineChange : previousChange;
-  final comparator =
-      useBaseline ? l10n.recentAverage : l10n.samePointLastMonth;
+  final comparator = useBaseline ? l10n.recentAverage : l10n.samePointLastMonth;
   if (percent == null) {
     final direction = change >= 0 ? l10n.higher : l10n.lower;
     return l10n.categoryChangeThanComparator(
       category,
-      change.abs().toStringAsFixed(2),
+      _formatReportAmount(change.abs()),
       comparator,
       direction,
     );
@@ -1309,8 +1309,8 @@ String _buildSummary({
       .take(2)
       .join(' ${l10n.and} ');
   final statusText = monthlyReportStatusLabel(status, l10n: l10n).toLowerCase();
-  final safeToSpendText = safeToSpend.toStringAsFixed(2);
-  final forecastedBalanceText = forecastedBalance.toStringAsFixed(2);
+  final safeToSpendText = _formatReportAmount(safeToSpend);
+  final forecastedBalanceText = _formatReportAmount(forecastedBalance);
   if (watchItems.isNotEmpty) {
     return l10n.monthlyReportSummaryWatch(
       currencyCode,
@@ -1334,6 +1334,14 @@ String _buildSummary({
     safeToSpendText,
     statusText,
   );
+}
+
+String _formatReportAmount(double amount) {
+  final rounded = (amount * 100).round() / 100;
+  if (rounded == rounded.truncate()) {
+    return rounded.truncate().toString();
+  }
+  return rounded.toStringAsFixed(2);
 }
 
 Map<String, double> _expenseTotalsByCategory(
@@ -1427,7 +1435,7 @@ String _subscriptionNote(
       return l10n.duplicates;
     case MonthlySubscriptionStatus.priceIncrease:
       return l10n.amountFromLastSnapshot(
-        '${previousAmount!.toStringAsFixed(2)} -> ${amount.toStringAsFixed(2)}',
+        '${_formatReportAmount(previousAmount!)} -> ${_formatReportAmount(amount)}',
       );
     case MonthlySubscriptionStatus.upcoming:
       return daysUntil <= 0 ? l10n.today : l10n.renewsInDays(daysUntil);

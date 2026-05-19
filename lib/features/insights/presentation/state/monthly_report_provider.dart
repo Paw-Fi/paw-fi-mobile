@@ -146,6 +146,9 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final preview = ref.watch(previewModeProvider);
     final userId = user.uid;
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
     final appLocale = resolveSupportedAppLocale(ref.watch(localeProvider));
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
@@ -164,6 +167,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       periodStart: period.start,
       periodEnd: period.end,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       localeTag: appLocale.toLanguageTag(),
     );
 
@@ -286,6 +290,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final user = ref.read(authProvider);
     final userId = user.uid;
     final currencyCode = ref.read(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencies =
+        ref.read(homeFilterProvider).normalizedSelectedCurrencies;
     final appLocale = resolveSupportedAppLocale(ref.read(localeProvider));
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.read(appPreferredTimezoneProvider);
@@ -312,6 +318,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         periodStart: period.start,
         periodEnd: period.end,
         currencyCode: currencyCode,
+        selectedCurrencies: selectedCurrencies,
         localeTag: appLocale.toLanguageTag(),
       ),
       l10n: l10n,
@@ -476,6 +483,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       userId: userId,
       householdId: householdId,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       monthStart: monthStart,
       watchDependencies: watchDependencies,
     );
@@ -484,6 +492,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       userId: userId,
       householdId: householdId,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       monthStart: monthStart,
       watchDependencies: watchDependencies,
     );
@@ -620,6 +629,7 @@ String _monthlyReportCacheKey({
   required DateTime periodStart,
   required DateTime periodEnd,
   required String currencyCode,
+  List<String>? selectedCurrencies,
   required String localeTag,
 }) {
   final month =
@@ -628,7 +638,17 @@ String _monthlyReportCacheKey({
       '${periodStart.year.toString().padLeft(4, '0')}-${periodStart.month.toString().padLeft(2, '0')}-${periodStart.day.toString().padLeft(2, '0')}';
   final end =
       '${periodEnd.year.toString().padLeft(4, '0')}-${periodEnd.month.toString().padLeft(2, '0')}-${periodEnd.day.toString().padLeft(2, '0')}';
-  return 'monthly-report:v2:$userId:$scope:${householdId ?? 'personal'}:$month:${range.key}:$start:$end:${currencyCode.toUpperCase()}:$localeTag';
+  return 'monthly-report:v3:$userId:$scope:${householdId ?? 'personal'}:$month:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
+}
+
+String _currencySelectionCacheSegment(List<String>? currencies) {
+  final values = (currencies ?? const <String>[])
+      .map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  return values.isEmpty ? 'default' : values.join(',');
 }
 
 MonthlyReportPeriod _monthlyReportPeriod(
@@ -1572,6 +1592,7 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
   required String userId,
   required String? householdId,
   required String currencyCode,
+  List<String>? selectedCurrencies,
   required DateTime monthStart,
   required bool watchDependencies,
 }) async {
@@ -1581,6 +1602,7 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
         userId: userId,
         householdId: householdId,
         selectedCurrency: currencyCode,
+        selectedCurrencies: selectedCurrencies,
         currentMonthStart: monthStart,
       ),
       monthStart: monthStart,
@@ -1596,6 +1618,7 @@ Future<double?> _readPreviousNetWorth(
   required String userId,
   required String? householdId,
   required String currencyCode,
+  List<String>? selectedCurrencies,
   required DateTime monthStart,
   required bool watchDependencies,
 }) async {
@@ -1604,6 +1627,7 @@ Future<double?> _readPreviousNetWorth(
       userId: userId,
       householdId: householdId,
       selectedCurrency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       currentMonthStart: monthStart,
     ),
   );

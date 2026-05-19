@@ -103,6 +103,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       userId: currentUserId,
       householdId: effectiveHouseholdId,
       selectedCurrency: selectedCurrencyCode,
+      selectedCurrencies: selectedCurrencyFilters,
       currentMonthStart: currentMonthStart,
     );
     final detailsMonthQuery = WalletsMonthQuery(
@@ -251,7 +252,7 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     final snapshotBalanceCents =
         detailsMonthSnapshotAsync.valueOrNull?.walletBalances[latestWallet.id];
-    final hasOptimisticBalance = serverAccount == null ||
+    final hasOptimisticBalance = serverAccount != null &&
         latestWallet.currentBalanceCents != serverAccount.currentBalanceCents;
     final currentBalanceCents = hasOptimisticBalance
         ? latestWallet.currentBalanceCents

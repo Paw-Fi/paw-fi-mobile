@@ -183,6 +183,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       userId: user.uid,
       householdId: householdId,
       selectedCurrency: scopeQuery.selectedCurrency,
+      selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
       currentMonthStart: scopeQuery.currentMonthStart,
     );
     final trace = WalletsDebugTrace(
@@ -215,6 +216,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         userId: user.uid,
         householdId: householdId,
         selectedCurrency: scopeQuery.selectedCurrency,
+        selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
         currentMonthStart: scopeQuery.currentMonthStart,
       );
       if (persistedWallets != null) {
@@ -243,6 +245,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         userId: user.uid,
         householdId: householdId,
         selectedCurrency: scopeQuery.selectedCurrency,
+        selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
         currentMonthStart: scopeQuery.currentMonthStart,
       );
       if (persistedWallets != null) {
@@ -283,6 +286,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
             userId: user.uid,
             householdId: householdId,
             selectedCurrency: scopeQuery.selectedCurrency,
+            selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
             currentMonthStart: scopeQuery.currentMonthStart,
           ) ??
           const <WalletEntity>[];
@@ -292,6 +296,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       userId: user.uid,
       householdId: householdId,
       selectedCurrency: scopeQuery.selectedCurrency,
+      selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
       currentMonthStart: scopeQuery.currentMonthStart,
     );
     final wallets =
@@ -300,6 +305,8 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       userId: ref.read(authProvider).uid,
       householdId: ref.read(walletScopeHouseholdIdProvider),
       selectedCurrency: ref.read(walletsScopeQueryProvider).selectedCurrency,
+      selectedCurrencies:
+          ref.read(walletsScopeQueryProvider).normalizedSelectedCurrencies,
       currentMonthStart: ref.read(walletsScopeQueryProvider).currentMonthStart,
     );
     if (requestKey != currentKey ||
@@ -317,6 +324,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         userId: user.uid,
         householdId: householdId,
         selectedCurrency: scopeQuery.selectedCurrency,
+        selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
         currentMonthStart: scopeQuery.currentMonthStart,
         wallets: wallets,
       ),
@@ -895,6 +903,7 @@ class WalletActions {
       userId: user.uid,
       householdId: householdId,
       selectedCurrency: scopeQuery.selectedCurrency,
+      selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
       currentMonthStart: scopeQuery.currentMonthStart,
     );
     final current = ref.read(walletsListSessionCacheProvider)[cacheKey] ??
@@ -903,6 +912,7 @@ class WalletActions {
           userId: user.uid,
           householdId: householdId,
           selectedCurrency: scopeQuery.selectedCurrency,
+          selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
           currentMonthStart: scopeQuery.currentMonthStart,
         ) ??
         ref.read(scopedWalletsProvider).valueOrNull ??
@@ -917,6 +927,7 @@ class WalletActions {
       userId: user.uid,
       householdId: householdId,
       selectedCurrency: scopeQuery.selectedCurrency,
+      selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
       currentMonthStart: scopeQuery.currentMonthStart,
       wallets: next,
     );

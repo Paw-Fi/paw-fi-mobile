@@ -233,13 +233,15 @@ bool isSupportedCurrencyCode(String? code) {
 /// - formatAmount(50.25) → "50.25"
 /// - formatAmount(0.0) → "0"
 String formatAmount(double amount) {
-  // Check if the amount is a whole number
-  if (amount == amount.truncate()) {
+  final roundedAmount = (amount * 100).round() / 100;
+
+  // Check if the rounded amount is a whole number.
+  if (roundedAmount == roundedAmount.truncate()) {
     // No decimal places needed
-    return amount.truncate().toString();
+    return roundedAmount.truncate().toString();
   } else {
     // Show 2 decimal places
-    return amount.toStringAsFixed(2);
+    return roundedAmount.toStringAsFixed(2);
   }
 }
 

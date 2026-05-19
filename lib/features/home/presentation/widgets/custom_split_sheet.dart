@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
@@ -1303,7 +1304,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           // Split Input
           if (_selectedType == SplitType.equal)
             Text(
-              '${widget.currencySymbol}${widget.members.isNotEmpty ? (widget.totalAmount / widget.members.length).toStringAsFixed(2) : '0.00'}',
+              '${widget.currencySymbol}${widget.members.isNotEmpty ? formatAmount(widget.totalAmount / widget.members.length) : '0'}',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -1381,7 +1382,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   String _getOweText(int index) {
     // Guard against out-of-bounds access
     if (index < 0 || index >= _memberSplits.length) {
-      return '${context.l10n.owes} ${widget.currencySymbol}0.00';
+      return '${context.l10n.owes} ${widget.currencySymbol}0';
     }
     final split = _memberSplits[index];
     double amount = 0;
@@ -1407,7 +1408,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         break;
     }
 
-    return '${context.l10n.owes} ${widget.currencySymbol}${amount.toStringAsFixed(2)}';
+    return '${context.l10n.owes} ${widget.currencySymbol}${formatAmount(amount)}';
   }
 }
 
