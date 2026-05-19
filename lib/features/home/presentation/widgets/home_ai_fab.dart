@@ -425,9 +425,11 @@ Household? _resolveHouseholdForAutoSplit(
   ProviderContainer container,
   String householdId,
 ) {
-  final selected = container.read(selectedHouseholdProvider).household;
-  if (selected?.id == householdId) return selected;
-  return container.read(householdProvider(householdId)).valueOrNull;
+  final providerHousehold =
+      container.read(householdProvider(householdId)).valueOrNull;
+  if (providerHousehold?.id == householdId) return providerHousehold;
+
+  return null;
 }
 
 bool _hasExplicitCustomSplits(Object? rawCustomSplits) {
@@ -811,6 +813,15 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
       _resolveHouseholdForAutoSplit(container, householdId);
 
   Future<Household?> resolveHousehold() async {
+    try {
+      final fresh =
+          await container.read(householdRepositoryProvider).getHousehold(
+                householdId,
+              );
+      if (fresh != null) return fresh;
+    } catch (error) {
+      _debugPrint('⚠️ Failed to load fresh household split settings: $error');
+    }
     if (selectedHousehold != null) return selectedHousehold;
     return await container.read(householdProvider(householdId).future);
   }
@@ -1086,7 +1097,7 @@ Future<void> _persistAiTransactions(
         totalAmount: savedEntry.amount,
         currency: savedEntry.currency ?? prepared.item.transaction.currency,
         members: autoSplitContext?.members ?? const <HouseholdMember>[],
-        autoSplitEnabled: autoSplitContext?.household.autoSplitEnabled ?? true,
+        autoSplitEnabled: autoSplitContext?.household.autoSplitEnabled ?? false,
         autoSplitConfig: autoSplitContext?.household.autoSplitConfig,
         rawCustomSplits: prepared.batchRequestBody['customSplits'],
         description:
@@ -1102,6 +1113,17 @@ Future<void> _persistAiTransactions(
         if (existingSplitGroupId == null || existingSplitGroupId.isEmpty) {
           entryToStore =
               savedEntry.copyWith(splitGroupId: optimisticSplitGroup.id);
+        }
+      } else {
+        final optimisticSplitsNotifier =
+            container.read(householdOptimisticSplitsProvider.notifier);
+        optimisticSplitsNotifier.removeSplitByExpenseIdAcrossHouseholds(
+          optimisticId,
+        );
+        if (savedEntry.id.isNotEmpty) {
+          optimisticSplitsNotifier.removeSplitByExpenseIdAcrossHouseholds(
+            savedEntry.id,
+          );
         }
       }
     }
@@ -2755,7 +2777,7 @@ Future<void> _processExpense(
                             const <HouseholdMember>[],
                         autoSplitEnabled: optimisticAutoSplitContext
                                 ?.household.autoSplitEnabled ??
-                            true,
+                            false,
                         autoSplitConfig: optimisticAutoSplitContext
                             ?.household.autoSplitConfig,
                         rawCustomSplits: item['customSplits'],

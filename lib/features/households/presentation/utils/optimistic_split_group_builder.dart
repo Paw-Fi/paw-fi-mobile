@@ -91,6 +91,7 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
   final customSplits = Map<String, dynamic>.from(rawCustomSplits);
   final splitType = _parseSplitType(customSplits['splitType']);
   if (splitType == null) return null;
+  if (splitType == SplitType.equal) return null;
 
   final rawMemberSplits = customSplits['memberSplits'];
   final rawMaps = rawMemberSplits is List
@@ -102,6 +103,7 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
           )
           .toList(growable: false)
       : const <Map<String, dynamic>>[];
+  if (_isSemanticallyEqualCustomSplit(splitType, rawMaps)) return null;
 
   final userIds = rawMaps.isNotEmpty
       ? rawMaps.map((entry) => entry['userId'].toString().trim()).toList()
@@ -128,16 +130,39 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
     }
   }
 
-  final lineInputs = splitType == SplitType.equal
-      ? _equalLineInputs(userIds: userIds, totalCents: totalCents)
-      : _lineInputsFromRawMaps(
-          rawMaps,
-          splitType: splitType,
-          totalCents: totalCents,
-          amountCentsFor: amountCentsFor,
-        );
+  final lineInputs = _lineInputsFromRawMaps(
+    rawMaps,
+    splitType: splitType,
+    totalCents: totalCents,
+    amountCentsFor: amountCentsFor,
+  );
   if (lineInputs.isEmpty) return null;
   return _ResolvedSplitLines(splitType: splitType, lineInputs: lineInputs);
+}
+
+bool _isSemanticallyEqualCustomSplit(
+  SplitType splitType,
+  List<Map<String, dynamic>> rawMaps,
+) {
+  if (rawMaps.length <= 1) return true;
+
+  final values = switch (splitType) {
+    SplitType.amount =>
+      rawMaps.map((entry) => _parseAmountValue(entry['amount'])).toList(),
+    SplitType.percentage =>
+      rawMaps.map((entry) => _parseAmountValue(entry['percentage'])).toList(),
+    SplitType.shares => rawMaps
+        .map((entry) => _parsePositiveInt(entry['shares'])?.toDouble())
+        .toList(),
+    SplitType.equal => const <double?>[],
+  };
+  if (splitType == SplitType.equal) return true;
+  if (values.any((value) => value == null)) return false;
+
+  final baseline = values.first!;
+  return values.every(
+    (value) => ((value ?? 0) - baseline).abs() <= 0.000001,
+  );
 }
 
 _ResolvedSplitLines? _buildLinesFromAutoSplitConfig({

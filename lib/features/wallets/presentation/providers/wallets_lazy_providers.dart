@@ -921,6 +921,13 @@ DateTime _walletProjectionNow(Ref ref) {
   return DateTime(now.year, now.month, now.day);
 }
 
+String _formatWalletsRpcDate(DateTime date) {
+  final year = date.year.toString().padLeft(4, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
 DateTime _walletSnapshotEndExclusive({
   required DateTime monthStart,
   required DateTime now,
@@ -951,7 +958,7 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     },
   );
   trace.mark('legacy-load-start');
-  final wallets = await _fetchScopedWallets(ref, query.householdId);
+  final wallets = await _fetchScopedWallets(ref, query);
   trace.mark('legacy-wallets-loaded', {'count': wallets.length});
   final actualTransactions = await _fetchWalletActualTransactions(
     ref,
@@ -994,10 +1001,11 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
 }
 
 Future<List<WalletEntity>> _fetchScopedWallets(
-    Ref ref, String? householdId) async {
+    Ref ref, WalletsScopeQuery query) async {
+  final householdId = query.householdId;
   final authHeaders = ref.read(walletAuthHeadersProvider);
   if (authHeaders == null) {
-    final userId = ref.read(authProvider).uid;
+    final userId = query.userId;
     if (userId.isEmpty) {
       return const <WalletEntity>[];
     }
@@ -1005,12 +1013,16 @@ Future<List<WalletEntity>> _fetchScopedWallets(
     final cacheKey = walletsListCacheKey(
       userId: userId,
       householdId: householdId,
+      selectedCurrency: query.selectedCurrency,
+      currentMonthStart: query.currentMonthStart,
     );
     return ref.read(walletsListSessionCacheProvider)[cacheKey] ??
         readPersistedWalletsList(
           ref,
           userId: userId,
           householdId: householdId,
+          selectedCurrency: query.selectedCurrency,
+          currentMonthStart: query.currentMonthStart,
         ) ??
         const <WalletEntity>[];
   }
@@ -1021,6 +1033,8 @@ Future<List<WalletEntity>> _fetchScopedWallets(
     body: {
       if (householdId != null && householdId.trim().isNotEmpty)
         'householdId': householdId,
+      'currency': query.selectedCurrency.trim().toUpperCase(),
+      'monthStart': _formatWalletsRpcDate(query.currentMonthStart),
     },
   );
 

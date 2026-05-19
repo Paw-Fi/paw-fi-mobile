@@ -7,6 +7,7 @@ class WalletCard extends StatelessWidget {
     super.key,
     required this.wallet,
     required this.currencyCode,
+    this.displayBalanceCents,
     this.onTap,
     this.onArchive,
     this.onSetDefault,
@@ -15,6 +16,7 @@ class WalletCard extends StatelessWidget {
 
   final WalletEntity wallet;
   final String currencyCode;
+  final int? displayBalanceCents;
   final VoidCallback? onTap;
   final VoidCallback? onArchive;
   final VoidCallback? onSetDefault;
@@ -23,7 +25,7 @@ class WalletCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final amount = wallet.currentBalanceCents / 100.0;
+    final amount = (displayBalanceCents ?? wallet.currentBalanceCents) / 100.0;
     final isPositive = amount >= 0;
 
     return Card(

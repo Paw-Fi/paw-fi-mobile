@@ -664,7 +664,8 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
       final convertPortfolioToShared =
           household.isPortfolio && (_isSharedSpace ?? false);
 
-      await ref.read(householdRepositoryProvider).updateHousehold(
+      final updatedHousehold =
+          await ref.read(householdRepositoryProvider).updateHousehold(
             householdId: widget.householdId,
             name: _nameController.text.trim(),
             coverImageUrl: imageUrl,
@@ -674,11 +675,14 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
             updateAutoSplitConfig: !household.isPortfolio,
           );
 
+      final userId = ref.read(authProvider).uid;
       ref.invalidate(householdProvider(widget.householdId));
-      // Also refresh the user households list globally
-      ref.invalidate(userHouseholdsProvider(ref.read(authProvider).uid));
+      ref
+          .read(userHouseholdsProvider(userId).notifier)
+          .addOrReplaceHousehold(updatedHousehold);
       // Refresh selected household config
       await ref.read(selectedHouseholdProvider.notifier).refresh();
+      unawaited(ref.read(userHouseholdsProvider(userId).notifier).load());
 
       if (mounted) {
         setState(() {
