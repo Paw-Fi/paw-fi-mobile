@@ -9,6 +9,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -69,19 +70,29 @@ class _SettlementSuggestionsCardState
             const <SettlementPaymentRecord>[],
       ),
     );
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) =>
+            state[widget.summary.householdId] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
 
-    if (balancesAsync.isLoading && overviewAsync.isLoading) {
+    if (optimisticSplits.isEmpty &&
+        balancesAsync.isLoading &&
+        overviewAsync.isLoading) {
       return _buildLoadingCard(context, colorScheme);
     }
 
-    if (balancesAsync.hasError && !overviewAsync.hasValue) {
+    if (optimisticSplits.isEmpty &&
+        balancesAsync.hasError &&
+        !overviewAsync.hasValue) {
       return _buildLoadingCard(context, colorScheme);
     }
 
     final balances = balancesAsync.valueOrNull;
     final overview = overviewAsync.valueOrNull;
 
-    if (balances == null && overview == null) {
+    if (optimisticSplits.isEmpty && balances == null && overview == null) {
       return _buildLoadingCard(context, colorScheme);
     }
 
@@ -120,14 +131,19 @@ class _SettlementSuggestionsCardState
               context.l10n.member;
         }
 
-        final mySuggestions = balances != null && optimisticPayments.isEmpty
+        final mySuggestions = balances != null &&
+                optimisticPayments.isEmpty &&
+                optimisticSplits.isEmpty
             ? _buildSuggestionsFromBalances(
                 balances,
                 currentUserId,
                 nameFor,
               )
             : _buildLegacySuggestions(
-                overview?.splits,
+                overview?.splits ??
+                    (optimisticSplits.isNotEmpty
+                        ? optimisticSplits
+                        : widget.splits),
                 widget.currency,
                 currentUserId,
                 nameFor,

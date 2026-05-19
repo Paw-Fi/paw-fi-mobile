@@ -429,6 +429,16 @@ Household? _resolveHouseholdForAutoSplit(
       container.read(householdProvider(householdId)).valueOrNull;
   if (providerHousehold?.id == householdId) return providerHousehold;
 
+  final userId = container.read(authProvider).uid;
+  if (userId.isNotEmpty) {
+    final households =
+        container.read(userHouseholdsProvider(userId)).valueOrNull ??
+            const <Household>[];
+    for (final household in households) {
+      if (household.id == householdId) return household;
+    }
+  }
+
   return null;
 }
 
