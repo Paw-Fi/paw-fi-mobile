@@ -1339,6 +1339,7 @@ class _MonthSection extends StatelessWidget {
                     isIncome: (tx.expense.type ?? 'expense').toLowerCase() ==
                         'income',
                     onTap: () => onEdit(tx),
+                    showRecurringChip: tx.isRecurring,
                   ),
                 ),
               const SizedBox(height: 8),

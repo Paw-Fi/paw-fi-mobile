@@ -238,6 +238,7 @@ Widget buildExpenseTransactionTile({
   Widget? trailingWidget,
   bool dense = true,
   bool showYouLabel = false,
+  bool showRecurringChip = false,
 }) {
   final effectiveCategory = category ?? 'other';
   final title = getCategoryTranslation(context, effectiveCategory);
@@ -256,6 +257,7 @@ Widget buildExpenseTransactionTile({
       trailingWidget: trailingWidget,
       dense: dense,
       showYouLabel: showYouLabel,
+      showRecurringChip: showRecurringChip,
     ),
   );
 }

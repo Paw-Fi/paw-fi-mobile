@@ -816,6 +816,7 @@ class TransactionPreviewTile extends StatelessWidget {
               isIncome: isIncome,
               onTap: onTap,
               dense: true,
+              showRecurringChip: row.isRecurring,
               trailingWidget: isError
                   ? StatusBadge(
                       label: _issueLabel(row),
