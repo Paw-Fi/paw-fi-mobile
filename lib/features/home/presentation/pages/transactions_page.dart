@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -13,6 +15,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:moneko/features/home/presentation/utils/transactions_page_derived_data.dart';
@@ -282,6 +285,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   TransactionsPageDerivedData _resolveDerivedData({
     required HouseholdScope householdScope,
     required String? selectedCurrency,
+    required List<String>? selectedCurrencies,
     required DateTime userNow,
     required List<ExpenseEntry> projectedRecurringExpenses,
   }) {
@@ -291,6 +295,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       selectedCategory: selectedCategory,
       selectedType: selectedType,
       selectedCurrency: selectedCurrency?.toUpperCase(),
+      selectedCurrencies: selectedCurrencies,
       selectedDateFilter: _selectedDateFilter,
       customStart: _customStart,
       customEnd: _customEnd,
@@ -319,6 +324,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         selectedCategory: selectedCategory,
         selectedType: selectedType,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         selectedDateFilter: _selectedDateFilter,
         customStart: _customStart,
         customEnd: _customEnd,
@@ -481,9 +487,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final analyticsContact =
         ref.watch(analyticsProvider.select((state) => state.contact));
     final householdScope = ref.watch(householdScopeProvider);
-    final selectedCurrency = ref.watch(
-      homeFilterProvider.select((state) => state.selectedCurrency),
-    );
+    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency = filterState.selectedCurrency;
+    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
     final userCategoryLists = ref.watch(userCategoryListsProvider).valueOrNull;
     final userNow = effectiveNow(
       preferredTimezone: analyticsContact?.preferredTimezone,
@@ -529,6 +535,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       userId: currentUserId,
       householdId: effectiveHouseholdId,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       selectedCategory: selectedCategory == 'all' ? null : selectedCategory,
       selectedType: selectedType,
       searchQuery: _debouncedSearchQuery,
@@ -538,6 +545,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     _activeFeedQuery = feedQuery;
 
     final feedState = ref.watch(transactionsFeedProvider(feedQuery));
+    final isMultiCurrencySelection = (selectedCurrencies?.length ?? 0) > 1;
+    final chartSourceState = isMultiCurrencySelection
+        ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
+        : null;
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+        );
     _baseExpenses = feedState.items
         .where((entry) => !_optimisticallyDeletedIds.contains(entry.id))
         .toList(growable: false);
@@ -560,6 +576,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         selectedCategory: selectedCategory,
         selectedType: selectedType,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         selectedDateFilter: _selectedDateFilter,
         customStart: _customStart,
         customEnd: _customEnd,
@@ -574,6 +591,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final derivedData = _resolveDerivedData(
       householdScope: householdScope,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       userNow: userNow,
       projectedRecurringExpenses: projectedRecurringExpenses,
     );
@@ -588,6 +606,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 selectedCategory: selectedCategory,
                 selectedType: selectedType,
                 selectedCurrency: selectedCurrency,
+                selectedCurrencies: selectedCurrencies,
                 selectedDateFilter: _selectedDateFilter,
                 customStart: _customStart,
                 customEnd: _customEnd,
@@ -605,8 +624,26 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       hasMore: feedState.hasMore,
     );
 
-    final chartSummary = feedState.summary
-        .addingExpenses(projectedOnlyDerivedData.filteredExpenses);
+    final chartSummary = isMultiCurrencySelection
+        ? summarizeTransactionsInCurrency(
+            [
+              ...?chartSourceState?.valueOrNull,
+              ...projectedOnlyDerivedData.filteredExpenses,
+            ],
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: rateTable,
+            intervalGranularity:
+                feedQuery.normalizedSummaryIntervalGranularity ?? 'yearly',
+          )
+        : feedState.summary.addingExpenses(
+            projectedOnlyDerivedData.filteredExpenses,
+          );
+    final isChartSourceLoading = isMultiCurrencySelection &&
+        chartSourceState?.valueOrNull == null &&
+        (chartSourceState?.isLoading ?? false);
+    final isChartSourceError = isMultiCurrencySelection &&
+        chartSourceState?.valueOrNull == null &&
+        (chartSourceState?.hasError ?? false);
 
     final availableCategories = _resolveAvailableCategories(userCategoryLists);
 
@@ -620,6 +657,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       completeGroupTotals: completeGroupTotals,
       shouldSuppressHeaderTotals: shouldSuppressHeaderTotals,
       chartSummary: chartSummary,
+      isChartSourceLoading: isChartSourceLoading,
+      isChartSourceError: isChartSourceError,
       availableCategories: availableCategories,
       currentUserId: currentUserId,
       accountLabelsById: accountLabelsById,
@@ -651,6 +690,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required CompleteTransactionGroupTotals completeGroupTotals,
     required bool shouldSuppressHeaderTotals,
     required TransactionsFeedSummary chartSummary,
+    required bool isChartSourceLoading,
+    required bool isChartSourceError,
     required List<String> availableCategories,
     required String currentUserId,
     required Map<String, String> accountLabelsById,
@@ -835,10 +876,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: _buildChart(
-                      colorScheme,
-                      chartSummary,
-                    ),
+                    child: isChartSourceLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : isChartSourceError
+                            ? Center(
+                                child: Text(
+                                  context
+                                      .l10n.failedToLoadHouseholdTransactions,
+                                  style: TextStyle(
+                                    color: colorScheme.destructive,
+                                  ),
+                                ),
+                              )
+                            : _buildChart(
+                                colorScheme,
+                                chartSummary,
+                              ),
                   ),
                 ),
 
@@ -1014,6 +1067,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final total = resolveDayTransactionHeaderTotal(totalGroup);
     if (!isTotalComplete && totalOverrideGroup == null) {
       totalString = null;
+    } else if (currencies.length > 1) {
+      totalString = context.l10n.multipleCurrencies;
     } else if (selectedCurrency != null) {
       final totalFormatted = formatLocalizedNumber(context, total.abs());
       final symbol = resolveCurrencySymbol(selectedCurrency);
@@ -1023,8 +1078,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       final totalFormatted = formatLocalizedNumber(context, total.abs());
       final symbol = resolveCurrencySymbol(currency);
       totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length > 1) {
-      totalString = context.l10n.multipleCurrencies;
     }
 
     return Padding(
@@ -2047,6 +2100,7 @@ class _TransactionsFilterCacheKey {
   final String selectedCategory;
   final String selectedType;
   final String? selectedCurrency;
+  final List<String>? selectedCurrencies;
   final DateRangeFilter selectedDateFilter;
   final DateTime? customStart;
   final DateTime? customEnd;
@@ -2061,6 +2115,7 @@ class _TransactionsFilterCacheKey {
     required this.selectedCategory,
     required this.selectedType,
     required this.selectedCurrency,
+    required this.selectedCurrencies,
     required this.selectedDateFilter,
     required this.customStart,
     required this.customEnd,
@@ -2082,6 +2137,7 @@ class _TransactionsFilterCacheKey {
         selectedCategory == other.selectedCategory &&
         selectedType == other.selectedType &&
         selectedCurrency == other.selectedCurrency &&
+        _listEquals(selectedCurrencies, other.selectedCurrencies) &&
         selectedDateFilter == other.selectedDateFilter &&
         customStart == other.customStart &&
         customEnd == other.customEnd &&
@@ -2098,6 +2154,7 @@ class _TransactionsFilterCacheKey {
         selectedCategory,
         selectedType,
         selectedCurrency,
+        Object.hashAll(selectedCurrencies ?? const <String>[]),
         selectedDateFilter,
         customStart,
         customEnd,
@@ -2107,6 +2164,17 @@ class _TransactionsFilterCacheKey {
         selectedHouseholdId,
         dayAnchor,
       );
+}
+
+bool _listEquals(List<String>? left, List<String>? right) {
+  if (identical(left, right)) return true;
+  if (left == null || right == null || left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 class _TransactionsDerivedCacheKey {

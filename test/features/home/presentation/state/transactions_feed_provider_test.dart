@@ -87,6 +87,21 @@ void main() {
     );
   }
 
+  test('query identity ignores primary currency when selected set is present',
+      () {
+    final usdPrimary = buildQuery().copyWith(
+      selectedCurrency: 'USD',
+      selectedCurrencies: const ['USD', 'EUR'],
+    );
+    final eurPrimary = buildQuery().copyWith(
+      selectedCurrency: 'EUR',
+      selectedCurrencies: const ['eur', 'usd'],
+    );
+
+    expect(usdPrimary, eurPrimary);
+    expect(usdPrimary.hashCode, eurPrimary.hashCode);
+  });
+
   test('loads summary and first page initially', () async {
     final service = _FakeTransactionsFeedService([
       TransactionsFeedPageResult(

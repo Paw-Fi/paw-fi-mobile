@@ -263,9 +263,6 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Modal Sheet Drag Handle
-              const ModalSheetHandle(),
-              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                 child: Row(

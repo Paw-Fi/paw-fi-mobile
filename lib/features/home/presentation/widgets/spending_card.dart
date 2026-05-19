@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
@@ -19,6 +21,8 @@ class SpendingCard extends StatefulWidget {
   final DateRangeFilter dateFilter;
   final DateTime? referenceNow;
   final String? selectedCurrency;
+  final List<String>? selectedCurrencies;
+  final CurrencyRateTable? currencyRates;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
 
@@ -30,6 +34,8 @@ class SpendingCard extends StatefulWidget {
     required this.dateFilter,
     this.referenceNow,
     this.selectedCurrency,
+    this.selectedCurrencies,
+    this.currencyRates,
     this.customStartDate,
     this.customEndDate,
   });
@@ -60,14 +66,29 @@ class _SpendingCardState extends State<SpendingCard> {
     final from = range['from']!;
     final to = range['to']!;
     final selectedCode = widget.selectedCurrency?.toUpperCase();
+    final selectedCurrencies = widget.selectedCurrencies
+        ?.map((currency) => currency.trim().toUpperCase())
+        .where((currency) => currency.isNotEmpty)
+        .toSet();
+    final shouldConvertCurrencies =
+        widget.currencyRates != null && (selectedCurrencies?.length ?? 0) > 1;
+    final sourceExpenses = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            widget.expenses,
+            targetCurrency: widget.selectedCurrency ?? 'USD',
+            rates: widget.currencyRates!,
+          )
+        : widget.expenses;
 
-    final filteredExpenses = widget.expenses.where((expense) {
+    final filteredExpenses = sourceExpenses.where((expense) {
       final d =
           DateTime(expense.date.year, expense.date.month, expense.date.day);
       final dateOk = !d.isBefore(from) && !d.isAfter(to);
       final rawCode = (expense.currency ?? '').trim().toUpperCase();
-      final currencyOk =
-          selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
+      final currencyOk = shouldConvertCurrencies ||
+          selectedCode == null ||
+          rawCode.isEmpty ||
+          rawCode == selectedCode;
       final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
       return dateOk && currencyOk && !isIncome;
     }).toList();
@@ -560,6 +581,8 @@ Widget buildSpendingCard(
   Key? key,
   DateTime? referenceNow,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
+  CurrencyRateTable? currencyRates,
   DateTime? customStartDate,
   DateTime? customEndDate,
 }) {
@@ -571,6 +594,8 @@ Widget buildSpendingCard(
     dateFilter: dateFilter,
     referenceNow: referenceNow,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
+    currencyRates: currencyRates,
     customStartDate: customStartDate,
     customEndDate: customEndDate,
   );

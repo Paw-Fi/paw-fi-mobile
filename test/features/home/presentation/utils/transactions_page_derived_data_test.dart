@@ -203,6 +203,52 @@ void main() {
       expect(result.filteredExpenses.map((expense) => expense.id).toList(),
           ['match']);
     });
+
+    test('filters by the selected currency set when multiple are active', () {
+      final result = deriveTransactionsPageData(
+        TransactionsPageFilterInput(
+          baseExpenses: [
+            _entry(
+              id: 'usd-row',
+              date: DateTime(2026, 4, 10),
+              amountCents: 2500,
+              currency: 'usd',
+            ),
+            _entry(
+              id: 'eur-row',
+              date: DateTime(2026, 4, 9),
+              amountCents: 1800,
+              currency: 'EUR',
+            ),
+            _entry(
+              id: 'gbp-row',
+              date: DateTime(2026, 4, 8),
+              amountCents: 1200,
+              currency: 'GBP',
+            ),
+          ],
+          projectedRecurringExpenses: const [],
+          searchQuery: '',
+          selectedCategory: 'all',
+          selectedType: 'all',
+          selectedCurrency: 'USD',
+          selectedCurrencies: const ['usd', 'EUR'],
+          selectedDateFilter: DateRangeFilter.allTime,
+          customStart: null,
+          customEnd: null,
+          now: DateTime(2026, 4, 30),
+          pinnedHouseholdId: null,
+          activeAccountType: ActiveWalletType.personal,
+          activeAccountHouseholdId: null,
+          selectedHouseholdId: null,
+        ),
+      );
+
+      expect(result.filteredExpenses.map((expense) => expense.id).toList(), [
+        'usd-row',
+        'eur-row',
+      ]);
+    });
   });
 
   group('buildVisibleTransactionRenderItems', () {

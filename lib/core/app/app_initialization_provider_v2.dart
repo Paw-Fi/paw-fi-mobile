@@ -261,6 +261,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     final existingState = ref.read(homeFilterProvider);
     final service = ref.read(currencyPreferenceServiceProvider);
     String? storedCurrency;
+    List<String>? storedCurrencies;
 
     try {
       final normalized =
@@ -268,6 +269,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       if (normalized != null && normalized.isNotEmpty) {
         storedCurrency = normalized;
       }
+      storedCurrencies = await service.getSelectedCurrencies();
     } catch (e) {
       debugPrint('⚠️ [InitV2] Failed to load stored currency: $e');
     }
@@ -279,6 +281,14 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       preferredCurrency: user?.preferredCurrency,
       preferExistingState: preferExistingState,
     );
+    final desiredCurrencies = storedCurrencies == null ||
+            storedCurrencies.isEmpty ||
+            resolvedState.selectedCurrency == null
+        ? null
+        : _mergePrimaryCurrency(
+            resolvedState.selectedCurrency,
+            storedCurrencies,
+          );
 
     if (latestFilterState.hasExplicitCurrency) {
       return;
@@ -287,6 +297,15 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     if (resolvedState.selectedCurrency == latestFilterState.selectedCurrency &&
         resolvedState.hasExplicitCurrency ==
             latestFilterState.hasExplicitCurrency) {
+      if (desiredCurrencies != null &&
+          !_listEquals(
+            latestFilterState.normalizedSelectedCurrencies,
+            desiredCurrencies,
+          )) {
+        ref
+            .read(homeFilterProvider.notifier)
+            .setSelectedCurrencies(desiredCurrencies);
+      }
       return;
     }
 
@@ -294,6 +313,11 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       ref
           .read(homeFilterProvider.notifier)
           .setSelectedCurrency(resolvedState.selectedCurrency);
+      if (desiredCurrencies != null) {
+        ref.read(homeFilterProvider.notifier).setSelectedCurrencies(
+              desiredCurrencies,
+            );
+      }
       return;
     }
 
@@ -302,7 +326,41 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       ref
           .read(homeFilterProvider.notifier)
           .bootstrapSelectedCurrency(selectedCurrency);
+      if (desiredCurrencies != null) {
+        ref.read(homeFilterProvider.notifier).setSelectedCurrencies(
+              desiredCurrencies,
+            );
+      }
     }
+  }
+
+  List<String> _mergePrimaryCurrency(
+    String? primaryCurrency,
+    List<String>? selectedCurrencies,
+  ) {
+    final seen = <String>{};
+    final merged = <String>[];
+    for (final value in [
+      primaryCurrency,
+      ...?selectedCurrencies,
+    ]) {
+      final code = value?.trim().toUpperCase();
+      if (code == null || code.isEmpty || seen.contains(code)) continue;
+      seen.add(code);
+      merged.add(code);
+    }
+    return merged;
+  }
+
+  bool _listEquals(List<String>? left, List<String>? right) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null || left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
   }
 
   void _syncMissingPreferredCurrencyInBackground(

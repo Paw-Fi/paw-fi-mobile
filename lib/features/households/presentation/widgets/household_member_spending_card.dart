@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/households/presentation/pages/household_member_details_page.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -26,6 +27,7 @@ Widget buildHouseholdMemberSpendingCard(
   DateTime? from,
   DateTime? to,
   String? selectedCurrency,
+  CurrencyRateTable? currencyRates,
   DateRangeFilter? dateRangeFilter,
   String? currentUserId,
   VoidCallback? onTap,
@@ -42,6 +44,7 @@ Widget buildHouseholdMemberSpendingCard(
           to: to,
           splits: splits ?? const <ExpenseSplitGroup>[],
           selectedCurrency: selectedCurrency,
+          currencyRates: currencyRates,
         )
       : const HouseholdMemberSpendingTotals(
           totalSpentByUserCents: <String, int>{},
@@ -165,6 +168,7 @@ Widget buildHouseholdMemberSpendingCard(
                         isLast,
                         transactions ?? [],
                         splits,
+                        currencyRates,
                       );
                     }).toList(),
                   ),
@@ -248,6 +252,7 @@ Widget _buildMemberRow(
   bool isLast,
   List<ExpenseEntry> transactions,
   List<ExpenseSplitGroup>? splits,
+  CurrencyRateTable? currencyRates,
 ) {
   final percentage = totalMemberSpent > 0
       ? (member.totalSpentCents / totalMemberSpent) * 100
@@ -291,6 +296,7 @@ Widget _buildMemberRow(
               transactions: transactions,
               splits: splits,
               currency: currency,
+              currencyRates: currencyRates,
               householdId: householdId,
             ),
           ),

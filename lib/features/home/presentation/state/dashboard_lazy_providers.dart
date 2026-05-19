@@ -5,12 +5,15 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -35,14 +38,28 @@ class PreviewDashboardDataService implements DashboardDataService {
       final matchesHousehold = query.householdId == null
           ? (entry.householdId == null || (entry.householdId?.isEmpty ?? false))
           : entry.householdId == query.householdId;
-      final matchesCurrency = query.normalizedCurrency == null ||
-          (entry.currency ?? '').toUpperCase() == query.normalizedCurrency;
+      final matchesCurrency = query.allowsCurrency(entry.currency);
       final matchesStart =
           query.startDate == null || !entry.date.isBefore(query.startDate!);
       final matchesEnd =
           query.endDate == null || !entry.date.isAfter(query.endDate!);
       return matchesHousehold && matchesCurrency && matchesStart && matchesEnd;
     }).toList();
+
+    if ((query.normalizedCurrencies?.length ?? 0) > 1) {
+      return _dashboardSummaryFromTransactionsFeedSummary(
+        summarizeTransactionsInCurrency(
+          expenses,
+          targetCurrency: query.normalizedCurrency ?? 'USD',
+          rates: const CurrencyRateTable(
+            baseCurrency: 'USD',
+            rates: CurrencyRates.rates,
+            isStale: true,
+          ),
+          intervalGranularity: query.normalizedIntervalGranularity ?? 'yearly',
+        ),
+      );
+    }
 
     final expenseRows = expenses
         .where((entry) => (entry.type ?? 'expense').toLowerCase() != 'income');
@@ -96,8 +113,7 @@ class PreviewDashboardDataService implements DashboardDataService {
               ? (entry.householdId == null ||
                   (entry.householdId?.isEmpty ?? false))
               : entry.householdId == query.householdId;
-          final matchesCurrency = query.normalizedCurrency == null ||
-              (entry.currency ?? '').toUpperCase() == query.normalizedCurrency;
+          final matchesCurrency = query.allowsCurrency(entry.currency);
           final matchesStart =
               query.startDate == null || !entry.date.isBefore(query.startDate!);
           final matchesEnd =
@@ -128,6 +144,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
         'user': query.userId,
         'household': query.householdId ?? '<none>',
         'currency': query.normalizedCurrency ?? '<none>',
+        'currencies': query.normalizedCurrencies ?? const <String>[],
         'start': query.startDate,
         'end': query.endDate,
       },
@@ -198,6 +215,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
         'user': request.query.userId,
         'household': request.query.householdId ?? '<none>',
         'currency': request.query.normalizedCurrency ?? '<none>',
+        'currencies': request.query.normalizedCurrencies ?? const <String>[],
         'limit': request.limit,
       },
     );
@@ -228,6 +246,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
         'user': query.userId,
         'household': query.householdId ?? '<none>',
         'currency': query.normalizedCurrency ?? '<none>',
+        'currencies': query.normalizedCurrencies ?? const <String>[],
         'start': query.startDate,
         'end': query.endDate,
       },
@@ -348,9 +367,7 @@ bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
       : entryHouseholdId == queryHouseholdId;
   if (!matchesHousehold) return false;
 
-  final currency = query.normalizedCurrency;
-  if (currency != null &&
-      (entry.currency ?? '').trim().toUpperCase() != currency) {
+  if (!query.allowsCurrency(entry.currency)) {
     return false;
   }
 
@@ -378,6 +395,7 @@ TransactionsFeedQuery dashboardTransactionsQuery(
     userId: query.userId,
     householdId: query.householdId,
     selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedCurrencies,
     selectedCategory: null,
     selectedType: 'all',
     searchQuery: '',
@@ -386,6 +404,14 @@ TransactionsFeedQuery dashboardTransactionsQuery(
     pageSize: pageSize,
     summaryIntervalGranularity: query.intervalGranularity,
   );
+}
+
+String _currencyCacheKey(DashboardScopeQuery query) {
+  final currencies = query.normalizedCurrencies;
+  if (currencies == null || currencies.isEmpty) {
+    return query.normalizedCurrency ?? '<none>';
+  }
+  return currencies.join(',');
 }
 
 DashboardSnapshotSummary _dashboardSummaryFromTransactionsFeedSummary(
@@ -411,6 +437,20 @@ DashboardSnapshotSummary _dashboardSummaryFromTransactionsFeedSummary(
   );
 }
 
+Future<CurrencyRateTable> _dashboardCurrencyRates(
+  Future<CurrencyRateTable> ratesFuture,
+) async {
+  try {
+    return await ratesFuture;
+  } catch (_) {
+    return const CurrencyRateTable(
+      baseCurrency: 'USD',
+      rates: CurrencyRates.rates,
+      isStale: true,
+    );
+  }
+}
+
 final dashboardSummaryProvider = FutureProvider.autoDispose
     .family<DashboardSnapshotSummary, DashboardScopeQuery>(
   (ref, query) async {
@@ -425,12 +465,13 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
         'user': query.userId,
         'household': query.householdId ?? '<none>',
         'currency': query.normalizedCurrency ?? '<none>',
+        'currencies': query.normalizedCurrencies ?? const <String>[],
         'start': query.startDate,
         'end': query.endDate,
       },
     );
     final cacheKey =
-        'dashboard:summary:v1:${query.userId}:${query.householdId ?? 'personal'}:${query.normalizedCurrency ?? '<none>'}:${query.formattedStartDate ?? '<none>'}:${query.formattedEndDate ?? '<none>'}:${query.normalizedIntervalGranularity ?? '<none>'}';
+        'dashboard:summary:v1:${query.userId}:${query.householdId ?? 'personal'}:${_currencyCacheKey(query)}:${query.formattedStartDate ?? '<none>'}:${query.formattedEndDate ?? '<none>'}:${query.normalizedIntervalGranularity ?? '<none>'}';
     final sessionCached =
         readDashboardSessionCache<DashboardSnapshotSummary>(cacheKey);
     if (sessionCached != null &&
@@ -439,13 +480,28 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
       trace.mark('session-cache-hit');
       return sessionCached.value;
     }
+    final feedService = ref.watch(transactionsFeedServiceProvider);
+    final feedQuery = dashboardTransactionsQuery(query);
+    final selectedCurrencies = query.normalizedCurrencies;
+    final hasMultiCurrencySelection =
+        selectedCurrencies != null && selectedCurrencies.length > 1;
     final summary = preview.isActive
         ? await ref.watch(dashboardDataServiceProvider).fetchSnapshot(query)
-        : _dashboardSummaryFromTransactionsFeedSummary(
-            await ref.watch(transactionsFeedServiceProvider).fetchSummary(
-                  dashboardTransactionsQuery(query),
+        : hasMultiCurrencySelection
+            ? _dashboardSummaryFromTransactionsFeedSummary(
+                summarizeTransactionsInCurrency(
+                  await feedService.fetchAllPages(feedQuery),
+                  targetCurrency: query.normalizedCurrency ?? 'USD',
+                  rates: await _dashboardCurrencyRates(
+                    ref.watch(currencyRateTableProvider.future),
+                  ),
+                  intervalGranularity:
+                      query.normalizedIntervalGranularity ?? 'yearly',
                 ),
-          );
+              )
+            : _dashboardSummaryFromTransactionsFeedSummary(
+                await feedService.fetchSummary(feedQuery),
+              );
     writeDashboardSessionCache(cacheKey, summary);
     return summary;
   },
@@ -460,7 +516,7 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
     final cacheKey = dashboardRecentCacheKey(
       userId: request.query.userId,
       householdId: request.query.householdId,
-      currency: request.query.normalizedCurrency,
+      currency: _currencyCacheKey(request.query),
       limit: request.limit,
     );
     final sessionCached =
@@ -473,6 +529,7 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
         'user': request.query.userId,
         'household': request.query.householdId ?? '<none>',
         'currency': request.query.normalizedCurrency ?? '<none>',
+        'currencies': request.query.normalizedCurrencies ?? const <String>[],
         'limit': request.limit,
       },
     );
@@ -536,7 +593,7 @@ final dashboardCalendarTransactionsProvider =
     final cacheKey = dashboardCalendarCacheKey(
       userId: query.userId,
       householdId: query.householdId,
-      currency: query.normalizedCurrency,
+      currency: _currencyCacheKey(query),
       start: query.formattedStartDate,
       end: query.formattedEndDate,
     );
@@ -553,6 +610,7 @@ final dashboardCalendarTransactionsProvider =
         'user': query.userId,
         'household': query.householdId ?? '<none>',
         'currency': query.normalizedCurrency ?? '<none>',
+        'currencies': query.normalizedCurrencies ?? const <String>[],
         'start': query.startDate,
         'end': query.endDate,
       },

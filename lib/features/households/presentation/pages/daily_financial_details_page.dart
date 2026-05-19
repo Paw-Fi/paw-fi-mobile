@@ -4,10 +4,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
@@ -15,6 +18,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -199,6 +203,7 @@ class _DailyFinancialDetailsPageState
     DateTime date, {
     required List<ExpenseEntry> transactions,
     required Map<DateTime, Map<String, double>> recurringDailyTotals,
+    required CurrencyRateTable rates,
   }) {
     double totalExpense = 0;
     double totalIncome = 0;
@@ -208,13 +213,16 @@ class _DailyFinancialDetailsPageState
           transaction.date.month == date.month &&
           transaction.date.day == date.day) {
         final transactionCurrency =
-            (transaction.currency ?? '').trim().toUpperCase();
-        if (transactionCurrency.isNotEmpty &&
-            transactionCurrency != widget.currency) {
-          continue;
-        }
-
-        final amount = transaction.amountCents.abs() / 100.0;
+            (transaction.currency ?? widget.currency).trim().toUpperCase();
+        final amount = convertAmountCentsToCurrency(
+              transaction.amountCents.abs(),
+              fromCurrency: transactionCurrency.isEmpty
+                  ? widget.currency
+                  : transactionCurrency,
+              targetCurrency: widget.currency,
+              rates: rates,
+            ) /
+            100.0;
         final type = (transaction.type ?? 'expense').toLowerCase();
         if (type == 'income') {
           totalIncome += amount;
@@ -246,6 +254,10 @@ class _DailyFinancialDetailsPageState
       userId: widget.userId,
       householdId: widget.householdId,
       selectedCurrency: widget.currency,
+      selectedCurrencies: ref.watch(
+        homeFilterProvider
+            .select((state) => state.normalizedSelectedCurrencies),
+      ),
       startDate: monthStart,
       endDate: monthEnd,
     );
@@ -259,6 +271,22 @@ class _DailyFinancialDetailsPageState
               _focusedMonth.year == initialMonth.year &&
               _focusedMonth.month == initialMonth.month;
         }).toList(growable: false);
+    final selectedCurrencies = query.normalizedCurrencies;
+    final isMultiCurrencySelection =
+        selectedCurrencies != null && selectedCurrencies.length > 1;
+    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
+    final aggregateTransactions = isMultiCurrencySelection
+        ? convertTransactionsToCurrency(
+            resolvedTransactions,
+            targetCurrency: widget.currency,
+            rates: rates,
+          )
+        : resolvedTransactions;
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,
       rangeStart: monthStart,
@@ -267,11 +295,18 @@ class _DailyFinancialDetailsPageState
 
     // Filter transactions for this specific day
     final dailyTransactions = resolvedTransactions.where((t) {
+      final matchesDate = t.date.year == _selectedDate.year &&
+          t.date.month == _selectedDate.month &&
+          t.date.day == _selectedDate.day;
+      if (!matchesDate) return false;
+      if (isMultiCurrencySelection) return true;
+      return (t.currency ?? '').trim().toUpperCase() == widget.currency;
+    }).toList();
+    final dailyAggregateTransactions = aggregateTransactions.where((t) {
       return t.date.year == _selectedDate.year &&
           t.date.month == _selectedDate.month &&
-          t.date.day == _selectedDate.day &&
-          (t.currency ?? '').trim().toUpperCase() == widget.currency;
-    }).toList();
+          t.date.day == _selectedDate.day;
+    }).toList(growable: false);
 
     final projectedRecurringEntriesForDay =
         mergeActualExpensesWithProjectedRecurring(
@@ -309,7 +344,7 @@ class _DailyFinancialDetailsPageState
         .whereType<String>()
         .toSet();
     final chartTransactions = [
-      ...dailyTransactions,
+      ...dailyAggregateTransactions,
       ...projectedRecurringEntriesForDay,
     ];
 
@@ -322,7 +357,7 @@ class _DailyFinancialDetailsPageState
     double totalIncome = 0;
     double totalExpense = 0;
 
-    for (final t in dailyTransactions) {
+    for (final t in dailyAggregateTransactions) {
       final amount = t.amountCents.abs() / 100.0;
       if ((t.type ?? 'expense').toLowerCase() == 'income') {
         totalIncome += amount;
@@ -396,8 +431,9 @@ class _DailyFinancialDetailsPageState
                               calculateDailyTotals: (date) =>
                                   _calculateDailyTotals(
                                 date,
-                                transactions: resolvedTransactions,
+                                transactions: aggregateTransactions,
                                 recurringDailyTotals: recurringDailyTotals,
+                                rates: rates,
                               ),
                             );
                           },

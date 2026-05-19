@@ -308,6 +308,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
     final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
 
     final homePerfSignature = [
@@ -407,6 +408,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ref.watch(dashboardPersonalBudgetsProvider).valueOrNull ??
                           const <DailyBudgetEntry>[];
                   final selectedCurrencyFilter = selectedCurrency;
+                  final selectedCurrencyFilters = selectedCurrencies;
                   final timezoneOffsetMinutes =
                       resolveUserTimezoneOffsetMinutes(
                     dashboardContact?.preferredTimezone,
@@ -428,9 +430,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                     final d = DateTime(
                         budget.date.year, budget.date.month, budget.date.day);
                     final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
-                    final currencyOk = selectedCurrencyFilter == null ||
-                        (budget.currency?.toUpperCase() ==
-                            selectedCurrencyFilter);
+                    final budgetCurrency = budget.currency?.toUpperCase();
+                    final currencyOk = selectedCurrencyFilters == null
+                        ? selectedCurrencyFilter == null ||
+                            budgetCurrency == selectedCurrencyFilter
+                        : selectedCurrencyFilters.contains(budgetCurrency);
                     return dateOk && currencyOk;
                   }).toList();
                   final dashboardAsync =
@@ -608,6 +612,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 ? null
                                 : householdScope.activeAccountHouseholdId,
                             selectedCurrency: selectedCurrency,
+                            selectedCurrencies: selectedCurrencies,
                             startDate: null,
                             endDate: null,
                           ),

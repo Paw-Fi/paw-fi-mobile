@@ -12,6 +12,7 @@ class TransactionsPageFilterInput {
   final String selectedCategory;
   final String selectedType;
   final String? selectedCurrency;
+  final List<String>? selectedCurrencies;
   final DateRangeFilter selectedDateFilter;
   final DateTime? customStart;
   final DateTime? customEnd;
@@ -28,6 +29,7 @@ class TransactionsPageFilterInput {
     required this.selectedCategory,
     required this.selectedType,
     required this.selectedCurrency,
+    this.selectedCurrencies,
     required this.selectedDateFilter,
     required this.customStart,
     required this.customEnd,
@@ -228,10 +230,15 @@ TransactionsPageDerivedData deriveTransactionsPageData(
     }).toList();
   }
 
-  final selectedCurrency = input.selectedCurrency?.toUpperCase();
-  if (selectedCurrency != null) {
+  final selectedCurrencies = _normalizeCurrencySet(
+        input.selectedCurrencies,
+      ) ??
+      _normalizeCurrencySet(
+        input.selectedCurrency == null ? null : [input.selectedCurrency!],
+      );
+  if (selectedCurrencies != null) {
     expenses = expenses.where((expense) {
-      return expense.currency?.toUpperCase() == selectedCurrency;
+      return selectedCurrencies.contains(expense.currency?.toUpperCase());
     }).toList();
   }
 
@@ -287,6 +294,15 @@ TransactionsPageDerivedData deriveTransactionsPageData(
     categories: ['all', ...categories],
     monthGroups: groupTransactionsByMonth(expenses),
   );
+}
+
+Set<String>? _normalizeCurrencySet(Iterable<String>? currencies) {
+  final normalized = currencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  if (normalized == null || normalized.isEmpty) return null;
+  return normalized;
 }
 
 List<TransactionRenderItem> buildVisibleTransactionRenderItems({

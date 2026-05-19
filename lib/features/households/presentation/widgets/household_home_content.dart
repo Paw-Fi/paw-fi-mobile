@@ -151,6 +151,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required String userId,
     required Household household,
     required String selectedCurrency,
+    required List<String>? selectedCurrencies,
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
   }) async {
@@ -192,6 +193,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               userId: userId,
               householdId: household.id,
               selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
               startDate: range['from'],
               endDate: range['to'],
             ),
@@ -204,6 +206,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               userId: userId,
               householdId: household.id,
               selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
               startDate: range['from'],
               endDate: range['to'],
             ),
@@ -223,6 +226,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               userId: userId,
               householdId: household.id,
               selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
               startDate: range['from'],
               endDate: range['to'],
             ),
@@ -250,6 +254,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               userId: userId,
               householdId: household.id,
               selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
               startDate: range['from'],
               endDate: range['to'],
             ),
@@ -269,6 +274,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               userId: userId,
               householdId: household.id,
               selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
               startDate: range['from'],
               endDate: range['to'],
             ),
@@ -386,6 +392,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required String userId,
     required Household household,
     required String selectedCurrency,
+    required List<String>? selectedCurrencies,
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
   }) {
@@ -400,6 +407,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         userId: userId,
         household: household,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         configs: configs,
         referenceNow: referenceNow,
       ));
@@ -518,6 +526,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           : household.currency))
                   .toUpperCase();
           final selectedCurrency = rawCurrency;
+          final selectedCurrencies = filterState.normalizedSelectedCurrencies;
           final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
               initUserContact?.preferredTimezone);
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
@@ -590,7 +599,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   final warmupKey = _buildDashboardWarmupKey(
                     householdId: household.id,
                     selectedCurrency:
-                        '$selectedCurrency|refresh:$dashboardRefreshSignal',
+                        '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|refresh:$dashboardRefreshSignal',
                     configs: configs,
                   );
                   _scheduleDashboardWarmup(
@@ -598,6 +607,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     userId: userId,
                     household: household,
                     selectedCurrency: selectedCurrency,
+                    selectedCurrencies: selectedCurrencies,
                     configs: configs,
                     referenceNow: userNow,
                   );

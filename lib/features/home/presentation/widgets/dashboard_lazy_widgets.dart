@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -14,6 +16,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_snapshot_model
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
@@ -69,6 +72,12 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     final scope = ref.watch(householdScopeProvider);
     final filterState = ref.watch(homeFilterProvider);
     final currency = _displayCurrency(filterState.selectedCurrency, contact);
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
     final range = getDateRangeFromFilter(
       config.dateRange,
       config.customStartDate,
@@ -140,6 +149,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
             'spending_data_${config.id}_${filterState.selectedCurrency}'),
         referenceNow: userNow,
         selectedCurrency: filterState.selectedCurrency,
+        selectedCurrencies: filterState.normalizedSelectedCurrencies,
+        currencyRates: rateTable,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
       ),
@@ -269,14 +280,36 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       selectedCurrency: filterState.selectedCurrency,
       includeFutureOccurrences: false,
     );
+    final shouldConvertCurrencies =
+        (filterState.normalizedSelectedCurrencies?.length ?? 0) > 1;
+    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
+    final displayCurrentTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            currentTransactions,
+            targetCurrency: filterState.selectedCurrency ?? 'USD',
+            rates: rates,
+          )
+        : currentTransactions;
+    final displayPreviousTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            previousTransactions,
+            targetCurrency: filterState.selectedCurrency ?? 'USD',
+            rates: rates,
+          )
+        : previousTransactions;
 
     return _buildDashboardSwitcher(
       buildNetCashflowCard(
         context,
         colorScheme,
         budgets.cast(),
-        currentTransactions,
-        previousTransactions,
+        displayCurrentTransactions,
+        displayPreviousTransactions,
         contact,
         config.dateRange,
         key: ValueKey(
@@ -453,6 +486,19 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       selectedCurrency: filterState.selectedCurrency,
       includeFutureOccurrences: false,
     );
+    final displayExpenses =
+        (filterState.normalizedSelectedCurrencies?.length ?? 0) > 1
+            ? convertTransactionsToCurrency(
+                expenses,
+                targetCurrency: filterState.selectedCurrency ?? 'USD',
+                rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                    const CurrencyRateTable(
+                      baseCurrency: 'USD',
+                      rates: CurrencyRates.rates,
+                      isStale: true,
+                    ),
+              )
+            : expenses;
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
@@ -481,7 +527,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       buildSpendingBreakdownChart(
         context,
         colorScheme,
-        expenses,
+        displayExpenses,
         const [],
         analyticsContact,
         config.dateRange,
@@ -544,6 +590,19 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       selectedCurrency: filterState.selectedCurrency,
       includeFutureOccurrences: false,
     );
+    final displayExpenses =
+        (filterState.normalizedSelectedCurrencies?.length ?? 0) > 1
+            ? convertTransactionsToCurrency(
+                expenses,
+                targetCurrency: filterState.selectedCurrency ?? 'USD',
+                rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                    const CurrencyRateTable(
+                      baseCurrency: 'USD',
+                      rates: CurrencyRates.rates,
+                      isStale: true,
+                    ),
+              )
+            : expenses;
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
@@ -572,7 +631,7 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       WhereTheMoneyWentWidget(
         key: ValueKey(
             'where_money_went_data_${config.id}_${filterState.selectedCurrency}'),
-        expenses: expenses,
+        expenses: displayExpenses,
         currency: filterState.selectedCurrency,
         onHelpTap: () => showCategoryGuide(context, colorScheme),
         dateRange: config.dateRange,
@@ -590,12 +649,16 @@ DashboardScopeQuery _buildScopedQuery({
   String? intervalGranularity,
 }) {
   final userId = ref.watch(authProvider).uid;
+  final selectedCurrencies = ref.watch(
+    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+  );
   return DashboardScopeQuery(
     userId: userId,
     householdId: scope.activeAccountType == ActiveWalletType.personal
         ? null
         : scope.activeAccountHouseholdId,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
     startDate: startDate,
     endDate: endDate,
     intervalGranularity: intervalGranularity,

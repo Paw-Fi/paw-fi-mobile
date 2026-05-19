@@ -3,6 +3,7 @@ class WalletsScopeQuery {
     required this.userId,
     required this.householdId,
     required this.selectedCurrency,
+    this.selectedCurrencies,
     required DateTime currentMonthStart,
   }) : currentMonthStart = DateTime(
           currentMonthStart.year,
@@ -12,7 +13,21 @@ class WalletsScopeQuery {
   final String userId;
   final String? householdId;
   final String selectedCurrency;
+  final List<String>? selectedCurrencies;
   final DateTime currentMonthStart;
+
+  List<String>? get normalizedSelectedCurrencies {
+    final values = (selectedCurrencies ?? const <String>[])
+        .map((currency) => currency.trim().toUpperCase())
+        .where((currency) => currency.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return values.isEmpty ? null : values;
+  }
+
+  bool get hasMultiCurrencySelection =>
+      (normalizedSelectedCurrencies?.length ?? 0) > 1;
 
   Map<String, dynamic> toHistoryRpcParams() {
     return <String, dynamic>{
@@ -30,6 +45,8 @@ class WalletsScopeQuery {
             other.userId == userId &&
             other.householdId == householdId &&
             other.selectedCurrency == selectedCurrency &&
+            _listEquals(other.normalizedSelectedCurrencies,
+                normalizedSelectedCurrencies) &&
             other.currentMonthStart == currentMonthStart);
   }
 
@@ -38,8 +55,18 @@ class WalletsScopeQuery {
         userId,
         householdId,
         selectedCurrency,
+        Object.hashAll(normalizedSelectedCurrencies ?? const <String>[]),
         currentMonthStart,
       );
+}
+
+bool _listEquals(List<String>? a, List<String>? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null || a.length != b.length) return false;
+  for (var i = 0; i < a.length; i += 1) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 class WalletsMonthQuery {

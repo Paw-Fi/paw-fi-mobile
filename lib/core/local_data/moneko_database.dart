@@ -68,6 +68,7 @@ class LocalTransactionsFeedQuery {
     required this.userId,
     required this.householdId,
     this.currency,
+    this.currencies,
     this.category,
     this.categories,
     this.accountId,
@@ -84,6 +85,7 @@ class LocalTransactionsFeedQuery {
   final String userId;
   final String? householdId;
   final String? currency;
+  final List<String>? currencies;
   final String? category;
   final List<String>? categories;
   final String? accountId;
@@ -104,6 +106,7 @@ class LocalTransactionsFeedQuery {
       userId: userId,
       householdId: householdId,
       currency: currency,
+      currencies: currencies,
       category: category,
       categories: categories,
       accountId: accountId,
@@ -2203,10 +2206,12 @@ class MonekoDatabase {
   }
 
   String _feedCacheKey(LocalTransactionsFeedQuery query) {
+    final currencies = _normalizedCurrencyList(query.currencies);
     return jsonEncode({
       'userId': query.userId,
       'householdId': query.householdId,
-      'currency': query.currency?.toUpperCase(),
+      'currency': currencies == null ? query.currency?.toUpperCase() : null,
+      'currencies': currencies,
       'category': query.category?.toLowerCase(),
       'categories':
           query.categories?.map((value) => value.toLowerCase()).toList(),
@@ -2514,10 +2519,14 @@ _LocalFeedFilter _localFeedFilter(
     localScopeKey(userId: query.userId, householdId: query.householdId),
   ];
 
-  final currency = query.currency?.trim().toUpperCase();
-  if (currency != null && currency.isNotEmpty) {
-    conditions.add('currency = ?');
-    args.add(currency);
+  final currencies = _normalizedCurrencyList(query.currencies) ??
+      _normalizedCurrencyList(
+          query.currency == null ? null : [query.currency!]);
+  if (currencies != null && currencies.isNotEmpty) {
+    conditions.add(
+      'currency IN (${List.filled(currencies.length, '?').join(', ')})',
+    );
+    args.addAll(currencies);
   }
 
   final category = _normalizeTextFilter(query.category);
@@ -2624,6 +2633,17 @@ String? _normalizeTextFilter(String? value) {
   final normalized = value?.trim().toLowerCase();
   if (normalized == null || normalized.isEmpty) return null;
   return normalized;
+}
+
+List<String>? _normalizedCurrencyList(List<String>? values) {
+  if (values == null) return null;
+  final normalized = values
+      .map((value) => value.trim().toUpperCase())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  return normalized.isEmpty ? null : normalized;
 }
 
 String _periodBucketExpression(String intervalGranularity) {

@@ -1,21 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
-ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
+ExpenseEntry _entry(
+  String id,
+  DateTime date, {
+  int amountCents = 1000,
+  String currency = 'USD',
+}) =>
+    ExpenseEntry(
       id: id,
       date: date,
-      amountCents: 1000,
+      amountCents: amountCents,
       createdAt: date,
       type: 'expense',
       category: 'food',
-      currency: 'USD',
+      currency: currency,
     );
 
 class _FakeTransactionsFeedService extends TransactionsFeedService {
+  _FakeTransactionsFeedService({List<ExpenseEntry>? allPageEntries})
+      : allPageEntries = allPageEntries ??
+            <ExpenseEntry>[_entry('range', DateTime(2026, 4, 3))];
+
+  final List<ExpenseEntry> allPageEntries;
   TransactionsFeedQuery? lastSummaryQuery;
   TransactionsFeedQuery? lastPageQuery;
   TransactionsFeedQuery? lastAllPagesQuery;
@@ -44,7 +58,7 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
   @override
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
     lastAllPagesQuery = query;
-    return [_entry('range', DateTime(2026, 4, 3))];
+    return allPageEntries;
   }
 
   @override
@@ -57,15 +71,30 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
 }
 
 void main() {
+  setUp(clearDashboardSessionCache);
+
   DashboardScopeQuery buildQuery() => const DashboardScopeQuery(
         userId: 'user-1',
         householdId: null,
         selectedCurrency: 'USD',
+        selectedCurrencies: ['USD', 'EUR'],
         startDate: null,
         endDate: null,
       );
 
-  test('dashboardSummaryProvider delegates to dashboard snapshot service',
+  test('dashboard query identity ignores primary when selected set is present',
+      () {
+    final usdPrimary = buildQuery();
+    final eurPrimary = buildQuery().copyWith(
+      selectedCurrency: 'EUR',
+      selectedCurrencies: const ['eur', 'usd'],
+    );
+
+    expect(usdPrimary, eurPrimary);
+    expect(usdPrimary.hashCode, eurPrimary.hashCode);
+  });
+
+  test('dashboardSummaryProvider delegates single currency to summary service',
       () async {
     final service = _FakeTransactionsFeedService();
     final container = ProviderContainer(overrides: [
@@ -73,12 +102,42 @@ void main() {
     ]);
     addTearDown(container.dispose);
 
-    final summary =
-        await container.read(dashboardSummaryProvider(buildQuery()).future);
+    final summary = await container.read(
+      dashboardSummaryProvider(
+        buildQuery().copyWith(selectedCurrencies: const ['USD']),
+      ).future,
+    );
 
     expect(summary.expenseTotal, 20);
     expect(service.lastSummaryQuery?.selectedCurrency, 'USD');
+    expect(service.lastSummaryQuery?.selectedCurrencies, ['USD']);
     expect(service.lastSummaryQuery?.summaryIntervalGranularity, isNull);
+  });
+
+  test('dashboardSummaryProvider converts selected currencies before summing',
+      () async {
+    final service = _FakeTransactionsFeedService(allPageEntries: [
+      _entry('range-usd', DateTime(2026, 4, 3)),
+      _entry('range-eur', DateTime(2026, 4, 4), currency: 'EUR'),
+    ]);
+    final container = ProviderContainer(overrides: [
+      transactionsFeedServiceProvider.overrideWithValue(service),
+      currencyRateTableProvider.overrideWith(
+        (ref) async => const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: {'USD': 1, 'EUR': 0.5},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final summary =
+        await container.read(dashboardSummaryProvider(buildQuery()).future);
+
+    expect(summary.expenseTotal, 30);
+    expect(summary.hasMultipleCurrencies, isTrue);
+    expect(service.lastAllPagesQuery?.selectedCurrencies, ['EUR', 'USD']);
+    expect(service.lastSummaryQuery, isNull);
   });
 
   test('dashboardRecentTransactionsProvider requests local-first limited page',
@@ -97,6 +156,7 @@ void main() {
 
     expect(result.single.id, 'recent');
     expect(service.lastPageQuery?.pageSize, 5);
+    expect(service.lastPageQuery?.selectedCurrencies, ['EUR', 'USD']);
   });
 
   test('dashboardCalendarTransactionsProvider fetches local-first all pages',
@@ -113,5 +173,6 @@ void main() {
 
     expect(result.single.id, 'range');
     expect(service.lastAllPagesQuery?.selectedCurrency, 'USD');
+    expect(service.lastAllPagesQuery?.selectedCurrencies, ['EUR', 'USD']);
   });
 }

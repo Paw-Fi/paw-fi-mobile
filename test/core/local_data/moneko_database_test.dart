@@ -800,6 +800,52 @@ void main() {
       expect(secondPage.hasMore, isFalse);
     });
 
+    test('filters local feed pages and summaries by multiple currencies',
+        () async {
+      await database.upsertTransactions([
+        _entry(
+          id: 'usd-row',
+          userId: 'user_1',
+          currency: 'USD',
+          amountCents: 1200,
+          date: DateTime(2026, 4, 3),
+          createdAt: DateTime.utc(2026, 4, 3, 9),
+        ),
+        _entry(
+          id: 'eur-row',
+          userId: 'user_1',
+          currency: 'eur',
+          amountCents: 3400,
+          date: DateTime(2026, 4, 2),
+          createdAt: DateTime.utc(2026, 4, 2, 9),
+        ),
+        _entry(
+          id: 'gbp-row',
+          userId: 'user_1',
+          currency: 'GBP',
+          amountCents: 5600,
+          date: DateTime(2026, 4, 1),
+          createdAt: DateTime.utc(2026, 4, 1, 9),
+        ),
+      ]);
+
+      const query = LocalTransactionsFeedQuery(
+        userId: 'user_1',
+        householdId: null,
+        currency: 'GBP',
+        currencies: ['eur', 'USD'],
+        type: 'expense',
+      );
+
+      final page = await database.getTransactionsFeedPage(query);
+      final summary = await database.getTransactionsFeedSummary(query);
+
+      expect(page.items.map((entry) => entry.id), ['usd-row', 'eur-row']);
+      expect(summary.transactionCount, 2);
+      expect(summary.expenseTotalCents, 4600);
+      expect(summary.hasMultipleCurrencies, isTrue);
+    });
+
     test('household scope includes rows from every household member', () async {
       await database.upsertTransactions([
         _entry(

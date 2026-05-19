@@ -1,9 +1,12 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 class PocketTransactionsParams {
@@ -68,6 +71,16 @@ final pocketDetailsProvider =
       params.scopeParams.currency?.trim().isNotEmpty == true
           ? params.scopeParams.currency!.trim()
           : 'USD';
+  final selectedCurrencies = ref.watch(
+    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+  );
+  final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
+  final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+      const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: CurrencyRates.rates,
+        isStale: true,
+      );
   final end = params.scopeParams.periodMonth ??
       resolvePeriodDateRange(periodSelection).end;
   final monthStart = DateTime(end.year, end.month, 1);
@@ -129,6 +142,7 @@ final pocketDetailsProvider =
       userId: authUser.uid,
       householdId: feedHouseholdId,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       selectedCategory: null,
       selectedCategories: categories,
       selectedType: 'expense',
@@ -183,6 +197,20 @@ final pocketDetailsProvider =
     ...actualTransactions,
     ...filteredProjectedTransactions,
   ]..sort((a, b) => b.date.compareTo(a.date));
+  final aggregateTransactions = shouldConvertCurrencies
+      ? convertTransactionsToCurrency(
+          transactions,
+          targetCurrency: selectedCurrency,
+          rates: rateTable,
+        )
+      : transactions;
+  final aggregateActualTransactions = shouldConvertCurrencies
+      ? convertTransactionsToCurrency(
+          actualTransactions,
+          targetCurrency: selectedCurrency,
+          rates: rateTable,
+        )
+      : actualTransactions;
 
   // 3. Fetch PREVIOUS month expenses (for comparison)
   final prevTransactions = await transactionsFeedService.fetchAllPages(
@@ -190,6 +218,7 @@ final pocketDetailsProvider =
       userId: authUser.uid,
       householdId: feedHouseholdId,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       selectedCategory: null,
       selectedCategories: categories,
       selectedType: 'expense',
@@ -204,7 +233,14 @@ final pocketDetailsProvider =
           .where((transaction) => transaction.userId == authUser.uid)
           .toList(growable: false)
       : prevTransactions;
-  final totalSpentLastMonth = scopedPrevTransactions.fold<double>(
+  final aggregatePrevTransactions = shouldConvertCurrencies
+      ? convertTransactionsToCurrency(
+          scopedPrevTransactions,
+          targetCurrency: selectedCurrency,
+          rates: rateTable,
+        )
+      : scopedPrevTransactions;
+  final totalSpentLastMonth = aggregatePrevTransactions.fold<double>(
     0,
     (sum, transaction) {
       // CRITICAL: previous-month comparison must ignore recurring template rows
@@ -230,7 +266,7 @@ final pocketDetailsProvider =
   // Daily Spending
   final dailyMap = <int, double>{};
 
-  for (final tx in transactions) {
+  for (final tx in aggregateTransactions) {
     final amount = tx.amount;
     final cat = tx.category ?? 'uncategorized';
     final date = DateTime(tx.date.year, tx.date.month, tx.date.day);
@@ -261,7 +297,7 @@ final pocketDetailsProvider =
       userNow.year == monthStart.year && userNow.month == monthStart.month;
   final daysPassed = isCurrentMonth ? userNow.day : daysInMonth;
 
-  final actualSpent = actualTransactions.fold<double>(
+  final actualSpent = aggregateActualTransactions.fold<double>(
     0,
     (sum, expense) => sum + expense.amount,
   );
