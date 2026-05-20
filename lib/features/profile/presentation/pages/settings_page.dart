@@ -120,7 +120,8 @@ bool _isDeviceInRestrictedRegion({String? countryCode}) {
   return _restrictedRegionCountryCodes.contains(code);
 }
 
-String? _restrictedRegionDisplayName(String? countryCode, BuildContext context) {
+String? _restrictedRegionDisplayName(
+    String? countryCode, BuildContext context) {
   if (countryCode == null || countryCode.isEmpty) return null;
   return _restrictedRegionCountryNames(context)[countryCode] ?? countryCode;
 }
@@ -459,7 +460,7 @@ class SettingsPage extends HookConsumerWidget {
       deviceTimezone: deviceTimezone,
       currentTimezone: canonicalSelectedTimezone,
       deviceOffsetMinutes: deviceOffsetMinutes,
-      context:context,
+      context: context,
       hideMatchingDeviceOffsetOption: timezoneValue == _deviceTimezoneSentinel,
     );
     final packageInfo =
@@ -707,8 +708,7 @@ class SettingsPage extends HookConsumerWidget {
       final confirmation = await MonekoAlertDialog.show(
         context: context,
         title: context.l10n.resetDataCannotBeUndone,
-        description:
-            context.l10n.resetDataConfirmationMessage,
+        description: context.l10n.resetDataConfirmationMessage,
         confirmLabel: context.l10n.resetData,
         cancelLabel: context.l10n.cancel,
         isDestructive: true,
@@ -724,7 +724,7 @@ class SettingsPage extends HookConsumerWidget {
         return;
       }
 
-      if ((confirmation.text ?? '').trim() != context.l10n.reset) {
+      if ((confirmation.text ?? '').trim() != "RESET") {
         if (context.mounted) {
           AppToast.info(context, context.l10n.typeResetToConfirm);
         }
@@ -800,9 +800,9 @@ class SettingsPage extends HookConsumerWidget {
           );
         } catch (_) {}
 
-        try {
-          await prefs.clear();
-        } catch (_) {}
+        // Intentionally do not clear SharedPreferences here.
+        // Router onboarding/auth gates rely on persisted flags, and clearing
+        // them would route authenticated users back into onboarding.
 
         if (authState.uid.isNotEmpty) {
           ref.read(analyticsProvider.notifier).refresh(authState.uid);
@@ -823,7 +823,8 @@ class SettingsPage extends HookConsumerWidget {
             context: context,
             title: context.l10n.resetSuccessful,
             description: context.l10n.yourDataHasBeenClearedPleaseRestart,
-            confirmLabel: context.l10n.restartNow,        
+            confirmLabel: context.l10n.restartNow,
+            showCancelButton: false,
           );
           if (context.mounted) {
             await SystemNavigator.pop();
@@ -834,7 +835,8 @@ class SettingsPage extends HookConsumerWidget {
       } catch (e, st) {
         debugPrint('Reset financial data failed: $e\n$st');
         if (context.mounted) {
-          AppToast.error(context, context.l10n.failedToResetFinancialDataWithError(e));
+          AppToast.error(
+              context, context.l10n.failedToResetFinancialDataWithError(e));
         }
       } finally {
         if (dialogShown &&
@@ -1540,8 +1542,9 @@ class SettingsPage extends HookConsumerWidget {
                       iconColor: colorScheme.destructive,
                       label: context.l10n.resetData,
                       labelColor: colorScheme.destructive,
-                      value:
-                          isDataResetInProgress.value ? context.l10n.resetting : null,
+                      value: isDataResetInProgress.value
+                          ? context.l10n.resetting
+                          : null,
                       onTap: isDataResetInProgress.value
                           ? null
                           : () => handleResetFinancialData(),

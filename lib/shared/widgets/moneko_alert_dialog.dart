@@ -58,6 +58,7 @@ class MonekoAlertDialog {
     String? description,
     String? confirmLabel,
     String? cancelLabel,
+    bool showCancelButton = true,
     String? secondaryLabel,
     bool barrierDismissible = true,
     MonekoAlertDialogInputConfig? inputConfig,
@@ -89,7 +90,10 @@ class MonekoAlertDialog {
               title: title,
               description: description,
               confirmLabel: confirmLabel ?? context.l10n.confirm,
-              cancelLabel: cancelLabel ?? context.l10n.cancel,
+              cancelLabel: showCancelButton
+                  ? (cancelLabel ?? context.l10n.cancel)
+                  : null,
+              showCancelButton: showCancelButton,
               secondaryLabel: secondaryLabel,
               inputConfig: inputConfig,
               secondaryInputConfig: secondaryInputConfig,
@@ -109,6 +113,7 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
     this.description,
     required this.confirmLabel,
     this.cancelLabel,
+    this.showCancelButton = true,
     this.secondaryLabel,
     this.inputConfig,
     this.secondaryInputConfig,
@@ -120,6 +125,7 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
   final String? description;
   final String confirmLabel;
   final String? cancelLabel;
+  final bool showCancelButton;
   final String? secondaryLabel;
   final MonekoAlertDialogInputConfig? inputConfig;
   final MonekoAlertDialogInputConfig? secondaryInputConfig;
@@ -344,7 +350,8 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (widget.cancelLabel != null &&
+                if (widget.showCancelButton &&
+                    widget.cancelLabel != null &&
                     widget.cancelLabel!.trim().isNotEmpty)
                   TextButton(
                     onPressed: _handleCancel,
@@ -469,7 +476,8 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (widget.cancelLabel != null &&
+                      if (widget.showCancelButton &&
+                          widget.cancelLabel != null &&
                           widget.cancelLabel!.trim().isNotEmpty) ...[
                         Expanded(
                           child: InkWell(

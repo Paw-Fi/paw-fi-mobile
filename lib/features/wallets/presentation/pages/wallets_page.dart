@@ -42,6 +42,7 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -266,10 +267,16 @@ class AccountsPage extends HookConsumerWidget {
     final hasPlaidConnections = scopedPlaidConnections.isNotEmpty;
     final hasPlaidConnectionsInOtherScope =
         plaidConnections.isNotEmpty && !hasPlaidConnections;
+    final hasPendingPlaidRemoval = scopedPlaidConnections.any(
+      (connection) => connection.isPendingRemoval,
+    );
     final scopedPlaidActionConnections = scopedPlaidConnections
         .where(
           (connection) => connection.requiresUserAction,
         )
+        .toList(growable: false);
+    final removablePlaidConnections = scopedPlaidConnections
+        .where((connection) => !connection.isPendingRemoval)
         .toList(growable: false);
     final manualSyncCandidates = scopedPlaidConnections
         .where(
@@ -287,6 +294,7 @@ class AccountsPage extends HookConsumerWidget {
       bankConnectionsAsync: bankConnectionsAsync,
       hasScopedPlaidConnections: hasPlaidConnections,
       hasPlaidConnectionsInOtherScope: hasPlaidConnectionsInOtherScope,
+      hasPendingRemoval: hasPendingPlaidRemoval,
       actionConnections: scopedPlaidActionConnections,
       latestSuccessfulSyncAt: latestSuccessfulSyncAt,
     );
@@ -689,7 +697,7 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-                if (scopedPlaidConnections.isNotEmpty)
+                if (removablePlaidConnections.isNotEmpty)
                   TextButton.icon(
                     onPressed: () async {
                       if (isPreviewMode) {
@@ -703,7 +711,7 @@ class AccountsPage extends HookConsumerWidget {
                       final selectedConnection =
                           await _selectDisconnectBankConnection(
                         context,
-                        scopedPlaidConnections,
+                        removablePlaidConnections,
                       );
                       if (selectedConnection == null || !context.mounted) {
                         return;
@@ -741,7 +749,10 @@ class AccountsPage extends HookConsumerWidget {
                           Navigator.of(context, rootNavigator: true).pop();
                         }
 
-                        final payload = response.data as Map<String, dynamic>?;
+                        final responseData = response.data;
+                        final payload = responseData is Map<String, dynamic>
+                            ? responseData
+                            : null;
                         if (response.status >= 400) {
                           if (!context.mounted) {
                             return;
@@ -765,16 +776,37 @@ class AccountsPage extends HookConsumerWidget {
                         if (!context.mounted) {
                           return;
                         }
-                        AppToast.success(
-                          context,
-                          'Bank disconnected. Future syncs are now disabled for this connection.',
+                        final status = payload?['status']?.toString().trim();
+                        if (status == 'pending_removal') {
+                          final message =
+                              payload?['message']?.toString().trim();
+                          AppToast.info(
+                            context,
+                            message != null && message.isNotEmpty
+                                ? message
+                                : 'Bank disconnect is queued. Moneko will retry removing Plaid access automatically.',
+                          );
+                        } else {
+                          AppToast.success(
+                            context,
+                            'Bank disconnected. Future syncs are now disabled for this connection.',
+                          );
+                        }
+                      } catch (error, stackTrace) {
+                        final debugId = _functionErrorDebugId(error);
+                        debugPrint(
+                          '[wallets] Plaid disconnect failed '
+                          'connectionId=${selectedConnection.id} '
+                          'debugId=${debugId ?? '<none>'} '
+                          'error=$error\n$stackTrace',
                         );
-                      } catch (error) {
                         if (context.mounted) {
                           Navigator.of(context, rootNavigator: true).pop();
                           AppToast.error(
                             context,
-                            ErrorHandler.getUserFriendlyMessage(error),
+                            ErrorHandler.getUserFriendlyMessage(
+                              error,
+                            ),
                           );
                         }
                       }
@@ -792,7 +824,7 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     ),
                   ),
-                if (shouldShowConnectBankButton)
+                if (shouldShowConnectBankButton && bankSyncStatusLabel != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Row(
@@ -845,6 +877,18 @@ class AccountsPage extends HookConsumerWidget {
                                           hasPlaidConnectionsInOtherScope
                                               ? 'A bank is connected in another wallet space. Switch to that space or connect a bank here before syncing transactions.'
                                               : 'Connect a bank first before syncing transactions.',
+                                      confirmLabel: 'Got it',
+                                      cancelLabel: '',
+                                    );
+                                    return;
+                                  }
+
+                                  if (hasPendingPlaidRemoval) {
+                                    await MonekoAlertDialog.show(
+                                      context: context,
+                                      title: 'Disconnect pending',
+                                      description:
+                                          'This bank is already queued for Plaid removal. Moneko will retry automatically, and syncing is disabled while removal is pending.',
                                       confirmLabel: 'Got it',
                                       cancelLabel: '',
                                     );
@@ -1464,7 +1508,7 @@ class _WalletAccountStack extends HookConsumerWidget {
 
       if (selectedAccountIdState.value == null && list.isNotEmpty) {
         selectedAccountIdState.value = isPreviewMode
-            ? (resolveDefaultWalletId(list) ?? list.last.id)
+            ? list[(list.length >= 3) ? 2 : list.length - 1].id
             : list.last.id;
       }
       return null;
@@ -2031,11 +2075,12 @@ String _formatLastSyncLabel(DateTime nowUtc, DateTime timestamp) {
   return 'Last sync $relative ago';
 }
 
-String _bankSyncStatusLabel({
+String? _bankSyncStatusLabel({
   required DateTime nowUtc,
   required AsyncValue<List<BankConnection>> bankConnectionsAsync,
   required bool hasScopedPlaidConnections,
   required bool hasPlaidConnectionsInOtherScope,
+  required bool hasPendingRemoval,
   required List<BankConnection> actionConnections,
   required DateTime? latestSuccessfulSyncAt,
 }) {
@@ -2049,7 +2094,10 @@ String _bankSyncStatusLabel({
     return 'Bank connected in another space';
   }
   if (!hasScopedPlaidConnections) {
-    return 'No bank connected';
+    return null;
+  }
+  if (hasPendingRemoval) {
+    return 'Bank disconnect pending';
   }
   if (actionConnections.isNotEmpty) {
     if (actionConnections.every((connection) =>
@@ -2062,6 +2110,20 @@ String _bankSyncStatusLabel({
     return 'Bank connected. Initial sync pending';
   }
   return _formatLastSyncLabel(nowUtc, latestSuccessfulSyncAt);
+}
+
+String? _functionErrorDebugId(Object error) {
+  if (error is! FunctionException) {
+    return null;
+  }
+
+  final details = error.details;
+  if (details is! Map) {
+    return null;
+  }
+
+  final debugId = details['debugId']?.toString().trim();
+  return debugId == null || debugId.isEmpty ? null : debugId;
 }
 
 String _formatDurationCompact(Duration duration) {

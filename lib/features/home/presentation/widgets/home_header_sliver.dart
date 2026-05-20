@@ -601,74 +601,77 @@ class HomeHeaderSliver extends ConsumerWidget {
         description: context.l10n.change_currency_desc,
         padding: 6,
         borderRadius: 24,
-        child: Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: colorScheme.cardSurface,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isMultiCurrency)
-                Text(
-                  currencyCode,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                )
-              else ...[
-                // Show only 1 flag (primary) and a +N indicator for the rest
-                ...allSelectedCurrencies.take(1).map((code) {
-                  final flagPath = getCurrencyFlagPath(code);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.1),
-                          width: 0.5,
+        child: Padding(
+          padding: const EdgeInsets.only(left:8.0),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.cardSurface,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isMultiCurrency)
+                  Text(
+                    currencyCode,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  )
+                else ...[
+                  // Show only 1 flag (primary) and a +N indicator for the rest
+                  ...allSelectedCurrencies.take(1).map((code) {
+                    final flagPath = getCurrencyFlagPath(code);
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: colorScheme.outline.withValues(alpha: 0.1),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: ClipOval(
+                          child: flagPath != null
+                              ? Image.asset(flagPath, fit: BoxFit.cover)
+                              : Center(
+                                  child: Text(
+                                    code.substring(0, 1),
+                                    style: const TextStyle(fontSize: 8),
+                                  ),
+                                ),
                         ),
                       ),
-                      child: ClipOval(
-                        child: flagPath != null
-                            ? Image.asset(flagPath, fit: BoxFit.cover)
-                            : Center(
-                                child: Text(
-                                  code.substring(0, 1),
-                                  style: const TextStyle(fontSize: 8),
-                                ),
-                              ),
+                    );
+                  }),
+                  if (allSelectedCurrencies.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Text(
+                        '+${allSelectedCurrencies.length - 1}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                        ),
                       ),
                     ),
-                  );
-                }),
-                if (allSelectedCurrencies.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Text(
-                      '+${allSelectedCurrencies.length - 1}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                  ),
+                ],
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: colorScheme.mutedForeground,
+                ),
               ],
-              const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: colorScheme.mutedForeground,
-              ),
-            ],
+            ),
           ),
         ),
       ),

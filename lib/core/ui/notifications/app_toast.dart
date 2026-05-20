@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'dart:async';
 
@@ -156,7 +157,7 @@ class AppToast {
   }
 
   static void info(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 5)}) =>
+          {Duration duration = const Duration(seconds: 7)}) =>
       show(context, message, type: AppToastType.info, duration: duration);
 
   static void success(BuildContext context, String message,
@@ -164,12 +165,36 @@ class AppToast {
       show(context, message, type: AppToastType.success, duration: duration);
 
   static void warning(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 5)}) =>
+          {Duration duration = const Duration(seconds: 7)}) =>
       show(context, message, type: AppToastType.warning, duration: duration);
 
   static void error(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 6)}) =>
-      show(context, message, type: AppToastType.error, duration: duration);
+          {Duration duration = const Duration(seconds: 7)}) =>
+      show(
+        context,
+        _normalizeErrorToastMessage(message),
+        type: AppToastType.error,
+        duration: duration,
+      );
+
+  static String _normalizeErrorToastMessage(String message) {
+    final lowered = message.toLowerCase();
+    final looksTechnical =
+        lowered.contains('functionexception') ||
+        lowered.contains('postgrestexception') ||
+        lowered.contains('pgrst') ||
+        lowered.contains('[object object]') ||
+        lowered.contains('status:') ||
+        lowered.contains('details:') ||
+        lowered.contains('schema cache') ||
+        lowered.contains('failed to execute');
+
+    if (!looksTechnical) {
+      return message;
+    }
+
+    return ErrorHandler.getUserFriendlyMessage(message);
+  }
 
   /// Safely resolve an [OverlayState] for the provided [context].
   ///

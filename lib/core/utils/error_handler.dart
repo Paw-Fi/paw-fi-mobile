@@ -132,7 +132,11 @@ class ErrorHandler {
       status = error.status;
       final details = error.details;
       if (details is Map) {
-        code = details['code']?.toString();
+        code = (details['errorCode'] ?? details['code'])?.toString();
+        final statusValue = details['status'];
+        if (statusValue is int) {
+          status = statusValue;
+        }
         final rawMessage = details['error'] ?? details['message'];
         if (rawMessage is String && rawMessage.trim().isNotEmpty) {
           message = rawMessage.trim();
@@ -143,7 +147,7 @@ class ErrorHandler {
     }
 
     if (error is Map) {
-      code ??= error['code']?.toString();
+      code ??= (error['errorCode'] ?? error['code'])?.toString();
       final statusValue = error['status'];
       if (statusValue is int) {
         status ??= statusValue;
@@ -155,6 +159,10 @@ class ErrorHandler {
     }
 
     final raw = error.toString();
+    if (error is String && error.trim().isNotEmpty) {
+      message ??= error.trim();
+    }
+
     if ((message == null || message.isEmpty) &&
         raw.contains('details:') &&
         raw.contains('{')) {
@@ -216,6 +224,17 @@ class ErrorHandler {
       return 'You don\'t have permission to do that.';
     }
 
+    if (code == 'PLAID_ITEM_CONTROL_FAILED' ||
+        message.contains('failed to execute plaid item action')) {
+      return 'Could not update this bank connection right now. Please try again in a moment.';
+    }
+
+    if (code == 'PGRST202' ||
+        message.contains('schema cache') ||
+        message.contains('could not find the function')) {
+      return 'This feature is temporarily unavailable. Please try again later.';
+    }
+
     if (code == 'NOT_FOUND' || error.status == 404) {
       if (context == BackendErrorContext.deleteExpense ||
           context == BackendErrorContext.updateExpense) {
@@ -274,7 +293,8 @@ class ErrorHandler {
     if (lowered.contains('functionexception') ||
         lowered.contains('stack') ||
         lowered.contains('status:') ||
-        lowered.contains('details:')) {
+        lowered.contains('details:') ||
+        lowered.contains('failed to execute')) {
       return false;
     }
     return !lowered.contains('{') && !lowered.contains('}');
