@@ -125,8 +125,18 @@ class _PlaidSyncWalkthroughPageState
       }
     } catch (error) {
       if (!mounted) return;
+      if (_extractFunctionErrorCode(error) == 'duplicate_item_accounts') {
+        await _handleDuplicateBankConnection();
+        return;
+      }
       setState(() => _isConnecting = false);
-      AppToast.error(context, error.toString());
+      AppToast.error(
+        context,
+        _extractFunctionError(
+          error,
+          fallback: 'Could not connect this bank right now.',
+        ),
+      );
     }
   }
 
@@ -151,6 +161,8 @@ class _PlaidSyncWalkthroughPageState
         if (widget.flowReason != null) 'updateReason': widget.flowReason,
         if (connectionId == null || connectionId.isEmpty)
           'transactionsDaysRequested': _plaidInitialTransactionsDaysRequested,
+        if (widget.targetHouseholdId != null)
+          'targetHouseholdId': widget.targetHouseholdId,
       },
     );
 
@@ -246,19 +258,7 @@ class _PlaidSyncWalkthroughPageState
       if (exchangeResponse.status == 409 && mounted) {
         final duplicateCode = _extractFunctionErrorCode(exchangeResponse.data);
         if (duplicateCode == 'duplicate_item_accounts') {
-          await MonekoAlertDialog.show(
-            context: context,
-            title: 'Bank already connected',
-            description:
-                'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
-            confirmLabel: 'Back to wallets',
-            cancelLabel: '',
-          );
-          ref.invalidate(bankConnectionsProvider);
-          if (mounted) {
-            setState(() => _isConnecting = false);
-            Navigator.of(context).pop();
-          }
+          await _handleDuplicateBankConnection();
           return;
         }
       }
@@ -329,6 +329,23 @@ class _PlaidSyncWalkthroughPageState
 
     if (!mounted) return;
     Navigator.of(context).pop();
+  }
+
+  Future<void> _handleDuplicateBankConnection() async {
+    if (!mounted) return;
+    setState(() => _isConnecting = false);
+    await MonekoAlertDialog.show(
+      context: context,
+      title: 'Bank already connected',
+      description:
+          'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
+      confirmLabel: 'Back to wallets',
+      cancelLabel: '',
+    );
+    ref.invalidate(bankConnectionsProvider);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -470,6 +487,13 @@ String _extractFunctionError(
   dynamic payload, {
   required String fallback,
 }) {
+  final details = _functionErrorDetails(payload);
+  if (details is Map<String, dynamic>) {
+    final error = details['error']?.toString().trim();
+    if (error != null && error.isNotEmpty) {
+      return error;
+    }
+  }
   if (payload is Map<String, dynamic>) {
     final error = payload['error']?.toString().trim();
     if (error != null && error.isNotEmpty) {
@@ -481,6 +505,13 @@ String _extractFunctionError(
 }
 
 String? _extractFunctionErrorCode(dynamic payload) {
+  final details = _functionErrorDetails(payload);
+  if (details is Map<String, dynamic>) {
+    final errorCode = details['errorCode']?.toString().trim();
+    if (errorCode != null && errorCode.isNotEmpty) {
+      return errorCode;
+    }
+  }
   if (payload is Map<String, dynamic>) {
     final errorCode = payload['errorCode']?.toString().trim();
     if (errorCode != null && errorCode.isNotEmpty) {
@@ -488,5 +519,12 @@ String? _extractFunctionErrorCode(dynamic payload) {
     }
   }
 
+  return null;
+}
+
+dynamic _functionErrorDetails(dynamic payload) {
+  if (payload is FunctionException) {
+    return payload.details;
+  }
   return null;
 }

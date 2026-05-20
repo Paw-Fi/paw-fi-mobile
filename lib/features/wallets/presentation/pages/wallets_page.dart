@@ -264,6 +264,8 @@ class AccountsPage extends HookConsumerWidget {
         )
         .toList(growable: false);
     final hasPlaidConnections = scopedPlaidConnections.isNotEmpty;
+    final hasPlaidConnectionsInOtherScope =
+        plaidConnections.isNotEmpty && !hasPlaidConnections;
     final scopedPlaidActionConnections = scopedPlaidConnections
         .where(
           (connection) => connection.requiresUserAction,
@@ -280,6 +282,22 @@ class AccountsPage extends HookConsumerWidget {
     );
     final latestSuccessfulSyncAt =
         _latestSuccessfulSyncAt(scopedPlaidConnections);
+    final bankSyncStatusLabel = _bankSyncStatusLabel(
+      nowUtc: nowUtc,
+      bankConnectionsAsync: bankConnectionsAsync,
+      hasScopedPlaidConnections: hasPlaidConnections,
+      hasPlaidConnectionsInOtherScope: hasPlaidConnectionsInOtherScope,
+      actionConnections: scopedPlaidActionConnections,
+      latestSuccessfulSyncAt: latestSuccessfulSyncAt,
+    );
+    Future<void> refreshWalletsAfterPlaidFlow() async {
+      ref.invalidate(bankConnectionsProvider);
+      await Future.wait([
+        ref.read(scopedWalletsProvider.notifier).refreshFromNetwork(),
+        ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh(),
+      ]);
+    }
+
     final readyForUsefulPaint =
         walletsAsync.hasValue || isPreviewMode || walletsPageState != null;
     final didLogUsefulPaintRef = useRef<bool>(false);
@@ -603,6 +621,10 @@ class AccountsPage extends HookConsumerWidget {
                           ),
                         ),
                       );
+                      if (!context.mounted) {
+                        return;
+                      }
+                      await refreshWalletsAfterPlaidFlow();
                     },
                     icon: Icon(
                       Icons.refresh_rounded,
@@ -645,6 +667,10 @@ class AccountsPage extends HookConsumerWidget {
                               ),
                             ),
                           );
+                          if (!context.mounted) {
+                            return;
+                          }
+                          await refreshWalletsAfterPlaidFlow();
                         },
                         icon: Icon(
                           Icons.sync,
@@ -652,7 +678,9 @@ class AccountsPage extends HookConsumerWidget {
                           size: 20,
                         ),
                         label: Text(
-                          context.l10n.connectBank,
+                          hasPlaidConnections
+                              ? 'Connect another bank'
+                              : context.l10n.connectBank,
                           style: TextStyle(
                             color: colorScheme.primary,
                             fontWeight: FontWeight.w700,
@@ -772,12 +800,7 @@ class AccountsPage extends HookConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          latestSuccessfulSyncAt == null
-                              ? 'Last sync never'
-                              : _formatLastSyncLabel(
-                                  nowUtc,
-                                  latestSuccessfulSyncAt,
-                                ),
+                          bankSyncStatusLabel,
                           style: TextStyle(
                             color: colorScheme.mutedForeground,
                             fontSize: 13,
@@ -803,12 +826,25 @@ class AccountsPage extends HookConsumerWidget {
                                     return;
                                   }
 
+                                  if (bankConnectionsAsync.isLoading &&
+                                      !bankConnectionsAsync.hasValue) {
+                                    AppToast.info(
+                                      context,
+                                      'Checking bank connection status. Try again in a moment.',
+                                    );
+                                    return;
+                                  }
+
                                   if (!hasPlaidConnections) {
                                     await MonekoAlertDialog.show(
                                       context: context,
-                                      title: 'No bank connected',
+                                      title: hasPlaidConnectionsInOtherScope
+                                          ? 'No bank connected here'
+                                          : 'No bank connected',
                                       description:
-                                          'Connect a bank first before syncing transactions.',
+                                          hasPlaidConnectionsInOtherScope
+                                              ? 'A bank is connected in another wallet space. Switch to that space or connect a bank here before syncing transactions.'
+                                              : 'Connect a bank first before syncing transactions.',
                                       confirmLabel: 'Got it',
                                       cancelLabel: '',
                                     );
@@ -1993,6 +2029,39 @@ String _formatLastSyncLabel(DateTime nowUtc, DateTime timestamp) {
     return 'Last sync just now';
   }
   return 'Last sync $relative ago';
+}
+
+String _bankSyncStatusLabel({
+  required DateTime nowUtc,
+  required AsyncValue<List<BankConnection>> bankConnectionsAsync,
+  required bool hasScopedPlaidConnections,
+  required bool hasPlaidConnectionsInOtherScope,
+  required List<BankConnection> actionConnections,
+  required DateTime? latestSuccessfulSyncAt,
+}) {
+  if (bankConnectionsAsync.isLoading && !bankConnectionsAsync.hasValue) {
+    return 'Checking bank sync...';
+  }
+  if (bankConnectionsAsync.hasError && !bankConnectionsAsync.hasValue) {
+    return 'Bank sync status unavailable';
+  }
+  if (hasPlaidConnectionsInOtherScope) {
+    return 'Bank connected in another space';
+  }
+  if (!hasScopedPlaidConnections) {
+    return 'No bank connected';
+  }
+  if (actionConnections.isNotEmpty) {
+    if (actionConnections.every((connection) =>
+        connection.hasNewAccountsAvailable)) {
+      return 'Bank updates available';
+    }
+    return 'Bank needs attention';
+  }
+  if (latestSuccessfulSyncAt == null) {
+    return 'Bank connected. Initial sync pending';
+  }
+  return _formatLastSyncLabel(nowUtc, latestSuccessfulSyncAt);
 }
 
 String _formatDurationCompact(Duration duration) {

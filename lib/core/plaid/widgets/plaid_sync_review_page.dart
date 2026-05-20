@@ -628,7 +628,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       return const [];
     }
 
-    final rows = await Supabase.instance.client
+    var query = Supabase.instance.client
         .from('expenses')
         .select(
           'id, contact_id, user_id, household_id, date, amount_cents, currency, '
@@ -636,9 +636,15 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           'account_id, type, is_recurring, recurrence_rule',
         )
         .inFilter('bank_account_id', bankAccountIds)
-        .isFilter('deleted_at', null)
-        .order('date', ascending: false)
-        .limit(200);
+        .isFilter('deleted_at', null);
+
+    if (widget.session.targetHouseholdId == null) {
+      query = query.isFilter('household_id', null);
+    } else {
+      query = query.eq('household_id', widget.session.targetHouseholdId!);
+    }
+
+    final rows = await query.order('date', ascending: false).limit(200);
 
     return (rows as List<dynamic>)
         .whereType<Map<String, dynamic>>()
