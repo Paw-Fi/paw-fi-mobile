@@ -1005,6 +1005,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         _service.fetchSummary(_query),
         _service.fetchPage(_query),
       ]);
+      if (!mounted) return;
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
@@ -1017,6 +1018,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         _startBackgroundRefresh();
       }
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -1043,11 +1045,13 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     try {
       if (_service.supportsBackgroundRefresh) {
         await _service.refreshFromRemote(_query);
+        if (!mounted) return;
       }
       final results = await Future.wait<dynamic>([
         _service.fetchSummary(_query),
         _service.fetchPage(_query),
       ]);
+      if (!mounted) return;
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
@@ -1057,6 +1061,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         nextCursor: page.nextCursor,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -1078,6 +1083,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
     try {
       final page = await _service.fetchPage(_query, cursor: cursor);
+      if (!mounted) return;
       state = state.copyWith(
         items: [...state.items, ...page.items],
         isLoadingMore: false,
@@ -1085,6 +1091,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         nextCursor: page.nextCursor,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoadingMore: false,
         error: error.toString(),

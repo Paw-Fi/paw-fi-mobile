@@ -1503,6 +1503,7 @@ class _CurrencyStep extends HookConsumerWidget {
                         context,
                         ref,
                         showAllByDefault: true,
+                        preselectPrimary: false,
                       );
                       final user = ref.read(authProvider);
                       if (user.uid.isNotEmpty) {

@@ -10,6 +10,7 @@ import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
 import 'package:moneko/core/plaid/models/synced_transaction.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -153,7 +154,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (!mounted) return;
       setState(() {
         _isPreparing = false;
-        _errorMessage = error.toString();
+        _errorMessage = ErrorHandler.getUserFriendlyMessage(error);
       });
     }
   }
@@ -658,14 +659,32 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
   Future<_DirectPlaidFetchResult>
       _loadTransactionsFromPlaidSyncFunction() async {
-    final response = await Supabase.instance.client.functions.invoke(
-      'plaid-sync-transactions',
-      body: {
-        'connectionId': widget.session.connectionId,
-        if (widget.session.targetHouseholdId != null)
-          'targetHouseholdId': widget.session.targetHouseholdId,
-      },
-    );
+    late final FunctionResponse response;
+    try {
+      response = await Supabase.instance.client.functions.invoke(
+        'plaid-sync-transactions',
+        body: {
+          'connectionId': widget.session.connectionId,
+          if (widget.session.targetHouseholdId != null)
+            'targetHouseholdId': widget.session.targetHouseholdId,
+        },
+      );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      final errorCode = details is Map
+          ? details['errorCode']?.toString().trim()
+          : null;
+      if (error.status == 429 || errorCode == 'MANUAL_SYNC_COOLDOWN') {
+        final parsed = details is Map
+            ? parseSyncedTransactionPayload(Map<String, dynamic>.from(details))
+            : const ParsedSyncedTransactions(transactions: []);
+        return _DirectPlaidFetchResult(
+          transactions: const [],
+          syncStatus: parsed.syncStatus,
+        );
+      }
+      rethrow;
+    }
 
     if (response.status >= 400) {
       return const _DirectPlaidFetchResult(transactions: []);

@@ -16,6 +16,6 @@ Future<void> showAppStoreAccessRestoredDialog(
         ? 'Good news — your $planName plan is shared through Apple Family Sharing. We restored access for this account.'
         : 'Good news — we restored your $planName plan from the App Store for this account.',
     confirmLabel: context.l10n.gotIt,
-    cancelLabel: '',
+     showCancelButton:false
   );
 }

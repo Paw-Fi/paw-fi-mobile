@@ -665,6 +665,18 @@ class AccountsPage extends HookConsumerWidget {
                             return;
                           }
 
+                          if (hasPendingPlaidRemoval) {
+                            await MonekoAlertDialog.show(
+                              context: context,
+                              title: 'Disconnect pending',
+                              description:
+                                  'This bank is still finishing disconnect. Please wait for removal to complete before connecting it again.',
+                              confirmLabel: 'Got it',
+                              showCancelButton:false
+                            );
+                            return;
+                          }
+
                           await Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => PlaidSyncWalkthroughPage(
@@ -784,7 +796,7 @@ class AccountsPage extends HookConsumerWidget {
                             context,
                             message != null && message.isNotEmpty
                                 ? message
-                                : 'Bank disconnect is queued. Moneko will retry removing Plaid access automatically.',
+                                : 'Bank disconnect is queued. Plaid removal is usually immediate once accepted; if cleanup is still pending, Moneko retries about every 15 minutes.',
                           );
                         } else {
                           AppToast.success(
@@ -878,7 +890,7 @@ class AccountsPage extends HookConsumerWidget {
                                               ? 'A bank is connected in another wallet space. Switch to that space or connect a bank here before syncing transactions.'
                                               : 'Connect a bank first before syncing transactions.',
                                       confirmLabel: 'Got it',
-                                      cancelLabel: '',
+                                       showCancelButton:false,
                                     );
                                     return;
                                   }
@@ -888,9 +900,9 @@ class AccountsPage extends HookConsumerWidget {
                                       context: context,
                                       title: 'Disconnect pending',
                                       description:
-                                          'This bank is already queued for Plaid removal. Moneko will retry automatically, and syncing is disabled while removal is pending.',
+                                          'This bank is already queued for Plaid removal. Plaid removal is usually immediate once accepted; if cleanup is still pending, Moneko retries about every 15 minutes. Syncing is disabled while removal is pending.',
                                       confirmLabel: 'Got it',
-                                      cancelLabel: '',
+                                       showCancelButton:false,
                                     );
                                     return;
                                   }
@@ -902,7 +914,7 @@ class AccountsPage extends HookConsumerWidget {
                                       description:
                                           'This bank needs attention before it can sync. Please reconnect the bank and try again.',
                                       confirmLabel: 'Got it',
-                                      cancelLabel: '',
+                                       showCancelButton:false,
                                     );
                                     return;
                                   }
@@ -930,7 +942,7 @@ class AccountsPage extends HookConsumerWidget {
                                       description:
                                           'You cannot sync more than 1 time every 24 hours. Try again in ${_formatDurationCompact(remaining)}.',
                                       confirmLabel: 'Got it',
-                                      cancelLabel: '',
+                                       showCancelButton:false,
                                     );
                                     return;
                                   }
@@ -972,7 +984,7 @@ class AccountsPage extends HookConsumerWidget {
                                           description:
                                               'You cannot request another Plaid refresh yet. Try again later.',
                                           confirmLabel: 'Got it',
-                                          cancelLabel: '',
+                                           showCancelButton:false,
                                         );
                                         return;
                                       }
@@ -983,7 +995,7 @@ class AccountsPage extends HookConsumerWidget {
                                           description:
                                               'Manual Plaid refresh is only available for eligible paid users.',
                                           confirmLabel: 'Got it',
-                                          cancelLabel: '',
+                                           showCancelButton:false,
                                         );
                                         return;
                                       }

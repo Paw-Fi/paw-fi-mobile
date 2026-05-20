@@ -229,6 +229,11 @@ class ErrorHandler {
       return 'Could not update this bank connection right now. Please try again in a moment.';
     }
 
+    if (code == 'MANUAL_SYNC_COOLDOWN' ||
+        message.contains('manual sync is available once every 24 hours')) {
+      return 'Bank sync was updated recently. New transactions will refresh automatically.';
+    }
+
     if (code == 'PGRST202' ||
         message.contains('schema cache') ||
         message.contains('could not find the function')) {

@@ -340,7 +340,7 @@ class _PlaidSyncWalkthroughPageState
       description:
           'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
       confirmLabel: 'Back to wallets',
-      cancelLabel: '',
+      showCancelButton:false
     );
     ref.invalidate(bankConnectionsProvider);
     if (mounted) {

@@ -20,14 +20,17 @@ Future<String?> showCurrencySelectorModal(
   BuildContext context,
   WidgetRef ref, {
   bool showAllByDefault = false,
+  bool preselectPrimary = true,
 }) async {
   final navigator = Navigator.maybeOf(context, rootNavigator: true);
   if (navigator == null) return null;
   return navigator.push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) =>
-          CurrencySelectorScreen(showAllByDefault: showAllByDefault),
+      builder: (_) => CurrencySelectorScreen(
+        showAllByDefault: showAllByDefault,
+        preselectPrimary: preselectPrimary,
+      ),
     ),
   );
 }
@@ -108,8 +111,13 @@ Future<void> _retryCurrencySelectionSync({
 /// Full-screen currency selector screen
 class CurrencySelectorScreen extends ConsumerStatefulWidget {
   final bool showAllByDefault;
+  final bool preselectPrimary;
 
-  const CurrencySelectorScreen({super.key, this.showAllByDefault = false});
+  const CurrencySelectorScreen({
+    super.key,
+    this.showAllByDefault = false,
+    this.preselectPrimary = true,
+  });
 
   @override
   ConsumerState<CurrencySelectorScreen> createState() =>
@@ -183,7 +191,8 @@ class _CurrencySelectorScreenState
 
     // Initial sort: Primary at top
     if (primaryCurrency.isNotEmpty) {
-      final index = allOrdered.indexWhere((s) => s.currencyCode == primaryCurrency);
+      final index =
+          allOrdered.indexWhere((s) => s.currencyCode == primaryCurrency);
       if (index > 0) {
         final selected = allOrdered.removeAt(index);
         allOrdered.insert(0, selected);
@@ -245,6 +254,21 @@ class _CurrencySelectorScreenState
       normalizedPrimary,
       ...selectedCurrencies,
     ]);
+    final resolvedPrimary = normalizedPrimary.isNotEmpty
+        ? normalizedPrimary
+        : (normalizedSelected.isNotEmpty
+            ? normalizedSelected.first
+            : (previousCurrency?.trim().toUpperCase() ?? ''));
+
+    if (resolvedPrimary.isEmpty) {
+      AppToast.warning(context, 'Select a currency first.');
+      return;
+    }
+
+    final resolvedSelected = _normalizeCurrencySelection([
+      resolvedPrimary,
+      ...normalizedSelected,
+    ]);
     final container = ProviderScope.containerOf(context, listen: false);
     final toastContext =
         Navigator.maybeOf(context, rootNavigator: true)?.context;
@@ -255,19 +279,19 @@ class _CurrencySelectorScreenState
 
     await _applyLocalCurrencySelection(
       container,
-      primaryCurrency: normalizedPrimary,
-      selectedCurrencies: normalizedSelected,
+      primaryCurrency: resolvedPrimary,
+      selectedCurrencies: resolvedSelected,
     );
 
     if (mounted) {
-      Navigator.pop(context, normalizedPrimary);
+      Navigator.pop(context, resolvedPrimary);
     }
 
     final hasSession = supabase.auth.currentSession != null;
     if (!hasSession) return;
 
     try {
-      await _syncPreferredCurrencyOnBackend(normalizedPrimary);
+      await _syncPreferredCurrencyOnBackend(resolvedPrimary);
     } catch (error) {
       debugPrint('Failed to update preferred currency on backend: $error');
 
@@ -288,8 +312,8 @@ class _CurrencySelectorScreenState
           onPressed: () => _retryCurrencySelectionSync(
             container: container,
             toastContext: toastContext,
-            primaryCurrency: normalizedPrimary,
-            selectedCurrencies: normalizedSelected,
+            primaryCurrency: resolvedPrimary,
+            selectedCurrencies: resolvedSelected,
             successMessage: successMessage,
             retryFailedMessage: retryFailedMessage,
           ),
@@ -350,10 +374,11 @@ class _CurrencySelectorScreenState
       ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
 
     final fallbackPrimary = ref.watch(selectedHomeCurrencyCodeProvider);
+    final defaultPrimary = widget.preselectPrimary
+        ? (filterState.selectedCurrency ?? fallbackPrimary)
+        : null;
     final primaryCurrency =
-        (_primaryCurrency ?? filterState.selectedCurrency ?? fallbackPrimary)
-            .trim()
-            .toUpperCase();
+        (_primaryCurrency ?? defaultPrimary ?? '').trim().toUpperCase();
     final selectedCurrencySet = _normalizeCurrencySelection(
       _selectedCurrencies ??
           filterState.normalizedSelectedCurrencies ??
@@ -400,6 +425,7 @@ class _CurrencySelectorScreenState
           if (selectedCurrencySet.contains(summary.currencyCode)) return 1;
           return 2;
         }
+
         return rank(left).compareTo(rank(right));
       });
     } else {
@@ -537,18 +563,20 @@ class _CurrencySelectorScreenState
                               List<String>.from(_stableCurrencyCodes!);
                           final code = item.currencyCode;
                           newStableOrder.remove(code);
-                          
+
                           // Find where to insert in the stable list relative to its neighbors in visible list
                           // If it's the first in visible, put it at index 0 of stable or after other filtered out items
                           // For simplicity, we can just rebuild the stable order by taking all codes in the reordered visible list
                           // and keeping the rest (filtered out) at the end.
-                          
-                          final visibleCodes = reorderedList.map((s) => s.currencyCode).toSet();
+
+                          final visibleCodes =
+                              reorderedList.map((s) => s.currencyCode).toSet();
                           final updatedStableOrder = [
                             ...reorderedList.map((s) => s.currencyCode),
-                            ..._stableCurrencyCodes!.where((c) => !visibleCodes.contains(c)),
+                            ..._stableCurrencyCodes!
+                                .where((c) => !visibleCodes.contains(c)),
                           ];
-                          
+
                           _saveCustomOrder(updatedStableOrder);
                         }
                       },
@@ -570,8 +598,19 @@ class _CurrencySelectorScreenState
                               onTap: () {
                                 HapticFeedback.lightImpact();
                                 final next = selectedCurrencySet.toSet();
+                                if (primaryCurrency.isEmpty) {
+                                  next.add(summary.currencyCode);
+                                  setState(() {
+                                    _primaryCurrency = summary.currencyCode;
+                                    _selectedCurrencies = next.toList();
+                                  });
+                                  return;
+                                }
                                 if (summary.currencyCode == primaryCurrency) {
-                                  // Primary must be included
+                                  AppToast.warning(
+                                    context,
+                                    'Set another currency as primary before unchecking this one.',
+                                  );
                                   next.add(summary.currencyCode);
                                 } else if (next
                                     .contains(summary.currencyCode)) {
