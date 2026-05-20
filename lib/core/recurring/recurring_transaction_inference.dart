@@ -1,5 +1,9 @@
 import 'package:moneko/core/utils/user_timezone.dart';
 
+const double recurringAmountRelativeTolerance = 0.01;
+const double recurringDescriptionEditTolerance = 0.10;
+const double recurringDescriptionTokenSimilarity = 0.90;
+
 class RecurringInferenceInput {
   const RecurringInferenceInput({
     required this.id,
@@ -30,10 +34,14 @@ class RecurringInferenceResult {
   const RecurringInferenceResult({
     required this.isRecurring,
     required this.recurrenceRule,
+    this.seriesKey,
+    this.isSeriesAnchor = false,
   });
 
   final bool isRecurring;
   final Map<String, dynamic>? recurrenceRule;
+  final String? seriesKey;
+  final bool isSeriesAnchor;
 }
 
 class _RecurrencePattern {
@@ -68,6 +76,22 @@ class _RecurrenceCandidate {
   final int needsIntervals;
 }
 
+class _RecurringInferenceGroup {
+  _RecurringInferenceGroup({
+    required this.accountId,
+    required this.type,
+    required this.currency,
+    required this.merchantKey,
+    required this.items,
+  });
+
+  final String accountId;
+  final String type;
+  final String currency;
+  final String merchantKey;
+  final List<RecurringInferenceInput> items;
+}
+
 Map<String, RecurringInferenceResult> inferRecurringTransactions(
   Iterable<RecurringInferenceInput> transactions,
 ) {
@@ -77,39 +101,68 @@ Map<String, RecurringInferenceResult> inferRecurringTransactions(
       item.id: RecurringInferenceResult(
         isRecurring: item.isRecurring,
         recurrenceRule: item.recurrenceRule,
+        isSeriesAnchor: item.isRecurring,
       ),
   };
 
   if (items.length < 2) return results;
 
-  final groups = <String, List<RecurringInferenceInput>>{};
+  final groups = <_RecurringInferenceGroup>[];
   for (final item in items) {
     final merchantKey = normalizeRecurringMerchant(
       item.merchant ?? item.description,
     );
     if (merchantKey == null) continue;
-    final key = [
-      item.accountId ?? '',
-      (item.type ?? 'expense').toLowerCase(),
-      (item.currency ?? '').toUpperCase(),
-      merchantKey,
-    ].join('|');
-    groups.putIfAbsent(key, () => <RecurringInferenceInput>[]).add(item);
+    final accountId = item.accountId ?? '';
+    final type = (item.type ?? 'expense').toLowerCase();
+    final currency = (item.currency ?? '').toUpperCase();
+    final existingGroup = _findMatchingGroup(
+      groups: groups,
+      accountId: accountId,
+      type: type,
+      currency: currency,
+      merchantKey: merchantKey,
+    );
+
+    if (existingGroup != null) {
+      existingGroup.items.add(item);
+      continue;
+    }
+
+    groups.add(
+      _RecurringInferenceGroup(
+        accountId: accountId,
+        type: type,
+        currency: currency,
+        merchantKey: merchantKey,
+        items: <RecurringInferenceInput>[item],
+      ),
+    );
   }
 
-  for (final group in groups.values) {
-    final cluster = _largestAmountCluster(group);
+  for (final group in groups) {
+    final cluster = _largestAmountCluster(group.items);
     final pattern = _detectRecurrencePattern(cluster);
     if (pattern == null || cluster.isEmpty) continue;
 
-    final sorted = cluster.toList()
-      ..sort((a, b) => a.date!.compareTo(b.date!));
+    final sorted = cluster.toList()..sort((a, b) => a.date!.compareTo(b.date!));
     final anchor = sorted.first.date;
     if (anchor == null) continue;
+    final anchorId = sorted.first.id;
+    final seriesKey = [
+      group.accountId,
+      group.type,
+      group.currency,
+      group.merchantKey,
+      pattern.frequency,
+      pattern.interval ?? 1,
+    ].join('|');
 
     for (final item in cluster) {
       results[item.id] = RecurringInferenceResult(
         isRecurring: true,
+        seriesKey: seriesKey,
+        isSeriesAnchor: item.id == anchorId,
         recurrenceRule: item.recurrenceRule ??
             {
               'frequency': pattern.frequency,
@@ -140,6 +193,80 @@ String? normalizeRecurringMerchant(String? value) {
   return normalized.length < 3 ? null : normalized;
 }
 
+_RecurringInferenceGroup? _findMatchingGroup({
+  required List<_RecurringInferenceGroup> groups,
+  required String accountId,
+  required String type,
+  required String currency,
+  required String merchantKey,
+}) {
+  for (final group in groups) {
+    if (group.accountId == accountId &&
+        group.type == type &&
+        group.currency == currency &&
+        _merchantKeysAreSimilar(group.merchantKey, merchantKey)) {
+      return group;
+    }
+  }
+  return null;
+}
+
+bool _merchantKeysAreSimilar(String left, String right) {
+  if (left == right) return true;
+
+  final shorter = left.length <= right.length ? left : right;
+  final longer = left.length <= right.length ? right : left;
+  if (shorter.length >= 6 && longer.startsWith(shorter)) return true;
+
+  final leftTokens = _merchantTokens(left);
+  final rightTokens = _merchantTokens(right);
+  if (leftTokens.isEmpty || rightTokens.isEmpty) {
+    return _editDistance(left, right) <= _allowedNameDistance(left, right);
+  }
+
+  final shared = leftTokens.intersection(rightTokens).length;
+  final union = leftTokens.union(rightTokens).length;
+  if (union > 0 && shared / union >= recurringDescriptionTokenSimilarity) {
+    return true;
+  }
+
+  return _editDistance(left, right) <= _allowedNameDistance(left, right);
+}
+
+Set<String> _merchantTokens(String value) {
+  return value.split(' ').where((token) => token.length >= 3).toSet();
+}
+
+int _allowedNameDistance(String left, String right) {
+  final maxLength = left.length > right.length ? left.length : right.length;
+  if (maxLength < 6) return 0;
+  final tolerance = (maxLength * recurringDescriptionEditTolerance).round();
+  return tolerance < 1 ? 1 : tolerance;
+}
+
+int _editDistance(String left, String right) {
+  if (left == right) return 0;
+  if (left.isEmpty) return right.length;
+  if (right.isEmpty) return left.length;
+
+  var previous = List<int>.generate(right.length + 1, (index) => index);
+  for (var i = 0; i < left.length; i += 1) {
+    final current = List<int>.filled(right.length + 1, 0);
+    current[0] = i + 1;
+    for (var j = 0; j < right.length; j += 1) {
+      final cost = left.codeUnitAt(i) == right.codeUnitAt(j) ? 0 : 1;
+      final deletion = previous[j + 1] + 1;
+      final insertion = current[j] + 1;
+      final substitution = previous[j] + cost;
+      current[j + 1] =
+          [deletion, insertion, substitution].reduce((a, b) => a < b ? a : b);
+    }
+    previous = current;
+  }
+
+  return previous.last;
+}
+
 List<RecurringInferenceInput> _largestAmountCluster(
   List<RecurringInferenceInput> transactions,
 ) {
@@ -150,7 +277,8 @@ List<RecurringInferenceInput> _largestAmountCluster(
   var best = <RecurringInferenceInput>[];
   for (final seed in sorted) {
     final cluster = sorted
-        .where((item) => _amountsCloseEnough(item.amountCents!, seed.amountCents!))
+        .where(
+            (item) => _amountsCloseEnough(item.amountCents!, seed.amountCents!))
         .toList(growable: false);
     if (cluster.length > best.length) {
       best = cluster;
@@ -162,7 +290,8 @@ List<RecurringInferenceInput> _largestAmountCluster(
 bool _amountsCloseEnough(int a, int b) {
   final delta = (a - b).abs();
   final larger = [a.abs(), b.abs(), 1].reduce((x, y) => x > y ? x : y);
-  return delta <= 500 || delta / larger <= 0.15;
+  final tolerance = (larger * recurringAmountRelativeTolerance).round();
+  return delta <= (tolerance < 1 ? 1 : tolerance);
 }
 
 _RecurrencePattern? _detectRecurrencePattern(
@@ -183,21 +312,21 @@ _RecurrencePattern? _detectRecurrencePattern(
   }
 
   const candidates = <_RecurrenceCandidate>[
-    _RecurrenceCandidate('daily', null, 1, 1, 2),
-    _RecurrenceCandidate('weekly', null, 6, 8, 2),
-    _RecurrenceCandidate('biweekly', null, 13, 16, 2),
-    _RecurrenceCandidate('monthly', null, 27, 34, 2),
-    _RecurrenceCandidate('monthly', 3, 84, 98, 1),
-    _RecurrenceCandidate('monthly', 6, 175, 190, 1),
-    _RecurrenceCandidate('yearly', null, 350, 380, 1),
+    _RecurrenceCandidate('daily', null, 1, 2, 2),
+    _RecurrenceCandidate('weekly', null, 4, 10, 2),
+    _RecurrenceCandidate('biweekly', null, 11, 17, 2),
+    _RecurrenceCandidate('monthly', null, 24, 37, 2),
+    _RecurrenceCandidate('monthly', 3, 81, 101, 1),
+    _RecurrenceCandidate('monthly', 6, 172, 193, 1),
+    _RecurrenceCandidate('yearly', null, 347, 383, 1),
   ];
 
   for (final candidate in candidates) {
-    final matches =
-        gaps.where((gap) => gap >= candidate.min && gap <= candidate.max).toList();
+    final matches = gaps
+        .where((gap) => gap >= candidate.min && gap <= candidate.max)
+        .toList();
     if (matches.length < candidate.needsIntervals) continue;
-    final average =
-        matches.reduce((sum, gap) => sum + gap) / matches.length;
+    final average = matches.reduce((sum, gap) => sum + gap) / matches.length;
     return _RecurrencePattern(
       frequency: candidate.frequency,
       interval: candidate.interval,

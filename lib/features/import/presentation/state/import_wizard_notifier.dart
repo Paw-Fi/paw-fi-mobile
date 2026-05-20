@@ -991,10 +991,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       );
       if (resolved is String && resolved.trim().isNotEmpty) {
         effectiveAccountId = resolved.trim();
-                final updatedRows = _inferAndDedupeRows(
-                  state.parsedRows,
-                  _existingExpensesForTarget(targetHouseholdId),
-                  targetAccountId: effectiveAccountId,
+        final updatedRows = _inferAndDedupeRows(
+          state.parsedRows,
+          _existingExpensesForTarget(targetHouseholdId),
+          targetAccountId: effectiveAccountId,
         );
         state = state.copyWith(
           targetAccountId: effectiveAccountId,
@@ -1013,6 +1013,11 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         continue;
       }
       if (state.skipDuplicates && row.isDuplicate) {
+        continue;
+      }
+      if (row.isRecurring &&
+          row.recurringSeriesKey != null &&
+          !row.isRecurringSeriesAnchor) {
         continue;
       }
       importableRows.add(row);
@@ -1227,14 +1232,51 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       ),
     ]);
 
+    final seriesWithExistingRecurringTemplate = <String>{};
+    for (final expense
+        in existingExpenses.where((expense) => expense.isRecurring)) {
+      final result = inferred['existing:${expense.id}'];
+      final seriesKey = result?.seriesKey;
+      if (seriesKey != null && seriesKey.isNotEmpty) {
+        seriesWithExistingRecurringTemplate.add(seriesKey);
+      }
+    }
+
+    final firstImportIdBySeries = <String, String>{};
+    final recurringImportRows = rows.where((row) {
+      final result = inferred['import:${row.index}'];
+      final seriesKey = result?.seriesKey;
+      return result?.isRecurring == true &&
+          seriesKey != null &&
+          seriesKey.isNotEmpty &&
+          !seriesWithExistingRecurringTemplate.contains(seriesKey);
+    }).toList(growable: false)
+      ..sort((a, b) => a.date!.compareTo(b.date!));
+
+    for (final row in recurringImportRows) {
+      final seriesKey = inferred['import:${row.index}']!.seriesKey!;
+      firstImportIdBySeries.putIfAbsent(seriesKey, () => 'import:${row.index}');
+    }
+
     final recurrenceAwareRows = rows.map((row) {
+      final importId = 'import:${row.index}';
       final result = inferred['import:${row.index}'];
       if (result == null || !result.isRecurring) {
-        return row.copyWith(isRecurring: false, recurrenceRule: null);
+        return row.copyWith(
+          isRecurring: false,
+          recurrenceRule: null,
+          recurringSeriesKey: null,
+          isRecurringSeriesAnchor: false,
+        );
       }
+      final seriesKey = result.seriesKey;
+      final isImportAnchor =
+          seriesKey == null || firstImportIdBySeries[seriesKey] == importId;
       return row.copyWith(
         isRecurring: true,
         recurrenceRule: result.recurrenceRule,
+        recurringSeriesKey: seriesKey,
+        isRecurringSeriesAnchor: isImportAnchor,
       );
     }).toList(growable: false);
 

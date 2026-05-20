@@ -255,7 +255,8 @@ class RecurringTransactionsNotifier
 
     if (!mounted) return;
 
-    final isOffline = ref.read(networkReachabilityProvider).valueOrNull == false;
+    final isOffline =
+        ref.read(networkReachabilityProvider).valueOrNull == false;
     if (!forceRefresh) {
       final hydrated = await _hydrateFromLocalCache(userId, limit: limit);
       if (hydrated) {
@@ -316,10 +317,13 @@ class RecurringTransactionsNotifier
           .select(
             'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
             'currency, owner_type, privacy_scope, household_id, is_recurring, '
-            'user_id, split_group_id, account_id, '
+            'user_id, split_group_id, account_id, bank_account_id, provider, '
             'recurrence_rule, type, attachments, created_at, updated_at',
           )
-          .eq('is_recurring', true);
+          .eq('is_recurring', true)
+          .isFilter('deleted_at', null)
+          .isFilter('provider', null)
+          .isFilter('bank_account_id', null);
 
       // Scope by household when in household mode; otherwise restrict to
       // the current user's personal recurring items (including portfolio households).

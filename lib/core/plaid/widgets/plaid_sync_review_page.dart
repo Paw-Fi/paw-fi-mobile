@@ -647,7 +647,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     final rows = await query.order('date', ascending: false).limit(200);
 
-    return (rows as List<dynamic>)
+    final transactions = (rows as List<dynamic>)
         .whereType<Map<String, dynamic>>()
         .map((row) => SyncedTransaction(
               expense: ExpenseEntry.fromJson(row),
@@ -655,6 +655,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
               recurrenceRule: row['recurrence_rule'] as Map<String, dynamic>?,
             ))
         .toList(growable: false);
+    return inferSyncedRecurringTransactions(transactions);
   }
 
   Future<_DirectPlaidFetchResult>
@@ -671,9 +672,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       );
     } on FunctionException catch (error) {
       final details = error.details;
-      final errorCode = details is Map
-          ? details['errorCode']?.toString().trim()
-          : null;
+      final errorCode =
+          details is Map ? details['errorCode']?.toString().trim() : null;
       if (error.status == 429 || errorCode == 'MANUAL_SYNC_COOLDOWN') {
         final parsed = details is Map
             ? parseSyncedTransactionPayload(Map<String, dynamic>.from(details))

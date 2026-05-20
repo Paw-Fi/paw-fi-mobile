@@ -723,7 +723,10 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
   dynamic scopedQuery = supabase
       .from('expenses')
       .select(_recurringExpensesSelectFields)
-      .eq('is_recurring', true);
+      .eq('is_recurring', true)
+      .isFilter('deleted_at', null)
+      .isFilter('provider', null)
+      .isFilter('bank_account_id', null);
 
   switch (scope) {
     case PocketsScopeType.personal:
@@ -763,7 +766,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 const _recurringExpensesSelectFields =
     'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
-    'user_id, split_group_id, account_id, recurrence_rule, type, '
+    'user_id, split_group_id, account_id, bank_account_id, provider, recurrence_rule, type, '
     'attachments, created_at, updated_at';
 
 Future<List<Map<String, dynamic>>> _enrichRecurringRowsWithSplitPayer({
