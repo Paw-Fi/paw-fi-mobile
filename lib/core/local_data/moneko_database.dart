@@ -1068,6 +1068,22 @@ class MonekoDatabase {
     );
   }
 
+  Future<void> clearAllLocalData() async {
+    _runInTransaction(() {
+      _db.execute('DELETE FROM local_transactions');
+      _db.execute('DELETE FROM local_mutation_outbox');
+      _db.execute('DELETE FROM local_sync_cursors');
+      _db.execute('DELETE FROM monthly_summaries');
+      _db.execute('DELETE FROM category_monthly_summaries');
+      _db.execute('DELETE FROM wallet_balance_snapshots');
+      _db.execute('DELETE FROM local_transaction_tombstones');
+      _db.execute('DELETE FROM local_transaction_feed_cache');
+      _db.execute('DELETE FROM local_json_cache');
+      _db.execute('DELETE FROM local_category_remaps');
+    });
+    _notifyChanged();
+  }
+
   Future<bool> isTransactionsFeedCacheComplete(
     LocalTransactionsFeedQuery query,
   ) async {

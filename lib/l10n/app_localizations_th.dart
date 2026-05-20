@@ -7946,4 +7946,71 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get manualMode => 'โหมดกำหนดเอง';
+
+  @override
+  String get previewSignOutDisabledInDemoMode => 'ตัวอย่าง: ไม่สามารถออกจากระบบได้ในโหมดสาธิต';
+
+  @override
+  String get previewResetFinancialDataDisabledInDemoMode => 'ตัวอย่าง: ไม่สามารถรีเซ็ตข้อมูลการเงินได้ในโหมดสาธิต';
+
+  @override
+  String get resetDataCannotBeUndone => 'รีเซ็ตข้อมูล (ไม่สามารถย้อนกลับได้)';
+
+  @override
+  String get resetDataConfirmationMessage => 'การดำเนินการนี้จะลบธุรกรรม งบประมาณ และประวัติข้อมูลเชิงลึกทั้งหมดของคุณอย่างถาวร นอกจากนี้ กระเป๋าเงินทั้งหมดจะถูกลบออก ยกเว้นกระเป๋าหลัก และยอดคงเหลือของกระเป๋าหลักจะถูกรีเซ็ตเป็น 0 พิมพ์ RESET เพื่อดำเนินการต่อ';
+
+  @override
+  String get resetData => 'รีเซ็ตข้อมูล';
+
+  @override
+  String get typeResetToConfirm => 'พิมพ์ RESET เพื่อยืนยัน';
+
+  @override
+  String get resettingFinancialData => 'กำลังรีเซ็ตข้อมูลการเงิน…';
+
+  @override
+  String get failedToResetFinancialData => 'ไม่สามารถรีเซ็ตข้อมูลการเงินได้';
+
+  @override
+  String failedToResetFinancialDataWithError(Object error) {
+    return 'ไม่สามารถรีเซ็ตข้อมูลการเงินได้: $error';
+  }
+
+  @override
+  String get resetSuccessful => 'รีเซ็ตสำเร็จ';
+
+  @override
+  String get yourDataHasBeenClearedPleaseRestart => 'ข้อมูลของคุณถูกล้างแล้ว โปรดรีสตาร์ทแอปเพื่อดำเนินการต่อ';
+
+  @override
+  String get restartNow => 'รีสตาร์ทตอนนี้';
+
+  @override
+  String unexpectedAvatarUpdateError(Object error) {
+    return 'เกิดข้อผิดพลาดที่ไม่คาดคิดขณะอัปเดตรูปโปรไฟล์: $error';
+  }
+
+  @override
+  String get couldNotOpenWidgetsHelp => 'ไม่สามารถเปิดหน้าช่วยเหลือวิดเจ็ตได้';
+
+  @override
+  String get couldNotOpenHelpCenter => 'ไม่สามารถเปิดศูนย์ช่วยเหลือได้';
+
+  @override
+  String get resetting => 'กำลังรีเซ็ต…';
+
+  @override
+  String get indonesia => 'อินโดนีเซีย';
+
+  @override
+  String get cuba => 'คิวบา';
+
+  @override
+  String get iran => 'อิหร่าน';
+
+  @override
+  String get northKorea => 'เกาหลีเหนือ';
+
+  @override
+  String get syria => 'ซีเรีย';
 }
