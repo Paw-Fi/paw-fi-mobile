@@ -1827,9 +1827,132 @@ class _UnifiedTransactionSheetState
 
   // Edit handlers - update local state for both new and existing
   void _handleEditAmount(double currentAmount) async {
+    final pendingExpense = isNewExpense ? ref.read(pendingExpenseProvider) : null;
+    final isIncomeMode = isNewExpense
+        ? (pendingExpense?.isIncome ?? widget.newExpense!.isIncome)
+        : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
+
+    final displayCategory = isNewExpense && pendingExpense != null
+        ? pendingExpense.category
+        : category;
+
+    final displayMerchant = isNewExpense && pendingExpense != null
+        ? pendingExpense.merchant
+        : merchant;
+    final displayDescription = isNewExpense && pendingExpense != null
+        ? pendingExpense.description
+        : description;
+
+    final effectiveTitle = displayMerchant != null && displayMerchant.trim().isNotEmpty
+        ? displayMerchant
+        : (displayDescription != null && displayDescription.trim().isNotEmpty ? displayDescription : null);
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final categoryColor = getCategoryColor(displayCategory);
+    final categoryIcon = getCategoryIcon(displayCategory);
+    final localizedCategory = _getLocalizedCategory(displayCategory);
+
+    final header = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Transaction Type Badge (Apple/YNAB luxury styling)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isIncomeMode
+                    ? colorScheme.success.withValues(alpha: 0.12)
+                    : colorScheme.destructive.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: isIncomeMode
+                      ? colorScheme.success.withValues(alpha: 0.2)
+                      : colorScheme.destructive.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isIncomeMode ? context.l10n.income : context.l10n.expense,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Category Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: categoryColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: categoryColor.withValues(alpha: 0.25),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    categoryIcon,
+                    size: 12,
+                    color: categoryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    localizedCategory,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (effectiveTitle != null && effectiveTitle.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            effectiveTitle.trim(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 1),
+        ],
+      ],
+    );
+
     final value = await showCalculatorKeypadSheet(
       context: context,
       initialValue: currentAmount == 0 ? '' : formatAmount(currentAmount),
+      prefix: currencySymbol,
+      header: header,
     );
     if (value == null) return;
 

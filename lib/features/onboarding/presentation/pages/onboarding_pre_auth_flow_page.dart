@@ -932,9 +932,45 @@ class _PreAuthBudgetStep extends HookWidget {
           const SizedBox(height: 24),
           GestureDetector(
             onTap: () async {
+              final symbol = resolveCurrencySymbol('USD');
+              final header = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.08),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.trending_up_rounded,
+                      size: 14,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.l10n.monthlyBudgetHint,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
               final value = await showCalculatorKeypadSheet(
                 context: context,
                 initialValue: controller.text,
+                prefix: symbol,
+                header: header,
               );
               if (value != null) {
                 controller.text = value;
@@ -1196,9 +1232,45 @@ class _PreAuthDebtStep extends HookWidget {
           const SizedBox(height: 16),
           GestureDetector(
             onTap: () async {
+              final symbol = resolveCurrencySymbol('USD');
+              final header = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.08),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.credit_card_rounded,
+                      size: 14,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.l10n.debtMinimumPaymentsHint,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
               final value = await showCalculatorKeypadSheet(
                 context: context,
                 initialValue: controller.text,
+                prefix: symbol,
+                header: header,
               );
               if (value != null) {
                 controller.text = value;

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 class CalculatorInput extends StatefulWidget {
   const CalculatorInput({
@@ -15,6 +16,7 @@ class CalculatorInput extends StatefulWidget {
     this.prefix,
     this.suffix,
     this.required = false,
+    this.currencyCode,
   });
 
   final double? value;
@@ -25,6 +27,7 @@ class CalculatorInput extends StatefulWidget {
   final Widget? prefix;
   final Widget? suffix;
   final bool required;
+  final String? currencyCode;
 
   @override
   State<CalculatorInput> createState() => _CalculatorInputState();
@@ -48,9 +51,47 @@ class _CalculatorInputState extends State<CalculatorInput> {
   }
 
   Future<void> _showCalculator() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final symbol = widget.currencyCode != null ? resolveCurrencySymbol(widget.currencyCode!) : null;
+
+    final header = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.brightness == Brightness.dark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.calculate_rounded,
+            size: 14,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            widget.label ?? 'Calculator',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+
     final value = await showCalculatorKeypadSheet(
       context: context,
       initialValue: _displayValue,
+      prefix: symbol,
+      header: header,
       onValueChange: (val) {
         setState(() {
           _displayValue = val;

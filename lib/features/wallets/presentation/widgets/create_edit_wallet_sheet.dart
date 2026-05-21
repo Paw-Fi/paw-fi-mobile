@@ -9,6 +9,7 @@ import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
@@ -55,6 +56,8 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final homeCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
+    final currencySymbol = resolveCurrencySymbol(homeCurrency);
     final isEditing = initial != null;
     final nameController = useTextEditingController(text: initial?.name ?? '');
     final goalController = useTextEditingController(
@@ -326,9 +329,44 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       Builder(
                         builder: (context) => GestureDetector(
                           onTap: () async {
+                            final header = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.brightness == Brightness.dark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.03),
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(
+                                  color: colorScheme.outline.withValues(alpha: 0.08),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    size: 14,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    context.l10n.initialBalance,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.foreground,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
                             final value = await showCalculatorKeypadSheet(
                               context: context,
                               initialValue: openingController.text,
+                              prefix: currencySymbol,
+                              header: header,
                             );
                             if (value != null) {
                               openingController.text = value;
@@ -371,9 +409,44 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       Builder(
                         builder: (context) => GestureDetector(
                           onTap: () async {
+                            final header = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.brightness == Brightness.dark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.03),
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(
+                                  color: colorScheme.outline.withValues(alpha: 0.08),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.flag_rounded,
+                                    size: 14,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    context.l10n.goalAmount,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.foreground,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
                             final value = await showCalculatorKeypadSheet(
                               context: context,
                               initialValue: goalController.text,
+                              prefix: currencySymbol,
+                              header: header,
                             );
                             if (value != null) {
                               goalController.text = value;

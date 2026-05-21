@@ -12,6 +12,7 @@ import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 /// Budget Detail Page
 /// Shows complete budget information and allows editing
@@ -144,9 +145,64 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                       GestureDetector(
                         onTap: _isEditing
                             ? () async {
+                                final currency = widget.budget.currency;
+                                final symbol = resolveCurrencySymbol(currency);
+                                final header = Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.brightness == Brightness.dark
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.black.withValues(alpha: 0.03),
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: Border.all(
+                                      color: colorScheme.outline.withValues(alpha: 0.08),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.donut_large_rounded,
+                                        size: 14,
+                                        color: colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        widget.budget.name,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        width: 4,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: colorScheme.mutedForeground.withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        context.l10n.budget,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: colorScheme.mutedForeground,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
                                 final value = await showCalculatorKeypadSheet(
                                   context: context,
                                   initialValue: _amountController.text,
+                                  prefix: symbol,
+                                  header: header,
                                 );
                                 if (value != null) {
                                   setState(() {

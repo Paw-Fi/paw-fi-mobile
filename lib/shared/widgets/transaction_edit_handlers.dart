@@ -19,11 +19,50 @@ class TransactionEditHandlers {
   static Future<double?> editAmount(
     BuildContext context, {
     required double currentAmount,
+    String? prefix,
+    Widget? header,
   }) async {
     final initialValue = formatAmount(currentAmount);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final fallbackHeader = header ?? Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.brightness == Brightness.dark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.calculate_rounded,
+            size: 14,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.amount,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+
     final result = await showCalculatorKeypadSheet(
       context: context,
       initialValue: initialValue,
+      prefix: prefix,
+      header: fallbackHeader,
     );
 
     if (result != null) {

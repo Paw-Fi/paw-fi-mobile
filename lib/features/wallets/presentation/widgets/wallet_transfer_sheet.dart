@@ -132,15 +132,84 @@ class _WalletTransferSheet extends HookConsumerWidget {
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final symbol = resolveCurrencySymbol(currencyCode);
 
+    // Get current wallet names for display
+    final fromWallet = wallets.firstWhere(
+      (w) => w.id == fromIdState.value,
+      orElse: () => wallets.first,
+    );
+    final toWallet = wallets.firstWhere(
+      (w) => w.id == toIdState.value,
+      orElse: () => wallets.first,
+    );
+
     // Parse amount from text
     double getAmountValue() {
       return (tryParseMoneyToCents(amountText.value) ?? 0) / 100.0;
     }
 
     Future<void> handleEditAmount() async {
+      final fromColor = parseWalletColor(fromWallet.color, colorScheme.primary);
+      final toColor = parseWalletColor(toWallet.color, colorScheme.primary);
+
+      final header = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.08),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              resolveWalletIcon(fromWallet.icon),
+              size: 14,
+              color: fromColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              fromWallet.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.arrow_forward_rounded,
+              size: 12,
+              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              resolveWalletIcon(toWallet.icon),
+              size: 14,
+              color: toColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              toWallet.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ],
+        ),
+      );
+
       final result = await showCalculatorKeypadSheet(
         context: context,
         initialValue: amountText.value,
+        prefix: symbol,
+        header: header,
       );
       if (result != null) {
         amountText.value = result;
@@ -164,16 +233,6 @@ class _WalletTransferSheet extends HookConsumerWidget {
         selectedDate.value = result;
       }
     }
-
-    // Get current wallet names for display
-    final fromWallet = wallets.firstWhere(
-      (w) => w.id == fromIdState.value,
-      orElse: () => wallets.first,
-    );
-    final toWallet = wallets.firstWhere(
-      (w) => w.id == toIdState.value,
-      orElse: () => wallets.first,
-    );
 
     void handleSwapDirection() {
       final temp = fromIdState.value;

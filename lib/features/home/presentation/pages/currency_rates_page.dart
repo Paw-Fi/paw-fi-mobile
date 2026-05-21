@@ -344,9 +344,81 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
       initialAmount == initialAmount.truncateToDouble() ? 0 : 2,
     );
 
+    final flagPath = getCurrencyFlagPath(code);
+    final currencyName = _currencyNames[code] ?? code;
+    final symbol = resolveCurrencySymbol(code);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final header = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.brightness == Brightness.dark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (flagPath != null) ...[
+            Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  flagPath,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            code,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.mutedForeground.withValues(alpha: 0.4),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              currencyName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
     final resultStr = await showCalculatorKeypadSheet(
       context: context,
       initialValue: initialValue,
+      prefix: symbol,
+      header: header,
     );
 
     if (resultStr == null || !mounted) {

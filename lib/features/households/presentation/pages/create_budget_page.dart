@@ -12,6 +12,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -168,9 +169,67 @@ class CreateBudgetPage extends HookConsumerWidget {
                   child: Builder(
                     builder: (context) => GestureDetector(
                       onTap: () async {
+                        final currency = selectedCurrency.value;
+                        final symbol = resolveCurrencySymbol(currency);
+                        final displayTitle = nameController.text.trim();
+                        final effectiveTitle = displayTitle.isNotEmpty ? displayTitle : context.l10n.budget;
+
+                        final header = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.brightness == Brightness.dark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.black.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(100),
+                            border: Border.all(
+                              color: colorScheme.outline.withValues(alpha: 0.08),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.donut_large_rounded,
+                                size: 14,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                effectiveTitle,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: colorScheme.mutedForeground.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                context.l10n.amount,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+
                         final value = await showCalculatorKeypadSheet(
                           context: context,
                           initialValue: amountController.text,
+                          prefix: symbol,
+                          header: header,
                         );
                         if (value != null) {
                           amountController.text = value;

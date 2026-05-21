@@ -7,6 +7,9 @@ Future<String?> showCalculatorKeypadSheet({
   required BuildContext context,
   String initialValue = '',
   ValueChanged<String>? onValueChange,
+  String? prefix,
+  Widget? prefixWidget,
+  Widget? header,
 }) {
   return MonekoBottomSheet.show<String>(
     context: context,
@@ -14,6 +17,9 @@ Future<String?> showCalculatorKeypadSheet({
     builder: (sheetContext) => CalculatorKeypad(
       initialValue: initialValue,
       onValueChange: onValueChange,
+      prefix: prefix,
+      prefixWidget: prefixWidget,
+      header: header,
       onConfirm: (value) {
         if (sheetContext.mounted) {
           Navigator.pop(sheetContext, value);
@@ -29,11 +35,17 @@ class CalculatorKeypad extends StatefulWidget {
     required this.onConfirm,
     this.onValueChange,
     this.initialValue = '0',
+    this.prefix,
+    this.prefixWidget,
+    this.header,
   });
 
   final String initialValue;
   final ValueChanged<String>? onValueChange;
   final ValueChanged<String> onConfirm;
+  final String? prefix;
+  final Widget? prefixWidget;
+  final Widget? header;
 
   @override
   State<CalculatorKeypad> createState() => _CalculatorKeypadState();
@@ -213,6 +225,12 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (widget.header != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: widget.header!,
+            ),
+          ],
           // Display
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -230,26 +248,47 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
                       fontSize: 14,
                     ),
                   ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: _isFirstInput && _display.isNotEmpty
-                        ? scheme.primary.withValues(alpha: 0.2)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _display.isEmpty ? '0' : _getLocalizedDisplay(_display),
-                    style: TextStyle(
-                      color: _isFirstInput && _display.isNotEmpty
-                          ? scheme.primary
-                          : scheme.foreground,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (widget.prefixWidget != null) ...[
+                      widget.prefixWidget!,
+                      const SizedBox(width: 8),
+                    ] else if (widget.prefix != null && widget.prefix!.isNotEmpty) ...[
+                      Text(
+                        widget.prefix!,
+                        style: TextStyle(
+                          color: scheme.mutedForeground,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: _isFirstInput && _display.isNotEmpty
+                              ? scheme.primary.withValues(alpha: 0.2)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _display.isEmpty ? '0' : _getLocalizedDisplay(_display),
+                          style: TextStyle(
+                            color: _isFirstInput && _display.isNotEmpty
+                                ? scheme.primary
+                                : scheme.foreground,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ),
               ],
             ),

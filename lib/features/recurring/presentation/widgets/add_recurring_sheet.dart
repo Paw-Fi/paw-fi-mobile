@@ -1668,12 +1668,118 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     : amountController.text.trim(),
                                 isFirst: true,
                                 onTap: () async {
+                                  final isIncomeMode = !isExpense;
+                                  final displayCategory = selectedCategory.value ?? 'other';
+                                  final categoryColor = getCategoryColor(displayCategory);
+                                  final categoryIcon = getCategoryIcon(displayCategory);
+                                  final localizedCategory = getCategoryTranslation(context, displayCategory);
+                                  final displayMerchant = merchantController.text.trim();
+                                  final displayDescription = descriptionController.text.trim();
+                                  final effectiveTitle = displayDescription.isNotEmpty
+                                      ? displayDescription
+                                      : (displayMerchant.isNotEmpty ? displayMerchant : null);
+
+                                  final header = Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: isIncomeMode
+                                                  ? colorScheme.success.withValues(alpha: 0.12)
+                                                  : colorScheme.destructive.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(100),
+                                              border: Border.all(
+                                                color: isIncomeMode
+                                                    ? colorScheme.success.withValues(alpha: 0.2)
+                                                    : colorScheme.destructive.withValues(alpha: 0.2),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 6,
+                                                  height: 6,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  isIncomeMode ? context.l10n.income : context.l10n.expense,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: categoryColor.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(100),
+                                              border: Border.all(
+                                                color: categoryColor.withValues(alpha: 0.25),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  categoryIcon,
+                                                  size: 12,
+                                                  color: categoryColor,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  localizedCategory,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: colorScheme.foreground,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (effectiveTitle != null && effectiveTitle.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          effectiveTitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.foreground,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 1),
+                                      ],
+                                    ],
+                                  );
+
                                   final value = await showCalculatorKeypadSheet(
                                     context: context,
                                     initialValue:
                                         amountController.text.trim().isEmpty
                                             ? ''
                                             : amountController.text.trim(),
+                                    prefix: resolveCurrencySymbol(selectedCurrency.value),
+                                    header: header,
                                   );
                                   if (value != null) {
                                     amountController.text = value;
