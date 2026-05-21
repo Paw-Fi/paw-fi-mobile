@@ -18,16 +18,17 @@ String walletsListCacheKey({
   required String userId,
   required String? householdId,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
   DateTime? currentMonthStart,
 }) {
   if (selectedCurrency != null && currentMonthStart != null) {
-    return 'wallets:list:v3:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}';
+    return 'wallets:list:v4:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
   }
   return 'wallets:list:v2:$userId:${householdId ?? 'personal'}';
 }
 
 String walletsPageStateCacheKey(WalletsScopeQuery query) {
-  return 'wallets:page-state:v2:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}';
+  return 'wallets:page-state:v3:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
 }
 
 List<WalletEntity>? readPersistedWalletsList(
@@ -35,6 +36,7 @@ List<WalletEntity>? readPersistedWalletsList(
   required String userId,
   required String? householdId,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
   DateTime? currentMonthStart,
 }) {
   final prefs = _readPrefsOrNull(ref);
@@ -46,6 +48,7 @@ List<WalletEntity>? readPersistedWalletsList(
       userId: userId,
       householdId: householdId,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       currentMonthStart: currentMonthStart,
     ),
   );
@@ -69,6 +72,7 @@ Future<void> persistWalletsList(
   required String userId,
   required String? householdId,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
   DateTime? currentMonthStart,
   required List<WalletEntity> wallets,
 }) {
@@ -81,6 +85,7 @@ Future<void> persistWalletsList(
       userId: userId,
       householdId: householdId,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       currentMonthStart: currentMonthStart,
     ),
     jsonEncode(
@@ -130,6 +135,7 @@ Future<void> clearWalletsCaches(
   required String userId,
   required String? householdId,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
   DateTime? currentMonthStart,
 }) async {
   ref.read(walletsListSessionCacheProvider.notifier).state = const {};
@@ -149,6 +155,7 @@ Future<void> clearWalletsCaches(
         userId: userId,
         householdId: householdId,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         currentMonthStart: currentMonthStart,
       ),
     );
@@ -158,6 +165,7 @@ Future<void> clearWalletsCaches(
           userId: userId,
           householdId: householdId,
           selectedCurrency: selectedCurrency,
+          selectedCurrencies: selectedCurrencies,
           currentMonthStart: currentMonthStart,
         ),
       ),
@@ -178,14 +186,14 @@ Future<void> clearAllWalletsCachesForUser(
   }
 
   const listPrefix = 'wallets:list:';
-  final pageStatePrefix = 'wallets:page-state:v2:$userId:';
+  const pageStatePrefix = 'wallets:page-state:';
 
   final keysToRemove = prefs
       .getKeys()
       .where(
         (String key) =>
             (key.startsWith(listPrefix) && key.contains(':$userId:')) ||
-            key.startsWith(pageStatePrefix),
+            (key.startsWith(pageStatePrefix) && key.contains(':$userId:')),
       )
       .toList(growable: false);
 
@@ -207,4 +215,14 @@ String _cacheDate(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
   return '$year-$month-$day';
+}
+
+String _currencySelectionCacheSegment(List<String>? currencies) {
+  final values = (currencies ?? const <String>[])
+      .map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  return values.isEmpty ? 'default' : values.join(',');
 }

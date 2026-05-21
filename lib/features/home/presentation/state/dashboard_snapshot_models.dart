@@ -4,6 +4,7 @@ class DashboardScopeQuery {
   final String userId;
   final String? householdId;
   final String? selectedCurrency;
+  final List<String>? selectedCurrencies;
   final DateTime? startDate;
   final DateTime? endDate;
   final String? intervalGranularity;
@@ -12,6 +13,7 @@ class DashboardScopeQuery {
     required this.userId,
     required this.householdId,
     required this.selectedCurrency,
+    this.selectedCurrencies,
     required this.startDate,
     required this.endDate,
     this.intervalGranularity,
@@ -20,6 +22,32 @@ class DashboardScopeQuery {
   String? get normalizedCurrency {
     final currency = selectedCurrency?.trim().toUpperCase();
     return (currency == null || currency.isEmpty) ? null : currency;
+  }
+
+  String? get _identityCurrency {
+    return normalizedCurrencies == null ? normalizedCurrency : null;
+  }
+
+  List<String>? get normalizedCurrencies {
+    final source = selectedCurrencies ??
+        (selectedCurrency == null ? null : <String>[selectedCurrency!]);
+    final normalized = source
+        ?.map((currency) => currency.trim().toUpperCase())
+        .where((currency) => currency.isNotEmpty)
+        .toSet()
+        .toList();
+    if (normalized == null || normalized.isEmpty) return null;
+    normalized.sort();
+    return normalized;
+  }
+
+  bool allowsCurrency(String? currency) {
+    final selected = normalizedCurrencies;
+    if (selected == null) return true;
+    final normalized = currency?.trim().toUpperCase();
+    return normalized == null ||
+        normalized.isEmpty ||
+        selected.contains(normalized);
   }
 
   String? get formattedStartDate =>
@@ -45,6 +73,7 @@ class DashboardScopeQuery {
     String? userId,
     String? householdId,
     String? selectedCurrency,
+    List<String>? selectedCurrencies,
     DateTime? startDate,
     DateTime? endDate,
     String? intervalGranularity,
@@ -53,6 +82,7 @@ class DashboardScopeQuery {
       userId: userId ?? this.userId,
       householdId: householdId ?? this.householdId,
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
+      selectedCurrencies: selectedCurrencies ?? this.selectedCurrencies,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       intervalGranularity: intervalGranularity ?? this.intervalGranularity,
@@ -65,7 +95,8 @@ class DashboardScopeQuery {
         other is DashboardScopeQuery &&
             userId == other.userId &&
             householdId == other.householdId &&
-            normalizedCurrency == other.normalizedCurrency &&
+            _identityCurrency == other._identityCurrency &&
+            _listEquals(normalizedCurrencies, other.normalizedCurrencies) &&
             formattedStartDate == other.formattedStartDate &&
             formattedEndDate == other.formattedEndDate &&
             normalizedIntervalGranularity ==
@@ -76,11 +107,23 @@ class DashboardScopeQuery {
   int get hashCode => Object.hash(
         userId,
         householdId,
-        normalizedCurrency,
+        _identityCurrency,
+        Object.hashAll(normalizedCurrencies ?? const <String>[]),
         formattedStartDate,
         formattedEndDate,
         normalizedIntervalGranularity,
       );
+}
+
+bool _listEquals(List<String>? left, List<String>? right) {
+  if (identical(left, right)) return true;
+  if (left == null || right == null || left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 class DashboardRecentTransactionsRequest {

@@ -47,7 +47,7 @@ class PlaidSyncCountrySelectionStep extends ConsumerWidget {
               fontSize: 32,
               fontWeight: FontWeight.w800,
               color: colorScheme.foreground,
-              letterSpacing: -1,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 12),

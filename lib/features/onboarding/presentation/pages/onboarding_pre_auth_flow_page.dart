@@ -1443,6 +1443,7 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
         context,
         ref,
         showAllByDefault: true,
+        preselectPrimary: false,
       );
       if (selected == null || selected.isEmpty) {
         return;

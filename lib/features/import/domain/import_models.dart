@@ -258,6 +258,10 @@ class ImportParsedRow {
   final String? merchant;
   final String? currency;
   final String? type;
+  final bool isRecurring;
+  final Map<String, dynamic>? recurrenceRule;
+  final String? recurringSeriesKey;
+  final bool isRecurringSeriesAnchor;
 
   /// Legacy error strings for backward compatibility. Prefer [issues].
   final List<String> errors;
@@ -281,6 +285,10 @@ class ImportParsedRow {
     this.merchant,
     required this.currency,
     required this.type,
+    this.isRecurring = false,
+    this.recurrenceRule,
+    this.recurringSeriesKey,
+    this.isRecurringSeriesAnchor = false,
     required this.errors,
     this.issues = const [],
     this.isDuplicate = false,
@@ -299,6 +307,10 @@ class ImportParsedRow {
     Object? merchant = _unset,
     Object? currency = _unset,
     Object? type = _unset,
+    bool? isRecurring,
+    Object? recurrenceRule = _unset,
+    Object? recurringSeriesKey = _unset,
+    bool? isRecurringSeriesAnchor,
     List<String>? errors,
     List<RowIssue>? issues,
     bool? isDuplicate,
@@ -315,6 +327,15 @@ class ImportParsedRow {
       merchant: merchant == _unset ? this.merchant : merchant as String?,
       currency: currency == _unset ? this.currency : currency as String?,
       type: type == _unset ? this.type : type as String?,
+      isRecurring: isRecurring ?? this.isRecurring,
+      recurrenceRule: recurrenceRule == _unset
+          ? this.recurrenceRule
+          : recurrenceRule as Map<String, dynamic>?,
+      recurringSeriesKey: recurringSeriesKey == _unset
+          ? this.recurringSeriesKey
+          : recurringSeriesKey as String?,
+      isRecurringSeriesAnchor:
+          isRecurringSeriesAnchor ?? this.isRecurringSeriesAnchor,
       errors: errors ?? this.errors,
       issues: issues ?? this.issues,
       isDuplicate: isDuplicate ?? this.isDuplicate,

@@ -125,8 +125,18 @@ class _PlaidSyncWalkthroughPageState
       }
     } catch (error) {
       if (!mounted) return;
+      if (_extractFunctionErrorCode(error) == 'duplicate_item_accounts') {
+        await _handleDuplicateBankConnection();
+        return;
+      }
       setState(() => _isConnecting = false);
-      AppToast.error(context, error.toString());
+      AppToast.error(
+        context,
+        _extractFunctionError(
+          error,
+          fallback: 'Could not connect this bank right now.',
+        ),
+      );
     }
   }
 
@@ -151,6 +161,8 @@ class _PlaidSyncWalkthroughPageState
         if (widget.flowReason != null) 'updateReason': widget.flowReason,
         if (connectionId == null || connectionId.isEmpty)
           'transactionsDaysRequested': _plaidInitialTransactionsDaysRequested,
+        if (widget.targetHouseholdId != null)
+          'targetHouseholdId': widget.targetHouseholdId,
       },
     );
 
@@ -163,6 +175,11 @@ class _PlaidSyncWalkthroughPageState
 
     final linkData = linkTokenResponse.data as Map<String, dynamic>?;
     final linkToken = linkData?['linkToken'] as String?;
+    final modeUsed = (linkData?['modeUsed'] as String?)?.trim();
+    final linkCompletionNonce =
+        (linkData?['linkCompletionNonce'] as String?)?.trim();
+    final updateCompletionNonce =
+        (linkData?['updateCompletionNonce'] as String?)?.trim();
     if (linkToken == null || linkToken.isEmpty) {
       throw Exception('Missing Plaid link token');
     }
@@ -175,51 +192,73 @@ class _PlaidSyncWalkthroughPageState
       return;
     }
 
-    final exchangeResponse = await client.functions.invoke(
-      'plaid-exchange-public-token',
-      body: {
-        'publicToken': linkResult.publicToken,
-        if (connectionId != null && connectionId.isNotEmpty)
+    final isUpdateMode = connectionId != null && connectionId.isNotEmpty;
+    final FunctionResponse exchangeResponse;
+    if (isUpdateMode) {
+      exchangeResponse = await client.functions.invoke(
+        'plaid-item-control',
+        body: {
+          'action': 'update_mode_complete',
           'connectionId': connectionId,
-        if (connectionId == null || connectionId.isEmpty)
+          if (updateCompletionNonce != null && updateCompletionNonce.isNotEmpty)
+            'updateCompletionNonce': updateCompletionNonce,
+          if (widget.flowReason != null) 'reason': widget.flowReason,
+          if (modeUsed != null && modeUsed.isNotEmpty) 'mode': modeUsed,
+          if (linkResult.linkRequestId != null)
+            'linkRequestId': linkResult.linkRequestId,
+          if (linkResult.linkSessionId != null)
+            'linkSessionId': linkResult.linkSessionId,
+          if (linkResult.selectedAccounts.isNotEmpty)
+            'selectedAccounts': linkResult.selectedAccounts
+                .map((account) => account.toJson())
+                .toList(growable: false),
+          if (widget.targetHouseholdId != null)
+            'targetHouseholdId': widget.targetHouseholdId,
+          if (linkResult.institutionId != null)
+            'institutionId': linkResult.institutionId,
+          if (linkResult.institutionName != null)
+            'institutionName': linkResult.institutionName,
+        },
+      );
+    } else {
+      final publicToken = linkResult.publicToken?.trim();
+      if (publicToken == null || publicToken.isEmpty) {
+        throw Exception('Missing Plaid public token');
+      }
+
+      exchangeResponse = await client.functions.invoke(
+        'plaid-exchange-public-token',
+        body: {
+          'publicToken': publicToken,
+          if (linkCompletionNonce != null && linkCompletionNonce.isNotEmpty)
+            'linkCompletionNonce': linkCompletionNonce,
           'countryCode': countryCode,
-        // Generate one idempotency key per user action attempt.
-        'idempotencyKey': _plaidExchangeIdempotencyKey ??=
-            generateIdempotencyKey(userId),
-        if (linkResult.linkRequestId != null)
-          'linkRequestId': linkResult.linkRequestId,
-        if (linkResult.linkSessionId != null)
-          'linkSessionId': linkResult.linkSessionId,
-        if (linkResult.selectedAccounts.isNotEmpty)
-          'selectedAccounts': linkResult.selectedAccounts
-              .map((account) => account.toJson())
-              .toList(growable: false),
-        if (widget.targetHouseholdId != null)
-          'targetHouseholdId': widget.targetHouseholdId,
-        if (linkResult.institutionId != null)
-          'institutionId': linkResult.institutionId,
-        if (linkResult.institutionName != null)
-          'institutionName': linkResult.institutionName,
-      },
-    );
+          // Generate one idempotency key per user action attempt.
+          'idempotencyKey': _plaidExchangeIdempotencyKey ??=
+              generateIdempotencyKey(userId),
+          if (linkResult.linkRequestId != null)
+            'linkRequestId': linkResult.linkRequestId,
+          if (linkResult.linkSessionId != null)
+            'linkSessionId': linkResult.linkSessionId,
+          if (linkResult.selectedAccounts.isNotEmpty)
+            'selectedAccounts': linkResult.selectedAccounts
+                .map((account) => account.toJson())
+                .toList(growable: false),
+          if (widget.targetHouseholdId != null)
+            'targetHouseholdId': widget.targetHouseholdId,
+          if (linkResult.institutionId != null)
+            'institutionId': linkResult.institutionId,
+          if (linkResult.institutionName != null)
+            'institutionName': linkResult.institutionName,
+        },
+      );
+    }
 
     if (exchangeResponse.status >= 400) {
       if (exchangeResponse.status == 409 && mounted) {
         final duplicateCode = _extractFunctionErrorCode(exchangeResponse.data);
         if (duplicateCode == 'duplicate_item_accounts') {
-          await MonekoAlertDialog.show(
-            context: context,
-            title: 'Bank already connected',
-            description:
-                'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
-            confirmLabel: 'Back to wallets',
-            cancelLabel: '',
-          );
-          ref.invalidate(bankConnectionsProvider);
-          if (mounted) {
-            setState(() => _isConnecting = false);
-            Navigator.of(context).pop();
-          }
+          await _handleDuplicateBankConnection();
           return;
         }
       }
@@ -290,6 +329,23 @@ class _PlaidSyncWalkthroughPageState
 
     if (!mounted) return;
     Navigator.of(context).pop();
+  }
+
+  Future<void> _handleDuplicateBankConnection() async {
+    if (!mounted) return;
+    setState(() => _isConnecting = false);
+    await MonekoAlertDialog.show(
+      context: context,
+      title: 'Bank already connected',
+      description:
+          'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
+      confirmLabel: 'Back to wallets',
+      showCancelButton:false
+    );
+    ref.invalidate(bankConnectionsProvider);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -431,6 +487,13 @@ String _extractFunctionError(
   dynamic payload, {
   required String fallback,
 }) {
+  final details = _functionErrorDetails(payload);
+  if (details is Map<String, dynamic>) {
+    final error = details['error']?.toString().trim();
+    if (error != null && error.isNotEmpty) {
+      return error;
+    }
+  }
   if (payload is Map<String, dynamic>) {
     final error = payload['error']?.toString().trim();
     if (error != null && error.isNotEmpty) {
@@ -442,6 +505,13 @@ String _extractFunctionError(
 }
 
 String? _extractFunctionErrorCode(dynamic payload) {
+  final details = _functionErrorDetails(payload);
+  if (details is Map<String, dynamic>) {
+    final errorCode = details['errorCode']?.toString().trim();
+    if (errorCode != null && errorCode.isNotEmpty) {
+      return errorCode;
+    }
+  }
   if (payload is Map<String, dynamic>) {
     final errorCode = payload['errorCode']?.toString().trim();
     if (errorCode != null && errorCode.isNotEmpty) {
@@ -449,5 +519,12 @@ String? _extractFunctionErrorCode(dynamic payload) {
     }
   }
 
+  return null;
+}
+
+dynamic _functionErrorDetails(dynamic payload) {
+  if (payload is FunctionException) {
+    return payload.details;
+  }
   return null;
 }

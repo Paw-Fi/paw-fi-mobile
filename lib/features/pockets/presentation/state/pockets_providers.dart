@@ -11,11 +11,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
@@ -44,6 +47,7 @@ typedef _CacheKey = ({
   String? householdId,
   String periodMonth,
   String currency,
+  String currenciesKey,
   bool includeUpcomingRecurring,
   bool allowCurrencyFallback,
 });
@@ -178,6 +182,78 @@ Duration _pocketsCacheTtl(
   }
 
   return const Duration(minutes: 30);
+}
+
+const _fallbackPocketCurrencyRates = CurrencyRateTable(
+  baseCurrency: 'USD',
+  rates: CurrencyRates.rates,
+  isStale: true,
+);
+
+@foundation.visibleForTesting
+List<String>? normalizePocketSelectedCurrencies(List<String>? currencies) {
+  final normalized = currencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet()
+      .toList();
+  if (normalized == null || normalized.length < 2) return null;
+  normalized.sort();
+  return normalized;
+}
+
+String _pocketsCurrenciesCacheKey(
+  String selectedCurrency,
+  List<String>? selectedCurrencies,
+) {
+  final normalized = normalizePocketSelectedCurrencies(selectedCurrencies);
+  if (normalized == null) return selectedCurrency.trim().toUpperCase();
+  return normalized.join(',');
+}
+
+bool _sameStringList(List<String>? left, List<String>? right) {
+  if (identical(left, right)) return true;
+  if (left == null || right == null || left.length != right.length) {
+    return false;
+  }
+  for (var i = 0; i < left.length; i++) {
+    if (left[i] != right[i]) return false;
+  }
+  return true;
+}
+
+bool _allowsPocketExpenseCurrency(
+  ExpenseEntry expense,
+  String selectedCurrency,
+  List<String>? selectedCurrencies,
+) {
+  final normalizedSelected = normalizePocketSelectedCurrencies(
+    selectedCurrencies,
+  );
+  final expenseCurrency = expense.currency?.trim().toUpperCase();
+  if (normalizedSelected != null) {
+    return expenseCurrency == null ||
+        expenseCurrency.isEmpty ||
+        normalizedSelected.contains(expenseCurrency);
+  }
+  final normalizedCurrency = selectedCurrency.trim().toUpperCase();
+  return normalizedCurrency.isEmpty || expenseCurrency == normalizedCurrency;
+}
+
+double _pocketExpenseAmountInCurrency(
+  ExpenseEntry expense,
+  String targetCurrency,
+  CurrencyRateTable rates,
+) {
+  final normalizedTarget = targetCurrency.trim().toUpperCase();
+  final sourceCurrency = expense.currency?.trim().toUpperCase();
+  if (normalizedTarget.isEmpty ||
+      sourceCurrency == null ||
+      sourceCurrency.isEmpty ||
+      sourceCurrency == normalizedTarget) {
+    return expense.amount;
+  }
+  return rates.convert(expense.amount, sourceCurrency, normalizedTarget);
 }
 
 final _pocketsMonthCache = _PocketsMonthCache();
@@ -587,6 +663,7 @@ class PocketsScopeParams {
     this.householdId,
     this.periodMonth,
     this.currency,
+    this.selectedCurrencies,
     this.isBootstrapCurrency = false,
     this.includeUpcomingRecurring = defaultIncludeUpcomingRecurringInPockets,
   });
@@ -595,11 +672,15 @@ class PocketsScopeParams {
   final String? householdId;
   final DateTime? periodMonth;
   final String? currency;
+  final List<String>? selectedCurrencies;
   final bool isBootstrapCurrency;
   // CRITICAL: carry this flag through every derived pocket scope.
   // STRICT REQUIREMENT: if a page/provider forgets to forward it, that viewed
   // month falls back to non-recurring pocket math and reintroduces the bug.
   final bool includeUpcomingRecurring;
+
+  List<String>? get normalizedSelectedCurrencies =>
+      normalizePocketSelectedCurrencies(selectedCurrencies);
 
   @override
   bool operator ==(Object other) {
@@ -608,13 +689,24 @@ class PocketsScopeParams {
         other.householdId == householdId &&
         other.periodMonth == periodMonth &&
         other.currency == currency &&
+        _sameStringList(
+          other.normalizedSelectedCurrencies,
+          normalizedSelectedCurrencies,
+        ) &&
         other.isBootstrapCurrency == isBootstrapCurrency &&
         other.includeUpcomingRecurring == includeUpcomingRecurring;
   }
 
   @override
-  int get hashCode => Object.hash(scope, householdId, periodMonth, currency,
-      isBootstrapCurrency, includeUpcomingRecurring);
+  int get hashCode => Object.hash(
+        scope,
+        householdId,
+        periodMonth,
+        currency,
+        Object.hashAll(normalizedSelectedCurrencies ?? const <String>[]),
+        isBootstrapCurrency,
+        includeUpcomingRecurring,
+      );
 }
 
 Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
@@ -631,7 +723,10 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
   dynamic scopedQuery = supabase
       .from('expenses')
       .select(_recurringExpensesSelectFields)
-      .eq('is_recurring', true);
+      .eq('is_recurring', true)
+      .isFilter('deleted_at', null)
+      .isFilter('provider', null)
+      .isFilter('bank_account_id', null);
 
   switch (scope) {
     case PocketsScopeType.personal:
@@ -671,7 +766,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 const _recurringExpensesSelectFields =
     'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
-    'user_id, split_group_id, account_id, recurrence_rule, type, '
+    'user_id, split_group_id, account_id, bank_account_id, provider, recurrence_rule, type, '
     'attachments, created_at, updated_at';
 
 Future<List<Map<String, dynamic>>> _enrichRecurringRowsWithSplitPayer({
@@ -751,6 +846,7 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
   required String? householdId,
   required DateTime monthStart,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required bool includeUpcomingRecurring,
   required List<ExpenseEntry> actualExpenses,
 }) async {
@@ -772,6 +868,9 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     return const <ExpenseEntry>[];
   }
 
+  final normalizedSelectedCurrencies = normalizePocketSelectedCurrencies(
+    selectedCurrencies,
+  );
   final projectedExpenses = projectRecurringTransactionsAsExpenseEntries(
     recurringTransactions: recurringTransactions
         .where((transaction) => transaction.type.toLowerCase() == 'expense')
@@ -782,8 +881,16 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     // April 3.
     rangeStart: monthStart,
     rangeEnd: DateTime(monthStart.year, monthStart.month + 1, 0),
-    selectedCurrency: selectedCurrency,
-  );
+    selectedCurrency:
+        normalizedSelectedCurrencies == null ? selectedCurrency : null,
+    selectedCurrencies: normalizedSelectedCurrencies,
+  ).where((expense) {
+    return _allowsPocketExpenseCurrency(
+      expense,
+      selectedCurrency,
+      normalizedSelectedCurrencies,
+    );
+  }).toList(growable: false);
 
   return dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
@@ -814,6 +921,7 @@ List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
   required String? householdId,
   required DateTime monthStart,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required Iterable<ExpenseEntry> personalExpenses,
   required Map<String, List<ExpenseEntry>> householdExpensesByHouseholdId,
 }) {
@@ -826,15 +934,17 @@ List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
           : householdExpensesByHouseholdId[householdId] ??
               const <ExpenseEntry>[],
   };
-  final currency = selectedCurrency.trim().toUpperCase();
   return filterPocketActualExpenses(source).where((expense) {
     if (!expense.id.startsWith('optimistic_')) return false;
     if (expense.date.year != monthStart.year ||
         expense.date.month != monthStart.month) {
       return false;
     }
-    if (currency.isEmpty) return true;
-    return (expense.currency ?? '').trim().toUpperCase() == currency;
+    return _allowsPocketExpenseCurrency(
+      expense,
+      selectedCurrency,
+      selectedCurrencies,
+    );
   }).toList(growable: false);
 }
 
@@ -842,6 +952,8 @@ List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
 PocketsState applyLocalPocketExpenseOverlay({
   required PocketsState state,
   required Iterable<ExpenseEntry> expenses,
+  List<String>? selectedCurrencies,
+  CurrencyRateTable? rates,
 }) {
   if (expenses.isEmpty) return state;
 
@@ -856,8 +968,11 @@ PocketsState applyLocalPocketExpenseOverlay({
         expense.date.month != monthStart.month) {
       return false;
     }
-    final currency = expense.currency?.trim().toUpperCase();
-    return selectedCurrency.isEmpty || currency == selectedCurrency;
+    return _allowsPocketExpenseCurrency(
+      expense,
+      selectedCurrency,
+      selectedCurrencies,
+    );
   }).toList(growable: false);
 
   if (overlay.isEmpty) return state;
@@ -873,10 +988,15 @@ PocketsState applyLocalPocketExpenseOverlay({
       for (final expense in overlay) {
         final expenseCategory = (expense.category ?? '').trim().toLowerCase();
         if (expenseCategory == normalizedCategory) {
+          final amount = _pocketExpenseAmountInCurrency(
+            expense,
+            selectedCurrency,
+            rates ?? _fallbackPocketCurrencyRates,
+          );
           spentByEnvelopeId.update(
             envelopeId,
-            (amount) => amount + expense.amount,
-            ifAbsent: () => expense.amount,
+            (current) => current + amount,
+            ifAbsent: () => amount,
           );
         }
       }
@@ -904,11 +1024,16 @@ PocketsState applyLocalPocketExpenseOverlay({
     final key = category.isEmpty ? 'uncategorized' : category;
     if (linkedCategories.contains(key)) continue;
 
-    unallocatedOverlaySpend += expense.amount;
+    final amount = _pocketExpenseAmountInCurrency(
+      expense,
+      selectedCurrency,
+      rates ?? _fallbackPocketCurrencyRates,
+    );
+    unallocatedOverlaySpend += amount;
     final previous = uncategorizedByCategory[key];
     uncategorizedByCategory[key] = UncategorizedCategory(
       category: key,
-      amount: (previous?.amount ?? 0) + expense.amount,
+      amount: (previous?.amount ?? 0) + amount,
     );
     uncategorizedExpenses
         .putIfAbsent(key, () => <Map<String, dynamic>>[])
@@ -1294,6 +1419,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final updated = applyLocalPocketExpenseOverlay(
       state: state,
       expenses: overlay,
+      selectedCurrencies: params.normalizedSelectedCurrencies,
+      rates: ref.read(currencyRateTableProvider).valueOrNull,
     );
     if (!identical(updated, state)) {
       state = updated;
@@ -1329,6 +1456,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       householdId: params.householdId,
       monthStart: monthStart,
       selectedCurrency: state.currency,
+      selectedCurrencies: params.normalizedSelectedCurrencies,
       syncStatuses: const [localSyncStatusLocal],
     );
     if (!mounted || state.hasChanges || localExpenses.isEmpty) return;
@@ -1336,6 +1464,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final updated = applyLocalPocketExpenseOverlay(
       state: state,
       expenses: localExpenses,
+      selectedCurrencies: params.normalizedSelectedCurrencies,
+      rates: ref.read(currencyRateTableProvider).valueOrNull,
     );
     if (!identical(updated, state)) {
       state = updated;
@@ -1351,6 +1481,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       householdId: params.householdId,
       monthStart: monthStart,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: params.normalizedSelectedCurrencies,
       personalExpenses: ref.read(analyticsProvider).expenses,
       householdExpensesByHouseholdId:
           ref.read(householdOptimisticExpensesProvider),
@@ -1545,6 +1676,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final initialCurrency =
           (requestedCurrency ?? fallbackCurrency).toUpperCase();
       var selectedCurrency = initialCurrency;
+      final selectedCurrencies = params.normalizedSelectedCurrencies;
+      final currenciesKey = _pocketsCurrenciesCacheKey(
+        selectedCurrency,
+        selectedCurrencies,
+      );
 
       final cacheKey = (
         userId: authUser.uid,
@@ -1552,6 +1688,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         periodMonth: periodMonth,
         currency: selectedCurrency,
+        currenciesKey: currenciesKey,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         allowCurrencyFallback: allowCurrencyFallback,
       );
@@ -1562,6 +1699,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         periodMonth: periodMonth,
         currency: selectedCurrency,
+        currenciesKey: currenciesKey,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         allowCurrencyFallback: allowCurrencyFallback,
       );
@@ -1571,8 +1709,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final now = DateTime.now();
       final hasPendingLocalChanges =
           await _hasPendingLocalPocketMutations(authUser.uid);
-      final isOffline = ref.read(networkReachabilityProvider).valueOrNull ==
-          false;
+      final isOffline =
+          ref.read(networkReachabilityProvider).valueOrNull == false;
       if (!bypassCache) {
         final cached = _pocketsMonthCache.getAny(cacheKey, now);
         if (cached != null) {
@@ -1844,6 +1982,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (rpcCurrency != null && rpcCurrency.isNotEmpty) {
         selectedCurrency = rpcCurrency;
       }
+      final selectedCurrencies = params.normalizedSelectedCurrencies;
+      final hasMultiCurrencySelection =
+          selectedCurrencies != null && selectedCurrencies.length > 1;
 
       final hasPreviousMonthPockets =
           payload['has_previous_month_pockets'] == true;
@@ -1916,7 +2057,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // STRICT REQUIREMENT: the recurring month projection is merged below on
       // purpose. Do not mix recurring template rows into actual_expenses or the
       // monthly pocket totals will double count.
-      final actualExpenses = actualExpenseRows.map(ExpenseEntry.fromJson);
+      final actualExpenses = hasMultiCurrencySelection
+          ? await _loadPocketMonthTransactions(
+              userId: authUser.uid,
+              scopeType: scopeType,
+              householdId: householdId,
+              monthStart: monthStart,
+              selectedCurrency: selectedCurrency,
+              selectedCurrencies: selectedCurrencies,
+            )
+          : actualExpenseRows.map(ExpenseEntry.fromJson).toList(
+                growable: false,
+              );
       final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
       final pendingLocalOnlyExpenses =
           await _loadLocalPocketExpensesForStatuses(
@@ -1925,6 +2077,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         monthStart: monthStart,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         syncStatuses: const [localSyncStatusLocal],
       );
       final syncedLocalExpenses = await _loadLocalPocketExpensesForStatuses(
@@ -1933,6 +2086,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         monthStart: monthStart,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         syncStatuses: const [localSyncStatusSynced],
       );
       final pendingLocalExpenses = _mergeUniqueExpenses(
@@ -1943,10 +2097,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         monthStart: monthStart,
         selectedCurrency: selectedCurrency,
       );
-      final localOverlayExpenses = _mergeUniqueExpenses(
-        pendingLocalExpenses,
-        inMemoryOverlayExpenses,
-      );
+      final localOverlayExpenses = hasMultiCurrencySelection
+          ? inMemoryOverlayExpenses
+          : _mergeUniqueExpenses(
+              pendingLocalExpenses,
+              inMemoryOverlayExpenses,
+            );
       final actualExpensesWithPending = _mergeUniqueExpenses(
         filteredActualExpenses,
         localOverlayExpenses,
@@ -1968,6 +2124,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         monthStart: monthStart,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         actualExpenses: actualExpensesWithPending,
       );
@@ -1987,17 +2144,24 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final monthlyExpenseRows = monthlyExpenses
           .map((expense) => expense.toJson())
           .toList(growable: false);
+      final spendExpenses = hasMultiCurrencySelection
+          ? convertTransactionsToCurrency(
+              monthlyExpenses,
+              targetCurrency: selectedCurrency,
+              rates: await ref.read(currencyRateTableProvider.future),
+            )
+          : monthlyExpenses;
 
-      final shouldComputeSpendFromTransactions =
+      final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
           projectedRecurringExpenses.isNotEmpty ||
-              localOverlayExpenses.isNotEmpty;
+          localOverlayExpenses.isNotEmpty;
       final spentById = <String, double>{};
       double totalMonthlySpend = 0.0;
 
       if (shouldComputeSpendFromTransactions) {
         // Preserve existing semantics: when projections are included, all spend
         // calculations include both actual + projected expenses.
-        for (final expense in monthlyExpenses) {
+        for (final expense in spendExpenses) {
           totalMonthlySpend += expense.amount;
         }
         for (final envId in envIds) {
@@ -2007,7 +2171,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             continue;
           }
           var totalSpent = 0.0;
-          for (final expense in monthlyExpenses) {
+          for (final expense in spendExpenses) {
             final expenseCategory =
                 (expense.category ?? '').trim().toLowerCase();
             if (categories.contains(expenseCategory)) {
@@ -2081,7 +2245,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         // When projecting recurring spend, build uncategorized from the same
         // combined expense list as before.
         final expenseTotalsByCategory = <String, double>{};
-        for (final expense in monthlyExpenses) {
+        for (final expense in spendExpenses) {
           final amount = expense.amount;
           final rawCategory =
               (expense.category ?? 'uncategorized').toLowerCase();
@@ -2210,6 +2374,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           householdId: cacheKey.householdId,
           periodMonth: cacheKey.periodMonth,
           currency: loaded.currency.toUpperCase(),
+          currenciesKey: cacheKey.currenciesKey,
           includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
           allowCurrencyFallback: cacheKey.allowCurrencyFallback,
         );
@@ -2223,6 +2388,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               householdId: cacheKey.householdId,
               periodMonth: cacheKey.periodMonth,
               currency: loaded.currency.toUpperCase(),
+              currenciesKey: cacheKey.currenciesKey,
               includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
               allowCurrencyFallback: cacheKey.allowCurrencyFallback,
             ),
@@ -2242,6 +2408,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             householdId: cacheKey.householdId,
             periodMonth: cacheKey.periodMonth,
             currency: cacheKey.currency,
+            currenciesKey: cacheKey.currenciesKey,
             includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
             allowCurrencyFallback: cacheKey.allowCurrencyFallback,
           ),
@@ -2262,12 +2429,43 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  Future<List<ExpenseEntry>> _loadPocketMonthTransactions({
+    required String userId,
+    required PocketsScopeType scopeType,
+    required String? householdId,
+    required DateTime monthStart,
+    required String selectedCurrency,
+    required List<String>? selectedCurrencies,
+  }) async {
+    if (userId.trim().isEmpty) return const <ExpenseEntry>[];
+    if (scopeType != PocketsScopeType.personal &&
+        (householdId == null || householdId.trim().isEmpty)) {
+      return const <ExpenseEntry>[];
+    }
+
+    final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
+    final query = TransactionsFeedQuery(
+      userId: userId,
+      householdId: scopeType == PocketsScopeType.personal ? null : householdId,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
+      selectedCategory: null,
+      selectedType: 'expense',
+      searchQuery: '',
+      startDate: monthStart,
+      endDate: monthEnd,
+      pageSize: 500,
+    );
+    return ref.read(transactionsFeedServiceProvider).fetchAllPages(query);
+  }
+
   Future<List<ExpenseEntry>> _loadLocalPocketExpensesForStatuses({
     required String userId,
     required PocketsScopeType scopeType,
     required String? householdId,
     required DateTime monthStart,
     required String selectedCurrency,
+    List<String>? selectedCurrencies,
     required List<String> syncStatuses,
   }) async {
     if (userId.trim().isEmpty) return const <ExpenseEntry>[];
@@ -2285,6 +2483,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId:
             scopeType == PocketsScopeType.personal ? null : householdId,
         currency: selectedCurrency,
+        currencies: selectedCurrencies,
         category: null,
         accountId: null,
         categories: null,
@@ -3623,6 +3822,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       householdId: householdId,
       periodMonth: periodMonth,
       currency: currency,
+      currenciesKey: _pocketsCurrenciesCacheKey(
+        currency,
+        params.normalizedSelectedCurrencies,
+      ),
       includeUpcomingRecurring: params.includeUpcomingRecurring,
       allowCurrencyFallback: params.isBootstrapCurrency,
     );
@@ -3637,6 +3840,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       householdId: householdId,
       periodMonth: periodMonth,
       currency: currency,
+      currenciesKey: _pocketsCurrenciesCacheKey(
+        currency,
+        params.normalizedSelectedCurrencies,
+      ),
       includeUpcomingRecurring: params.includeUpcomingRecurring,
       allowCurrencyFallback: params.isBootstrapCurrency,
     );
@@ -3711,6 +3918,7 @@ final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
         householdId: selected.householdId,
         periodMonth: params.periodMonth,
         currency: params.currency,
+        selectedCurrencies: params.selectedCurrencies,
         isBootstrapCurrency: params.isBootstrapCurrency,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
       ),
@@ -3756,6 +3964,7 @@ Map<String, Object?> _describePocketsScopeParams(PocketsScopeParams params) {
     'household': params.householdId ?? '<none>',
     'month': params.periodMonth,
     'currency': (params.currency ?? '<none>').toUpperCase(),
+    'currencies': params.normalizedSelectedCurrencies ?? const <String>[],
     'bootstrapCurrency': params.isBootstrapCurrency,
     'includeRecurring': params.includeUpcomingRecurring,
   };

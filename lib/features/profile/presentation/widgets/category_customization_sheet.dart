@@ -26,6 +26,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final configAsync = ref.watch(userCategoryConfigProvider);
+    final remapsAsync = ref.watch(userCategoryRemapsProvider);
 
     final scope = useState(_CategoryScope.expense);
     final queryController = useTextEditingController();
@@ -58,6 +59,53 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
             initialColorArgb: initialColorArgb,
             initialIconKey: initialIconKey,
             onSubmit: onSubmit,
+          );
+        },
+      );
+    }
+
+    Future<void> showRemapSheet({
+      String? initialFromCategory,
+      String? initialToCategory,
+      String initialType = 'expense',
+      required List<String> targetCategories,
+      required String title,
+    }) async {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: colorScheme.sheetBackground,
+        builder: (sheetContext) {
+          return _CategoryRemapUpsertSheet(
+            title: title,
+            initialFromCategory: initialFromCategory,
+            initialToCategory: initialToCategory,
+            initialType: initialType,
+            targetCategories: targetCategories,
+            onSubmit: (fromCategory, toCategory, transactionType) async {
+              final saved = await saveUserCategoryRemapPreference(
+                ref: ref,
+                fromCategory: fromCategory,
+                toCategory: toCategory,
+                transactionType: transactionType,
+              );
+              if (!saved) return false;
+
+              final previousSource = initialFromCategory?.trim().toLowerCase();
+              final nextSource = fromCategory.trim().toLowerCase();
+              if (previousSource != null &&
+                  previousSource.isNotEmpty &&
+                  previousSource != nextSource) {
+                return deleteUserCategoryRemapPreference(
+                  ref: ref,
+                  fromCategory: previousSource,
+                  transactionType: initialType,
+                );
+              }
+
+              return true;
+            },
           );
         },
       );
@@ -215,9 +263,6 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Modal Sheet Drag Handle
-              const ModalSheetHandle(),
-              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                 child: Row(
@@ -276,6 +321,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                       final builtinSet = isExpense
                           ? getExpenseCategories().toSet()
                           : getIncomeCategories().toSet();
+                      final targetCategories = (isExpense
+                              ? config.visibleExpenseCategories
+                              : config.visibleIncomeCategories)
+                          .where((category) =>
+                              category.trim().toLowerCase() != 'other')
+                          .toList(growable: false);
 
                       final groupsToDisplay = <String, List<String>>{};
 
@@ -324,8 +375,26 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                         return true;
                       }).toList();
 
+                      final remaps = (remapsAsync.valueOrNull ??
+                              const <UserCategoryRemapPreference>[])
+                          .where((remap) {
+                        if (remap.transactionType != type) return false;
+                        if (query.isEmpty) return true;
+                        final fromLabel =
+                            getCategoryTranslation(context, remap.fromCategory)
+                                .toLowerCase();
+                        final toLabel =
+                            getCategoryTranslation(context, remap.toCategory)
+                                .toLowerCase();
+                        return remap.fromCategory.contains(query) ||
+                            remap.toCategory.contains(query) ||
+                            fromLabel.contains(query) ||
+                            toLabel.contains(query);
+                      }).toList(growable: false);
+
                       if (groupsToDisplay.isEmpty &&
                           customCats.isEmpty &&
+                          remaps.isEmpty &&
                           query.isNotEmpty) {
                         return Center(
                           child: Padding(
@@ -348,11 +417,218 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                         return config.hiddenExpenseCategories.contains(key);
                       }
 
+                      Widget buildRemapSection() {
+                        if (query.isNotEmpty && remaps.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                  left: 4, bottom: 8, top: 8),
+                              child: Text(
+                                'AI mappings'.toUpperCase(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 12,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: colorScheme.sheetElementBackground,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (int i = 0; i < remaps.length; i++)
+                                    Builder(builder: (context) {
+                                      final remap = remaps[i];
+                                      final fromLabel = getCategoryTranslation(
+                                        context,
+                                        remap.fromCategory,
+                                      );
+                                      final toLabel = getCategoryTranslation(
+                                        context,
+                                        remap.toCategory,
+                                      );
+
+                                      return Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ListTile(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 4,
+                                            ),
+                                            leading: CircleAvatar(
+                                              radius: 18,
+                                              backgroundColor: colorScheme
+                                                  .primary
+                                                  .withValues(alpha: 0.12),
+                                              child: Icon(
+                                                Icons.route_outlined,
+                                                color: colorScheme.primary,
+                                                size: 20,
+                                              ),
+                                            ),
+                                            title: Text(
+                                              fromLabel,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: colorScheme.foreground,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            subtitle: Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    toLabel,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: colorScheme
+                                                          .mutedForeground,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Icon(
+                                                  PlatformInfo.isIOS
+                                                      ? CupertinoIcons
+                                                          .arrow_right
+                                                      : Icons.arrow_forward,
+                                                  size: 14,
+                                                  color: colorScheme
+                                                      .mutedForeground,
+                                                ),
+                                              ],
+                                            ),
+                                            trailing: IconButton(
+                                              icon: Icon(
+                                                PlatformInfo.isIOS
+                                                    ? CupertinoIcons.ellipsis
+                                                    : Icons.more_vert,
+                                                color:
+                                                    colorScheme.mutedForeground,
+                                              ),
+                                              onPressed: () async {
+                                                final l10n = context.l10n;
+                                                final action =
+                                                    await MonekoActionSheet
+                                                        .show<String>(
+                                                  context: context,
+                                                  title:
+                                                      '$fromLabel → $toLabel',
+                                                  actions: [
+                                                    MonekoActionSheetAction(
+                                                      label: l10n.edit,
+                                                      value: 'edit',
+                                                    ),
+                                                    MonekoActionSheetAction(
+                                                      label: l10n.delete,
+                                                      value: 'delete',
+                                                      isDestructive: true,
+                                                    ),
+                                                  ],
+                                                  cancelAction:
+                                                      MonekoActionSheetAction(
+                                                    label: l10n.cancel,
+                                                    value: 'cancel',
+                                                  ),
+                                                );
+
+                                                if (action == 'edit') {
+                                                  await showRemapSheet(
+                                                    title: 'Edit mapping',
+                                                    initialFromCategory:
+                                                        remap.fromCategory,
+                                                    initialToCategory:
+                                                        remap.toCategory,
+                                                    initialType:
+                                                        remap.transactionType,
+                                                    targetCategories:
+                                                        targetCategories,
+                                                  );
+                                                } else if (action == 'delete') {
+                                                  await deleteUserCategoryRemapPreference(
+                                                    ref: ref,
+                                                    fromCategory:
+                                                        remap.fromCategory,
+                                                    transactionType:
+                                                        remap.transactionType,
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                          if (i < remaps.length - 1)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  left: 60),
+                                              child: Divider(
+                                                height: 1,
+                                                color: colorScheme.border,
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    }),
+                                  if (query.isEmpty)
+                                    ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 4,
+                                      ),
+                                      leading: CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: colorScheme.primary
+                                            .withValues(alpha: 0.1),
+                                        child: Icon(
+                                          Icons.add,
+                                          color: colorScheme.primary,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      title: Text(
+                                        'Add mapping',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                      onTap: () async {
+                                        await showRemapSheet(
+                                          title: 'Add mapping',
+                                          initialType: type,
+                                          targetCategories: targetCategories,
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
                       return ListView(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         children: [
+                          buildRemapSection(),
+
                           // Custom Categories Group
                           if (query.isEmpty || customCats.isNotEmpty) ...[
                             Padding(
@@ -672,6 +948,284 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryRemapUpsertSheet extends HookWidget {
+  const _CategoryRemapUpsertSheet({
+    required this.title,
+    this.initialFromCategory,
+    this.initialToCategory,
+    required this.initialType,
+    required this.targetCategories,
+    required this.onSubmit,
+  });
+
+  final String title;
+  final String? initialFromCategory;
+  final String? initialToCategory;
+  final String initialType;
+  final List<String> targetCategories;
+  final Future<bool> Function(
+    String fromCategory,
+    String toCategory,
+    String transactionType,
+  ) onSubmit;
+
+  String? _validateSource(BuildContext context, String source) {
+    final normalized = source.trim().toLowerCase();
+    if (normalized.isEmpty) return context.l10n.customCategoryNameRequired;
+    if (normalized.length > 96) return context.l10n.customCategoryNameTooLong;
+    if (normalized.contains('`')) {
+      return context.l10n.customCategoryNameBackticksNotAllowed;
+    }
+    if (RegExp(r'[\x00-\x1F\x7F]').hasMatch(normalized)) {
+      return context.l10n.customCategoryNameControlCharsNotAllowed;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final sourceController = useTextEditingController(
+      text: initialFromCategory ?? '',
+    );
+    useListenable(sourceController);
+
+    final transactionType = initialType;
+    final normalizedTargets = targetCategories
+        .map((category) => category.trim().toLowerCase())
+        .where((category) => category.isNotEmpty && category != 'other')
+        .toSet()
+        .toList()
+      ..sort();
+    final fallbackTarget = normalizedTargets.isNotEmpty
+        ? normalizedTargets.first
+        : (initialToCategory ?? '');
+    final selectedTarget = useState(
+      initialToCategory != null &&
+              normalizedTargets
+                  .contains(initialToCategory!.trim().toLowerCase())
+          ? initialToCategory!.trim().toLowerCase()
+          : fallbackTarget,
+    );
+    final isSaving = useState(false);
+
+    final canSave = sourceController.text.trim().isNotEmpty &&
+        selectedTarget.value.trim().isNotEmpty &&
+        !isSaving.value;
+
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.sheetBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const ModalSheetHandle(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.sheetElementBackground,
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Icon(
+                        PlatformInfo.isIOS ? CupertinoIcons.clear : Icons.close,
+                        color: colorScheme.onSurface,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetElementBackground,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: TextField(
+                            controller: sourceController,
+                            decoration: InputDecoration(
+                              labelText:
+                                  '${context.l10n.source} ${context.l10n.category}',
+                              labelStyle: TextStyle(
+                                color: colorScheme.mutedForeground,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                            style: TextStyle(
+                              color: colorScheme.foreground,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textInputAction: TextInputAction.done,
+                          ),
+                        ),
+                        Divider(height: 1, color: colorScheme.border),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Text(
+                                context.l10n.type,
+                                style: TextStyle(
+                                  color: colorScheme.foreground,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                transactionType == 'income'
+                                    ? context.l10n.income
+                                    : context.l10n.expense,
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(height: 1, color: colorScheme.border),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedTarget.value.isEmpty
+                                ? null
+                                : selectedTarget.value,
+                            isExpanded: true,
+                            dropdownColor: colorScheme.sheetElementBackground,
+                            decoration: InputDecoration(
+                              labelText:
+                                  '${context.l10n.target} ${context.l10n.category}',
+                              labelStyle: TextStyle(
+                                color: colorScheme.mutedForeground,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                            items: [
+                              for (final category in normalizedTargets)
+                                DropdownMenuItem(
+                                  value: category,
+                                  child: Text(
+                                    getCategoryTranslation(context, category),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
+                              selectedTarget.value = value;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: PrimaryAdaptiveButton(
+                onPressed: !canSave
+                    ? null
+                    : () async {
+                        final validationMessage = _validateSource(
+                          context,
+                          sourceController.text,
+                        );
+                        if (validationMessage != null) {
+                          AppToast.error(context, validationMessage);
+                          return;
+                        }
+
+                        final source = sourceController.text.trim();
+                        final target = selectedTarget.value.trim();
+                        if (source.toLowerCase() == target.toLowerCase()) {
+                          AppToast.error(
+                            context,
+                            context.l10n.customCategoryUpdateFailed,
+                          );
+                          return;
+                        }
+
+                        isSaving.value = true;
+                        final ok = await onSubmit(
+                          source,
+                          target,
+                          transactionType,
+                        );
+                        isSaving.value = false;
+
+                        if (!context.mounted) return;
+                        if (ok) {
+                          AppToast.success(
+                            context,
+                            context.l10n.preferenceUpdatedSuccessfully,
+                          );
+                          Navigator.of(context).pop();
+                        } else {
+                          AppToast.error(
+                            context,
+                            context.l10n.customCategoryUpdateFailed,
+                          );
+                        }
+                      },
+                child: Text(
+                  isSaving.value ? context.l10n.saving : context.l10n.save,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

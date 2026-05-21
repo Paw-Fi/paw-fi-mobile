@@ -26,24 +26,9 @@ final plaidLastSyncProvider = FutureProvider<DateTime?>((ref) async {
   if (user.uid.isEmpty) return null;
 
   final client = Supabase.instance.client;
-  final response = await client
-      .from('bank_connections')
-      .select('last_synced_at')
-      .eq('user_id', user.uid)
-      .order('last_synced_at', ascending: false)
-      .limit(5);
-
-  final rows = response as List<dynamic>?;
-  if (rows == null || rows.isEmpty) return null;
-
-  for (final row in rows) {
-    final raw = (row as Map<String, dynamic>)['last_synced_at'] as String?;
-    if (raw != null && raw.isNotEmpty) {
-      final parsed = DateTime.tryParse(raw)?.toLocal();
-      if (parsed != null) return parsed;
-    }
-  }
-  return null;
+  final response = await client.rpc('get_latest_bank_connection_sync_at');
+  if (response == null) return null;
+  return DateTime.tryParse(response.toString())?.toLocal();
 });
 
 class MainMenuScreen extends ConsumerWidget {

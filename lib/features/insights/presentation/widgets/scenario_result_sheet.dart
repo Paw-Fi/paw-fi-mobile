@@ -320,7 +320,8 @@ void showScenarioResultSheet(
                                         if (!context.mounted) return;
                                         AppToast.error(
                                           context,
-                                          context.l10n.analysisFailed(e.toString()),
+                                          context.l10n
+                                              .analysisFailed(e.toString()),
                                         );
                                       }
                                     } else {
@@ -335,7 +336,8 @@ void showScenarioResultSheet(
                                             .pop();
                                         AppToast.info(
                                           context,
-                                          context.l10n.previewScenarioRemovalSkipped,
+                                          context.l10n
+                                              .previewScenarioRemovalSkipped,
                                         );
                                         return;
                                       }
@@ -743,17 +745,17 @@ void showScenarioResultSheet(
                                 context,
                                 colorScheme,
                                 context.l10n.currentBalance,
-                                '$currencySymbol${curr.toStringAsFixed(2)}'),
+                                '$currencySymbol${formatAmount(curr)}'),
                             _buildStatRow(
                                 context,
                                 colorScheme,
                                 context.l10n.projectedNoChange,
-                                '$currencySymbol${proj.toStringAsFixed(2)}'),
+                                '$currencySymbol${formatAmount(proj)}'),
                             _buildStatRow(
                                 context,
                                 colorScheme,
                                 context.l10n.avgDailyNet,
-                                '$currencySymbol${avg.toStringAsFixed(2)}'),
+                                '$currencySymbol${formatAmount(avg)}'),
                           ],
 
                           const SizedBox(height: 32),

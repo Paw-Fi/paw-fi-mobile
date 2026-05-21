@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
@@ -44,6 +45,12 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
@@ -95,13 +102,15 @@ const Set<String> _restrictedRegionCountryCodes = {
   'SY', // Syria
 };
 
-const Map<String, String> _restrictedRegionCountryNames = {
-  'ID': 'Indonesia',
-  'CU': 'Cuba',
-  'IR': 'Iran',
-  'KP': 'North Korea',
-  'SY': 'Syria',
-};
+Map<String, String> _restrictedRegionCountryNames(BuildContext context) {
+  return {
+    'ID': context.l10n.indonesia,
+    'CU': context.l10n.cuba,
+    'IR': context.l10n.iran,
+    'KP': context.l10n.northKorea,
+    'SY': context.l10n.syria,
+  };
+}
 
 bool _isDeviceInRestrictedRegion({String? countryCode}) {
   final code = countryCode ?? _resolveDeviceCountryCode();
@@ -111,9 +120,10 @@ bool _isDeviceInRestrictedRegion({String? countryCode}) {
   return _restrictedRegionCountryCodes.contains(code);
 }
 
-String? _restrictedRegionDisplayName(String? countryCode) {
+String? _restrictedRegionDisplayName(
+    String? countryCode, BuildContext context) {
   if (countryCode == null || countryCode.isEmpty) return null;
-  return _restrictedRegionCountryNames[countryCode] ?? countryCode;
+  return _restrictedRegionCountryNames(context)[countryCode] ?? countryCode;
 }
 
 String? _resolveDeviceCountryCode() {
@@ -184,13 +194,14 @@ class SettingsPage extends HookConsumerWidget {
     final holdQuickAction =
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
     final isAccountDeletionInProgress = useState(false);
+    final isDataResetInProgress = useState(false);
     final siriStatusReloadKey = useState(0);
     final hasAcknowledgedRestrictedRegion = useState(false);
     final deviceCountryCode = _resolveDeviceCountryCode();
     final isDeviceInRestrictedRegion =
         _isDeviceInRestrictedRegion(countryCode: deviceCountryCode);
     final restrictedCountryName =
-        _restrictedRegionDisplayName(deviceCountryCode);
+        _restrictedRegionDisplayName(deviceCountryCode, context);
     final siriShortcutStatus = useFuture(
       useMemoized(
         () => SiriShortcutAuthService.instance.getStatus(),
@@ -449,6 +460,7 @@ class SettingsPage extends HookConsumerWidget {
       deviceTimezone: deviceTimezone,
       currentTimezone: canonicalSelectedTimezone,
       deviceOffsetMinutes: deviceOffsetMinutes,
+      context: context,
       hideMatchingDeviceOffsetOption: timezoneValue == _deviceTimezoneSentinel,
     );
     final packageInfo =
@@ -635,7 +647,7 @@ class SettingsPage extends HookConsumerWidget {
             if (context.mounted) {
               AppToast.info(
                 context,
-                'Preview: sign out is disabled in demo mode.',
+                context.l10n.previewSignOutDisabledInDemoMode,
               );
             }
             return;
@@ -674,6 +686,169 @@ class SettingsPage extends HookConsumerWidget {
         }
         if (context.mounted) {
           isAccountDeletionInProgress.value = false;
+        }
+      }
+    }
+
+    Future<void> handleResetFinancialData() async {
+      if (ref.read(previewModeProvider).isActive) {
+        if (context.mounted) {
+          AppToast.info(
+            context,
+            context.l10n.previewResetFinancialDataDisabledInDemoMode,
+          );
+        }
+        return;
+      }
+
+      if (isDataResetInProgress.value) {
+        return;
+      }
+
+      final confirmation = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.resetDataCannotBeUndone,
+        description: context.l10n.resetDataConfirmationMessage,
+        confirmLabel: context.l10n.resetData,
+        cancelLabel: context.l10n.cancel,
+        isDestructive: true,
+        inputConfig: MonekoAlertDialogInputConfig(
+          placeholder: context.l10n.reset,
+          isRequired: true,
+          validationPattern: RegExp(r'^RESET$'),
+          validationMessage: context.l10n.typeResetToConfirm,
+        ),
+      );
+
+      if (confirmation == null || !confirmation.confirmed || !context.mounted) {
+        return;
+      }
+
+      if ((confirmation.text ?? '').trim() != "RESET") {
+        if (context.mounted) {
+          AppToast.info(context, context.l10n.typeResetToConfirm);
+        }
+        return;
+      }
+
+      isDataResetInProgress.value = true;
+
+      NavigatorState? rootNavigator;
+      var dialogShown = false;
+      try {
+        rootNavigator = Navigator.of(context, rootNavigator: true);
+      } catch (_) {}
+
+      try {
+        if (context.mounted) {
+          await Future<void>.delayed(Duration.zero);
+          if (!context.mounted) {
+            return;
+          }
+          showBlockingProcessingDialog(
+            context: context,
+            message: context.l10n.resettingFinancialData,
+          );
+          dialogShown = true;
+        }
+
+        final result = await Supabase.instance.client.rpc(
+          'reset_user_financial_data',
+        );
+
+        final wasReset = switch (result) {
+          Map _ => result['success'] == true,
+          bool _ => result,
+          _ => false,
+        };
+
+        if (!wasReset) {
+          final errorMessage = result is Map
+              ? (result['message']?.toString() ??
+                  result['error']?.toString() ??
+                  context.l10n.failedToResetFinancialData)
+              : context.l10n.failedToResetFinancialData;
+          if (context.mounted) {
+            AppToast.error(context, errorMessage);
+          }
+          return;
+        }
+
+        ref.read(appInitializationV2Provider.notifier).clearCacheAndReset();
+        ref.invalidate(analyticsProvider);
+        ref.invalidate(incomeSummaryProvider);
+        ref.invalidate(incomeListProvider);
+        ref.invalidate(goalsListProvider);
+        ref.invalidate(goalSummaryProvider);
+        ref.invalidate(subscriptionManagementProvider);
+        ref.invalidate(recurringTransactionsProvider);
+        ref.invalidate(pocketsProvider);
+        ref.invalidate(scopedWalletsProvider);
+        ref.invalidate(walletsPageStateProvider);
+        ref.invalidate(bankConnectionsProvider);
+        ref.invalidate(monthlyFinancialReportProvider);
+
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+
+        try {
+          final database = await ref.read(localDatabaseProvider.future);
+          await database.clearAllLocalData();
+          await database.deleteJsonCacheByPrefix(
+            namespace: 'monthly_report',
+            cacheKeyPrefix: 'monthly-report:v3:${authState.uid}:',
+          );
+        } catch (_) {}
+
+        // Intentionally do not clear SharedPreferences here.
+        // Router onboarding/auth gates rely on persisted flags, and clearing
+        // them would route authenticated users back into onboarding.
+
+        if (authState.uid.isNotEmpty) {
+          ref.read(analyticsProvider.notifier).refresh(authState.uid);
+        }
+
+        if (dialogShown &&
+            rootNavigator != null &&
+            rootNavigator.mounted &&
+            rootNavigator.canPop()) {
+          try {
+            rootNavigator.pop();
+            dialogShown = false;
+          } catch (_) {}
+        }
+
+        if (context.mounted) {
+          await MonekoAlertDialog.show(
+            context: context,
+            title: context.l10n.resetSuccessful,
+            description: context.l10n.yourDataHasBeenClearedPleaseRestart,
+            confirmLabel: context.l10n.restartNow,
+            showCancelButton: false,
+          );
+          if (context.mounted) {
+            await SystemNavigator.pop();
+            await Future<void>.delayed(const Duration(milliseconds: 120));
+            exit(0);
+          }
+        }
+      } catch (e, st) {
+        debugPrint('Reset financial data failed: $e\n$st');
+        if (context.mounted) {
+          AppToast.error(
+              context, context.l10n.failedToResetFinancialDataWithError(e));
+        }
+      } finally {
+        if (dialogShown &&
+            rootNavigator != null &&
+            rootNavigator.mounted &&
+            rootNavigator.canPop()) {
+          try {
+            rootNavigator.pop();
+          } catch (_) {}
+        }
+        if (context.mounted) {
+          isDataResetInProgress.value = false;
         }
       }
     }
@@ -814,7 +989,7 @@ class SettingsPage extends HookConsumerWidget {
                       );
                     } catch (e, st) {
                       debugPrint(
-                        'Unexpected avatar update error: $e\n$st',
+                        context.l10n.unexpectedAvatarUpdateError(e),
                       );
                       if (context.mounted) {
                         AppToast.error(
@@ -1063,14 +1238,15 @@ class SettingsPage extends HookConsumerWidget {
                       icon: Icons.widgets_rounded,
                       label: context.l10n.homeScreenWidgets,
                       onTap: () => launchIntegrationUrl(
-                        Uri.parse('https://moneko.io/help/ios-home-screen-widgets'),
-                        errorMessage: 'Could not open widgets help',
+                        Uri.parse(
+                            'https://moneko.io/help/ios-home-screen-widgets'),
+                        errorMessage: context.l10n.couldNotOpenWidgetsHelp,
                       ),
                     ),
                   if (kDebugMode && Platform.isIOS)
                     _SettingsTile(
                       icon: Icons.bug_report_rounded,
-                      label: 'Test Siri Integration',
+                      label: "Test Siri Integration",
                       onTap: handleSiriIntegrationDebugTest,
                     ),
                   _SettingsTile(
@@ -1342,7 +1518,7 @@ class SettingsPage extends HookConsumerWidget {
                       label: context.l10n.helpCenter,
                       onTap: () => launchIntegrationUrl(
                         Uri.parse('https://moneko.io/help'),
-                        errorMessage: 'Could not open help center',
+                        errorMessage: context.l10n.couldNotOpenHelpCenter,
                       ),
                     ),
                     _SettingsTile(
@@ -1361,6 +1537,18 @@ class SettingsPage extends HookConsumerWidget {
                 _SettingsGroup(
                   title: context.l10n.dangerZone,
                   children: [
+                    _SettingsTile(
+                      icon: Icons.restart_alt_rounded,
+                      iconColor: colorScheme.destructive,
+                      label: context.l10n.resetData,
+                      labelColor: colorScheme.destructive,
+                      value: isDataResetInProgress.value
+                          ? context.l10n.resetting
+                          : null,
+                      onTap: isDataResetInProgress.value
+                          ? null
+                          : () => handleResetFinancialData(),
+                    ),
                     _SettingsTile(
                       icon: Icons.delete_forever_rounded,
                       iconColor: colorScheme.destructive,
@@ -2892,6 +3080,7 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
   required String deviceTimezone,
   required String? currentTimezone,
   required int deviceOffsetMinutes,
+  required BuildContext context,
   bool hideMatchingDeviceOffsetOption = false,
 }) {
   final options = <String, _TimezoneOption>{
@@ -2900,7 +3089,7 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
   options[_deviceTimezoneSentinel] = _TimezoneOption(
     value: _deviceTimezoneSentinel,
     offsetMinutes: deviceOffsetMinutes,
-    label: 'Device timezone',
+    label: context.l10n.deviceTimezone,
   );
 
   void addIfMissing(

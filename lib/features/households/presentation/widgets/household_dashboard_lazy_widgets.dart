@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/dashboard_synthetic_entries.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/home/presentation/widgets/recent_transactions_card.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
@@ -74,6 +78,21 @@ Widget _buildDashboardSwitcherTransition(
   );
 }
 
+List<String>? _selectedCurrencies(WidgetRef ref) {
+  return ref.watch(
+    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+  );
+}
+
+CurrencyRateTable _currencyRates(WidgetRef ref) {
+  return ref.watch(currencyRateTableProvider).valueOrNull ??
+      const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: CurrencyRates.rates,
+        isStale: true,
+      );
+}
+
 class LazyHouseholdSpentByYouCard extends ConsumerWidget {
   const LazyHouseholdSpentByYouCard({
     super.key,
@@ -101,10 +120,12 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       config.customEndDate,
       now: referenceNow,
     );
+    final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencyFilters,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -156,6 +177,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
       final totals = computeSplitAwareMemberSpendingTotals(
@@ -164,6 +186,9 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
         to: range['to']!,
         splits: splits,
         selectedCurrency: selectedCurrency,
+        currencyRates: (selectedCurrencyFilters?.length ?? 0) > 1
+            ? _currencyRates(ref)
+            : null,
       );
       final spentByUser = totals.totalForUser(userId);
 
@@ -261,10 +286,12 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
       config.customEndDate,
       now: referenceNow,
     );
+    final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
       userId: userId ?? '',
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencyFilters,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -343,6 +370,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
 
@@ -359,6 +387,9 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         from: range['from'],
         to: range['to'],
         selectedCurrency: selectedCurrency,
+        currencyRates: (selectedCurrencyFilters?.length ?? 0) > 1
+            ? _currencyRates(ref)
+            : null,
         dateRangeFilter: config.dateRange,
         currentUserId: userId,
         onTap: () {
@@ -397,6 +428,7 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: _selectedCurrencies(ref),
       startDate: null,
       endDate: null,
     );
@@ -483,10 +515,12 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
       now: referenceNow,
     );
     final userId = ref.watch(currentUserIdProvider) ?? '';
+    final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencyFilters,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -524,15 +558,23 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
+      final displayExpenses = (selectedCurrencyFilters?.length ?? 0) > 1
+          ? convertTransactionsToCurrency(
+              expenses,
+              targetCurrency: selectedCurrency,
+              rates: _currencyRates(ref),
+            )
+          : expenses;
 
       child = buildSpendingBreakdownChart(
         key: ValueKey(
             'household_breakdown_data_${expenses.length}_$selectedCurrency'),
         context,
         Theme.of(context).colorScheme,
-        expenses,
+        displayExpenses,
         const [],
         null,
         config.dateRange,
@@ -570,10 +612,12 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
       now: referenceNow,
     );
     final userId = ref.watch(currentUserIdProvider) ?? '';
+    final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencyFilters,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -611,13 +655,21 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
+      final displayExpenses = (selectedCurrencyFilters?.length ?? 0) > 1
+          ? convertTransactionsToCurrency(
+              expenses,
+              targetCurrency: selectedCurrency,
+              rates: _currencyRates(ref),
+            )
+          : expenses;
 
       child = WhereTheMoneyWentWidget(
         key: ValueKey(
             'household_where_money_went_data_${expenses.length}_$selectedCurrency'),
-        expenses: expenses,
+        expenses: displayExpenses,
         currency: selectedCurrency,
         onHelpTap: () =>
             showCategoryGuide(context, Theme.of(context).colorScheme),
@@ -800,10 +852,12 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
     final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
     final userId = ref.watch(currentUserIdProvider) ?? '';
+    final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencyFilters,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -849,9 +903,17 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
-      final spendOnly = mergedTransactions
+      final convertedTransactions = (selectedCurrencyFilters?.length ?? 0) > 1
+          ? convertTransactionsToCurrency(
+              mergedTransactions,
+              targetCurrency: selectedCurrency,
+              rates: _currencyRates(ref),
+            )
+          : mergedTransactions;
+      final spendOnly = convertedTransactions
           .where((tx) => (tx.type ?? 'expense').toLowerCase() != 'income')
           .toList(growable: false);
       final totalSpentByHouseholdCents = spendOnly.fold<int>(
@@ -918,10 +980,12 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
       config.customEndDate,
       now: referenceNow,
     );
+    final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencyFilters,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -973,6 +1037,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencyFilters,
         includeFutureOccurrences: false,
       );
 
@@ -985,6 +1050,9 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         from: range['from'],
         to: range['to'],
         currency: selectedCurrency,
+        currencyRates: (selectedCurrencyFilters?.length ?? 0) > 1
+            ? _currencyRates(ref)
+            : null,
         dateRange: config.dateRange,
       );
     }

@@ -30,6 +30,9 @@ void main() {
       ProviderScope(
         overrides: [
           userCategoryConfigProvider.overrideWith((ref) async => config),
+          userCategoryRemapsProvider.overrideWith(
+            (ref) async => const <UserCategoryRemapPreference>[],
+          ),
         ],
         child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -60,5 +63,49 @@ void main() {
       find.text(l10n.customCategoryDeleteConfirmation(categoryName)),
       findsOneWidget,
     );
+  });
+
+  testWidgets('category remaps are visible in customization sheet', (
+    tester,
+  ) async {
+    const config = UserCategoryConfig(
+      visibleExpenseCategories: <String>['groceries', 'restaurants', 'other'],
+      visibleIncomeCategories: <String>['income', 'other'],
+      hiddenExpenseCategories: <String>{},
+      hiddenIncomeCategories: <String>{},
+      customCategories: <UserCustomCategory>[],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          userCategoryConfigProvider.overrideWith((ref) async => config),
+          userCategoryRemapsProvider.overrideWith(
+            (ref) async => const <UserCategoryRemapPreference>[
+              UserCategoryRemapPreference(
+                transactionType: 'expense',
+                fromCategory: 'restaurants',
+                toCategory: 'groceries',
+                useCount: 2,
+                lastUsedAt: null,
+              ),
+            ],
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: CategoryCustomizationSheet(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI MAPPINGS'), findsOneWidget);
+    expect(find.text('Restaurants'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
   });
 }

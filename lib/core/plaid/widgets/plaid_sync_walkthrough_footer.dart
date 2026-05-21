@@ -56,7 +56,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                        letterSpacing: 0,
                       ),
                     ),
             ),

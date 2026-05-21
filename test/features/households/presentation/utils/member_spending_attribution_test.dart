@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
@@ -122,5 +123,40 @@ void main() {
     expect(totals.totalForUser('payer-user'), 10000);
     expect(totals.transactionCountForUser('payer-user'), 1);
     expect(totals.totalForUser('member-user'), 0);
+  });
+
+  test('converts selected multi-currency transactions and split lines', () {
+    final totals = computeSplitAwareMemberSpendingTotals(
+      transactions: [
+        _expense(
+          id: 'expense-1',
+          userId: 'payer-user',
+          amountCents: 10000,
+          currency: 'EUR',
+          date: DateTime(2026, 4, 10),
+          splitGroupId: 'split-1',
+        ),
+      ],
+      from: DateTime(2026, 4, 1),
+      to: DateTime(2026, 4, 30),
+      splits: [
+        _splitGroup(
+          id: 'split-1',
+          payerUserId: 'payer-user',
+          lines: [
+            _splitLine(id: 'line-1', userId: 'payer-user', amountCents: 4000),
+            _splitLine(id: 'line-2', userId: 'member-user', amountCents: 6000),
+          ],
+        ),
+      ],
+      selectedCurrency: 'USD',
+      currencyRates: const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: {'USD': 1, 'EUR': 0.5, 'INR': 0.5},
+      ),
+    );
+
+    expect(totals.totalForUser('payer-user'), 8000);
+    expect(totals.totalForUser('member-user'), 12000);
   });
 }

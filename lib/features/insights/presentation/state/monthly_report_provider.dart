@@ -6,12 +6,15 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/goals/domain/models/goal.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart'
@@ -143,6 +146,9 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final preview = ref.watch(previewModeProvider);
     final userId = user.uid;
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
     final appLocale = resolveSupportedAppLocale(ref.watch(localeProvider));
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
@@ -161,6 +167,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       periodStart: period.start,
       periodEnd: period.end,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       localeTag: appLocale.toLanguageTag(),
     );
 
@@ -283,6 +290,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final user = ref.read(authProvider);
     final userId = user.uid;
     final currencyCode = ref.read(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencies =
+        ref.read(homeFilterProvider).normalizedSelectedCurrencies;
     final appLocale = resolveSupportedAppLocale(ref.read(localeProvider));
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.read(appPreferredTimezoneProvider);
@@ -309,6 +318,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         periodStart: period.start,
         periodEnd: period.end,
         currencyCode: currencyCode,
+        selectedCurrencies: selectedCurrencies,
         localeTag: appLocale.toLanguageTag(),
       ),
       l10n: l10n,
@@ -328,10 +338,17 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     required bool publish,
     required bool watchDependencies,
   }) async {
+    final selectedCurrencies = watchDependencies
+        ? ref.watch(
+            homeFilterProvider
+                .select((state) => state.normalizedSelectedCurrencies),
+          )
+        : ref.read(homeFilterProvider).normalizedSelectedCurrencies;
     final currentQuery = DashboardScopeQuery(
       userId: userId,
       householdId: householdId,
       selectedCurrency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       startDate: period.start,
       endDate: period.end,
     );
@@ -339,6 +356,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       userId: userId,
       householdId: householdId,
       selectedCurrency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       startDate: period.previousStart,
       endDate: period.previousEnd,
     );
@@ -346,6 +364,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       userId: userId,
       householdId: householdId,
       selectedCurrency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       startDate: period.historicalStart,
       endDate: period.previousEnd,
     );
@@ -381,6 +400,37 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
               .read(dashboardLocalOverlayTransactionsProvider(historicalQuery)),
       query: historicalQuery,
     );
+    final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
+    final rateTable = watchDependencies
+        ? ref.watch(currencyRateTableProvider).valueOrNull
+        : ref.read(currencyRateTableProvider).valueOrNull;
+    final rates = rateTable ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
+    final reportCurrentTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            currentTransactions,
+            targetCurrency: currencyCode,
+            rates: rates,
+          )
+        : currentTransactions;
+    final reportPreviousTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            previousTransactions,
+            targetCurrency: currencyCode,
+            rates: rates,
+          )
+        : previousTransactions;
+    final reportHistoricalTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            historicalTransactions,
+            targetCurrency: currencyCode,
+            rates: rates,
+          )
+        : historicalTransactions;
 
     final recurringTransactions = await _loadRecurringTransactions(
       ref,
@@ -394,14 +444,18 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       now: now,
       monthEnd: period.end,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      rates: rates,
     );
     final recurringItems = _recurringItemsForReport(
       recurringTransactions,
-      previousTransactions: previousTransactions,
+      previousTransactions: reportPreviousTransactions,
       now: now,
       monthStart: monthStart,
       monthEnd: period.end,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      rates: rates,
     );
 
     final pocketsParams = PocketsScopeParams(
@@ -409,6 +463,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       householdId: householdId,
       periodMonth: monthStart,
       currency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       includeUpcomingRecurring: true,
     );
     final pocketsState = watchDependencies
@@ -428,6 +483,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       userId: userId,
       householdId: householdId,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       monthStart: monthStart,
       watchDependencies: watchDependencies,
     );
@@ -436,6 +492,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       userId: userId,
       householdId: householdId,
       currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       monthStart: monthStart,
       watchDependencies: watchDependencies,
     );
@@ -454,11 +511,13 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         now: now,
         currencyCode: currencyCode,
         currentBalance: walletSnapshot.netWorthCents / 100.0,
-        currentMonthTransactions:
-            currentTransactions.map(_transactionInput).toList(growable: false),
-        previousMonthTransactions:
-            previousTransactions.map(_transactionInput).toList(growable: false),
-        historicalTransactions: historicalTransactions
+        currentMonthTransactions: reportCurrentTransactions
+            .map(_transactionInput)
+            .toList(growable: false),
+        previousMonthTransactions: reportPreviousTransactions
+            .map(_transactionInput)
+            .toList(growable: false),
+        historicalTransactions: reportHistoricalTransactions
             .map(_transactionInput)
             .toList(growable: false),
         budgetItems: _budgetInputs(loadedPocketsState.editing),
@@ -570,6 +629,7 @@ String _monthlyReportCacheKey({
   required DateTime periodStart,
   required DateTime periodEnd,
   required String currencyCode,
+  List<String>? selectedCurrencies,
   required String localeTag,
 }) {
   final month =
@@ -578,7 +638,17 @@ String _monthlyReportCacheKey({
       '${periodStart.year.toString().padLeft(4, '0')}-${periodStart.month.toString().padLeft(2, '0')}-${periodStart.day.toString().padLeft(2, '0')}';
   final end =
       '${periodEnd.year.toString().padLeft(4, '0')}-${periodEnd.month.toString().padLeft(2, '0')}-${periodEnd.day.toString().padLeft(2, '0')}';
-  return 'monthly-report:v2:$userId:$scope:${householdId ?? 'personal'}:$month:${range.key}:$start:$end:${currencyCode.toUpperCase()}:$localeTag';
+  return 'monthly-report:v3:$userId:$scope:${householdId ?? 'personal'}:$month:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
+}
+
+String _currencySelectionCacheSegment(List<String>? currencies) {
+  final values = (currencies ?? const <String>[])
+      .map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  return values.isEmpty ? 'default' : values.join(',');
 }
 
 MonthlyReportPeriod _monthlyReportPeriod(
@@ -678,12 +748,18 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     householdScope: householdScope,
     currencyCode: currencyCode,
   );
+  const previewRates = CurrencyRateTable(
+    baseCurrency: 'USD',
+    rates: CurrencyRates.rates,
+    isStale: true,
+  );
   final futureTransactions = _futureTransactionsForReport(
     actualTransactions: currentTransactions,
     recurringTransactions: recurringTransactions,
     now: now,
     monthEnd: period.end,
     currencyCode: currencyCode,
+    rates: previewRates,
   );
   final recurringItems = _recurringItemsForReport(
     recurringTransactions,
@@ -692,6 +768,7 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     monthStart: query.monthStart,
     monthEnd: period.end,
     currencyCode: currencyCode,
+    rates: previewRates,
   );
   final currentBalance = _previewCurrentBalance(householdScope: householdScope);
   final previousNetWorth = _previewPreviousNetWorth(
@@ -1515,6 +1592,7 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
   required String userId,
   required String? householdId,
   required String currencyCode,
+  List<String>? selectedCurrencies,
   required DateTime monthStart,
   required bool watchDependencies,
 }) async {
@@ -1524,6 +1602,7 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
         userId: userId,
         householdId: householdId,
         selectedCurrency: currencyCode,
+        selectedCurrencies: selectedCurrencies,
         currentMonthStart: monthStart,
       ),
       monthStart: monthStart,
@@ -1539,6 +1618,7 @@ Future<double?> _readPreviousNetWorth(
   required String userId,
   required String? householdId,
   required String currencyCode,
+  List<String>? selectedCurrencies,
   required DateTime monthStart,
   required bool watchDependencies,
 }) async {
@@ -1547,6 +1627,7 @@ Future<double?> _readPreviousNetWorth(
       userId: userId,
       householdId: householdId,
       selectedCurrency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
       currentMonthStart: monthStart,
     ),
   );
@@ -1638,6 +1719,8 @@ List<ExpenseEntry> _futureTransactionsForReport({
   required DateTime now,
   required DateTime monthEnd,
   required String currencyCode,
+  List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
 }) {
   final today = DateTime(now.year, now.month, now.day);
   final actualFuture = actualTransactions.where((entry) {
@@ -1649,14 +1732,25 @@ List<ExpenseEntry> _futureTransactionsForReport({
     rangeStart: today.add(const Duration(days: 1)),
     rangeEnd: monthEnd,
     selectedCurrency: currencyCode,
+    selectedCurrencies: selectedCurrencies,
   );
   final dedupedProjected = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projected,
     actualExpenses: actualFuture,
   );
 
-  return <ExpenseEntry>[...actualFuture, ...dedupedProjected]
-    ..sort((a, b) => a.date.compareTo(b.date));
+  final futureTransactions = <ExpenseEntry>[
+    ...actualFuture,
+    ...dedupedProjected
+  ]..sort((a, b) => a.date.compareTo(b.date));
+
+  return (selectedCurrencies?.length ?? 0) > 1
+      ? convertTransactionsToCurrency(
+          futureTransactions,
+          targetCurrency: currencyCode,
+          rates: rates,
+        )
+      : futureTransactions;
 }
 
 List<MonthlyReportRecurringInput> _recurringItemsForReport(
@@ -1666,20 +1760,35 @@ List<MonthlyReportRecurringInput> _recurringItemsForReport(
   required DateTime monthStart,
   required DateTime monthEnd,
   required String currencyCode,
+  List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
 }) {
   final nowDay = DateTime(now.year, now.month, now.day);
+  final selectedCurrencySet = selectedCurrencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  final hasMultiCurrencySelection = (selectedCurrencySet?.length ?? 0) > 1;
   return recurringTransactions.where((item) {
-    return item.isActive &&
-        item.currency.toUpperCase() == currencyCode.toUpperCase();
+    if (!item.isActive) return false;
+    final itemCurrency = item.currency.trim().toUpperCase();
+    if (selectedCurrencySet != null && selectedCurrencySet.isNotEmpty) {
+      return selectedCurrencySet.contains(itemCurrency);
+    }
+    return itemCurrency == currencyCode.toUpperCase();
   }).map((item) {
     final nextDate = item
         .getNextOccurrence(nowDay.subtract(const Duration(microseconds: 1)));
+    final itemCurrency = item.currency.trim().toUpperCase();
+    final amount = hasMultiCurrencySelection
+        ? rates.convert(item.amount.abs(), itemCurrency, currencyCode)
+        : item.amount.abs();
     return MonthlyReportRecurringInput(
       id: item.id,
       name: _recurringName(item),
-      amount: item.amount.abs(),
+      amount: amount,
       type: item.type,
-      currencyCode: item.currency.toUpperCase(),
+      currencyCode: hasMultiCurrencySelection ? currencyCode : itemCurrency,
       nextDate: nextDate,
       previousAmount: _previousAmountForRecurring(item, previousTransactions),
     );

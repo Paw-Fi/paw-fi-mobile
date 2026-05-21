@@ -204,6 +204,8 @@ class EditRowSheetState extends State<EditRowSheet> {
       merchant: _merchant.trim().isEmpty ? null : _merchant.trim(),
       currency: _currency.isEmpty ? null : _currency,
       type: _isIncome ? 'income' : 'expense',
+      isRecurring: false,
+      recurrenceRule: null,
     );
 
     if (widget.onSave != null) {

@@ -12,10 +12,7 @@ final bankAccountsProvider =
   ref.watch(bankSyncResultProvider);
   if (user.uid.isEmpty) return const [];
 
-  final response = await supabase
-      .from('bank_accounts')
-      .select('*, bank_connections(household_id,status,provider)')
-      .eq('user_id', user.uid);
+  final response = await supabase.rpc('list_mobile_bank_accounts');
 
   final rows = (response as List?)?.cast<Map<String, dynamic>>() ?? const [];
   final allAccounts = rows.map(BankAccount.fromJson).toList();

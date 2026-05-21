@@ -7,12 +7,15 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart'
     show supabaseClientProvider;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -33,6 +36,9 @@ final walletsRefreshSignalProvider = StateProvider<int>((ref) => 0);
 final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
   final auth = ref.watch(authProvider);
   final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+  final selectedCurrencies = ref.watch(
+    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+  );
   final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
   final householdScope = ref.watch(householdScopeProvider);
   final effectiveNowForUser =
@@ -42,6 +48,7 @@ final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
     userId: auth.uid,
     householdId: _resolveWalletsScopeHouseholdId(householdScope),
     selectedCurrency: selectedCurrencyCode,
+    selectedCurrencies: selectedCurrencies,
     currentMonthStart:
         DateTime(effectiveNowForUser.year, effectiveNowForUser.month),
   );
@@ -169,6 +176,12 @@ class SupabaseWalletsDataService implements WalletsDataService {
       });
       return _legacyLoader.fetchHistory(query);
     }
+    if (query.hasMultiCurrencySelection) {
+      trace.mark('history-rpc-skipped', const {
+        'reason': 'multi-currency-local-conversion',
+      });
+      return _legacyLoader.fetchHistory(query);
+    }
 
     trace.mark('history-rpc-start', const {'rpc': 'get_wallets_history_v2'});
     try {
@@ -215,6 +228,12 @@ class SupabaseWalletsDataService implements WalletsDataService {
     if (ref.read(walletAuthHeadersProvider) == null) {
       trace.mark('month-snapshot-rpc-skipped', const {
         'reason': 'missing-auth-headers',
+      });
+      return _legacyLoader.fetchMonthSnapshot(query);
+    }
+    if (query.scope.hasMultiCurrencySelection) {
+      trace.mark('month-snapshot-rpc-skipped', const {
+        'reason': 'multi-currency-local-conversion',
       });
       return _legacyLoader.fetchMonthSnapshot(query);
     }
@@ -797,8 +816,7 @@ class WalletsPageStateNotifier
           ...current.cachedSnapshotsByMonth,
           monthStart: snapshot,
         },
-        loadingMonths: <DateTime>{...current.loadingMonths}
-          ..remove(monthStart),
+        loadingMonths: <DateTime>{...current.loadingMonths}..remove(monthStart),
         monthErrorsByMonth: <DateTime, Object>{
           ...current.monthErrorsByMonth,
         }..remove(monthStart),
@@ -814,8 +832,7 @@ class WalletsPageStateNotifier
         return;
       }
       state = AsyncData(current.copyWith(
-        loadingMonths: <DateTime>{...current.loadingMonths}
-          ..remove(monthStart),
+        loadingMonths: <DateTime>{...current.loadingMonths}..remove(monthStart),
         monthErrorsByMonth: <DateTime, Object>{
           ...current.monthErrorsByMonth,
           monthStart: error,
@@ -983,6 +1000,7 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     recurringTransactions: recurringTransactions,
     actualTransactions: actualTransactions,
     selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedSelectedCurrencies,
     rangeStart: projectionRangeStart,
     rangeEndInclusive: endInclusive,
   );
@@ -990,13 +1008,26 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     'rangeStart': projectionRangeStart,
     'projectedCount': projectedTransactions.length,
   });
+  final combinedTransactions = <ExpenseEntry>[
+    ...actualTransactions,
+    ...projectedTransactions,
+  ];
+  final transactions = query.hasMultiCurrencySelection
+      ? convertTransactionsToCurrency(
+          combinedTransactions,
+          targetCurrency: query.selectedCurrency,
+          rates: ref.read(currencyRateTableProvider).valueOrNull ??
+              const CurrencyRateTable(
+                baseCurrency: 'USD',
+                rates: CurrencyRates.rates,
+                isStale: true,
+              ),
+        )
+      : combinedTransactions;
 
   return _WalletRecurringAwareData(
     wallets: wallets,
-    transactions: <ExpenseEntry>[
-      ...actualTransactions,
-      ...projectedTransactions,
-    ],
+    transactions: transactions,
   );
 }
 
@@ -1014,6 +1045,7 @@ Future<List<WalletEntity>> _fetchScopedWallets(
       userId: userId,
       householdId: householdId,
       selectedCurrency: query.selectedCurrency,
+      selectedCurrencies: query.normalizedSelectedCurrencies,
       currentMonthStart: query.currentMonthStart,
     );
     return ref.read(walletsListSessionCacheProvider)[cacheKey] ??
@@ -1022,6 +1054,7 @@ Future<List<WalletEntity>> _fetchScopedWallets(
           userId: userId,
           householdId: householdId,
           selectedCurrency: query.selectedCurrency,
+          selectedCurrencies: query.normalizedSelectedCurrencies,
           currentMonthStart: query.currentMonthStart,
         ) ??
         const <WalletEntity>[];
@@ -1072,6 +1105,7 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
       userId: query.userId,
       householdId: query.householdId,
       selectedCurrency: query.selectedCurrency,
+      selectedCurrencies: query.normalizedSelectedCurrencies,
       selectedCategory: null,
       selectedAccountId: null,
       selectedCategories: null,
@@ -1086,6 +1120,7 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
     allExpenses: transactions,
     scope: scope,
     selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedSelectedCurrencies,
   );
   trace.mark('fetch-all-pages-success', {
     'rawCount': transactions.length,
@@ -1138,6 +1173,7 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
         userId: query.userId,
         householdId: query.householdId,
         currency: query.selectedCurrency,
+        currencies: query.normalizedSelectedCurrencies,
         category: null,
         accountId: null,
         categories: null,
@@ -1154,6 +1190,7 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
       allExpenses: transactions,
       scope: scope,
       selectedCurrency: query.selectedCurrency,
+      selectedCurrencies: query.normalizedSelectedCurrencies,
     );
   } catch (_) {
     return const <ExpenseEntry>[];
@@ -1352,6 +1389,7 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
   required List<RecurringTransaction> recurringTransactions,
   required List<ExpenseEntry> actualTransactions,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required DateTime rangeStart,
   required DateTime rangeEndInclusive,
 }) {
@@ -1367,6 +1405,7 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
     rangeStart: rangeStart,
     rangeEnd: rangeEndInclusive,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
   ).map((expense) {
     final recurringId =
         extractRecurringTransactionIdFromProjectedExpenseId(expense.id);

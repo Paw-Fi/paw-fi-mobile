@@ -129,7 +129,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                           color: colorScheme.foreground,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
+                          letterSpacing: 0,
                         ),
                       ),
                     ),

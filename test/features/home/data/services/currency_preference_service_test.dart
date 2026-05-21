@@ -119,29 +119,59 @@ void main() {
     });
   });
 
+  group('Selected Currency Set Preferences', () {
+    test('getSelectedCurrencies returns null initially', () async {
+      final currencies = await service.getSelectedCurrencies();
+      expect(currencies, null);
+    });
+
+    test('setSelectedCurrencies persists normalized unique values', () async {
+      await service.setSelectedCurrencies(['usd', 'EUR', 'usd', '']);
+
+      final currencies = await service.getSelectedCurrencies();
+
+      expect(currencies, ['USD', 'EUR']);
+    });
+
+    test('clearSelectedCurrencies removes only multi-select values', () async {
+      await service.setSelectedCurrency('USD');
+      await service.setSelectedCurrencies(['USD', 'EUR']);
+
+      await service.clearSelectedCurrencies();
+
+      expect(await service.getSelectedCurrencies(), null);
+      expect(await service.getSelectedCurrency(), 'USD');
+    });
+  });
+
   group('Clear All Preferences', () {
     test('clearAll removes all currency preferences', () async {
       await service.setSelectedCurrency('USD');
       await service.setCurrencyOrder(['EUR', 'GBP']);
+      await service.setSelectedCurrencies(['USD', 'EUR']);
 
       await service.clearAll();
 
       final currency = await service.getSelectedCurrency();
       final order = await service.getCurrencyOrder();
+      final selectedCurrencies = await service.getSelectedCurrencies();
 
       expect(currency, null);
       expect(order, null);
+      expect(selectedCurrencies, null);
     });
 
     test('clearAll clears all caches', () async {
       await service.setSelectedCurrency('JPY');
       await service.setCurrencyOrder(['JPY', 'CNY']);
+      await service.setSelectedCurrencies(['JPY', 'CNY']);
 
       await service.clearAll();
 
       // After clearing, both should return null
       expect(await service.getSelectedCurrency(), null);
       expect(await service.getCurrencyOrder(), null);
+      expect(await service.getSelectedCurrencies(), null);
     });
   });
 

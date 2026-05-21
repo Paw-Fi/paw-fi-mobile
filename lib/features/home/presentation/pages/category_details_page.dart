@@ -7,6 +7,8 @@ import 'package:fl_chart/fl_chart.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
@@ -18,6 +20,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/utils/transactions_page_derived_data.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -175,7 +178,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId;
-    final selectedCurrency = ref.watch(homeFilterProvider).selectedCurrency;
+    final filterState = ref.watch(homeFilterProvider);
     final userNow = effectiveNow(
       preferredTimezone: ref.watch(analyticsProvider
           .select((state) => state.contact?.preferredTimezone)),
@@ -202,7 +205,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     return TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
-      selectedCurrency: selectedCurrency,
+      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       selectedCategory: widget.categoryKey,
       selectedType: 'expense',
       searchQuery: '',
@@ -223,6 +227,17 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
 
     final query = _buildFeedQuery();
     final feedState = ref.watch(transactionsFeedProvider(query));
+    final isMultiCurrencySelection =
+        (query.normalizedSelectedCurrencies?.length ?? 0) > 1;
+    final allItemsAsync = isMultiCurrencySelection
+        ? ref.watch(transactionsFeedAllItemsProvider(query))
+        : null;
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final contact =
         ref.watch(analyticsProvider.select((state) => state.contact));
@@ -247,6 +262,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             rangeStart: DateTime(2000),
             rangeEnd: userNow,
             selectedCurrency: query.selectedCurrency,
+            selectedCurrencies: query.normalizedCurrencies,
           );
     final normalizedCategory = widget.categoryKey.trim().toLowerCase();
     final projectedRecurringInCategory = projectedRecurring.where((expense) {
@@ -273,9 +289,15 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       return true;
     }).toList();
 
+    final dedupedProjectedRecurringInCategory =
+        dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: projectedRecurringInCategory,
+      actualExpenses: feedState.items,
+    );
+
     final expenses = [
       ...feedState.items,
-      ...projectedRecurringInCategory,
+      ...dedupedProjectedRecurringInCategory,
     ]..sort((a, b) {
         final byDate = b.date.compareTo(a.date);
         if (byDate != 0) return byDate;
@@ -289,18 +311,38 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       visibleExpenseCount: expenses.length,
     );
 
-    final projectedTotal = projectedRecurringInCategory.fold<double>(
-      0,
-      (sum, expense) => sum + expense.amount.abs(),
-    );
-    final totalSpent = feedState.summary.expenseTotal.abs() + projectedTotal;
-    final count = feedState.summary.transactionCount +
-        projectedRecurringInCategory.length;
+    final aggregateActualExpenses =
+        allItemsAsync?.valueOrNull ?? const <ExpenseEntry>[];
+    final aggregateExpenses = isMultiCurrencySelection
+        ? [
+            ...aggregateActualExpenses,
+            ...dedupeProjectedRecurringExpenseEntries(
+              projectedExpenses: projectedRecurringInCategory,
+              actualExpenses: aggregateActualExpenses,
+            ),
+          ]
+        : expenses;
+    final aggregateSummary = isMultiCurrencySelection
+        ? summarizeTransactionsInCurrency(
+            aggregateExpenses,
+            targetCurrency: query.selectedCurrency ?? 'USD',
+            rates: rateTable,
+          )
+        : feedState.summary.addingExpenses(dedupedProjectedRecurringInCategory);
+    final totalSpent = aggregateSummary.expenseTotal.abs();
+    final count = aggregateSummary.transactionCount;
     final avg = count > 0 ? totalSpent / count : 0.0;
 
     // Top merchant
     final Map<String, double> merchantTally = {};
-    for (final e in expenses) {
+    final convertedAggregateExpenses = isMultiCurrencySelection
+        ? convertTransactionsToCurrency(
+            aggregateExpenses,
+            targetCurrency: query.selectedCurrency ?? 'USD',
+            rates: rateTable,
+          )
+        : aggregateExpenses;
+    for (final e in convertedAggregateExpenses) {
       final merchant = (e.merchant ?? e.rawText ?? '').trim();
       if (merchant.isNotEmpty) {
         merchantTally[merchant] =
@@ -348,7 +390,33 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 ),
               ),
 
-              if (feedState.isLoading && expenses.isEmpty)
+              if (isMultiCurrencySelection &&
+                  allItemsAsync?.valueOrNull == null &&
+                  (allItemsAsync?.hasError ?? false))
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          context.l10n.errorLoadingDashboard,
+                          style: TextStyle(color: colorScheme.foreground),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => ref.invalidate(
+                            transactionsFeedAllItemsProvider(query),
+                          ),
+                          child: Text(context.l10n.retry),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if ((feedState.isLoading && expenses.isEmpty) ||
+                  (isMultiCurrencySelection &&
+                      allItemsAsync?.valueOrNull == null &&
+                      (allItemsAsync?.isLoading ?? false)))
                 SliverFillRemaining(
                   child: Center(
                     child:

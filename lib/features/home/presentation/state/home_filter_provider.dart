@@ -9,25 +9,60 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 /// Local filter state for home page only (currency)
 class HomeFilterState {
   final String? selectedCurrency; // null = "All Currencies"
+  final List<String>? selectedCurrencies;
   final bool hasExplicitCurrency;
 
   HomeFilterState({
     this.selectedCurrency,
+    this.selectedCurrencies,
     this.hasExplicitCurrency = false,
   });
 
   HomeFilterState copyWith({
     String? selectedCurrency,
+    List<String>? selectedCurrencies,
     bool? hasExplicitCurrency,
     bool clearCurrency = false,
+    bool clearSelectedCurrencies = false,
   }) {
     return HomeFilterState(
       selectedCurrency:
           clearCurrency ? null : (selectedCurrency ?? this.selectedCurrency),
+      selectedCurrencies: clearSelectedCurrencies
+          ? null
+          : (selectedCurrencies ?? this.selectedCurrencies),
       hasExplicitCurrency: clearCurrency
           ? false
           : (hasExplicitCurrency ?? this.hasExplicitCurrency),
     );
+  }
+
+  List<String>? get normalizedSelectedCurrencies {
+    final seen = <String>{};
+    final normalized = <String>[];
+    for (final currency in selectedCurrencies ?? const <String>[]) {
+      final code = currency.trim().toUpperCase();
+      if (code.isEmpty || seen.contains(code)) continue;
+      seen.add(code);
+      normalized.add(code);
+    }
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  bool allowsCurrency(String? currency) {
+    final selected = normalizedSelectedCurrencies;
+    if (selected == null) {
+      final primary = selectedCurrency?.trim().toUpperCase();
+      final code = currency?.trim().toUpperCase();
+      return primary == null ||
+          primary.isEmpty ||
+          code == null ||
+          code.isEmpty ||
+          code == primary;
+    }
+
+    final code = currency?.trim().toUpperCase();
+    return code == null || code.isEmpty || selected.contains(code);
   }
 }
 
@@ -36,17 +71,40 @@ class HomeFilterNotifier extends StateNotifier<HomeFilterState> {
   HomeFilterNotifier() : super(HomeFilterState());
 
   void setSelectedCurrency(String? currency) {
+    final normalized = currency?.trim().toUpperCase();
     state = state.copyWith(
-      selectedCurrency: currency,
-      hasExplicitCurrency: currency != null,
-      clearCurrency: currency == null,
+      selectedCurrency: normalized,
+      selectedCurrencies: normalized == null || normalized.isEmpty
+          ? null
+          : <String>[normalized],
+      hasExplicitCurrency: normalized != null && normalized.isNotEmpty,
+      clearCurrency: normalized == null || normalized.isEmpty,
+      clearSelectedCurrencies: normalized == null || normalized.isEmpty,
     );
   }
 
   void bootstrapSelectedCurrency(String currency) {
+    final normalized = currency.trim().toUpperCase();
     state = state.copyWith(
-      selectedCurrency: currency,
+      selectedCurrency: normalized,
+      selectedCurrencies: <String>[normalized],
       hasExplicitCurrency: false,
+    );
+  }
+
+  void setSelectedCurrencies(List<String> currencies) {
+    final seen = <String>{};
+    final normalized = <String>[];
+    for (final currency in currencies) {
+      final code = currency.trim().toUpperCase();
+      if (code.isEmpty || seen.contains(code)) continue;
+      seen.add(code);
+      normalized.add(code);
+    }
+
+    state = state.copyWith(
+      selectedCurrencies: normalized,
+      clearSelectedCurrencies: normalized.isEmpty,
     );
   }
 }
@@ -82,15 +140,11 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   // Get all expenses from provider
   final allExpenses = _resolveScopeAwareExpenses(ref, analyticsData, scope);
 
-  final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-
   // Filter expenses locally by currency AND view mode
   final filtered = allExpenses
       .where((expense) {
         final expCurrency = (expense.currency ?? '').toUpperCase();
-        final currencyOk = selectedCurrency == null ||
-            expCurrency.isEmpty ||
-            expCurrency == selectedCurrency;
+        final currencyOk = filterState.allowsCurrency(expCurrency);
 
         final activeOk = switch (scope.activeAccountType) {
           ActiveWalletType.personal => expense.householdId == null ||
@@ -118,13 +172,9 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedHouseholdId = scope.selectedHouseholdId;
 
   final all = _resolveScopeAwareExpenses(ref, analyticsData, scope);
-  final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-
   return all.where((tx) {
     final txCurrency = (tx.currency ?? '').toUpperCase();
-    final currencyOk = selectedCurrency == null ||
-        txCurrency.isEmpty ||
-        txCurrency == selectedCurrency;
+    final currencyOk = filterState.allowsCurrency(txCurrency);
     final activeOk = switch (scope.activeAccountType) {
       ActiveWalletType.personal =>
         tx.householdId == null || (tx.householdId?.isEmpty ?? false),
@@ -151,12 +201,9 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
     return [];
   }
 
-  final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-
   // Filter budgets by currency (all-time)
   return allBudgets.where((budget) {
-    return selectedCurrency == null ||
-        (budget.currency?.toUpperCase() == selectedCurrency);
+    return filterState.allowsCurrency(budget.currency);
   }).toList();
 });
 

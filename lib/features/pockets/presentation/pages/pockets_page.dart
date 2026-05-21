@@ -46,6 +46,8 @@ class PocketsPage extends HookConsumerWidget {
     final filterState = ref.watch(homeFilterProvider);
     final resolvedSelectedCurrency =
         ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
+    final selectedCurrenciesKey = selectedCurrencies?.join(',') ?? '';
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
@@ -96,6 +98,7 @@ class PocketsPage extends HookConsumerWidget {
         'viewMode': viewMode.mode.name,
         'isPreviewMode': isPreviewMode,
         'selectedCurrency': resolvedSelectedCurrency,
+        'selectedCurrencies': selectedCurrencies ?? const <String>[],
         'householdScope': householdScope.activeAccountType.name,
         'resolvedHousehold': resolvedHouseholdId,
         'includeRecurring': includeUpcomingRecurring,
@@ -105,6 +108,7 @@ class PocketsPage extends HookConsumerWidget {
       viewMode.mode,
       isPreviewMode,
       resolvedSelectedCurrency,
+      selectedCurrenciesKey,
       householdScope.activeAccountType,
       resolvedHouseholdId,
       includeUpcomingRecurring,
@@ -160,7 +164,7 @@ class PocketsPage extends HookConsumerWidget {
       currentMonthState.value = initialMonth;
       prefetchUnlockedState.value = false;
       return null;
-    }, [initialMonth]);
+    }, [initialMonth, resolvedSelectedCurrency, selectedCurrenciesKey]);
 
     // Track the currently visible page during manual swipes so we can start
     // loading as the user drags. During programmatic jumps, we suppress this
@@ -303,6 +307,7 @@ class PocketsPage extends HookConsumerWidget {
                 scope: PocketsScopeType.personal,
                 periodMonth: month,
                 currency: resolvedSelectedCurrency,
+                selectedCurrencies: selectedCurrencies,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
@@ -312,6 +317,7 @@ class PocketsPage extends HookConsumerWidget {
                       scope: PocketsScopeType.personal,
                       periodMonth: month,
                       currency: resolvedSelectedCurrency,
+                      selectedCurrencies: selectedCurrencies,
                       isBootstrapCurrency: isBootstrapCurrency,
                       includeUpcomingRecurring: includeUpcomingRecurring,
                     )
@@ -320,6 +326,7 @@ class PocketsPage extends HookConsumerWidget {
                       householdId: householdScope.activeAccountHouseholdId,
                       periodMonth: month,
                       currency: resolvedSelectedCurrency,
+                      selectedCurrencies: selectedCurrencies,
                       isBootstrapCurrency: isBootstrapCurrency,
                       includeUpcomingRecurring: includeUpcomingRecurring,
                     ),
@@ -328,6 +335,7 @@ class PocketsPage extends HookConsumerWidget {
                 householdId: resolvedHouseholdId,
                 periodMonth: month,
                 currency: resolvedSelectedCurrency,
+                selectedCurrencies: selectedCurrencies,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
@@ -350,6 +358,7 @@ class PocketsPage extends HookConsumerWidget {
       householdScope.activeAccountHouseholdId,
       resolvedHouseholdId,
       resolvedSelectedCurrency,
+      selectedCurrenciesKey,
       isBootstrapCurrency,
       includeUpcomingRecurring,
       initialMonth,
@@ -545,6 +554,7 @@ class PocketsPage extends HookConsumerWidget {
           scope: PocketsScopeType.personal,
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
+          selectedCurrencies: selectedCurrencies,
           isBootstrapCurrency: isBootstrapCurrency,
           includeUpcomingRecurring: includeUpcomingRecurring,
         ),
@@ -554,6 +564,7 @@ class PocketsPage extends HookConsumerWidget {
                 scope: PocketsScopeType.personal,
                 periodMonth: currentMonthState.value,
                 currency: resolvedSelectedCurrency,
+                selectedCurrencies: selectedCurrencies,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               )
@@ -562,6 +573,7 @@ class PocketsPage extends HookConsumerWidget {
                 householdId: householdScope.activeAccountHouseholdId,
                 periodMonth: currentMonthState.value,
                 currency: resolvedSelectedCurrency,
+                selectedCurrencies: selectedCurrencies,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
@@ -570,6 +582,7 @@ class PocketsPage extends HookConsumerWidget {
           householdId: resolvedHouseholdId,
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
+          selectedCurrencies: selectedCurrencies,
           isBootstrapCurrency: isBootstrapCurrency,
           includeUpcomingRecurring: includeUpcomingRecurring,
         ),
@@ -689,6 +702,7 @@ class PocketsPage extends HookConsumerWidget {
                     scope: PocketsScopeType.personal,
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
+                    selectedCurrencies: selectedCurrencies,
                     isBootstrapCurrency: isBootstrapCurrency,
                     includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
@@ -698,6 +712,7 @@ class PocketsPage extends HookConsumerWidget {
                           scope: PocketsScopeType.personal,
                           periodMonth: month,
                           currency: resolvedSelectedCurrency,
+                          selectedCurrencies: selectedCurrencies,
                           isBootstrapCurrency: isBootstrapCurrency,
                           includeUpcomingRecurring: includeUpcomingRecurring,
                         )
@@ -706,6 +721,7 @@ class PocketsPage extends HookConsumerWidget {
                           householdId: householdScope.activeAccountHouseholdId,
                           periodMonth: month,
                           currency: resolvedSelectedCurrency,
+                          selectedCurrencies: selectedCurrencies,
                           isBootstrapCurrency: isBootstrapCurrency,
                           includeUpcomingRecurring: includeUpcomingRecurring,
                         ),
@@ -714,6 +730,7 @@ class PocketsPage extends HookConsumerWidget {
                     householdId: resolvedHouseholdId,
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
+                    selectedCurrencies: selectedCurrencies,
                     isBootstrapCurrency: isBootstrapCurrency,
                     includeUpcomingRecurring: includeUpcomingRecurring,
                   ),

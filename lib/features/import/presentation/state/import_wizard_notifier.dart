@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/recurring/recurring_transaction_inference.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/util/constants.dart';
@@ -797,7 +798,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   void setTargetWallet({String? householdId, required bool isPortfolio}) {
     final trimmed = householdId?.trim();
     final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
-    final updatedRows = markDuplicates(
+    final updatedRows = _inferAndDedupeRows(
       state.parsedRows,
       _existingExpensesForTarget(normalized),
       targetAccountId: null,
@@ -817,7 +818,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   void setTargetFinancialWallet(String? accountId) {
     final normalized =
         (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
-    final updatedRows = markDuplicates(
+    final updatedRows = _inferAndDedupeRows(
       state.parsedRows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: normalized,
@@ -889,7 +890,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final pos = rows.indexWhere((r) => r.index == updated.index);
     if (pos < 0) return;
     rows[pos] = _applyImportDefaults(updated);
-    final deduped = markDuplicates(
+    final deduped = _inferAndDedupeRows(
       rows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: state.targetAccountId,
@@ -901,7 +902,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final rows = [...state.parsedRows];
     if (!rows.any((r) => r.index == index)) return;
     final updatedRows = rows.where((r) => r.index != index).toList();
-    final deduped = markDuplicates(
+    final deduped = _inferAndDedupeRows(
       updatedRows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: state.targetAccountId,
@@ -939,7 +940,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     if (changedCount == 0) return;
 
-    final deduped = markDuplicates(
+    final deduped = _inferAndDedupeRows(
       rows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: state.targetAccountId,
@@ -990,7 +991,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       );
       if (resolved is String && resolved.trim().isNotEmpty) {
         effectiveAccountId = resolved.trim();
-        final updatedRows = markDuplicates(
+        final updatedRows = _inferAndDedupeRows(
           state.parsedRows,
           _existingExpensesForTarget(targetHouseholdId),
           targetAccountId: effectiveAccountId,
@@ -1012,6 +1013,11 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         continue;
       }
       if (state.skipDuplicates && row.isDuplicate) {
+        continue;
+      }
+      if (row.isRecurring &&
+          row.recurringSeriesKey != null &&
+          !row.isRecurringSeriesAnchor) {
         continue;
       }
       importableRows.add(row);
@@ -1059,6 +1065,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         if (description != null && description.isNotEmpty)
           'description': description,
         if (hasValidMerchantLabel) 'merchant': merchantLabel,
+        'isRecurring': row.isRecurring,
+        if (row.recurrenceRule != null) 'recurrence_rule': row.recurrenceRule,
       };
     }).toList(growable: false);
 
@@ -1180,10 +1188,102 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             .where((row) => !effectiveDeletedRowIndices.contains(row.index))
             .toList(growable: false);
 
-    return markDuplicates(
+    return _inferAndDedupeRows(
       filteredRows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: state.targetAccountId,
+    );
+  }
+
+  List<ImportParsedRow> _inferAndDedupeRows(
+    List<ImportParsedRow> rows,
+    List<ExpenseEntry> existingExpenses, {
+    String? targetAccountId,
+  }) {
+    final inferred = inferRecurringTransactions([
+      ...existingExpenses
+          .where((expense) => expense.isRecurring || expense.amountCents > 0)
+          .map(
+            (expense) => RecurringInferenceInput(
+              id: 'existing:${expense.id}',
+              date: expense.date,
+              amountCents: expense.amountCents,
+              currency: expense.currency,
+              type: expense.type,
+              accountId: targetAccountId ?? expense.walletId,
+              merchant: expense.merchant,
+              description: expense.rawText,
+              isRecurring: expense.isRecurring,
+            ),
+          ),
+      ...rows.map(
+        (row) => RecurringInferenceInput(
+          id: 'import:${row.index}',
+          date: row.date,
+          amountCents: row.amountCents,
+          currency: row.currency,
+          type: row.type,
+          accountId: targetAccountId,
+          merchant: row.merchant,
+          description: row.description,
+          isRecurring: row.isRecurring,
+          recurrenceRule: row.recurrenceRule,
+        ),
+      ),
+    ]);
+
+    final seriesWithExistingRecurringTemplate = <String>{};
+    for (final expense
+        in existingExpenses.where((expense) => expense.isRecurring)) {
+      final result = inferred['existing:${expense.id}'];
+      final seriesKey = result?.seriesKey;
+      if (seriesKey != null && seriesKey.isNotEmpty) {
+        seriesWithExistingRecurringTemplate.add(seriesKey);
+      }
+    }
+
+    final firstImportIdBySeries = <String, String>{};
+    final recurringImportRows = rows.where((row) {
+      final result = inferred['import:${row.index}'];
+      final seriesKey = result?.seriesKey;
+      return result?.isRecurring == true &&
+          seriesKey != null &&
+          seriesKey.isNotEmpty &&
+          !seriesWithExistingRecurringTemplate.contains(seriesKey);
+    }).toList(growable: false)
+      ..sort((a, b) => a.date!.compareTo(b.date!));
+
+    for (final row in recurringImportRows) {
+      final seriesKey = inferred['import:${row.index}']!.seriesKey!;
+      firstImportIdBySeries.putIfAbsent(seriesKey, () => 'import:${row.index}');
+    }
+
+    final recurrenceAwareRows = rows.map((row) {
+      final importId = 'import:${row.index}';
+      final result = inferred['import:${row.index}'];
+      if (result == null || !result.isRecurring) {
+        return row.copyWith(
+          isRecurring: false,
+          recurrenceRule: null,
+          recurringSeriesKey: null,
+          isRecurringSeriesAnchor: false,
+        );
+      }
+      final seriesKey = result.seriesKey;
+      final isImportAnchor =
+          seriesKey == null || firstImportIdBySeries[seriesKey] == importId;
+      return row.copyWith(
+        isRecurring: true,
+        recurrenceRule: result.recurrenceRule,
+        recurringSeriesKey: seriesKey,
+        isRecurringSeriesAnchor: isImportAnchor,
+      );
+    }).toList(growable: false);
+
+    return markDuplicates(
+      recurrenceAwareRows,
+      existingExpenses,
+      targetAccountId: targetAccountId,
     );
   }
 
@@ -1227,7 +1327,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           .then((expenses) {
         if (state.targetHouseholdId != householdId) return;
         state = state.copyWith(
-          parsedRows: markDuplicates(
+          parsedRows: _inferAndDedupeRows(
             state.parsedRows,
             expenses,
             targetAccountId: state.targetAccountId,

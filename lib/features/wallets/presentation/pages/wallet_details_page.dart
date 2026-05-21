@@ -6,6 +6,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -22,6 +24,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -46,6 +49,16 @@ class WalletDetailsPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final actions = ref.watch(walletActionsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencyFilters = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final shouldConvertCurrencies = (selectedCurrencyFilters?.length ?? 0) > 1;
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final preferredTimezone = ref
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
@@ -90,6 +103,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       userId: currentUserId,
       householdId: effectiveHouseholdId,
       selectedCurrency: selectedCurrencyCode,
+      selectedCurrencies: selectedCurrencyFilters,
       currentMonthStart: currentMonthStart,
     );
     final detailsMonthQuery = WalletsMonthQuery(
@@ -102,6 +116,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       userId: currentUserId,
       householdId: effectiveHouseholdId,
       selectedCurrency: selectedCurrencyCode,
+      selectedCurrencies: selectedCurrencyFilters,
       selectedCategory: null,
       selectedAccountId: latestWallet.id,
       selectedCategories: null,
@@ -122,6 +137,9 @@ class WalletDetailsPage extends HookConsumerWidget {
       endDate: monthEnd,
     );
     final monthFeedState = ref.watch(transactionsFeedProvider(monthFeedQuery));
+    final monthAllItemsAsync = shouldConvertCurrencies
+        ? ref.watch(transactionsFeedAllItemsProvider(monthFeedQuery))
+        : null;
     final recurringTransactionsState =
         ref.watch(recurringTransactionsProvider(effectiveHouseholdId));
     final recurringTransactions = recurringTransactionsState.data.valueOrNull ??
@@ -200,6 +218,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             rangeStart: projectedRecurringRangeStart,
             rangeEnd: userNow,
             selectedCurrency: selectedCurrencyCode,
+            selectedCurrencies: selectedCurrencyFilters,
             wallet: latestWallet,
           );
     // CRITICAL: keep the wallet detail list aligned with the recurring-aware
@@ -219,6 +238,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             rangeStart: monthStart,
             rangeEnd: userNow,
             selectedCurrency: selectedCurrencyCode,
+            selectedCurrencies: selectedCurrencyFilters,
             wallet: latestWallet,
           );
     final walletColor =
@@ -232,7 +252,7 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     final snapshotBalanceCents =
         detailsMonthSnapshotAsync.valueOrNull?.walletBalances[latestWallet.id];
-    final hasOptimisticBalance = serverAccount == null ||
+    final hasOptimisticBalance = serverAccount != null &&
         latestWallet.currentBalanceCents != serverAccount.currentBalanceCents;
     final currentBalanceCents = hasOptimisticBalance
         ? latestWallet.currentBalanceCents
@@ -241,8 +261,25 @@ class WalletDetailsPage extends HookConsumerWidget {
     // recurring rows shown in the transaction list and wallet balance logic.
     // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
     // summary, or wallet totals and visible recurring tiles will disagree.
-    final monthSummary =
-        monthFeedState.summary.addingExpenses(projectedMonthRecurringExpenses);
+    final monthActualExpenses = monthAllItemsAsync?.valueOrNull;
+    final monthSummaryExpenses =
+        shouldConvertCurrencies && monthActualExpenses != null
+            ? [
+                ...monthActualExpenses,
+                ...dedupeProjectedRecurringExpenseEntries(
+                  projectedExpenses: projectedMonthRecurringExpenses,
+                  actualExpenses: monthActualExpenses,
+                ),
+              ]
+            : projectedMonthRecurringExpenses;
+    final monthSummary = shouldConvertCurrencies
+        ? summarizeTransactionsInCurrency(
+            monthSummaryExpenses,
+            targetCurrency: selectedCurrencyCode,
+            rates: rateTable,
+          )
+        : monthFeedState.summary
+            .addingExpenses(projectedMonthRecurringExpenses);
     final totalIncome = monthSummary.incomeTotal;
     final totalSpent = monthSummary.expenseTotal;
 
@@ -714,6 +751,7 @@ List<ExpenseEntry> _projectWalletRecurringExpenses({
   required DateTime rangeStart,
   required DateTime rangeEnd,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required WalletEntity wallet,
 }) {
   // CRITICAL: wallet detail projections must be deduped against actual wallet
@@ -727,6 +765,7 @@ List<ExpenseEntry> _projectWalletRecurringExpenses({
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
     ).map((expense) {
       return expense.copyWith(
         accountId: wallet.id,

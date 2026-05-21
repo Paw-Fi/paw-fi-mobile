@@ -59,7 +59,12 @@ class BankConnection {
 
   bool get hasNewAccountsAvailable => relinkState == 'new_accounts_available';
 
-  bool get requiresUserAction => needsReconnect || hasNewAccountsAvailable;
+  bool get isPendingRemoval =>
+      itemStatus == 'pending_removal' ||
+      itemHealthState == 'removal_pending';
+
+  bool get requiresUserAction =>
+      !isPendingRemoval && (needsReconnect || hasNewAccountsAvailable);
 
   String get actionDescription {
     if (hasNewAccountsAvailable) {
@@ -68,7 +73,9 @@ class BankConnection {
     return 'This bank needs to be repaired before syncing can continue.';
   }
 
-  bool get isHealthy => itemHealthState == null || itemHealthState == 'healthy';
+  bool get isHealthy =>
+      !isPendingRemoval &&
+      (itemHealthState == null || itemHealthState == 'healthy');
 
   bool get canRequestManualRefresh =>
       isHealthy && !needsReconnect && !hasNewAccountsAvailable;

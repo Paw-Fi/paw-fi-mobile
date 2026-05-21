@@ -12,6 +12,7 @@ import '../pages/budget_detail_page.dart';
 import '../pages/household_expenses_page.dart';
 import '../../../home/presentation/models/expense_entry.dart';
 import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
+import '../../../utils/currency.dart';
 import '../../../../shared/widgets/user_avatar.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -479,7 +480,7 @@ class _BudgetCard extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '\$${(budget.amountCents / 100).toStringAsFixed(2)}',
+              '\$${formatAmount(budget.amountCents / 100)}',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -669,8 +670,7 @@ class _ExpenseActivityCard extends StatelessWidget {
             final isIncome =
                 (expense.type ?? 'expense').toLowerCase() == 'income';
             final sign = isIncome ? '+' : '-';
-            final txt =
-                '$sign\${(expense.amountCents / 100).toStringAsFixed(2)}';
+            final txt = '$sign\$${formatAmount(expense.amountCents / 100)}';
             return Text(
               txt,
               style: TextStyle(

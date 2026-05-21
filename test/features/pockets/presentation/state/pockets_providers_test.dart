@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -804,6 +805,56 @@ void main() {
       expect(resolved, isEmpty);
     });
 
+    test('allows in-memory optimistic expenses from selected currency set', () {
+      final month = DateTime(2026, 5, 1);
+
+      final resolved = resolveInMemoryPocketOverlayExpenses(
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        monthStart: month,
+        selectedCurrency: 'USD',
+        selectedCurrencies: const ['USD', 'EUR'],
+        personalExpenses: [
+          ExpenseEntry(
+            id: 'optimistic_usd',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1000,
+            currency: 'USD',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+          ExpenseEntry(
+            id: 'optimistic_eur',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1000,
+            currency: 'EUR',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+          ExpenseEntry(
+            id: 'optimistic_gbp',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1000,
+            currency: 'GBP',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+        ],
+        householdExpensesByHouseholdId: const {},
+      );
+
+      expect(resolved.map((expense) => expense.id), [
+        'optimistic_usd',
+        'optimistic_eur',
+      ]);
+    });
+
     test(
         'ignores non-optimistic in-memory rows to avoid double counting saved rows',
         () {
@@ -901,6 +952,84 @@ void main() {
       expect(updated.localOverlayExpenseIds, {'optimistic-bills-1'});
       expect(updated.hasChanges, isFalse);
     });
+
+    test('converts selected-currency-set local overlay into state currency',
+        () {
+      final month = DateTime(2026, 5, 1);
+      final pocket = PocketEnvelope(
+        id: 'env-food',
+        name: 'Food',
+        budgetAmountCents: 10000,
+        spent: 0,
+        currency: 'USD',
+        budgetId: 'budget-1',
+        lastUpdated: month,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        error: null,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: month,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 100,
+        savedTotalBudget: 100,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'env-food': ['food'],
+        },
+      );
+
+      final updated = applyLocalPocketExpenseOverlay(
+        state: state,
+        selectedCurrencies: const ['USD', 'EUR'],
+        rates: const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: {'USD': 1, 'EUR': 0.5},
+        ),
+        expenses: [
+          ExpenseEntry(
+            id: 'local-usd',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1000,
+            currency: 'USD',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+          ExpenseEntry(
+            id: 'local-eur',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1000,
+            currency: 'EUR',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+          ExpenseEntry(
+            id: 'local-gbp',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1000,
+            currency: 'GBP',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+        ],
+      );
+
+      expect(updated.saved.single.spent, 30);
+      expect(updated.editing.single.spent, 30);
+      expect(updated.localOverlayExpenseIds, {'local-usd', 'local-eur'});
+    });
   });
 
   group('resolveEnvelopeRowsForViewedMonth', () {
@@ -968,6 +1097,31 @@ void main() {
 
       expect(baseParams, isNot(forecastParams));
       expect(baseParams.hashCode, isNot(forecastParams.hashCode));
+    });
+
+    test('selected currency set participates in normalized equality', () {
+      final usdOnly = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 3, 1),
+        currency: 'USD',
+        selectedCurrencies: const ['USD'],
+      );
+      final multiCurrency = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 3, 1),
+        currency: 'USD',
+        selectedCurrencies: const [' eur ', 'USD', 'EUR'],
+      );
+      final sameMultiCurrency = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 3, 1),
+        currency: 'USD',
+        selectedCurrencies: const ['USD', 'EUR'],
+      );
+
+      expect(usdOnly, isNot(multiCurrency));
+      expect(multiCurrency, sameMultiCurrency);
+      expect(multiCurrency.hashCode, sameMultiCurrency.hashCode);
     });
   });
 

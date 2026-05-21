@@ -1,9 +1,13 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
@@ -88,10 +92,14 @@ final householdDerivedSummaryProvider =
     final currentUserId = supabase.auth.currentUser?.id;
     final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
     final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
+    final selectedCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
     final query = DashboardScopeQuery(
       userId: currentUserId ?? '',
       householdId: params.householdId,
       selectedCurrency: params.currency,
+      selectedCurrencies: selectedCurrencies,
       startDate: rangeStart,
       endDate: rangeEnd,
     );
@@ -176,13 +184,36 @@ final householdDerivedSummaryProvider =
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: params.currency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
+    final shouldConvertCurrencies =
+        selectedCurrencies != null && selectedCurrencies.length > 1;
+    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
+    final summaryExpenses = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            expensesWithRecurring,
+            targetCurrency: params.currency,
+            rates: rates,
+          )
+        : expensesWithRecurring;
+    final summarySplits = shouldConvertCurrencies
+        ? _convertSplitGroupsToCurrency(
+            splits,
+            targetCurrency: params.currency,
+            rates: rates,
+          )
+        : splits;
 
     final summary = _buildHouseholdSummary(
       params: params,
-      expenses: expensesWithRecurring,
-      splits: splits,
+      expenses: summaryExpenses,
+      splits: summarySplits,
       members: members,
       budgets: budgets,
     );
@@ -190,6 +221,62 @@ final householdDerivedSummaryProvider =
     return AsyncValue.data(summary);
   },
 );
+
+List<ExpenseSplitGroup> _convertSplitGroupsToCurrency(
+  List<ExpenseSplitGroup> groups, {
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  final normalizedTarget = targetCurrency.trim().toUpperCase();
+  return groups.map((group) {
+    final sourceCurrency = group.currency.trim().toUpperCase().isEmpty
+        ? normalizedTarget
+        : group.currency.trim().toUpperCase();
+    return ExpenseSplitGroup(
+      id: group.id,
+      householdId: group.householdId,
+      expenseId: group.expenseId,
+      payerUserId: group.payerUserId,
+      splitType: group.splitType,
+      currency: normalizedTarget,
+      totalAmountCents: convertAmountCentsToCurrency(
+        group.totalAmountCents,
+        fromCurrency: sourceCurrency,
+        targetCurrency: normalizedTarget,
+        rates: rates,
+      ),
+      description: group.description,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+      payerEmail: group.payerEmail,
+      splitLines: group.splitLines?.map((line) {
+        final amountCents = line.amountCents;
+        return ExpenseSplitLine(
+          id: line.id,
+          splitGroupId: line.splitGroupId,
+          userId: line.userId,
+          amountCents: amountCents == null
+              ? null
+              : convertAmountCentsToCurrency(
+                  amountCents,
+                  fromCurrency: sourceCurrency,
+                  targetCurrency: normalizedTarget,
+                  rates: rates,
+                ),
+          percentage: line.percentage,
+          shares: line.shares,
+          isSettled: line.isSettled,
+          settledAt: line.settledAt,
+          createdAt: line.createdAt,
+          updatedAt: line.updatedAt,
+          userEmail: line.userEmail,
+          userName: line.userName,
+          settledByUserId: line.settledByUserId,
+        );
+      }).toList(growable: false),
+    );
+  }).toList(growable: false);
+}
 
 HouseholdSummary _buildHouseholdSummary({
   required HouseholdSummaryParams params,

@@ -36,6 +36,7 @@ import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/core/sync/mobile_delta_sync_provider.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -83,6 +84,7 @@ Future<void> _syncThenRefreshMainShellData(
 ) async {
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   await _syncMobileTransactions(ref, userId);
+  await _syncCurrencyRates(ref);
   await _refreshActiveMainShellTab(ref, userId, currentIndex);
   await _refreshDeferredMainShellData(ref, userId, currentIndex);
 }
@@ -146,8 +148,8 @@ Future<void> _refreshActiveTransactionsWindow(
 ) async {
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
 
-  final selectedCurrency =
-      ref.read(homeFilterProvider).selectedCurrency?.trim().toUpperCase();
+  final filterState = ref.read(homeFilterProvider);
+  final selectedCurrency = filterState.selectedCurrency?.trim().toUpperCase();
   final query = dashboardTransactionsQuery(
     DashboardScopeQuery(
       userId: userId,
@@ -155,6 +157,7 @@ Future<void> _refreshActiveTransactionsWindow(
       selectedCurrency: selectedCurrency == null || selectedCurrency.isEmpty
           ? null
           : selectedCurrency,
+      selectedCurrencies: filterState.normalizedSelectedCurrencies,
       startDate: null,
       endDate: null,
     ),
@@ -249,6 +252,12 @@ Future<void> _drainMobileOutbox(WidgetRef ref) async {
       mobileOutboxSyncCoordinatorProvider.future,
     );
     await coordinator.drainOutbox();
+  } catch (_) {}
+}
+
+Future<void> _syncCurrencyRates(WidgetRef ref) async {
+  try {
+    await syncCurrencyRates(ref);
   } catch (_) {}
 }
 

@@ -175,8 +175,9 @@ class _RecurringTransactionsPageState
     // Watch the filtered providers (they derive from the unified provider)
     final recurringExpenses = ref.watch(recurringExpensesProvider(householdId));
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
-    final selectedCurrency =
-        ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
+    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
@@ -203,6 +204,7 @@ class _RecurringTransactionsPageState
                     recurringExpenses,
                     colorScheme,
                     selectedCurrency,
+                    selectedCurrencies,
                     householdId,
                     userNow,
                   ),
@@ -215,6 +217,7 @@ class _RecurringTransactionsPageState
                     recurringIncomes,
                     colorScheme,
                     selectedCurrency,
+                    selectedCurrencies,
                     householdId,
                     userNow,
                   ),
@@ -309,17 +312,21 @@ class _RecurringTransactionsPageState
     AsyncValue<List<dynamic>> recurringExpenses,
     ColorScheme colorScheme,
     String? selectedCurrency,
+    List<String>? selectedCurrencies,
     String? householdId,
     DateTime userNow,
   ) {
     return recurringExpenses.when(
       data: (expenses) {
-        final filtered = (selectedCurrency == null
+        final currencySet = _normalizedCurrencySet(selectedCurrencies) ??
+            _normalizedCurrencySet(
+              selectedCurrency == null ? null : <String>[selectedCurrency],
+            );
+        final filtered = (currencySet == null
                 ? expenses
                 : expenses
-                    .where((e) =>
-                        (e as RecurringTransaction).currency.toUpperCase() ==
-                        selectedCurrency)
+                    .where((e) => currencySet.contains(
+                        (e as RecurringTransaction).currency.toUpperCase()))
                     .toList())
             .cast<RecurringTransaction>();
 
@@ -356,17 +363,21 @@ class _RecurringTransactionsPageState
     AsyncValue<List<dynamic>> recurringIncomes,
     ColorScheme colorScheme,
     String? selectedCurrency,
+    List<String>? selectedCurrencies,
     String? householdId,
     DateTime userNow,
   ) {
     return recurringIncomes.when(
       data: (incomes) {
-        final filtered = (selectedCurrency == null
+        final currencySet = _normalizedCurrencySet(selectedCurrencies) ??
+            _normalizedCurrencySet(
+              selectedCurrency == null ? null : <String>[selectedCurrency],
+            );
+        final filtered = (currencySet == null
                 ? incomes
                 : incomes
-                    .where((e) =>
-                        (e as RecurringTransaction).currency.toUpperCase() ==
-                        selectedCurrency)
+                    .where((e) => currencySet.contains(
+                        (e as RecurringTransaction).currency.toUpperCase()))
                     .toList())
             .cast<RecurringTransaction>();
 
@@ -493,6 +504,15 @@ class _RecurringTransactionsPageState
         ),
       ),
     );
+  }
+
+  Set<String>? _normalizedCurrencySet(Iterable<String>? currencies) {
+    final normalized = currencies
+        ?.map((currency) => currency.trim().toUpperCase())
+        .where((currency) => currency.isNotEmpty)
+        .toSet();
+    if (normalized == null || normalized.isEmpty) return null;
+    return normalized;
   }
 
   Widget _buildFAB(ColorScheme colorScheme) {

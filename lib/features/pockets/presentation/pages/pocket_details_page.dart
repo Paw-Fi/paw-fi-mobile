@@ -158,6 +158,7 @@ class PocketDetailsPage extends HookConsumerWidget {
       householdId: scopeParams.householdId,
       periodMonth: state.periodMonth,
       currency: effectiveCurrency,
+      selectedCurrencies: scopeParams.normalizedSelectedCurrencies,
       isBootstrapCurrency: false,
       includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
@@ -181,6 +182,7 @@ class PocketDetailsPage extends HookConsumerWidget {
         userId: currentUserId,
         householdId: feedHouseholdId,
         selectedCurrency: effectiveCurrency,
+        selectedCurrencies: detailScopeParams.normalizedSelectedCurrencies,
         selectedCategory: null,
         selectedAccountId: null,
         selectedCategories: linkedCategories,

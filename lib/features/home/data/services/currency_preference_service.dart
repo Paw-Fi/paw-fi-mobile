@@ -4,10 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Provides a clean abstraction over SharedPreferences for currency-related settings
 class CurrencyPreferenceService {
   static const String _selectedCurrencyKey = 'selected_currency';
+  static const String _selectedCurrenciesKey = 'selected_currencies';
   static const String _currencyOrderKey = 'currency_order';
 
   // In-memory cache to reduce SharedPreferences reads
   String? _cachedCurrency;
+  List<String>? _cachedSelectedCurrencies;
   List<String>? _cachedOrder;
 
   /// Get the selected currency (cached for performance)
@@ -34,6 +36,34 @@ class CurrencyPreferenceService {
     _cachedCurrency = null;
   }
 
+  /// Get locally selected currencies for filtering dashboards and lists.
+  /// Returns null if the user has not configured a multi-currency selection.
+  Future<List<String>?> getSelectedCurrencies() async {
+    if (_cachedSelectedCurrencies != null) return _cachedSelectedCurrencies;
+
+    final prefs = await SharedPreferences.getInstance();
+    final values = prefs.getStringList(_selectedCurrenciesKey);
+    if (values == null) return null;
+
+    _cachedSelectedCurrencies = _normalizeCurrencyList(values);
+    return _cachedSelectedCurrencies;
+  }
+
+  /// Set the local multi-currency filter selection.
+  Future<void> setSelectedCurrencies(List<String> currencies) async {
+    final normalized = _normalizeCurrencyList(currencies);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_selectedCurrenciesKey, normalized);
+    _cachedSelectedCurrencies = normalized;
+  }
+
+  /// Clear only the local multi-currency filter selection.
+  Future<void> clearSelectedCurrencies() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_selectedCurrenciesKey);
+    _cachedSelectedCurrencies = null;
+  }
+
   /// Get custom currency display order
   /// Returns null if no custom order has been set
   Future<List<String>?> getCurrencyOrder() async {
@@ -57,8 +87,21 @@ class CurrencyPreferenceService {
   /// Clear all currency preferences
   Future<void> clearAll() async {
     await clearSelectedCurrency();
+    await clearSelectedCurrencies();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_currencyOrderKey);
     _cachedOrder = null;
+  }
+
+  List<String> _normalizeCurrencyList(List<String> currencies) {
+    final seen = <String>{};
+    final normalized = <String>[];
+    for (final currency in currencies) {
+      final code = currency.trim().toUpperCase();
+      if (code.isEmpty || seen.contains(code)) continue;
+      seen.add(code);
+      normalized.add(code);
+    }
+    return normalized;
   }
 }

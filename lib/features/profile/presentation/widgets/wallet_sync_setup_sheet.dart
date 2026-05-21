@@ -50,6 +50,12 @@ class WalletSyncSetupSheet extends StatelessWidget {
                   // Modal Sheet Drag Handle
                   const ModalSheetHandle(),
                   _buildHeader(context, colorScheme),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                    child: _TutorialVideoButton(onPressed: () {
+                      _showTutorialVideo(context);
+                    }),
+                  ),
                   Flexible(
                     child: SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
@@ -127,10 +133,6 @@ class WalletSyncSetupSheet extends StatelessWidget {
                                 .selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation,
                           ),
                           const SizedBox(height: 16),
-                          _TutorialVideoButton(onPressed: () {
-                            _showTutorialVideo(context);
-                          }),
-                          const SizedBox(height: 12),
                           _buildFooter(context, colorScheme),
                         ],
                       ),

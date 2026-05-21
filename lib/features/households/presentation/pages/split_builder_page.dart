@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -427,7 +428,7 @@ class _SplitPreview extends StatelessWidget {
                   children: [
                     Text(member.userName ?? member.userEmail ?? 'Unknown'),
                     Text(
-                      '\$${amount.toStringAsFixed(2)}',
+                      '\$${formatAmount(amount)}',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],

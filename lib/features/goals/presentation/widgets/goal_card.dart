@@ -5,6 +5,7 @@ import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 class GoalCard extends ConsumerWidget {
   final Goal goal;
@@ -128,14 +129,14 @@ class GoalCard extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${goal.currency} ${goal.currentAmount.toStringAsFixed(2)}',
+                        '${goal.currency} ${formatAmount(goal.currentAmount)}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        '${goal.currency} ${goal.targetAmount.toStringAsFixed(2)}',
+                        '${goal.currency} ${formatAmount(goal.targetAmount)}',
                         style: TextStyle(
                           fontSize: 14,
                           color: colorScheme.mutedForeground,

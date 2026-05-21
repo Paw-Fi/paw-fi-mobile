@@ -372,6 +372,9 @@ class _ScenarioPlanningTabContentState
         householdScope.activeAccountType != ActiveWalletType.personal &&
             activeHouseholdId != null;
     final String? householdId = isHousehold ? activeHouseholdId : null;
+    final selectedCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
     final preview = ref.watch(previewModeProvider);
 
     if (!preview.isActive && user.uid.isNotEmpty) {
@@ -592,6 +595,8 @@ class _ScenarioPlanningTabContentState
                                                 .languageCode,
                                         'currency':
                                             widget.selectedCurrency ?? 'USD',
+                                        if (selectedCurrencies != null)
+                                          'currencies': selectedCurrencies,
                                         'mode': isHousehold
                                             ? 'household'
                                             : 'personal',
@@ -1091,7 +1096,8 @@ class _ScenarioPlanningTabContentState
   }
 
   void _ensureScenarioHistoryFuture(String userId, String? householdId) {
-    final normalizedHouseholdId = householdId?.isEmpty == true ? null : householdId;
+    final normalizedHouseholdId =
+        householdId?.isEmpty == true ? null : householdId;
     final shouldRefresh = _scenarioHistoryFuture == null ||
         _scenarioHistoryUserId != userId ||
         _scenarioHistoryHouseholdId != normalizedHouseholdId;

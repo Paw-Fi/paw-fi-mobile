@@ -4,11 +4,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -25,6 +27,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   final List<ExpenseEntry> transactions;
   final List<ExpenseSplitGroup>? splits;
   final String currency;
+  final CurrencyRateTable? currencyRates;
   final String? householdId;
 
   const HouseholdMemberDetailsPage({
@@ -33,6 +36,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     required this.transactions,
     this.splits,
     required this.currency,
+    this.currencyRates,
     this.householdId,
   });
 
@@ -883,14 +887,29 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       if (!isSpend) continue;
 
       final tCurrency = (t.currency ?? '').trim().toUpperCase();
-      if (tCurrency.isNotEmpty && tCurrency != currency) continue;
+      if (currencyRates == null &&
+          tCurrency.isNotEmpty &&
+          tCurrency != currency) {
+        continue;
+      }
+      final displayTransaction = currencyRates == null
+          ? t
+          : t.copyWith(
+              amountCents: convertAmountCentsToCurrency(
+                t.amountCents,
+                fromCurrency: tCurrency.isEmpty ? currency : tCurrency,
+                targetCurrency: currency,
+                rates: currencyRates!,
+              ),
+              currency: currency,
+            );
 
       final splitGroupId = t.splitGroupId;
 
       // CASE 1: No split - attribute full amount to creator
       if (splitGroupId == null) {
         if (t.userId == member.userId) {
-          memberTransactions.add(t);
+          memberTransactions.add(displayTransaction);
         }
         continue;
       }
@@ -899,7 +918,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       final group = byGroupId[splitGroupId];
       if (group == null || group.splitLines == null) {
         if (t.userId == member.userId) {
-          memberTransactions.add(t);
+          memberTransactions.add(displayTransaction);
         }
         continue;
       }
@@ -912,8 +931,20 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         // For the list view, showing the original transaction is cleaner,
         // but showing the split amount would be more accurate.
         // Let's create a copy with the adjusted amount for display purposes.
-        memberTransactions.add(t.copyWith(
-          amountCents: (memberLine.amountCents ?? 0).abs(),
+        final sourceCurrency = group.currency.trim().toUpperCase();
+        final memberAmountCents = (memberLine.amountCents ?? 0).abs();
+        memberTransactions.add(displayTransaction.copyWith(
+          amountCents: currencyRates == null
+              ? memberAmountCents
+              : convertAmountCentsToCurrency(
+                  memberAmountCents,
+                  fromCurrency:
+                      sourceCurrency.isEmpty ? currency : sourceCurrency,
+                  targetCurrency: currency,
+                  rates: currencyRates!,
+                ),
+          currency:
+              currencyRates == null ? displayTransaction.currency : currency,
         ));
       }
     }

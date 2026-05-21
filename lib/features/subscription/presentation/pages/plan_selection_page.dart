@@ -103,6 +103,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
     final currentSubscription = currentSub?.subscription;
+    final isHouseholdSharedSubscription =
+        currentSubscription?.boundToUserId != null;
     final isFamilySharedSubscription =
         currentSubscription?.isAppStoreFamilyShared ?? false;
     final isAppStoreManagedSubscription = currentProvider == 'app_store' ||
@@ -111,6 +113,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isStoreManagedSubscription = currentSubscription?.isIap ?? false;
     final canManageCurrentSubscription = currentPlanId != 'free' &&
         currentPlanId != 'lifetime' &&
+        !isHouseholdSharedSubscription &&
         !isFamilySharedSubscription;
 
     // Check if user is truly new (no subscription data exists)

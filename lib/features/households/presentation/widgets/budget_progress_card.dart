@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../providers/household_derived_providers.dart';
@@ -157,6 +158,6 @@ class BudgetProgressCard extends ConsumerWidget {
 
   String _formatMoney(int cents) {
     final amount = cents / 100;
-    return '${budget.currency} ${amount.toStringAsFixed(2)}';
+    return '${budget.currency} ${formatAmount(amount)}';
   }
 }

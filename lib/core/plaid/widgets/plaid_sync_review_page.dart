@@ -10,6 +10,7 @@ import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
 import 'package:moneko/core/plaid/models/synced_transaction.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -153,7 +154,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (!mounted) return;
       setState(() {
         _isPreparing = false;
-        _errorMessage = error.toString();
+        _errorMessage = ErrorHandler.getUserFriendlyMessage(error);
       });
     }
   }
@@ -595,13 +596,10 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<_ConnectionSyncSnapshot> _fetchConnectionSyncSnapshot() async {
-    final row = await Supabase.instance.client
-        .from('bank_connections')
-        .select(
-          'status, item_status, relink_state, last_successful_sync_at, metadata',
-        )
-        .eq('id', widget.session.connectionId)
-        .maybeSingle();
+    final row = await Supabase.instance.client.rpc(
+      'get_mobile_bank_connection_sync_snapshot',
+      params: {'p_connection_id': widget.session.connectionId},
+    ).maybeSingle();
 
     if (row == null) {
       return const _ConnectionSyncSnapshot();
@@ -631,7 +629,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       return const [];
     }
 
-    final rows = await Supabase.instance.client
+    var query = Supabase.instance.client
         .from('expenses')
         .select(
           'id, contact_id, user_id, household_id, date, amount_cents, currency, '
@@ -639,11 +637,17 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           'account_id, type, is_recurring, recurrence_rule',
         )
         .inFilter('bank_account_id', bankAccountIds)
-        .isFilter('deleted_at', null)
-        .order('date', ascending: false)
-        .limit(200);
+        .isFilter('deleted_at', null);
 
-    return (rows as List<dynamic>)
+    if (widget.session.targetHouseholdId == null) {
+      query = query.isFilter('household_id', null);
+    } else {
+      query = query.eq('household_id', widget.session.targetHouseholdId!);
+    }
+
+    final rows = await query.order('date', ascending: false).limit(200);
+
+    final transactions = (rows as List<dynamic>)
         .whereType<Map<String, dynamic>>()
         .map((row) => SyncedTransaction(
               expense: ExpenseEntry.fromJson(row),
@@ -651,18 +655,36 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
               recurrenceRule: row['recurrence_rule'] as Map<String, dynamic>?,
             ))
         .toList(growable: false);
+    return inferSyncedRecurringTransactions(transactions);
   }
 
   Future<_DirectPlaidFetchResult>
       _loadTransactionsFromPlaidSyncFunction() async {
-    final response = await Supabase.instance.client.functions.invoke(
-      'plaid-sync-transactions',
-      body: {
-        'connectionId': widget.session.connectionId,
-        if (widget.session.targetHouseholdId != null)
-          'targetHouseholdId': widget.session.targetHouseholdId,
-      },
-    );
+    late final FunctionResponse response;
+    try {
+      response = await Supabase.instance.client.functions.invoke(
+        'plaid-sync-transactions',
+        body: {
+          'connectionId': widget.session.connectionId,
+          if (widget.session.targetHouseholdId != null)
+            'targetHouseholdId': widget.session.targetHouseholdId,
+        },
+      );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      final errorCode =
+          details is Map ? details['errorCode']?.toString().trim() : null;
+      if (error.status == 429 || errorCode == 'MANUAL_SYNC_COOLDOWN') {
+        final parsed = details is Map
+            ? parseSyncedTransactionPayload(Map<String, dynamic>.from(details))
+            : const ParsedSyncedTransactions(transactions: []);
+        return _DirectPlaidFetchResult(
+          transactions: const [],
+          syncStatus: parsed.syncStatus,
+        );
+      }
+      rethrow;
+    }
 
     if (response.status >= 400) {
       return const _DirectPlaidFetchResult(transactions: []);
@@ -1342,6 +1364,7 @@ class _MonthSection extends StatelessWidget {
                     isIncome: (tx.expense.type ?? 'expense').toLowerCase() ==
                         'income',
                     onTap: () => onEdit(tx),
+                    showRecurringChip: tx.isRecurring,
                   ),
                 ),
               const SizedBox(height: 8),

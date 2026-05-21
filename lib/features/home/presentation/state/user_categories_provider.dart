@@ -41,6 +41,22 @@ class UserCustomCategory {
   final String? iconKey;
 }
 
+class UserCategoryRemapPreference {
+  const UserCategoryRemapPreference({
+    required this.transactionType,
+    required this.fromCategory,
+    required this.toCategory,
+    required this.useCount,
+    required this.lastUsedAt,
+  });
+
+  final String transactionType;
+  final String fromCategory;
+  final String toCategory;
+  final int useCount;
+  final DateTime? lastUsedAt;
+}
+
 class UserCategoryConfig {
   const UserCategoryConfig({
     required this.visibleExpenseCategories,
@@ -237,6 +253,117 @@ final userCategoryListsProvider =
     incomeCategories: config.visibleIncomeCategories,
   );
 });
+
+final userCategoryRemapsProvider =
+    FutureProvider<List<UserCategoryRemapPreference>>((ref) async {
+  final user = ref.watch(authProvider);
+  if (user.uid.isEmpty) return const <UserCategoryRemapPreference>[];
+
+  try {
+    final remoteRemaps = await _fetchUserCategoryRemapsFromSupabase(user.uid);
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.replaceCategoryRemapsFromRemote(
+      userId: user.uid,
+      remaps: remoteRemaps.map(
+        (remap) => _toLocalCategoryRemapPreference(user.uid, remap),
+      ),
+    );
+    final localRemaps = await database.getCategoryRemapPreferences(
+      userId: user.uid,
+    );
+    return localRemaps.map(_fromLocalCategoryRemapPreference).toList(
+          growable: false,
+        );
+  } catch (_) {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      final localRemaps = await database.getCategoryRemapPreferences(
+        userId: user.uid,
+      );
+      return localRemaps.map(_fromLocalCategoryRemapPreference).toList(
+            growable: false,
+          );
+    } catch (_) {
+      return _fetchUserCategoryRemapsFromSupabase(user.uid);
+    }
+  }
+});
+
+Future<List<UserCategoryRemapPreference>> _fetchUserCategoryRemapsFromSupabase(
+  String userId,
+) async {
+  final rows = await supabase
+      .from('user_category_remaps')
+      .select(
+        'transaction_type,from_category_name,to_category_name,use_count,last_used_at',
+      )
+      .eq('user_id', userId)
+      .order('use_count', ascending: false)
+      .order('last_used_at', ascending: false);
+
+  return rows
+      .cast<Map<String, dynamic>>()
+      .map(_userCategoryRemapFromRow)
+      .whereType<UserCategoryRemapPreference>()
+      .toList(growable: false);
+}
+
+UserCategoryRemapPreference? _userCategoryRemapFromRow(
+  Map<String, dynamic> row,
+) {
+  final transactionType = _normalizeCategoryName(
+    row['transaction_type']?.toString() ?? '',
+  );
+  final fromCategory = _normalizeCategoryName(
+    row['from_category_name']?.toString() ?? '',
+  );
+  final toCategory = _normalizeCategoryName(
+    row['to_category_name']?.toString() ?? '',
+  );
+  if (!_isValidCategoryRemap(
+    fromCategory: fromCategory,
+    toCategory: toCategory,
+    transactionType: transactionType,
+  )) {
+    return null;
+  }
+
+  final useCountRaw = row['use_count'];
+  return UserCategoryRemapPreference(
+    transactionType: transactionType,
+    fromCategory: fromCategory,
+    toCategory: toCategory,
+    useCount: useCountRaw is num ? useCountRaw.toInt() : 1,
+    lastUsedAt: DateTime.tryParse(row['last_used_at']?.toString() ?? ''),
+  );
+}
+
+LocalCategoryRemapPreference _toLocalCategoryRemapPreference(
+  String userId,
+  UserCategoryRemapPreference remap,
+) {
+  return LocalCategoryRemapPreference(
+    userId: userId,
+    transactionType: remap.transactionType,
+    fromCategory: remap.fromCategory,
+    toCategory: remap.toCategory,
+    useCount: remap.useCount,
+    lastUsedAt:
+        remap.lastUsedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+  );
+}
+
+UserCategoryRemapPreference _fromLocalCategoryRemapPreference(
+  LocalCategoryRemapPreference remap,
+) {
+  return UserCategoryRemapPreference(
+    transactionType: remap.transactionType,
+    fromCategory: remap.fromCategory,
+    toCategory: remap.toCategory,
+    useCount: remap.useCount,
+    lastUsedAt: remap.lastUsedAt,
+  );
+}
 
 bool _isValidCategoryName(String name) {
   if (name.isEmpty) return false;
@@ -552,14 +679,71 @@ Future<bool> saveUserCategoryRemapPreference({
       // The local row and outbox entry already preserve the preference.
     }
 
+    ref.invalidate(userCategoryRemapsProvider);
     return true;
   } catch (_) {
-    return saveUserCategoryRemapPreferenceForUser(
+    final saved = await saveUserCategoryRemapPreferenceForUser(
       userId: user.uid,
       fromCategory: fromNormalized,
       toCategory: toNormalized,
       transactionType: typeNormalized,
     );
+    if (saved) ref.invalidate(userCategoryRemapsProvider);
+    return saved;
+  }
+}
+
+Future<bool> deleteUserCategoryRemapPreference({
+  required WidgetRef ref,
+  required String fromCategory,
+  required String transactionType,
+}) async {
+  final user = ref.read(authProvider);
+  if (user.uid.isEmpty) return false;
+
+  final fromNormalized = _normalizeCategoryName(fromCategory);
+  final typeNormalized = _normalizeCategoryName(transactionType);
+  if (!_isValidCategoryName(fromNormalized)) return false;
+  if (typeNormalized != 'expense' && typeNormalized != 'income') return false;
+
+  final clientMutationId = _categoryRemapClientMutationId(
+    userId: user.uid,
+    transactionType: typeNormalized,
+    fromCategory: fromNormalized,
+  );
+
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.deleteCategoryRemapPreference(
+      userId: user.uid,
+      fromCategory: fromNormalized,
+      transactionType: typeNormalized,
+      clientMutationId: clientMutationId,
+    );
+
+    try {
+      final synced = await deleteUserCategoryRemapPreferenceForUser(
+        userId: user.uid,
+        fromCategory: fromNormalized,
+        transactionType: typeNormalized,
+      );
+      if (synced) {
+        await database.markMutationSynced(clientMutationId);
+      }
+    } catch (_) {
+      // The queued local delete will sync when connectivity recovers.
+    }
+
+    ref.invalidate(userCategoryRemapsProvider);
+    return true;
+  } catch (_) {
+    final deleted = await deleteUserCategoryRemapPreferenceForUser(
+      userId: user.uid,
+      fromCategory: fromNormalized,
+      transactionType: typeNormalized,
+    );
+    if (deleted) ref.invalidate(userCategoryRemapsProvider);
+    return deleted;
   }
 }
 
@@ -660,6 +844,32 @@ Future<bool> saveUserCategoryRemapPreferenceForUser({
   );
 }
 
+Future<bool> deleteUserCategoryRemapPreferenceForUser({
+  required String userId,
+  required String fromCategory,
+  required String transactionType,
+}) async {
+  if (userId.trim().isEmpty) return false;
+
+  final fromNormalized = _normalizeCategoryName(fromCategory);
+  final typeNormalized = _normalizeCategoryName(transactionType);
+  if (!_isValidCategoryName(fromNormalized)) return false;
+  if (typeNormalized != 'expense' && typeNormalized != 'income') return false;
+
+  try {
+    await supabase
+        .from('user_category_remaps')
+        .delete()
+        .eq('user_id', userId.trim())
+        .eq('transaction_type', typeNormalized)
+        .eq('from_category_name', fromNormalized);
+  } catch (_) {
+    return false;
+  }
+
+  return true;
+}
+
 Future<void> syncUserCategoryRemapsFromSupabase(
   WidgetRef ref, {
   required String userId,
@@ -709,7 +919,9 @@ Future<void> syncUserCategoryRemapsFromSupabase(
     );
   }
 
-  if (remaps.isEmpty) return;
   final database = await ref.read(localDatabaseProvider.future);
-  await database.upsertCategoryRemapsFromRemote(remaps);
+  await database.replaceCategoryRemapsFromRemote(
+    userId: normalizedUserId,
+    remaps: remaps,
+  );
 }

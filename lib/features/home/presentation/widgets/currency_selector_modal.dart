@@ -20,23 +20,104 @@ Future<String?> showCurrencySelectorModal(
   BuildContext context,
   WidgetRef ref, {
   bool showAllByDefault = false,
+  bool preselectPrimary = true,
 }) async {
   final navigator = Navigator.maybeOf(context, rootNavigator: true);
   if (navigator == null) return null;
   return navigator.push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) =>
-          CurrencySelectorScreen(showAllByDefault: showAllByDefault),
+      builder: (_) => CurrencySelectorScreen(
+        showAllByDefault: showAllByDefault,
+        preselectPrimary: preselectPrimary,
+      ),
     ),
   );
+}
+
+Future<void> _syncPreferredCurrencyOnBackend(String currency) async {
+  final userId = supabase.auth.currentSession?.user.id;
+  if (userId == null || userId.isEmpty) {
+    throw Exception('Missing user session');
+  }
+  final response = await supabase.functions.invoke(
+    'update-preferred-currency',
+    body: {
+      'currency': currency,
+      'userId': userId,
+    },
+  );
+
+  if (response.status >= 400) {
+    throw Exception('Request failed (${response.status})');
+  }
+
+  final payloadData = response.data;
+  if (payloadData is! Map) {
+    throw Exception('Invalid response');
+  }
+  final payload = payloadData.cast<String, dynamic>();
+  if (payload['ok'] != true) {
+    throw Exception(
+      (payload['error'] ?? 'Unable to update currency').toString(),
+    );
+  }
+}
+
+Future<void> _applyLocalCurrencySelection(
+  ProviderContainer container, {
+  required String primaryCurrency,
+  required List<String> selectedCurrencies,
+}) async {
+  final service = container.read(currencyPreferenceServiceProvider);
+  final filterNotifier = container.read(homeFilterProvider.notifier);
+  final analyticsNotifier = container.read(analyticsProvider.notifier);
+
+  await service.setSelectedCurrency(primaryCurrency);
+  await service.setSelectedCurrencies(selectedCurrencies);
+  filterNotifier.setSelectedCurrency(primaryCurrency);
+  filterNotifier.setSelectedCurrencies(selectedCurrencies);
+  analyticsNotifier.updatePreferredCurrency(primaryCurrency);
+  await WidgetService().saveSelectedWidgetCurrency(primaryCurrency);
+  await WidgetService().reloadWidgets();
+}
+
+Future<void> _retryCurrencySelectionSync({
+  required ProviderContainer container,
+  required BuildContext toastContext,
+  required String primaryCurrency,
+  required List<String> selectedCurrencies,
+  required String successMessage,
+  required String retryFailedMessage,
+}) async {
+  try {
+    await _applyLocalCurrencySelection(
+      container,
+      primaryCurrency: primaryCurrency,
+      selectedCurrencies: selectedCurrencies,
+    );
+    await _syncPreferredCurrencyOnBackend(primaryCurrency);
+    if (toastContext.mounted) {
+      AppToast.success(toastContext, successMessage);
+    }
+  } catch (error) {
+    debugPrint('Failed to retry preferred currency update: $error');
+    if (toastContext.mounted) {
+      AppToast.error(toastContext, retryFailedMessage);
+    }
+  }
 }
 
 /// Full-screen currency selector screen
 class CurrencySelectorScreen extends ConsumerStatefulWidget {
   final bool showAllByDefault;
+  final bool preselectPrimary;
 
-  const CurrencySelectorScreen({super.key, this.showAllByDefault = false});
+  const CurrencySelectorScreen({
+    super.key,
+    this.showAllByDefault = false,
+    this.preselectPrimary = true,
+  });
 
   @override
   ConsumerState<CurrencySelectorScreen> createState() =>
@@ -47,29 +128,39 @@ class _CurrencySelectorScreenState
     extends ConsumerState<CurrencySelectorScreen> {
   bool _showAllCurrencies = false;
   List<String>? _customOrder;
+  List<String>? _selectedCurrencies;
+  String? _primaryCurrency;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<String>? _stableCurrencyCodes;
 
   @override
   void initState() {
     super.initState();
     // When requested (e.g., onboarding), start with all currencies expanded
     _showAllCurrencies = widget.showAllByDefault;
-    _loadCustomOrder();
+    _loadPreferences();
   }
 
-  Future<void> _loadCustomOrder() async {
+  Future<void> _loadPreferences() async {
     try {
       if (!mounted) return;
       final service = ref.read(currencyPreferenceServiceProvider);
       final order = await service.getCurrencyOrder();
+      final selectedCurrencies = await service.getSelectedCurrencies();
       if (order != null && mounted) {
         setState(() {
           _customOrder = order;
+          _selectedCurrencies = selectedCurrencies;
+          _stableCurrencyCodes = order;
+        });
+      } else if (mounted) {
+        setState(() {
+          _selectedCurrencies = selectedCurrencies;
         });
       }
     } catch (e) {
-      debugPrint('Error loading currency order: $e');
+      debugPrint('Error loading currency preferences: $e');
     }
   }
 
@@ -81,11 +172,34 @@ class _CurrencySelectorScreenState
       if (mounted) {
         setState(() {
           _customOrder = order;
+          _stableCurrencyCodes = order;
         });
       }
     } catch (e) {
       debugPrint('Error saving currency order: $e');
     }
+  }
+
+  void _initializeStableCurrencyList(List<CurrencySummary> activeCurrencies,
+      List<CurrencySummary> inactiveCurrencies, String primaryCurrency) {
+    if (_stableCurrencyCodes != null) return;
+
+    final allOrdered = <CurrencySummary>[
+      ...activeCurrencies,
+      ...inactiveCurrencies,
+    ];
+
+    // Initial sort: Primary at top
+    if (primaryCurrency.isNotEmpty) {
+      final index =
+          allOrdered.indexWhere((s) => s.currencyCode == primaryCurrency);
+      if (index > 0) {
+        final selected = allOrdered.removeAt(index);
+        allOrdered.insert(0, selected);
+      }
+    }
+
+    _stableCurrencyCodes = allOrdered.map((s) => s.currencyCode).toList();
   }
 
   @override
@@ -114,6 +228,98 @@ class _CurrencySelectorScreenState
     orderedList.addAll(currencyMap.values);
 
     return orderedList;
+  }
+
+  List<String> _normalizeCurrencySelection(Iterable<String> currencies) {
+    final seen = <String>{};
+    final normalized = <String>[];
+    for (final currency in currencies) {
+      final code = currency.trim().toUpperCase();
+      if (code.isEmpty || seen.contains(code)) continue;
+      seen.add(code);
+      normalized.add(code);
+    }
+    return normalized;
+  }
+
+  Future<void> _saveSelection({
+    required String primaryCurrency,
+    required List<String> selectedCurrencies,
+  }) async {
+    final previousFilterState = ref.read(homeFilterProvider);
+    final previousCurrency = previousFilterState.selectedCurrency;
+    final previousCurrencies = previousFilterState.normalizedSelectedCurrencies;
+    final normalizedPrimary = primaryCurrency.trim().toUpperCase();
+    final normalizedSelected = _normalizeCurrencySelection([
+      normalizedPrimary,
+      ...selectedCurrencies,
+    ]);
+    final resolvedPrimary = normalizedPrimary.isNotEmpty
+        ? normalizedPrimary
+        : (normalizedSelected.isNotEmpty
+            ? normalizedSelected.first
+            : (previousCurrency?.trim().toUpperCase() ?? ''));
+
+    if (resolvedPrimary.isEmpty) {
+      AppToast.warning(context, 'Select a currency first.');
+      return;
+    }
+
+    final resolvedSelected = _normalizeCurrencySelection([
+      resolvedPrimary,
+      ...normalizedSelected,
+    ]);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final toastContext =
+        Navigator.maybeOf(context, rootNavigator: true)?.context;
+    final failedToSyncCurrencyMessage = context.l10n.failedToSyncCurrency;
+    final retryLabel = context.l10n.retry;
+    final successMessage = context.l10n.currencyUpdatedSuccess;
+    final retryFailedMessage = context.l10n.retryFailed('');
+
+    await _applyLocalCurrencySelection(
+      container,
+      primaryCurrency: resolvedPrimary,
+      selectedCurrencies: resolvedSelected,
+    );
+
+    if (mounted) {
+      Navigator.pop(context, resolvedPrimary);
+    }
+
+    final hasSession = supabase.auth.currentSession != null;
+    if (!hasSession) return;
+
+    try {
+      await _syncPreferredCurrencyOnBackend(resolvedPrimary);
+    } catch (error) {
+      debugPrint('Failed to update preferred currency on backend: $error');
+
+      if (previousCurrency != null) {
+        await _applyLocalCurrencySelection(
+          container,
+          primaryCurrency: previousCurrency,
+          selectedCurrencies: previousCurrencies ?? <String>[previousCurrency],
+        );
+      }
+
+      if (toastContext != null && toastContext.mounted) {
+        AppToast.action(
+          toastContext,
+          failedToSyncCurrencyMessage,
+          actionLabel: retryLabel,
+          type: AppToastType.warning,
+          onPressed: () => _retryCurrencySelectionSync(
+            container: container,
+            toastContext: toastContext,
+            primaryCurrency: resolvedPrimary,
+            selectedCurrencies: resolvedSelected,
+            successMessage: successMessage,
+            retryFailedMessage: retryFailedMessage,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -156,71 +362,84 @@ class _CurrencySelectorScreenState
     }).toList();
 
     // Separate currencies into active (with transactions) and inactive
-    var activeCurrencies = allCurrencySummaries.where((s) {
+    final activeCurrencies = allCurrencySummaries.where((s) {
       final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
       return txCount > 0;
     }).toList();
 
-    var inactiveCurrencies = allCurrencySummaries.where((s) {
+    final inactiveCurrencies = allCurrencySummaries.where((s) {
       final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
       return txCount == 0;
     }).toList()
       ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
 
-    // Apply custom order
-    activeCurrencies = _applyCustomOrder(activeCurrencies);
-    inactiveCurrencies = _applyCustomOrder(inactiveCurrencies);
+    final fallbackPrimary = ref.watch(selectedHomeCurrencyCodeProvider);
+    final defaultPrimary = widget.preselectPrimary
+        ? (filterState.selectedCurrency ?? fallbackPrimary)
+        : null;
+    final primaryCurrency =
+        (_primaryCurrency ?? defaultPrimary ?? '').trim().toUpperCase();
+    final selectedCurrencySet = _normalizeCurrencySelection(
+      _selectedCurrencies ??
+          filterState.normalizedSelectedCurrencies ??
+          <String>[primaryCurrency],
+    ).toSet();
 
-    // Full ordered list (active + inactive)
-    final allOrderedCurrencies = <CurrencySummary>[
-      ...activeCurrencies,
-      ...inactiveCurrencies,
-    ];
+    // Initialize stable list on first load
+    if (_stableCurrencyCodes == null && allCurrencySummaries.isNotEmpty) {
+      _initializeStableCurrencyList(
+        _applyCustomOrder(activeCurrencies),
+        _applyCustomOrder(inactiveCurrencies),
+        primaryCurrency,
+      );
+    }
+
+    // Map stable codes back to summaries (preserving the stable order)
+    final stableSummaries = (_stableCurrencyCodes ?? []).map((code) {
+      return allCurrencySummaries.firstWhere(
+        (s) => s.currencyCode == code,
+        orElse: () => CurrencySummary(
+          currencyCode: code,
+          totalExpenses: 0,
+          totalIncome: 0,
+          totalBudget: 0,
+          transactionCount: 0,
+        ),
+      );
+    }).toList();
 
     // Apply search filter (by currency code or symbol)
     final query = _searchQuery.trim().toLowerCase();
     List<CurrencySummary> visibleCurrencies;
     if (query.isNotEmpty) {
-      // When searching, bypass the "show all" toggle and search across all currencies
-      visibleCurrencies = allOrderedCurrencies.where((s) {
+      // When searching, bypass the "show all" toggle and search across all summaries
+      visibleCurrencies = allCurrencySummaries.where((s) {
         final code = s.currencyCode.toLowerCase();
         final symbol = (currencyOptions[s.currencyCode] ?? '').toLowerCase();
         return code.contains(query) || symbol.contains(query);
       }).toList();
+      // Sort search results by primary and selected (optional, but good for UX)
+      visibleCurrencies.sort((left, right) {
+        int rank(CurrencySummary summary) {
+          if (summary.currencyCode == primaryCurrency) return 0;
+          if (selectedCurrencySet.contains(summary.currencyCode)) return 1;
+          return 2;
+        }
+
+        return rank(left).compareTo(rank(right));
+      });
     } else {
-      // Default behavior respecting the "show all currencies" toggle
-      visibleCurrencies = _showAllCurrencies
-          ? List<CurrencySummary>.from(allOrderedCurrencies)
-          : List<CurrencySummary>.from(activeCurrencies);
-    }
-
-    // Always put selected currency at the top and ensure it's visible
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-    if (selectedCurrency != null) {
-      final selectedIndex = visibleCurrencies.indexWhere(
-        (s) => s.currencyCode == selectedCurrency,
-      );
-
-      if (selectedIndex > 0) {
-        // Move selected currency to the front
-        final selected = visibleCurrencies.removeAt(selectedIndex);
-        visibleCurrencies.insert(0, selected);
-      } else if (selectedIndex == -1 && query.isEmpty && _showAllCurrencies) {
-        // When showing all currencies and not searching, ensure the selected currency is visible
-        final selectedFromInactive = inactiveCurrencies.firstWhere(
-          (s) => s.currencyCode == selectedCurrency,
-          orElse: () => allCurrencySummaries.firstWhere(
-            (s) => s.currencyCode == selectedCurrency,
-            orElse: () => CurrencySummary(
-              currencyCode: selectedCurrency,
-              totalExpenses: 0,
-              totalIncome: 0,
-              totalBudget: 0,
-              transactionCount: 0,
-            ),
-          ),
-        );
-        visibleCurrencies.insert(0, selectedFromInactive);
+      // Respect the "show all currencies" toggle using the stable list
+      if (_showAllCurrencies) {
+        visibleCurrencies = stableSummaries;
+      } else {
+        visibleCurrencies = stableSummaries.where((s) {
+          final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
+          // Always show primary or included currencies even if inactive
+          return txCount > 0 ||
+              s.currencyCode == primaryCurrency ||
+              selectedCurrencySet.contains(s.currencyCode);
+        }).toList();
       }
     }
 
@@ -229,6 +448,7 @@ class _CurrencySelectorScreenState
       appBar: AppBar(
         backgroundColor: colorScheme.card,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: Icon(Icons.close, color: colorScheme.foreground),
           onPressed: () => Navigator.pop(context, null),
@@ -237,16 +457,34 @@ class _CurrencySelectorScreenState
           context.l10n.selectCurrency,
           style: TextStyle(
             color: colorScheme.foreground,
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              onPressed: () => _saveSelection(
+                primaryCurrency: primaryCurrency,
+                selectedCurrencies: selectedCurrencySet.toList(growable: false),
+              ),
+              child: Text(
+                context.l10n.save,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) {
@@ -257,12 +495,14 @@ class _CurrencySelectorScreenState
                 decoration: InputDecoration(
                   prefixIcon: Icon(
                     Icons.search,
+                    size: 20,
                     color: colorScheme.mutedForeground,
                   ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: Icon(
                             Icons.clear,
+                            size: 18,
                             color: colorScheme.mutedForeground,
                           ),
                           onPressed: () {
@@ -275,28 +515,24 @@ class _CurrencySelectorScreenState
                       : null,
                   hintText: context.l10n.search,
                   filled: true,
-                  fillColor: colorScheme.card,
+                  fillColor: colorScheme.muted.withValues(alpha: 0.5),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: colorScheme.border,
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: colorScheme.border,
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: colorScheme.primary,
-                      width: 1.5,
+                      color: colorScheme.primary.withValues(alpha: 0.5),
+                      width: 1,
                     ),
                   ),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
             ),
@@ -304,30 +540,45 @@ class _CurrencySelectorScreenState
               child: visibleCurrencies.isEmpty && query.isNotEmpty
                   ? _buildEmptySearchState(context, colorScheme, query)
                   : ReorderableListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       onReorderStart: (index) {
-                        // Provide haptic feedback when drag starts
                         HapticFeedback.mediumImpact();
                       },
                       onReorder: (oldIndex, newIndex) {
-                        // Provide haptic feedback on successful reorder
                         HapticFeedback.lightImpact();
 
-                        // Adjust index if moving down
                         if (newIndex > oldIndex) {
                           newIndex -= 1;
                         }
 
-                        // Reorder the list
+                        // Reorder the current visible list
                         final reorderedList =
                             List<CurrencySummary>.from(visibleCurrencies);
                         final item = reorderedList.removeAt(oldIndex);
                         reorderedList.insert(newIndex, item);
 
-                        // Save new order
-                        final newOrder =
-                            reorderedList.map((s) => s.currencyCode).toList();
-                        _saveCustomOrder(newOrder);
+                        // Update the stable list with the new position of this item
+                        if (_stableCurrencyCodes != null) {
+                          final newStableOrder =
+                              List<String>.from(_stableCurrencyCodes!);
+                          final code = item.currencyCode;
+                          newStableOrder.remove(code);
+
+                          // Find where to insert in the stable list relative to its neighbors in visible list
+                          // If it's the first in visible, put it at index 0 of stable or after other filtered out items
+                          // For simplicity, we can just rebuild the stable order by taking all codes in the reordered visible list
+                          // and keeping the rest (filtered out) at the end.
+
+                          final visibleCodes =
+                              reorderedList.map((s) => s.currencyCode).toSet();
+                          final updatedStableOrder = [
+                            ...reorderedList.map((s) => s.currencyCode),
+                            ..._stableCurrencyCodes!
+                                .where((c) => !visibleCodes.contains(c)),
+                          ];
+
+                          _saveCustomOrder(updatedStableOrder);
+                        }
                       },
                       children: [
                         // Individual currency cards
@@ -340,230 +591,74 @@ class _CurrencySelectorScreenState
                               transactionCount:
                                   (currencyCounts[summary.currencyCode] ??
                                       summary.transactionCount),
-                              isSelected:
-                                  filterState.selectedCurrency?.toUpperCase() ==
-                                      summary.currencyCode,
-                              onTap: () async {
-                                final previousCurrency =
-                                    filterState.selectedCurrency;
-                                final service =
-                                    ref.read(currencyPreferenceServiceProvider);
-                                final filterNotifier =
-                                    ref.read(homeFilterProvider.notifier);
-                                final analyticsNotifier =
-                                    ref.read(analyticsProvider.notifier);
-                                final toastContext = Navigator.maybeOf(context,
-                                        rootNavigator: true)
-                                    ?.context;
-
-                                // Optimistically update UI immediately
-                                await service
-                                    .setSelectedCurrency(summary.currencyCode);
-                                filterNotifier
-                                    .setSelectedCurrency(summary.currencyCode);
-                                analyticsNotifier.updatePreferredCurrency(
-                                    summary.currencyCode);
-                                await WidgetService()
-                                    .saveSelectedWidgetCurrency(
-                                        summary.currencyCode);
-                                await WidgetService().reloadWidgets();
-
-                                // Close modal immediately for better UX and return selected currency
-                                if (context.mounted) {
-                                  Navigator.pop(context, summary.currencyCode);
+                              isIncluded: selectedCurrencySet
+                                  .contains(summary.currencyCode),
+                              isPrimary:
+                                  primaryCurrency == summary.currencyCode,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                final next = selectedCurrencySet.toSet();
+                                if (primaryCurrency.isEmpty) {
+                                  next.add(summary.currencyCode);
+                                  setState(() {
+                                    _primaryCurrency = summary.currencyCode;
+                                    _selectedCurrencies = next.toList();
+                                  });
+                                  return;
                                 }
-
-                                // Make BE call in background
-                                final hasSession =
-                                    supabase.auth.currentSession != null;
-                                if (hasSession) {
-                                  try {
-                                    final userId =
-                                        supabase.auth.currentSession?.user.id;
-                                    if (userId == null || userId.isEmpty) {
-                                      throw Exception('Missing user session');
-                                    }
-                                    final response =
-                                        await supabase.functions.invoke(
-                                      'update-preferred-currency',
-                                      body: {
-                                        'currency': summary.currencyCode,
-                                        'userId': userId,
-                                      },
-                                    );
-
-                                    final status = response.status;
-                                    if (status >= 400) {
-                                      throw Exception(
-                                          'Request failed ($status)');
-                                    }
-
-                                    final payloadData = response.data;
-                                    if (payloadData is! Map) {
-                                      throw Exception('Invalid response');
-                                    }
-                                    final payload =
-                                        payloadData.cast<String, dynamic>();
-                                    if (payload['ok'] != true) {
-                                      throw Exception(
-                                        (payload['error'] ??
-                                                'Unable to update currency')
-                                            .toString(),
-                                      );
-                                    }
-
-                                    // Success - currency is now synced with backend
-                                  } catch (error) {
-                                    // Rollback on error
-                                    debugPrint(
-                                        'Failed to update preferred currency on backend: $error');
-
-                                    final currentSelection = ref
-                                        .read(homeFilterProvider)
-                                        .selectedCurrency
-                                        ?.toUpperCase();
-                                    final selectedCode =
-                                        summary.currencyCode.toUpperCase();
-                                    if (previousCurrency != null &&
-                                        currentSelection == selectedCode) {
-                                      await service.setSelectedCurrency(
-                                          previousCurrency);
-                                      filterNotifier.setSelectedCurrency(
-                                          previousCurrency);
-                                      analyticsNotifier.updatePreferredCurrency(
-                                          previousCurrency);
-                                      await WidgetService()
-                                          .saveSelectedWidgetCurrency(
-                                              previousCurrency);
-                                      await WidgetService().reloadWidgets();
-                                    }
-
-                                    if (toastContext != null &&
-                                        toastContext.mounted) {
-                                      final toastCtx = toastContext;
-                                      final missingUserSessionMessage =
-                                          context.l10n.missingUserSession;
-                                      final invalidResponseMessage =
-                                          context.l10n.invalidResponse;
-                                      final unableToUpdateCurrencyMessage =
-                                          context.l10n.unableToUpdateCurrency;
-                                      // Use AppToast with action so message appears above any bottom sheet
-                                      AppToast.action(
-                                        toastCtx,
-                                        context.l10n.failedToSyncCurrency,
-                                        actionLabel: context.l10n.retry,
-                                        type: AppToastType.warning,
-                                        onPressed: () async {
-                                          try {
-                                            if (!toastCtx.mounted) return;
-                                            final hasSession =
-                                                supabase.auth.currentSession !=
-                                                    null;
-                                            if (!hasSession) {
-                                              throw Exception(
-                                                  missingUserSessionMessage);
-                                            }
-                                            final userId = supabase
-                                                .auth.currentSession?.user.id;
-                                            if (userId == null ||
-                                                userId.isEmpty) {
-                                              throw Exception(
-                                                  missingUserSessionMessage);
-                                            }
-                                            final retryResponse =
-                                                await supabase.functions.invoke(
-                                              'update-preferred-currency',
-                                              body: {
-                                                'currency':
-                                                    summary.currencyCode,
-                                                'userId': userId,
-                                              },
-                                            );
-                                            if (retryResponse.status >= 400) {
-                                              throw Exception(
-                                                  'Retry failed (${retryResponse.status})');
-                                            }
-                                            final retryData =
-                                                retryResponse.data;
-                                            if (retryData is! Map) {
-                                              throw Exception(
-                                                  invalidResponseMessage);
-                                            }
-                                            final payload = retryData
-                                                .cast<String, dynamic>();
-                                            if (payload['ok'] != true) {
-                                              throw Exception(
-                                                (payload['error'] ??
-                                                        unableToUpdateCurrencyMessage)
-                                                    .toString(),
-                                              );
-                                            }
-                                            await service.setSelectedCurrency(
-                                                summary.currencyCode);
-                                            filterNotifier.setSelectedCurrency(
-                                                summary.currencyCode);
-                                            analyticsNotifier
-                                                .updatePreferredCurrency(
-                                                    summary.currencyCode);
-                                            await WidgetService()
-                                                .saveSelectedWidgetCurrency(
-                                                    summary.currencyCode);
-                                            await WidgetService()
-                                                .reloadWidgets();
-                                            if (toastCtx.mounted) {
-                                              AppToast.success(
-                                                toastCtx,
-                                                context.l10n
-                                                    .currencyUpdatedSuccess,
-                                              );
-                                            }
-                                          } catch (retryError) {
-                                            debugPrint(
-                                                'Failed to retry preferred currency update: $retryError');
-                                            if (toastCtx.mounted) {
-                                              AppToast.error(
-                                                toastCtx,
-                                                context.l10n.retryFailed(''),
-                                              );
-                                            }
-                                          }
-                                        },
-                                      );
-                                    }
-                                  }
+                                if (summary.currencyCode == primaryCurrency) {
+                                  AppToast.warning(
+                                    context,
+                                    'Set another currency as primary before unchecking this one.',
+                                  );
+                                  next.add(summary.currencyCode);
+                                } else if (next
+                                    .contains(summary.currencyCode)) {
+                                  next.remove(summary.currencyCode);
+                                } else {
+                                  next.add(summary.currencyCode);
                                 }
+                                setState(() {
+                                  _selectedCurrencies = next.toList();
+                                });
+                              },
+                              onPrimaryTap: () {
+                                HapticFeedback.mediumImpact();
+                                setState(() {
+                                  _primaryCurrency = summary.currencyCode;
+                                  _selectedCurrencies =
+                                      _normalizeCurrencySelection([
+                                    summary.currencyCode,
+                                    ...selectedCurrencySet,
+                                  ]);
+                                });
                               },
                             ),
                           ),
 
-                        // Show all currencies toggle button - minimal Apple-style design
-                        if (inactiveCurrencies.isNotEmpty)
+                        // Show all currencies toggle button
+                        if (inactiveCurrencies.isNotEmpty && query.isEmpty)
                           GestureDetector(
                             key: const Key('show_all_toggle'),
                             onTap: () {
+                              HapticFeedback.selectionClick();
                               setState(() {
                                 _showAllCurrencies = !_showAllCurrencies;
                               });
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      _showAllCurrencies
-                                          ? context.l10n.showLessCurrencies
-                                          : context.l10n.showAllCurrencies(
-                                              inactiveCurrencies.length),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
+                                child: Text(
+                                  _showAllCurrencies
+                                      ? context.l10n.showLessCurrencies
+                                      : context.l10n.showAllCurrencies(
+                                          inactiveCurrencies.length),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.primary,
+                                  ),
                                 ),
                               ),
                             ),
@@ -664,45 +759,44 @@ class _CurrencyIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final flagPath = getCurrencyFlagPath(currencyCode);
 
-    if (flagPath != null) {
-      return Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.3), width: 1),
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.1),
+          width: 1,
         ),
-        child: ClipOval(
-          child: Image.asset(
-            flagPath,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              // Fallback to symbol if flag image fails to load
-              return _buildSymbolFallback();
-            },
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-        ),
-      );
-    }
-
-    // No flag available, use symbol
-    return _buildSymbolFallback();
+        ],
+      ),
+      child: ClipOval(
+        child: flagPath != null
+            ? Image.asset(
+                flagPath,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildSymbolFallback(),
+              )
+            : _buildSymbolFallback(),
+      ),
+    );
   }
 
   Widget _buildSymbolFallback() {
     return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: colorScheme.muted,
-        shape: BoxShape.circle,
-      ),
+      color: colorScheme.muted,
       child: Center(
         child: Text(
           currencySymbol,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: colorScheme.primary,
           ),
@@ -716,14 +810,18 @@ class _CurrencyIcon extends StatelessWidget {
 class _CurrencyCard extends StatelessWidget {
   final CurrencySummary summary;
   final int transactionCount;
-  final bool isSelected;
+  final bool isIncluded;
+  final bool isPrimary;
   final VoidCallback onTap;
+  final VoidCallback onPrimaryTap;
 
   const _CurrencyCard({
     required this.summary,
     required this.transactionCount,
-    required this.isSelected,
+    required this.isIncluded,
+    required this.isPrimary,
     required this.onTap,
+    required this.onPrimaryTap,
   });
 
   @override
@@ -732,62 +830,168 @@ class _CurrencyCard extends StatelessWidget {
     final currencySymbol = resolveCurrencySymbol(summary.currencyCode);
 
     return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
+            color: isPrimary
+                ? colorScheme.primary.withValues(alpha: 0.04)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isSelected ? colorScheme.primary : colorScheme.border,
-              width: isSelected ? 2 : 1,
+              color: isPrimary
+                  ? colorScheme.primary.withValues(alpha: 0.3)
+                  : colorScheme.surfaceBorder.withValues(alpha: 0.12),
+              width: isPrimary ? 1.5 : 1,
             ),
+            boxShadow: isPrimary
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : null,
           ),
           child: Row(
             children: [
-              // Currency icon with flag image or symbol fallback
+              // 1. Checkbox on the very left
+              Icon(
+                isIncluded
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 24,
+                color: isIncluded
+                    ? colorScheme.success
+                    : colorScheme.mutedForeground.withValues(alpha: 0.4),
+              ),
+              const SizedBox(width: 12),
+
+              // 2. Currency Icon
               _CurrencyIcon(
                 currencyCode: summary.currencyCode,
                 currencySymbol: currencySymbol,
                 colorScheme: colorScheme,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
 
-              // Currency code
-              SizedBox(
-                width: 40,
-                child: Text(
-                  summary.currencyCode,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Right side: transaction count only
+              // 3. Body: Currency Code & Transaction Count
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '$transactionCount ${transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.mutedForeground,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary.currencyCode,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.2,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$transactionCount ${transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+
+              // 4. Primary Selection on the right
+              if (isIncluded)
+                _PrimaryPill(
+                  isPrimary: isPrimary,
+                  onTap: onPrimaryTap,
+                  colorScheme: colorScheme,
+                ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A pill-shaped toggle for setting the primary currency with an external tooltip
+class _PrimaryPill extends StatelessWidget {
+  final bool isPrimary;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+
+  const _PrimaryPill({
+    required this.isPrimary,
+    required this.onTap,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const tooltipMessage =
+        'Your primary currency is used as the default for all totals and budgeting across the app.';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isPrimary ? colorScheme.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isPrimary
+                    ? colorScheme.primary
+                    : colorScheme.primary.withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              isPrimary ? context.l10n.primary : 'Set as Main',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isPrimary ? Colors.white : colorScheme.primary,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+        ),
+        if (isPrimary) ...[
+          const SizedBox(width: 8),
+          Tooltip(
+            message: tooltipMessage,
+            triggerMode: TooltipTriggerMode.tap,
+            preferBelow: false,
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.foreground.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: TextStyle(
+              color: colorScheme.appBackground,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 18,
+              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import '../providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 class RecentSplitsList extends ConsumerWidget {
   final String householdId;
@@ -67,7 +68,7 @@ class RecentSplitsList extends ConsumerWidget {
                   ),
                 ),
                 subtitle: Text(
-                  '${_formatSplitType(split.splitType)} • ${split.currency} ${(split.totalAmountCents / 100).toStringAsFixed(2)}',
+                  '${_formatSplitType(split.splitType)} • ${split.currency} ${formatAmount(split.totalAmountCents / 100)}',
                   style: TextStyle(color: colorScheme.mutedForeground),
                 ),
                 trailing: Text(

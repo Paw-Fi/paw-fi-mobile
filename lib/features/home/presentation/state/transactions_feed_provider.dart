@@ -15,6 +15,7 @@ class TransactionsFeedQuery {
   final String userId;
   final String? householdId;
   final String? selectedCurrency;
+  final List<String>? selectedCurrencies;
   final String? selectedCategory;
   final String? selectedAccountId;
   final List<String>? selectedCategories;
@@ -30,6 +31,7 @@ class TransactionsFeedQuery {
     required this.userId,
     required this.householdId,
     required this.selectedCurrency,
+    this.selectedCurrencies,
     required this.selectedCategory,
     this.selectedAccountId,
     this.selectedCategories,
@@ -43,6 +45,34 @@ class TransactionsFeedQuery {
   });
 
   String? get normalizedCurrency => _normalizeNullable(selectedCurrency);
+
+  String? get _identityCurrency {
+    return normalizedCurrencies == null ? normalizedCurrency : null;
+  }
+
+  List<String>? get normalizedCurrencies {
+    final source = selectedCurrencies ??
+        (selectedCurrency == null ? null : <String>[selectedCurrency!]);
+    final normalized = source
+        ?.map((value) => value.trim().toUpperCase())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+    if (normalized == null || normalized.isEmpty) return null;
+    normalized.sort();
+    return normalized;
+  }
+
+  List<String>? get normalizedSelectedCurrencies {
+    final normalized = selectedCurrencies
+        ?.map((value) => value.trim().toUpperCase())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+    if (normalized == null || normalized.length < 2) return null;
+    normalized.sort();
+    return normalized;
+  }
 
   String? get normalizedCategory {
     final category = _normalizeNullable(selectedCategory);
@@ -109,6 +139,7 @@ class TransactionsFeedQuery {
     String? userId,
     String? householdId,
     String? selectedCurrency,
+    List<String>? selectedCurrencies,
     String? selectedCategory,
     String? selectedAccountId,
     List<String>? selectedCategories,
@@ -124,6 +155,7 @@ class TransactionsFeedQuery {
       userId: userId ?? this.userId,
       householdId: householdId ?? this.householdId,
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
+      selectedCurrencies: selectedCurrencies ?? this.selectedCurrencies,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       selectedAccountId: selectedAccountId ?? this.selectedAccountId,
       selectedCategories: selectedCategories ?? this.selectedCategories,
@@ -148,7 +180,8 @@ class TransactionsFeedQuery {
     return other is TransactionsFeedQuery &&
         userId == other.userId &&
         householdId == other.householdId &&
-        normalizedCurrency == other.normalizedCurrency &&
+        _identityCurrency == other._identityCurrency &&
+        _listEquals(normalizedCurrencies, other.normalizedCurrencies) &&
         normalizedCategory == other.normalizedCategory &&
         normalizedAccountId == other.normalizedAccountId &&
         _listEquals(normalizedCategories, other.normalizedCategories) &&
@@ -166,7 +199,8 @@ class TransactionsFeedQuery {
   int get hashCode => Object.hash(
         userId,
         householdId,
-        normalizedCurrency,
+        _identityCurrency,
+        Object.hashAll(normalizedCurrencies ?? const <String>[]),
         normalizedCategory,
         normalizedAccountId,
         Object.hashAll(normalizedCategories ?? const <String>[]),
@@ -428,6 +462,8 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
       'p_user_id': query.userId,
       'p_household_id': query.householdId,
       'p_currency': query.normalizedCurrency,
+      if (query.normalizedSelectedCurrencies != null)
+        'p_currencies': query.normalizedSelectedCurrencies,
       'p_category': query.normalizedCategory,
       'p_account_id': query.normalizedAccountId,
       'p_include_unassigned_account': query.includeUnassignedAccount,
@@ -474,6 +510,8 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
       'p_user_id': query.userId,
       'p_household_id': query.householdId,
       'p_currency': query.normalizedCurrency,
+      if (query.normalizedSelectedCurrencies != null)
+        'p_currencies': query.normalizedSelectedCurrencies,
       'p_category': query.normalizedCategory,
       'p_account_id': query.normalizedAccountId,
       'p_include_unassigned_account': query.includeUnassignedAccount,
@@ -769,6 +807,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       userId: query.userId,
       householdId: query.householdId,
       currency: query.normalizedCurrency,
+      currencies: query.normalizedCurrencies,
       category: query.normalizedCategory,
       categories: query.normalizedCategories,
       accountId: query.normalizedAccountId,
@@ -966,6 +1005,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         _service.fetchSummary(_query),
         _service.fetchPage(_query),
       ]);
+      if (!mounted) return;
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
@@ -978,6 +1018,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         _startBackgroundRefresh();
       }
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -1004,11 +1045,13 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     try {
       if (_service.supportsBackgroundRefresh) {
         await _service.refreshFromRemote(_query);
+        if (!mounted) return;
       }
       final results = await Future.wait<dynamic>([
         _service.fetchSummary(_query),
         _service.fetchPage(_query),
       ]);
+      if (!mounted) return;
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
@@ -1018,6 +1061,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         nextCursor: page.nextCursor,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -1039,6 +1083,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
     try {
       final page = await _service.fetchPage(_query, cursor: cursor);
+      if (!mounted) return;
       state = state.copyWith(
         items: [...state.items, ...page.items],
         isLoadingMore: false,
@@ -1046,6 +1091,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         nextCursor: page.nextCursor,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoadingMore: false,
         error: error.toString(),

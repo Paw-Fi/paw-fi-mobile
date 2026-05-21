@@ -57,11 +57,18 @@ List<ExpenseEntry> filterWalletTransactions({
   required List<ExpenseEntry> allExpenses,
   required HouseholdScope scope,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
 }) {
+  final currencySet = selectedCurrencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
   return allExpenses.where((expense) {
     return _isInActiveScope(expense, scope) &&
         !expense.isRecurring &&
-        _isInSelectedCurrency(expense, selectedCurrency);
+        (currencySet != null && currencySet.isNotEmpty
+            ? _isInSelectedCurrencies(expense, currencySet)
+            : _isInSelectedCurrency(expense, selectedCurrency));
   }).toList(growable: false);
 }
 
@@ -122,6 +129,13 @@ WalletSnapshot buildWalletSnapshot({
 bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
   final normalized = expense.currency?.trim().toUpperCase();
   return normalized == currencyCode;
+}
+
+bool _isInSelectedCurrencies(ExpenseEntry expense, Set<String> currencies) {
+  final normalized = expense.currency?.trim().toUpperCase();
+  return normalized == null ||
+      normalized.isEmpty ||
+      currencies.contains(normalized);
 }
 
 bool _isInActiveScope(ExpenseEntry expense, HouseholdScope scope) {

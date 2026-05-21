@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -16,6 +17,7 @@ class GroupFairnessMeter extends StatelessWidget {
   final DateTime? from; // Kept for backward compatibility but unused
   final DateTime? to; // Kept for backward compatibility but unused
   final String? currency;
+  final CurrencyRateTable? currencyRates;
   final List<ExpenseSplitGroup>? splits;
   final DateRangeFilter dateRange;
 
@@ -26,6 +28,7 @@ class GroupFairnessMeter extends StatelessWidget {
     this.from,
     this.to,
     this.currency,
+    this.currencyRates,
     this.splits,
     required this.dateRange,
   });
@@ -223,6 +226,7 @@ extension on GroupFairnessMeter {
       to: to!,
       splits: splits ?? const <ExpenseSplitGroup>[],
       selectedCurrency: currency,
+      currencyRates: currencyRates,
     );
 
     if (summary.memberContributions.isEmpty) {

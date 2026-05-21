@@ -530,7 +530,7 @@ class _RecentTransactionsCardState
             rawText: e.rawText,
             date: displayDateTime,
             amount: e.amount,
-            currency: widget.selectedCurrency ?? 'USD',
+            currency: e.currency ?? widget.selectedCurrency ?? 'USD',
             isIncome: isIncome,
             onTap: row.isRemoving
                 ? null

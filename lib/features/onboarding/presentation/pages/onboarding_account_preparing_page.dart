@@ -163,15 +163,31 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           return;
         }
 
+        final currencyPreferenceService =
+            ref.read(currencyPreferenceServiceProvider);
+        final storedSelectedCurrencies =
+            await currencyPreferenceService.getSelectedCurrencies();
+        final seenCurrencies = <String>{};
+        final normalizedSelectedCurrencies = <String>[];
+        for (final value in [selectedCurrency, ...?storedSelectedCurrencies]) {
+          final code = value.trim().toUpperCase();
+          if (code.isEmpty || seenCurrencies.contains(code)) continue;
+          seenCurrencies.add(code);
+          normalizedSelectedCurrencies.add(code);
+        }
+
         ref
             .read(homeFilterProvider.notifier)
             .setSelectedCurrency(selectedCurrency);
         ref
+            .read(homeFilterProvider.notifier)
+            .setSelectedCurrencies(normalizedSelectedCurrencies);
+        ref
             .read(analyticsProvider.notifier)
             .updatePreferredCurrency(selectedCurrency);
-        await ref
-            .read(currencyPreferenceServiceProvider)
-            .setSelectedCurrency(selectedCurrency);
+        await currencyPreferenceService.setSelectedCurrency(selectedCurrency);
+        await currencyPreferenceService
+            .setSelectedCurrencies(normalizedSelectedCurrencies);
 
         final userId = supabase.auth.currentSession?.user.id ?? fallbackUserId;
         if (userId.isEmpty) {
