@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/pages/currency_rates_page.dart';
 import 'package:moneko/features/insights/presentation/pages/monthly_report_page.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -77,6 +78,10 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const MainShell(),
+      ),
+      GoRoute(
+        path: '/currency-rates',
+        builder: (context, state) => const CurrencyRatesPage(),
       ),
       GoRoute(
         path: '/insights/monthly-report/balance',

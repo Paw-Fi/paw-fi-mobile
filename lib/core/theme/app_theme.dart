@@ -403,6 +403,9 @@ extension AppColorScheme on ColorScheme {
   Color get sheetHandle => brightness == Brightness.dark
       ? const Color(0xFF5D5D60)
       : const Color(0xFFC4C4C7);
+
+  /// Light divider for list separators
+  Color get listDivider => outline.withValues(alpha: 0.3);
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system

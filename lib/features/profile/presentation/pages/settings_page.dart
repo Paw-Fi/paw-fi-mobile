@@ -1168,6 +1168,14 @@ class SettingsPage extends HookConsumerWidget {
                       },
                     ),
                     _SettingsTile(
+                      icon: Icons.currency_exchange_rounded,
+                      label: context.l10n.currency,
+                      value: context.l10n.tapToSet,
+                      onTap: () {
+                        context.push('/currency-rates');
+                      },
+                    ),
+                    _SettingsTile(
                       icon: isDarkMode
                           ? Icons.dark_mode_rounded
                           : Icons.light_mode_rounded,
