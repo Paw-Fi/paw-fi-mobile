@@ -5,6 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -25,6 +28,36 @@ String _formatLocalizedCurrency(
   final symbol = resolveCurrencySymbol(currency);
   final localized = formatLocalizedNumber(context, normalized);
   return '$symbol$localized';
+}
+
+List<String> _normalizeSettlementCurrencies(List<String>? currencies) {
+  final normalized = (currencies ?? const <String>[])
+      .map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  return normalized;
+}
+
+String _formatSettlementAmount(
+  int amountCents, {
+  required String sourceCurrency,
+  required String displayCurrency,
+  required bool convertForDisplay,
+  required CurrencyRateTable rates,
+}) {
+  final currency =
+      convertForDisplay ? displayCurrency : sourceCurrency.trim().toUpperCase();
+  final displayAmountCents = convertForDisplay
+      ? convertAmountCentsToCurrency(
+          amountCents,
+          fromCurrency: sourceCurrency,
+          targetCurrency: displayCurrency,
+          rates: rates,
+        )
+      : amountCents;
+  return formatCurrency(displayAmountCents / 100.0, currency);
 }
 
 class SettlementHistoryPage extends ConsumerStatefulWidget {
@@ -57,12 +90,25 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     return grouped;
   }
 
-  Map<String, double> _calculateCurrencyTotals(List<SettlementEvent> events) {
+  Map<String, double> _calculateCurrencyTotals(
+    List<SettlementEvent> events, {
+    required String displayCurrency,
+    required bool convertForDisplay,
+    required CurrencyRateTable rates,
+  }) {
     final Map<String, double> currencyTotals = {};
     for (final event in events) {
-      final amount = event.amountCents / 100.0;
-      currencyTotals[event.currency] =
-          (currencyTotals[event.currency] ?? 0.0) + amount;
+      final currency = convertForDisplay ? displayCurrency : event.currency;
+      final amountCents = convertForDisplay
+          ? convertAmountCentsToCurrency(
+              event.amountCents,
+              fromCurrency: event.currency,
+              targetCurrency: displayCurrency,
+              rates: rates,
+            )
+          : event.amountCents;
+      currencyTotals[currency] =
+          (currencyTotals[currency] ?? 0.0) + amountCents / 100.0;
     }
     return currencyTotals;
   }
@@ -75,6 +121,17 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     final homeFilter = ref.watch(homeFilterProvider);
     final selectedCurrency =
         (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
+    final selectedCurrencyFilters = _normalizeSettlementCurrencies(
+      homeFilter.normalizedSelectedCurrencies,
+    );
+    final hasMultiCurrencySelection = selectedCurrencyFilters.length > 1;
+    final selectedCurrencySet = selectedCurrencyFilters.toSet();
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
 
@@ -153,9 +210,12 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                 ),
               ),
               data: (events) {
-                final filtered = events
-                    .where((e) => e.currency.toUpperCase() == selectedCurrency)
-                    .toList();
+                final filtered = events.where((e) {
+                  final currency = e.currency.toUpperCase();
+                  return hasMultiCurrencySelection
+                      ? selectedCurrencySet.contains(currency)
+                      : currency == selectedCurrency;
+                }).toList();
 
                 if (filtered.isEmpty) {
                   return Center(
@@ -240,7 +300,12 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                 }
 
                 final groupedEvents = _groupEventsByDate(filtered);
-                final currencyTotals = _calculateCurrencyTotals(filtered);
+                final currencyTotals = _calculateCurrencyTotals(
+                  filtered,
+                  displayCurrency: selectedCurrency,
+                  convertForDisplay: hasMultiCurrencySelection,
+                  rates: rateTable,
+                );
                 final sortedDates = groupedEvents.keys.toList()
                   ..sort((a, b) => DateFormat.yMd()
                       .parse(b)
@@ -271,6 +336,9 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                               dayEvents,
                               nameFor,
                               isLastGroup,
+                              displayCurrency: selectedCurrency,
+                              convertForDisplay: hasMultiCurrencySelection,
+                              rates: rateTable,
                             );
                           },
                           childCount: sortedDates.length,
@@ -384,8 +452,11 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     String date,
     List<SettlementEvent> events,
     String Function(String) nameFor,
-    bool isLastGroup,
-  ) {
+    bool isLastGroup, {
+    required String displayCurrency,
+    required bool convertForDisplay,
+    required CurrencyRateTable rates,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final parsedDate = DateFormat.yMd().parse(date);
     final isToday = DateFormat.yMd().format(DateTime.now()) == date;
@@ -462,7 +533,14 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 32),
-                    child: _buildSettlementItem(context, event, nameFor),
+                    child: _buildSettlementItem(
+                      context,
+                      event,
+                      nameFor,
+                      displayCurrency: displayCurrency,
+                      convertForDisplay: convertForDisplay,
+                      rates: rates,
+                    ),
                   ),
                 ),
               ],
@@ -473,13 +551,24 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     );
   }
 
-  Widget _buildSettlementItem(BuildContext context, SettlementEvent event,
-      String Function(String) nameFor) {
+  Widget _buildSettlementItem(
+    BuildContext context,
+    SettlementEvent event,
+    String Function(String) nameFor, {
+    required String displayCurrency,
+    required bool convertForDisplay,
+    required CurrencyRateTable rates,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final payerName = nameFor(event.payerUserId);
     final participantName = nameFor(event.participantUserId);
-    final amount =
-        formatCurrency(event.amountCents / 100.0, event.currency.toUpperCase());
+    final amount = _formatSettlementAmount(
+      event.amountCents,
+      sourceCurrency: event.currency,
+      displayCurrency: displayCurrency,
+      convertForDisplay: convertForDisplay,
+      rates: rates,
+    );
     final time = DateFormat.jm().format(event.settledAt.toLocal());
 
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -683,14 +772,26 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '$participantName → $payerName: ${formatCurrency(totalParticipantToPayer / 100.0, event.currency.toUpperCase())}',
+                            '$participantName → $payerName: ${_formatSettlementAmount(
+                              totalParticipantToPayer,
+                              sourceCurrency: event.currency,
+                              displayCurrency: displayCurrency,
+                              convertForDisplay: convertForDisplay,
+                              rates: rates,
+                            )}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
                             ),
                           ),
                           Text(
-                            '$payerName → $participantName: ${formatCurrency(totalPayerToParticipant / 100.0, event.currency.toUpperCase())}',
+                            '$payerName → $participantName: ${_formatSettlementAmount(
+                              totalPayerToParticipant,
+                              sourceCurrency: event.currency,
+                              displayCurrency: displayCurrency,
+                              convertForDisplay: convertForDisplay,
+                              rates: rates,
+                            )}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,

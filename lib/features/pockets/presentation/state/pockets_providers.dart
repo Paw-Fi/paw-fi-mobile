@@ -2141,9 +2141,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         ...actualExpensesWithPending,
         ...projectedRecurringExpenses,
       ];
-      final monthlyExpenseRows = monthlyExpenses
-          .map((expense) => expense.toJson())
-          .toList(growable: false);
       final spendExpenses = hasMultiCurrencySelection
           ? convertTransactionsToCurrency(
               monthlyExpenses,
@@ -2151,6 +2148,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               rates: await ref.read(currencyRateTableProvider.future),
             )
           : monthlyExpenses;
+      final monthlyExpenseRows = spendExpenses
+          .map((expense) => expense.toJson())
+          .toList(growable: false);
 
       final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
           projectedRecurringExpenses.isNotEmpty ||

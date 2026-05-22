@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
@@ -23,6 +27,7 @@ class SettlementSuggestionsCard extends ConsumerStatefulWidget {
   final List<ExpenseEntry>? transactions;
   final List<ExpenseSplitGroup>? splits;
   final String? currency;
+  final List<String>? selectedCurrencies;
   final List<HouseholdMember>? members;
   final String? currentUserId;
 
@@ -32,6 +37,7 @@ class SettlementSuggestionsCard extends ConsumerStatefulWidget {
     this.transactions,
     this.splits,
     this.currency,
+    this.selectedCurrencies,
     this.members,
     this.currentUserId,
   });
@@ -47,6 +53,26 @@ class _SettlementSuggestionsCardState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = widget.currentUserId;
+    final selectedCurrency = (widget.currency ??
+            ref.watch(selectedHomeCurrencyCodeProvider) ??
+            'USD')
+        .trim()
+        .toUpperCase();
+    final selectedCurrencyFilters = _normalizeCurrencyFilters(
+      widget.selectedCurrencies ??
+          ref.watch(
+            homeFilterProvider.select(
+              (state) => state.normalizedSelectedCurrencies,
+            ),
+          ),
+    );
+    final hasMultiCurrencySelection = selectedCurrencyFilters.length > 1;
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
 
     if (currentUserId == null || currentUserId.isEmpty) {
       return const SizedBox.shrink();
@@ -56,7 +82,7 @@ class _SettlementSuggestionsCardState
       householdPairwiseSettlementBalancesV2Provider(
         PairwiseSettlementBalancesParams(
           householdId: widget.summary.householdId,
-          currency: widget.currency,
+          currency: hasMultiCurrencySelection ? null : selectedCurrency,
         ),
       ),
     );
@@ -131,26 +157,33 @@ class _SettlementSuggestionsCardState
               context.l10n.member;
         }
 
-        final mySuggestions = balances != null &&
+        final overviewSplits = optimisticSplits.isNotEmpty
+            ? mergeHouseholdSplits(
+                overview?.splits ?? const <ExpenseSplitGroup>[],
+                optimisticSplits,
+              )
+            : overview?.splits ?? widget.splits;
+        final mySuggestions = !hasMultiCurrencySelection &&
+                balances != null &&
                 optimisticPayments.isEmpty &&
                 optimisticSplits.isEmpty
             ? _buildSuggestionsFromBalances(
                 balances,
                 currentUserId,
                 nameFor,
+                selectedCurrency,
               )
             : _buildLegacySuggestions(
-                optimisticSplits.isNotEmpty
-                    ? mergeHouseholdSplits(
-                        overview?.splits ?? const <ExpenseSplitGroup>[],
-                        optimisticSplits,
-                      )
-                    : overview?.splits ?? widget.splits,
-                widget.currency,
+                overviewSplits,
+                hasMultiCurrencySelection
+                    ? selectedCurrencyFilters
+                    : <String>[selectedCurrency],
                 currentUserId,
                 nameFor,
                 settlementPayments:
                     overview?.payments ?? const <SettlementPaymentRecord>[],
+                displayCurrency: selectedCurrency,
+                rates: rateTable,
               );
 
         // 4. Calculate Stats for Current User
@@ -158,9 +191,9 @@ class _SettlementSuggestionsCardState
         int owedToYouTotal = 0;
         for (final s in mySuggestions) {
           if (s.fromUserId == currentUserId) {
-            youOweTotal += s.amountCents;
+            youOweTotal += s.displayAmountCents;
           } else if (s.toUserId == currentUserId) {
-            owedToYouTotal += s.amountCents;
+            owedToYouTotal += s.displayAmountCents;
           }
         }
 
@@ -243,8 +276,9 @@ class _SettlementSuggestionsCardState
                               label: context.l10n.youOwe,
                               amountCents: youOweTotal,
                               color: colorScheme.destructive,
-                              currency: widget.currency,
-                              onTap: youOweTotal > 0
+                              currency: selectedCurrency,
+                              onTap: youOweTotal > 0 &&
+                                      !hasMultiCurrencySelection
                                   ? () => _openSettleUpSheet(
                                         context,
                                         householdId: widget.summary.householdId,
@@ -252,7 +286,7 @@ class _SettlementSuggestionsCardState
                                         amountHintCents: youOweTotal,
                                         splits: widget.splits,
                                         targetUserId: null,
-                                        currency: widget.currency,
+                                        currency: selectedCurrency,
                                       )
                                   : null,
                             ),
@@ -263,7 +297,7 @@ class _SettlementSuggestionsCardState
                               label: context.l10n.youAreOwed,
                               amountCents: owedToYouTotal,
                               color: colorScheme.success,
-                              currency: widget.currency,
+                              currency: selectedCurrency,
                               onTap: null,
                             ),
                           ),
@@ -308,7 +342,7 @@ class _SettlementSuggestionsCardState
                             suggestion: s,
                             isPayer: isPayer,
                             scheme: colorScheme,
-                            currency: widget.currency,
+                            displayCurrency: selectedCurrency,
                             onTap: () => _openSettleUpSheet(
                               context,
                               householdId: widget.summary.householdId,
@@ -316,7 +350,7 @@ class _SettlementSuggestionsCardState
                               amountHintCents: s.amountCents,
                               splits: widget.splits,
                               targetUserId: isPayer ? s.toUserId : s.fromUserId,
-                              currency: widget.currency,
+                              currency: s.currency,
                             ),
                           );
                         },
@@ -398,6 +432,7 @@ class _SettlementSuggestionsCardState
     List<SettlementPairwiseBalance> balances,
     String currentUserId,
     String Function(String) nameFor,
+    String currency,
   ) {
     final out = <_Suggestion>[];
     for (final balance in balances) {
@@ -408,6 +443,8 @@ class _SettlementSuggestionsCardState
           fromName: nameFor(currentUserId),
           toName: nameFor(balance.otherUserId),
           amountCents: balance.netCents,
+          displayAmountCents: balance.netCents,
+          currency: currency,
         ));
       } else if (balance.netCents < 0) {
         out.add(_Suggestion(
@@ -416,6 +453,8 @@ class _SettlementSuggestionsCardState
           fromName: nameFor(balance.otherUserId),
           toName: nameFor(currentUserId),
           amountCents: balance.netCents.abs(),
+          displayAmountCents: balance.netCents.abs(),
+          currency: currency,
         ));
       }
     }
@@ -426,47 +465,76 @@ class _SettlementSuggestionsCardState
 
   List<_Suggestion> _buildLegacySuggestions(
     List<ExpenseSplitGroup>? splits,
-    String? currency,
+    List<String> currencies,
     String currentUserId,
     String Function(String) nameFor, {
     List<SettlementPaymentRecord> settlementPayments =
         const <SettlementPaymentRecord>[],
+    required String displayCurrency,
+    required CurrencyRateTable rates,
   }) {
     if (splits == null || splits.isEmpty) return const <_Suggestion>[];
 
-    final nets = computeSettlementNets(
-      splits: splits,
-      currentUserId: currentUserId,
-      currencyFilter: currency,
-      settlementPayments: settlementPayments,
-    );
-
     final out = <_Suggestion>[];
-    for (final entry in nets.entries) {
-      final otherUserId = entry.key;
-      final result = entry.value;
-      if (result.netCents > 0) {
-        out.add(_Suggestion(
-          fromUserId: currentUserId,
-          toUserId: otherUserId,
-          fromName: nameFor(currentUserId),
-          toName: nameFor(otherUserId),
-          amountCents: result.netCents,
-        ));
-      } else if (result.netCents < 0) {
-        out.add(_Suggestion(
-          fromUserId: otherUserId,
-          toUserId: currentUserId,
-          fromName: nameFor(otherUserId),
-          toName: nameFor(currentUserId),
-          amountCents: result.netCents.abs(),
-        ));
+    for (final currency in currencies) {
+      final nets = computeSettlementNets(
+        splits: splits,
+        currentUserId: currentUserId,
+        currencyFilter: currency,
+        settlementPayments: settlementPayments,
+      );
+
+      for (final entry in nets.entries) {
+        final otherUserId = entry.key;
+        final result = entry.value;
+        if (result.netCents > 0) {
+          out.add(_Suggestion(
+            fromUserId: currentUserId,
+            toUserId: otherUserId,
+            fromName: nameFor(currentUserId),
+            toName: nameFor(otherUserId),
+            amountCents: result.netCents,
+            displayAmountCents: convertAmountCentsToCurrency(
+              result.netCents,
+              fromCurrency: currency,
+              targetCurrency: displayCurrency,
+              rates: rates,
+            ),
+            currency: currency,
+          ));
+        } else if (result.netCents < 0) {
+          final amountCents = result.netCents.abs();
+          out.add(_Suggestion(
+            fromUserId: otherUserId,
+            toUserId: currentUserId,
+            fromName: nameFor(otherUserId),
+            toName: nameFor(currentUserId),
+            amountCents: amountCents,
+            displayAmountCents: convertAmountCentsToCurrency(
+              amountCents,
+              fromCurrency: currency,
+              targetCurrency: displayCurrency,
+              rates: rates,
+            ),
+            currency: currency,
+          ));
+        }
       }
     }
 
-    out.sort((a, b) => b.amountCents.compareTo(a.amountCents));
+    out.sort((a, b) => b.displayAmountCents.compareTo(a.displayAmountCents));
     return out;
   }
+}
+
+List<String> _normalizeCurrencyFilters(List<String>? currencies) {
+  final normalized = (currencies ?? const <String>[])
+      .map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  return normalized;
 }
 
 class _Suggestion {
@@ -475,12 +543,16 @@ class _Suggestion {
   final String fromName;
   final String toName;
   final int amountCents;
+  final int displayAmountCents;
+  final String currency;
   _Suggestion({
     required this.fromUserId,
     required this.toUserId,
     required this.fromName,
     required this.toName,
     required this.amountCents,
+    required this.displayAmountCents,
+    required this.currency,
   });
 }
 
@@ -588,7 +660,7 @@ class _SuggestionRow extends StatelessWidget {
   final _Suggestion suggestion;
   final bool isPayer;
   final ColorScheme scheme;
-  final String? currency;
+  final String displayCurrency;
   final VoidCallback onTap;
 
   const _SuggestionRow({
@@ -596,22 +668,17 @@ class _SuggestionRow extends StatelessWidget {
     required this.isPayer,
     required this.scheme,
     required this.onTap,
-    this.currency,
+    required this.displayCurrency,
   });
 
   @override
   Widget build(BuildContext context) {
     final otherName = isPayer ? suggestion.toName : suggestion.fromName;
-    final amountValue = suggestion.amountCents / 100.0;
-    final String amountText;
-    if (currency != null && currency!.isNotEmpty) {
-      final symbol = resolveCurrencySymbol(currency);
-      final normalized = double.parse(formatAmount(amountValue));
-      final localized = formatLocalizedNumber(context, normalized);
-      amountText = '$symbol$localized';
-    } else {
-      amountText = formatLocalizedNumber(context, amountValue);
-    }
+    final amountValue = suggestion.displayAmountCents / 100.0;
+    final symbol = resolveCurrencySymbol(displayCurrency);
+    final normalized = double.parse(formatAmount(amountValue));
+    final localized = formatLocalizedNumber(context, normalized);
+    final amountText = '$symbol$localized';
     final color = isPayer ? scheme.destructive : scheme.success;
 
     // Left text: "Alice owes you" or "You owe Bob"

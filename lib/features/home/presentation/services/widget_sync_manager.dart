@@ -69,6 +69,11 @@ class WidgetSyncManager extends HookConsumerWidget {
     final selectedWidgetCurrency = normalizeWidgetSyncCurrency(
       ref.watch(selectedHomeCurrencyCodeProvider),
     );
+    final selectedWidgetCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final selectedWidgetCurrenciesKey =
+        selectedWidgetCurrencies?.join(',') ?? '';
     final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
 
     // Ensure configuration options (spaces) are always saved
@@ -218,6 +223,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                 userId: user.uid,
                 householdId: householdId,
                 selectedCurrency: currency,
+                selectedCurrencies: selectedWidgetCurrencies,
                 startDate: currentMonth,
                 endDate: currentRangeEnd,
               );
@@ -262,6 +268,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               rangeStart: currentMonth,
               rangeEnd: currentRangeEnd,
               selectedCurrency: currency,
+              selectedCurrencies: selectedWidgetCurrencies,
               includeFutureOccurrences: false,
               now: userNow,
             );
@@ -906,6 +913,7 @@ class WidgetSyncManager extends HookConsumerWidget {
       analyticsData.preferredCurrency,
       householdsAsync.valueOrNull,
       selectedWidgetCurrency,
+      selectedWidgetCurrenciesKey,
       widgetSyncVersion,
       syncState.isSyncing,
       isAppReady, // Add app ready state as dependency

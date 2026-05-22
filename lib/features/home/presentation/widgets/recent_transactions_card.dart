@@ -501,6 +501,7 @@ class _RecentTransactionsCardState
 
   Widget _buildSlidableRow(_RecentTransactionRowState row) {
     final e = row.entry;
+    final displayEntry = _displayEntryForRow(e);
     final colorScheme = widget.colorScheme;
     final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
     final displayDateTime = composeTransactionDisplayDateTime(
@@ -563,8 +564,8 @@ class _RecentTransactionsCardState
             category: e.category,
             rawText: e.rawText,
             date: displayDateTime,
-            amount: e.amount,
-            currency: e.currency ?? widget.selectedCurrency ?? 'USD',
+            amount: displayEntry.amount,
+            currency: displayEntry.currency ?? widget.selectedCurrency ?? 'USD',
             isIncome: isIncome,
             onTap: row.isRemoving
                 ? null
@@ -577,6 +578,23 @@ class _RecentTransactionsCardState
         ),
       ),
     );
+  }
+
+  ExpenseEntry _displayEntryForRow(ExpenseEntry entry) {
+    if ((widget.selectedCurrencies?.length ?? 0) <= 1) return entry;
+
+    final targetCurrency = widget.selectedCurrency ?? 'USD';
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
+    return convertTransactionsToCurrency(
+      [entry],
+      targetCurrency: targetCurrency,
+      rates: rateTable,
+    ).first;
   }
 }
 

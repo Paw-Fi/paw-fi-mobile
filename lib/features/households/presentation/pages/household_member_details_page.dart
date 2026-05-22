@@ -54,6 +54,9 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
     // Filter transactions for this member within the selected date range
     final memberTransactions = _getMemberTransactions(rangeFrom, rangeTo);
+    final rawTransactionsById = <String, ExpenseEntry>{
+      for (final transaction in transactions) transaction.id: transaction,
+    };
     final groupedTransactions = _groupTransactionsByDate(memberTransactions);
     final totalSpentCentsForRange = memberTransactions.fold<int>(
       0,
@@ -90,6 +93,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               totalSpentCents: totalSpentCentsForRange,
               categorySummaries: categorySummaries,
               categoryTransactions: categoryTransactions,
+              rawTransactionsById: rawTransactionsById,
             ),
           ),
           if (memberTransactions.isEmpty)
@@ -120,7 +124,12 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                     final date = groupedTransactions.keys.elementAt(index);
                     final expenses = groupedTransactions[date]!;
                     return _buildDaySection(
-                        context, colorScheme, date, expenses);
+                      context,
+                      colorScheme,
+                      date,
+                      expenses,
+                      rawTransactionsById,
+                    );
                   },
                   childCount: groupedTransactions.length,
                 ),
@@ -303,6 +312,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     required int totalSpentCents,
     required List<_CategorySummary> categorySummaries,
     required Map<String, List<ExpenseEntry>> categoryTransactions,
+    required Map<String, ExpenseEntry> rawTransactionsById,
   }) {
     if (transactionCount == 0) {
       return const SizedBox.shrink();
@@ -355,6 +365,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               topCategory,
               totalSpentCents,
               categoryTransactions,
+              rawTransactionsById,
             ),
           ],
           if (categorySummaries.isNotEmpty) ...[
@@ -382,6 +393,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               categorySummaries,
               totalSpentCents,
               categoryTransactions,
+              rawTransactionsById,
             ),
           ],
         ],
@@ -460,6 +472,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     _CategorySummary summary,
     int totalSpentCents,
     Map<String, List<ExpenseEntry>> categoryTransactions,
+    Map<String, ExpenseEntry> rawTransactionsById,
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
     final categoryColor = getCategoryColor(summary.category);
@@ -472,6 +485,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         context,
         summary.category,
         categoryTransactions[summary.category] ?? const [],
+        rawTransactionsById,
       ),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -563,6 +577,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     List<_CategorySummary> summaries,
     int totalSpentCents,
     Map<String, List<ExpenseEntry>> categoryTransactions,
+    Map<String, ExpenseEntry> rawTransactionsById,
   ) {
     final items = summaries.take(5).toList();
     return Column(
@@ -575,6 +590,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             summary,
             totalSpentCents,
             categoryTransactions,
+            rawTransactionsById,
           ),
         );
       }).toList(),
@@ -587,6 +603,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     _CategorySummary summary,
     int totalSpentCents,
     Map<String, List<ExpenseEntry>> categoryTransactions,
+    Map<String, ExpenseEntry> rawTransactionsById,
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
     final categoryColor = getCategoryColor(summary.category);
@@ -599,6 +616,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         context,
         summary.category,
         categoryTransactions[summary.category] ?? const [],
+        rawTransactionsById,
       ),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -680,8 +698,13 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildDaySection(BuildContext context, ColorScheme colorScheme,
-      DateTime date, List<ExpenseEntry> expenses) {
+  Widget _buildDaySection(
+    BuildContext context,
+    ColorScheme colorScheme,
+    DateTime date,
+    List<ExpenseEntry> expenses,
+    Map<String, ExpenseEntry> rawTransactionsById,
+  ) {
     final isToday = DateTime.now().difference(date).inDays == 0 &&
         DateTime.now().day == date.day;
     final dateStr =
@@ -724,6 +747,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             child: Column(
               children: expenses.mapIndexed((index, expense) {
                 final isLast = index == expenses.length - 1;
+                final rawExpense = rawTransactionsById[expense.id] ?? expense;
                 final isIncome =
                     (expense.type ?? 'expense').toLowerCase() == 'income';
                 final localDisplayDateTime = combineLocalDateWithLocalTime(
@@ -742,7 +766,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                       isIncome: isIncome,
                       onTap: () => showUnifiedTransactionSheet(
                         context,
-                        existingExpense: expense,
+                        existingExpense: rawExpense,
                       ),
                     ),
                     if (!isLast)
@@ -850,6 +874,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     BuildContext context,
     String category,
     List<ExpenseEntry> transactions,
+    Map<String, ExpenseEntry> rawTransactionsById,
   ) {
     if (transactions.isEmpty) return;
     Navigator.of(context).push(
@@ -859,6 +884,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           currency: currency,
           category: category,
           transactions: transactions,
+          rawTransactionsById: rawTransactionsById,
         ),
       ),
     );
@@ -1055,6 +1081,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
   final String currency;
   final String category;
   final List<ExpenseEntry> transactions;
+  final Map<String, ExpenseEntry> rawTransactionsById;
 
   const HouseholdMemberCategoryDetailsPage({
     super.key,
@@ -1062,6 +1089,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
     required this.currency,
     required this.category,
     required this.transactions,
+    required this.rawTransactionsById,
   });
 
   @override
@@ -1189,6 +1217,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             )
           else
             ...sortedTransactions.map((expense) {
+              final rawExpense = rawTransactionsById[expense.id] ?? expense;
               return TransactionListTile(
                 category: expense.category ?? category,
                 title: categoryLabel,
@@ -1199,7 +1228,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
                 isIncome: false,
                 onTap: () => showUnifiedTransactionSheet(
                   context,
-                  existingExpense: expense,
+                  existingExpense: rawExpense,
                 ),
               );
             }),

@@ -178,6 +178,7 @@ final pocketDetailsProvider =
     householdId: householdId,
     monthStart: monthStart,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
     includeUpcomingRecurring: params.scopeParams.includeUpcomingRecurring,
     actualExpenses: actualTransactions,
   );

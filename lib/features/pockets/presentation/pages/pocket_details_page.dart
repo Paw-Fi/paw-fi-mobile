@@ -178,7 +178,7 @@ class PocketDetailsPage extends HookConsumerWidget {
         : null;
     final pocketDetailsParams = PocketTransactionsParams(
       pocketId: pocketId,
-      scopeParams: scopeParams,
+      scopeParams: detailScopeParams,
     );
     final detailsAsync = ref.watch(
       pocketDetailsProvider(pocketDetailsParams),

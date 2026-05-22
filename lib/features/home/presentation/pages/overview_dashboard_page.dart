@@ -30,6 +30,16 @@ final overviewPeriodSelectionProvider =
   (ref) => PeriodSelection.preset(DateRangeFilter.allTime),
 );
 
+bool _allowsOverviewCurrency(
+  String? currency,
+  List<String>? selectedCurrencies,
+) {
+  if (selectedCurrencies == null || selectedCurrencies.isEmpty) return true;
+
+  final code = currency?.trim().toUpperCase();
+  return code == null || code.isEmpty || selectedCurrencies.contains(code);
+}
+
 class OverviewDashboardPage extends ConsumerWidget {
   const OverviewDashboardPage({super.key});
 
@@ -58,10 +68,12 @@ class OverviewDashboardPage extends ConsumerWidget {
               final timezoneOffsetMinutes =
                   resolveUserTimezoneOffsetMinutes(preferredTimezone);
               final now = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-              final displayCurrency =
-                  ref.watch(homeFilterProvider).selectedCurrency ??
-                      analytics.contact?.preferredCurrency ??
-                      'USD';
+              final filterState = ref.watch(homeFilterProvider);
+              final displayCurrency = filterState.selectedCurrency ??
+                  analytics.contact?.preferredCurrency ??
+                  'USD';
+              final selectedCurrencies =
+                  filterState.normalizedSelectedCurrencies;
               final allTransactions = data.allTransactions;
               final selectedPeriod = ref.watch(overviewPeriodSelectionProvider);
               final periodDateRange = resolvePeriodDateRange(
@@ -200,6 +212,10 @@ class OverviewDashboardPage extends ConsumerWidget {
               }
 
               final myAllTransactions = allTransactions
+                  .where((tx) => _allowsOverviewCurrency(
+                        tx.entry.currency,
+                        selectedCurrencies,
+                      ))
                   .where((tx) => resolveMyShareAmount(tx).abs() > shareEpsilon)
                   .where(isInSelectedDateRange)
                   .toList(growable: false);

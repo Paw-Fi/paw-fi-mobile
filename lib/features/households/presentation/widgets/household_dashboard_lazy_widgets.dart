@@ -1105,6 +1105,7 @@ class LazyHouseholdSettlementCard extends ConsumerWidget {
             'settlement_data_${summary.householdId}_${membersAsync.valueOrNull?.length}'),
         summary: summary,
         currency: selectedCurrency,
+        selectedCurrencies: _selectedCurrencies(ref),
         members: membersAsync.valueOrNull,
         currentUserId: userId,
       );
