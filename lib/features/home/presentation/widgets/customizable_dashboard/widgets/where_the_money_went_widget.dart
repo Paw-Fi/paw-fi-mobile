@@ -140,6 +140,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                           builder: (_) => CategoryDetailsPage(
                             categoryKey: catKey,
                             currency: currency,
+                            initialDateFilter: dateRange,
                           ),
                         ),
                       );

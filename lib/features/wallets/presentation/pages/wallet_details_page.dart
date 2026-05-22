@@ -690,6 +690,8 @@ class WalletDetailsPage extends HookConsumerWidget {
                           else
                             GroupedTransactionsList(
                               transactions: displayVisibleTransactions,
+                              rowDisplayTransactionsById:
+                                  visibleTransactionsById,
                               currency: selectedCurrencyCode,
                               onTransactionTap: (expense) {
                                 unawaited(handleTransactionTap(

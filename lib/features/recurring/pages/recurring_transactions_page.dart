@@ -23,12 +23,9 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/core/utils/currency_rate_provider.dart';
-import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
-import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -181,13 +178,6 @@ class _RecurringTransactionsPageState
     final filterState = ref.watch(homeFilterProvider);
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
     final selectedCurrencies = filterState.normalizedSelectedCurrencies;
-    final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
-    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
-        const CurrencyRateTable(
-          baseCurrency: 'USD',
-          rates: CurrencyRates.rates,
-          isStale: true,
-        );
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
@@ -217,8 +207,6 @@ class _RecurringTransactionsPageState
                     selectedCurrencies,
                     householdId,
                     userNow,
-                    shouldConvertCurrencies: shouldConvertCurrencies,
-                    currencyRates: rateTable,
                   ),
                   householdId,
                   recurringExpenses.isLoading,
@@ -232,8 +220,6 @@ class _RecurringTransactionsPageState
                     selectedCurrencies,
                     householdId,
                     userNow,
-                    shouldConvertCurrencies: shouldConvertCurrencies,
-                    currencyRates: rateTable,
                   ),
                   householdId,
                   recurringIncomes.isLoading,
@@ -328,10 +314,8 @@ class _RecurringTransactionsPageState
     String? selectedCurrency,
     List<String>? selectedCurrencies,
     String? householdId,
-    DateTime userNow, {
-    required bool shouldConvertCurrencies,
-    required CurrencyRateTable currencyRates,
-  }) {
+    DateTime userNow,
+  ) {
     return recurringExpenses.when(
       data: (expenses) {
         final currencySet = _normalizedCurrencySet(selectedCurrencies) ??
@@ -351,9 +335,6 @@ class _RecurringTransactionsPageState
           colorScheme,
           'expense',
           householdId,
-          selectedCurrency: selectedCurrency,
-          shouldConvertCurrencies: shouldConvertCurrencies,
-          currencyRates: currencyRates,
           isLoading: false,
         );
       },
@@ -370,9 +351,6 @@ class _RecurringTransactionsPageState
           colorScheme,
           'expense',
           householdId,
-          selectedCurrency: selectedCurrency,
-          shouldConvertCurrencies: false,
-          currencyRates: currencyRates,
           isLoading: true,
         );
       },
@@ -387,10 +365,8 @@ class _RecurringTransactionsPageState
     String? selectedCurrency,
     List<String>? selectedCurrencies,
     String? householdId,
-    DateTime userNow, {
-    required bool shouldConvertCurrencies,
-    required CurrencyRateTable currencyRates,
-  }) {
+    DateTime userNow,
+  ) {
     return recurringIncomes.when(
       data: (incomes) {
         final currencySet = _normalizedCurrencySet(selectedCurrencies) ??
@@ -410,9 +386,6 @@ class _RecurringTransactionsPageState
           colorScheme,
           'income',
           householdId,
-          selectedCurrency: selectedCurrency,
-          shouldConvertCurrencies: shouldConvertCurrencies,
-          currencyRates: currencyRates,
           isLoading: false,
         );
       },
@@ -429,9 +402,6 @@ class _RecurringTransactionsPageState
           colorScheme,
           'income',
           householdId,
-          selectedCurrency: selectedCurrency,
-          shouldConvertCurrencies: false,
-          currencyRates: currencyRates,
           isLoading: true,
         );
       },
@@ -445,9 +415,6 @@ class _RecurringTransactionsPageState
     ColorScheme colorScheme,
     String type,
     String? householdId, {
-    required String? selectedCurrency,
-    required bool shouldConvertCurrencies,
-    required CurrencyRateTable currencyRates,
     required bool isLoading,
   }) {
     if (!isLoading && transactions.isEmpty) {
@@ -471,17 +438,8 @@ class _RecurringTransactionsPageState
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final transaction = transactions[index];
-            final displayTransaction = shouldConvertCurrencies
-                ? _convertRecurringTransactionForDisplay(
-                    transaction,
-                    targetCurrency: selectedCurrency ?? 'USD',
-                    rates: currencyRates,
-                  )
-                : transaction;
             return RecurringTransactionCard(
               transaction: transaction,
-              displayAmount: displayTransaction.amount,
-              displayCurrency: displayTransaction.currency,
               onTap:
                   isLoading ? null : () => _showTransactionDetails(transaction),
               onDelete: isLoading
@@ -492,29 +450,6 @@ class _RecurringTransactionsPageState
           childCount: transactions.length,
         ),
       ),
-    );
-  }
-
-  RecurringTransaction _convertRecurringTransactionForDisplay(
-    RecurringTransaction transaction, {
-    required String targetCurrency,
-    required CurrencyRateTable rates,
-  }) {
-    final sourceCurrency = transaction.currency.trim().toUpperCase();
-    final normalizedTarget = targetCurrency.trim().toUpperCase();
-    if (sourceCurrency.isEmpty || sourceCurrency == normalizedTarget) {
-      return transaction;
-    }
-
-    return transaction.copyWith(
-      amount: convertAmountCentsToCurrency(
-            (transaction.amount * 100).round(),
-            fromCurrency: sourceCurrency,
-            targetCurrency: normalizedTarget,
-            rates: rates,
-          ) /
-          100.0,
-      currency: normalizedTarget,
     );
   }
 

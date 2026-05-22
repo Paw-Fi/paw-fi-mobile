@@ -559,6 +559,8 @@ class PocketDetailsPage extends HookConsumerWidget {
                               else
                                 GroupedTransactionsList(
                                   transactions: displayVisibleTransactions,
+                                  rowDisplayTransactionsById:
+                                      visibleTransactionsById,
                                   currency: effectiveCurrency,
                                   onTransactionTap: (expense) {
                                     unawaited(

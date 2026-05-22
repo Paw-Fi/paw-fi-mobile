@@ -19,6 +19,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
 import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -326,6 +327,13 @@ class _DailyFinancialDetailsPageState
     };
     final displayDailyTransactions = isMultiCurrencySelection
         ? dailyAggregateTransactions
+            .map(
+              (transaction) => resolveTransactionRowDisplayEntry(
+                transaction,
+                dailyTransactionsById,
+              ),
+            )
+            .toList(growable: false)
         : dailyTransactions;
 
     final rawProjectedRecurringEntriesForDay =
@@ -371,11 +379,6 @@ class _DailyFinancialDetailsPageState
         .map((e) => tryExtractRecurringId(e.id))
         .whereType<String>()
         .toSet();
-    final projectedRecurringEntriesByRecurringId = {
-      for (final entry in projectedRecurringEntriesForDay)
-        if (tryExtractRecurringId(entry.id) != null)
-          tryExtractRecurringId(entry.id)!: entry,
-    };
     final chartTransactions = [
       ...dailyAggregateTransactions,
       ...projectedRecurringEntriesForDay,
@@ -547,8 +550,7 @@ class _DailyFinancialDetailsPageState
                                       onTap: () {
                                         showUnifiedTransactionSheet(
                                           context,
-                                          existingExpense:
-                                              dailyTransactionsById[t.id] ?? t,
+                                          existingExpense: t,
                                         );
                                       },
                                     ),
@@ -571,10 +573,6 @@ class _DailyFinancialDetailsPageState
                                 padding: const EdgeInsets.only(bottom: 6),
                                 child: _RecurringTransactionTile(
                                   transaction: r,
-                                  currency: widget.currency,
-                                  displayEntry:
-                                      projectedRecurringEntriesByRecurringId[
-                                          r.id],
                                 ),
                               )),
                         ],
@@ -925,13 +923,9 @@ class _StatItem extends StatelessWidget {
 
 class _RecurringTransactionTile extends StatelessWidget {
   final RecurringTransaction transaction;
-  final String currency;
-  final ExpenseEntry? displayEntry;
 
   const _RecurringTransactionTile({
     required this.transaction,
-    required this.currency,
-    this.displayEntry,
   });
 
   @override
@@ -966,8 +960,8 @@ class _RecurringTransactionTile extends StatelessWidget {
                 getCategoryTranslation(context, transaction.category),
             description: transaction.description,
             date: transaction.date,
-            amount: displayEntry?.amount ?? transaction.amount,
-            currency: displayEntry?.currency ?? transaction.currency,
+            amount: transaction.amount,
+            currency: transaction.currency,
             isIncome: isIncome,
             subtitleWidget: Row(
               children: [

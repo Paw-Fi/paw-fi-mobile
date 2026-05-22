@@ -9,6 +9,59 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets(
+    'recent transactions rows keep original source-currency amounts',
+    (tester) async {
+      final transactionDate = DateTime(2026, 5, 22);
+      final expense = ExpenseEntry(
+        id: 'tx_eur',
+        date: transactionDate,
+        amountCents: 2000,
+        currency: 'EUR',
+        category: 'food',
+        rawText: 'Lunch',
+        createdAt: transactionDate,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            upcomingRecurringTransactionProvider(
+              const UpcomingRecurringScope(
+                householdId: null,
+                currency: 'USD',
+                selectedCurrencies: ['USD', 'EUR'],
+              ),
+            ).overrideWithValue(null),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: buildRecentTransactionsCard(
+                  context,
+                  Theme.of(context).colorScheme,
+                  [expense],
+                  null,
+                  selectedCurrency: 'USD',
+                  selectedCurrencies: const ['USD', 'EUR'],
+                  onViewAll: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lunch'), findsOneWidget);
+      expect(find.text('-€20'), findsOneWidget);
+      expect(find.text('-\$20'), findsNothing);
+    },
+  );
+
   testWidgets('recent transactions card shows upcoming recurring banner', (
     tester,
   ) async {

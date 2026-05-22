@@ -49,16 +49,12 @@ String getLocalizedFrequencyText(
 /// Modern, Apple-inspired recurring transaction card with slidable actions
 class RecurringTransactionCard extends ConsumerWidget {
   final RecurringTransaction transaction;
-  final double? displayAmount;
-  final String? displayCurrency;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
   const RecurringTransactionCard({
     super.key,
     required this.transaction,
-    this.displayAmount,
-    this.displayCurrency,
     this.onTap,
     this.onDelete,
   });
@@ -126,8 +122,8 @@ class RecurringTransactionCard extends ConsumerWidget {
                 title: hasDescription ? description : localizedCategory,
                 description: hasDescription ? description : null,
                 date: transaction.date,
-                amount: displayAmount ?? transaction.amount,
-                currency: displayCurrency ?? transaction.currency,
+                amount: transaction.amount,
+                currency: transaction.currency,
                 isIncome: isIncome,
                 subtitleWidget: Row(
                   children: [

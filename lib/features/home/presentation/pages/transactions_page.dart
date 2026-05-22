@@ -18,6 +18,7 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
 import 'package:moneko/features/home/presentation/utils/transactions_page_derived_data.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
@@ -1035,15 +1036,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               );
                             }
 
+                            final displayExpense =
+                                resolveTransactionRowDisplayEntry(
+                              item.expense!,
+                              originalExpenseById,
+                            );
                             return _buildTransactionRow(
                               context,
-                              item.expense!,
+                              displayExpense,
                               contact,
                               colorScheme,
                               key: ValueKey(item.key),
-                              originalExpense:
-                                  originalExpenseById[item.expense!.id] ??
-                                      item.expense!,
+                              originalExpense: displayExpense,
                               currentUserId: currentUserId,
                               accountLabelsById: accountLabelsById,
                               recurringTransactionsById:

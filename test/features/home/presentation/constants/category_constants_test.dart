@@ -291,6 +291,24 @@ void main() {
     });
   });
 
+  group('categoryFeedFilterValuesForKey', () {
+    test('includes aliases that canonicalize to the selected category', () {
+      final filters = categoryFeedFilterValuesForKey('food & drinks');
+
+      expect(filters, contains('food & drinks'));
+      expect(filters, contains('food'));
+      expect(filters, contains('food and drinks'));
+      expect(filters, contains('lunch'));
+    });
+
+    test('falls back to the custom category key when no aliases exist', () {
+      expect(
+        categoryFeedFilterValuesForKey('weekend market'),
+        ['weekend market'],
+      );
+    });
+  });
+
   group('getIncomeCategories', () {
     test('returns list of income categories', () {
       final categories = getIncomeCategories();

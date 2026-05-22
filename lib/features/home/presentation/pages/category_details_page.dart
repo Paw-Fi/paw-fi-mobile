@@ -20,6 +20,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/utils/transactions_page_derived_data.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -202,12 +203,15 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       queryEndDate = null;
     }
 
+    final categoryFilters = categoryFeedFilterValuesForKey(widget.categoryKey);
+
     return TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
       selectedCurrency: filterState.selectedCurrency,
       selectedCurrencies: filterState.normalizedSelectedCurrencies,
-      selectedCategory: widget.categoryKey,
+      selectedCategory: null,
+      selectedCategories: categoryFilters,
       selectedType: 'expense',
       searchQuery: '',
       startDate: queryStartDate,
@@ -264,14 +268,16 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             selectedCurrency: query.selectedCurrency,
             selectedCurrencies: query.normalizedCurrencies,
           );
-    final normalizedCategory = widget.categoryKey.trim().toLowerCase();
+    final categoryFilterSet = categoryFeedFilterValuesForKey(widget.categoryKey)
+        .map((category) => category.trim().toLowerCase())
+        .toSet();
     final projectedRecurringInCategory = projectedRecurring.where((expense) {
       if ((expense.type ?? 'expense').toLowerCase() == 'income') {
         return false;
       }
       final expenseCategory =
           (expense.category ?? 'uncategorized').trim().toLowerCase();
-      if (expenseCategory != normalizedCategory) {
+      if (!categoryFilterSet.contains(expenseCategory)) {
         return false;
       }
       final dateOnly =
@@ -494,13 +500,17 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                               context, item.dayGroup!, colorScheme);
                         }
 
+                        final displayExpense =
+                            resolveTransactionRowDisplayEntry(
+                          item.expense!,
+                          expensesById,
+                        );
                         return _buildTransactionRow(
                           context,
-                          item.expense!,
+                          displayExpense,
                           contact,
                           colorScheme,
-                          originalItem:
-                              expensesById[item.expense!.id] ?? item.expense!,
+                          originalItem: displayExpense,
                           currentUserId: currentUserId,
                           isFirst: item.isFirst,
                           isLast: item.isLast,

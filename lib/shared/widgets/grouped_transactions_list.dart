@@ -6,6 +6,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -33,6 +34,10 @@ typedef TransactionItemBuilder = Widget Function(
 class GroupedTransactionsList extends StatelessWidget {
   /// List of transactions to display
   final List<ExpenseEntry> transactions;
+
+  /// Original source-currency rows keyed by id when [transactions] have been
+  /// converted for group totals.
+  final Map<String, ExpenseEntry>? rowDisplayTransactionsById;
 
   /// Currency code for amount formatting (e.g., 'USD', 'EUR')
   final String currency;
@@ -71,6 +76,7 @@ class GroupedTransactionsList extends StatelessWidget {
   const GroupedTransactionsList({
     super.key,
     required this.transactions,
+    this.rowDisplayTransactionsById,
     required this.currency,
     this.preferredTimezone,
     this.onTransactionTap,
@@ -143,9 +149,15 @@ class GroupedTransactionsList extends StatelessWidget {
               colorScheme,
             );
           }
+          final rowExpense = rowDisplayTransactionsById == null
+              ? item.expense!
+              : resolveTransactionRowDisplayEntry(
+                  item.expense!,
+                  rowDisplayTransactionsById!,
+                );
           return _buildTransactionRow(
             context,
-            item.expense!,
+            rowExpense,
             colorScheme,
             effectiveCardColor,
             isFirst: item.isFirst,

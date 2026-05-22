@@ -840,7 +840,8 @@ const Map<String, String> _baseCategoryAliasMappings = <String, String>{
   'professional': 'business expenses',
 };
 
-final Map<String, String> _categoryAliasMappings = _buildCategoryAliasMappings();
+final Map<String, String> _categoryAliasMappings =
+    _buildCategoryAliasMappings();
 
 Map<String, String> _buildCategoryAliasMappings() {
   final mappings = <String, String>{..._baseCategoryAliasMappings};
@@ -924,6 +925,21 @@ String? resolveBuiltinCategoryKeyAcrossLocales(String? category) {
 
   final canonical = canonicalizeCategoryKey(rawValue);
   return _builtinCategoryKeys.contains(canonical) ? canonical : null;
+}
+
+List<String> categoryFeedFilterValuesForKey(String? category) {
+  final canonical = canonicalizeCategoryKey(category);
+  final values = <String>{canonical};
+
+  for (final entry in _categoryAliasMappings.entries) {
+    if (canonicalizeCategoryKey(entry.value) == canonical) {
+      values.add(entry.key.trim().toLowerCase());
+    }
+  }
+
+  final sorted = values.where((value) => value.isNotEmpty).toList();
+  sorted.sort();
+  return sorted;
 }
 
 /// Translates category names to localized strings
