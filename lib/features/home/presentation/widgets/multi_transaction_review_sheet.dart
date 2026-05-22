@@ -1460,9 +1460,49 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                     Builder(
                       builder: (context) => GestureDetector(
                         onTap: () async {
+                          final currencyCode = _currency;
+                          final symbol = resolveCurrencySymbol(currencyCode);
+                          final displayDescription = _descriptionController.text.trim();
+                          final effectiveTitle = displayDescription.isNotEmpty ? displayDescription : context.l10n.amount;
+
+                          final header = Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.03),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: colorScheme.outline.withValues(alpha: 0.08),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calculate_rounded,
+                                  size: 14,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  effectiveTitle,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
                           final value = await showCalculatorKeypadSheet(
                             context: context,
                             initialValue: _amountController.text,
+                            prefix: symbol,
+                            header: header,
                           );
                           if (value != null) {
                             _amountController.text = value;

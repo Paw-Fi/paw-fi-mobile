@@ -287,9 +287,53 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     Builder(
                       builder: (context) => GestureDetector(
                         onTap: () async {
+                          final currencyCode = ref.read(selectedCurrencyProvider);
+                          final symbol = resolveCurrencySymbol(currencyCode);
+                          final displaySource = _sourceController.text.trim();
+                          final displayDescription = _descriptionController.text.trim();
+                          final effectiveTitle = displaySource.isNotEmpty
+                              ? displaySource
+                              : (displayDescription.isNotEmpty ? displayDescription : context.l10n.income);
+
+                          final header = Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.success.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: colorScheme.success.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: colorScheme.success,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  effectiveTitle,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
                           final value = await showCalculatorKeypadSheet(
                             context: context,
                             initialValue: _amountController.text,
+                            prefix: symbol,
+                            header: header,
                           );
                           if (value != null) {
                             _amountController.text = value;

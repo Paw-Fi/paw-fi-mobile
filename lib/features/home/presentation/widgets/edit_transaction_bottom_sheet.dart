@@ -186,18 +186,89 @@ class _EditTransactionBottomSheetState
     } else if (widget.field == EditField.currency) {
       return _buildCurrencyPicker(colorScheme);
     } else {
+      final isAmount = widget.field == EditField.amount;
       return Builder(
         builder: (context) => GestureDetector(
-          onTap: () async {
-            final value = await showCalculatorKeypadSheet(
-              context: context,
-              initialValue: _controller.text,
-            );
-            if (value != null) {
-              _controller.text = value;
-            }
-          },
+          onTap: isAmount
+              ? () async {
+                  final currency = widget.expense.currency;
+                  final symbol = resolveCurrencySymbol(currency);
+                  final displayMerchant = widget.expense.merchant ?? '';
+                  final displayRawText = widget.expense.rawText ?? '';
+                  final effectiveTitle = displayRawText.isNotEmpty
+                      ? displayRawText
+                      : (displayMerchant.isNotEmpty ? displayMerchant : null);
+
+                  final header = Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: colorScheme.brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.03),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: colorScheme.outline.withValues(alpha: 0.08),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calculate_rounded,
+                                  size: 12,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  context.l10n.amount,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (effectiveTitle != null && effectiveTitle.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          effectiveTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                      ],
+                    ],
+                  );
+
+                  final value = await showCalculatorKeypadSheet(
+                    context: context,
+                    initialValue: _controller.text,
+                    prefix: symbol,
+                    header: header,
+                  );
+                  if (value != null) {
+                    _controller.text = value;
+                  }
+                }
+              : null,
           child: AbsorbPointer(
+            absorbing: isAmount,
             child: TextField(
               controller: _controller,
               autofocus: widget.field != EditField.date &&

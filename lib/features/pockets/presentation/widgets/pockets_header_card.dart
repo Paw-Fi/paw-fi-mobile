@@ -264,9 +264,45 @@ class PocketsHeaderCard extends StatelessWidget {
 
   Future<void> _showBudgetInputSheet(
       BuildContext context, double currentAmount) async {
+    final symbol = resolveCurrencySymbol(currency);
+    final header = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.brightness == Brightness.dark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.pie_chart_rounded,
+            size: 14,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.monthlyBudget,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+
     final value = await showCalculatorKeypadSheet(
       context: context,
       initialValue: currentAmount == 0 ? '' : formatAmount(currentAmount),
+      prefix: symbol,
+      header: header,
     );
     if (value == null) return;
 

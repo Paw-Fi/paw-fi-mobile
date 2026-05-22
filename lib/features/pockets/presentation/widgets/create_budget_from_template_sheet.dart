@@ -268,9 +268,44 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                       const SizedBox(height: 12),
                       GestureDetector(
                         onTap: () async {
+                          final header = Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: scheme.brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.03),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: scheme.outline.withValues(alpha: 0.08),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.pie_chart_rounded,
+                                  size: 14,
+                                  color: scheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  l10n.monthlyBudget,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: scheme.foreground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
                           final value = await showCalculatorKeypadSheet(
                             context: context,
                             initialValue: budgetController.text,
+                            prefix: currencySymbol,
+                            header: header,
                           );
                           if (value != null) {
                             budgetController.text = value;
@@ -834,9 +869,43 @@ class _PocketRow extends HookWidget {
               ),
               GestureDetector(
                 onTap: () async {
+                  final iconData = entry.iconName != null ? _getIconData(entry.iconName!) : Icons.pie_chart_rounded;
+                  final header = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: entry.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: entry.color.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          iconData,
+                          size: 12,
+                          color: entry.color,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          entry.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: scheme.foreground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+
                   final value = await showCalculatorKeypadSheet(
                     context: context,
                     initialValue: controller.text,
+                    prefix: currencySymbol,
+                    header: header,
                   );
                   if (value != null) {
                     controller.text = value;

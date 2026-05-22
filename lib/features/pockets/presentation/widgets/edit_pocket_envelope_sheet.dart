@@ -1287,10 +1287,49 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     children: [
                                       GestureDetector(
                                         onTap: () async {
+                                          final hexColor = selectedColor.value ?? '#6B7280';
+                                          final pocketColor = Color(int.parse(hexColor.replaceFirst('#', ''), radix: 16) + 0xFF000000);
+                                          final iconName = selectedIcon.value ?? 'category';
+                                          final iconData = getPocketIconData(iconName);
+                                          final displayName = nameController.text.trim().isEmpty ? context.l10n.thisPocketFallback : nameController.text.trim();
+
+                                          final header = Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: pocketColor.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(100),
+                                              border: Border.all(
+                                                color: pocketColor.withValues(alpha: 0.25),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  iconData,
+                                                  size: 12,
+                                                  color: pocketColor,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  displayName,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: colorScheme.foreground,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+
                                           final value =
                                               await showCalculatorKeypadSheet(
                                             context: context,
                                             initialValue: amountController.text,
+                                            prefix: resolveCurrencySymbol(currency),
+                                            header: header,
                                           );
                                           if (value != null) {
                                             final normalizedValue =
