@@ -17,6 +17,7 @@ import 'package:moneko/features/households/presentation/providers/household_opti
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -342,7 +343,7 @@ class _SettlementSuggestionsCardState
                             suggestion: s,
                             isPayer: isPayer,
                             scheme: colorScheme,
-                            displayCurrency: selectedCurrency,
+                            showCurrencyFlag: hasMultiCurrencySelection,
                             onTap: () => _openSettleUpSheet(
                               context,
                               householdId: widget.summary.householdId,
@@ -660,22 +661,25 @@ class _SuggestionRow extends StatelessWidget {
   final _Suggestion suggestion;
   final bool isPayer;
   final ColorScheme scheme;
-  final String displayCurrency;
+  final bool showCurrencyFlag;
   final VoidCallback onTap;
 
   const _SuggestionRow({
     required this.suggestion,
     required this.isPayer,
     required this.scheme,
+    required this.showCurrencyFlag,
     required this.onTap,
-    required this.displayCurrency,
   });
 
   @override
   Widget build(BuildContext context) {
     final otherName = isPayer ? suggestion.toName : suggestion.fromName;
-    final amountValue = suggestion.displayAmountCents / 100.0;
-    final symbol = resolveCurrencySymbol(displayCurrency);
+    final rowCurrency = suggestion.currency.trim().toUpperCase().isEmpty
+        ? 'USD'
+        : suggestion.currency.trim().toUpperCase();
+    final amountValue = suggestion.amountCents / 100.0;
+    final symbol = resolveCurrencySymbol(rowCurrency);
     final normalized = double.parse(formatAmount(amountValue));
     final localized = formatLocalizedNumber(context, normalized);
     final amountText = '$symbol$localized';
@@ -709,21 +713,98 @@ class _SuggestionRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              amountText,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: color,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      amountText,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                    ),
+                    if (showCurrencyFlag) ...[
+                      const SizedBox(width: 8),
+                      _CurrencyFlagMark(
+                        currencyCode: rowCurrency,
+                        fallbackSymbol: symbol,
+                        scheme: scheme,
+                      ),
+                    ],
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: scheme.mutedForeground,
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
-              color: scheme.mutedForeground,
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrencyFlagMark extends StatelessWidget {
+  final String currencyCode;
+  final String fallbackSymbol;
+  final ColorScheme scheme;
+
+  const _CurrencyFlagMark({
+    required this.currencyCode,
+    required this.fallbackSymbol,
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final flagPath = getCurrencyFlagPath(currencyCode);
+
+    return Semantics(
+      label: currencyCode,
+      image: true,
+      child: Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: scheme.outline.withValues(alpha: 0.12),
+            width: 0.5,
+          ),
+        ),
+        child: ClipOval(
+          child: flagPath != null
+              ? Image.asset(
+                  flagPath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _buildFallback(),
+                )
+              : _buildFallback(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallback() {
+    return Container(
+      color: scheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Text(
+        fallbackSymbol,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: scheme.mutedForeground,
         ),
       ),
     );
