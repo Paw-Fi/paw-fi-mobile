@@ -5935,10 +5935,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get currencyUpdatedSuccess => 'อัปเดตสกุลเงินสำเร็จ';
 
   @override
-  String get missingUserSession => 'ไม่พบเซสชันการใช้งาน';
+  String get missingUserSession => 'กรุณาเข้าสู่ระบบอีกครั้ง';
 
   @override
-  String get invalidResponse => 'การตอบสนองของระบบไม่ถูกต้อง';
+  String get invalidResponse => 'เกิดข้อผิดพลาด';
 
   @override
   String get unableToUpdateCurrency => 'ไม่สามารถอัปเดตสกุลเงินได้';
@@ -8013,4 +8013,60 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get syria => 'ซีเรีย';
+
+  @override
+  String get converter => 'ตัวแปลง';
+
+  @override
+  String get currencyConverter => 'เครื่องมือแปลงสกุลเงิน';
+
+  @override
+  String requestFailed(Object status) {
+    return 'เกิดข้อผิดพลาด ($status)';
+  }
+
+  @override
+  String errorLoadingCurrencyPreferences(Object error) {
+    return 'ไม่สามารถโหลดการตั้งค่าสกุลเงินได้: $error';
+  }
+
+  @override
+  String errorSavingCurrencyOrder(Object error) {
+    return 'ไม่สามารถบันทึกลำดับสกุลเงินได้: $error';
+  }
+
+  @override
+  String get selectCurrencyFirst => 'กรุณาเลือกสกุลเงินก่อน';
+
+  @override
+  String failedToUpdatePreferredCurrency(Object error) {
+    return 'ไม่สามารถอัปเดตสกุลเงินหลักได้: $error';
+  }
+
+  @override
+  String get setAnotherCurrencyAsPrimary => 'กรุณาเลือกสกุลเงินหลักอื่นก่อน';
+
+  @override
+  String get baseCurrencyTooltip => 'ยอดรวมและงบประมาณทั้งหมดจะแสดงเป็นสกุลเงินหลักของคุณโดยค่าเริ่มต้น';
+
+  @override
+  String get base => 'หลัก';
+
+  @override
+  String get makeBase => 'ตั้งเป็นสกุลเงินหลัก';
+
+  @override
+  String get manageCurrencies => 'จัดการสกุลเงิน';
+
+  @override
+  String get searchCurrencies => 'ค้นหาสกุลเงิน…';
+
+  @override
+  String get noCurrenciesMatchSearch => 'ไม่พบสกุลเงิน';
+
+  @override
+  String get atLeastOneCurrencyVisible => 'ต้องแสดงอย่างน้อยหนึ่งสกุลเงินไว้เสมอ';
+
+  @override
+  String get saveVisibleCurrencies => 'บันทึกสกุลเงินที่แสดง';
 }

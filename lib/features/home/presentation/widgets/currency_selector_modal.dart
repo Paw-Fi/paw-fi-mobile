@@ -36,10 +36,13 @@ Future<String?> showCurrencySelectorModal(
   );
 }
 
-Future<void> _syncPreferredCurrencyOnBackend(String currency) async {
+Future<void> _syncPreferredCurrencyOnBackend(
+  String currency,
+  BuildContext context,
+) async {
   final userId = supabase.auth.currentSession?.user.id;
   if (userId == null || userId.isEmpty) {
-    throw Exception('Missing user session');
+    throw Exception(context.l10n.missingUserSession);
   }
   final response = await supabase.functions.invoke(
     'update-preferred-currency',
@@ -50,17 +53,17 @@ Future<void> _syncPreferredCurrencyOnBackend(String currency) async {
   );
 
   if (response.status >= 400) {
-    throw Exception('Request failed (${response.status})');
+    throw Exception(context.l10n.requestFailed(response.status));
   }
 
   final payloadData = response.data;
   if (payloadData is! Map) {
-    throw Exception('Invalid response');
+    throw Exception(context.l10n.invalidResponse);
   }
   final payload = payloadData.cast<String, dynamic>();
   if (payload['ok'] != true) {
     throw Exception(
-      (payload['error'] ?? 'Unable to update currency').toString(),
+      (payload['error'] ?? context.l10n.unableToUpdateCurrency).toString(),
     );
   }
 }
@@ -97,7 +100,7 @@ Future<void> _retryCurrencySelectionSync({
       primaryCurrency: primaryCurrency,
       selectedCurrencies: selectedCurrencies,
     );
-    await _syncPreferredCurrencyOnBackend(primaryCurrency);
+    await _syncPreferredCurrencyOnBackend(primaryCurrency,toastContext);
     if (toastContext.mounted) {
       AppToast.success(toastContext, successMessage);
     }
@@ -262,7 +265,7 @@ class _CurrencySelectorScreenState
             : (previousCurrency?.trim().toUpperCase() ?? ''));
 
     if (resolvedPrimary.isEmpty) {
-      AppToast.warning(context, 'Select a currency first.');
+      AppToast.warning(context, context.l10n.selectCurrencyFirst);
       return;
     }
 
@@ -292,7 +295,7 @@ class _CurrencySelectorScreenState
     if (!hasSession) return;
 
     try {
-      await _syncPreferredCurrencyOnBackend(resolvedPrimary);
+      await _syncPreferredCurrencyOnBackend(resolvedPrimary, context);
     } catch (error) {
       debugPrint('Failed to update preferred currency on backend: $error');
 
@@ -550,7 +553,7 @@ class _CurrencySelectorScreenState
                       },
                       icon:
                           const Icon(Icons.currency_exchange_rounded, size: 16),
-                      label: Text(context.l10n.currency),
+                      label: Text(context.l10n.converter),
                       style: TextButton.styleFrom(
                         foregroundColor: colorScheme.primary,
                         padding: const EdgeInsets.symmetric(
@@ -638,7 +641,7 @@ class _CurrencySelectorScreenState
                                 if (summary.currencyCode == primaryCurrency) {
                                   AppToast.warning(
                                     context,
-                                    'Set another currency as primary before unchecking this one.',
+                                    context.l10n.setAnotherCurrencyAsPrimary,
                                   );
                                   next.add(summary.currencyCode);
                                 } else if (next
@@ -739,7 +742,7 @@ class _CurrencySelectorScreenState
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _ContactButton(
-                label: 'Email',
+                label: context.l10n.email,
                 icon: Icons.email_outlined,
                 onTap: () {
                   // Launch email with predefined subject and body
@@ -891,8 +894,8 @@ class _CurrencyCard extends StatelessWidget {
               // 1. Checkbox on the very left
               Icon(
                 isIncluded
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
+                    ? Icons.check_box_rounded
+                    : Icons.check_box_outline_blank_rounded,
                 size: 24,
                 color: isIncluded
                     ? colorScheme.success
@@ -964,8 +967,8 @@ class _PrimaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const tooltipMessage =
-        'Your primary currency is used as the default for all totals and budgeting across the app.';
+    final tooltipMessage =
+        context.l10n.baseCurrencyTooltip;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -986,7 +989,7 @@ class _PrimaryPill extends StatelessWidget {
               ),
             ),
             child: Text(
-              isPrimary ? context.l10n.primary : 'Set as Main',
+              isPrimary ? context.l10n.base : context.l10n.makeBase,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,

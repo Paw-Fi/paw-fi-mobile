@@ -4,7 +4,9 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
@@ -218,7 +220,7 @@ class HomeHeaderTrailing extends ConsumerWidget {
 /// - Profile/Household cover photo (Pill shape)
 /// - Currency Selector
 /// - Settings Menu
-class HomeHeaderSliver extends ConsumerWidget {
+class HomeHeaderSliver extends HookConsumerWidget {
   const HomeHeaderSliver({
     super.key,
   });
@@ -234,6 +236,20 @@ class HomeHeaderSliver extends ConsumerWidget {
     final spotlightController = ref.read(homeSpotlightControllerProvider);
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
+    final showCurrencyIndicator = useState<bool>(true);
+
+    // Load indicator dismissal state
+    useEffect(() {
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        final dismissed = prefs.getBool('currency_indicator_dismissed') ?? false;
+        if (dismissed && showCurrencyIndicator.value) {
+          showCurrencyIndicator.value = false;
+        }
+      }();
+      return null;
+    }, []);
+
     final headerTrace = HomeDebugTrace(
       label: 'HomeHeaderSpaceSwitch',
       enabled: ref.read(homeDebugLoggingEnabledProvider),
@@ -591,6 +607,13 @@ class HomeHeaderSliver extends ConsumerWidget {
     // Currency Pill (Right)
     final currencyPill = GestureDetector(
       onTap: () async {
+        // Dismiss the indicator on first tap
+        if (showCurrencyIndicator.value) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('currency_indicator_dismissed', true);
+          showCurrencyIndicator.value = false;
+        }
+        if (!context.mounted) return;
         await showCurrencySelectorModal(context, ref);
         await refreshHomeDataForSelectedAccount(refreshCurrenciesNow: true);
       },
@@ -665,10 +688,28 @@ class HomeHeaderSliver extends ConsumerWidget {
                     ),
                 ],
                 const SizedBox(width: 4),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 16,
-                  color: colorScheme.mutedForeground,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: colorScheme.mutedForeground,
+                    ),
+                    if (showCurrencyIndicator.value)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: colorScheme.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
