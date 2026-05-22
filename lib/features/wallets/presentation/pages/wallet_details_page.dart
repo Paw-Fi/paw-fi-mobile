@@ -230,6 +230,17 @@ class WalletDetailsPage extends HookConsumerWidget {
       feedTransactions: scopedExpenses,
       projectedTransactions: projectedRecurringExpenses,
     );
+    final visibleTransactionsById = {
+      for (final transaction in visibleTransactions)
+        transaction.id: transaction,
+    };
+    final displayVisibleTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            visibleTransactions,
+            targetCurrency: selectedCurrencyCode,
+            rates: rateTable,
+          )
+        : visibleTransactions;
     final projectedMonthRecurringExpenses = walletRecurringTransactions.isEmpty
         ? const <ExpenseEntry>[]
         : _projectWalletRecurringExpenses(
@@ -650,7 +661,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                           ),
                           const SizedBox(height: 12),
                           if (walletFeedState.isLoading &&
-                              visibleTransactions.isEmpty)
+                              displayVisibleTransactions.isEmpty)
                             const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(16),
@@ -658,7 +669,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                               ),
                             )
                           else if (walletFeedState.error != null &&
-                              visibleTransactions.isEmpty)
+                              displayVisibleTransactions.isEmpty)
                             Center(
                               child: Text(
                                 context.l10n.error(walletFeedState.error!),
@@ -667,7 +678,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 ),
                               ),
                             )
-                          else if (visibleTransactions.isEmpty)
+                          else if (displayVisibleTransactions.isEmpty)
                             Center(
                               child: Text(
                                 context.l10n.noTransactionsYet,
@@ -678,10 +689,13 @@ class WalletDetailsPage extends HookConsumerWidget {
                             )
                           else
                             GroupedTransactionsList(
-                              transactions: visibleTransactions,
+                              transactions: displayVisibleTransactions,
                               currency: selectedCurrencyCode,
                               onTransactionTap: (expense) {
-                                unawaited(handleTransactionTap(expense));
+                                unawaited(handleTransactionTap(
+                                  visibleTransactionsById[expense.id] ??
+                                      expense,
+                                ));
                               },
                             ),
                           PaginatedLoadMoreIndicator(

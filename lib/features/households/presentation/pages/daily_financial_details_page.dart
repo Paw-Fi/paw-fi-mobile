@@ -321,6 +321,12 @@ class _DailyFinancialDetailsPageState
           t.date.month == _selectedDate.month &&
           t.date.day == _selectedDate.day;
     }).toList(growable: false);
+    final dailyTransactionsById = {
+      for (final transaction in dailyTransactions) transaction.id: transaction,
+    };
+    final displayDailyTransactions = isMultiCurrencySelection
+        ? dailyAggregateTransactions
+        : dailyTransactions;
 
     final rawProjectedRecurringEntriesForDay =
         mergeActualExpensesWithProjectedRecurring(
@@ -365,6 +371,11 @@ class _DailyFinancialDetailsPageState
         .map((e) => tryExtractRecurringId(e.id))
         .whereType<String>()
         .toSet();
+    final projectedRecurringEntriesByRecurringId = {
+      for (final entry in projectedRecurringEntriesForDay)
+        if (tryExtractRecurringId(entry.id) != null)
+          tryExtractRecurringId(entry.id)!: entry,
+    };
     final chartTransactions = [
       ...dailyAggregateTransactions,
       ...projectedRecurringEntriesForDay,
@@ -486,7 +497,7 @@ class _DailyFinancialDetailsPageState
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (dailyTransactions.isNotEmpty) ...[
+                        if (displayDailyTransactions.isNotEmpty) ...[
                           Text(
                             l10n.transactions,
                             style: TextStyle(
@@ -496,7 +507,7 @@ class _DailyFinancialDetailsPageState
                             ),
                           ),
                           const SizedBox(height: 8),
-                          ...dailyTransactions.map((t) => Container(
+                          ...displayDailyTransactions.map((t) => Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 decoration: BoxDecoration(
                                   color: colorScheme.homeCardSurface,
@@ -536,7 +547,8 @@ class _DailyFinancialDetailsPageState
                                       onTap: () {
                                         showUnifiedTransactionSheet(
                                           context,
-                                          existingExpense: t,
+                                          existingExpense:
+                                              dailyTransactionsById[t.id] ?? t,
                                         );
                                       },
                                     ),
@@ -560,6 +572,9 @@ class _DailyFinancialDetailsPageState
                                 child: _RecurringTransactionTile(
                                   transaction: r,
                                   currency: widget.currency,
+                                  displayEntry:
+                                      projectedRecurringEntriesByRecurringId[
+                                          r.id],
                                 ),
                               )),
                         ],
@@ -911,10 +926,12 @@ class _StatItem extends StatelessWidget {
 class _RecurringTransactionTile extends StatelessWidget {
   final RecurringTransaction transaction;
   final String currency;
+  final ExpenseEntry? displayEntry;
 
   const _RecurringTransactionTile({
     required this.transaction,
     required this.currency,
+    this.displayEntry,
   });
 
   @override
@@ -949,8 +966,8 @@ class _RecurringTransactionTile extends StatelessWidget {
                 getCategoryTranslation(context, transaction.category),
             description: transaction.description,
             date: transaction.date,
-            amount: transaction.amount,
-            currency: transaction.currency,
+            amount: displayEntry?.amount ?? transaction.amount,
+            currency: displayEntry?.currency ?? transaction.currency,
             isIncome: isIncome,
             subtitleWidget: Row(
               children: [

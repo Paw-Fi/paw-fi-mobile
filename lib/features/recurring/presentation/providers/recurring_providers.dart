@@ -843,8 +843,24 @@ final recurringIncomesProvider =
 class UpcomingRecurringScope {
   final String? householdId;
   final String? currency;
+  final List<String>? selectedCurrencies;
 
-  const UpcomingRecurringScope({this.householdId, this.currency});
+  const UpcomingRecurringScope({
+    this.householdId,
+    this.currency,
+    this.selectedCurrencies,
+  });
+
+  List<String>? get normalizedSelectedCurrencies {
+    final normalized = selectedCurrencies
+        ?.map((currency) => currency.trim().toUpperCase())
+        .where((currency) => currency.isNotEmpty)
+        .toSet()
+        .toList();
+    if (normalized == null || normalized.isEmpty) return null;
+    normalized.sort();
+    return normalized;
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -852,10 +868,29 @@ class UpcomingRecurringScope {
       other is UpcomingRecurringScope &&
           runtimeType == other.runtimeType &&
           householdId == other.householdId &&
-          currency == other.currency;
+          currency == other.currency &&
+          _sameStringList(
+            normalizedSelectedCurrencies,
+            other.normalizedSelectedCurrencies,
+          );
 
   @override
-  int get hashCode => householdId.hashCode ^ (currency?.hashCode ?? 0);
+  int get hashCode => Object.hash(
+        householdId,
+        currency,
+        Object.hashAll(normalizedSelectedCurrencies ?? const <String>[]),
+      );
+}
+
+bool _sameStringList(List<String>? left, List<String>? right) {
+  if (identical(left, right)) return true;
+  if (left == null || right == null || left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 class UpcomingRecurringTransaction {
@@ -877,6 +912,7 @@ final upcomingRecurringTransactionProvider =
   final allTransactions =
       ref.watch(recurringTransactionsProvider(scope.householdId));
   final currency = scope.currency?.trim().toUpperCase();
+  final currencies = scope.normalizedSelectedCurrencies;
   final transactions = allTransactions.data.valueOrNull;
   if (transactions == null) return null;
 
@@ -887,9 +923,14 @@ final upcomingRecurringTransactionProvider =
 
   for (final transaction in transactions) {
     if (!transaction.isActive) continue;
-    if (currency != null &&
+    final transactionCurrency = transaction.currency.toUpperCase();
+    if (currencies != null && !currencies.contains(transactionCurrency)) {
+      continue;
+    }
+    if (currencies == null &&
+        currency != null &&
         currency.isNotEmpty &&
-        transaction.currency.toUpperCase() != currency) {
+        transactionCurrency != currency) {
       continue;
     }
 

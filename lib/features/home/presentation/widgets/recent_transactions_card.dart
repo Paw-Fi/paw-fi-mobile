@@ -7,6 +7,8 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -15,6 +17,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 
 const bool _enableRecentTransactionDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -213,6 +216,7 @@ Widget buildRecentTransactionsCard(
   UserContact? contact, {
   Key? key,
   String? selectedCurrency,
+  List<String>? selectedCurrencies,
   String? householdId,
   required VoidCallback onViewAll,
 }) {
@@ -222,6 +226,7 @@ Widget buildRecentTransactionsCard(
     allExpenses: allExpenses,
     contact: contact,
     selectedCurrency: selectedCurrency,
+    selectedCurrencies: selectedCurrencies,
     householdId: householdId,
     onViewAll: onViewAll,
   );
@@ -234,6 +239,7 @@ class _RecentTransactionsCard extends ConsumerStatefulWidget {
     required this.allExpenses,
     required this.contact,
     required this.selectedCurrency,
+    required this.selectedCurrencies,
     required this.householdId,
     required this.onViewAll,
   });
@@ -242,6 +248,7 @@ class _RecentTransactionsCard extends ConsumerStatefulWidget {
   final List<ExpenseEntry> allExpenses;
   final UserContact? contact;
   final String? selectedCurrency;
+  final List<String>? selectedCurrencies;
   final String? householdId;
   final VoidCallback onViewAll;
 
@@ -393,8 +400,32 @@ class _RecentTransactionsCardState
                 UpcomingRecurringScope(
                   householdId: widget.householdId,
                   currency: widget.selectedCurrency,
+                  selectedCurrencies: widget.selectedCurrencies,
                 ),
               ));
+              final shouldConvertUpcoming =
+                  (widget.selectedCurrencies?.length ?? 0) > 1;
+              final targetCurrency = widget.selectedCurrency ?? 'USD';
+              final rateTable = shouldConvertUpcoming
+                  ? ref.watch(currencyRateTableProvider).valueOrNull ??
+                      const CurrencyRateTable(
+                        baseCurrency: 'USD',
+                        rates: CurrencyRates.rates,
+                        isStale: true,
+                      )
+                  : null;
+              final upcomingDisplayAmount =
+                  upcoming == null || !shouldConvertUpcoming
+                      ? null
+                      : convertAmountCentsToCurrency(
+                            (upcoming.transaction.amount * 100).round(),
+                            fromCurrency: upcoming.transaction.currency
+                                .trim()
+                                .toUpperCase(),
+                            targetCurrency: targetCurrency,
+                            rates: rateTable!,
+                          ) /
+                          100.0;
 
               if (_rows.isEmpty && upcoming == null) {
                 return Center(
@@ -414,6 +445,9 @@ class _RecentTransactionsCardState
                   if (upcoming != null) ...[
                     UpcomingRecurringBanner(
                       upcoming: upcoming,
+                      displayAmount: upcomingDisplayAmount,
+                      displayCurrency:
+                          shouldConvertUpcoming ? targetCurrency : null,
                       onTap: () {
                         showAddRecurringSheet(
                           context,

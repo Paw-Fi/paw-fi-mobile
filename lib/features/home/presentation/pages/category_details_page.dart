@@ -303,12 +303,22 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         if (byDate != 0) return byDate;
         return b.createdAt.compareTo(a.createdAt);
       });
+    final expensesById = {
+      for (final expense in expenses) expense.id: expense,
+    };
+    final displayExpenses = isMultiCurrencySelection
+        ? convertTransactionsToCurrency(
+            expenses,
+            targetCurrency: query.selectedCurrency ?? 'USD',
+            rates: rateTable,
+          )
+        : expenses;
 
     // Derived states
-    final monthGroups = groupTransactionsByMonth(expenses);
+    final monthGroups = groupTransactionsByMonth(displayExpenses);
     final renderItems = buildVisibleTransactionRenderItems(
       monthGroups: monthGroups,
-      visibleExpenseCount: expenses.length,
+      visibleExpenseCount: displayExpenses.length,
     );
 
     final aggregateActualExpenses =
@@ -489,6 +499,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                           item.expense!,
                           contact,
                           colorScheme,
+                          originalItem:
+                              expensesById[item.expense!.id] ?? item.expense!,
                           currentUserId: currentUserId,
                           isFirst: item.isFirst,
                           isLast: item.isLast,
@@ -874,6 +886,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     ExpenseEntry item,
     UserContact? contact,
     ColorScheme colorScheme, {
+    required ExpenseEntry originalItem,
     required String currentUserId,
     required bool isFirst,
     required bool isLast,
@@ -916,14 +929,16 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         isIncome: (item.type ?? 'expense').toLowerCase() == 'income',
         showYouLabel: item.userId != null && item.userId == currentUserId,
         onTap: () {
-          if (extractRecurringTransactionIdFromProjectedExpenseId(item.id) !=
+          if (extractRecurringTransactionIdFromProjectedExpenseId(
+                originalItem.id,
+              ) !=
               null) {
             return;
           }
           unawaited(
             showUnifiedTransactionSheet(
               context,
-              existingExpense: item,
+              existingExpense: originalItem,
               contact: contact,
             ).then((_) => _refreshData()),
           );

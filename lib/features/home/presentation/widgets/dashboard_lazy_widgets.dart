@@ -426,6 +426,7 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
         recentTransactions,
         contact,
         selectedCurrency: filterState.selectedCurrency,
+        selectedCurrencies: query.normalizedCurrencies,
         householdId: query.householdId,
         onViewAll: () {
           Navigator.of(context).push(
@@ -775,6 +776,8 @@ Widget _buildRecentTransactionsSkeleton(
       ),
       null,
       selectedCurrency: selectedCurrency,
+      selectedCurrencies:
+          selectedCurrency == null ? null : <String>[selectedCurrency],
       onViewAll: () {},
     ),
   );

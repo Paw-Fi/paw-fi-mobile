@@ -457,11 +457,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
     final upcoming = ref.watch(
       upcomingRecurringTransactionProvider(
         UpcomingRecurringScope(
           householdId: _recurringScopeHouseholdId,
           currency: filterState.selectedCurrency,
+          selectedCurrencies: selectedCurrencies,
         ),
       ),
     );
@@ -470,11 +472,33 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
+    final shouldConvertUpcoming = (selectedCurrencies?.length ?? 0) > 1;
+    final targetCurrency = filterState.selectedCurrency ?? 'USD';
+    final rateTable = shouldConvertUpcoming
+        ? ref.watch(currencyRateTableProvider).valueOrNull ??
+            const CurrencyRateTable(
+              baseCurrency: 'USD',
+              rates: CurrencyRates.rates,
+              isStale: true,
+            )
+        : null;
+    final displayAmount = shouldConvertUpcoming
+        ? convertAmountCentsToCurrency(
+              (upcoming.transaction.amount * 100).round(),
+              fromCurrency: upcoming.transaction.currency.trim().toUpperCase(),
+              targetCurrency: targetCurrency,
+              rates: rateTable!,
+            ) /
+            100.0
+        : null;
+
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: UpcomingRecurringBanner(
           upcoming: upcoming,
+          displayAmount: displayAmount,
+          displayCurrency: shouldConvertUpcoming ? targetCurrency : null,
           onTap: () => _openRecurringTransactionEditor(upcoming.transaction),
         ),
       ),
@@ -596,10 +620,27 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       userNow: userNow,
       projectedRecurringExpenses: projectedRecurringExpenses,
     );
+    final displayFilteredExpenses = isMultiCurrencySelection
+        ? convertTransactionsToCurrency(
+            derivedData.filteredExpenses,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: rateTable,
+          )
+        : derivedData.filteredExpenses;
+    final displayDerivedData = isMultiCurrencySelection
+        ? TransactionsPageDerivedData(
+            filteredExpenses: displayFilteredExpenses,
+            categories: derivedData.categories,
+            monthGroups: groupTransactionsByMonth(displayFilteredExpenses),
+          )
+        : derivedData;
+    final originalExpenseById = {
+      for (final expense in derivedData.filteredExpenses) expense.id: expense,
+    };
     final completeGroupTotals = completeActualExpenses == null
         ? const CompleteTransactionGroupTotals()
-        : buildCompleteTransactionGroupTotals(
-            deriveTransactionsPageData(
+        : () {
+            final completeDerivedData = deriveTransactionsPageData(
               TransactionsPageFilterInput(
                 baseExpenses: completeActualExpenses,
                 projectedRecurringExpenses: projectedRecurringExpenses,
@@ -618,8 +659,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     householdScope.activeAccountHouseholdId,
                 selectedHouseholdId: householdScope.selectedHouseholdId,
               ),
-            ).monthGroups,
-          );
+            );
+            final completeDisplayExpenses = isMultiCurrencySelection
+                ? convertTransactionsToCurrency(
+                    completeDerivedData.filteredExpenses,
+                    targetCurrency: selectedCurrency ?? 'USD',
+                    rates: rateTable,
+                  )
+                : completeDerivedData.filteredExpenses;
+            return buildCompleteTransactionGroupTotals(
+              groupTransactionsByMonth(completeDisplayExpenses),
+            );
+          }();
     final groupCompleteness = resolveTransactionGroupCompleteness(
       loadedExpenses: feedState.items,
       hasMore: feedState.hasMore,
@@ -675,6 +726,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       feedQuery: feedQuery,
       feedState: feedState,
       derivedData: derivedData,
+      displayDerivedData: displayDerivedData,
+      originalExpenseById: originalExpenseById,
       groupCompleteness: groupCompleteness,
       completeGroupTotals: completeGroupTotals,
       shouldSuppressHeaderTotals: shouldSuppressHeaderTotals,
@@ -708,6 +761,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required TransactionsFeedQuery feedQuery,
     required TransactionsFeedState feedState,
     required TransactionsPageDerivedData derivedData,
+    required TransactionsPageDerivedData displayDerivedData,
+    required Map<String, ExpenseEntry> originalExpenseById,
     required TransactionGroupCompleteness groupCompleteness,
     required CompleteTransactionGroupTotals completeGroupTotals,
     required bool shouldSuppressHeaderTotals,
@@ -721,8 +776,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }) {
     final expensesToExport = derivedData.filteredExpenses;
     final visibleListItems = buildVisibleTransactionRenderItems(
-      monthGroups: derivedData.monthGroups,
-      visibleExpenseCount: derivedData.filteredExpenses.length,
+      monthGroups: displayDerivedData.monthGroups,
+      visibleExpenseCount: displayDerivedData.filteredExpenses.length,
     );
     final visibleListItemIndexByKey = buildTransactionRenderItemIndexByKey(
       visibleListItems,
@@ -986,6 +1041,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               contact,
                               colorScheme,
                               key: ValueKey(item.key),
+                              originalExpense:
+                                  originalExpenseById[item.expense!.id] ??
+                                      item.expense!,
                               currentUserId: currentUserId,
                               accountLabelsById: accountLabelsById,
                               recurringTransactionsById:
@@ -1144,6 +1202,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     UserContact? contact,
     ColorScheme colorScheme, {
     Key? key,
+    required ExpenseEntry originalExpense,
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
@@ -1179,6 +1238,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         context,
         item,
         contact,
+        originalExpense: originalExpense,
         currentUserId: currentUserId,
         accountLabelsById: accountLabelsById,
         recurringTransactionsById: recurringTransactionsById,
@@ -1813,6 +1873,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     BuildContext context,
     ExpenseEntry expense,
     UserContact? contact, {
+    required ExpenseEntry originalExpense,
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
@@ -1850,7 +1911,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         extentRatio: 0.22,
         children: [
           SlidableAction(
-            onPressed: (_) => _handleSingleDelete(expense),
+            onPressed: (_) => _handleSingleDelete(originalExpense),
             backgroundColor: colorScheme.error,
             foregroundColor: colorScheme.onError,
             icon: Icons.delete,
@@ -1881,7 +1942,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 unawaited(
                   showUnifiedTransactionSheet(
                     context,
-                    existingExpense: expense,
+                    existingExpense: originalExpense,
                     contact: contact,
                   ).then((_) => _refreshActiveFeed()),
                 );

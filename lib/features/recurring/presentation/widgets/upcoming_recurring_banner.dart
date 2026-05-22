@@ -17,10 +17,14 @@ class UpcomingRecurringBanner extends StatelessWidget {
     super.key,
     required this.upcoming,
     required this.onTap,
+    this.displayAmount,
+    this.displayCurrency,
   });
 
   final UpcomingRecurringTransaction upcoming;
   final VoidCallback onTap;
+  final double? displayAmount;
+  final String? displayCurrency;
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +37,12 @@ class UpcomingRecurringBanner extends StatelessWidget {
         ? transaction.description!.trim()
         : transaction.category;
     final dueLabel = buildUpcomingDueLabel(context, upcoming.daysUntil);
-    final normalized = double.parse(formatAmount(transaction.amount.abs()));
+    final normalized = double.parse(
+      formatAmount((displayAmount ?? transaction.amount).abs()),
+    );
     final localized = formatLocalizedNumber(context, normalized);
-    final symbol = resolveCurrencySymbol(transaction.currency);
+    final symbol =
+        resolveCurrencySymbol(displayCurrency ?? transaction.currency);
     final sign = isIncome ? '+' : '-';
     final amountText = '$sign$symbol$localized';
 

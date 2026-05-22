@@ -6,7 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -2428,6 +2431,33 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
         transaction.id: transaction,
     };
     final selectedRecurring = recurringTransactionsById[recurringId];
+    final selectedCurrencyFilters = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final shouldConvertDisplayAmounts =
+        (selectedCurrencyFilters?.length ?? 0) > 1;
+    final displayRateTable = shouldConvertDisplayAmounts
+        ? ref.watch(currencyRateTableProvider).valueOrNull ??
+            const CurrencyRateTable(
+              baseCurrency: 'USD',
+              rates: CurrencyRates.rates,
+              isStale: true,
+            )
+        : null;
+    final shouldConvertRecurring =
+        selectedRecurring != null && shouldConvertDisplayAmounts;
+    final selectedRecurringDisplayCurrency =
+        shouldConvertRecurring && snapshot != null
+            ? snapshot.report.currencyCode
+            : selectedRecurring?.currency;
+    final selectedRecurringDisplayAmount =
+        shouldConvertRecurring && snapshot != null
+            ? displayRateTable!.convert(
+                selectedRecurring.amount.abs(),
+                selectedRecurring.currency.trim().toUpperCase(),
+                snapshot.report.currencyCode,
+              )
+            : selectedRecurring?.amount.abs();
     final List<WalletEntity> scopedWallets =
         ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
 
@@ -2437,6 +2467,28 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
             .where((entry) => ids.contains(entry.id))
             .toList(growable: true);
     transactions.sort((a, b) => b.date.compareTo(a.date));
+
+    double displayTransactionAmount(ExpenseEntry transaction) {
+      if (!shouldConvertDisplayAmounts || snapshot == null) {
+        return transaction.amount.abs();
+      }
+      final sourceCurrency = (transaction.currency?.trim().isNotEmpty == true)
+          ? transaction.currency!.trim().toUpperCase()
+          : snapshot.report.currencyCode;
+      return displayRateTable!.convert(
+        transaction.amount.abs(),
+        sourceCurrency,
+        snapshot.report.currencyCode,
+      );
+    }
+
+    String displayTransactionCurrency(ExpenseEntry transaction) {
+      if (shouldConvertDisplayAmounts && snapshot != null) {
+        return snapshot.report.currencyCode;
+      }
+      return transaction.currency ?? snapshot?.report.currencyCode ?? 'USD';
+    }
+
     MonthlyGoalReportItem? selectedGoal;
     final selectedGoalId = goalId?.trim();
     if (snapshot != null &&
@@ -2515,10 +2567,17 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                               selectedRecurring.date,
                             ),
                             value: selectedRecurring.type == 'income'
-                                ? '+${formatCurrency(selectedRecurring.amount, selectedRecurring.currency)}'
+                                ? '+${formatCurrency(
+                                    selectedRecurringDisplayAmount ??
+                                        selectedRecurring.amount,
+                                    selectedRecurringDisplayCurrency ??
+                                        selectedRecurring.currency,
+                                  )}'
                                 : formatCurrency(
-                                    -selectedRecurring.amount,
-                                    selectedRecurring.currency,
+                                    -(selectedRecurringDisplayAmount ??
+                                        selectedRecurring.amount),
+                                    selectedRecurringDisplayCurrency ??
+                                        selectedRecurring.currency,
                                   ),
                             accent: selectedRecurring.type == 'income'
                                 ? colorScheme.success
@@ -2630,11 +2689,13 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                                 transaction.date,
                               ),
                               value: transaction.type == 'income'
-                                  ? '+${formatCurrency(transaction.amount, transaction.currency ?? snapshot.report.currencyCode)}'
+                                  ? '+${formatCurrency(
+                                      displayTransactionAmount(transaction),
+                                      displayTransactionCurrency(transaction),
+                                    )}'
                                   : formatCurrency(
-                                      -transaction.amount,
-                                      transaction.currency ??
-                                          snapshot.report.currencyCode,
+                                      -displayTransactionAmount(transaction),
+                                      displayTransactionCurrency(transaction),
                                     ),
                               accent: transaction.type == 'income'
                                   ? colorScheme.success
