@@ -22,13 +22,13 @@ String walletsListCacheKey({
   DateTime? currentMonthStart,
 }) {
   if (selectedCurrency != null && currentMonthStart != null) {
-    return 'wallets:list:v4:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
+    return 'wallets:list:v5:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
   }
-  return 'wallets:list:v2:$userId:${householdId ?? 'personal'}';
+  return 'wallets:list:v3:$userId:${householdId ?? 'personal'}';
 }
 
 String walletsPageStateCacheKey(WalletsScopeQuery query) {
-  return 'wallets:page-state:v3:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
+  return 'wallets:page-state:v4:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
 }
 
 List<WalletEntity>? readPersistedWalletsList(

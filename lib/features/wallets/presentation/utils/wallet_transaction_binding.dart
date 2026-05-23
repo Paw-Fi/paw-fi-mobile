@@ -23,8 +23,13 @@ String? resolveDefaultWalletId(List<WalletEntity> wallets) {
   return null;
 }
 
-String? resolveLegacyWalletId(List<WalletEntity> wallets) {
-  for (final wallet in wallets) {
+String? resolveLegacyWalletId(
+  List<WalletEntity> wallets, {
+  String? currency,
+}) {
+  final matchingWallets = _filterWalletsByCurrency(wallets, currency);
+
+  for (final wallet in matchingWallets) {
     if (wallet.isSystem &&
         !wallet.isArchived &&
         wallet.name.trim().toLowerCase() == 'spending') {
@@ -32,13 +37,13 @@ String? resolveLegacyWalletId(List<WalletEntity> wallets) {
     }
   }
 
-  for (final wallet in wallets) {
+  for (final wallet in matchingWallets) {
     if (wallet.isSystem && !wallet.isArchived) {
       return wallet.id;
     }
   }
 
-  return resolveDefaultWalletId(wallets);
+  return resolveDefaultWalletId(matchingWallets);
 }
 
 String? resolveTransactionWalletId({
@@ -47,8 +52,36 @@ String? resolveTransactionWalletId({
 }) {
   final raw = transaction.walletId?.trim();
   if (raw != null && raw.isNotEmpty) {
+    for (final wallet in wallets) {
+      if (wallet.id == raw) {
+        return _walletMatchesCurrency(wallet, transaction.currency)
+            ? raw
+            : null;
+      }
+    }
     return raw;
   }
 
-  return resolveLegacyWalletId(wallets);
+  return resolveLegacyWalletId(wallets, currency: transaction.currency);
+}
+
+List<WalletEntity> _filterWalletsByCurrency(
+  List<WalletEntity> wallets,
+  String? currency,
+) {
+  final normalized = currency?.trim().toUpperCase();
+  if (normalized == null || normalized.isEmpty) {
+    return wallets;
+  }
+  return wallets
+      .where((wallet) => _walletMatchesCurrency(wallet, normalized))
+      .toList(growable: false);
+}
+
+bool _walletMatchesCurrency(WalletEntity wallet, String? currency) {
+  final normalized = currency?.trim().toUpperCase();
+  if (normalized == null || normalized.isEmpty) {
+    return true;
+  }
+  return wallet.currency.trim().toUpperCase() == normalized;
 }

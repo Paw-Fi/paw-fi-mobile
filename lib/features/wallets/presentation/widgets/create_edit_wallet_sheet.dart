@@ -9,6 +9,7 @@ import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/currency_display_names.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
@@ -20,6 +21,7 @@ class CreateEditWalletResult {
   final String name;
   final String icon;
   final String color;
+  final String currency;
   final int openingBalanceCents;
   final int? goalAmountCents;
   final bool isDefault;
@@ -28,6 +30,7 @@ class CreateEditWalletResult {
     required this.name,
     required this.icon,
     required this.color,
+    required this.currency,
     required this.openingBalanceCents,
     required this.goalAmountCents,
     required this.isDefault,
@@ -57,7 +60,6 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final homeCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
-    final currencySymbol = resolveCurrencySymbol(homeCurrency);
     final isEditing = initial != null;
     final nameController = useTextEditingController(text: initial?.name ?? '');
     final goalController = useTextEditingController(
@@ -74,6 +76,15 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     useListenable(goalController);
     final selectedIcon = useState<String>(initial?.icon ?? 'wallet');
     final selectedColor = useState<String>(initial?.color ?? '#6B7280');
+    final initialCurrency = initial?.currency.trim().toUpperCase();
+    final selectedCurrency = useState<String>(
+      isSupportedCurrencyCode(initialCurrency)
+          ? initialCurrency!
+          : isSupportedCurrencyCode(homeCurrency)
+              ? homeCurrency.trim().toUpperCase()
+              : 'USD',
+    );
+    final currencySymbol = resolveCurrencySymbol(selectedCurrency.value);
     final isDefault = useState<bool>(initial?.isDefault ?? false);
     final isPrimaryWalletLocked = isEditing && (initial?.isDefault ?? false);
 
@@ -95,6 +106,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
           name: name,
           icon: selectedIcon.value,
           color: selectedColor.value,
+          currency: selectedCurrency.value,
           openingBalanceCents: openingCents,
           goalAmountCents: goalCents,
           isDefault: isDefault.value,
@@ -166,6 +178,55 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       CustomTextField(
                         controller: nameController,
                         placeholder: context.l10n.walletNameExample,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.currency,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedCurrency.value,
+                        isExpanded: true,
+                        dropdownColor: colorScheme.sheetBackground,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: colorScheme.card,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: colorScheme.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: colorScheme.primary),
+                          ),
+                        ),
+                        style: TextStyle(
+                          color: colorScheme.foreground,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        items: getAvailableCurrencyOptions().keys.map((code) {
+                          return DropdownMenuItem<String>(
+                            value: code,
+                            child: Text(
+                              '$code · ${resolveCurrencyDisplayName(code)}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(growable: false),
+                        onChanged: (value) {
+                          if (value == null || value.isEmpty) return;
+                          selectedCurrency.value = value;
+                        },
                       ),
                       const SizedBox(height: 20),
                       Text(
@@ -330,14 +391,16 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                         builder: (context) => GestureDetector(
                           onTap: () async {
                             final header = Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: colorScheme.brightness == Brightness.dark
                                     ? Colors.white.withValues(alpha: 0.05)
                                     : Colors.black.withValues(alpha: 0.03),
                                 borderRadius: BorderRadius.circular(100),
                                 border: Border.all(
-                                  color: colorScheme.outline.withValues(alpha: 0.08),
+                                  color: colorScheme.outline
+                                      .withValues(alpha: 0.08),
                                   width: 1,
                                 ),
                               ),
@@ -410,14 +473,16 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                         builder: (context) => GestureDetector(
                           onTap: () async {
                             final header = Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: colorScheme.brightness == Brightness.dark
                                     ? Colors.white.withValues(alpha: 0.05)
                                     : Colors.black.withValues(alpha: 0.03),
                                 borderRadius: BorderRadius.circular(100),
                                 border: Border.all(
-                                  color: colorScheme.outline.withValues(alpha: 0.08),
+                                  color: colorScheme.outline
+                                      .withValues(alpha: 0.08),
                                   width: 1,
                                 ),
                               ),

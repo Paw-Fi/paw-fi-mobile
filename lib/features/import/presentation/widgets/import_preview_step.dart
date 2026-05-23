@@ -536,6 +536,7 @@ class PreviewStep extends ConsumerWidget {
         name: result.name,
         icon: result.icon,
         color: result.color,
+        currency: result.currency,
         openingBalanceCents: result.openingBalanceCents,
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,

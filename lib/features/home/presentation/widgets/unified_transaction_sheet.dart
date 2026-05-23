@@ -819,10 +819,15 @@ class _UnifiedTransactionSheetState
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final accountTarget = _resolveAccountTarget();
+    final transactionCurrency = currency.trim().toUpperCase();
     final scopedAccountsAsync =
-        ref.watch(walletsByHouseholdIdProvider(accountTarget.householdId));
+        ref.watch(walletsByCurrencyProvider(WalletsCurrencyQuery(
+      householdId: accountTarget.householdId,
+      currency: transactionCurrency,
+    )));
     final scopedAccounts =
-        scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
+        (scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[])
+            .toList(growable: false);
     _syncSelectedFinancialAccountWithScope(scopedAccounts);
 
     // For new expenses, use pending expense provider
@@ -1827,7 +1832,8 @@ class _UnifiedTransactionSheetState
 
   // Edit handlers - update local state for both new and existing
   void _handleEditAmount(double currentAmount) async {
-    final pendingExpense = isNewExpense ? ref.read(pendingExpenseProvider) : null;
+    final pendingExpense =
+        isNewExpense ? ref.read(pendingExpenseProvider) : null;
     final isIncomeMode = isNewExpense
         ? (pendingExpense?.isIncome ?? widget.newExpense!.isIncome)
         : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
@@ -1843,9 +1849,12 @@ class _UnifiedTransactionSheetState
         ? pendingExpense.description
         : description;
 
-    final effectiveTitle = displayMerchant != null && displayMerchant.trim().isNotEmpty
+    final effectiveTitle = displayMerchant != null &&
+            displayMerchant.trim().isNotEmpty
         ? displayMerchant
-        : (displayDescription != null && displayDescription.trim().isNotEmpty ? displayDescription : null);
+        : (displayDescription != null && displayDescription.trim().isNotEmpty
+            ? displayDescription
+            : null);
 
     final colorScheme = Theme.of(context).colorScheme;
     final categoryColor = getCategoryColor(displayCategory);
@@ -1881,7 +1890,9 @@ class _UnifiedTransactionSheetState
                     height: 6,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                      color: isIncomeMode
+                          ? colorScheme.success
+                          : colorScheme.destructive,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1890,7 +1901,9 @@ class _UnifiedTransactionSheetState
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                      color: isIncomeMode
+                          ? colorScheme.success
+                          : colorScheme.destructive,
                     ),
                   ),
                 ],
@@ -3383,7 +3396,10 @@ class _UnifiedTransactionSheetState
     }
 
     final availableAccounts = ref
-            .read(walletsByHouseholdIdProvider(effectiveHouseholdId))
+            .read(walletsByCurrencyProvider(WalletsCurrencyQuery(
+              householdId: effectiveHouseholdId,
+              currency: expense.currency,
+            )))
             .valueOrNull ??
         const <WalletEntity>[];
     var selectedFinancialAccountId =
@@ -3568,7 +3584,10 @@ class _UnifiedTransactionSheetState
       final preferredTimezone =
           ref.read(analyticsProvider).contact?.preferredTimezone;
       final availableAccounts = ref
-              .read(walletsByHouseholdIdProvider(accountTarget.householdId))
+              .read(walletsByCurrencyProvider(WalletsCurrencyQuery(
+                householdId: accountTarget.householdId,
+                currency: currency,
+              )))
               .valueOrNull ??
           const <WalletEntity>[];
       var selectedFinancialAccountId =

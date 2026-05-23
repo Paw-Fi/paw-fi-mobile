@@ -418,6 +418,7 @@ class AccountsPage extends HookConsumerWidget {
           name: result.name,
           icon: result.icon,
           color: result.color,
+          currency: result.currency,
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
@@ -576,9 +577,6 @@ class AccountsPage extends HookConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 24, top: 12),
                       child: _WalletAccountStack(
                         wallets: wallets,
-                        currencyCode: selectedCurrencyCode,
-                        walletBalances:
-                            displayedSelectedSnapshot.walletBalances,
                         isPreviewMode: isPreviewMode,
                       ),
                     ),
@@ -657,11 +655,11 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                            AppToast.info(
-                              context,
-                              context.l10n.comingSoon,
-                            );
-                            return;
+                          AppToast.info(
+                            context,
+                            context.l10n.comingSoon,
+                          );
+                          return;
                           if (isPreviewMode) {
                             AppToast.info(
                               context,
@@ -672,13 +670,12 @@ class AccountsPage extends HookConsumerWidget {
 
                           if (hasPendingPlaidRemoval) {
                             await MonekoAlertDialog.show(
-                              context: context,
-                              title: 'Disconnect pending',
-                              description:
-                                  'This bank is still finishing disconnect. Please wait for removal to complete before connecting it again.',
-                              confirmLabel: 'Got it',
-                              showCancelButton:false
-                            );
+                                context: context,
+                                title: 'Disconnect pending',
+                                description:
+                                    'This bank is still finishing disconnect. Please wait for removal to complete before connecting it again.',
+                                confirmLabel: 'Got it',
+                                showCancelButton: false);
                             return;
                           }
 
@@ -890,12 +887,11 @@ class AccountsPage extends HookConsumerWidget {
                                       title: hasPlaidConnectionsInOtherScope
                                           ? 'No bank connected here'
                                           : 'No bank connected',
-                                      description:
-                                          hasPlaidConnectionsInOtherScope
-                                              ? 'A bank is connected in another wallet space. Switch to that space or connect a bank here before syncing transactions.'
-                                              : 'Connect a bank first before syncing transactions.',
+                                      description: hasPlaidConnectionsInOtherScope
+                                          ? 'A bank is connected in another wallet space. Switch to that space or connect a bank here before syncing transactions.'
+                                          : 'Connect a bank first before syncing transactions.',
                                       confirmLabel: 'Got it',
-                                       showCancelButton:false,
+                                      showCancelButton: false,
                                     );
                                     return;
                                   }
@@ -907,7 +903,7 @@ class AccountsPage extends HookConsumerWidget {
                                       description:
                                           'This bank is already queued for Plaid removal. Plaid removal is usually immediate once accepted; if cleanup is still pending, Moneko retries about every 15 minutes. Syncing is disabled while removal is pending.',
                                       confirmLabel: 'Got it',
-                                       showCancelButton:false,
+                                      showCancelButton: false,
                                     );
                                     return;
                                   }
@@ -919,7 +915,7 @@ class AccountsPage extends HookConsumerWidget {
                                       description:
                                           'This bank needs attention before it can sync. Please reconnect the bank and try again.',
                                       confirmLabel: 'Got it',
-                                       showCancelButton:false,
+                                      showCancelButton: false,
                                     );
                                     return;
                                   }
@@ -947,7 +943,7 @@ class AccountsPage extends HookConsumerWidget {
                                       description:
                                           'You cannot sync more than 1 time every 24 hours. Try again in ${_formatDurationCompact(remaining)}.',
                                       confirmLabel: 'Got it',
-                                       showCancelButton:false,
+                                      showCancelButton: false,
                                     );
                                     return;
                                   }
@@ -989,7 +985,7 @@ class AccountsPage extends HookConsumerWidget {
                                           description:
                                               'You cannot request another Plaid refresh yet. Try again later.',
                                           confirmLabel: 'Got it',
-                                           showCancelButton:false,
+                                          showCancelButton: false,
                                         );
                                         return;
                                       }
@@ -1000,7 +996,7 @@ class AccountsPage extends HookConsumerWidget {
                                           description:
                                               'Manual Plaid refresh is only available for eligible paid users.',
                                           confirmLabel: 'Got it',
-                                           showCancelButton:false,
+                                          showCancelButton: false,
                                         );
                                         return;
                                       }
@@ -1488,14 +1484,10 @@ class _WalletsOverviewCard extends HookConsumerWidget {
 
 class _WalletAccountStack extends HookConsumerWidget {
   final List<WalletEntity> wallets;
-  final String currencyCode;
-  final Map<String, int> walletBalances;
   final bool isPreviewMode;
 
   const _WalletAccountStack({
     required this.wallets,
-    required this.currencyCode,
-    required this.walletBalances,
     required this.isPreviewMode,
   });
 
@@ -1643,9 +1635,8 @@ class _WalletAccountStack extends HookConsumerWidget {
                 },
                 child: WalletStackCard(
                   wallet: wallet,
-                  currencyCode: currencyCode,
-                  displayBalanceCents:
-                      walletBalances[wallet.id] ?? wallet.currentBalanceCents,
+                  currencyCode: wallet.currency,
+                  displayBalanceCents: wallet.currentBalanceCents,
                   isExpanded: isExpanded,
                 ),
               ),
@@ -2117,8 +2108,8 @@ String? _bankSyncStatusLabel({
     return 'Bank disconnect pending';
   }
   if (actionConnections.isNotEmpty) {
-    if (actionConnections.every((connection) =>
-        connection.hasNewAccountsAvailable)) {
+    if (actionConnections
+        .every((connection) => connection.hasNewAccountsAvailable)) {
       return 'Bank updates available';
     }
     return 'Bank needs attention';

@@ -110,6 +110,7 @@ class BankSyncReviewAccount {
   bool get hasLinkedWallet => walletId != null && walletId!.isNotEmpty;
 
   BankSyncReviewAccount copyWith({
+    String? currency,
     String? walletId,
     String? walletName,
     String? walletIcon,
@@ -122,7 +123,7 @@ class BankSyncReviewAccount {
       bankAccountId: bankAccountId,
       providerAccountId: providerAccountId,
       name: name,
-      currency: currency,
+      currency: currency ?? this.currency,
       mask: mask,
       type: type,
       subtype: subtype,

@@ -12,7 +12,6 @@ import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -49,6 +48,7 @@ class WalletTransferResult {
   final String fromAccountId;
   final String toAccountId;
   final int amountCents;
+  final String currency;
   final DateTime date;
   final String? note;
 
@@ -56,6 +56,7 @@ class WalletTransferResult {
     required this.fromAccountId,
     required this.toAccountId,
     required this.amountCents,
+    required this.currency,
     required this.date,
     this.note,
   });
@@ -104,10 +105,15 @@ class _WalletTransferSheet extends HookConsumerWidget {
     final fromIdState = useState<String>(
       initialTransfer?.fromAccountId ?? defaultFromWalletId ?? wallets.first.id,
     );
+    final initialFromWallet = wallets.firstWhere(
+      (w) => w.id == fromIdState.value,
+      orElse: () => wallets.first,
+    );
 
     // Initialize to wallet - first non-from wallet
     final initialToWallet = wallets.firstWhere(
-      (w) => w.id != fromIdState.value,
+      (w) =>
+          w.id != fromIdState.value && w.currency == initialFromWallet.currency,
       orElse: () => wallets.length > 1 ? wallets[1] : wallets.first,
     );
     final toIdState = useState<String>(
@@ -128,10 +134,6 @@ class _WalletTransferSheet extends HookConsumerWidget {
     final isSaving = useState<bool>(false);
     final isEditing = initialTransfer != null;
 
-    // Get currency symbol for the amount field
-    final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
-    final symbol = resolveCurrencySymbol(currencyCode);
-
     // Get current wallet names for display
     final fromWallet = wallets.firstWhere(
       (w) => w.id == fromIdState.value,
@@ -141,6 +143,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
       (w) => w.id == toIdState.value,
       orElse: () => wallets.first,
     );
+    final currencyCode = fromWallet.currency;
+    final symbol = resolveCurrencySymbol(currencyCode);
 
     // Parse amount from text
     double getAmountValue() {
@@ -246,6 +250,11 @@ class _WalletTransferSheet extends HookConsumerWidget {
         AppToast.error(context, context.l10n.cannotTransferSameWallet);
         return;
       }
+      if (fromWallet.currency != toWallet.currency) {
+        AppToast.error(
+            context, 'Transfers require wallets with the same currency');
+        return;
+      }
 
       final amountCents = (tryParseMoneyToCents(amountText.value) ?? 0).toInt();
       if (amountCents <= 0) {
@@ -260,6 +269,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
           fromAccountId: fromIdState.value,
           toAccountId: toIdState.value,
           amountCents: amountCents,
+          currency: fromWallet.currency,
           date: selectedDate.value,
           note: noteController.text.trim().isEmpty
               ? null
@@ -278,10 +288,18 @@ class _WalletTransferSheet extends HookConsumerWidget {
       );
       if (selected != null && selected != fromIdState.value) {
         fromIdState.value = selected;
-        // If to wallet is now same as from, auto-switch to a different one
-        if (toIdState.value == selected) {
+        final nextFromWallet = wallets.firstWhere(
+          (w) => w.id == selected,
+          orElse: () => fromWallet,
+        );
+        final selectedToWallet = wallets.firstWhere(
+          (w) => w.id == toIdState.value,
+          orElse: () => toWallet,
+        );
+        if (toIdState.value == selected ||
+            selectedToWallet.currency != nextFromWallet.currency) {
           final otherWallet = wallets.firstWhere(
-            (w) => w.id != selected,
+            (w) => w.id != selected && w.currency == nextFromWallet.currency,
             orElse: () => wallets.first,
           );
           toIdState.value = otherWallet.id;
@@ -293,7 +311,9 @@ class _WalletTransferSheet extends HookConsumerWidget {
       final selected = await _showWalletSelectionSheet(
         context,
         ref: ref,
-        wallets: wallets,
+        wallets: wallets
+            .where((wallet) => wallet.currency == fromWallet.currency)
+            .toList(growable: false),
         currentId: toIdState.value,
         title: context.l10n.toWallet,
       );
@@ -725,8 +745,6 @@ class _WalletTransferSheet extends HookConsumerWidget {
     required String title,
   }) async {
     final colorScheme = Theme.of(context).colorScheme;
-    final currencyCode = ref.read(selectedHomeCurrencyCodeProvider);
-    final symbol = resolveCurrencySymbol(currencyCode);
 
     return showModalBottomSheet<String>(
       context: context,
@@ -773,6 +791,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                     itemCount: wallets.length,
                     itemBuilder: (context, index) {
                       final wallet = wallets[index];
+                      final symbol = resolveCurrencySymbol(wallet.currency);
                       final isSelected = wallet.id == currentId;
                       final walletColor =
                           parseWalletColor(wallet.color, colorScheme.primary);

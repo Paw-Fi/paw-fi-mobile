@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
@@ -159,7 +158,6 @@ class SupabaseWalletsDataService implements WalletsDataService {
 
   final Ref ref;
 
-  WalletsRpcRunner get _rpcRunner => ref.read(walletsRpcRunnerProvider);
   WalletsLegacyDataLoader get _legacyLoader =>
       ref.read(walletsLegacyDataLoaderProvider);
 
@@ -170,51 +168,10 @@ class SupabaseWalletsDataService implements WalletsDataService {
       label: 'WalletsHistoryRpc',
       contextFields: _walletsScopeDebugFields(query),
     );
-    if (ref.read(walletAuthHeadersProvider) == null) {
-      trace.mark('history-rpc-skipped', const {
-        'reason': 'missing-auth-headers',
-      });
-      return _legacyLoader.fetchHistory(query);
-    }
-    if (query.hasMultiCurrencySelection) {
-      trace.mark('history-rpc-skipped', const {
-        'reason': 'multi-currency-local-conversion',
-      });
-      return _legacyLoader.fetchHistory(query);
-    }
-
-    trace.mark('history-rpc-start', const {'rpc': 'get_wallets_history_v2'});
-    try {
-      final response = await _rpcRunner.run(
-        'get_wallets_history_v2',
-        params: query.toHistoryRpcParams(),
-      );
-      final history = WalletsHistorySummary.fromJson(
-        _parseWalletsRpcPayload(
-          response,
-          rpcName: 'get_wallets_history_v2',
-        ),
-      );
-      final historyWithLocalOverlay = await _overlayPendingLocalWalletHistory(
-        ref,
-        query,
-        history,
-      );
-      trace.mark('history-rpc-success', {
-        'months': historyWithLocalOverlay.availableMonths.length,
-        'seriesPoints': historyWithLocalOverlay.netWorthSeries.length,
-      });
-      return historyWithLocalOverlay;
-    } catch (error) {
-      if (!_isMissingWalletsRpcFunctionError(error,
-          rpcName: 'get_wallets_history_v2')) {
-        trace.mark('history-rpc-error', {'error': error});
-        rethrow;
-      }
-      _debugWalletsMissingRpc('get_wallets_history_v2');
-      trace.mark('history-rpc-fallback', const {'reason': 'missing-v2-rpc'});
-      return _legacyLoader.fetchHistory(query);
-    }
+    trace.mark('history-rpc-skipped', const {
+      'reason': 'account-currency-local-snapshot',
+    });
+    return _legacyLoader.fetchHistory(query);
   }
 
   @override
@@ -225,50 +182,10 @@ class SupabaseWalletsDataService implements WalletsDataService {
       label: 'WalletsMonthSnapshotRpc',
       contextFields: _walletsMonthDebugFields(query),
     );
-    if (ref.read(walletAuthHeadersProvider) == null) {
-      trace.mark('month-snapshot-rpc-skipped', const {
-        'reason': 'missing-auth-headers',
-      });
-      return _legacyLoader.fetchMonthSnapshot(query);
-    }
-    if (query.scope.hasMultiCurrencySelection) {
-      trace.mark('month-snapshot-rpc-skipped', const {
-        'reason': 'multi-currency-local-conversion',
-      });
-      return _legacyLoader.fetchMonthSnapshot(query);
-    }
-
-    trace.mark('month-snapshot-rpc-start',
-        const {'rpc': 'get_wallets_month_snapshot_v2'});
-    try {
-      final response = await _rpcRunner.run(
-        'get_wallets_month_snapshot_v2',
-        params: query.toRpcParams(),
-      );
-      final snapshot = WalletsMonthSnapshot.fromJson(
-        _parseWalletsRpcPayload(
-          response,
-          rpcName: 'get_wallets_month_snapshot_v2',
-        ),
-      );
-      final snapshotWithLocalOverlay =
-          await _overlayPendingLocalWalletMonthSnapshot(ref, query, snapshot);
-      trace.mark('month-snapshot-rpc-success', {
-        'walletBalanceCount': snapshotWithLocalOverlay.walletBalances.length,
-        'netWorthCents': snapshotWithLocalOverlay.netWorthCents,
-      });
-      return snapshotWithLocalOverlay;
-    } catch (error) {
-      if (!_isMissingWalletsRpcFunctionError(error,
-          rpcName: 'get_wallets_month_snapshot_v2')) {
-        trace.mark('month-snapshot-rpc-error', {'error': error});
-        rethrow;
-      }
-      _debugWalletsMissingRpc('get_wallets_month_snapshot_v2');
-      trace.mark(
-          'month-snapshot-rpc-fallback', const {'reason': 'missing-v2-rpc'});
-      return _legacyLoader.fetchMonthSnapshot(query);
-    }
+    trace.mark('month-snapshot-rpc-skipped', const {
+      'reason': 'account-currency-local-snapshot',
+    });
+    return _legacyLoader.fetchMonthSnapshot(query);
   }
 }
 
@@ -312,41 +229,6 @@ final _walletsTransactionCacheInvalidationProvider = Provider<void>((ref) {
     }
   });
 });
-
-Map<String, dynamic> _parseWalletsRpcPayload(
-  dynamic response, {
-  required String rpcName,
-}) {
-  if (response is Map<String, dynamic>) {
-    return response;
-  }
-  if (response is Map) {
-    return Map<String, dynamic>.from(response);
-  }
-  throw StateError('$rpcName returned an unexpected payload: $response');
-}
-
-bool _isMissingWalletsRpcFunctionError(
-  Object error, {
-  required String rpcName,
-}) {
-  if (error is! PostgrestException) {
-    return false;
-  }
-
-  if (error.code == '42883') {
-    return true;
-  }
-
-  return error.message.toLowerCase().contains(rpcName.toLowerCase());
-}
-
-void _debugWalletsMissingRpc(String rpcName) {
-  debugPrint(
-    '[Wallets] RPC $rpcName missing; deploy migration '
-    '20260408170000_add_recurring_aware_wallets_and_pockets_rpcs.sql',
-  );
-}
 
 final walletsHistoryProvider =
     FutureProvider.family<WalletsHistorySummary, WalletsScopeQuery>(
@@ -1012,23 +894,60 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     ...actualTransactions,
     ...projectedTransactions,
   ];
+  final rates = ref.read(currencyRateTableProvider).valueOrNull ??
+      const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: CurrencyRates.rates,
+        isStale: true,
+      );
   final transactions = query.hasMultiCurrencySelection
       ? convertTransactionsToCurrency(
           combinedTransactions,
           targetCurrency: query.selectedCurrency,
-          rates: ref.read(currencyRateTableProvider).valueOrNull ??
-              const CurrencyRateTable(
-                baseCurrency: 'USD',
-                rates: CurrencyRates.rates,
-                isStale: true,
-              ),
+          rates: rates,
         )
       : combinedTransactions;
+  final snapshotWallets = query.hasMultiCurrencySelection
+      ? wallets
+          .map((wallet) => wallet.copyWith(
+                openingBalanceCents: _convertWalletCents(
+                  wallet.openingBalanceCents,
+                  fromCurrency: wallet.currency,
+                  toCurrency: query.selectedCurrency,
+                  rates: rates,
+                ),
+                currentBalanceCents: _convertWalletCents(
+                  wallet.currentBalanceCents,
+                  fromCurrency: wallet.currency,
+                  toCurrency: query.selectedCurrency,
+                  rates: rates,
+                ),
+              ))
+          .toList(growable: false)
+      : wallets;
 
   return _WalletRecurringAwareData(
-    wallets: wallets,
+    wallets: snapshotWallets,
     transactions: transactions,
   );
+}
+
+int _convertWalletCents(
+  int amountCents, {
+  required String fromCurrency,
+  required String toCurrency,
+  required CurrencyRateTable rates,
+}) {
+  if (fromCurrency.trim().toUpperCase() == toCurrency.trim().toUpperCase()) {
+    return amountCents;
+  }
+  return (rates.convert(
+            amountCents / 100.0,
+            fromCurrency,
+            toCurrency,
+          ) *
+          100)
+      .round();
 }
 
 Future<List<WalletEntity>> _fetchScopedWallets(
@@ -1067,6 +986,8 @@ Future<List<WalletEntity>> _fetchScopedWallets(
       if (householdId != null && householdId.trim().isNotEmpty)
         'householdId': householdId,
       'currency': query.selectedCurrency.trim().toUpperCase(),
+      if (query.normalizedSelectedCurrencies != null)
+        'currencies': query.normalizedSelectedCurrencies,
       'monthStart': _formatWalletsRpcDate(query.currentMonthStart),
     },
   );
@@ -1186,11 +1107,24 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
       syncStatus: localSyncStatusLocal,
     );
     final scope = ref.read(householdScopeProvider);
-    return filterWalletTransactions(
+    final filtered = filterWalletTransactions(
       allExpenses: transactions,
       scope: scope,
       selectedCurrency: query.selectedCurrency,
       selectedCurrencies: query.normalizedSelectedCurrencies,
+    );
+    if (!query.hasMultiCurrencySelection) {
+      return filtered;
+    }
+    return convertTransactionsToCurrency(
+      filtered,
+      targetCurrency: query.selectedCurrency,
+      rates: ref.read(currencyRateTableProvider).valueOrNull ??
+          const CurrencyRateTable(
+            baseCurrency: 'USD',
+            rates: CurrencyRates.rates,
+            isStale: true,
+          ),
     );
   } catch (_) {
     return const <ExpenseEntry>[];

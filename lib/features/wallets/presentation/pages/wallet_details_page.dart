@@ -91,19 +91,25 @@ class WalletDetailsPage extends HookConsumerWidget {
     }, [providerAccount, serverAccount]);
 
     final latestWallet = providerAccount ?? latestDisplayedAccountState.value;
+    final walletCurrencyCode = latestWallet.currency;
     final householdScope = ref.watch(householdScopeProvider);
-    final scopedAccounts =
-        ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
-    final defaultAccountId = _resolveDefaultAccountId(scopedAccounts);
+    final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
+    final currencyScopedAccounts = ref
+            .watch(walletsByCurrencyProvider(WalletsCurrencyQuery(
+              householdId: effectiveHouseholdId,
+              currency: walletCurrencyCode,
+            )))
+            .valueOrNull ??
+        const <WalletEntity>[];
+    final defaultAccountId = _resolveDefaultAccountId(currencyScopedAccounts);
     final isDefaultResolvedAccount = latestWallet.id == defaultAccountId;
 
-    final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
     final currentMonthStart = DateTime(userNow.year, userNow.month);
     final detailsScopeQuery = WalletsScopeQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
-      selectedCurrency: selectedCurrencyCode,
-      selectedCurrencies: selectedCurrencyFilters,
+      selectedCurrency: walletCurrencyCode,
+      selectedCurrencies: <String>[walletCurrencyCode],
       currentMonthStart: currentMonthStart,
     );
     final detailsMonthQuery = WalletsMonthQuery(
@@ -115,8 +121,8 @@ class WalletDetailsPage extends HookConsumerWidget {
     final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
-      selectedCurrency: selectedCurrencyCode,
-      selectedCurrencies: selectedCurrencyFilters,
+      selectedCurrency: walletCurrencyCode,
+      selectedCurrencies: <String>[walletCurrencyCode],
       selectedCategory: null,
       selectedAccountId: latestWallet.id,
       selectedCategories: null,
@@ -217,8 +223,8 @@ class WalletDetailsPage extends HookConsumerWidget {
             actualExpenses: scopedExpenses,
             rangeStart: projectedRecurringRangeStart,
             rangeEnd: userNow,
-            selectedCurrency: selectedCurrencyCode,
-            selectedCurrencies: selectedCurrencyFilters,
+            selectedCurrency: walletCurrencyCode,
+            selectedCurrencies: <String>[walletCurrencyCode],
             wallet: latestWallet,
           );
     // CRITICAL: keep the wallet detail list aligned with the recurring-aware
@@ -237,7 +243,7 @@ class WalletDetailsPage extends HookConsumerWidget {
     final displayVisibleTransactions = shouldConvertCurrencies
         ? convertTransactionsToCurrency(
             visibleTransactions,
-            targetCurrency: selectedCurrencyCode,
+            targetCurrency: walletCurrencyCode,
             rates: rateTable,
           )
         : visibleTransactions;
@@ -248,8 +254,8 @@ class WalletDetailsPage extends HookConsumerWidget {
             actualExpenses: monthFeedState.items,
             rangeStart: monthStart,
             rangeEnd: userNow,
-            selectedCurrency: selectedCurrencyCode,
-            selectedCurrencies: selectedCurrencyFilters,
+            selectedCurrency: walletCurrencyCode,
+            selectedCurrencies: <String>[walletCurrencyCode],
             wallet: latestWallet,
           );
     final walletColor =
@@ -261,8 +267,10 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final snapshotBalanceCents =
-        detailsMonthSnapshotAsync.valueOrNull?.walletBalances[latestWallet.id];
+    final snapshotBalanceCents = shouldConvertCurrencies
+        ? null
+        : detailsMonthSnapshotAsync
+            .valueOrNull?.walletBalances[latestWallet.id];
     final hasOptimisticBalance = serverAccount != null &&
         latestWallet.currentBalanceCents != serverAccount.currentBalanceCents;
     final currentBalanceCents = hasOptimisticBalance
@@ -286,7 +294,7 @@ class WalletDetailsPage extends HookConsumerWidget {
     final monthSummary = shouldConvertCurrencies
         ? summarizeTransactionsInCurrency(
             monthSummaryExpenses,
-            targetCurrency: selectedCurrencyCode,
+            targetCurrency: walletCurrencyCode,
             rates: rateTable,
           )
         : monthFeedState.summary
@@ -321,7 +329,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         context,
         expense: expense,
         recurringTransactionsById: recurringTransactionsById,
-        transferWallets: scopedAccounts,
+        transferWallets: currencyScopedAccounts,
       );
       if (didChange == true) {
         await refreshWalletDetails();
@@ -350,6 +358,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         name: result.name,
         icon: result.icon,
         color: result.color,
+        currency: result.currency,
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,
         openingBalanceCents: result.openingBalanceCents,
@@ -368,6 +377,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           name: result.name,
           icon: result.icon,
           color: result.color,
+          currency: result.currency,
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
@@ -413,14 +423,17 @@ class WalletDetailsPage extends HookConsumerWidget {
       // Get all wallets for transfer selection
       final scopedAccounts =
           ref.read(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
-      if (scopedAccounts.length < 2) {
+      final transferWallets = scopedAccounts
+          .where((wallet) => wallet.currency == latestWallet.currency)
+          .toList(growable: false);
+      if (transferWallets.length < 2) {
         AppToast.info(context, context.l10n.needTwoWalletsForTransfer);
         return;
       }
 
       final result = await showWalletTransferSheet(
         context,
-        wallets: scopedAccounts,
+        wallets: transferWallets,
         defaultFromWalletId: latestWallet.id,
       );
       if (result == null) return;
@@ -430,7 +443,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           fromAccountId: result.fromAccountId,
           toAccountId: result.toAccountId,
           amountCents: result.amountCents,
-          currency: selectedCurrencyCode,
+          currency: result.currency,
           date: result.date,
           note: result.note,
         );
@@ -561,7 +574,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                             const SizedBox(height: 16),
                             _AnimatedAmountText(
                               value: currentBalanceCents / 100.0,
-                              currencyCode: selectedCurrencyCode,
+                              currencyCode: walletCurrencyCode,
                               style: TextStyle(
                                 fontSize: 44,
                                 fontWeight: FontWeight.w800,
@@ -573,7 +586,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                               const SizedBox(height: 8),
                               _AnimatedAmountText(
                                 value: latestWallet.goalAmountCents! / 100.0,
-                                currencyCode: selectedCurrencyCode,
+                                currencyCode: walletCurrencyCode,
                                 prefix: context.l10n.balanceSummary,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -630,7 +643,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 child: _StatCard(
                                   label: context.l10n.totalIncome,
                                   amount: totalIncome,
-                                  currencyCode: selectedCurrencyCode,
+                                  currencyCode: walletCurrencyCode,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -638,7 +651,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 child: _StatCard(
                                   label: context.l10n.totalSpent,
                                   amount: totalSpent,
-                                  currencyCode: selectedCurrencyCode,
+                                  currencyCode: walletCurrencyCode,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -646,7 +659,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 child: _StatCard(
                                   label: context.l10n.net,
                                   amount: net,
-                                  currencyCode: selectedCurrencyCode,
+                                  currencyCode: walletCurrencyCode,
                                 ),
                               ),
                             ],
@@ -692,7 +705,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                               transactions: displayVisibleTransactions,
                               rowDisplayTransactionsById:
                                   visibleTransactionsById,
-                              currency: selectedCurrencyCode,
+                              currency: walletCurrencyCode,
                               onTransactionTap: (expense) {
                                 unawaited(handleTransactionTap(
                                   visibleTransactionsById[expense.id] ??
@@ -819,6 +832,7 @@ WalletEntity _copyAccount(
   String? name,
   String? icon,
   String? color,
+  String? currency,
   int? openingBalanceCents,
   int? goalAmountCents,
   bool? isDefault,
@@ -831,6 +845,7 @@ WalletEntity _copyAccount(
     name: name ?? source.name,
     icon: icon ?? source.icon,
     color: color ?? source.color,
+    currency: currency ?? source.currency,
     openingBalanceCents: openingBalanceCents ?? source.openingBalanceCents,
     goalAmountCents: goalAmountCents,
     isDefault: isDefault ?? source.isDefault,

@@ -33,6 +33,7 @@ class PlaidSyncReviewWalletCard extends StatelessWidget {
           name: account.walletName,
           icon: account.walletIcon,
           color: account.walletColor,
+          currency: account.currency,
           openingBalanceCents: account.openingBalanceCents,
           goalAmountCents: account.goalAmountCents,
           isDefault: account.isDefault,

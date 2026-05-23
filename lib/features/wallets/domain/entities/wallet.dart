@@ -5,6 +5,7 @@ class WalletEntity {
   final String name;
   final String icon;
   final String color;
+  final String currency;
   final int openingBalanceCents;
   final int? goalAmountCents;
   final bool isDefault;
@@ -19,6 +20,7 @@ class WalletEntity {
     required this.name,
     required this.icon,
     required this.color,
+    this.currency = 'USD',
     required this.openingBalanceCents,
     required this.goalAmountCents,
     required this.isDefault,
@@ -35,6 +37,7 @@ class WalletEntity {
       name: (json['name'] as String?)?.trim() ?? '',
       icon: (json['icon'] as String?)?.trim() ?? 'wallet',
       color: (json['color'] as String?)?.trim() ?? '#6B7280',
+      currency: (json['currency'] as String?)?.trim().toUpperCase() ?? 'USD',
       openingBalanceCents:
           (json['opening_balance_cents'] as num?)?.round() ?? 0,
       goalAmountCents: (json['goal_amount_cents'] as num?)?.round(),
@@ -54,6 +57,7 @@ class WalletEntity {
       'name': name,
       'icon': icon,
       'color': color,
+      'currency': currency,
       'opening_balance_cents': openingBalanceCents,
       'goal_amount_cents': goalAmountCents,
       'is_default': isDefault,
@@ -70,6 +74,7 @@ class WalletEntity {
     String? name,
     String? icon,
     String? color,
+    String? currency,
     int? openingBalanceCents,
     int? goalAmountCents,
     bool? isDefault,
@@ -84,6 +89,7 @@ class WalletEntity {
       name: name ?? this.name,
       icon: icon ?? this.icon,
       color: color ?? this.color,
+      currency: currency ?? this.currency,
       openingBalanceCents: openingBalanceCents ?? this.openingBalanceCents,
       goalAmountCents: goalAmountCents ?? this.goalAmountCents,
       isDefault: isDefault ?? this.isDefault,

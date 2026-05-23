@@ -31,14 +31,25 @@ final walletScopeHouseholdIdProvider = Provider<String?>((ref) {
 Map<String, dynamic> _listWalletsFunctionBody({
   required String? householdId,
   required String selectedCurrency,
+  List<String>? selectedCurrencies,
   required DateTime currentMonthStart,
   bool includeArchived = false,
 }) {
+  final normalizedCurrencies = selectedCurrencies == null
+      ? null
+      : (selectedCurrencies
+          .map((currency) => currency.trim().toUpperCase())
+          .where((currency) => currency.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort());
   return {
     if (includeArchived) 'includeArchived': true,
     if (householdId != null && householdId.trim().isNotEmpty)
       'householdId': householdId,
     'currency': selectedCurrency.trim().toUpperCase(),
+    if (normalizedCurrencies != null && normalizedCurrencies.isNotEmpty)
+      'currencies': normalizedCurrencies,
     'monthStart': _formatListWalletsDate(currentMonthStart),
   };
 }
@@ -79,6 +90,7 @@ final walletsByHouseholdIdProvider =
       body: _listWalletsFunctionBody(
         householdId: householdId,
         selectedCurrency: scopeQuery.selectedCurrency,
+        selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
         currentMonthStart: scopeQuery.currentMonthStart,
       ),
     );
@@ -101,6 +113,74 @@ final walletsByHouseholdIdProvider =
     rethrow;
   }
 });
+
+class WalletsCurrencyQuery {
+  const WalletsCurrencyQuery({
+    required this.householdId,
+    required this.currency,
+  });
+
+  final String? householdId;
+  final String currency;
+
+  String get normalizedCurrency => currency.trim().toUpperCase();
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is WalletsCurrencyQuery &&
+            other.householdId == householdId &&
+            other.normalizedCurrency == normalizedCurrency;
+  }
+
+  @override
+  int get hashCode => Object.hash(householdId, normalizedCurrency);
+}
+
+final walletsByCurrencyProvider =
+    FutureProvider.family<List<WalletEntity>, WalletsCurrencyQuery>(
+  (ref, query) async {
+    final authHeaders = ref.watch(walletAuthHeadersProvider);
+    if (authHeaders == null || query.normalizedCurrency.isEmpty) {
+      return const <WalletEntity>[];
+    }
+
+    final scopeQuery = ref.watch(walletsScopeQueryProvider);
+    final response = await supabase.functions.invoke(
+      'list-wallets',
+      headers: authHeaders,
+      body: _listWalletsFunctionBody(
+        householdId: query.householdId,
+        selectedCurrency: query.normalizedCurrency,
+        selectedCurrencies: <String>[query.normalizedCurrency],
+        currentMonthStart: scopeQuery.currentMonthStart,
+      ),
+    );
+
+    final payload = response.data as Map<String, dynamic>?;
+    if (payload == null || payload['success'] != true) {
+      final message = payload?['error']?.toString() ?? 'Failed to load wallets';
+      throw Exception(message);
+    }
+
+    final data = payload['data'] as List<dynamic>? ?? const [];
+    final wallets = data
+        .whereType<Map<String, dynamic>>()
+        .map(WalletEntity.fromJson)
+        .toList(growable: false);
+    final optimisticOverrides =
+        ref.watch(optimisticScopedAccountsOverridesProvider);
+    final scopedCurrencyOverrides = Map<String, WalletEntity>.fromEntries(
+      optimisticOverrides.entries.where(
+        (entry) =>
+            entry.value.householdId == query.householdId &&
+            entry.value.currency.trim().toUpperCase() ==
+                query.normalizedCurrency,
+      ),
+    );
+    return _mergeOptimisticAccounts(wallets, scopedCurrencyOverrides);
+  },
+);
 
 final optimisticScopedAccountsOverridesProvider =
     StateProvider<Map<String, WalletEntity>>((ref) => const {});
@@ -131,6 +211,16 @@ List<WalletEntity> _mergeOptimisticAccounts(
   return merged;
 }
 
+bool _walletMatchesSelectedCurrencies(
+  WalletEntity wallet,
+  List<String>? selectedCurrencies,
+) {
+  if (selectedCurrencies == null || selectedCurrencies.isEmpty) {
+    return true;
+  }
+  return selectedCurrencies.contains(wallet.currency.trim().toUpperCase());
+}
+
 final archivedScopedAccountsProvider =
     FutureProvider<List<WalletEntity>>((ref) async {
   final authHeaders = ref.watch(walletAuthHeadersProvider);
@@ -146,6 +236,7 @@ final archivedScopedAccountsProvider =
     body: _listWalletsFunctionBody(
       householdId: householdId,
       selectedCurrency: scopeQuery.selectedCurrency,
+      selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
       currentMonthStart: scopeQuery.currentMonthStart,
       includeArchived: true,
     ),
@@ -337,11 +428,17 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
 final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
   final baseAccounts = ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
   final scopeHouseholdId = ref.watch(walletScopeHouseholdIdProvider);
+  final scopeQuery = ref.watch(walletsScopeQueryProvider);
   final optimisticOverrides =
       ref.watch(optimisticScopedAccountsOverridesProvider);
   final scopedOverrides = Map<String, WalletEntity>.fromEntries(
     optimisticOverrides.entries.where(
-      (entry) => entry.value.householdId == scopeHouseholdId,
+      (entry) =>
+          entry.value.householdId == scopeHouseholdId &&
+          _walletMatchesSelectedCurrencies(
+            entry.value,
+            scopeQuery.normalizedSelectedCurrencies,
+          ),
     ),
   );
   return _mergeOptimisticAccounts(baseAccounts, scopedOverrides);
@@ -419,6 +516,7 @@ class WalletActions {
     final isSynced = optimistic.name == serverAccount.name &&
         optimistic.icon == serverAccount.icon &&
         optimistic.color == serverAccount.color &&
+        optimistic.currency == serverAccount.currency &&
         optimistic.openingBalanceCents == serverAccount.openingBalanceCents &&
         optimistic.goalAmountCents == serverAccount.goalAmountCents &&
         optimistic.isDefault == serverAccount.isDefault;
@@ -443,6 +541,7 @@ class WalletActions {
     required String color,
     int openingBalanceCents = 0,
     int? goalAmountCents,
+    required String currency,
     bool isDefault = false,
   }) async {
     final householdId = ref.read(walletScopeHouseholdIdProvider);
@@ -457,6 +556,7 @@ class WalletActions {
       name: name,
       icon: icon,
       color: color,
+      currency: currency.trim().toUpperCase(),
       openingBalanceCents: openingBalanceCents,
       goalAmountCents: goalAmountCents,
       isDefault: isDefault,
@@ -469,6 +569,7 @@ class WalletActions {
       'name': name,
       'icon': icon,
       'color': color,
+      'currency': currency.trim().toUpperCase(),
       'openingBalanceCents': openingBalanceCents,
       'goalAmountCents': goalAmountCents,
       'isDefault': isDefault,
@@ -516,6 +617,7 @@ class WalletActions {
     String? color,
     int? openingBalanceCents,
     int? goalAmountCents,
+    String? currency,
     bool includeGoalAmount = false,
     bool? isDefault,
     bool invalidate = true,
@@ -533,6 +635,7 @@ class WalletActions {
         name: name ?? existingWallet.name,
         icon: icon ?? existingWallet.icon,
         color: color ?? existingWallet.color,
+        currency: currency?.trim().toUpperCase() ?? existingWallet.currency,
         openingBalanceCents:
             openingBalanceCents ?? existingWallet.openingBalanceCents,
         goalAmountCents: includeGoalAmount
@@ -553,6 +656,7 @@ class WalletActions {
       if (name != null) 'name': name,
       if (icon != null) 'icon': icon,
       if (color != null) 'color': color,
+      if (currency != null) 'currency': currency.trim().toUpperCase(),
       if (openingBalanceCents != null)
         'openingBalanceCents': openingBalanceCents,
       if (includeGoalAmount || goalAmountCents != null)
@@ -849,6 +953,7 @@ class WalletActions {
         name: existingWallet.name,
         icon: existingWallet.icon,
         color: existingWallet.color,
+        currency: existingWallet.currency,
         openingBalanceCents: existingWallet.openingBalanceCents,
         goalAmountCents: existingWallet.goalAmountCents,
         isDefault: existingWallet.isDefault,
@@ -994,6 +1099,7 @@ class WalletActions {
       '[Accounts][Invalidate] start optimisticOverridesBefore=$overridesCountBefore',
     );
     ref.invalidate(walletsByHouseholdIdProvider);
+    ref.invalidate(walletsByCurrencyProvider);
     ref.invalidate(scopedWalletsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
     ref.invalidate(walletsHistoryProvider);
