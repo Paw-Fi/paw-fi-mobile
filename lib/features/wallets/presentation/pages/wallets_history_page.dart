@@ -28,9 +28,12 @@ class WalletsHistoryPage extends HookConsumerWidget {
     final accounts = ref.watch(effectiveScopeWalletsProvider);
     final analytics = ref.watch(analyticsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencyFilters = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
     final householdScope = ref.watch(householdScopeProvider);
-
-    final symbol = resolveCurrencySymbol(selectedCurrencyCode);
+    final selectedCurrencies =
+        selectedCurrencyFilters ?? <String>[selectedCurrencyCode];
 
     // Helpers
     bool isInActiveScope(ExpenseEntry expense) {
@@ -53,8 +56,10 @@ class WalletsHistoryPage extends HookConsumerWidget {
 
     // Prepare data
     final allTxs = analytics.allExpenses.where((e) {
+      final transactionCurrency = e.currency?.trim().toUpperCase();
       return isInActiveScope(e) &&
-          (e.currency?.trim().toUpperCase() == selectedCurrencyCode);
+          transactionCurrency != null &&
+          selectedCurrencies.contains(transactionCurrency);
     }).toList();
 
     final standardTxs = allTxs.where((e) => !e.isRecurring).toList();
@@ -64,28 +69,39 @@ class WalletsHistoryPage extends HookConsumerWidget {
 
     // Stats
     final now = DateTime.now();
-    double thisMonthIncome = 0;
-    double thisMonthExpense = 0;
+    final thisMonthIncomeByCurrency = <String, double>{};
+    final thisMonthExpenseByCurrency = <String, double>{};
 
     final accountBalances = <String, int>{
       for (final a in accounts) a.id: a.openingBalanceCents,
     };
     // Categories
-    final categoryTotals = <String, double>{};
+    final categoryTotals = <_CurrencyCategoryKey, double>{};
 
     for (final tx in standardTxs) {
       final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
       final amt = tx.amount.abs();
       final amtCents = tx.amountCents.abs();
+      final transactionCurrency = tx.currency?.trim().toUpperCase();
+      if (transactionCurrency == null || transactionCurrency.isEmpty) {
+        continue;
+      }
 
       // Current month isolated stats
       if (tx.date.year == now.year && tx.date.month == now.month) {
         if (isIncome) {
-          thisMonthIncome += amt;
+          thisMonthIncomeByCurrency[transactionCurrency] =
+              (thisMonthIncomeByCurrency[transactionCurrency] ?? 0) + amt;
         } else {
-          thisMonthExpense += amt;
+          thisMonthExpenseByCurrency[transactionCurrency] =
+              (thisMonthExpenseByCurrency[transactionCurrency] ?? 0) + amt;
           final catName = tx.category ?? 'Uncategorized';
-          categoryTotals[catName] = (categoryTotals[catName] ?? 0) + amt;
+          final categoryKey = _CurrencyCategoryKey(
+            category: catName,
+            currencyCode: transactionCurrency,
+          );
+          categoryTotals[categoryKey] =
+              (categoryTotals[categoryKey] ?? 0) + amt;
         }
       }
 
@@ -95,23 +111,47 @@ class WalletsHistoryPage extends HookConsumerWidget {
         wallets: accounts,
       );
       if (accId != null && accountBalances.containsKey(accId)) {
+        final account = accounts.firstWhereOrNull((wallet) => wallet.id == accId);
+        if (account == null ||
+            account.currency.trim().toUpperCase() != transactionCurrency) {
+          continue;
+        }
         final cur = accountBalances[accId] ?? 0;
         accountBalances[accId] = isIncome ? cur + amtCents : cur - amtCents;
       }
     }
 
-    final netWorth =
-        accountBalances.values.fold<int>(0, (s, v) => s + v) / 100.0;
-    final netCashFlow = thisMonthIncome - thisMonthExpense;
+    final netWorthByCurrency = <String, double>{};
+    for (final account in accounts) {
+      final currency = account.currency.trim().toUpperCase();
+      final cents = accountBalances[account.id] ?? account.openingBalanceCents;
+      netWorthByCurrency[currency] = (netWorthByCurrency[currency] ?? 0) +
+          cents / 100.0;
+    }
+    final netCashFlowByCurrency = <String, double>{};
+    for (final currency in selectedCurrencies) {
+      final income = thisMonthIncomeByCurrency[currency] ?? 0;
+      final expense = thisMonthExpenseByCurrency[currency] ?? 0;
+      if (income != 0 || expense != 0) {
+        netCashFlowByCurrency[currency] = income - expense;
+      }
+    }
 
     // Ordered categories
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     // UI Block Components
-    Widget buildKPIWidget(String title, double amount,
+    Widget buildKPIWidget(String title, Map<String, double> amounts,
         {bool isPositiveGood = true, bool forceColor = false}) {
-      final isPositive = amount >= 0;
+      final visibleAmounts = amounts.entries
+          .where((entry) => entry.value != 0)
+          .toList(growable: false);
+      final displayAmounts = visibleAmounts.isEmpty
+          ? selectedCurrencies.take(1).map((currency) => MapEntry(currency, 0.0))
+          : visibleAmounts;
+      final firstAmount = displayAmounts.first.value;
+      final isPositive = firstAmount >= 0;
       final color = forceColor
           ? (isPositive == isPositiveGood
               ? colorScheme.primary
@@ -139,15 +179,18 @@ class WalletsHistoryPage extends HookConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
+              ...displayAmounts.map((entry) {
+                final entrySymbol = resolveCurrencySymbol(entry.key);
+                return Text(
+                  '$entrySymbol${formatLocalizedNumber(context, double.parse(formatAmount(entry.value.abs())))}',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                );
+              }),
             ],
           ),
         ),
@@ -179,17 +222,21 @@ class WalletsHistoryPage extends HookConsumerWidget {
           // KPI GRID
           Row(
             children: [
-              buildKPIWidget('Total Net Worth', netWorth),
+              buildKPIWidget('Total Net Worth', netWorthByCurrency),
               const SizedBox(width: 12),
-              buildKPIWidget('Net Cash Flow', netCashFlow, forceColor: true),
+              buildKPIWidget(
+                'Net Cash Flow',
+                netCashFlowByCurrency,
+                forceColor: true,
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              buildKPIWidget('Monthly Income', thisMonthIncome),
+              buildKPIWidget('Monthly Income', thisMonthIncomeByCurrency),
               const SizedBox(width: 12),
-              buildKPIWidget('Monthly Expenses', thisMonthExpense),
+              buildKPIWidget('Monthly Expenses', thisMonthExpenseByCurrency),
             ],
           ),
           const SizedBox(height: 24),
@@ -229,12 +276,13 @@ class WalletsHistoryPage extends HookConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(entry.key,
+                              Text(entry.key.category,
                                   style: TextStyle(
                                       color: colorScheme.foreground,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600)),
-                              Text('$symbol${formatAmount(entry.value)}',
+                              Text(
+                                  '${resolveCurrencySymbol(entry.key.currencyCode)}${formatAmount(entry.value)}',
                                   style: TextStyle(
                                       color: colorScheme.mutedForeground,
                                       fontSize: 13)),
@@ -278,6 +326,7 @@ class WalletsHistoryPage extends HookConsumerWidget {
                     final currCents =
                         accountBalances[acc.id] ?? acc.openingBalanceCents;
                     final currBal = currCents / 100.0;
+                    final accountSymbol = resolveCurrencySymbol(acc.currency);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Row(
@@ -309,7 +358,7 @@ class WalletsHistoryPage extends HookConsumerWidget {
                             ],
                           ),
                           Text(
-                            '${currBal < 0 ? '-' : ''}$symbol${formatAmount(currBal.abs())}',
+                            '${currBal < 0 ? '-' : ''}$accountSymbol${formatAmount(currBal.abs())}',
                             style: TextStyle(
                               color: currBal < 0
                                   ? colorScheme.destructive
@@ -371,7 +420,7 @@ class WalletsHistoryPage extends HookConsumerWidget {
                             ),
                           ),
                           Text(
-                            '${isInc ? '+' : '-'}$symbol${formatAmount(tx.amount.abs())}',
+                            '${isInc ? '+' : '-'}${resolveCurrencySymbol(tx.currency ?? selectedCurrencyCode)}${formatAmount(tx.amount.abs())}',
                             style: TextStyle(
                               color: isInc
                                   ? colorScheme.primary
@@ -391,4 +440,25 @@ class WalletsHistoryPage extends HookConsumerWidget {
       ),
     ));
   }
+}
+
+class _CurrencyCategoryKey {
+  const _CurrencyCategoryKey({
+    required this.category,
+    required this.currencyCode,
+  });
+
+  final String category;
+  final String currencyCode;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _CurrencyCategoryKey &&
+            other.category == category &&
+            other.currencyCode == currencyCode;
+  }
+
+  @override
+  int get hashCode => Object.hash(category, currencyCode);
 }

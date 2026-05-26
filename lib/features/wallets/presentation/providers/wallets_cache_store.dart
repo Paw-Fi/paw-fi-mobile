@@ -22,7 +22,7 @@ String walletsListCacheKey({
   DateTime? currentMonthStart,
 }) {
   if (selectedCurrency != null && currentMonthStart != null) {
-    return 'wallets:list:v5:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
+    return 'wallets:list:v6:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
   }
   return 'wallets:list:v3:$userId:${householdId ?? 'personal'}';
 }

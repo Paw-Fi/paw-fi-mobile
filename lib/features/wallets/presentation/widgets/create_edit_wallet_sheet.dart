@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_selector_button.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -87,6 +89,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     final currencySymbol = resolveCurrencySymbol(selectedCurrency.value);
     final isDefault = useState<bool>(initial?.isDefault ?? false);
     final isPrimaryWalletLocked = isEditing && (initial?.isDefault ?? false);
+    final canChangeCurrency = !isEditing;
 
     Future<void> handleSave() async {
       final name = nameController.text.trim();
@@ -189,45 +192,40 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedCurrency.value,
-                        isExpanded: true,
-                        dropdownColor: colorScheme.sheetBackground,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: colorScheme.card,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: colorScheme.border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: colorScheme.primary),
-                          ),
-                        ),
-                        style: TextStyle(
-                          color: colorScheme.foreground,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        items: getAvailableCurrencyOptions().keys.map((code) {
-                          return DropdownMenuItem<String>(
-                            value: code,
-                            child: Text(
-                              '$code · ${resolveCurrencyDisplayName(code)}',
-                              overflow: TextOverflow.ellipsis,
+                      if (canChangeCurrency)
+                        AdaptivePopupMenuButton.widget<String>(
+                          items:
+                              getAvailableCurrencyOptions().keys.map((code) {
+                            return AdaptivePopupMenuItem<String>(
+                              label:
+                                  '$code · ${resolveCurrencyDisplayName(code)}',
+                              value: code,
+                            );
+                          }).toList(growable: false),
+                          onSelected: (_, item) {
+                            final value = item.value;
+                            if (value == null || value.isEmpty) return;
+                            selectedCurrency.value = value;
+                          },
+                          child: IgnorePointer(
+                            child: MonekoSelectorButton(
+                              label:
+                                  '${selectedCurrency.value} · ${resolveCurrencyDisplayName(selectedCurrency.value)}',
+                              onPressed: () {},
                             ),
-                          );
-                        }).toList(growable: false),
-                        onChanged: (value) {
-                          if (value == null || value.isEmpty) return;
-                          selectedCurrency.value = value;
-                        },
-                      ),
+                          ),
+                        )
+                      else
+                        AbsorbPointer(
+                          child: Opacity(
+                            opacity: 0.72,
+                            child: MonekoSelectorButton(
+                              label:
+                                  '${selectedCurrency.value} · ${resolveCurrencyDisplayName(selectedCurrency.value)}',
+                              onPressed: () {},
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 20),
                       Text(
                         context.l10n.walletColor,

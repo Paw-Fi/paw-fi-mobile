@@ -14,6 +14,8 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -37,6 +39,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -473,7 +476,16 @@ class AccountsPage extends HookConsumerWidget {
                   ? _accountsSnapshotFromMonthSnapshot(
                       walletsPageState!.displayedSnapshot!,
                     )
-                  : _buildOpeningSnapshot(wallets);
+                  : _buildOpeningSnapshot(
+                      wallets,
+                      targetCurrency: selectedCurrencyCode,
+                      rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                          const CurrencyRateTable(
+                            baseCurrency: 'USD',
+                            rates: CurrencyRates.rates,
+                            isStale: true,
+                          ),
+                    );
           final displayedSelectedSnapshot = rawSelectedSnapshot;
 
           return RefreshIndicator(
@@ -1495,6 +1507,11 @@ class _WalletAccountStack extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final prefs = ref.watch(sharedPreferencesProvider);
+    final selectedCurrencyFilters = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final shouldShowExpandedCurrencyFlag =
+        (selectedCurrencyFilters?.length ?? 0) > 1;
     const orderKey = 'wallet_accounts_order';
 
     final orderedAccountsState = useState<List<WalletEntity>>([...wallets]);
@@ -1505,13 +1522,15 @@ class _WalletAccountStack extends HookConsumerWidget {
     useEffect(() {
       final savedOrder = prefs.getStringList(orderKey) ?? [];
       final list = [...wallets];
+      final inputOrder = <String, int>{
+        for (var index = 0; index < wallets.length; index++)
+          wallets[index].id: index,
+      };
       list.sort((a, b) {
         final indexA = savedOrder.indexOf(a.id);
         final indexB = savedOrder.indexOf(b.id);
         if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
-        if (indexA != -1) return -1;
-        if (indexB != -1) return 1;
-        return 0; // maintain original order for new items
+        return (inputOrder[a.id] ?? 0).compareTo(inputOrder[b.id] ?? 0);
       });
       orderedAccountsState.value = list;
 
@@ -1638,11 +1657,51 @@ class _WalletAccountStack extends HookConsumerWidget {
                   currencyCode: wallet.currency,
                   displayBalanceCents: wallet.currentBalanceCents,
                   isExpanded: isExpanded,
+                  headerAction: isExpanded && shouldShowExpandedCurrencyFlag
+                      ? _WalletCurrencyFlagBadge(currencyCode: wallet.currency)
+                      : null,
                 ),
               ),
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+}
+
+class _WalletCurrencyFlagBadge extends StatelessWidget {
+  const _WalletCurrencyFlagBadge({
+    required this.currencyCode,
+  });
+
+  final String currencyCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final normalizedCurrency = currencyCode.trim().toUpperCase();
+    final flagPath = getCurrencyFlagPath(normalizedCurrency);
+    final fallbackLabel = normalizedCurrency.isNotEmpty
+        ? normalizedCurrency.substring(0, 1)
+        : '?';
+
+    return SizedBox(
+      width: 15,
+      height: 15,
+      child: ClipOval(
+        child: flagPath != null
+            ? Image.asset(flagPath, fit: BoxFit.cover)
+            : Center(
+                child: Text(
+                  fallbackLabel,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -1666,6 +1725,11 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
     transactions: transactions,
   );
   final monthSnapshots = <DateTime, WalletsMonthSnapshot>{};
+  const rates = CurrencyRateTable(
+    baseCurrency: 'USD',
+    rates: CurrencyRates.rates,
+    isStale: true,
+  );
 
   for (final monthStart in availableMonths) {
     final normalizedMonthStart = _normalizeWalletMonth(monthStart);
@@ -1676,6 +1740,8 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
         monthStart: normalizedMonthStart,
         effectiveNow: effectiveNow,
       ),
+      targetCurrency: selectedCurrencyCode,
+      rates: rates,
     );
     monthSnapshots[normalizedMonthStart] = WalletsMonthSnapshot(
       monthStart: normalizedMonthStart,
@@ -1791,9 +1857,19 @@ DateTime _normalizeWalletMonth(DateTime date) {
   return DateTime(date.year, date.month, 1);
 }
 
-_AccountsSnapshot _buildOpeningSnapshot(List<WalletEntity> wallets) {
+_AccountsSnapshot _buildOpeningSnapshot(
+  List<WalletEntity> wallets, {
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
   final walletBalances = <String, int>{
-    for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
+    for (final wallet in wallets)
+      wallet.id: _convertWalletCents(
+        wallet.openingBalanceCents,
+        fromCurrency: wallet.currency,
+        targetCurrency: targetCurrency,
+        rates: rates,
+      ),
   };
   var netWorthCents = 0;
   for (final value in walletBalances.values) {
@@ -1805,6 +1881,28 @@ _AccountsSnapshot _buildOpeningSnapshot(List<WalletEntity> wallets) {
     netWorth: netWorthCents / 100.0,
     walletBalances: walletBalances,
   );
+}
+
+int _convertWalletCents(
+  int amountCents, {
+  required String? fromCurrency,
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  final normalizedFrom = fromCurrency?.trim().toUpperCase();
+  final normalizedTarget = targetCurrency.trim().toUpperCase();
+  if (normalizedFrom == null ||
+      normalizedFrom.isEmpty ||
+      normalizedTarget.isEmpty) {
+    return amountCents;
+  }
+  final sign = amountCents < 0 ? -1 : 1;
+  final converted = rates.convert(
+    amountCents.abs() / 100.0,
+    normalizedFrom,
+    normalizedTarget,
+  );
+  return (converted * 100).round() * sign;
 }
 
 _AccountsSnapshot _accountsSnapshotFromMonthSnapshot(

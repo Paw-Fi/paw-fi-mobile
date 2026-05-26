@@ -25,6 +25,10 @@ class WalletCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final nativeCurrencyCode = wallet.currency.trim().toUpperCase();
+    final symbol = resolveCurrencySymbol(
+      nativeCurrencyCode.isEmpty ? currencyCode : nativeCurrencyCode,
+    );
     final amount = (displayBalanceCents ?? wallet.currentBalanceCents) / 100.0;
     final isPositive = amount >= 0;
 
@@ -66,7 +70,7 @@ class WalletCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '${isPositive ? '+' : '-'}${resolveCurrencySymbol(currencyCode)}${formatAmount(amount.abs())}',
+                '${isPositive ? '+' : '-'}$symbol${formatAmount(amount.abs())}',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -76,7 +80,7 @@ class WalletCard extends StatelessWidget {
               if (wallet.goalAmountCents != null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Goal: ${resolveCurrencySymbol(currencyCode)}${formatAmount(wallet.goalAmountCents! / 100.0)}',
+                  'Goal: $symbol${formatAmount(wallet.goalAmountCents! / 100.0)}',
                   style: TextStyle(color: colorScheme.onSurfaceVariant),
                 ),
               ],

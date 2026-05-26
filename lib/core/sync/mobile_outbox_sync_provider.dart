@@ -7,8 +7,12 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final mobileOutboxSyncCoordinatorProvider =
@@ -16,9 +20,10 @@ final mobileOutboxSyncCoordinatorProvider =
   final database = await ref.watch(localDatabaseProvider.future);
   return SyncCoordinator(
     database: database,
-    dispatchMutation: (mutation) => _dispatchMobileMutation(database, mutation),
+    dispatchMutation: (mutation) =>
+        _dispatchMobileMutation(ref, database, mutation),
     onMutationCancelled: (mutation, _) =>
-        database.markTransactionMutationExhausted(mutation: mutation),
+        _handleCancelledMobileMutation(ref, database, mutation),
   );
 });
 
@@ -121,6 +126,7 @@ Future<int> _drainMobileOutboxWithReader(
 }
 
 Future<void> _dispatchMobileMutation(
+  Ref ref,
   MonekoDatabase database,
   LocalMutationOutboxData mutation,
 ) async {
@@ -155,10 +161,18 @@ Future<void> _dispatchMobileMutation(
       await _analyzeQueuedAiInput(database, payload, mutation.entityId);
       return;
     case 'invoke_function':
-      await _invokeMutationFunction(
+      final responseBody = await _invokeMutationFunction(
         payload['functionName']?.toString(),
         _mapValue(payload['requestBody']),
       );
+      if (mutation.entityType == 'wallet') {
+        await _reconcileSyncedWalletMutation(
+          ref,
+          mutation,
+          payload,
+          responseBody,
+        );
+      }
       return;
     case 'save_pockets_month':
       await _savePocketsMonth(payload);
@@ -215,6 +229,83 @@ Future<void> _dispatchMobileMutation(
       throw UnsupportedError(
           'Unsupported local mutation: ${mutation.operation}');
   }
+}
+
+Future<void> _reconcileSyncedWalletMutation(
+  Ref ref,
+  LocalMutationOutboxData mutation,
+  Map<String, dynamic> payload,
+  Map<String, dynamic> responseBody,
+) async {
+  final walletIds = _walletIdsForMutation(
+    mutation,
+    payload,
+    responseBody: responseBody,
+  );
+  await _clearWalletOptimisticState(ref, walletIds);
+}
+
+Future<void> _handleCancelledMobileMutation(
+  Ref ref,
+  MonekoDatabase database,
+  LocalMutationOutboxData mutation,
+) async {
+  if (mutation.entityType != 'wallet') {
+    await database.markTransactionMutationExhausted(mutation: mutation);
+    return;
+  }
+  final payload = _decodePayload(mutation.payloadJson);
+  await _clearWalletOptimisticState(
+    ref,
+    _walletIdsForMutation(mutation, payload),
+  );
+}
+
+Set<String> _walletIdsForMutation(
+  LocalMutationOutboxData mutation,
+  Map<String, dynamic> payload, {
+  Map<String, dynamic>? responseBody,
+}) {
+  final requestBody = _mapValue(payload['requestBody']);
+  final walletIds = <String>{mutation.entityId};
+  final affectedWalletIds = payload['affectedWalletIds'];
+  if (affectedWalletIds is List) {
+    for (final value in affectedWalletIds) {
+      final id = value?.toString().trim();
+      if (id != null && id.isNotEmpty) walletIds.add(id);
+    }
+  }
+  for (final key in const ['accountId', 'fromAccountId', 'toAccountId']) {
+    final id = requestBody?[key]?.toString().trim();
+    if (id != null && id.isNotEmpty) walletIds.add(id);
+  }
+  final savedWallet = _mapValue(responseBody?['data']);
+  final savedWalletId = savedWallet?['id']?.toString().trim();
+  if (savedWalletId != null && savedWalletId.isNotEmpty) {
+    walletIds.add(savedWalletId);
+  }
+  return walletIds;
+}
+
+Future<void> _clearWalletOptimisticState(
+  Ref ref,
+  Set<String> walletIds,
+) async {
+  final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
+  if (overrides.isNotEmpty) {
+    final nextOverrides = Map.of(overrides)
+      ..removeWhere((id, _) => walletIds.contains(id));
+    ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
+        nextOverrides;
+  }
+
+  final userId = ref.read(authProvider).uid;
+  if (userId.isNotEmpty) {
+    await clearAllWalletsCachesForUser(ref, userId: userId);
+  }
+  ref.invalidate(scopedWalletsProvider);
+  ref.invalidate(archivedScopedAccountsProvider);
+  ref.invalidate(walletsPageStateProvider);
 }
 
 Future<void> _saveScenarioHistory(Map<String, dynamic> payload) async {

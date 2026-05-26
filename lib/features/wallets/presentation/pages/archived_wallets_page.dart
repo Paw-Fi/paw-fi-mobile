@@ -7,7 +7,6 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -20,7 +19,6 @@ class ArchivedWalletsPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final archivedAsync = ref.watch(archivedScopedAccountsProvider);
     final actions = ref.watch(walletActionsProvider);
-    final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
 
     Future<void> onRestore(WalletEntity wallet) async {
       final confirm = await MonekoAlertDialog.show(
@@ -75,7 +73,6 @@ class ArchivedWalletsPage extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _ArchivedAccountCard(
                   wallet: wallet,
-                  currencyCode: selectedCurrencyCode,
                   onRestore: () => onRestore(wallet),
                 ),
               );
@@ -90,18 +87,16 @@ class ArchivedWalletsPage extends ConsumerWidget {
 class _ArchivedAccountCard extends StatelessWidget {
   const _ArchivedAccountCard({
     required this.wallet,
-    required this.currencyCode,
     required this.onRestore,
   });
 
   final WalletEntity wallet;
-  final String currencyCode;
   final VoidCallback onRestore;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final symbol = resolveCurrencySymbol(currencyCode);
+    final symbol = resolveCurrencySymbol(wallet.currency);
     final amount = wallet.currentBalanceCents / 100.0;
     final mutedSurface = colorScheme.muted.withValues(alpha: 0.35);
 

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 
-class TransactionListTile extends StatelessWidget {
+class TransactionListTile extends ConsumerWidget {
   final String category;
   final String title;
   final String? description;
@@ -65,7 +68,12 @@ class TransactionListTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedCurrencyFilters = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final shouldShowCurrencyFlag = (selectedCurrencyFilters?.length ?? 0) > 1;
+
     return ValueListenableBuilder<Map<String, CustomCategoryStyle>>(
       valueListenable: customCategoryStyleOverridesNotifier,
       builder: (context, _, __) {
@@ -122,6 +130,9 @@ class TransactionListTile extends StatelessWidget {
               ),
             ),
           );
+        }
+        if (shouldShowCurrencyFlag) {
+          chips.add(_TransactionCurrencyFlagBadge(currencyCode: currency));
         }
 
         Widget? subtitleNode;
@@ -205,14 +216,30 @@ class TransactionListTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '$sign$formattedAmount',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color:
-                      isIncome ? colorScheme.success : colorScheme.foreground,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    sign,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isIncome
+                          ? colorScheme.success
+                          : colorScheme.foreground,
+                    ),
+                  ),
+                  Text(
+                    formattedAmount,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isIncome
+                          ? colorScheme.success
+                          : colorScheme.foreground,
+                    ),
+                  ),
+                ],
               ),
               if (trailingWidget != null) ...[
                 const SizedBox(height: 2),
@@ -222,6 +249,43 @@ class TransactionListTile extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _TransactionCurrencyFlagBadge extends StatelessWidget {
+  const _TransactionCurrencyFlagBadge({
+    required this.currencyCode,
+  });
+
+  final String currencyCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final normalizedCurrency = currencyCode.trim().toUpperCase();
+    final flagPath = getCurrencyFlagPath(normalizedCurrency);
+    final fallbackLabel = normalizedCurrency.isNotEmpty
+        ? normalizedCurrency.substring(0, 1)
+        : '?';
+
+    return SizedBox(
+      width: 15,
+      height: 15,
+      child: ClipOval(
+        child: flagPath != null
+            ? Image.asset(flagPath, fit: BoxFit.cover)
+            : Center(
+                child: Text(
+                  fallbackLabel,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }

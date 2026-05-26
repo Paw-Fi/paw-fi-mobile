@@ -6,25 +6,19 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/utils/currency_rate_provider.dart';
-import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
-import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -48,17 +42,6 @@ class WalletDetailsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final actions = ref.watch(walletActionsProvider);
-    final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
-    final selectedCurrencyFilters = ref.watch(
-      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
-    );
-    final shouldConvertCurrencies = (selectedCurrencyFilters?.length ?? 0) > 1;
-    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
-        const CurrencyRateTable(
-          baseCurrency: 'USD',
-          rates: CurrencyRates.rates,
-          isStale: true,
-        );
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final preferredTimezone = ref
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
@@ -105,19 +88,6 @@ class WalletDetailsPage extends HookConsumerWidget {
     final isDefaultResolvedAccount = latestWallet.id == defaultAccountId;
 
     final currentMonthStart = DateTime(userNow.year, userNow.month);
-    final detailsScopeQuery = WalletsScopeQuery(
-      userId: currentUserId,
-      householdId: effectiveHouseholdId,
-      selectedCurrency: walletCurrencyCode,
-      selectedCurrencies: <String>[walletCurrencyCode],
-      currentMonthStart: currentMonthStart,
-    );
-    final detailsMonthQuery = WalletsMonthQuery(
-      scope: detailsScopeQuery,
-      monthStart: currentMonthStart,
-    );
-    final detailsMonthSnapshotAsync =
-        ref.watch(walletsMonthSnapshotProvider(detailsMonthQuery));
     final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
@@ -143,9 +113,6 @@ class WalletDetailsPage extends HookConsumerWidget {
       endDate: monthEnd,
     );
     final monthFeedState = ref.watch(transactionsFeedProvider(monthFeedQuery));
-    final monthAllItemsAsync = shouldConvertCurrencies
-        ? ref.watch(transactionsFeedAllItemsProvider(monthFeedQuery))
-        : null;
     final recurringTransactionsState =
         ref.watch(recurringTransactionsProvider(effectiveHouseholdId));
     final recurringTransactions = recurringTransactionsState.data.valueOrNull ??
@@ -171,13 +138,13 @@ class WalletDetailsPage extends HookConsumerWidget {
     useEffect(() {
       if (walletFeedState.error != null) {
         debugPrint(
-          '[WalletDetailsPage][transactionsFeedProvider] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$selectedCurrencyCode includeUnassignedAccount=$isDefaultResolvedAccount error=${walletFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
+          '[WalletDetailsPage][transactionsFeedProvider] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode includeUnassignedAccount=$isDefaultResolvedAccount error=${walletFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
         );
       }
 
       if (monthFeedState.error != null) {
         debugPrint(
-          '[WalletDetailsPage][monthFeedState] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$selectedCurrencyCode startDate=${monthStart.toIso8601String()} endDate=${monthEnd.toIso8601String()} includeUnassignedAccount=$isDefaultResolvedAccount error=${monthFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
+          '[WalletDetailsPage][monthFeedState] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode startDate=${monthStart.toIso8601String()} endDate=${monthEnd.toIso8601String()} includeUnassignedAccount=$isDefaultResolvedAccount error=${monthFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
         );
       }
       return null;
@@ -187,7 +154,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       latestWallet.id,
       currentUserId,
       effectiveHouseholdId,
-      selectedCurrencyCode,
+      walletCurrencyCode,
       isDefaultResolvedAccount,
       monthStart,
       monthEnd,
@@ -240,13 +207,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       for (final transaction in visibleTransactions)
         transaction.id: transaction,
     };
-    final displayVisibleTransactions = shouldConvertCurrencies
-        ? convertTransactionsToCurrency(
-            visibleTransactions,
-            targetCurrency: walletCurrencyCode,
-            rates: rateTable,
-          )
-        : visibleTransactions;
+    final displayVisibleTransactions = visibleTransactions;
     final projectedMonthRecurringExpenses = walletRecurringTransactions.isEmpty
         ? const <ExpenseEntry>[]
         : _projectWalletRecurringExpenses(
@@ -267,38 +228,13 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final snapshotBalanceCents = shouldConvertCurrencies
-        ? null
-        : detailsMonthSnapshotAsync
-            .valueOrNull?.walletBalances[latestWallet.id];
-    final hasOptimisticBalance = serverAccount != null &&
-        latestWallet.currentBalanceCents != serverAccount.currentBalanceCents;
-    final currentBalanceCents = hasOptimisticBalance
-        ? latestWallet.currentBalanceCents
-        : snapshotBalanceCents ?? latestWallet.currentBalanceCents;
+    final currentBalanceCents = latestWallet.currentBalanceCents;
     // CRITICAL: the "this month" stat cards must include the same projected
     // recurring rows shown in the transaction list and wallet balance logic.
     // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
     // summary, or wallet totals and visible recurring tiles will disagree.
-    final monthActualExpenses = monthAllItemsAsync?.valueOrNull;
-    final monthSummaryExpenses =
-        shouldConvertCurrencies && monthActualExpenses != null
-            ? [
-                ...monthActualExpenses,
-                ...dedupeProjectedRecurringExpenseEntries(
-                  projectedExpenses: projectedMonthRecurringExpenses,
-                  actualExpenses: monthActualExpenses,
-                ),
-              ]
-            : projectedMonthRecurringExpenses;
-    final monthSummary = shouldConvertCurrencies
-        ? summarizeTransactionsInCurrency(
-            monthSummaryExpenses,
-            targetCurrency: walletCurrencyCode,
-            rates: rateTable,
-          )
-        : monthFeedState.summary
-            .addingExpenses(projectedMonthRecurringExpenses);
+    final monthSummary =
+        monthFeedState.summary.addingExpenses(projectedMonthRecurringExpenses);
     final totalIncome = monthSummary.incomeTotal;
     final totalSpent = monthSummary.expenseTotal;
 
@@ -358,7 +294,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         name: result.name,
         icon: result.icon,
         color: result.color,
-        currency: result.currency,
+        currency: latestWallet.currency,
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,
         openingBalanceCents: result.openingBalanceCents,
@@ -367,23 +303,21 @@ class WalletDetailsPage extends HookConsumerWidget {
 
       actions.setOptimisticWallet(optimisticAccount);
 
-      if (context.mounted) {
-        AppToast.success(context, context.l10n.saveChanges);
-      }
-
       try {
         await actions.updateAccount(
           walletId: latestWallet.id,
           name: result.name,
           icon: result.icon,
           color: result.color,
-          currency: result.currency,
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
           isDefault: result.isDefault,
           invalidate: false,
         );
+        if (context.mounted) {
+          AppToast.success(context, context.l10n.saveChanges);
+        }
         debugPrint(
             '[AccountDetails][Edit] refreshAccountData accountId=${latestWallet.id}');
         actions.refreshAccountData();

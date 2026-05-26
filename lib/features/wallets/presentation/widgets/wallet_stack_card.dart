@@ -33,7 +33,10 @@ class WalletStackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final symbol = resolveCurrencySymbol(currencyCode);
+    final nativeCurrencyCode = wallet.currency.trim().toUpperCase();
+    final symbol = resolveCurrencySymbol(
+      nativeCurrencyCode.isEmpty ? currencyCode : nativeCurrencyCode,
+    );
     final amount = displayBalanceCents / 100.0;
     final isNegative = amount < 0;
 

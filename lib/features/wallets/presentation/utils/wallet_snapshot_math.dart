@@ -1,3 +1,4 @@
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -76,24 +77,62 @@ WalletSnapshot buildWalletSnapshot({
   required List<WalletEntity> wallets,
   required List<ExpenseEntry> transactions,
   required DateTime endExclusive,
+  String? targetCurrency,
+  CurrencyRateTable? rates,
 }) {
+  final normalizedTargetCurrency = targetCurrency?.trim().toUpperCase();
+  final rateTable = rates;
+  final shouldConvert = normalizedTargetCurrency != null &&
+      normalizedTargetCurrency.isNotEmpty &&
+      rateTable != null;
+  int convertCents(int amountCents, String? fromCurrency) {
+    if (!shouldConvert) {
+      return amountCents;
+    }
+    final normalizedFromCurrency = fromCurrency?.trim().toUpperCase();
+    if (normalizedFromCurrency == null || normalizedFromCurrency.isEmpty) {
+      return amountCents;
+    }
+    final sign = amountCents < 0 ? -1 : 1;
+    final converted = rateTable.convert(
+      amountCents.abs() / 100.0,
+      normalizedFromCurrency,
+      normalizedTargetCurrency,
+    );
+    return (converted * 100).round() * sign;
+  }
+
   final filteredTransactions = transactions.where((expense) {
     return expense.date.isBefore(endExclusive);
   }).toList(growable: false);
+  final walletsById = <String, WalletEntity>{
+    for (final wallet in wallets) wallet.id: wallet,
+  };
 
   var totalIncomeCents = 0;
   var totalSpentCents = 0;
   for (final expense in filteredTransactions) {
+    final resolvedWalletId = resolveTransactionWalletId(
+      transaction: expense,
+      wallets: wallets,
+    );
+    final sourceCurrency =
+        expense.currency ?? walletsById[resolvedWalletId]?.currency;
+    final convertedAmountCents = convertCents(
+      expense.amountCents.abs(),
+      sourceCurrency,
+    );
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
     if (isIncome) {
-      totalIncomeCents += expense.amountCents.abs();
+      totalIncomeCents += convertedAmountCents;
     } else {
-      totalSpentCents += expense.amountCents.abs();
+      totalSpentCents += convertedAmountCents;
     }
   }
 
   final walletBalances = <String, int>{
-    for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
+    for (final wallet in wallets)
+      wallet.id: convertCents(wallet.openingBalanceCents, wallet.currency),
   };
 
   for (final tx in filteredTransactions) {
@@ -106,7 +145,9 @@ WalletSnapshot buildWalletSnapshot({
       continue;
     }
 
-    final amountCents = tx.amountCents.abs();
+    final sourceCurrency =
+        tx.currency ?? walletsById[resolvedWalletId]?.currency;
+    final amountCents = convertCents(tx.amountCents.abs(), sourceCurrency);
     final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
     final current = walletBalances[resolvedWalletId] ?? 0;
     walletBalances[resolvedWalletId] =

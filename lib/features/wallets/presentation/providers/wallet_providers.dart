@@ -14,6 +14,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -194,7 +195,7 @@ List<WalletEntity> _mergeOptimisticAccounts(
   }
 
   if (baseWallets.isEmpty) {
-    return optimisticOverrides.values.toList(growable: false);
+    return _sortWalletsByListOrder(optimisticOverrides.values);
   }
 
   final merged = baseWallets
@@ -202,13 +203,84 @@ List<WalletEntity> _mergeOptimisticAccounts(
       .toList(growable: true);
 
   final existingIds = merged.map((wallet) => wallet.id).toSet();
-  for (final optimistic in optimisticOverrides.values) {
-    if (!existingIds.contains(optimistic.id)) {
+  final newOptimisticWallets = optimisticOverrides.values
+      .where((wallet) => !existingIds.contains(wallet.id))
+      .toList(growable: false);
+  for (final optimistic in _sortWalletsByListOrder(newOptimisticWallets)) {
+    final insertIndex = merged.indexWhere(
+      (wallet) => _compareWalletListOrder(optimistic, wallet) < 0,
+    );
+    if (insertIndex == -1) {
       merged.add(optimistic);
+    } else {
+      merged.insert(insertIndex, optimistic);
     }
   }
 
   return merged;
+}
+
+List<WalletEntity> _sortWalletsByListOrder(Iterable<WalletEntity> wallets) {
+  final sorted = wallets.toList(growable: false);
+  sorted.sort(_compareWalletListOrder);
+  return sorted;
+}
+
+int _compareWalletListOrder(WalletEntity left, WalletEntity right) {
+  if (left.isDefault != right.isDefault) {
+    return left.isDefault ? -1 : 1;
+  }
+  if (left.isSystem != right.isSystem) {
+    return left.isSystem ? -1 : 1;
+  }
+  final nameComparison = left.name.compareTo(right.name);
+  if (nameComparison != 0) {
+    return nameComparison;
+  }
+  return left.id.compareTo(right.id);
+}
+
+void _clearSyncedOptimisticAccounts(
+  Ref ref,
+  List<WalletEntity> serverWallets,
+) {
+  final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
+  if (overrides.isEmpty || serverWallets.isEmpty) {
+    return;
+  }
+
+  final serverById = <String, WalletEntity>{
+    for (final wallet in serverWallets) wallet.id: wallet,
+  };
+  final nextOverrides = <String, WalletEntity>{};
+  for (final entry in overrides.entries) {
+    final serverWallet = serverById[entry.key];
+    if (serverWallet == null ||
+        !_walletOverrideMatchesServer(entry.value, serverWallet)) {
+      nextOverrides[entry.key] = entry.value;
+    }
+  }
+
+  if (nextOverrides.length == overrides.length) {
+    return;
+  }
+  ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
+      nextOverrides;
+}
+
+bool _walletOverrideMatchesServer(
+  WalletEntity optimistic,
+  WalletEntity server,
+) {
+  return optimistic.name == server.name &&
+      optimistic.icon == server.icon &&
+      optimistic.color == server.color &&
+      optimistic.currency == server.currency &&
+      optimistic.openingBalanceCents == server.openingBalanceCents &&
+      optimistic.goalAmountCents == server.goalAmountCents &&
+      optimistic.isDefault == server.isDefault &&
+      optimistic.isArchived == server.isArchived &&
+      optimistic.currentBalanceCents == server.currentBalanceCents;
 }
 
 bool _walletMatchesSelectedCurrencies(
@@ -392,6 +464,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     );
     final wallets =
         await ref.read(walletsByHouseholdIdProvider(householdId).future);
+    _clearSyncedOptimisticAccounts(ref, wallets);
     final currentKey = walletsListCacheKey(
       userId: ref.read(authProvider).uid,
       householdId: ref.read(walletScopeHouseholdIdProvider),
@@ -429,6 +502,7 @@ final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
   final baseAccounts = ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
   final scopeHouseholdId = ref.watch(walletScopeHouseholdIdProvider);
   final scopeQuery = ref.watch(walletsScopeQueryProvider);
+  final selectedCurrencies = scopeQuery.normalizedSelectedCurrencies;
   final optimisticOverrides =
       ref.watch(optimisticScopedAccountsOverridesProvider);
   final scopedOverrides = Map<String, WalletEntity>.fromEntries(
@@ -437,11 +511,17 @@ final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
           entry.value.householdId == scopeHouseholdId &&
           _walletMatchesSelectedCurrencies(
             entry.value,
-            scopeQuery.normalizedSelectedCurrencies,
+            selectedCurrencies,
           ),
     ),
   );
-  return _mergeOptimisticAccounts(baseAccounts, scopedOverrides);
+  final filteredBaseAccounts = baseAccounts
+      .where((wallet) => _walletMatchesSelectedCurrencies(
+            wallet,
+            selectedCurrencies,
+          ))
+      .toList(growable: false);
+  return _mergeOptimisticAccounts(filteredBaseAccounts, scopedOverrides);
 });
 
 final defaultScopedAccountProvider = Provider<WalletEntity?>((ref) {
@@ -513,15 +593,7 @@ class WalletActions {
       return;
     }
 
-    final isSynced = optimistic.name == serverAccount.name &&
-        optimistic.icon == serverAccount.icon &&
-        optimistic.color == serverAccount.color &&
-        optimistic.currency == serverAccount.currency &&
-        optimistic.openingBalanceCents == serverAccount.openingBalanceCents &&
-        optimistic.goalAmountCents == serverAccount.goalAmountCents &&
-        optimistic.isDefault == serverAccount.isDefault;
-
-    if (!isSynced) {
+    if (!_walletOverrideMatchesServer(optimistic, serverAccount)) {
       return;
     }
 
@@ -596,7 +668,15 @@ class WalletActions {
           ? payload['data'] ?? payload['wallet'] ?? payload['account']
           : null;
       if (saved is Map<String, dynamic>) {
-        setOptimisticWallet(WalletEntity.fromJson(saved));
+        final savedWallet = WalletEntity.fromJson(saved);
+        final hasCurrentBalance = saved['current_balance_cents'] is num;
+        setOptimisticWallet(
+          hasCurrentBalance
+              ? savedWallet
+              : savedWallet.copyWith(
+                  currentBalanceCents: savedWallet.openingBalanceCents,
+                ),
+        );
       }
       _invalidateAll();
     } catch (error) {
@@ -627,7 +707,22 @@ class WalletActions {
         ref.read(effectiveScopeWalletsProvider).where((wallet) {
       return wallet.id == walletId;
     }).firstOrNull;
+    final requestedCurrency = currency?.trim().toUpperCase();
+    if (existingWallet != null &&
+        requestedCurrency != null &&
+        requestedCurrency != existingWallet.currency.trim().toUpperCase()) {
+      throw ArgumentError('Wallet currency cannot be changed after creation');
+    }
     if (existingWallet != null) {
+      final nextOpeningBalanceCents =
+          openingBalanceCents ?? existingWallet.openingBalanceCents;
+      final nextCurrentBalanceCents = openingBalanceCents == null
+          ? existingWallet.currentBalanceCents
+          : retargetWalletBalanceForOpeningChange(
+              previousOpeningBalanceCents: existingWallet.openingBalanceCents,
+              nextOpeningBalanceCents: openingBalanceCents,
+              currentBalanceCents: existingWallet.currentBalanceCents,
+            );
       setOptimisticWallet(WalletEntity(
         id: existingWallet.id,
         userId: existingWallet.userId,
@@ -635,16 +730,15 @@ class WalletActions {
         name: name ?? existingWallet.name,
         icon: icon ?? existingWallet.icon,
         color: color ?? existingWallet.color,
-        currency: currency?.trim().toUpperCase() ?? existingWallet.currency,
-        openingBalanceCents:
-            openingBalanceCents ?? existingWallet.openingBalanceCents,
+        currency: existingWallet.currency,
+        openingBalanceCents: nextOpeningBalanceCents,
         goalAmountCents: includeGoalAmount
             ? goalAmountCents
             : (goalAmountCents ?? existingWallet.goalAmountCents),
         isDefault: isDefault ?? existingWallet.isDefault,
         isSystem: existingWallet.isSystem,
         isArchived: existingWallet.isArchived,
-        currentBalanceCents: existingWallet.currentBalanceCents,
+        currentBalanceCents: nextCurrentBalanceCents,
       ));
     }
     debugPrint(
@@ -656,7 +750,7 @@ class WalletActions {
       if (name != null) 'name': name,
       if (icon != null) 'icon': icon,
       if (color != null) 'color': color,
-      if (currency != null) 'currency': currency.trim().toUpperCase(),
+      if (requestedCurrency != null) 'currency': requestedCurrency,
       if (openingBalanceCents != null)
         'openingBalanceCents': openingBalanceCents,
       if (includeGoalAmount || goalAmountCents != null)
@@ -852,6 +946,12 @@ class WalletActions {
         entityId: mutationEntityId,
         functionName: 'update-wallet-transfer',
         requestBody: requestBody,
+        affectedWalletIds: {
+          existingTransfer.fromAccountId,
+          existingTransfer.toAccountId,
+          fromAccountId,
+          toAccountId,
+        },
       );
       final response = await supabase.functions.invoke(
         'update-wallet-transfer',
@@ -890,6 +990,10 @@ class WalletActions {
         entityId: mutationEntityId,
         functionName: 'delete-wallet-transfer',
         requestBody: requestBody,
+        affectedWalletIds: {
+          transfer.fromAccountId,
+          transfer.toAccountId,
+        },
       );
       final response = await supabase.functions.invoke(
         'delete-wallet-transfer',
@@ -1042,6 +1146,7 @@ class WalletActions {
     required String entityId,
     required String functionName,
     required Map<String, dynamic> requestBody,
+    Set<String>? affectedWalletIds,
   }) async {
     final database = await ref.read(localDatabaseProvider.future);
     await database.enqueueMutation(
@@ -1052,6 +1157,11 @@ class WalletActions {
       payload: {
         'functionName': functionName,
         'requestBody': requestBody,
+        if (affectedWalletIds != null)
+          'affectedWalletIds': affectedWalletIds
+              .where((id) => id.trim().isNotEmpty)
+              .toSet()
+              .toList(growable: false),
       },
     );
     return database;
@@ -1067,6 +1177,13 @@ class WalletActions {
     } catch (cancelError) {
       debugPrint('[Accounts][Outbox] failed to cancel mutation: $cancelError');
     }
+    await _clearWalletCachesForCurrentUser();
+  }
+
+  Future<void> _clearWalletCachesForCurrentUser() async {
+    final userId = ref.read(authProvider).uid;
+    if (userId.isEmpty) return;
+    await clearAllWalletsCachesForUser(ref, userId: userId);
   }
 
   String _walletMutationId(String entityId) {

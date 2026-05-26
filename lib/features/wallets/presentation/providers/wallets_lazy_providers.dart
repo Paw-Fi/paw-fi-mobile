@@ -14,7 +14,6 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart'
     show supabaseClientProvider;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -28,6 +27,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_cache_sto
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final walletsRefreshSignalProvider = StateProvider<int>((ref) => 0);
@@ -93,6 +93,7 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
     final now = _walletProjectionNow(ref);
     final endInclusive = DateTime(now.year, now.month, now.day);
+    final rates = await _walletCurrencyRates(ref);
     final recurringAwareData = await _loadWalletRecurringAwareData(
       ref,
       query,
@@ -110,6 +111,8 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
           monthStart: monthStart,
           now: now,
         ),
+        targetCurrency: query.selectedCurrency,
+        rates: rates,
       );
       return WalletNetWorthPoint(
         monthStart: monthStart,
@@ -131,6 +134,7 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       monthStart: query.monthStart,
       now: now,
     );
+    final rates = await _walletCurrencyRates(ref);
     final recurringAwareData = await _loadWalletRecurringAwareData(
       ref,
       query.scope,
@@ -140,6 +144,8 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       wallets: recurringAwareData.wallets,
       transactions: recurringAwareData.transactions,
       endExclusive: endExclusive,
+      targetCurrency: query.scope.selectedCurrency,
+      rates: rates,
     );
 
     return WalletsMonthSnapshot(
@@ -820,6 +826,40 @@ DateTime _walletProjectionNow(Ref ref) {
   return DateTime(now.year, now.month, now.day);
 }
 
+Future<CurrencyRateTable> _walletCurrencyRates(Ref ref) async {
+  try {
+    return await ref.read(currencyRateTableProvider.future);
+  } catch (_) {
+    return const CurrencyRateTable(
+      baseCurrency: 'USD',
+      rates: CurrencyRates.rates,
+      isStale: true,
+    );
+  }
+}
+
+int _convertWalletAmountCents({
+  required int amountCents,
+  required String? fromCurrency,
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  final normalizedFrom = fromCurrency?.trim().toUpperCase();
+  final normalizedTarget = targetCurrency.trim().toUpperCase();
+  if (normalizedFrom == null ||
+      normalizedFrom.isEmpty ||
+      normalizedTarget.isEmpty) {
+    return amountCents;
+  }
+  final sign = amountCents < 0 ? -1 : 1;
+  final converted = rates.convert(
+    amountCents.abs() / 100.0,
+    normalizedFrom,
+    normalizedTarget,
+  );
+  return (converted * 100).round() * sign;
+}
+
 String _formatWalletsRpcDate(DateTime date) {
   final year = date.year.toString().padLeft(4, '0');
   final month = date.month.toString().padLeft(2, '0');
@@ -894,60 +934,10 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     ...actualTransactions,
     ...projectedTransactions,
   ];
-  final rates = ref.read(currencyRateTableProvider).valueOrNull ??
-      const CurrencyRateTable(
-        baseCurrency: 'USD',
-        rates: CurrencyRates.rates,
-        isStale: true,
-      );
-  final transactions = query.hasMultiCurrencySelection
-      ? convertTransactionsToCurrency(
-          combinedTransactions,
-          targetCurrency: query.selectedCurrency,
-          rates: rates,
-        )
-      : combinedTransactions;
-  final snapshotWallets = query.hasMultiCurrencySelection
-      ? wallets
-          .map((wallet) => wallet.copyWith(
-                openingBalanceCents: _convertWalletCents(
-                  wallet.openingBalanceCents,
-                  fromCurrency: wallet.currency,
-                  toCurrency: query.selectedCurrency,
-                  rates: rates,
-                ),
-                currentBalanceCents: _convertWalletCents(
-                  wallet.currentBalanceCents,
-                  fromCurrency: wallet.currency,
-                  toCurrency: query.selectedCurrency,
-                  rates: rates,
-                ),
-              ))
-          .toList(growable: false)
-      : wallets;
-
   return _WalletRecurringAwareData(
-    wallets: snapshotWallets,
-    transactions: transactions,
+    wallets: wallets,
+    transactions: combinedTransactions,
   );
-}
-
-int _convertWalletCents(
-  int amountCents, {
-  required String fromCurrency,
-  required String toCurrency,
-  required CurrencyRateTable rates,
-}) {
-  if (fromCurrency.trim().toUpperCase() == toCurrency.trim().toUpperCase()) {
-    return amountCents;
-  }
-  return (rates.convert(
-            amountCents / 100.0,
-            fromCurrency,
-            toCurrency,
-          ) *
-          100)
-      .round();
 }
 
 Future<List<WalletEntity>> _fetchScopedWallets(
@@ -967,7 +957,7 @@ Future<List<WalletEntity>> _fetchScopedWallets(
       selectedCurrencies: query.normalizedSelectedCurrencies,
       currentMonthStart: query.currentMonthStart,
     );
-    return ref.read(walletsListSessionCacheProvider)[cacheKey] ??
+    final cachedWallets = ref.read(walletsListSessionCacheProvider)[cacheKey] ??
         readPersistedWalletsList(
           ref,
           userId: userId,
@@ -977,6 +967,10 @@ Future<List<WalletEntity>> _fetchScopedWallets(
           currentMonthStart: query.currentMonthStart,
         ) ??
         const <WalletEntity>[];
+    return _filterWalletsForSelectedCurrencies(
+      cachedWallets,
+      query.normalizedSelectedCurrencies,
+    );
   }
 
   final response = await supabase.functions.invoke(
@@ -998,11 +992,57 @@ Future<List<WalletEntity>> _fetchScopedWallets(
   }
 
   final data = payload['data'] as List<dynamic>? ?? const [];
-  return data
-      .whereType<Map<String, dynamic>>()
-      .map(WalletEntity.fromJson)
-      .where((wallet) => !wallet.isArchived)
+  return _filterWalletsForSelectedCurrencies(
+    data
+        .whereType<Map<String, dynamic>>()
+        .map(WalletEntity.fromJson)
+        .where((wallet) => !wallet.isArchived)
+        .toList(growable: false),
+    query.normalizedSelectedCurrencies,
+  );
+}
+
+List<WalletEntity> _filterWalletsForSelectedCurrencies(
+  List<WalletEntity> wallets,
+  List<String>? selectedCurrencies,
+) {
+  if (selectedCurrencies == null || selectedCurrencies.isEmpty) {
+    return wallets;
+  }
+  return wallets
+      .where(
+        (wallet) => selectedCurrencies.contains(
+          wallet.currency.trim().toUpperCase(),
+        ),
+      )
       .toList(growable: false);
+}
+
+List<WalletEntity> _cachedScopedWalletsForConversion(
+  Ref ref,
+  WalletsScopeQuery query,
+) {
+  final cacheKey = walletsListCacheKey(
+    userId: query.userId,
+    householdId: query.householdId,
+    selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedSelectedCurrencies,
+    currentMonthStart: query.currentMonthStart,
+  );
+  final cachedWallets = ref.read(walletsListSessionCacheProvider)[cacheKey] ??
+      readPersistedWalletsList(
+        ref,
+        userId: query.userId,
+        householdId: query.householdId,
+        selectedCurrency: query.selectedCurrency,
+        selectedCurrencies: query.normalizedSelectedCurrencies,
+        currentMonthStart: query.currentMonthStart,
+      ) ??
+      const <WalletEntity>[];
+  return _filterWalletsForSelectedCurrencies(
+    cachedWallets,
+    query.normalizedSelectedCurrencies,
+  );
 }
 
 Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
@@ -1113,19 +1153,7 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
       selectedCurrency: query.selectedCurrency,
       selectedCurrencies: query.normalizedSelectedCurrencies,
     );
-    if (!query.hasMultiCurrencySelection) {
-      return filtered;
-    }
-    return convertTransactionsToCurrency(
-      filtered,
-      targetCurrency: query.selectedCurrency,
-      rates: ref.read(currencyRateTableProvider).valueOrNull ??
-          const CurrencyRateTable(
-            baseCurrency: 'USD',
-            rates: CurrencyRates.rates,
-            isStale: true,
-          ),
-    );
+    return filtered;
   } catch (_) {
     return const <ExpenseEntry>[];
   }
@@ -1145,6 +1173,11 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
   if (pendingTransactions.isEmpty) {
     return history;
   }
+  final rates = await _walletCurrencyRates(ref);
+  final wallets = _cachedScopedWalletsForConversion(ref, query);
+  final walletsById = <String, WalletEntity>{
+    for (final wallet in wallets) wallet.id: wallet,
+  };
 
   return WalletsHistorySummary(
     availableMonths: history.availableMonths,
@@ -1155,7 +1188,14 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
       );
       final localDeltaCents = pendingTransactions.fold<int>(0, (sum, tx) {
         if (!tx.date.isBefore(endExclusive)) return sum;
-        return sum + _walletTransactionNetDeltaCents(tx);
+        return sum +
+            _walletTransactionNetDeltaCents(
+              tx,
+              wallets: wallets,
+              walletsById: walletsById,
+              targetCurrency: query.selectedCurrency,
+              rates: rates,
+            );
       });
       if (localDeltaCents == 0) return point;
       return WalletNetWorthPoint(
@@ -1184,13 +1224,27 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   var spentTotalCents = snapshot.spentTotalCents;
   var netWorthCents = snapshot.netWorthCents;
   final walletBalances = <String, int>{...snapshot.walletBalances};
+  final rates = await _walletCurrencyRates(ref);
+  final wallets = _cachedScopedWalletsForConversion(ref, query.scope);
+  final walletsById = <String, WalletEntity>{
+    for (final wallet in wallets) wallet.id: wallet,
+  };
   final monthStart =
       DateTime(snapshot.monthStart.year, snapshot.monthStart.month);
 
   for (final tx in pendingTransactions) {
     if (!tx.date.isBefore(snapshot.monthEndExclusive)) continue;
 
-    final amountCents = tx.amountCents.abs();
+    final amountCents = _convertWalletAmountCents(
+      amountCents: tx.amountCents.abs(),
+      fromCurrency: _walletTransactionSourceCurrency(
+        tx,
+        wallets: wallets,
+        walletsById: walletsById,
+      ),
+      targetCurrency: query.scope.selectedCurrency,
+      rates: rates,
+    );
     final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
     final localDeltaCents = isIncome ? amountCents : -amountCents;
     netWorthCents += localDeltaCents;
@@ -1221,10 +1275,41 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   );
 }
 
-int _walletTransactionNetDeltaCents(ExpenseEntry transaction) {
-  final amountCents = transaction.amountCents.abs();
+int _walletTransactionNetDeltaCents(
+  ExpenseEntry transaction, {
+  required List<WalletEntity> wallets,
+  required Map<String, WalletEntity> walletsById,
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  final amountCents = _convertWalletAmountCents(
+    amountCents: transaction.amountCents.abs(),
+    fromCurrency: _walletTransactionSourceCurrency(
+      transaction,
+      wallets: wallets,
+      walletsById: walletsById,
+    ),
+    targetCurrency: targetCurrency,
+    rates: rates,
+  );
   final isIncome = (transaction.type ?? 'expense').toLowerCase() == 'income';
   return isIncome ? amountCents : -amountCents;
+}
+
+String? _walletTransactionSourceCurrency(
+  ExpenseEntry transaction, {
+  required List<WalletEntity> wallets,
+  required Map<String, WalletEntity> walletsById,
+}) {
+  final transactionCurrency = transaction.currency?.trim().toUpperCase();
+  if (transactionCurrency != null && transactionCurrency.isNotEmpty) {
+    return transactionCurrency;
+  }
+  final walletId = resolveTransactionWalletId(
+    transaction: transaction,
+    wallets: wallets,
+  );
+  return walletId == null ? null : walletsById[walletId]?.currency;
 }
 
 String? _resolvePendingWalletBalanceId(
