@@ -52,6 +52,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_prov
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
@@ -1256,14 +1257,15 @@ class SettingsPage extends HookConsumerWidget {
                       context.push('/import');
                     },
                   ),
-                  _SettingsTile(
-                    icon: Icons.currency_exchange_rounded,
-                    label: context.l10n.currencyConverter,
-                    value: "",
-                    onTap: () {
-                      context.push('/currency-rates');
-                    },
-                  ),
+                  if (hasPremiumPlanAccess())
+                    _SettingsTile(
+                      icon: Icons.currency_exchange_rounded,
+                      label: context.l10n.currencyConverter,
+                      value: "",
+                      onTap: () {
+                        context.push('/currency-rates');
+                      },
+                    ),
                   _SettingsTile(
                     icon: Icons.forward_to_inbox_rounded,
                     label: context.l10n.emailFileImportEnableSwitchTitle,

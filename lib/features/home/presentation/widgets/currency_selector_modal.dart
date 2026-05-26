@@ -14,6 +14,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Shows a full-screen currency selector modal and returns the selected currency code
@@ -100,7 +101,7 @@ Future<void> _retryCurrencySelectionSync({
       primaryCurrency: primaryCurrency,
       selectedCurrencies: selectedCurrencies,
     );
-    await _syncPreferredCurrencyOnBackend(primaryCurrency,toastContext);
+    await _syncPreferredCurrencyOnBackend(primaryCurrency, toastContext);
     if (toastContext.mounted) {
       AppToast.success(toastContext, successMessage);
     }
@@ -328,6 +329,7 @@ class _CurrencySelectorScreenState
 
   @override
   Widget build(BuildContext context) {
+    final canUsePremiumCurrencyFeatures = hasPremiumPlanAccess();
     final colorScheme = Theme.of(context).colorScheme;
     final summariesAsync = ref.watch(dashboardCurrencySummariesProvider);
     final summaries = summariesAsync.valueOrNull ?? const <CurrencySummary>[];
@@ -545,26 +547,29 @@ class _CurrencySelectorScreenState
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        context.push('/currency-rates');
-                      },
-                      icon:
-                          const Icon(Icons.currency_exchange_rounded, size: 16),
-                      label: Text(context.l10n.converter),
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                  if (canUsePremiumCurrencyFeatures)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          context.push('/currency-rates');
+                        },
+                        icon: const Icon(
+                          Icons.currency_exchange_rounded,
+                          size: 16,
                         ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        minimumSize: Size.zero,
+                        label: Text(context.l10n.converter),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: Size.zero,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -627,8 +632,19 @@ class _CurrencySelectorScreenState
                                   .contains(summary.currencyCode),
                               isPrimary:
                                   primaryCurrency == summary.currencyCode,
+                              showSelectionCheckbox:
+                                  canUsePremiumCurrencyFeatures,
                               onTap: () {
                                 HapticFeedback.lightImpact();
+                                if (!canUsePremiumCurrencyFeatures) {
+                                  setState(() {
+                                    _primaryCurrency = summary.currencyCode;
+                                    _selectedCurrencies = [
+                                      summary.currencyCode
+                                    ];
+                                  });
+                                  return;
+                                }
                                 final next = selectedCurrencySet.toSet();
                                 if (primaryCurrency.isEmpty) {
                                   next.add(summary.currencyCode);
@@ -844,6 +860,7 @@ class _CurrencyCard extends StatelessWidget {
   final int transactionCount;
   final bool isIncluded;
   final bool isPrimary;
+  final bool showSelectionCheckbox;
   final VoidCallback onTap;
   final VoidCallback onPrimaryTap;
 
@@ -852,6 +869,7 @@ class _CurrencyCard extends StatelessWidget {
     required this.transactionCount,
     required this.isIncluded,
     required this.isPrimary,
+    required this.showSelectionCheckbox,
     required this.onTap,
     required this.onPrimaryTap,
   });
@@ -891,17 +909,18 @@ class _CurrencyCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // 1. Checkbox on the very left
-              Icon(
-                isIncluded
-                    ? Icons.check_box_rounded
-                    : Icons.check_box_outline_blank_rounded,
-                size: 24,
-                color: isIncluded
-                    ? colorScheme.success
-                    : colorScheme.mutedForeground.withValues(alpha: 0.4),
-              ),
-              const SizedBox(width: 12),
+              if (showSelectionCheckbox) ...[
+                Icon(
+                  isIncluded
+                      ? Icons.check_box_rounded
+                      : Icons.check_box_outline_blank_rounded,
+                  size: 24,
+                  color: isIncluded
+                      ? colorScheme.success
+                      : colorScheme.mutedForeground.withValues(alpha: 0.4),
+                ),
+                const SizedBox(width: 12),
+              ],
 
               // 2. Currency Icon
               _CurrencyIcon(
@@ -967,8 +986,7 @@ class _PrimaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tooltipMessage =
-        context.l10n.baseCurrencyTooltip;
+    final tooltipMessage = context.l10n.baseCurrencyTooltip;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
