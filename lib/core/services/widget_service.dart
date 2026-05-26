@@ -18,7 +18,7 @@ class WidgetService {
       await _ensureAppGroupIdSet();
       await HomeWidget.saveWidgetData<String>(
         'selected_widget_currency',
-        currency.trim().toUpperCase(),
+        normalizeHomeWidgetCurrency(currency),
       );
     } catch (e) {
       debugPrint('Error saving selected widget currency: $e');
@@ -165,11 +165,16 @@ class WidgetService {
   Future<void> saveWidgetConfiguration({
     required int widgetId,
     required String scopeId,
+    required String currency,
   }) async {
     try {
       await _ensureAppGroupIdSet();
 
       await HomeWidget.saveWidgetData('config_scope_$widgetId', scopeId);
+      await HomeWidget.saveWidgetData(
+        'config_currency_$widgetId',
+        normalizeHomeWidgetCurrency(currency),
+      );
 
       // Trigger update so the widget re-reads the config and loads the correct data
       await reloadWidgets();
@@ -177,6 +182,14 @@ class WidgetService {
       debugPrint('Error saving widget config: $e');
     }
   }
+}
+
+String normalizeHomeWidgetCurrency(String? currency) {
+  final normalized = currency?.trim().toUpperCase();
+  if (normalized == null || normalized.isEmpty) {
+    return 'USD';
+  }
+  return normalized;
 }
 
 class WidgetPocketData {

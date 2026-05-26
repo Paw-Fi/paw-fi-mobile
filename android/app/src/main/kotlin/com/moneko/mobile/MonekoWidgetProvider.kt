@@ -23,7 +23,10 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, R.layout.widget).apply {
                 val scope = widgetData.getString("config_scope_$widgetId", null)
-                val currency = widgetData.getString("config_currency_$widgetId", null)
+                val selectedCurrency = widgetData.getString("selected_widget_currency", null)
+                val configuredCurrency = widgetData.getString("config_currency_$widgetId", null)
+                val currency = selectedCurrency?.trim()?.uppercase()
+                    ?: configuredCurrency?.trim()?.uppercase()
                 val isConfigured = !scope.isNullOrBlank() && !currency.isNullOrBlank()
 
                 applyTheme(context, isConfigured)

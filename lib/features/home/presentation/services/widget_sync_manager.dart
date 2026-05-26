@@ -4,6 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/services/widget_sync_calculations.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -39,6 +41,37 @@ String normalizeWidgetSyncCurrency(String? currency) {
   return normalized;
 }
 
+List<String> normalizeWidgetSyncSelectedCurrencies({
+  required String selectedCurrency,
+  List<String>? selectedCurrencies,
+}) {
+  final seen = <String>{};
+  final normalized = <String>[];
+  for (final currency in <String>[
+    selectedCurrency,
+    ...?selectedCurrencies,
+  ]) {
+    final code = normalizeWidgetSyncCurrency(currency);
+    if (seen.contains(code)) continue;
+    seen.add(code);
+    normalized.add(code);
+  }
+  normalized.sort();
+  return normalized;
+}
+
+Future<CurrencyRateTable> _widgetCurrencyRates(WidgetRef ref) async {
+  try {
+    return await ref.read(currencyRateTableProvider.future);
+  } catch (_) {
+    return const CurrencyRateTable(
+      baseCurrency: 'USD',
+      rates: CurrencyRates.rates,
+      isStale: true,
+    );
+  }
+}
+
 class _BudgetPocketsSnapshot {
   const _BudgetPocketsSnapshot({
     required this.totalBudget,
@@ -69,11 +102,14 @@ class WidgetSyncManager extends HookConsumerWidget {
     final selectedWidgetCurrency = normalizeWidgetSyncCurrency(
       ref.watch(selectedHomeCurrencyCodeProvider),
     );
-    final selectedWidgetCurrencies = ref.watch(
-      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    final selectedWidgetCurrencies = normalizeWidgetSyncSelectedCurrencies(
+      selectedCurrency: selectedWidgetCurrency,
+      selectedCurrencies: ref.watch(
+        homeFilterProvider
+            .select((state) => state.normalizedSelectedCurrencies),
+      ),
     );
-    final selectedWidgetCurrenciesKey =
-        selectedWidgetCurrencies?.join(',') ?? '';
+    final selectedWidgetCurrenciesKey = selectedWidgetCurrencies.join(',');
     final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
 
     // Ensure configuration options (spaces) are always saved
@@ -207,6 +243,7 @@ class WidgetSyncManager extends HookConsumerWidget {
           final widgetRange = buildWidgetThisMonthRange(userNow);
           final currentMonth = widgetRange['from']!;
           final currentRangeEnd = widgetRange['to']!;
+          final widgetCurrencyRates = await _widgetCurrencyRates(ref);
 
           // Fetch Monthly Budgets for all scopes
           final monthStr =
@@ -262,7 +299,8 @@ class WidgetSyncManager extends HookConsumerWidget {
               );
             }
 
-            return mergeActualExpensesWithProjectedRecurring(
+            final mergedTransactions =
+                mergeActualExpensesWithProjectedRecurring(
               actualExpenses: actualExpenses,
               recurringTransactions: recurringTransactions,
               rangeStart: currentMonth,
@@ -271,6 +309,13 @@ class WidgetSyncManager extends HookConsumerWidget {
               selectedCurrencies: selectedWidgetCurrencies,
               includeFutureOccurrences: false,
               now: userNow,
+            );
+
+            return prepareWidgetAggregateTransactions(
+              mergedTransactions,
+              targetCurrency: currency,
+              selectedCurrencies: selectedWidgetCurrencies,
+              rates: widgetCurrencyRates,
             );
           }
 
@@ -342,6 +387,23 @@ class WidgetSyncManager extends HookConsumerWidget {
             debugPrint('Error fetching personal budgets for widget: $e');
           }
 
+          double aggregateBudgetForWidgetCurrency(
+            Map<String, double> budgetsByCurrency,
+            String targetCurrency,
+          ) {
+            return selectedWidgetCurrencies.fold<double>(0.0, (sum, code) {
+              final amount = budgetsByCurrency[code] ?? 0.0;
+              return sum +
+                  convertWidgetAggregateAmount(
+                    amount: amount,
+                    sourceCurrency: code,
+                    targetCurrency: targetCurrency,
+                    selectedCurrencies: selectedWidgetCurrencies,
+                    rates: widgetCurrencyRates,
+                  );
+            });
+          }
+
           // Helper to build per-envelope budget pockets for the personal scope
           // using the same data model as the Pockets page (budgets + envelopes).
           Future<_BudgetPocketsSnapshot?> loadPersonalBudgetPockets({
@@ -350,9 +412,18 @@ class WidgetSyncManager extends HookConsumerWidget {
             required List<ExpenseEntry> scopeExpenses,
           }) async {
             final budgetId = personalBudgetIdsByCurrency[currency];
-            final totalBudget = personalBudgetsByCurrency[currency] ?? 0.0;
-            if (budgetId == null || totalBudget <= 0) {
+            final totalBudget = aggregateBudgetForWidgetCurrency(
+              personalBudgetsByCurrency,
+              currency,
+            );
+            if (totalBudget <= 0) {
               return null;
+            }
+            if (budgetId == null) {
+              return _BudgetPocketsSnapshot(
+                totalBudget: totalBudget,
+                pockets: const [],
+              );
             }
 
             try {
@@ -486,26 +557,47 @@ class WidgetSyncManager extends HookConsumerWidget {
               final periodMonth =
                   monthStart.toIso8601String().substring(0, 10); // YYYY-MM-DD
 
-              final budgetRow = await client
+              final budgetRowsRes = await client
                   .from('budgets')
-                  .select('id,total_budget_cents')
+                  .select('id,currency,total_budget_cents')
                   .eq('household_id', householdId)
-                  .eq('currency', currency)
                   .eq('period_month', periodMonth)
-                  .maybeSingle();
+                  .inFilter('currency', selectedWidgetCurrencies);
+              final budgetRows =
+                  (budgetRowsRes as List?)?.cast<Map<String, dynamic>>() ??
+                      const <Map<String, dynamic>>[];
+              final budgetRow = budgetRows.firstWhereOrNull(
+                (row) =>
+                    (row['currency'] as String?)?.toUpperCase() ==
+                    currency.toUpperCase(),
+              );
 
-              if (budgetRow == null) {
+              final totalBudget = budgetRows.fold<double>(0.0, (sum, row) {
+                final sourceCurrency =
+                    (row['currency'] as String?)?.toUpperCase() ?? currency;
+                final amount =
+                    ((row['total_budget_cents'] as num?)?.toDouble() ?? 0.0) /
+                        100.0;
+                return sum +
+                    convertWidgetAggregateAmount(
+                      amount: amount,
+                      sourceCurrency: sourceCurrency,
+                      targetCurrency: currency,
+                      selectedCurrencies: selectedWidgetCurrencies,
+                      rates: widgetCurrencyRates,
+                    );
+              });
+
+              if (totalBudget <= 0) {
                 return null;
               }
 
-              final budgetId = budgetRow['id'] as String?;
-              final totalBudget =
-                  ((budgetRow['total_budget_cents'] as num?)?.toDouble() ??
-                          0.0) /
-                      100.0;
-
-              if (budgetId == null || totalBudget <= 0) {
-                return null;
+              final budgetId = budgetRow?['id'] as String?;
+              if (budgetId == null) {
+                return _BudgetPocketsSnapshot(
+                  totalBudget: totalBudget,
+                  pockets: const [],
+                );
               }
 
               final envelopesRes = await client
@@ -617,9 +709,9 @@ class WidgetSyncManager extends HookConsumerWidget {
             }
           }
 
-          // The iOS widget can choose a space, but its currency follows the
-          // home header. Sync only that currency to avoid fanning out RPCs for
-          // every supported currency while the app is idle.
+          // Widgets are keyed by the home header/base currency. When the app
+          // has multiple selected currencies, aggregate rows are converted into
+          // this currency before writing the native widget payload.
 
           if (Supabase.instance.client.auth.currentSession == null) {
             // Session lost - exit loop, finally will handle cleanup

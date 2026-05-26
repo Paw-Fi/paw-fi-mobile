@@ -1,4 +1,6 @@
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 
 class WidgetFinancialSummary {
@@ -53,6 +55,49 @@ Map<String, int> calculateWidgetCategorySpentCents(
     totals[category] = (totals[category] ?? 0) + spentCents;
   }
   return totals;
+}
+
+List<ExpenseEntry> prepareWidgetAggregateTransactions(
+  List<ExpenseEntry> entries, {
+  required String targetCurrency,
+  required List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
+}) {
+  final normalizedSelectedCurrencies = selectedCurrencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  if ((normalizedSelectedCurrencies?.length ?? 0) < 2) {
+    return entries;
+  }
+
+  return convertTransactionsToCurrency(
+    entries,
+    targetCurrency: targetCurrency,
+    rates: rates,
+  );
+}
+
+double convertWidgetAggregateAmount({
+  required double amount,
+  required String sourceCurrency,
+  required String targetCurrency,
+  required List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
+}) {
+  final normalizedSelectedCurrencies = selectedCurrencies
+      ?.map((currency) => currency.trim().toUpperCase())
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  if ((normalizedSelectedCurrencies?.length ?? 0) < 2) {
+    return amount;
+  }
+
+  return rates.convert(
+    amount,
+    sourceCurrency.trim().toUpperCase(),
+    targetCurrency.trim().toUpperCase(),
+  );
 }
 
 double widgetCentsToAmount(int cents) => cents / 100.0;

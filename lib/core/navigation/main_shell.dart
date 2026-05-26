@@ -1005,6 +1005,7 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
             await WidgetService().saveWidgetConfiguration(
               widgetId: widgetId,
               scopeId: selectedScope.value,
+              currency: currencyCode,
             );
             if (context.mounted) Navigator.pop(context);
           },

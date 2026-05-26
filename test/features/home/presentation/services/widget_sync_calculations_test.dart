@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/services/widget_sync_calculations.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
@@ -77,6 +78,52 @@ void main() {
     ];
 
     expect(calculateWidgetCategorySpentCents(entries), {'food': 1750});
+  });
+
+  test('widget aggregate transactions convert selected currencies to base', () {
+    final entries = [
+      _entry(
+        id: 'usd-food',
+        amountCents: -1000,
+        type: 'expense',
+        category: 'food',
+      ),
+      _entry(
+        id: 'eur-food',
+        amountCents: -1000,
+        type: 'expense',
+        category: 'food',
+      ).copyWith(currency: 'EUR'),
+    ];
+
+    final converted = prepareWidgetAggregateTransactions(
+      entries,
+      targetCurrency: 'USD',
+      selectedCurrencies: const ['USD', 'EUR'],
+      rates: const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: {'USD': 1, 'EUR': 0.5},
+      ),
+    );
+
+    expect(calculateWidgetSpentCents(converted), 3000);
+    expect(calculateWidgetCategorySpentCents(converted), {'food': 3000});
+    expect(converted.map((entry) => entry.currency), ['USD', 'USD']);
+  });
+
+  test('widget aggregate amount converts selected currencies to base', () {
+    final amount = convertWidgetAggregateAmount(
+      amount: 10,
+      sourceCurrency: 'EUR',
+      targetCurrency: 'USD',
+      selectedCurrencies: const ['USD', 'EUR'],
+      rates: const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: {'USD': 1, 'EUR': 0.5},
+      ),
+    );
+
+    expect(amount, 20);
   });
 
   test('personal widget scope matches personal home dashboard scope', () {

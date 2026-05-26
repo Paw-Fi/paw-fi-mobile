@@ -11,6 +11,16 @@ void main() {
     test('falls back to USD when the selected currency is blank', () {
       expect(normalizeWidgetSyncCurrency('  '), 'USD');
     });
+
+    test('keeps selected currencies for widget aggregate conversion', () {
+      expect(
+        normalizeWidgetSyncSelectedCurrencies(
+          selectedCurrency: 'eur',
+          selectedCurrencies: const ['USD', 'EUR'],
+        ),
+        ['EUR', 'USD'],
+      );
+    });
   });
 
   group('WidgetSyncState.canSyncForCurrency', () {
