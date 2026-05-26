@@ -6,12 +6,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/utils/currency_rate_provider.dart';
-import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
-import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -151,11 +148,13 @@ class PocketDetailsPage extends HookConsumerWidget {
     final totalBudget = state.totalBudget;
     final limit = pocket.getLimit(totalBudget);
     final progress = pocket.getProgress(totalBudget);
-    final effectiveCurrency = state.currency.trim().isNotEmpty
-        ? state.currency.trim()
-        : (scopeParams.currency?.trim().isNotEmpty == true
-            ? scopeParams.currency!.trim()
-            : pocket.currency);
+    final effectiveCurrency = pocket.currency.trim().isNotEmpty
+        ? pocket.currency.trim()
+        : (state.currency.trim().isNotEmpty
+            ? state.currency.trim()
+            : (scopeParams.currency?.trim().isNotEmpty == true
+                ? scopeParams.currency!.trim()
+                : 'USD'));
     final detailScopeParams = PocketsScopeParams(
       scope: scopeParams.scope,
       householdId: scopeParams.householdId,
@@ -165,17 +164,6 @@ class PocketDetailsPage extends HookConsumerWidget {
       isBootstrapCurrency: false,
       includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
-    final selectedCurrencyFilters =
-        detailScopeParams.normalizedSelectedCurrencies;
-    final shouldConvertCurrencies = (selectedCurrencyFilters?.length ?? 0) > 1;
-    final rateTable = shouldConvertCurrencies
-        ? ref.watch(currencyRateTableProvider).valueOrNull ??
-            const CurrencyRateTable(
-              baseCurrency: 'USD',
-              rates: CurrencyRates.rates,
-              isStale: true,
-            )
-        : null;
     final pocketDetailsParams = PocketTransactionsParams(
       pocketId: pocketId,
       scopeParams: detailScopeParams,
@@ -493,6 +481,10 @@ class PocketDetailsPage extends HookConsumerWidget {
                           final detailTransactions = data.transactions
                               .map(ExpenseEntry.fromJson)
                               .toList(growable: false);
+                          final aggregateDetailTransactions = data
+                              .aggregateTransactions
+                              .map(ExpenseEntry.fromJson)
+                              .toList(growable: false);
                           final visibleTransactions =
                               _mergePocketDetailTransactions(
                             feedTransactions: feedState.items,
@@ -502,14 +494,16 @@ class PocketDetailsPage extends HookConsumerWidget {
                             for (final transaction in visibleTransactions)
                               transaction.id: transaction,
                           };
-                          final displayVisibleTransactions =
-                              shouldConvertCurrencies
-                                  ? convertTransactionsToCurrency(
-                                      visibleTransactions,
-                                      targetCurrency: effectiveCurrency,
-                                      rates: rateTable!,
-                                    )
-                                  : visibleTransactions;
+                          final aggregateTransactionsById = {
+                            for (final transaction
+                                in aggregateDetailTransactions)
+                              transaction.id: transaction,
+                          };
+                          final displayVisibleTransactions = visibleTransactions
+                              .map((transaction) =>
+                                  aggregateTransactionsById[transaction.id] ??
+                                  transaction)
+                              .toList(growable: false);
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,

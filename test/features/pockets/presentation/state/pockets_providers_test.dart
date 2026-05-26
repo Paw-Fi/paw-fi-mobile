@@ -64,6 +64,93 @@ void main() {
   });
 
   group('rebalancePocketBudgetAmounts', () {
+    test('pocket card spend stays in each pocket native currency', () {
+      final spentByPocket = calculatePocketNativeSpentByEnvelopeId(
+        pockets: [
+          PocketEnvelope(
+            id: 'food-eur',
+            name: 'Food EUR',
+            budgetAmountCents: 20000,
+            spent: 0,
+            currency: 'EUR',
+            lastUpdated: DateTime(2026),
+          ),
+          PocketEnvelope(
+            id: 'food-usd',
+            name: 'Food USD',
+            budgetAmountCents: 50000,
+            spent: 0,
+            currency: 'USD',
+            lastUpdated: DateTime(2026),
+          ),
+        ],
+        categoriesByEnvelopeId: const {
+          'food-eur': ['groceries'],
+          'food-usd': ['groceries'],
+        },
+        expenses: [
+          ExpenseEntry(
+            id: 'eur-expense',
+            amountCents: 12000,
+            currency: 'EUR',
+            category: 'groceries',
+            date: DateTime(2026, 1, 5),
+            createdAt: DateTime(2026, 1, 5),
+          ),
+          ExpenseEntry(
+            id: 'usd-expense',
+            amountCents: 10000,
+            currency: 'USD',
+            category: 'groceries',
+            date: DateTime(2026, 1, 6),
+            createdAt: DateTime(2026, 1, 6),
+          ),
+        ],
+      );
+
+      expect(spentByPocket['food-eur'], 120);
+      expect(spentByPocket['food-usd'], 100);
+    });
+
+    test('aggregate total spent can differ from native card spend sum', () {
+      final now = DateTime(2026, 1, 1);
+      final state = PocketsState(
+        isLoading: false,
+        saved: const [],
+        editing: [
+          PocketEnvelope(
+            id: 'food-eur',
+            name: 'Food EUR',
+            budgetAmountCents: 20000,
+            spent: 120,
+            currency: 'EUR',
+            lastUpdated: now,
+          ),
+          PocketEnvelope(
+            id: 'food-usd',
+            name: 'Food USD',
+            budgetAmountCents: 50000,
+            spent: 100,
+            currency: 'USD',
+            lastUpdated: now,
+          ),
+        ],
+        budgetId: 'budget-eur',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 1000,
+        savedTotalBudget: 1000,
+        aggregateTotalSpent: 205.43,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      expect(state.totalSpent, 205.43);
+    });
+
     test('preserves pocket shares when total budget increases', () {
       final result = rebalancePocketBudgetAmounts(
         currentAmountsCents: const [60000, 40000],
@@ -953,7 +1040,7 @@ void main() {
       expect(updated.hasChanges, isFalse);
     });
 
-    test('converts selected-currency-set local overlay into state currency',
+    test('keeps selected-currency-set local overlay in pocket native currency',
         () {
       final month = DateTime(2026, 5, 1);
       final pocket = PocketEnvelope(
@@ -1026,8 +1113,8 @@ void main() {
         ],
       );
 
-      expect(updated.saved.single.spent, 30);
-      expect(updated.editing.single.spent, 30);
+      expect(updated.saved.single.spent, 10);
+      expect(updated.editing.single.spent, 10);
       expect(updated.localOverlayExpenseIds, {'local-usd', 'local-eur'});
     });
   });

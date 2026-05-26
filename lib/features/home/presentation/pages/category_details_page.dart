@@ -365,6 +365,9 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             (merchantTally[merchant] ?? 0) + e.amount.abs();
       }
     }
+    final aggregateMonthGroups = groupTransactionsByMonth(
+      convertedAggregateExpenses,
+    );
 
     final sortedMerchants = merchantTally.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -462,7 +465,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                         children: [
                           Expanded(
                               child: _buildTrendMiniChart(
-                                  colorScheme, monthGroups)),
+                                  colorScheme, aggregateMonthGroups)),
                           const SizedBox(width: 12),
                           Expanded(
                               child: _buildMerchantSplitCard(

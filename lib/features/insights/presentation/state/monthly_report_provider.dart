@@ -520,7 +520,14 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         historicalTransactions: reportHistoricalTransactions
             .map(_transactionInput)
             .toList(growable: false),
-        budgetItems: _budgetInputs(loadedPocketsState.editing),
+        budgetItems: _budgetInputs(
+          loadedPocketsState.editing,
+          currencyCode: currencyCode,
+          selectedCurrencies: selectedCurrencies,
+          rates: rates,
+          aggregateSpentByEnvelopeId:
+              loadedPocketsState.aggregateSpentByEnvelopeId,
+        ),
         futureTransactions:
             futureTransactions.map(_transactionInput).toList(growable: false),
         recurringItems: recurringItems,
@@ -1801,16 +1808,47 @@ List<MonthlyReportRecurringInput> _recurringItemsForReport(
   }).toList(growable: false);
 }
 
-List<MonthlyReportBudgetInput> _budgetInputs(List<PocketEnvelope> pockets) {
-  return pockets
-      .map(
-        (pocket) => MonthlyReportBudgetInput(
-          name: pocket.name,
-          budgetAmount: pocket.budgetAmountCents / 100.0,
-          spent: pocket.spent,
-        ),
-      )
-      .toList(growable: false);
+List<MonthlyReportBudgetInput> _budgetInputs(
+  List<PocketEnvelope> pockets, {
+  required String currencyCode,
+  List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
+  required Map<String, double> aggregateSpentByEnvelopeId,
+}) {
+  final hasMultiCurrencySelection = (selectedCurrencies?.length ?? 0) > 1;
+  final targetCurrency = currencyCode.trim().toUpperCase();
+  return pockets.map(
+    (pocket) {
+      final sourceCurrency = pocket.currency.trim().toUpperCase();
+      final budgetAmount = hasMultiCurrencySelection
+          ? convertAmountCentsToCurrency(
+                pocket.budgetAmountCents,
+                fromCurrency:
+                    sourceCurrency.isEmpty ? targetCurrency : sourceCurrency,
+                targetCurrency: targetCurrency,
+                rates: rates,
+              ) /
+              100.0
+          : pocket.budgetAmountCents / 100.0;
+      final spent = hasMultiCurrencySelection
+          ? aggregateSpentByEnvelopeId[pocket.id] ??
+              convertAmountCentsToCurrency(
+                    (pocket.spent * 100).round(),
+                    fromCurrency: sourceCurrency.isEmpty
+                        ? targetCurrency
+                        : sourceCurrency,
+                    targetCurrency: targetCurrency,
+                    rates: rates,
+                  ) /
+                  100.0
+          : pocket.spent;
+      return MonthlyReportBudgetInput(
+        name: pocket.name,
+        budgetAmount: budgetAmount,
+        spent: spent,
+      );
+    },
+  ).toList(growable: false);
 }
 
 MonthlyReportTransactionInput _transactionInput(ExpenseEntry entry) {

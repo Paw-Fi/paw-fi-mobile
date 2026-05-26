@@ -44,6 +44,7 @@ class DailySpend {
 
 class PocketDetailsData {
   final List<Map<String, dynamic>> transactions;
+  final List<Map<String, dynamic>> aggregateTransactions;
   final List<String> linkedCategories;
   final List<CategorySpend> categorySpending;
   final List<DailySpend> dailySpending;
@@ -53,6 +54,7 @@ class PocketDetailsData {
 
   PocketDetailsData({
     required this.transactions,
+    required this.aggregateTransactions,
     required this.linkedCategories,
     required this.categorySpending,
     required this.dailySpending,
@@ -104,6 +106,7 @@ final pocketDetailsProvider =
   if (categories.isEmpty) {
     return PocketDetailsData(
       transactions: [],
+      aggregateTransactions: const [],
       linkedCategories: const <String>[],
       categorySpending: [],
       dailySpending: [],
@@ -118,6 +121,7 @@ final pocketDetailsProvider =
   if (scopeType != PocketsScopeType.personal && householdId == null) {
     return PocketDetailsData(
       transactions: [],
+      aggregateTransactions: const [],
       linkedCategories: const <String>[],
       categorySpending: [],
       dailySpending: [],
@@ -308,6 +312,8 @@ final pocketDetailsProvider =
 
   return PocketDetailsData(
     transactions: transactions.map((expense) => expense.toJson()).toList(),
+    aggregateTransactions:
+        aggregateTransactions.map((expense) => expense.toJson()).toList(),
     linkedCategories:
         categories.map((category) => category.toLowerCase()).toList(),
     categorySpending: categorySpending,

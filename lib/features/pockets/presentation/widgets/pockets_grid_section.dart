@@ -57,6 +57,8 @@ class PocketsGridSection extends HookConsumerWidget {
         : (scopeParams.currency?.trim().isNotEmpty == true
             ? scopeParams.currency!.trim()
             : 'USD');
+    final isMultiCurrencySelection =
+        scopeParams.normalizedSelectedCurrencies != null;
     final includeUpcomingRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
 
@@ -256,8 +258,16 @@ class PocketsGridSection extends HookConsumerWidget {
                 ? () => notifier.reusePreviousBudget(state.previousBudget)
                 : null,
             colorScheme: colorScheme,
-            onTotalChanged: notifier.updateTotalBudget,
+            onTotalChanged:
+                isMultiCurrencySelection ? (_) {} : notifier.updateTotalBudget,
             onSave: () async {
+              if (isMultiCurrencySelection) {
+                AppToast.info(
+                  context,
+                  context.l10n.selectCurrencyFirst,
+                );
+                return;
+              }
               if (ref.read(previewModeProvider).isActive) {
                 AppToast.info(
                   context,
@@ -357,7 +367,8 @@ class PocketsGridSection extends HookConsumerWidget {
                 return FadeTransition(
                   opacity: animation,
                   child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.98, end: 1.0).animate(animation),
+                    scale:
+                        Tween<double>(begin: 0.98, end: 1.0).animate(animation),
                     child: child,
                   ),
                 );
@@ -438,7 +449,7 @@ class PocketsGridSection extends HookConsumerWidget {
                           },
                           child: PocketCard(
                             pocket: pocket,
-                            currency: effectiveCurrency,
+                            currency: pocket.currency,
                             colorScheme: colorScheme,
                             totalBudget: totalBudget,
                             envelopeMode: true,
@@ -532,7 +543,7 @@ class PocketsGridSection extends HookConsumerWidget {
                             padding: const EdgeInsets.only(bottom: 8),
                             child: PocketListTile(
                               pocket: pocket,
-                              currency: effectiveCurrency,
+                              currency: pocket.currency,
                               colorScheme: colorScheme,
                               totalBudget: totalBudget,
                               onTap: () {
@@ -579,8 +590,8 @@ class PocketsGridSection extends HookConsumerWidget {
             SimpleSpendingList(
               pockets: pocketsForDisplay,
               totalSpent: totalSpent,
+              aggregateSpentByPocketId: state.aggregateSpentByEnvelopeId,
               colorScheme: colorScheme,
-              currency: effectiveCurrency,
             ),
           ],
         ],

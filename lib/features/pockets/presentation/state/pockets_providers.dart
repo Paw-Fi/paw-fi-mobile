@@ -256,6 +256,39 @@ double _pocketExpenseAmountInCurrency(
   return rates.convert(expense.amount, sourceCurrency, normalizedTarget);
 }
 
+@foundation.visibleForTesting
+Map<String, double> calculatePocketNativeSpentByEnvelopeId({
+  required Iterable<PocketEnvelope> pockets,
+  required Map<String, List<String>> categoriesByEnvelopeId,
+  required Iterable<ExpenseEntry> expenses,
+}) {
+  final spentById = <String, double>{};
+  for (final pocket in pockets) {
+    final pocketCurrency = pocket.currency.trim().toUpperCase();
+    final categories = categoriesByEnvelopeId[pocket.id] ?? const <String>[];
+    if (pocketCurrency.isEmpty || categories.isEmpty) {
+      spentById[pocket.id] = 0;
+      continue;
+    }
+
+    final normalizedCategories = categories
+        .map((category) => category.trim().toLowerCase())
+        .where((category) => category.isNotEmpty)
+        .toSet();
+    var totalSpent = 0.0;
+    for (final expense in expenses) {
+      final expenseCurrency = expense.currency?.trim().toUpperCase();
+      if (expenseCurrency != pocketCurrency) continue;
+      final expenseCategory = (expense.category ?? '').trim().toLowerCase();
+      if (normalizedCategories.contains(expenseCategory)) {
+        totalSpent += expense.amount;
+      }
+    }
+    spentById[pocket.id] = totalSpent;
+  }
+  return spentById;
+}
+
 final _pocketsMonthCache = _PocketsMonthCache();
 
 void _invalidatePocketsCachesForUser(
@@ -977,7 +1010,24 @@ PocketsState applyLocalPocketExpenseOverlay({
 
   if (overlay.isEmpty) return state;
 
-  final spentByEnvelopeId = <String, double>{};
+  final hasMultiCurrencySelection =
+      normalizePocketSelectedCurrencies(selectedCurrencies) != null;
+  final spentByEnvelopeId = hasMultiCurrencySelection
+      ? calculatePocketNativeSpentByEnvelopeId(
+          pockets: state.editing,
+          categoriesByEnvelopeId: state.envelopeCategories,
+          expenses: overlay,
+        )
+      : <String, double>{};
+  final aggregateSpentByEnvelopeId = <String, double>{};
+  final aggregateOverlaySpend = overlay.fold<double>(0, (sum, expense) {
+    return sum +
+        _pocketExpenseAmountInCurrency(
+          expense,
+          selectedCurrency,
+          rates ?? _fallbackPocketCurrencyRates,
+        );
+  });
   final linkedCategories = <String>{};
   for (final entry in state.envelopeCategories.entries) {
     final envelopeId = entry.key;
@@ -993,11 +1043,18 @@ PocketsState applyLocalPocketExpenseOverlay({
             selectedCurrency,
             rates ?? _fallbackPocketCurrencyRates,
           );
-          spentByEnvelopeId.update(
+          aggregateSpentByEnvelopeId.update(
             envelopeId,
             (current) => current + amount,
             ifAbsent: () => amount,
           );
+          if (!hasMultiCurrencySelection) {
+            spentByEnvelopeId.update(
+              envelopeId,
+              (current) => current + amount,
+              ifAbsent: () => amount,
+            );
+          }
         }
       }
     }
@@ -1043,6 +1100,15 @@ PocketsState applyLocalPocketExpenseOverlay({
   return state.copyWith(
     saved: addOverlaySpend(state.saved),
     editing: addOverlaySpend(state.editing),
+    aggregateTotalSpent: state.aggregateTotalSpent == null
+        ? null
+        : state.aggregateTotalSpent! + aggregateOverlaySpend,
+    aggregateSpentByEnvelopeId: {
+      ...state.aggregateSpentByEnvelopeId,
+      for (final entry in aggregateSpentByEnvelopeId.entries)
+        entry.key:
+            (state.aggregateSpentByEnvelopeId[entry.key] ?? 0) + entry.value,
+    },
     unallocatedSpend: state.unallocatedSpend + unallocatedOverlaySpend,
     uncategorized: uncategorizedByCategory.values.toList(growable: false),
     uncategorizedExpenses: uncategorizedExpenses.map(
@@ -1108,6 +1174,8 @@ class PocketsState {
     required this.currency,
     required this.totalBudget,
     required this.savedTotalBudget,
+    this.aggregateTotalSpent,
+    this.aggregateSpentByEnvelopeId = const {},
     required this.unallocatedSpend,
     required this.uncategorized,
     required this.uncategorizedExpenses,
@@ -1126,6 +1194,8 @@ class PocketsState {
   final String currency;
   final double totalBudget;
   final double savedTotalBudget; // Track original budget for change detection
+  final double? aggregateTotalSpent;
+  final Map<String, double> aggregateSpentByEnvelopeId;
   final double unallocatedSpend;
   final List<UncategorizedCategory> uncategorized;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
@@ -1157,7 +1227,8 @@ class PocketsState {
     return false;
   }
 
-  double get totalSpent => editing.fold<double>(0, (sum, p) => sum + p.spent);
+  double get totalSpent =>
+      aggregateTotalSpent ?? editing.fold<double>(0, (sum, p) => sum + p.spent);
 
   bool get hasDisplayData {
     return periodMonth.year != 1970 ||
@@ -1181,6 +1252,8 @@ class PocketsState {
     String? currency,
     double? totalBudget,
     double? savedTotalBudget,
+    double? aggregateTotalSpent,
+    Map<String, double>? aggregateSpentByEnvelopeId,
     double? unallocatedSpend,
     List<UncategorizedCategory>? uncategorized,
     Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses,
@@ -1201,6 +1274,9 @@ class PocketsState {
       currency: currency ?? this.currency,
       totalBudget: totalBudget ?? this.totalBudget,
       savedTotalBudget: savedTotalBudget ?? this.savedTotalBudget,
+      aggregateTotalSpent: aggregateTotalSpent ?? this.aggregateTotalSpent,
+      aggregateSpentByEnvelopeId:
+          aggregateSpentByEnvelopeId ?? this.aggregateSpentByEnvelopeId,
       unallocatedSpend: unallocatedSpend ?? this.unallocatedSpend,
       uncategorized: uncategorized ?? this.uncategorized,
       uncategorizedExpenses:
@@ -1223,6 +1299,8 @@ class PocketsState {
         currency: 'USD',
         totalBudget: 0,
         savedTotalBudget: 0,
+        aggregateTotalSpent: null,
+        aggregateSpentByEnvelopeId: const {},
         unallocatedSpend: 0,
         uncategorized: [],
         uncategorizedExpenses: {},
@@ -1244,6 +1322,8 @@ class PocketsState {
       'currency': currency,
       'total_budget': totalBudget,
       'saved_total_budget': savedTotalBudget,
+      'aggregate_total_spent': aggregateTotalSpent,
+      'aggregate_spent_by_envelope_id': aggregateSpentByEnvelopeId,
       'unallocated_spend': unallocatedSpend,
       'uncategorized':
           uncategorized.map((item) => item.toJson()).toList(growable: false),
@@ -1283,6 +1363,14 @@ class PocketsState {
       currency: currency,
       totalBudget: (json['total_budget'] as num?)?.toDouble() ?? 0,
       savedTotalBudget: (json['saved_total_budget'] as num?)?.toDouble() ?? 0,
+      aggregateTotalSpent: (json['aggregate_total_spent'] as num?)?.toDouble(),
+      aggregateSpentByEnvelopeId:
+          ((json['aggregate_spent_by_envelope_id'] as Map?) ?? const {}).map(
+        (key, value) => MapEntry(
+          key.toString(),
+          (value as num?)?.toDouble() ?? 0,
+        ),
+      ),
       unallocatedSpend: (json['unallocated_spend'] as num?)?.toDouble() ?? 0,
       uncategorized: ((json['uncategorized'] as List?) ?? const [])
           .cast<Map>()
@@ -1966,34 +2054,92 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'requestedCurrency': initialCurrency,
       });
 
-      final payload = await _fetchPocketsMonthPayload(
-        userId: authUser.uid,
-        scopeType: scopeType,
-        householdId: householdId,
-        periodMonth: periodMonth,
-        selectedCurrency: selectedCurrency,
-        includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
-        allowCurrencyFallback: allowCurrencyFallback,
-      );
-      final budgetRow = payload['budget'] as Map?;
-      final budgetId = budgetRow?['id']?.toString();
-      final rpcCurrency =
-          (payload['selected_currency'] as String?)?.toUpperCase();
-      if (rpcCurrency != null && rpcCurrency.isNotEmpty) {
-        selectedCurrency = rpcCurrency;
-      }
       final selectedCurrencies = params.normalizedSelectedCurrencies;
       final hasMultiCurrencySelection =
           selectedCurrencies != null && selectedCurrencies.length > 1;
+      final rateTable = hasMultiCurrencySelection
+          ? await ref.read(currencyRateTableProvider.future)
+          : null;
+      final payloads = hasMultiCurrencySelection
+          ? await Future.wait(
+              selectedCurrencies.map(
+                (currency) => _fetchPocketsMonthPayload(
+                  userId: authUser.uid,
+                  scopeType: scopeType,
+                  householdId: householdId,
+                  periodMonth: periodMonth,
+                  selectedCurrency: currency,
+                  includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
+                  allowCurrencyFallback: false,
+                ),
+              ),
+            )
+          : <Map<String, dynamic>>[
+              await _fetchPocketsMonthPayload(
+                userId: authUser.uid,
+                scopeType: scopeType,
+                householdId: householdId,
+                periodMonth: periodMonth,
+                selectedCurrency: selectedCurrency,
+                includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
+                allowCurrencyFallback: allowCurrencyFallback,
+              ),
+            ];
+      final payload = payloads.firstWhere(
+        (payload) =>
+            (payload['selected_currency'] as String?)?.toUpperCase() ==
+            selectedCurrency.toUpperCase(),
+        orElse: () => payloads.first,
+      );
+      final budgetRows = payloads
+          .map((payload) => payload['budget'])
+          .whereType<Map>()
+          .toList(growable: false);
+      final budgetRow = payload['budget'] as Map?;
+      final budgetId = budgetRow?['id']?.toString() ??
+          (budgetRows.isEmpty ? null : budgetRows.first['id']?.toString());
+      final rpcCurrency =
+          (payload['selected_currency'] as String?)?.toUpperCase();
+      if (!hasMultiCurrencySelection &&
+          rpcCurrency != null &&
+          rpcCurrency.isNotEmpty) {
+        selectedCurrency = rpcCurrency;
+      }
 
-      final hasPreviousMonthPockets =
-          payload['has_previous_month_pockets'] == true;
-      final previousBudget =
-          (payload['previous_budget_cents'] as num?)?.toDouble() ?? 0.0;
-      final totalBudget =
-          (budgetRow?['total_budget_cents'] as num?)?.toDouble() ?? 0.0;
+      double centsInSelectedCurrency(num? amountCents, String? sourceCurrency) {
+        final rawCents = amountCents?.toDouble() ?? 0.0;
+        if (!hasMultiCurrencySelection || rateTable == null) {
+          return rawCents;
+        }
+        final source = sourceCurrency?.trim().toUpperCase();
+        if (source == null || source.isEmpty || source == selectedCurrency) {
+          return rawCents;
+        }
+        return rateTable.convert(rawCents / 100.0, source, selectedCurrency) *
+            100.0;
+      }
 
-      final envRows = ((payload['envelopes'] as List?) ?? const [])
+      final hasPreviousMonthPockets = payloads
+          .any((payload) => payload['has_previous_month_pockets'] == true);
+      final previousBudget = payloads.fold<double>(0.0, (sum, payload) {
+        final sourceCurrency =
+            (payload['selected_currency'] as String?)?.toUpperCase();
+        return sum +
+            centsInSelectedCurrency(
+              payload['previous_budget_cents'] as num?,
+              sourceCurrency,
+            );
+      });
+      final totalBudget = budgetRows.fold<double>(0.0, (sum, row) {
+        return sum +
+            centsInSelectedCurrency(
+              row['total_budget_cents'] as num?,
+              row['currency'] as String?,
+            );
+      });
+
+      final envRows = payloads
+          .expand((payload) => ((payload['envelopes'] as List?) ?? const []))
           .cast<Map>()
           .map((row) => Map<String, dynamic>.from(row))
           .toList(growable: false);
@@ -2021,7 +2167,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final envIds =
           envRows.map((e) => e['id'] as String).toList(growable: false);
 
-      final allocationRows = ((payload['allocations'] as List?) ?? const [])
+      final allocationRows = payloads
+          .expand((payload) => ((payload['allocations'] as List?) ?? const []))
           .cast<Map>()
           .map((row) => Map<String, dynamic>.from(row))
           .toList(growable: false);
@@ -2033,11 +2180,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   (row['amount_cents'] as num?)!.toInt(),
       };
 
-      final categoryLinksRows =
-          ((payload['category_links'] as List?) ?? const [])
-              .cast<Map>()
-              .map((row) => Map<String, dynamic>.from(row))
-              .toList(growable: false);
+      final categoryLinksRows = payloads
+          .expand(
+              (payload) => ((payload['category_links'] as List?) ?? const []))
+          .cast<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
 
       final categoriesByEnvelopeId = <String, List<String>>{};
       for (final row in categoryLinksRows) {
@@ -2048,11 +2196,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         categoriesByEnvelopeId.putIfAbsent(envId, () => []).add(category);
       }
 
-      final actualExpenseRows =
-          ((payload['actual_expenses'] as List?) ?? const [])
-              .cast<Map>()
-              .map((row) => Map<String, dynamic>.from(row))
-              .toList(growable: false);
+      final actualExpenseRows = payloads
+          .expand(
+              (payload) => ((payload['actual_expenses'] as List?) ?? const []))
+          .cast<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
       // CRITICAL: treat RPC actual_expenses as persisted rows only.
       // STRICT REQUIREMENT: the recurring month projection is merged below on
       // purpose. Do not mix recurring template rows into actual_expenses or the
@@ -2148,14 +2297,44 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               rates: await ref.read(currencyRateTableProvider.future),
             )
           : monthlyExpenses;
-      final monthlyExpenseRows = spendExpenses
+      final monthlyExpenseRows = monthlyExpenses
           .map((expense) => expense.toJson())
           .toList(growable: false);
+      final pocketShellsForNativeSpend = envRows.map((row) {
+        final id = row['id'] as String;
+        final currency = row['currency'] as String? ?? selectedCurrency;
+        final rawAmountCents = allocationCentsByEnvelopeId[id] ??
+            (row['budget_amount_cents'] as num?)?.toInt() ??
+            0;
+        return PocketEnvelope(
+          id: id,
+          name: row['name'] as String? ?? '',
+          budgetAmountCents: normalizePocketBudgetAmountCentsForCurrency(
+            rawAmountCents,
+            currency,
+          ),
+          spent: 0,
+          currency: currency,
+          icon: row['icon']?.toString(),
+          color: row['color'] as String?,
+          budgetId: row['budget_id'] as String? ?? budgetId,
+          householdId: row['household_id'] as String?,
+          lastUpdated: DateTime.now(),
+        );
+      }).toList(growable: false);
+      final nativeSpentById = hasMultiCurrencySelection
+          ? calculatePocketNativeSpentByEnvelopeId(
+              pockets: pocketShellsForNativeSpend,
+              categoriesByEnvelopeId: categoriesByEnvelopeId,
+              expenses: monthlyExpenses,
+            )
+          : const <String, double>{};
 
       final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
           projectedRecurringExpenses.isNotEmpty ||
           localOverlayExpenses.isNotEmpty;
       final spentById = <String, double>{};
+      final aggregateSpentById = <String, double>{};
       double totalMonthlySpend = 0.0;
 
       if (shouldComputeSpendFromTransactions) {
@@ -2168,6 +2347,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           final categories = categoriesByEnvelopeId[envId] ?? const <String>[];
           if (categories.isEmpty) {
             spentById[envId] = 0.0;
+            aggregateSpentById[envId] = 0.0;
             continue;
           }
           var totalSpent = 0.0;
@@ -2178,7 +2358,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               totalSpent += expense.amount;
             }
           }
-          spentById[envId] = totalSpent;
+          aggregateSpentById[envId] = totalSpent;
+          spentById[envId] = hasMultiCurrencySelection
+              ? nativeSpentById[envId] ?? 0.0
+              : totalSpent;
         }
       } else {
         final spentRows = ((payload['spent_by_envelope'] as List?) ?? const [])
@@ -2190,11 +2373,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           if (envId == null || envId.isEmpty) continue;
           spentById[envId] =
               ((row['spent_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
+          aggregateSpentById[envId] = spentById[envId] ?? 0.0;
         }
 
         // Ensure empty envelopes still get 0 spent.
         for (final envId in envIds) {
           spentById.putIfAbsent(envId, () => 0.0);
+          aggregateSpentById.putIfAbsent(envId, () => 0.0);
         }
 
         totalMonthlySpend =
@@ -2319,8 +2504,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         selectedCurrency,
       );
 
-      final totalEnvelopeSpend =
-          pockets.fold<double>(0, (sum, p) => sum + p.spent);
+      final totalEnvelopeSpend = aggregateSpentById.values.fold<double>(
+        0,
+        (sum, amount) => sum + amount,
+      );
 
       final unallocatedSpend =
           math.max(0.0, totalMonthlySpend - totalEnvelopeSpend);
@@ -2337,6 +2524,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: selectedCurrency,
         totalBudget: totalBudget / 100.0,
         savedTotalBudget: totalBudget / 100.0, // Initialize saved budget
+        aggregateTotalSpent: totalMonthlySpend,
+        aggregateSpentByEnvelopeId: aggregateSpentById,
         unallocatedSpend: unallocatedSpend,
         uncategorized: uncategorized,
         uncategorizedExpenses: uncategorizedExpensesMap,
@@ -3176,6 +3365,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final authUser = ref.read(authProvider);
       final selectedCurrency = _resolveWriteCurrency();
+      if (params.normalizedSelectedCurrencies != null) {
+        throw Exception('Select one currency before editing pockets');
+      }
       // Persist against the month being viewed, not the global filter window
       final viewedMonth = params.periodMonth ?? DateTime.now();
       final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);

@@ -10,14 +10,14 @@ class SimpleSpendingList extends StatelessWidget {
     super.key,
     required this.pockets,
     required this.totalSpent,
+    required this.aggregateSpentByPocketId,
     required this.colorScheme,
-    required this.currency,
   });
 
   final List<PocketEnvelope> pockets;
   final double totalSpent;
+  final Map<String, double> aggregateSpentByPocketId;
   final ColorScheme colorScheme;
-  final String currency;
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +33,18 @@ class SimpleSpendingList extends StatelessWidget {
       );
     }
 
-    // Sort by spent amount (descending)
-    final sortedPockets = [...pockets]
-      ..sort((a, b) => b.spent.compareTo(a.spent));
+    final hasCompleteAggregateSpend = pockets.isNotEmpty &&
+        pockets
+            .every((pocket) => aggregateSpentByPocketId.containsKey(pocket.id));
+    final shareDenominator = !hasCompleteAggregateSpend
+        ? pockets.fold<double>(0, (sum, pocket) => sum + pocket.spent)
+        : totalSpent;
+
+    // Sort by aggregate spend when available so mixed-currency rows are comparable.
+    final sortedPockets = [...pockets]..sort(
+        (a, b) => _spentForShare(b, hasCompleteAggregateSpend)
+            .compareTo(_spentForShare(a, hasCompleteAggregateSpend)),
+      );
 
     return ListView.separated(
       shrinkWrap: true,
@@ -44,7 +53,10 @@ class SimpleSpendingList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final pocket = sortedPockets[index];
-        final shareOfTotal = totalSpent > 0 ? (pocket.spent / totalSpent) : 0.0;
+        final aggregateSpent =
+            _spentForShare(pocket, hasCompleteAggregateSpend);
+        final shareOfTotal =
+            shareDenominator > 0 ? (aggregateSpent / shareDenominator) : 0.0;
 
         final iconData = getPocketIconData(pocket.icon);
 
@@ -108,7 +120,7 @@ class SimpleSpendingList extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    formatCurrency(pocket.spent, currency),
+                    formatCurrency(pocket.spent, pocket.currency),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -143,5 +155,10 @@ class SimpleSpendingList extends StatelessWidget {
         );
       },
     );
+  }
+
+  double _spentForShare(PocketEnvelope pocket, bool hasCompleteAggregateSpend) {
+    if (!hasCompleteAggregateSpend) return pocket.spent;
+    return aggregateSpentByPocketId[pocket.id] ?? 0;
   }
 }

@@ -84,9 +84,6 @@ class WalletDetailsPage extends HookConsumerWidget {
             )))
             .valueOrNull ??
         const <WalletEntity>[];
-    final defaultAccountId = _resolveDefaultAccountId(currencyScopedAccounts);
-    final isDefaultResolvedAccount = latestWallet.id == defaultAccountId;
-
     final currentMonthStart = DateTime(userNow.year, userNow.month);
     final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
@@ -96,7 +93,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       selectedCategory: null,
       selectedAccountId: latestWallet.id,
       selectedCategories: null,
-      includeUnassignedAccount: isDefaultResolvedAccount,
+      includeUnassignedAccount: false,
       selectedType: 'all',
       searchQuery: '',
       startDate: null,
@@ -138,13 +135,13 @@ class WalletDetailsPage extends HookConsumerWidget {
     useEffect(() {
       if (walletFeedState.error != null) {
         debugPrint(
-          '[WalletDetailsPage][transactionsFeedProvider] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode includeUnassignedAccount=$isDefaultResolvedAccount error=${walletFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
+          '[WalletDetailsPage][transactionsFeedProvider] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode includeUnassignedAccount=false error=${walletFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
         );
       }
 
       if (monthFeedState.error != null) {
         debugPrint(
-          '[WalletDetailsPage][monthFeedState] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode startDate=${monthStart.toIso8601String()} endDate=${monthEnd.toIso8601String()} includeUnassignedAccount=$isDefaultResolvedAccount error=${monthFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
+          '[WalletDetailsPage][monthFeedState] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode startDate=${monthStart.toIso8601String()} endDate=${monthEnd.toIso8601String()} includeUnassignedAccount=false error=${monthFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
         );
       }
       return null;
@@ -155,7 +152,6 @@ class WalletDetailsPage extends HookConsumerWidget {
       currentUserId,
       effectiveHouseholdId,
       walletCurrencyCode,
-      isDefaultResolvedAccount,
       monthStart,
       monthEnd,
     ]);
@@ -165,18 +161,14 @@ class WalletDetailsPage extends HookConsumerWidget {
       for (final transaction in recurringTransactions)
         transaction.id: transaction,
     };
-    // CRITICAL: wallet recurring rows must stay bound to account_id when
-    // present. Falling back to the default wallet is only correct for legacy
-    // unassigned recurring rows.
-    // STRICT REQUIREMENT: if this mapping is loosened, recurring transactions
-    // start showing under the wrong wallet or vanish from the intended one.
+    // Wallet details are strict row-level views: only rows explicitly bound to
+    // this wallet may appear here.
     final walletRecurringTransactions =
         recurringTransactions.where((transaction) {
       final accountId = transaction.accountId?.trim();
-      if (accountId != null && accountId.isNotEmpty) {
-        return accountId == latestWallet.id;
-      }
-      return isDefaultResolvedAccount;
+      return accountId != null &&
+          accountId.isNotEmpty &&
+          accountId == latestWallet.id;
     }).toList(growable: false);
     final projectedRecurringRangeStart = _resolveWalletProjectedRangeStart(
       feedTransactions: scopedExpenses,
@@ -806,22 +798,6 @@ String? _resolveScopedHouseholdId(HouseholdScope scope) {
       }
       return householdId;
   }
-}
-
-String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
-  for (final wallet in wallets) {
-    if (wallet.isDefault && !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-  for (final wallet in wallets) {
-    if (wallet.isSystem &&
-        wallet.name.trim().toLowerCase() == 'spending' &&
-        !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-  return wallets.isNotEmpty ? wallets.first.id : null;
 }
 
 class _StatCard extends StatelessWidget {
