@@ -777,10 +777,28 @@ class MonekoDatabase {
       WHERE scope_key = ?
         AND deleted_at IS NULL
         AND sync_status != ?
+        AND (
+          sync_status != ?
+          OR EXISTS (
+            SELECT 1
+            FROM local_mutation_outbox
+            WHERE entity_type = 'transaction'
+              AND entity_id = local_transactions.id
+              AND status IN (?, ?, ?)
+          )
+        )
       ORDER BY date DESC, created_at DESC
       LIMIT ?
       ''',
-      [scope, localSyncStatusFailed, limit],
+      [
+        scope,
+        localSyncStatusFailed,
+        localSyncStatusLocal,
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+        limit,
+      ],
     );
 
     return rows.map(_entryFromTransactionRow).toList(growable: false);
@@ -2530,9 +2548,25 @@ _LocalFeedFilter _localFeedFilter(
   final conditions = <String>[
     'scope_key = ?',
     'deleted_at IS NULL',
+    '''
+    (
+      sync_status != ?
+      OR EXISTS (
+        SELECT 1
+        FROM local_mutation_outbox
+        WHERE entity_type = 'transaction'
+          AND entity_id = local_transactions.id
+          AND status IN (?, ?, ?)
+      )
+    )
+    ''',
   ];
   final args = <Object?>[
     localScopeKey(userId: query.userId, householdId: query.householdId),
+    localSyncStatusLocal,
+    localMutationStatusQueued,
+    localMutationStatusSyncing,
+    localMutationStatusFailed,
   ];
 
   final currencies = _normalizedCurrencyList(query.currencies) ??

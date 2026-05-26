@@ -128,6 +128,8 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     // Rebuild when amount changes so splits can use the latest value
     useListenable(amountController);
+    useListenable(descriptionController);
+    useListenable(merchantController);
     final currentAmountText = amountController.text;
 
     final selectedCategory = useState<String?>(existingTransaction?.category);
@@ -1669,33 +1671,50 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 isFirst: true,
                                 onTap: () async {
                                   final isIncomeMode = !isExpense;
-                                  final displayCategory = selectedCategory.value ?? 'other';
-                                  final categoryColor = getCategoryColor(displayCategory);
-                                  final categoryIcon = getCategoryIcon(displayCategory);
-                                  final localizedCategory = getCategoryTranslation(context, displayCategory);
-                                  final displayMerchant = merchantController.text.trim();
-                                  final displayDescription = descriptionController.text.trim();
-                                  final effectiveTitle = displayDescription.isNotEmpty
-                                      ? displayDescription
-                                      : (displayMerchant.isNotEmpty ? displayMerchant : null);
+                                  final displayCategory =
+                                      selectedCategory.value ?? 'other';
+                                  final categoryColor =
+                                      getCategoryColor(displayCategory);
+                                  final categoryIcon =
+                                      getCategoryIcon(displayCategory);
+                                  final localizedCategory =
+                                      getCategoryTranslation(
+                                          context, displayCategory);
+                                  final displayMerchant =
+                                      merchantController.text.trim();
+                                  final displayDescription =
+                                      descriptionController.text.trim();
+                                  final effectiveTitle =
+                                      displayDescription.isNotEmpty
+                                          ? displayDescription
+                                          : (displayMerchant.isNotEmpty
+                                              ? displayMerchant
+                                              : null);
 
                                   final header = Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 5),
                                             decoration: BoxDecoration(
                                               color: isIncomeMode
-                                                  ? colorScheme.success.withValues(alpha: 0.12)
-                                                  : colorScheme.destructive.withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(100),
+                                                  ? colorScheme.success
+                                                      .withValues(alpha: 0.12)
+                                                  : colorScheme.destructive
+                                                      .withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(100),
                                               border: Border.all(
                                                 color: isIncomeMode
-                                                    ? colorScheme.success.withValues(alpha: 0.2)
-                                                    : colorScheme.destructive.withValues(alpha: 0.2),
+                                                    ? colorScheme.success
+                                                        .withValues(alpha: 0.2)
+                                                    : colorScheme.destructive
+                                                        .withValues(alpha: 0.2),
                                                 width: 1,
                                               ),
                                             ),
@@ -1707,16 +1726,24 @@ class AddRecurringSheet extends HookConsumerWidget {
                                                   height: 6,
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
-                                                    color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                                                    color: isIncomeMode
+                                                        ? colorScheme.success
+                                                        : colorScheme
+                                                            .destructive,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 6),
                                                 Text(
-                                                  isIncomeMode ? context.l10n.income : context.l10n.expense,
+                                                  isIncomeMode
+                                                      ? context.l10n.income
+                                                      : context.l10n.expense,
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w700,
-                                                    color: isIncomeMode ? colorScheme.success : colorScheme.destructive,
+                                                    color: isIncomeMode
+                                                        ? colorScheme.success
+                                                        : colorScheme
+                                                            .destructive,
                                                   ),
                                                 ),
                                               ],
@@ -1724,12 +1751,16 @@ class AddRecurringSheet extends HookConsumerWidget {
                                           ),
                                           const SizedBox(width: 8),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 5),
                                             decoration: BoxDecoration(
-                                              color: categoryColor.withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(100),
+                                              color: categoryColor.withValues(
+                                                  alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(100),
                                               border: Border.all(
-                                                color: categoryColor.withValues(alpha: 0.25),
+                                                color: categoryColor.withValues(
+                                                    alpha: 0.25),
                                                 width: 1,
                                               ),
                                             ),
@@ -1747,7 +1778,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w600,
-                                                    color: colorScheme.foreground,
+                                                    color:
+                                                        colorScheme.foreground,
                                                   ),
                                                 ),
                                               ],
@@ -1755,7 +1787,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                           ),
                                         ],
                                       ),
-                                      if (effectiveTitle != null && effectiveTitle.isNotEmpty) ...[
+                                      if (effectiveTitle != null &&
+                                          effectiveTitle.isNotEmpty) ...[
                                         const SizedBox(height: 6),
                                         Text(
                                           effectiveTitle,
@@ -1778,7 +1811,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                         amountController.text.trim().isEmpty
                                             ? ''
                                             : amountController.text.trim(),
-                                    prefix: resolveCurrencySymbol(selectedCurrency.value),
+                                    prefix: resolveCurrencySymbol(
+                                        selectedCurrency.value),
                                     header: header,
                                   );
                                   if (value != null) {

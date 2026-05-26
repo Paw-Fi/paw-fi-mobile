@@ -331,13 +331,31 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
 }) {
   final merged = <ExpenseEntry>[];
   final seen = <String>{};
+  final fingerprintIndexes = <String, int>{};
 
   void addIfUnique(ExpenseEntry entry) {
     if (entry.id.isEmpty) return;
     if (!_matchesDashboardQuery(entry, query)) return;
-    if (seen.add(entry.id)) {
-      merged.add(entry);
+    if (!seen.add(entry.id)) return;
+
+    final fingerprint = _dashboardTransactionReconciliationFingerprint(entry);
+    final existingIndex =
+        fingerprint == null ? null : fingerprintIndexes[fingerprint];
+    if (existingIndex != null) {
+      final existing = merged[existingIndex];
+      if (_isOptimisticTransactionId(existing.id) !=
+          _isOptimisticTransactionId(entry.id)) {
+        if (!_isOptimisticTransactionId(entry.id)) {
+          merged[existingIndex] = entry;
+        }
+        return;
+      }
     }
+
+    if (fingerprint != null) {
+      fingerprintIndexes[fingerprint] = merged.length;
+    }
+    merged.add(entry);
   }
 
   for (final entry in localOverlay) {
@@ -385,6 +403,38 @@ bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
   }
 
   return true;
+}
+
+bool _isOptimisticTransactionId(String id) => id.startsWith('optimistic_');
+
+String? _dashboardTransactionReconciliationFingerprint(ExpenseEntry entry) {
+  final normalizedText = _normalizedDashboardTransactionText(entry);
+  if (normalizedText.isEmpty) return null;
+  final dateKey = '${entry.date.year.toString().padLeft(4, '0')}-'
+      '${entry.date.month.toString().padLeft(2, '0')}-'
+      '${entry.date.day.toString().padLeft(2, '0')}';
+  return [
+    dateKey,
+    entry.amountCents.toString(),
+    (entry.currency ?? '').trim().toUpperCase(),
+    (entry.type ?? 'expense').trim().toLowerCase(),
+    entry.householdId?.trim() ?? '',
+    entry.userId?.trim() ?? '',
+    normalizedText,
+  ].join('|');
+}
+
+String _normalizedDashboardTransactionText(ExpenseEntry entry) {
+  final source = (entry.rawText?.trim().isNotEmpty == true)
+      ? entry.rawText!.trim()
+      : (entry.merchant?.trim().isNotEmpty == true)
+          ? entry.merchant!.trim()
+          : (entry.category ?? '').trim();
+  return source
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+      .trim();
 }
 
 TransactionsFeedQuery dashboardTransactionsQuery(
@@ -533,8 +583,7 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
         'limit': request.limit,
       },
     );
-    final bypassPersistedCache =
-        ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
+    const bypassPersistedCache = true;
     if (sessionCached != null &&
         DateTime.now().difference(sessionCached.cachedAt) <=
             dashboardRecentTransactionsCacheTtl) {
@@ -598,8 +647,7 @@ final dashboardCalendarTransactionsProvider =
       end: query.formattedEndDate,
     );
     final ttl = dashboardTransactionsCacheTtl(query.startDate, query.endDate);
-    final bypassPersistedCache =
-        ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
+    const bypassPersistedCache = true;
     final sessionCached =
         readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
     final trace = HomeDebugTrace(

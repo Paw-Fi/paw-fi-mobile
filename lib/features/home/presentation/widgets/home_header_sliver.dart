@@ -236,19 +236,19 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final spotlightController = ref.read(homeSpotlightControllerProvider);
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
-    final showCurrencyIndicator = useState<bool>(true);
+    final showCurrencyIndicator = useState<bool>(false);
 
     // Load indicator dismissal state
-    useEffect(() {
-      () async {
-        final prefs = await SharedPreferences.getInstance();
-        final dismissed = prefs.getBool('currency_indicator_dismissed') ?? false;
-        if (dismissed && showCurrencyIndicator.value) {
-          showCurrencyIndicator.value = false;
-        }
-      }();
-      return null;
-    }, []);
+    // useEffect(() {
+    //   () async {
+    //     final prefs = await SharedPreferences.getInstance();
+    //     final dismissed = prefs.getBool('currency_indicator_dismissed') ?? false;
+    //     if (dismissed && showCurrencyIndicator.value) {
+    //       showCurrencyIndicator.value = false;
+    //     }
+    //   }();
+    //   return null;
+    // }, []);
 
     final headerTrace = HomeDebugTrace(
       label: 'HomeHeaderSpaceSwitch',
@@ -481,14 +481,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
           ],
         ),
       ),
-      items: [
-        AdaptivePopupMenuItem(
-          label: context.l10n.accountOverview,
-          icon: PlatformInfo.isIOS26OrHigher()
-              ? 'chart.pie.fill'
-              : Icons.pie_chart,
-          value: 'overview',
-        ),
+      items: [       
         AdaptivePopupMenuItem(
           label: personalLabel,
           icon: PlatformInfo.isIOS26OrHigher()
