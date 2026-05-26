@@ -365,12 +365,15 @@ void main() {
     final query = buildQuery();
     final page = await service.fetchPage(query);
     final summary = await service.fetchSummary(query);
+    final allItems = await service.fetchAllPages(query);
 
     expect(page.items.map((entry) => entry.id), ['local_1']);
     expect(summary.transactionCount, 1);
     expect(summary.expenseTotal, 22);
+    expect(allItems.map((entry) => entry.id), ['local_1']);
     expect(remote.pageCallCount, 0);
     expect(remote.summaryCallCount, 1);
+    expect(remote.allPagesCallCount, 0);
 
     await service.refreshFromRemote(query);
 
@@ -381,7 +384,7 @@ void main() {
   });
 
   test(
-      'local-first service overlays pending rows on remote summary and all pages',
+      'local-first service returns pending local rows before remote summary and all pages',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
@@ -431,9 +434,11 @@ void main() {
     final summary = await service.fetchSummary(query);
     final allItems = await service.fetchAllPages(query);
 
-    expect(summary.transactionCount, 2);
-    expect(summary.expenseTotal, 33);
-    expect(allItems.map((entry) => entry.id), ['pending_1', 'remote_1']);
+    expect(summary.transactionCount, 1);
+    expect(summary.expenseTotal, 11);
+    expect(allItems.map((entry) => entry.id), ['pending_1']);
+    expect(remote.summaryCallCount, 0);
+    expect(remote.allPagesCallCount, 0);
   });
 
   test('local-first service removes synced local rows missing from remote page',

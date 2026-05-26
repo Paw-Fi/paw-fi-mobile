@@ -673,15 +673,12 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     if (isComplete) {
       return _summaryFromLocal(localSummary);
     }
+    if (hasPendingLocalRows) {
+      return _summaryFromLocal(localSummary);
+    }
     try {
       final remoteSummary = await _remote.fetchSummary(query);
-      if (!hasPendingLocalRows) return remoteSummary;
-
-      final pendingItems = await _database.getTransactionsFeedItems(
-        localQuery,
-        syncStatus: localSyncStatusLocal,
-      );
-      return remoteSummary.addingExpenses(pendingItems);
+      return remoteSummary;
     } catch (_) {
       return _summaryFromLocal(localSummary);
     }
@@ -694,11 +691,13 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       _localQuery(query),
     );
-    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
     if (!_remoteEnabled) {
       return localItems;
     }
     if (isComplete) {
+      return localItems;
+    }
+    if (localItems.isNotEmpty) {
       return localItems;
     }
 
@@ -709,27 +708,26 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         _localQuery(query),
         isComplete: true,
       );
-      if (!hasPendingLocalRows) return remoteItems;
 
-      final pendingItems = await _database.getTransactionsFeedItems(
+      final updatedLocalItems = await _database.getTransactionsFeedItems(
         localQuery,
-        syncStatus: localSyncStatusLocal,
       );
-      return _mergeRemoteWithPendingItems(remoteItems, pendingItems);
+      if (updatedLocalItems.isEmpty) return remoteItems;
+      return _mergeRemoteWithLocalItems(remoteItems, updatedLocalItems);
     } catch (_) {
       return localItems;
     }
   }
 
-  List<ExpenseEntry> _mergeRemoteWithPendingItems(
+  List<ExpenseEntry> _mergeRemoteWithLocalItems(
     List<ExpenseEntry> remoteItems,
-    List<ExpenseEntry> pendingItems,
+    List<ExpenseEntry> localItems,
   ) {
-    if (pendingItems.isEmpty) return remoteItems;
+    if (localItems.isEmpty) return remoteItems;
 
     final mergedById = <String, ExpenseEntry>{
       for (final item in remoteItems) item.id: item,
-      for (final item in pendingItems) item.id: item,
+      for (final item in localItems) item.id: item,
     };
     final merged = mergedById.values.toList(growable: false)
       ..sort((left, right) {

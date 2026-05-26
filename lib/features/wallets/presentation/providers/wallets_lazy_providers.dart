@@ -10,10 +10,12 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart'
     show supabaseClientProvider;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -31,6 +33,39 @@ import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_bi
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final walletsRefreshSignalProvider = StateProvider<int>((ref) => 0);
+
+class _WalletsPageStateCacheGeneration {
+  const _WalletsPageStateCacheGeneration({
+    required this.wallets,
+  });
+
+  final int wallets;
+
+  bool get isInitial => wallets == 0;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _WalletsPageStateCacheGeneration && other.wallets == wallets;
+  }
+
+  @override
+  int get hashCode => wallets.hashCode;
+}
+
+final _walletsPageStateSessionCacheGenerationsProvider =
+    StateProvider<Map<String, _WalletsPageStateCacheGeneration>>(
+  (ref) => const {},
+);
+
+final _walletsPageStateBaseSessionCacheProvider =
+    StateProvider<Map<String, WalletsPageState>>((ref) => const {});
+
+_WalletsPageStateCacheGeneration _readWalletsPageStateCacheGeneration(Ref ref) {
+  return _WalletsPageStateCacheGeneration(
+    wallets: ref.read(walletsRefreshSignalProvider),
+  );
+}
 
 final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
   final auth = ref.watch(authProvider);
@@ -208,32 +243,39 @@ final walletsDataServiceProvider = Provider<WalletsDataService>((ref) {
   return SupabaseWalletsDataService(ref);
 });
 
-final _walletsTransactionCacheInvalidationProvider = Provider<void>((ref) {
-  void clearWalletPageCaches() {
-    final userId = ref.read(authProvider).uid;
-    ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
-    if (userId.isEmpty) return;
-
-    ref.read(walletsPersistedCacheBypassCountProvider.notifier).state++;
-    unawaited(
-      Future<void>.microtask(() {
-        final notifier =
-            ref.read(walletsPersistedCacheBypassCountProvider.notifier);
-        notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
-      }),
-    );
+final _walletsInMemoryOptimisticTransactionsProvider =
+    Provider.family<List<ExpenseEntry>, WalletsScopeQuery>((ref, query) {
+  final householdId = query.householdId?.trim();
+  final optimisticTransactions = householdId == null || householdId.isEmpty
+      ? ref.watch(
+          analyticsProvider.select(
+            (data) => data.expenses
+                .where(_isWalletInMemoryOptimisticTransaction)
+                .toList(growable: false),
+          ),
+        )
+      : ref.watch(
+          householdOptimisticExpensesProvider.select(
+            (state) => (state[householdId] ?? const <ExpenseEntry>[])
+                .where(_isWalletInMemoryOptimisticTransaction)
+                .toList(growable: false),
+          ),
+        );
+  if (optimisticTransactions.isEmpty) {
+    return const <ExpenseEntry>[];
   }
 
-  ref.listen(dashboardRefreshSignalProvider, (previous, next) {
-    if (previous != null && previous != next) {
-      clearWalletPageCaches();
-    }
-  });
-  ref.listen(transactionsFeedRefreshSignalProvider, (previous, next) {
-    if (previous != null && previous != next) {
-      clearWalletPageCaches();
-    }
-  });
+  return filterWalletTransactions(
+    allExpenses: optimisticTransactions,
+    scope: ref.watch(householdScopeProvider),
+    selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedSelectedCurrencies,
+  );
+});
+
+final _walletsTransactionCacheInvalidationProvider = Provider<void>((ref) {
+  ref.watch(dashboardRefreshSignalProvider);
+  ref.watch(transactionsFeedRefreshSignalProvider);
 });
 
 final walletsHistoryProvider =
@@ -242,6 +284,9 @@ final walletsHistoryProvider =
     ref.watch(_walletsTransactionCacheInvalidationProvider);
     ref.watch(walletsRefreshSignalProvider);
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
+    final bypassPersistedCache =
+        ref.watch(walletsPageStatePersistedCacheBypassProvider) > 0;
     final authHeaders = ref.watch(walletAuthHeadersProvider);
     if (query.userId.trim().isEmpty || authHeaders == null) {
       return WalletsHistorySummary(
@@ -259,6 +304,9 @@ final walletsHistoryProvider =
     try {
       return await service.fetchHistory(query);
     } catch (_) {
+      if (bypassPersistedCache) {
+        rethrow;
+      }
       final cached = readPersistedWalletsPageState(ref, query);
       final history = cached?.history;
       if (history != null) {
@@ -275,6 +323,9 @@ final walletsMonthSnapshotProvider =
     ref.watch(_walletsTransactionCacheInvalidationProvider);
     ref.watch(walletsRefreshSignalProvider);
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
+    final bypassPersistedCache =
+        ref.watch(walletsPageStatePersistedCacheBypassProvider) > 0;
     final authHeaders = ref.watch(walletAuthHeadersProvider);
     if (query.scope.userId.trim().isEmpty || authHeaders == null) {
       return WalletsMonthSnapshot(
@@ -295,6 +346,9 @@ final walletsMonthSnapshotProvider =
     try {
       return await service.fetchMonthSnapshot(query);
     } catch (_) {
+      if (bypassPersistedCache) {
+        rethrow;
+      }
       final cached = readPersistedWalletsPageState(ref, query.scope);
       final snapshot = cached
           ?.cachedSnapshotsByMonth[normalizeWalletMonthStart(query.monthStart)];
@@ -313,7 +367,10 @@ final walletsPageStateProvider = AsyncNotifierProvider.family<
 
 class WalletsPageStateNotifier
     extends FamilyAsyncNotifier<WalletsPageState, WalletsScopeQuery> {
-  late final WalletsScopeQuery _query;
+  late WalletsScopeQuery _query;
+  bool _scheduledLocalDatabaseReadyRefresh = false;
+  bool _isDisposed = false;
+  bool _hasDisposeListener = false;
 
   static const _initialVisibleMonthCount = 3;
   static const _appendMonthBatchSize = 3;
@@ -325,11 +382,18 @@ class WalletsPageStateNotifier
   @override
   Future<WalletsPageState> build(WalletsScopeQuery arg) async {
     _query = arg;
+    _ensureLifecycleTracking();
     ref.watch(_walletsTransactionCacheInvalidationProvider);
-    ref.watch(walletsRefreshSignalProvider);
-    ref.watch(dashboardRefreshSignalProvider);
+    _listenToInMemoryOptimisticTransactions(arg);
+    _scheduleLocalDatabaseReadyRefresh();
+    final cacheGeneration = _WalletsPageStateCacheGeneration(
+      wallets: ref.watch(walletsRefreshSignalProvider),
+    );
     final bypassPersistedCache =
-        ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
+        ref.watch(walletsPageStatePersistedCacheBypassProvider) > 0;
+    final shouldScheduleBackgroundRefresh =
+        ref.read(dashboardRefreshSignalProvider) == 0 &&
+            ref.read(transactionsFeedRefreshSignalProvider) == 0;
     final trace = _createWalletsTrace(
       ref,
       label: 'WalletsPageStateBuild',
@@ -340,21 +404,33 @@ class WalletsPageStateNotifier
         'bypassPersistedCache': bypassPersistedCache,
       });
       final sessionCache = ref.read(walletsPageStateSessionCacheProvider);
-      final sessionState = sessionCache[walletsPageStateCacheKey(_query)];
-      if (sessionState != null) {
+      final cacheKey = walletsPageStateCacheKey(_query);
+      final sessionState = sessionCache[cacheKey];
+      final sessionGeneration =
+          ref.read(_walletsPageStateSessionCacheGenerationsProvider)[cacheKey];
+      if (sessionState != null &&
+          (sessionGeneration == cacheGeneration ||
+              (sessionGeneration == null && cacheGeneration.isInitial))) {
         trace.mark('session-cache-hit', {
           'visibleMonths': sessionState.visibleMonths.length,
           'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
         });
         final overlaidState =
             await _overlayPendingLocalWalletPageState(sessionState);
-        if (!_isOffline) {
+        if (!_isOffline && shouldScheduleBackgroundRefresh) {
           _scheduleBackgroundRefresh();
         }
         return overlaidState;
+      } else if (sessionState != null) {
+        trace.mark('session-cache-stale', {
+          'visibleMonths': sessionState.visibleMonths.length,
+          'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
+        });
       }
 
-      final cachedState = _readPersistedCachedPageState();
+      final cachedState = await _readPersistedCachedPageState(
+        bypassPersistedCache: bypassPersistedCache,
+      );
       if (cachedState != null) {
         trace.mark('cache-hit', {
           'visibleMonths': cachedState.visibleMonths.length,
@@ -363,7 +439,7 @@ class WalletsPageStateNotifier
         });
         final overlaidState =
             await _overlayPendingLocalWalletPageState(cachedState);
-        if (!_isOffline) {
+        if (!_isOffline && shouldScheduleBackgroundRefresh) {
           _scheduleBackgroundRefresh();
         }
         return overlaidState;
@@ -378,7 +454,9 @@ class WalletsPageStateNotifier
       return _loadInitialState(trace: trace);
     } catch (error) {
       trace.mark('build-error', {'error': error});
-      final cachedState = _readPersistedCachedPageState();
+      final cachedState = await _readPersistedCachedPageState(
+        bypassPersistedCache: bypassPersistedCache,
+      );
       if (cachedState != null) {
         return _overlayPendingLocalWalletPageState(cachedState);
       }
@@ -388,19 +466,31 @@ class WalletsPageStateNotifier
 
   Future<void> refresh() async {
     final previous = state.valueOrNull;
-    final refreshGeneration = ref.read(walletsRefreshSignalProvider);
+    final basePrevious =
+        previous == null ? null : (_readSessionCachedPageState() ?? previous);
+    final walletsRefreshGeneration = ref.read(walletsRefreshSignalProvider);
+    final dashboardRefreshGeneration = ref.read(dashboardRefreshSignalProvider);
+    final transactionsRefreshGeneration =
+        ref.read(transactionsFeedRefreshSignalProvider);
+    final bypassPersistedCache =
+        ref.read(walletsPageStatePersistedCacheBypassProvider) > 0;
     if (_isOffline) {
       if (previous != null) {
         state = AsyncData(previous.copyWith(isRefreshing: false));
       } else {
         state = AsyncData(await _overlayPendingLocalWalletPageState(
-          _readPersistedCachedPageState() ?? _emptyPageState(),
+          await _readPersistedCachedPageState(
+                bypassPersistedCache: bypassPersistedCache,
+              ) ??
+              _emptyPageState(),
         ));
       }
       return;
     }
     if (previous == null) {
-      final cachedState = _readPersistedCachedPageState();
+      final cachedState = await _readPersistedCachedPageState(
+        bypassPersistedCache: bypassPersistedCache,
+      );
       if (cachedState != null) {
         state = AsyncData(
           await _overlayPendingLocalWalletPageState(cachedState),
@@ -412,7 +502,10 @@ class WalletsPageStateNotifier
       return;
     }
 
-    state = AsyncData(previous.copyWith(isRefreshing: true));
+    final previousBase = basePrevious ?? previous;
+    final optimisticPrevious =
+        await _overlayPendingLocalWalletPageState(previousBase);
+    state = AsyncData(optimisticPrevious.copyWith(isRefreshing: true));
 
     final trace = _createWalletsTrace(
       ref,
@@ -423,14 +516,18 @@ class WalletsPageStateNotifier
     try {
       trace.mark('refresh-start');
       final selectedMonth =
-          normalizeWalletMonthStart(previous.selectedMonthStart);
+          normalizeWalletMonthStart(previousBase.selectedMonthStart);
       final results = await Future.wait<dynamic>([
         _service.fetchHistory(_query),
         _service.fetchMonthSnapshot(
           WalletsMonthQuery(scope: _query, monthStart: selectedMonth),
         ),
       ]);
-      if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+      if (walletsRefreshGeneration != ref.read(walletsRefreshSignalProvider) ||
+          dashboardRefreshGeneration !=
+              ref.read(dashboardRefreshSignalProvider) ||
+          transactionsRefreshGeneration !=
+              ref.read(transactionsFeedRefreshSignalProvider)) {
         final latest = state.valueOrNull;
         if (latest != null) {
           state = AsyncData(latest.copyWith(isRefreshing: false));
@@ -440,35 +537,37 @@ class WalletsPageStateNotifier
       final history = results[0] as WalletsHistorySummary;
       final refreshedSnapshot = results[1] as WalletsMonthSnapshot;
 
-      final refreshedState = previous.copyWith(
+      final refreshedState = previousBase.copyWith(
         history: history,
         cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
-          ...previous.cachedSnapshotsByMonth,
+          ...previousBase.cachedSnapshotsByMonth,
           selectedMonth: refreshedSnapshot,
         },
         monthErrorsByMonth: <DateTime, Object>{
-          ...previous.monthErrorsByMonth,
+          ...previousBase.monthErrorsByMonth,
         }..remove(selectedMonth),
         loadingMonths: <DateTime>{
-          ...previous.loadingMonths,
+          ...previousBase.loadingMonths,
         }..remove(selectedMonth),
         lastResolvedSelectedMonthStart: selectedMonth,
         isRefreshing: false,
       );
-      state = AsyncData(refreshedState);
+      final overlaidRefreshedState =
+          await _overlayPendingLocalWalletPageState(refreshedState);
+      state = AsyncData(overlaidRefreshedState);
       _storePageState(refreshedState);
       trace.mark('refresh-success', {
         'selectedMonth': selectedMonth,
-        'visibleMonths': refreshedState.visibleMonths.length,
+        'visibleMonths': overlaidRefreshedState.visibleMonths.length,
       });
 
-      final monthsToWarm = refreshedState.visibleMonths
+      final monthsToWarm = overlaidRefreshedState.visibleMonths
           .where((month) => month != selectedMonth)
           .toList(growable: false);
       unawaited(_prefetchMonths(monthsToWarm));
     } catch (error) {
       trace.mark('refresh-error', {'error': error});
-      state = AsyncData(previous.copyWith(isRefreshing: false));
+      state = AsyncData(optimisticPrevious.copyWith(isRefreshing: false));
     }
   }
 
@@ -582,6 +681,8 @@ class WalletsPageStateNotifier
       monthErrorsByMonth: const <DateTime, Object>{},
       lastResolvedSelectedMonthStart: selectedMonth,
     );
+    final overlaidInitialState =
+        await _overlayPendingLocalWalletPageState(initialState);
     _storePageState(initialState);
     trace.mark('initial-state-ready', {'snapshotCount': 1});
 
@@ -592,11 +693,11 @@ class WalletsPageStateNotifier
         );
       } catch (_) {}
     });
-    return initialState;
+    return overlaidInitialState;
   }
 
   Future<void> _prefetchMonths(Iterable<DateTime> months) async {
-    if (_isOffline) return;
+    if (_isDisposed || _isOffline) return;
     final monthsList =
         months.map(normalizeWalletMonthStart).toList(growable: false);
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
@@ -630,6 +731,9 @@ class WalletsPageStateNotifier
         final snapshot = await _service.fetchMonthSnapshot(
           WalletsMonthQuery(scope: _query, monthStart: normalizedMonth),
         );
+        if (_isDisposed) {
+          return;
+        }
         if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
           _clearLoadingMonth(normalizedMonth);
           return;
@@ -638,7 +742,7 @@ class WalletsPageStateNotifier
         if (latest == null) {
           return;
         }
-        state = AsyncData(latest.copyWith(
+        final nextState = latest.copyWith(
           cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
             ...latest.cachedSnapshotsByMonth,
             normalizedMonth: snapshot,
@@ -648,8 +752,24 @@ class WalletsPageStateNotifier
           monthErrorsByMonth: <DateTime, Object>{
             ...latest.monthErrorsByMonth,
           }..remove(normalizedMonth),
-        ));
-        _storePageState(state.valueOrNull ?? latest);
+        );
+        state = AsyncData(nextState);
+        final baseState = _readSessionCachedPageState();
+        _storePageState(
+          baseState == null
+              ? nextState
+              : baseState.copyWith(
+                  cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
+                    ...baseState.cachedSnapshotsByMonth,
+                    normalizedMonth: snapshot,
+                  },
+                  loadingMonths: <DateTime>{...baseState.loadingMonths}
+                    ..remove(normalizedMonth),
+                  monthErrorsByMonth: <DateTime, Object>{
+                    ...baseState.monthErrorsByMonth,
+                  }..remove(normalizedMonth),
+                ),
+        );
         trace.mark('prefetch-success', {'month': normalizedMonth});
       } catch (error) {
         final latest = state.valueOrNull;
@@ -673,6 +793,9 @@ class WalletsPageStateNotifier
   }
 
   Future<void> _resolveSelectedMonth(DateTime monthStart) async {
+    if (_isDisposed) {
+      return;
+    }
     if (_isOffline) {
       _clearLoadingMonth(monthStart);
       return;
@@ -691,6 +814,9 @@ class WalletsPageStateNotifier
       final snapshot = await _service.fetchMonthSnapshot(
         WalletsMonthQuery(scope: _query, monthStart: monthStart),
       );
+      if (_isDisposed) {
+        return;
+      }
       if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
         _clearLoadingMonth(monthStart);
         return;
@@ -699,7 +825,7 @@ class WalletsPageStateNotifier
       if (current == null) {
         return;
       }
-      state = AsyncData(current.copyWith(
+      final nextState = current.copyWith(
         cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
           ...current.cachedSnapshotsByMonth,
           monthStart: snapshot,
@@ -709,8 +835,25 @@ class WalletsPageStateNotifier
           ...current.monthErrorsByMonth,
         }..remove(monthStart),
         lastResolvedSelectedMonthStart: monthStart,
-      ));
-      _storePageState(state.valueOrNull ?? current);
+      );
+      state = AsyncData(nextState);
+      final baseState = _readSessionCachedPageState();
+      _storePageState(
+        baseState == null
+            ? nextState
+            : baseState.copyWith(
+                cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
+                  ...baseState.cachedSnapshotsByMonth,
+                  monthStart: snapshot,
+                },
+                loadingMonths: <DateTime>{...baseState.loadingMonths}
+                  ..remove(monthStart),
+                monthErrorsByMonth: <DateTime, Object>{
+                  ...baseState.monthErrorsByMonth,
+                }..remove(monthStart),
+                lastResolvedSelectedMonthStart: monthStart,
+              ),
+      );
       trace.mark('selected-month-success', {
         'walletBalanceCount': snapshot.walletBalances.length,
       });
@@ -730,8 +873,61 @@ class WalletsPageStateNotifier
     }
   }
 
-  WalletsPageState? _readPersistedCachedPageState() {
-    return readPersistedWalletsPageState(ref, _query);
+  Future<WalletsPageState?> _readPersistedCachedPageState({
+    bool bypassPersistedCache = false,
+  }) async {
+    if (bypassPersistedCache) {
+      return null;
+    }
+    return await readLocalWalletsPageState(ref, _query) ??
+        readPersistedWalletsPageState(ref, _query);
+  }
+
+  WalletsPageState? _readSessionCachedPageState() {
+    final cacheKey = walletsPageStateCacheKey(_query);
+    return ref.read(_walletsPageStateBaseSessionCacheProvider)[cacheKey] ??
+        ref.read(walletsPageStateSessionCacheProvider)[cacheKey];
+  }
+
+  void _listenToInMemoryOptimisticTransactions(WalletsScopeQuery arg) {
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    ref.listen<List<ExpenseEntry>>(
+      _walletsInMemoryOptimisticTransactionsProvider(arg),
+      (previous, next) {
+        final expectedCacheKey = walletsPageStateCacheKey(arg);
+        final expectedGeneration = _readWalletsPageStateCacheGeneration(ref);
+        final baseState = _readSessionCachedPageState() ?? state.valueOrNull;
+        if (baseState == null) return;
+
+        unawaited(() async {
+          try {
+            if (disposed) return;
+            final overlaidState = await _overlayPendingLocalWalletPageState(
+              baseState,
+              inMemoryOptimisticTransactions: next,
+            );
+            if (disposed ||
+                walletsPageStateCacheKey(_query) != expectedCacheKey) {
+              return;
+            }
+            if (_readWalletsPageStateCacheGeneration(ref) !=
+                expectedGeneration) {
+              return;
+            }
+            final currentState = state.valueOrNull;
+            if (currentState != null) {
+              state = AsyncData(
+                overlaidState.copyWith(isRefreshing: currentState.isRefreshing),
+              );
+            }
+          } catch (_) {
+            // Provider disposal can happen while the local overlay reads async
+            // dependencies; the next rebuild/refresh will recompute the overlay.
+          }
+        }());
+      },
+    );
   }
 
   void _storePageState(WalletsPageState pageState) {
@@ -740,6 +936,16 @@ class WalletsPageStateNotifier
       ...ref.read(walletsPageStateSessionCacheProvider),
       cacheKey: pageState,
     };
+    ref.read(_walletsPageStateBaseSessionCacheProvider.notifier).state = {
+      ...ref.read(_walletsPageStateBaseSessionCacheProvider),
+      cacheKey: pageState,
+    };
+    ref.read(_walletsPageStateSessionCacheGenerationsProvider.notifier).state =
+        {
+      ...ref.read(_walletsPageStateSessionCacheGenerationsProvider),
+      cacheKey: _readWalletsPageStateCacheGeneration(ref),
+    };
+    ref.read(walletsPageStatePersistedCacheBypassProvider.notifier).state = 0;
     unawaited(persistWalletsPageState(ref, _query, pageState));
   }
 
@@ -747,9 +953,40 @@ class WalletsPageStateNotifier
     if (_isOffline) return;
     Future<void>(() async {
       try {
+        if (_isDisposed) return;
         await refresh();
       } catch (_) {}
     });
+  }
+
+  void _scheduleLocalDatabaseReadyRefresh() {
+    if (_scheduledLocalDatabaseReadyRefresh ||
+        ref.read(localDatabaseProvider).hasValue) {
+      return;
+    }
+
+    _scheduledLocalDatabaseReadyRefresh = true;
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    unawaited(
+      ref.read(localDatabaseProvider.future).then(
+        (_) {
+          if (disposed) return;
+          Future<void>(() {
+            if (!disposed) {
+              ref.invalidateSelf();
+            }
+          });
+        },
+        onError: (_) {},
+      ),
+    );
+  }
+
+  void _ensureLifecycleTracking() {
+    if (_hasDisposeListener) return;
+    _hasDisposeListener = true;
+    ref.onDispose(() => _isDisposed = true);
   }
 
   WalletsPageState _emptyPageState() {
@@ -772,6 +1009,7 @@ class WalletsPageStateNotifier
   }
 
   void _clearLoadingMonth(DateTime monthStart) {
+    if (_isDisposed) return;
     final current = state.valueOrNull;
     if (current == null) {
       return;
@@ -787,12 +1025,14 @@ class WalletsPageStateNotifier
   }
 
   Future<WalletsPageState> _overlayPendingLocalWalletPageState(
-    WalletsPageState cachedState,
-  ) async {
+    WalletsPageState cachedState, {
+    List<ExpenseEntry>? inMemoryOptimisticTransactions,
+  }) async {
     final history = await _overlayPendingLocalWalletHistory(
       ref,
       _query,
       cachedState.history,
+      inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
     );
     final snapshots = <DateTime, WalletsMonthSnapshot>{};
     for (final entry in cachedState.cachedSnapshotsByMonth.entries) {
@@ -800,6 +1040,7 @@ class WalletsPageStateNotifier
         ref,
         WalletsMonthQuery(scope: _query, monthStart: entry.key),
         entry.value,
+        inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
       );
     }
     return cachedState.copyWith(
@@ -1122,13 +1363,21 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
   WalletsScopeQuery query, {
   DateTime? startDate,
   required DateTime endInclusive,
+  List<ExpenseEntry>? inMemoryOptimisticTransactions,
 }) async {
   if (query.userId.trim().isEmpty) {
     return const <ExpenseEntry>[];
   }
 
+  final List<ExpenseEntry> inMemoryOptimistic =
+      inMemoryOptimisticTransactions ??
+          ref.read(_walletsInMemoryOptimisticTransactionsProvider(query));
+
   try {
-    final database = await ref.read(localDatabaseProvider.future);
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    if (database == null) {
+      return inMemoryOptimistic;
+    }
     final transactions = await database.getTransactionsFeedItems(
       LocalTransactionsFeedQuery(
         userId: query.userId,
@@ -1153,22 +1402,47 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
       selectedCurrency: query.selectedCurrency,
       selectedCurrencies: query.normalizedSelectedCurrencies,
     );
-    return filtered;
+    return _mergeWalletLocalOverlayTransactions(
+      inMemoryOptimistic,
+      filtered,
+    );
   } catch (_) {
-    return const <ExpenseEntry>[];
+    return inMemoryOptimistic;
   }
+}
+
+bool _isWalletInMemoryOptimisticTransaction(ExpenseEntry transaction) {
+  return transaction.id.trim().startsWith('optimistic_');
+}
+
+List<ExpenseEntry> _mergeWalletLocalOverlayTransactions(
+  Iterable<ExpenseEntry> first,
+  Iterable<ExpenseEntry> second,
+) {
+  final byId = <String, ExpenseEntry>{};
+  for (final transaction in first) {
+    if (transaction.id.trim().isEmpty) continue;
+    byId[transaction.id] = transaction;
+  }
+  for (final transaction in second) {
+    if (transaction.id.trim().isEmpty) continue;
+    byId[transaction.id] = transaction;
+  }
+  return byId.values.toList(growable: false);
 }
 
 Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
   Ref ref,
   WalletsScopeQuery query,
-  WalletsHistorySummary history,
-) async {
+  WalletsHistorySummary history, {
+  List<ExpenseEntry>? inMemoryOptimisticTransactions,
+}) async {
   final now = _walletProjectionNow(ref);
   final pendingTransactions = await _loadPendingLocalWalletTransactions(
     ref,
     query,
     endInclusive: now,
+    inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
   );
   if (pendingTransactions.isEmpty) {
     return history;
@@ -1209,12 +1483,14 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
 Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   Ref ref,
   WalletsMonthQuery query,
-  WalletsMonthSnapshot snapshot,
-) async {
+  WalletsMonthSnapshot snapshot, {
+  List<ExpenseEntry>? inMemoryOptimisticTransactions,
+}) async {
   final pendingTransactions = await _loadPendingLocalWalletTransactions(
     ref,
     query.scope,
     endInclusive: snapshot.monthEndExclusive.subtract(const Duration(days: 1)),
+    inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
   );
   if (pendingTransactions.isEmpty) {
     return snapshot;

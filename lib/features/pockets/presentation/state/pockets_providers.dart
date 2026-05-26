@@ -981,6 +981,72 @@ List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
   }).toList(growable: false);
 }
 
+List<ExpenseEntry> _mergeUniquePocketExpenses(
+  Iterable<ExpenseEntry> base,
+  Iterable<ExpenseEntry> overlay,
+) {
+  final seen = <String>{};
+  final fingerprintIndexes = <String, int>{};
+  final merged = <ExpenseEntry>[];
+
+  for (final entry in [...base, ...overlay]) {
+    if (entry.id.isEmpty || !seen.add(entry.id)) continue;
+
+    final fingerprint = _pocketExpenseReconciliationFingerprint(entry);
+    final existingIndex =
+        fingerprint == null ? null : fingerprintIndexes[fingerprint];
+    if (existingIndex != null) {
+      final existing = merged[existingIndex];
+      if (_isOptimisticPocketExpenseId(existing.id) !=
+          _isOptimisticPocketExpenseId(entry.id)) {
+        if (!_isOptimisticPocketExpenseId(entry.id)) {
+          merged[existingIndex] = entry;
+        }
+        continue;
+      }
+    }
+
+    if (fingerprint != null) {
+      fingerprintIndexes[fingerprint] = merged.length;
+    }
+    merged.add(entry);
+  }
+
+  return merged;
+}
+
+bool _isOptimisticPocketExpenseId(String id) => id.startsWith('optimistic_');
+
+String? _pocketExpenseReconciliationFingerprint(ExpenseEntry entry) {
+  final normalizedText = _normalizedPocketExpenseText(entry);
+  if (normalizedText.isEmpty) return null;
+  final dateKey = '${entry.date.year.toString().padLeft(4, '0')}-'
+      '${entry.date.month.toString().padLeft(2, '0')}-'
+      '${entry.date.day.toString().padLeft(2, '0')}';
+  return [
+    dateKey,
+    entry.amountCents.toString(),
+    (entry.currency ?? '').trim().toUpperCase(),
+    (entry.type ?? 'expense').trim().toLowerCase(),
+    entry.householdId?.trim() ?? '',
+    entry.userId?.trim() ?? '',
+    normalizedText,
+  ].join('|');
+}
+
+String _normalizedPocketExpenseText(ExpenseEntry entry) {
+  final source = (entry.rawText?.trim().isNotEmpty == true)
+      ? entry.rawText!.trim()
+      : (entry.merchant?.trim().isNotEmpty == true)
+          ? entry.merchant!.trim()
+          : (entry.category ?? '').trim();
+  return source
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+      .trim();
+}
+
 @foundation.visibleForTesting
 PocketsState applyLocalPocketExpenseOverlay({
   required PocketsState state,
@@ -990,10 +1056,16 @@ PocketsState applyLocalPocketExpenseOverlay({
 }) {
   if (expenses.isEmpty) return state;
 
+  final dedupedExpenses = _mergeUniquePocketExpenses(
+    const <ExpenseEntry>[],
+    expenses,
+  );
+  if (dedupedExpenses.isEmpty) return state;
+
   final monthStart = DateTime(state.periodMonth.year, state.periodMonth.month);
   final selectedCurrency = state.currency.trim().toUpperCase();
   final existingOverlayIds = state.localOverlayExpenseIds;
-  final overlay = filterPocketActualExpenses(expenses).where((expense) {
+  final overlay = filterPocketActualExpenses(dedupedExpenses).where((expense) {
     if (expense.id.isEmpty || existingOverlayIds.contains(expense.id)) {
       return false;
     }
@@ -2705,13 +2777,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     Iterable<ExpenseEntry> base,
     Iterable<ExpenseEntry> overlay,
   ) {
-    final seen = <String>{};
-    final merged = <ExpenseEntry>[];
-    for (final entry in [...base, ...overlay]) {
-      if (entry.id.isEmpty || !seen.add(entry.id)) continue;
-      merged.add(entry);
-    }
-    return merged;
+    return _mergeUniquePocketExpenses(base, overlay);
   }
 
   Future<bool> _hasPendingLocalPocketMutations(String userId) async {

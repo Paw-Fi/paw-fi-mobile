@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
@@ -13,6 +14,11 @@ final walletsPageStateSessionCacheProvider =
     StateProvider<Map<String, WalletsPageState>>((ref) => const {});
 
 final walletsPersistedCacheBypassCountProvider = StateProvider<int>((ref) => 0);
+
+final walletsPageStatePersistedCacheBypassProvider =
+    StateProvider<int>((ref) => 0);
+
+const _walletsPageStateJsonCacheNamespace = 'wallets_page_state';
 
 String walletsListCacheKey({
   required String userId,
@@ -115,19 +121,45 @@ WalletsPageState? readPersistedWalletsPageState(
   }
 }
 
+Future<WalletsPageState?> readLocalWalletsPageState(
+  Ref ref,
+  WalletsScopeQuery query,
+) async {
+  try {
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    if (database == null) return null;
+    final cache = await database.getJsonCache(
+      namespace: _walletsPageStateJsonCacheNamespace,
+      cacheKey: walletsPageStateCacheKey(query),
+    );
+    if (cache == null) return null;
+    return WalletsPageState.fromCacheJson(cache.payload);
+  } catch (_) {
+    return null;
+  }
+}
+
 Future<void> persistWalletsPageState(
   Ref ref,
   WalletsScopeQuery query,
   WalletsPageState state,
-) {
+) async {
+  final cacheKey = walletsPageStateCacheKey(query);
+  final payload = state.toCacheJson();
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.upsertJsonCache(
+      namespace: _walletsPageStateJsonCacheNamespace,
+      cacheKey: cacheKey,
+      payload: payload,
+    );
+  } catch (_) {}
+
   final prefs = _readPrefsOrNull(ref);
   if (prefs == null) {
-    return Future<void>.value();
+    return;
   }
-  return prefs.setString(
-    walletsPageStateCacheKey(query),
-    jsonEncode(state.toCacheJson()),
-  );
+  await prefs.setString(cacheKey, jsonEncode(payload));
 }
 
 Future<void> clearWalletsCaches(
@@ -150,6 +182,23 @@ Future<void> clearWalletsCaches(
   );
 
   if (selectedCurrency != null && currentMonthStart != null) {
+    final pageStateKey = walletsPageStateCacheKey(
+      WalletsScopeQuery(
+        userId: userId,
+        householdId: householdId,
+        selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
+        currentMonthStart: currentMonthStart,
+      ),
+    );
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.deleteJsonCacheByPrefix(
+        namespace: _walletsPageStateJsonCacheNamespace,
+        cacheKeyPrefix: pageStateKey,
+      );
+    } catch (_) {}
+
     await prefs.remove(
       walletsListCacheKey(
         userId: userId,
@@ -159,17 +208,7 @@ Future<void> clearWalletsCaches(
         currentMonthStart: currentMonthStart,
       ),
     );
-    await prefs.remove(
-      walletsPageStateCacheKey(
-        WalletsScopeQuery(
-          userId: userId,
-          householdId: householdId,
-          selectedCurrency: selectedCurrency,
-          selectedCurrencies: selectedCurrencies,
-          currentMonthStart: currentMonthStart,
-        ),
-      ),
-    );
+    await prefs.remove(pageStateKey);
   }
 }
 
@@ -200,6 +239,14 @@ Future<void> clearAllWalletsCachesForUser(
   for (final key in keysToRemove) {
     await prefs.remove(key);
   }
+
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.deleteJsonCacheByPrefix(
+      namespace: _walletsPageStateJsonCacheNamespace,
+      cacheKeyPrefix: 'wallets:page-state:v4:$userId:',
+    );
+  } catch (_) {}
 }
 
 SharedPreferences? _readPrefsOrNull(Ref ref) {

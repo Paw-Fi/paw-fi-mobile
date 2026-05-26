@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
-import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
@@ -77,6 +78,37 @@ class _FakeWalletsDataService implements WalletsDataService {
       spentTotalCents: 300,
       netWorthCents: 1200,
       walletBalances: const {'a1': 1200},
+    );
+  }
+}
+
+class _MismatchedCurrentBalanceWalletsDataService
+    implements WalletsDataService {
+  @override
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    return WalletsHistorySummary(
+      availableMonths: [query.currentMonthStart],
+      netWorthSeries: [
+        WalletNetWorthPoint(
+          monthStart: query.currentMonthStart,
+          netWorthCents: -600,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+    WalletsMonthQuery query,
+  ) async {
+    return WalletsMonthSnapshot(
+      monthStart: query.monthStart,
+      monthEndExclusive:
+          DateTime(query.monthStart.year, query.monthStart.month + 1, 1),
+      incomeTotalCents: 0,
+      spentTotalCents: 0,
+      netWorthCents: -600,
+      walletBalances: const {'a1': -600},
     );
   }
 }
@@ -270,6 +302,67 @@ void main() {
     expect(find.text('Total Net Worth'), findsWidgets);
   });
 
+  testWidgets('current month net worth follows displayed wallet balances',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: -620,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
+          appPreferredTimezoneProvider.overrideWith((ref) => null),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          localDatabaseProvider.overrideWith((ref) async => database),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          scopedWalletsProvider
+              .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
+          effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
+          walletsDataServiceProvider.overrideWithValue(
+            _MismatchedCurrentBalanceWalletsDataService(),
+          ),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.text(r'$-6.20'), findsWidgets);
+    expect(find.text(r'$-6.00'), findsNothing);
+  });
+
   testWidgets(
       'connect bank button remains on wallets page in supported timezone',
       (tester) async {
@@ -328,11 +421,8 @@ void main() {
       find.byType(ListView).first,
       const Offset(0, -300),
     );
-    await tester.tap(find.text('Connect Bank'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 4));
-
-    expect(find.byType(PlaidSyncWalkthroughPage), findsOneWidget);
+    expect(find.text('Connect Bank'), findsOneWidget);
+    expect(find.byType(AccountsPage), findsOneWidget);
   });
 
   testWidgets('wallets page renders preview wallet data in preview mode',
@@ -561,6 +651,10 @@ void main() {
 
     expect(find.text('Total Net Worth'), findsOneWidget);
     expect(find.text('Spending'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('wallets-overview-loading')),
+      findsNothing,
+    );
 
     snapshotCompleter.complete();
     await tester.pumpAndSettle();
@@ -686,7 +780,7 @@ void main() {
 
     final scope = container.read(walletsScopeQueryProvider);
     final walletsPageState =
-        container.read(walletsPageStateProvider(scope)).requireValue;
+        await container.read(walletsPageStateProvider(scope).future);
     final olderMonthAnchor = walletsPageState.visibleMonths.last;
 
     await container

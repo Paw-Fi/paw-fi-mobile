@@ -505,7 +505,10 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
     .family<DashboardSnapshotSummary, DashboardScopeQuery>(
   (ref, query) async {
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
     ref.watch(dashboardCacheInvalidationProvider);
+    final bypassTransactionCaches =
+        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
     final preview = ref.watch(previewModeProvider);
     final trace = HomeDebugTrace(
       label: 'DashboardSummaryProvider',
@@ -524,7 +527,8 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
         'dashboard:summary:v1:${query.userId}:${query.householdId ?? 'personal'}:${_currencyCacheKey(query)}:${query.formattedStartDate ?? '<none>'}:${query.formattedEndDate ?? '<none>'}:${query.normalizedIntervalGranularity ?? '<none>'}';
     final sessionCached =
         readDashboardSessionCache<DashboardSnapshotSummary>(cacheKey);
-    if (sessionCached != null &&
+    if (!bypassTransactionCaches &&
+        sessionCached != null &&
         DateTime.now().difference(sessionCached.cachedAt) <=
             dashboardTransactionsCacheTtl(query.startDate, query.endDate)) {
       trace.mark('session-cache-hit');
@@ -561,7 +565,10 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, DashboardRecentTransactionsRequest>(
   (ref, request) async {
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
     ref.watch(dashboardCacheInvalidationProvider);
+    final bypassTransactionCaches =
+        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
     final preview = ref.watch(previewModeProvider);
     final cacheKey = dashboardRecentCacheKey(
       userId: request.query.userId,
@@ -583,14 +590,14 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
         'limit': request.limit,
       },
     );
-    const bypassPersistedCache = true;
-    if (sessionCached != null &&
+    if (!bypassTransactionCaches &&
+        sessionCached != null &&
         DateTime.now().difference(sessionCached.cachedAt) <=
             dashboardRecentTransactionsCacheTtl) {
       trace.mark('session-cache-hit', {'count': sessionCached.value.length});
       return sessionCached.value;
     }
-    if (!bypassPersistedCache) {
+    if (!bypassTransactionCaches) {
       final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
       final statePayload = persistedPayload == null
           ? null
@@ -637,7 +644,10 @@ final dashboardCalendarTransactionsProvider =
     FutureProvider.autoDispose.family<List<ExpenseEntry>, DashboardScopeQuery>(
   (ref, query) async {
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
     ref.watch(dashboardCacheInvalidationProvider);
+    final bypassTransactionCaches =
+        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
     final preview = ref.watch(previewModeProvider);
     final cacheKey = dashboardCalendarCacheKey(
       userId: query.userId,
@@ -647,7 +657,6 @@ final dashboardCalendarTransactionsProvider =
       end: query.formattedEndDate,
     );
     final ttl = dashboardTransactionsCacheTtl(query.startDate, query.endDate);
-    const bypassPersistedCache = true;
     final sessionCached =
         readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
     final trace = HomeDebugTrace(
@@ -663,12 +672,13 @@ final dashboardCalendarTransactionsProvider =
         'end': query.endDate,
       },
     );
-    if (sessionCached != null &&
+    if (!bypassTransactionCaches &&
+        sessionCached != null &&
         DateTime.now().difference(sessionCached.cachedAt) <= ttl) {
       trace.mark('session-cache-hit', {'count': sessionCached.value.length});
       return sessionCached.value;
     }
-    if (!bypassPersistedCache) {
+    if (!bypassTransactionCaches) {
       final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
       final statePayload = persistedPayload == null
           ? null

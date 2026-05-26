@@ -68,10 +68,18 @@ const double _bannerCardHeight = 185;
 const String dismissedChecklistStepsStorageKey =
     'home_connect_social_dismissed_steps_v1';
 
+String _dismissedChecklistStepsStorageKeyForUser(String userId) {
+  final normalizedUserId = userId.trim();
+  if (normalizedUserId.isEmpty) return dismissedChecklistStepsStorageKey;
+  return '${dismissedChecklistStepsStorageKey}_$normalizedUserId';
+}
+
 final dismissedChecklistStepsProvider = Provider<Set<String>>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
+  final userId = ref.watch(authProvider.select((user) => user.uid));
   final stored =
-      prefs.getStringList(dismissedChecklistStepsStorageKey) ?? const [];
+      prefs.getStringList(_dismissedChecklistStepsStorageKeyForUser(userId)) ??
+          const [];
   return stored.toSet();
 });
 
@@ -84,6 +92,16 @@ void _debugPrint(String? message) {
   }
 }
 
+bool _asyncValueHasResolved<T>(AsyncValue<T> value) {
+  return value.hasValue || !value.isLoading;
+}
+
+bool _hasRecurringExpense(AsyncValue<List<RecurringTransaction>> state) {
+  return state.valueOrNull
+          ?.any((transaction) => transaction.type == 'expense') ??
+      false;
+}
+
 class ConnectSocialBanner extends ConsumerStatefulWidget {
   const ConnectSocialBanner({super.key});
 
@@ -93,21 +111,29 @@ class ConnectSocialBanner extends ConsumerStatefulWidget {
 }
 
 class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
-  String? _lastRecurringLoadKey;
+  String? _pendingRecurringLoadKey;
 
   void _scheduleRecurringLoad({
     required String key,
     required String userId,
     required String? householdId,
   }) {
-    if (_lastRecurringLoadKey == key) return;
-    _lastRecurringLoadKey = key;
+    if (_pendingRecurringLoadKey == key) return;
+    _pendingRecurringLoadKey = key;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _lastRecurringLoadKey != key) return;
+      if (!mounted || _pendingRecurringLoadKey != key) return;
       ref
           .read(recurringTransactionsProvider(householdId).notifier)
-          .loadRecurringTransactions(userId);
+          .loadRecurringTransactions(userId)
+          .whenComplete(() {
+        if (_pendingRecurringLoadKey == key) {
+          _pendingRecurringLoadKey = null;
+        }
+        if (mounted) {
+          setState(() {});
+        }
+      });
     });
   }
 
@@ -139,8 +165,6 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
 
     final recurringState =
         ref.watch(recurringTransactionsProvider(recurringHouseholdId));
-    final recurringExpensesAsync =
-        ref.watch(recurringExpensesProvider(recurringHouseholdId));
 
     final shouldTriggerPreviewLoad = ref.watch(previewModeProvider).isActive &&
         !recurringState.hasLoadedOnce &&
@@ -159,13 +183,13 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       );
     }
 
-    final isBannerReady = !hasTransactionsAsync.isLoading &&
-        !whatsappAsync.isLoading &&
-        !telegramAsync.isLoading &&
-        !walletCaptureAsync.isLoading &&
-        !emailImportAsync.isLoading &&
+    final isBannerReady = _asyncValueHasResolved(hasTransactionsAsync) &&
+        _asyncValueHasResolved(whatsappAsync) &&
+        _asyncValueHasResolved(telegramAsync) &&
+        _asyncValueHasResolved(walletCaptureAsync) &&
+        _asyncValueHasResolved(emailImportAsync) &&
         recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading;
+        _asyncValueHasResolved(recurringState.data);
 
     if (!isBannerReady) {
       _debugPrint(
@@ -193,7 +217,7 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       context: context,
       hasSharedSpace: hasSharedSpace,
       hasTransactionLogged: hasTransactionsAsync.valueOrNull ?? false,
-      recurringExpensesAsync: recurringExpensesAsync,
+      hasRecurringExpense: _hasRecurringExpense(recurringState.data),
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
       emailImportEnabled: emailImportEnabled,
@@ -219,7 +243,7 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       'loaded=${recurringState.hasLoadedOnce} '
       'loading=${recurringState.data.isLoading} '
       'stateCount=${recurringState.data.valueOrNull?.length ?? 0} '
-      'expensesCount=${recurringExpensesAsync.valueOrNull?.length ?? 0} '
+      'hasRecurringExpense=${_hasRecurringExpense(recurringState.data)} '
       'error=${recurringState.data.hasError}',
     );
 
@@ -341,17 +365,17 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
 
   Future<void> _dismissStep(WidgetRef ref, String stepId) async {
     final prefs = ref.read(sharedPreferencesProvider);
+    final userId = ref.read(authProvider).uid;
+    final storageKey = _dismissedChecklistStepsStorageKeyForUser(userId);
 
     try {
-      final dismissed =
-          prefs.getStringList(dismissedChecklistStepsStorageKey)?.toSet() ??
-              <String>{};
+      final dismissed = prefs.getStringList(storageKey)?.toSet() ?? <String>{};
       if (!dismissed.add(stepId)) {
         return;
       }
 
       final persisted = dismissed.toList()..sort();
-      await prefs.setStringList(dismissedChecklistStepsStorageKey, persisted);
+      await prefs.setStringList(storageKey, persisted);
       ref.invalidate(dismissedChecklistStepsProvider);
     } catch (error) {
       debugPrint('Failed to dismiss checklist card: $error');
@@ -362,7 +386,7 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     required BuildContext context,
     required bool hasSharedSpace,
     required bool hasTransactionLogged,
-    required AsyncValue<List<RecurringTransaction>> recurringExpensesAsync,
+    required bool hasRecurringExpense,
     required bool messagingConnected,
     required bool walletCaptureEnabled,
     required bool emailImportEnabled,
@@ -373,10 +397,6 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     required VoidCallback onEnableCapture,
     required VoidCallback onEnableEmailImport,
   }) {
-    final hasRecurringExpense = recurringExpensesAsync.maybeWhen(
-      data: (transactions) => transactions.isNotEmpty,
-      orElse: () => false,
-    );
     final captureTitle = defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS
         ? context.l10n.applePayIntegration

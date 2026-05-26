@@ -131,6 +131,7 @@ class AccountsPage extends HookConsumerWidget {
     // data, recurring bills disappear from the main wallets cards even while
     // details and pockets still project them.
     final scopeQuery = ref.watch(walletsScopeQueryProvider);
+
     final previewWalletsData = isPreviewMode
         ? _buildPreviewWalletsPageData(
             selectedCurrencyCode: selectedCurrencyCode,
@@ -468,24 +469,42 @@ class AccountsPage extends HookConsumerWidget {
           }
 
           final selectedMonth = activeCarouselMonth;
+          final currencyRates =
+              ref.watch(currencyRateTableProvider).valueOrNull ??
+                  const CurrencyRateTable(
+                    baseCurrency: 'USD',
+                    rates: CurrencyRates.rates,
+                    isStale: true,
+                  );
+          _AccountsSnapshot accountsSnapshotForMonth(
+            WalletsMonthSnapshot snapshot,
+          ) {
+            final isCurrentMonth = _normalizeWalletMonth(snapshot.monthStart) ==
+                _normalizeWalletMonth(scopeQuery.currentMonthStart);
+            if (!isPreviewMode && isCurrentMonth && wallets.isNotEmpty) {
+              return _accountsSnapshotFromCurrentWalletBalances(
+                snapshot,
+                wallets,
+                targetCurrency: selectedCurrencyCode,
+                rates: currencyRates,
+              );
+            }
+            return _accountsSnapshotFromMonthSnapshot(snapshot);
+          }
+
           final previewSelectedSnapshot = isPreviewMode
               ? previewWalletsData?.snapshotForMonth(selectedMonth)
               : null;
           final rawSelectedSnapshot = previewSelectedSnapshot != null
-              ? _accountsSnapshotFromMonthSnapshot(previewSelectedSnapshot)
+              ? accountsSnapshotForMonth(previewSelectedSnapshot)
               : walletsPageState?.displayedSnapshot != null
-                  ? _accountsSnapshotFromMonthSnapshot(
+                  ? accountsSnapshotForMonth(
                       walletsPageState!.displayedSnapshot!,
                     )
                   : _buildOpeningSnapshot(
                       wallets,
                       targetCurrency: selectedCurrencyCode,
-                      rates: ref.watch(currencyRateTableProvider).valueOrNull ??
-                          const CurrencyRateTable(
-                            baseCurrency: 'USD',
-                            rates: CurrencyRates.rates,
-                            isStale: true,
-                          ),
+                      rates: currencyRates,
                     );
           final displayedSelectedSnapshot = rawSelectedSnapshot;
 
@@ -528,6 +547,18 @@ class AccountsPage extends HookConsumerWidget {
                             ? previewWalletsData?.snapshotForMonth(monthStart)
                             : walletsPageState
                                 ?.cachedSnapshotsByMonth[monthStart];
+                        final canUseCurrentWalletBalanceFallback =
+                            !isPreviewMode &&
+                                _normalizeWalletMonth(monthStart) ==
+                                    _normalizeWalletMonth(
+                                      scopeQuery.currentMonthStart,
+                                    ) &&
+                                wallets.isNotEmpty;
+                        final isOverviewLoading = !isPreviewMode &&
+                            isActive &&
+                            monthSnapshot == null &&
+                            !canUseCurrentWalletBalanceFallback &&
+                            (walletsPageState?.isSelectedMonthLoading ?? false);
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Container(
@@ -537,7 +568,7 @@ class AccountsPage extends HookConsumerWidget {
                               monthStart: monthStart,
                               selectedMonthStart: selectedMonth,
                               snapshot: monthSnapshot != null
-                                  ? _accountsSnapshotFromMonthSnapshot(
+                                  ? accountsSnapshotForMonth(
                                       monthSnapshot,
                                     )
                                   : displayedSelectedSnapshot,
@@ -550,10 +581,7 @@ class AccountsPage extends HookConsumerWidget {
                               error: !isPreviewMode && isActive
                                   ? walletsPageState?.selectedMonthError
                                   : null,
-                              isLoading: !isPreviewMode &&
-                                  isActive &&
-                                  (walletsPageState?.isSelectedMonthLoading ??
-                                      true),
+                              isLoading: isOverviewLoading,
                             ),
                           ),
                         );
@@ -668,13 +696,12 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                          if(!hasPremiumPlanAccess())
-                          {
+                          if (!hasPremiumPlanAccess()) {
                             AppToast.info(
-                            context,
-                            context.l10n.comingSoon,
-                          );
-                          return;
+                              context,
+                              context.l10n.comingSoon,
+                            );
+                            return;
                           }
                           if (isPreviewMode) {
                             AppToast.info(
@@ -1869,7 +1896,7 @@ _AccountsSnapshot _buildOpeningSnapshot(
   final walletBalances = <String, int>{
     for (final wallet in wallets)
       wallet.id: _convertWalletCents(
-        wallet.openingBalanceCents,
+        wallet.currentBalanceCents,
         fromCurrency: wallet.currency,
         targetCurrency: targetCurrency,
         rates: rates,
@@ -1882,6 +1909,33 @@ _AccountsSnapshot _buildOpeningSnapshot(
   return _AccountsSnapshot(
     totalIncome: 0,
     totalSpent: 0,
+    netWorth: netWorthCents / 100.0,
+    walletBalances: walletBalances,
+  );
+}
+
+_AccountsSnapshot _accountsSnapshotFromCurrentWalletBalances(
+  WalletsMonthSnapshot snapshot,
+  List<WalletEntity> wallets, {
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  final walletBalances = <String, int>{
+    for (final wallet in wallets)
+      wallet.id: _convertWalletCents(
+        wallet.currentBalanceCents,
+        fromCurrency: wallet.currency,
+        targetCurrency: targetCurrency,
+        rates: rates,
+      ),
+  };
+  var netWorthCents = 0;
+  for (final value in walletBalances.values) {
+    netWorthCents += value;
+  }
+  return _AccountsSnapshot(
+    totalIncome: snapshot.incomeTotalCents / 100.0,
+    totalSpent: snapshot.spentTotalCents / 100.0,
     netWorth: netWorthCents / 100.0,
     walletBalances: walletBalances,
   );

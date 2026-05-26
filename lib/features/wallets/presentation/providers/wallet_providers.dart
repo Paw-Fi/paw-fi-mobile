@@ -340,6 +340,8 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     final householdId = ref.watch(walletScopeHouseholdIdProvider);
     final scopeQuery = ref.watch(walletsScopeQueryProvider);
     final authHeaders = ref.watch(walletAuthHeadersProvider);
+    ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
     final bypassPersistedCache =
         ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
     final cacheKey = walletsListCacheKey(
@@ -374,22 +376,24 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         return cachedSessionWallets;
       }
 
-      final persistedWallets = readPersistedWalletsList(
-        ref,
-        userId: user.uid,
-        householdId: householdId,
-        selectedCurrency: scopeQuery.selectedCurrency,
-        selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
-        currentMonthStart: scopeQuery.currentMonthStart,
-      );
-      if (persistedWallets != null) {
-        trace.mark('persisted-cache-hit-without-auth-headers',
-            {'count': persistedWallets.length});
-        ref.read(walletsListSessionCacheProvider.notifier).state = {
-          ...ref.read(walletsListSessionCacheProvider),
-          cacheKey: persistedWallets,
-        };
-        return persistedWallets;
+      if (!bypassPersistedCache) {
+        final persistedWallets = readPersistedWalletsList(
+          ref,
+          userId: user.uid,
+          householdId: householdId,
+          selectedCurrency: scopeQuery.selectedCurrency,
+          selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
+          currentMonthStart: scopeQuery.currentMonthStart,
+        );
+        if (persistedWallets != null) {
+          trace.mark('persisted-cache-hit-without-auth-headers',
+              {'count': persistedWallets.length});
+          ref.read(walletsListSessionCacheProvider.notifier).state = {
+            ...ref.read(walletsListSessionCacheProvider),
+            cacheKey: persistedWallets,
+          };
+          return persistedWallets;
+        }
       }
 
       return const <WalletEntity>[];
@@ -482,6 +486,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       ...ref.read(walletsListSessionCacheProvider),
       requestKey: wallets,
     };
+    ref.read(walletsPersistedCacheBypassCountProvider.notifier).state = 0;
     unawaited(
       persistWalletsList(
         ref,
@@ -1230,14 +1235,8 @@ class WalletActions {
     if (userId.isNotEmpty) {
       ref.read(walletsListSessionCacheProvider.notifier).state = const {};
       ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
-      ref.read(walletsPersistedCacheBypassCountProvider.notifier).state++;
-      unawaited(
-        Future<void>.microtask(() {
-          final notifier =
-              ref.read(walletsPersistedCacheBypassCountProvider.notifier);
-          notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
-        }),
-      );
+      ref.read(walletsPersistedCacheBypassCountProvider.notifier).state = 1;
+      ref.read(walletsPageStatePersistedCacheBypassProvider.notifier).state = 1;
     }
     if (userId.isNotEmpty) {
       debugPrint(

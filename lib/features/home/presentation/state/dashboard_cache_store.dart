@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
 final dashboardPersistedCacheBypassCountProvider =
     StateProvider<int>((ref) => 0);
@@ -168,22 +169,29 @@ const Duration dashboardCurrencyTransactionCountsCacheTtl =
     Duration(minutes: 5);
 
 final dashboardCacheInvalidationProvider = Provider<void>((ref) {
-  ref.listen<int>(dashboardRefreshSignalProvider, (previous, next) {
-    if (previous == null || previous == next) return;
+  Future<void> invalidateDashboardTransactionCaches() async {
     final userId = ref.read(authProvider).uid;
     clearDashboardSessionCache();
     ref.read(dashboardPersistedCacheBypassCountProvider.notifier).state++;
-    unawaited(() async {
-      try {
-        if (userId.isNotEmpty) {
-          await clearAllDashboardPersistedCachesForUser(ref, userId: userId);
-        }
-      } finally {
-        final notifier =
-            ref.read(dashboardPersistedCacheBypassCountProvider.notifier);
-        notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
+    try {
+      if (userId.isNotEmpty) {
+        await clearAllDashboardPersistedCachesForUser(ref, userId: userId);
       }
-    }());
+    } finally {
+      final notifier =
+          ref.read(dashboardPersistedCacheBypassCountProvider.notifier);
+      notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
+    }
+  }
+
+  ref.listen<int>(dashboardRefreshSignalProvider, (previous, next) {
+    if (previous == null || previous == next) return;
+    unawaited(invalidateDashboardTransactionCaches());
+  });
+
+  ref.listen<int>(transactionsFeedRefreshSignalProvider, (previous, next) {
+    if (previous == null || previous == next) return;
+    unawaited(invalidateDashboardTransactionCaches());
   });
 
   ref.listen(authProvider.select((user) => user.uid), (previous, next) {
