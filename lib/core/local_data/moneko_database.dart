@@ -16,7 +16,7 @@ const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
 
-const int _localDatabaseSchemaVersion = 2;
+const int _localDatabaseSchemaVersion = 3;
 
 String localScopeKey({
   required String userId,
@@ -1805,6 +1805,7 @@ class MonekoDatabase {
         account_color TEXT,
         type TEXT NOT NULL DEFAULT 'expense',
         is_recurring INTEGER NOT NULL DEFAULT 0,
+        recurrence_rule_json TEXT,
         client_record_id TEXT,
         client_mutation_id TEXT,
         idempotency_key TEXT,
@@ -1982,6 +1983,7 @@ class MonekoDatabase {
           'local_transactions', 'type', "TEXT NOT NULL DEFAULT 'expense'");
       _ensureColumn(
           'local_transactions', 'is_recurring', 'INTEGER NOT NULL DEFAULT 0');
+      _ensureColumn('local_transactions', 'recurrence_rule_json', 'TEXT');
       _ensureColumn('local_transactions', 'client_record_id', 'TEXT');
       _ensureColumn('local_transactions', 'client_mutation_id', 'TEXT');
       _ensureColumn('local_transactions', 'idempotency_key', 'TEXT');
@@ -2099,9 +2101,9 @@ class MonekoDatabase {
         currency, category, created_at, updated_at, raw_text, merchant,
         breakdown_json, receipt_image_url, shared_member_ids_json,
         split_group_id, bank_account_id, wallet_id, account_name, account_icon,
-        account_color, type, is_recurring, client_record_id,
+        account_color, type, is_recurring, recurrence_rule_json, client_record_id,
         client_mutation_id, idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -2126,6 +2128,13 @@ class MonekoDatabase {
         account_color = excluded.account_color,
         type = excluded.type,
         is_recurring = excluded.is_recurring,
+        recurrence_rule_json = CASE
+          WHEN excluded.recurrence_rule_json IS NOT NULL
+            THEN excluded.recurrence_rule_json
+          WHEN excluded.is_recurring = 1
+            THEN local_transactions.recurrence_rule_json
+          ELSE NULL
+        END,
         client_record_id = COALESCE(
           excluded.client_record_id,
           local_transactions.client_record_id
@@ -2165,6 +2174,7 @@ class MonekoDatabase {
         entry.accountColor,
         entry.type ?? 'expense',
         entry.isRecurring ? 1 : 0,
+        _encodeJsonMap(entry.recurrenceRuleJson),
         entry.clientRecordId,
         entry.clientMutationId,
         entry.idempotencyKey,
@@ -2509,6 +2519,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     accountColor: row['account_color'] as String?,
     type: row['type'] as String?,
     isRecurring: (row['is_recurring'] as int? ?? 0) == 1,
+    recurrenceRuleJson: _decodeJsonMap(row['recurrence_rule_json'] as String?),
     clientRecordId: row['client_record_id'] as String?,
     clientMutationId: row['client_mutation_id'] as String?,
     idempotencyKey: row['idempotency_key'] as String?,
@@ -2554,6 +2565,22 @@ List<String>? _decodeStringList(String? raw) {
   final decoded = jsonDecode(raw);
   if (decoded is! List) return null;
   return decoded.map((value) => value.toString()).toList(growable: false);
+}
+
+String? _encodeJsonMap(Map<String, dynamic>? value) {
+  if (value == null) return null;
+  return jsonEncode(value);
+}
+
+Map<String, dynamic>? _decodeJsonMap(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    return Map<String, dynamic>.from(decoded);
+  } catch (_) {
+    return null;
+  }
 }
 
 String _dateOnly(DateTime value) => formatDateOnlyYmd(value);

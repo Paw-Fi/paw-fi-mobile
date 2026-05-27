@@ -15,6 +15,23 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
+void _homeSpendTrace(String message) {
+  assert(() {
+    debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
+double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
+  return entries.fold<double>(0, (sum, entry) {
+    final type = (entry.type ?? 'expense').toLowerCase();
+    if (type == 'income') return sum;
+    return sum + entry.amount.abs();
+  });
+}
+
+String _traceAmount(num value) => value.toStringAsFixed(2);
+
 class SpendingCard extends StatefulWidget {
   final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
@@ -64,6 +81,13 @@ class _SpendingCardState extends State<SpendingCard> {
     final derivedData = _derivedDataFor(intervalType, now);
     final sortedDates = derivedData.sortedDates;
     final totalSpent = derivedData.totalSpent;
+    _homeSpendTrace(
+      'spending-card-render expenses=${widget.expenses.length} '
+      'inputTotal=${_traceAmount(_traceExpenseTotal(widget.expenses))} '
+      'derivedTotal=${_traceAmount(totalSpent)} '
+      'filter=${widget.dateFilter.name} currency=${widget.selectedCurrency ?? '<none>'} '
+      'signature=${_expenseListSignature(widget.expenses)}',
+    );
 
     final currencyCode = widget.selectedCurrency ?? 'USD';
     final symbol = resolveCurrencySymbol(currencyCode);

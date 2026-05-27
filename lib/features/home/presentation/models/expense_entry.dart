@@ -1,9 +1,26 @@
+import 'dart:convert';
+
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 
 String? _sanitizeNullable(String? value) =>
     value == null ? null : sanitizeUtf16(value);
+
+Map<String, dynamic>? _parseJsonMap(dynamic value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
 
 /// Represents a single transaction from expenses table (type = 'expense' or 'income')
 class ExpenseEntry {
@@ -32,6 +49,7 @@ class ExpenseEntry {
   final String? accountColor;
   final String? type; // 'expense' | 'income'
   final bool isRecurring;
+  final Map<String, dynamic>? recurrenceRuleJson;
   final String? clientRecordId;
   final String? clientMutationId;
   final String? idempotencyKey;
@@ -62,6 +80,7 @@ class ExpenseEntry {
     this.accountColor,
     this.type,
     this.isRecurring = false,
+    this.recurrenceRuleJson,
     this.clientRecordId,
     this.clientMutationId,
     this.idempotencyKey,
@@ -132,6 +151,8 @@ class ExpenseEntry {
       accountColor: _sanitizeNullable(json['account_color'] as String?),
       type: json['type'] as String?,
       isRecurring: json['is_recurring'] == true,
+      recurrenceRuleJson:
+          _parseJsonMap(json['recurrence_rule'] ?? json['recurrenceRule']),
       clientRecordId: json['client_record_id'] as String? ??
           json['clientRecordId'] as String?,
       clientMutationId: json['client_mutation_id'] as String? ??
@@ -168,6 +189,7 @@ class ExpenseEntry {
       'account_color': accountColor,
       'type': type,
       'is_recurring': isRecurring,
+      'recurrence_rule': recurrenceRuleJson,
       'client_record_id': clientRecordId,
       'client_mutation_id': clientMutationId,
       'idempotency_key': idempotencyKey,
@@ -201,6 +223,7 @@ class ExpenseEntry {
     String? accountColor,
     String? type,
     bool? isRecurring,
+    Map<String, dynamic>? recurrenceRuleJson,
     String? clientRecordId,
     String? clientMutationId,
     String? idempotencyKey,
@@ -231,6 +254,7 @@ class ExpenseEntry {
       accountColor: accountColor ?? this.accountColor,
       type: type ?? this.type,
       isRecurring: isRecurring ?? this.isRecurring,
+      recurrenceRuleJson: recurrenceRuleJson ?? this.recurrenceRuleJson,
       clientRecordId: clientRecordId ?? this.clientRecordId,
       clientMutationId: clientMutationId ?? this.clientMutationId,
       idempotencyKey: idempotencyKey ?? this.idempotencyKey,

@@ -53,6 +53,30 @@ Widget _buildDashboardSwitcherTransition(
   );
 }
 
+void _homeSpendTrace(String message) {
+  assert(() {
+    debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
+double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
+  return entries.fold<double>(0, (sum, entry) {
+    final type = (entry.type ?? 'expense').toLowerCase();
+    if (type == 'income') return sum;
+    return sum + entry.amount.abs();
+  });
+}
+
+String _traceAmount(num value) => value.toStringAsFixed(2);
+
+String _traceDate(DateTime? value) {
+  if (value == null) return '<none>';
+  return '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+}
+
 class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
   const LazyDashboardSpendingSummaryCard({
     super.key,
@@ -96,28 +120,38 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final baseTransactions =
+        transactionsAsync.valueOrNull ?? const <ExpenseEntry>[];
+    final overlayTransactions =
+        ref.watch(dashboardLocalOverlayTransactionsProvider(query));
     final transactions = mergeDashboardTransactionsWithLocalOverlay(
-      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
-      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      base: baseTransactions,
+      localOverlay: overlayTransactions,
       query: query,
     );
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
-    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringTransactions,
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
+    _ensureRecurringTransactionsLoaded(ref, scope, recurringState);
+
+    _homeSpendTrace(
+      'spending-build phase=precheck scope=${scope.activeAccountType.name} '
+      'household=${scope.activeAccountHouseholdId ?? '<personal>'} '
+      'currency=${selectedCurrency ?? '<none>'} '
+      'range=${_traceDate(range['from'])}..${_traceDate(range['to'])} '
+      'txLoading=${transactionsAsync.isLoading} txHasValue=${transactionsAsync.hasValue} '
+      'baseCount=${baseTransactions.length} baseTotal=${_traceAmount(_traceExpenseTotal(baseTransactions))} '
+      'overlayCount=${overlayTransactions.length} overlayTotal=${_traceAmount(_traceExpenseTotal(overlayTransactions))} '
+      'mergedActualCount=${transactions.length} mergedActualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
+      'recLoading=${recurringState.data.isLoading} recHasValue=${recurringState.data.hasValue} '
+      'recLoaded=${recurringState.hasLoadedOnce} recCount=${recurringState.data.valueOrNull?.length ?? 0} '
+      'recReady=${_isRecurringTransactionsReady(recurringState)} recError=${_hasRecurringTransactionsError(recurringState)}',
     );
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
+      _homeSpendTrace('spending-render source=tx-skeleton');
       return _buildDashboardSwitcher(
         _buildSpendingSkeleton(
           context,
@@ -130,6 +164,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      _homeSpendTrace('spending-render source=tx-error error=${transactionsAsync.error}');
       return _buildDashboardSwitcher(
         _buildDashboardErrorCard(
           context,
@@ -141,6 +176,50 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         ),
       );
     }
+    if (_hasRecurringTransactionsError(recurringState)) {
+      _homeSpendTrace('spending-render source=recurring-error error=${recurringState.data.error}');
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref
+              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                  .notifier)
+              .refresh(ref.read(authProvider).uid),
+          key: const ValueKey('spending_recurring_error'),
+        ),
+      );
+    }
+    if (!_isRecurringTransactionsReady(recurringState)) {
+      _homeSpendTrace('spending-render source=recurring-skeleton actualTotal=${_traceAmount(_traceExpenseTotal(transactions))}');
+      return _buildDashboardSwitcher(
+        _buildSpendingSkeleton(
+          context,
+          colorScheme,
+          config.dateRange,
+          currency,
+          userNow,
+          key: const ValueKey('spending_recurring_skeleton'),
+        ),
+      );
+    }
+
+    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: transactions,
+      recurringTransactions: recurringTransactions,
+      rangeStart: range['from']!,
+      rangeEnd: range['to']!,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
+      includeFutureOccurrences: false,
+    );
+    _homeSpendTrace(
+      'spending-render source=data actualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
+      'recCount=${recurringTransactions.length} finalCount=${mergedTransactions.length} '
+      'finalTotal=${_traceAmount(_traceExpenseTotal(mergedTransactions))}',
+    );
 
     return _buildDashboardSwitcher(
       buildSpendingCard(
@@ -229,7 +308,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    _ensureRecurringTransactionsLoaded(ref, scope, recurringState);
 
     if ((currentTransactionsAsync.isLoading &&
             !currentTransactionsAsync.hasValue &&
@@ -267,7 +346,35 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         ),
       );
     }
+    if (_hasRecurringTransactionsError(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref
+              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                  .notifier)
+              .refresh(ref.read(authProvider).uid),
+          key: const ValueKey('net_cashflow_recurring_error'),
+        ),
+      );
+    }
+    if (!_isRecurringTransactionsReady(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildNetCashflowSkeleton(
+          context,
+          colorScheme,
+          budgets,
+          contact,
+          config,
+          selectedCurrency,
+          key: const ValueKey('net_cashflow_recurring_skeleton'),
+        ),
+      );
+    }
 
+    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
     final currentTransactions = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: currentBaseTransactions,
       recurringTransactions: recurringTransactions,
@@ -345,9 +452,43 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
     final scope = ref.watch(householdScopeProvider);
     final userId = ref.watch(authProvider.select((user) => user.uid));
     final selectedCurrency = _selectedCurrency(ref);
-    final recurringAsync = ref.watch(
+    final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
+    _ensureRecurringTransactionsLoaded(ref, scope, recurringState);
+
+    if (_hasRecurringTransactionsError(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref
+              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                  .notifier)
+              .refresh(ref.read(authProvider).uid),
+          key: const ValueKey('financial_calendar_recurring_error'),
+        ),
+      );
+    }
+    if (!_isRecurringTransactionsReady(recurringState)) {
+      return _buildDashboardSwitcher(
+        Skeletonizer(
+          key: const ValueKey('financial_calendar_recurring_skeleton'),
+          effect: ShimmerEffect(
+            baseColor: colorScheme.skeletonBase,
+            highlightColor: colorScheme.skeletonHighlight,
+          ),
+          child: FinancialCalendarWidget(
+            userId: userId,
+            householdId: scope.activeAccountHouseholdId,
+            recurringTransactions: const [],
+            currency: selectedCurrency ?? fallbackCurrency,
+            isExpanded: config.viewMode == DashboardWidgetViewMode.full,
+          ),
+        ),
+      );
+    }
 
     return _buildDashboardSwitcher(
       FinancialCalendarWidget(
@@ -355,7 +496,7 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
             'fin_cal_${config.id}_${selectedCurrency ?? fallbackCurrency}'),
         userId: userId,
         householdId: scope.activeAccountHouseholdId,
-        recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
         currency: selectedCurrency ?? fallbackCurrency,
         isExpanded: config.viewMode == DashboardWidgetViewMode.full,
       ),
@@ -486,28 +627,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
-    final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringTransactions,
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
-    );
-    final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
-        ? convertTransactionsToCurrency(
-            expenses,
-            targetCurrency: selectedCurrency ?? 'USD',
-            rates: ref.watch(currencyRateTableProvider).valueOrNull ??
-                const CurrencyRateTable(
-                  baseCurrency: 'USD',
-                  rates: CurrencyRates.rates,
-                  isStale: true,
-                ),
-          )
-        : expenses;
+    _ensureRecurringTransactionsLoaded(ref, scope, recurringState);
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
@@ -531,6 +651,51 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
         ),
       );
     }
+    if (_hasRecurringTransactionsError(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref
+              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                  .notifier)
+              .refresh(ref.read(authProvider).uid),
+          key: const ValueKey('breakdown_recurring_error'),
+        ),
+      );
+    }
+    if (!_isRecurringTransactionsReady(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildBreakdownSkeleton(
+          colorScheme,
+          key: const ValueKey('breakdown_recurring_skeleton'),
+        ),
+      );
+    }
+
+    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final expenses = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: transactions,
+      recurringTransactions: recurringTransactions,
+      rangeStart: range['from']!,
+      rangeEnd: range['to']!,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
+      includeFutureOccurrences: false,
+    );
+    final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
+        ? convertTransactionsToCurrency(
+            expenses,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                const CurrencyRateTable(
+                  baseCurrency: 'USD',
+                  rates: CurrencyRates.rates,
+                  isStale: true,
+                ),
+          )
+        : expenses;
 
     return _buildDashboardSwitcher(
       buildSpendingBreakdownChart(
@@ -590,28 +755,7 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
-    final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringTransactions,
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
-    );
-    final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
-        ? convertTransactionsToCurrency(
-            expenses,
-            targetCurrency: selectedCurrency ?? 'USD',
-            rates: ref.watch(currencyRateTableProvider).valueOrNull ??
-                const CurrencyRateTable(
-                  baseCurrency: 'USD',
-                  rates: CurrencyRates.rates,
-                  isStale: true,
-                ),
-          )
-        : expenses;
+    _ensureRecurringTransactionsLoaded(ref, scope, recurringState);
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
@@ -635,6 +779,51 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
         ),
       );
     }
+    if (_hasRecurringTransactionsError(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref
+              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                  .notifier)
+              .refresh(ref.read(authProvider).uid),
+          key: const ValueKey('where_money_went_recurring_error'),
+        ),
+      );
+    }
+    if (!_isRecurringTransactionsReady(recurringState)) {
+      return _buildDashboardSwitcher(
+        _buildWhereMoneyWentSkeleton(
+          colorScheme,
+          key: const ValueKey('where_money_went_recurring_skeleton'),
+        ),
+      );
+    }
+
+    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final expenses = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: transactions,
+      recurringTransactions: recurringTransactions,
+      rangeStart: range['from']!,
+      rangeEnd: range['to']!,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
+      includeFutureOccurrences: false,
+    );
+    final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
+        ? convertTransactionsToCurrency(
+            expenses,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                const CurrencyRateTable(
+                  baseCurrency: 'USD',
+                  rates: CurrencyRates.rates,
+                  isStale: true,
+                ),
+          )
+        : expenses;
 
     return _buildDashboardSwitcher(
       WhereTheMoneyWentWidget(
@@ -646,6 +835,41 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _ensureRecurringTransactionsLoaded(
+  WidgetRef ref,
+  HouseholdScope scope,
+  RecurringTransactionsState recurringState,
+) {
+  if (recurringState.hasLoadedOnce) return;
+
+  final userId = ref.read(authProvider).uid;
+  if (userId.isEmpty) return;
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final current = ref.read(
+      recurringTransactionsProvider(scope.activeAccountHouseholdId),
+    );
+    if (current.hasLoadedOnce) return;
+    ref
+        .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
+            .notifier)
+        .loadRecurringTransactions(userId);
+  });
+}
+
+bool _isRecurringTransactionsReady(RecurringTransactionsState recurringState) {
+  if (recurringState.data.hasError && !recurringState.data.hasValue) {
+    return false;
+  }
+  final cachedRows = recurringState.data.valueOrNull;
+  if (cachedRows != null && cachedRows.isNotEmpty) return true;
+  return recurringState.hasLoadedOnce && recurringState.data.hasValue;
+}
+
+bool _hasRecurringTransactionsError(RecurringTransactionsState recurringState) {
+  return recurringState.data.hasError && !recurringState.data.hasValue;
 }
 
 DashboardScopeQuery _buildScopedQuery({

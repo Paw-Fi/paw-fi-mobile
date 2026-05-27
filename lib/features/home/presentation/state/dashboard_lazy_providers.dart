@@ -1,21 +1,37 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+void _homeSpendTrace(String message) {
+  assert(() {
+    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
+double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
+  return entries.fold<double>(0, (sum, entry) {
+    final type = (entry.type ?? 'expense').toLowerCase();
+    if (type == 'income') return sum;
+    return sum + entry.amount.abs();
+  });
+}
+
+String _traceAmount(num value) => value.toStringAsFixed(2);
 
 abstract class DashboardDataService {
   Future<DashboardSnapshotSummary> fetchSnapshot(DashboardScopeQuery query);
@@ -287,6 +303,34 @@ class SupabaseDashboardDataService implements DashboardDataService {
   }
 }
 
+Future<TransactionsFeedService> _dashboardTransactionFeedService(Ref ref) async {
+  final current = ref.watch(transactionsFeedServiceProvider);
+  if (current is! EmptyTransactionsFeedService) {
+    _homeSpendTrace('dashboard-feed-service source=${current.runtimeType}');
+    return current;
+  }
+
+  final remote = ref.watch(transactionsRemoteFeedServiceProvider);
+  final hasNetworkAccess =
+      ref.watch(networkReachabilityProvider).valueOrNull ?? true;
+
+  try {
+    final database = await ref.watch(localDatabaseProvider.future);
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+      remoteEnabled: hasNetworkAccess,
+    );
+    _homeSpendTrace(
+      'dashboard-feed-service source=local-after-empty remoteEnabled=$hasNetworkAccess',
+    );
+    return service;
+  } catch (error) {
+    _homeSpendTrace('dashboard-feed-service source=remote-fallback error=$error');
+    return remote;
+  }
+}
+
 final dashboardDataServiceProvider = Provider<DashboardDataService>((ref) {
   final preview = ref.watch(previewModeProvider);
   if (preview.isActive) {
@@ -301,14 +345,20 @@ final dashboardLocalOverlayTransactionsProvider =
     Provider.family<List<ExpenseEntry>, DashboardScopeQuery>((ref, query) {
   final householdId = query.householdId?.trim();
   if (householdId == null || householdId.isEmpty) {
-    // Personal mode: get optimistic transactions from analyticsProvider
     final analyticsData = ref.watch(analyticsProvider);
-    final optimistic = analyticsData.expenses;
-    return mergeDashboardTransactionsWithLocalOverlay(
+    final localOnlyOverlay = analyticsData.expenses.where(
+      _isDashboardLocalOverlayCandidate,
+    );
+    final overlay = mergeDashboardTransactionsWithLocalOverlay(
       base: const <ExpenseEntry>[],
-      localOverlay: optimistic,
+      localOverlay: localOnlyOverlay,
       query: query,
     );
+    _homeSpendTrace(
+      'dashboard-overlay scope=personal analyticsCount=${analyticsData.expenses.length} '
+      'overlayCount=${overlay.length} overlayTotal=${_traceAmount(_traceExpenseTotal(overlay))}',
+    );
+    return overlay;
   }
 
   final optimistic = ref.watch(
@@ -316,11 +366,17 @@ final dashboardLocalOverlayTransactionsProvider =
       (state) => state[householdId] ?? const <ExpenseEntry>[],
     ),
   );
-  return mergeDashboardTransactionsWithLocalOverlay(
+  final overlay = mergeDashboardTransactionsWithLocalOverlay(
     base: const <ExpenseEntry>[],
     localOverlay: optimistic,
     query: query,
   );
+  _homeSpendTrace(
+    'dashboard-overlay scope=household household=$householdId '
+    'optimisticCount=${optimistic.length} overlayCount=${overlay.length} '
+    'overlayTotal=${_traceAmount(_traceExpenseTotal(overlay))}',
+  );
+  return overlay;
 });
 
 List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
@@ -410,6 +466,26 @@ bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
 }
 
 bool _isOptimisticTransactionId(String id) => id.startsWith('optimistic_');
+
+bool _isDashboardLocalOverlayCandidate(ExpenseEntry entry) {
+  final id = entry.id.trim();
+  if (_isOptimisticTransactionId(id)) return true;
+
+  final clientRecordId = entry.clientRecordId?.trim();
+  if (clientRecordId != null && _isOptimisticTransactionId(clientRecordId)) {
+    return true;
+  }
+
+  final clientMutationId = entry.clientMutationId?.trim();
+  if (clientMutationId != null &&
+      clientMutationId.startsWith('mobile:optimistic_')) {
+    return true;
+  }
+
+  final idempotencyKey = entry.idempotencyKey?.trim();
+  return idempotencyKey != null &&
+      idempotencyKey.startsWith('mobile:optimistic_');
+}
 
 List<String> _dashboardTransactionReconciliationKeys(ExpenseEntry entry) {
   final keys = <String>[];
@@ -516,14 +592,6 @@ TransactionsFeedQuery dashboardTransactionsQuery(
   );
 }
 
-String _currencyCacheKey(DashboardScopeQuery query) {
-  final currencies = query.normalizedCurrencies;
-  if (currencies == null || currencies.isEmpty) {
-    return query.normalizedCurrency ?? '<none>';
-  }
-  return currencies.join(',');
-}
-
 DashboardSnapshotSummary _dashboardSummaryFromTransactionsFeedSummary(
   TransactionsFeedSummary summary,
 ) {
@@ -566,58 +634,36 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
   (ref, query) async {
     ref.watch(dashboardRefreshSignalProvider);
     ref.watch(transactionsFeedRefreshSignalProvider);
-    ref.watch(dashboardCacheInvalidationProvider);
-    final bypassTransactionCaches =
-        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
     final preview = ref.watch(previewModeProvider);
-    final trace = HomeDebugTrace(
-      label: 'DashboardSummaryProvider',
-      enabled: foundation.kDebugMode,
-      logSink: foundation.debugPrint,
-      contextFields: {
-        'user': query.userId,
-        'household': query.householdId ?? '<none>',
-        'currency': query.normalizedCurrency ?? '<none>',
-        'currencies': query.normalizedCurrencies ?? const <String>[],
-        'start': query.startDate,
-        'end': query.endDate,
-      },
-    );
-    final cacheKey =
-        'dashboard:summary:v1:${query.userId}:${query.householdId ?? 'personal'}:${_currencyCacheKey(query)}:${query.formattedStartDate ?? '<none>'}:${query.formattedEndDate ?? '<none>'}:${query.normalizedIntervalGranularity ?? '<none>'}';
-    final sessionCached =
-        readDashboardSessionCache<DashboardSnapshotSummary>(cacheKey);
-    if (!bypassTransactionCaches &&
-        sessionCached != null &&
-        DateTime.now().difference(sessionCached.cachedAt) <=
-            dashboardTransactionsCacheTtl(query.startDate, query.endDate)) {
-      trace.mark('session-cache-hit');
-      return sessionCached.value;
+    if (preview.isActive) {
+      return ref.watch(dashboardDataServiceProvider).fetchSnapshot(query);
     }
-    final feedService = ref.watch(transactionsFeedServiceProvider);
+
+    final feedService = await _dashboardTransactionFeedService(ref);
     final feedQuery = dashboardTransactionsQuery(query);
     final selectedCurrencies = query.normalizedCurrencies;
     final hasMultiCurrencySelection =
         selectedCurrencies != null && selectedCurrencies.length > 1;
-    final summary = preview.isActive
-        ? await ref.watch(dashboardDataServiceProvider).fetchSnapshot(query)
-        : hasMultiCurrencySelection
-            ? _dashboardSummaryFromTransactionsFeedSummary(
-                summarizeTransactionsInCurrency(
-                  await feedService.fetchAllPages(feedQuery),
-                  targetCurrency: query.normalizedCurrency ?? 'USD',
-                  rates: await _dashboardCurrencyRates(
-                    ref.watch(currencyRateTableProvider.future),
-                  ),
-                  intervalGranularity:
-                      query.normalizedIntervalGranularity ?? 'yearly',
-                ),
-              )
-            : _dashboardSummaryFromTransactionsFeedSummary(
-                await feedService.fetchSummary(feedQuery),
-              );
-    writeDashboardSessionCache(cacheKey, summary);
-    return summary;
+
+    // Transaction-backed dashboard summaries must be derived from the
+    // local-first transaction feed on every provider evaluation. A second
+    // dashboard-level session/prefs cache can lag behind SQLite after AI saves
+    // and app restarts, briefly rendering stale totals before local hydration.
+    return hasMultiCurrencySelection
+        ? _dashboardSummaryFromTransactionsFeedSummary(
+            summarizeTransactionsInCurrency(
+              await feedService.fetchAllPages(feedQuery),
+              targetCurrency: query.normalizedCurrency ?? 'USD',
+              rates: await _dashboardCurrencyRates(
+                ref.watch(currencyRateTableProvider.future),
+              ),
+              intervalGranularity:
+                  query.normalizedIntervalGranularity ?? 'yearly',
+            ),
+          )
+        : _dashboardSummaryFromTransactionsFeedSummary(
+            await feedService.fetchSummary(feedQuery),
+          );
   },
 );
 
@@ -626,77 +672,24 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
   (ref, request) async {
     ref.watch(dashboardRefreshSignalProvider);
     ref.watch(transactionsFeedRefreshSignalProvider);
-    ref.watch(dashboardCacheInvalidationProvider);
-    final bypassTransactionCaches =
-        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
     final preview = ref.watch(previewModeProvider);
-    final cacheKey = dashboardRecentCacheKey(
-      userId: request.query.userId,
-      householdId: request.query.householdId,
-      currency: _currencyCacheKey(request.query),
-      limit: request.limit,
-    );
-    final sessionCached =
-        readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
-    final trace = HomeDebugTrace(
-      label: 'DashboardRecentTransactionsProvider',
-      enabled: foundation.kDebugMode,
-      logSink: foundation.debugPrint,
-      contextFields: {
-        'user': request.query.userId,
-        'household': request.query.householdId ?? '<none>',
-        'currency': request.query.normalizedCurrency ?? '<none>',
-        'currencies': request.query.normalizedCurrencies ?? const <String>[],
-        'limit': request.limit,
-      },
-    );
-    if (!bypassTransactionCaches &&
-        sessionCached != null &&
-        DateTime.now().difference(sessionCached.cachedAt) <=
-            dashboardRecentTransactionsCacheTtl) {
-      trace.mark('session-cache-hit', {'count': sessionCached.value.length});
-      return sessionCached.value;
+    if (preview.isActive) {
+      return ref
+          .watch(dashboardDataServiceProvider)
+          .fetchRecentTransactions(request);
     }
-    if (!bypassTransactionCaches) {
-      final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
-      final statePayload = persistedPayload == null
-          ? null
-          : readDashboardStatePayload(persistedPayload);
-      final cachedAt = persistedPayload == null
-          ? null
-          : readDashboardCachedAt(persistedPayload);
-      if (statePayload != null &&
-          cachedAt != null &&
-          DateTime.now().difference(cachedAt) <=
-              dashboardRecentTransactionsCacheTtl) {
-        final entries = ((statePayload['items'] as List?) ?? const [])
-            .cast<Map>()
-            .map((row) => ExpenseEntry.fromJson(Map<String, dynamic>.from(row)))
-            .toList(growable: false);
-        trace.mark('persisted-cache-hit', {'count': entries.length});
-        writeDashboardSessionCache(cacheKey, entries);
-        return entries;
-      }
-    }
-    final entries = preview.isActive
-        ? await ref
-            .watch(dashboardDataServiceProvider)
-            .fetchRecentTransactions(request)
-        : (await ref.watch(transactionsFeedServiceProvider).fetchPage(
-                  dashboardTransactionsQuery(
-                    request.query,
-                    pageSize: request.limit,
-                  ),
-                ))
-            .items;
-    writeDashboardSessionCache(cacheKey, entries);
-    unawaited(writeDashboardPersistedCache(ref, cacheKey, {
-      'cached_at': DateTime.now().toIso8601String(),
-      'state': {
-        'items': entries.map((item) => item.toJson()).toList(growable: false),
-      },
-    }));
-    return entries;
+
+    // Recent transaction rows are transaction-backed and must come directly
+    // from the local-first feed. Reusing a separate dashboard cache can replay
+    // stale rows after an optimistic save/reconciliation cycle.
+    final feedService = await _dashboardTransactionFeedService(ref);
+    final page = await feedService.fetchPage(
+      dashboardTransactionsQuery(
+        request.query,
+        pageSize: request.limit,
+      ),
+    );
+    return page.items;
   },
 );
 
@@ -705,73 +698,32 @@ final dashboardCalendarTransactionsProvider =
   (ref, query) async {
     ref.watch(dashboardRefreshSignalProvider);
     ref.watch(transactionsFeedRefreshSignalProvider);
-    ref.watch(dashboardCacheInvalidationProvider);
-    final bypassTransactionCaches =
-        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
     final preview = ref.watch(previewModeProvider);
-    final cacheKey = dashboardCalendarCacheKey(
-      userId: query.userId,
-      householdId: query.householdId,
-      currency: _currencyCacheKey(query),
-      start: query.formattedStartDate,
-      end: query.formattedEndDate,
-    );
-    final ttl = dashboardTransactionsCacheTtl(query.startDate, query.endDate);
-    final sessionCached =
-        readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
-    final trace = HomeDebugTrace(
-      label: 'DashboardCalendarTransactionsProvider',
-      enabled: foundation.kDebugMode,
-      logSink: foundation.debugPrint,
-      contextFields: {
-        'user': query.userId,
-        'household': query.householdId ?? '<none>',
-        'currency': query.normalizedCurrency ?? '<none>',
-        'currencies': query.normalizedCurrencies ?? const <String>[],
-        'start': query.startDate,
-        'end': query.endDate,
-      },
-    );
-    if (!bypassTransactionCaches &&
-        sessionCached != null &&
-        DateTime.now().difference(sessionCached.cachedAt) <= ttl) {
-      trace.mark('session-cache-hit', {'count': sessionCached.value.length});
-      return sessionCached.value;
+    if (preview.isActive) {
+      final entries = await ref
+          .watch(dashboardDataServiceProvider)
+          .fetchCalendarTransactions(query);
+      _homeSpendTrace(
+        'dashboard-calendar source=preview count=${entries.length} '
+        'total=${_traceAmount(_traceExpenseTotal(entries))}',
+      );
+      return entries;
     }
-    if (!bypassTransactionCaches) {
-      final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
-      final statePayload = persistedPayload == null
-          ? null
-          : readDashboardStatePayload(persistedPayload);
-      final cachedAt = persistedPayload == null
-          ? null
-          : readDashboardCachedAt(persistedPayload);
-      if (statePayload != null &&
-          cachedAt != null &&
-          DateTime.now().difference(cachedAt) <= ttl) {
-        final entries = ((statePayload['items'] as List?) ?? const [])
-            .cast<Map>()
-            .map((row) => ExpenseEntry.fromJson(Map<String, dynamic>.from(row)))
-            .toList(growable: false);
-        trace.mark('persisted-cache-hit', {'count': entries.length});
-        writeDashboardSessionCache(cacheKey, entries);
-        return entries;
-      }
-    }
-    final entries = preview.isActive
-        ? await ref
-            .watch(dashboardDataServiceProvider)
-            .fetchCalendarTransactions(query)
-        : await ref
-            .watch(transactionsFeedServiceProvider)
-            .fetchAllPages(dashboardTransactionsQuery(query, pageSize: 500));
-    writeDashboardSessionCache(cacheKey, entries);
-    unawaited(writeDashboardPersistedCache(ref, cacheKey, {
-      'cached_at': DateTime.now().toIso8601String(),
-      'state': {
-        'items': entries.map((item) => item.toJson()).toList(growable: false),
-      },
-    }));
+
+    // Calendar/range transactions power the Home spending total. They must use
+    // the local-first transaction feed as the single source of truth so a stale
+    // dashboard session/prefs cache cannot show an old total on app restart or
+    // during AI save reconciliation.
+    final feedService = await _dashboardTransactionFeedService(ref);
+    final entries = await feedService.fetchAllPages(
+      dashboardTransactionsQuery(query, pageSize: 500),
+    );
+    _homeSpendTrace(
+      'dashboard-calendar source=${feedService.runtimeType} '
+      'count=${entries.length} total=${_traceAmount(_traceExpenseTotal(entries))} '
+      'user=${query.userId} household=${query.householdId ?? '<personal>'} '
+      'currency=${query.normalizedCurrency ?? '<none>'} currencies=${query.normalizedCurrencies ?? const <String>[]}',
+    );
     return entries;
   },
 );

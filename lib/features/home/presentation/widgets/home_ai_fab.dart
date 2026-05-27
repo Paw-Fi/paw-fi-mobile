@@ -95,6 +95,15 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+void homeSpendTrace(String message) {
+  assert(() {
+    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
+String traceAiAmount(num value) => value.toStringAsFixed(2);
+
 String _friendlyProgressMessage(AnalysisProgressEvent event) {
   const stageFallback = <String, String>{
     'started': 'Getting things ready...',
@@ -976,6 +985,11 @@ Future<void> _persistAiTransactions(
       _debugPrint('⚠️ Failed to cache AI saved transactions locally: $error');
     }
 
+    final savedHousehold = householdId ?? '<personal>';
+    homeSpendTrace(
+      'ai-saved-cache count=${cacheable.length} household=$savedHousehold '
+      'total=${traceAiAmount(cacheable.fold<double>(0, (sum, entry) => sum + (((entry.type ?? 'expense').toLowerCase() == 'income') ? 0 : entry.amount.abs())))}',
+    );
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
     container
@@ -1433,6 +1447,12 @@ Future<void> _persistAiTransactions(
       );
     }
     queuedLocally = true;
+    final queuedHousehold = householdId ?? '<personal>';
+    homeSpendTrace(
+      'ai-local-queued count=${preparedMutations.length} '
+      'household=$queuedHousehold '
+      'total=${traceAiAmount(preparedMutations.fold<double>(0, (sum, item) => sum + (item.item.transaction.isIncome ? 0 : item.item.transaction.amount.abs())))}',
+    );
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
   } catch (error) {
@@ -2818,6 +2838,14 @@ Future<void> _processExpense(
                   ref: ref,
                   entry: entry,
                   householdId: householdId,
+                );
+                final optimisticType = entry.type ?? 'expense';
+                final optimisticCurrency = entry.currency ?? '<none>';
+                final optimisticHousehold = householdId ?? '<personal>';
+                homeSpendTrace(
+                  'ai-optimistic-added id=${entry.id} type=$optimisticType '
+                  'amount=${traceAiAmount(entry.amount)} currency=$optimisticCurrency '
+                  'household=$optimisticHousehold',
                 );
                 if (optimisticSplitGroup != null) {
                   ref

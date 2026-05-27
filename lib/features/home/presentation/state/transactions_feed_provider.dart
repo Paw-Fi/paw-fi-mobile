@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -10,6 +11,39 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+void _homeSpendTrace(String message) {
+  assert(() {
+    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
+int _traceExpenseCents(Iterable<ExpenseEntry> entries) {
+  return entries.fold<int>(0, (sum, entry) {
+    final type = (entry.type ?? 'expense').toLowerCase();
+    if (type == 'income') return sum;
+    return sum + entry.amountCents.abs();
+  });
+}
+
+String _traceAmountFromCents(int cents) => (cents / 100.0).toStringAsFixed(2);
+
+String _traceFeedQuery(TransactionsFeedQuery query) {
+  final user = query.userId.isEmpty ? '<empty>' : query.userId;
+  final household = query.householdId ?? '<personal>';
+  final currency = query.normalizedCurrency ?? '<none>';
+  final start = query.formattedStartDate ?? '<none>';
+  final end = query.formattedEndDate ?? '<none>';
+  return 'user=$user '
+      'household=$household '
+      'currency=$currency '
+      'currencies=${query.normalizedCurrencies ?? const <String>[]} '
+      'type=${query.normalizedType} '
+      'start=$start '
+      'end=$end '
+      'pageSize=${query.pageSize}';
+}
 
 class TransactionsFeedQuery {
   final String userId;
@@ -632,18 +666,29 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _localQuery(query),
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    _homeSpendTrace(
+      'feed-fetchPage start ${_traceFeedQuery(query)} cursor=${cursor != null} '
+      'remote=$_remoteEnabled complete=$isComplete pending=$hasPendingLocalRows '
+      'localCount=${localPage.items.length} localTotal=${_traceAmountFromCents(_traceExpenseCents(localPage.items))}',
+    );
     if (!_remoteEnabled) {
+      _homeSpendTrace('feed-fetchPage return=local-offline count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
     }
-    if (isComplete ||
-        cursor != null ||
-        hasPendingLocalRows ||
-        localPage.items.isNotEmpty) {
+    if (isComplete || cursor != null || hasPendingLocalRows) {
+      final reason = isComplete ? 'complete' : cursor != null ? 'cursor' : 'pending';
+      _homeSpendTrace(
+        'feed-fetchPage return=local-authoritative reason=$reason count=${localPage.items.length}',
+      );
       return _pageFromLocal(localPage, query);
     }
 
     try {
       final remotePage = await _remote.fetchPage(query, cursor: cursor);
+      _homeSpendTrace(
+        'feed-fetchPage remote count=${remotePage.items.length} '
+        'total=${_traceAmountFromCents(_traceExpenseCents(remotePage.items))} hasMore=${remotePage.hasMore}',
+      );
       await _cacheRemoteItems(remotePage.items);
       if (cursor == null) {
         await _database.markTransactionsFeedCacheComplete(
@@ -651,8 +696,17 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
           isComplete: !remotePage.hasMore,
         );
       }
-      return remotePage;
-    } catch (_) {
+      final updatedLocalPage = await _database.getTransactionsFeedPage(
+        localQuery,
+      );
+      _homeSpendTrace(
+        'feed-fetchPage return=remote-cached updatedLocalCount=${updatedLocalPage.items.length} '
+        'updatedLocalTotal=${_traceAmountFromCents(_traceExpenseCents(updatedLocalPage.items))}',
+      );
+      if (updatedLocalPage.items.isEmpty) return remotePage;
+      return _pageFromLocal(updatedLocalPage, query);
+    } catch (error) {
+      _homeSpendTrace('feed-fetchPage remote-error return=local error=$error count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
     }
   }
@@ -667,19 +721,35 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       localQuery,
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    _homeSpendTrace(
+      'feed-fetchSummary start ${_traceFeedQuery(query)} '
+      'remote=$_remoteEnabled complete=$isComplete pending=$hasPendingLocalRows '
+      'localCount=${localSummary.transactionCount} '
+      'localExpense=${_traceAmountFromCents(localSummary.expenseTotalCents)} '
+      'localIncome=${_traceAmountFromCents(localSummary.incomeTotalCents)}',
+    );
     if (!_remoteEnabled) {
+      _homeSpendTrace('feed-fetchSummary return=local-offline');
       return _summaryFromLocal(localSummary);
     }
     if (isComplete) {
+      _homeSpendTrace('feed-fetchSummary return=local-authoritative reason=complete');
       return _summaryFromLocal(localSummary);
     }
     if (hasPendingLocalRows) {
+      _homeSpendTrace('feed-fetchSummary return=local-authoritative reason=pending');
       return _summaryFromLocal(localSummary);
     }
     try {
       final remoteSummary = await _remote.fetchSummary(query);
+      _homeSpendTrace(
+        'feed-fetchSummary return=remote count=${remoteSummary.transactionCount} '
+        'expense=${_traceAmountFromCents((remoteSummary.expenseTotal * 100).round())} '
+        'income=${_traceAmountFromCents((remoteSummary.incomeTotal * 100).round())}',
+      );
       return remoteSummary;
-    } catch (_) {
+    } catch (error) {
+      _homeSpendTrace('feed-fetchSummary remote-error return=local error=$error');
       return _summaryFromLocal(localSummary);
     }
   }
@@ -691,18 +761,31 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       _localQuery(query),
     );
+    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    _homeSpendTrace(
+      'feed-fetchAllPages start ${_traceFeedQuery(query)} '
+      'remote=$_remoteEnabled complete=$isComplete pending=$hasPendingLocalRows '
+      'localCount=${localItems.length} localTotal=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
+    );
     if (!_remoteEnabled) {
+      _homeSpendTrace('feed-fetchAllPages return=local-offline count=${localItems.length}');
       return localItems;
     }
-    if (isComplete) {
-      return localItems;
-    }
-    if (localItems.isNotEmpty) {
+    if (isComplete || hasPendingLocalRows) {
+      final reason = isComplete ? 'complete' : 'pending';
+      _homeSpendTrace(
+        'feed-fetchAllPages return=local-authoritative reason=$reason '
+        'count=${localItems.length} total=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
+      );
       return localItems;
     }
 
     try {
       final remoteItems = await _remote.fetchAllPages(query);
+      _homeSpendTrace(
+        'feed-fetchAllPages remote count=${remoteItems.length} '
+        'total=${_traceAmountFromCents(_traceExpenseCents(remoteItems))}',
+      );
       await _cacheRemoteItems(remoteItems);
       await _database.markTransactionsFeedCacheComplete(
         _localQuery(query),
@@ -712,9 +795,17 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       final updatedLocalItems = await _database.getTransactionsFeedItems(
         localQuery,
       );
+      _homeSpendTrace(
+        'feed-fetchAllPages return=remote-cached updatedLocalCount=${updatedLocalItems.length} '
+        'updatedLocalTotal=${_traceAmountFromCents(_traceExpenseCents(updatedLocalItems))}',
+      );
       if (updatedLocalItems.isEmpty) return remoteItems;
       return _mergeRemoteWithLocalItems(remoteItems, updatedLocalItems);
-    } catch (_) {
+    } catch (error) {
+      _homeSpendTrace(
+        'feed-fetchAllPages remote-error return=local error=$error '
+        'count=${localItems.length} total=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
+      );
       return localItems;
     }
   }

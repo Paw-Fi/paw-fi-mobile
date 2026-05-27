@@ -35,6 +35,13 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+void _homeSpendTrace(String message) {
+  assert(() {
+    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
 String _buildAnchorDateYmd(DateTime startDate) {
   return formatDateOnlyYmd(
     DateTime(startDate.year, startDate.month, startDate.day),
@@ -70,12 +77,22 @@ RecurringTransaction _recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
     householdId: entry.householdId,
     splitGroupId: entry.splitGroupId,
     accountId: entry.walletId,
-    recurrenceRule: null,
+    recurrenceRule: _recurrenceRuleFromExpenseEntry(entry),
     type: entry.type ?? 'expense',
     attachments: const [],
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   );
+}
+
+RecurrenceRule? _recurrenceRuleFromExpenseEntry(ExpenseEntry entry) {
+  final recurrenceRuleJson = entry.recurrenceRuleJson;
+  if (recurrenceRuleJson == null) return null;
+  try {
+    return RecurrenceRule.fromJson(recurrenceRuleJson);
+  } catch (_) {
+    return null;
+  }
 }
 
 ExpenseEntry _expenseEntryFromRecurringTransaction(
@@ -101,6 +118,7 @@ ExpenseEntry _expenseEntryFromRecurringTransaction(
     walletId: transaction.accountId,
     type: transaction.type,
     isRecurring: true,
+    recurrenceRuleJson: transaction.recurrenceRule?.toJson(),
   );
 }
 
@@ -219,12 +237,14 @@ class RecurringTransactionsNotifier
     extends StateNotifier<RecurringTransactionsState> {
   final Ref ref;
   final String? householdId; // Scope: null = Personal, non-null = Household
+  bool _loadInProgress = false;
 
   RecurringTransactionsNotifier(this.ref, this.householdId)
       : super(RecurringTransactionsState(
-          // Start with an empty dataset so widgets can trigger the first load
-          // even when this provider instance hasn't fetched yet.
-          data: const AsyncValue.data(<RecurringTransaction>[]),
+          // Loading means "unknown", not "there are zero recurring rows".
+          // Rendering empty data before local hydration causes dashboard totals
+          // to flash actual-only amounts before recurring projections arrive.
+          data: const AsyncValue<List<RecurringTransaction>>.loading(),
           hasLoadedOnce: false,
         ));
 
@@ -244,53 +264,87 @@ class RecurringTransactionsNotifier
     int limit = 250,
     bool forceRefresh = false,
   }) async {
-    if (_isPreview) {
-      final mockData = PreviewMockData.recurringTransactions;
-      state = state.copyWith(
-        data: AsyncValue.data(mockData),
-        hasLoadedOnce: true,
-      );
+    final household = householdId ?? '<personal>';
+    final traceUser = userId.isEmpty ? '<empty>' : userId;
+    if (_loadInProgress && !forceRefresh) {
+      _homeSpendTrace('recurring-load skip=in-progress household=$household');
       return;
     }
-
-    if (!mounted) return;
-
-    final isOffline =
-        ref.read(networkReachabilityProvider).valueOrNull == false;
-    if (!forceRefresh) {
-      final hydrated = await _hydrateFromLocalCache(userId, limit: limit);
-      if (hydrated) {
-        if (!isOffline) {
-          unawaited(_refreshRecurringTransactionsFromNetwork(
-            userId,
-            limit,
-            preserveCachedDataOnError: true,
-          ));
-        }
+    _loadInProgress = true;
+    _homeSpendTrace(
+      'recurring-load start user=$traceUser household=$household force=$forceRefresh '
+      'hasLoaded=${state.hasLoadedOnce} stateLoading=${state.data.isLoading} '
+      'stateHasValue=${state.data.hasValue} stateCount=${state.data.valueOrNull?.length ?? 0}',
+    );
+    try {
+      if (_isPreview) {
+        final mockData = PreviewMockData.recurringTransactions;
+        state = state.copyWith(
+          data: AsyncValue.data(mockData),
+          hasLoadedOnce: true,
+        );
+        _homeSpendTrace(
+            'recurring-load return=preview count=${mockData.length}');
         return;
       }
-    }
 
-    if (isOffline) {
-      state = state.copyWith(
-        data: state.data.hasValue
-            ? state.data
-            : const AsyncValue.data(<RecurringTransaction>[]),
-        hasLoadedOnce: true,
-      );
-      return;
-    }
+      if (!mounted) return;
 
-    // Skip loading if already loaded successfully (unless forced refresh)
-    if (state.hasLoadedOnce && !forceRefresh) return;
-    if (!state.hasLoadedOnce || forceRefresh) {
-      state = state.copyWith(
-        data: const AsyncValue<List<RecurringTransaction>>.loading()
-            .copyWithPrevious(state.data),
-      );
-    }
+      final isOffline =
+          ref.read(networkReachabilityProvider).valueOrNull == false;
+      if (!forceRefresh) {
+        final hydrated = await _hydrateFromLocalCache(
+          userId,
+          limit: limit,
+          allowIncompleteRecurrenceRules: isOffline,
+        );
+        if (hydrated) {
+          if (!isOffline) {
+            _homeSpendTrace(
+                'recurring-load hydrated-local schedule=remote-refresh household=$household');
+            unawaited(_refreshRecurringTransactionsFromNetwork(
+              userId,
+              limit,
+              preserveCachedDataOnError: true,
+            ));
+          }
+          return;
+        }
+      }
 
-    await _refreshRecurringTransactionsFromNetwork(userId, limit);
+      if (isOffline) {
+        state = state.copyWith(
+          data: state.data.hasValue
+              ? state.data
+              : const AsyncValue.data(<RecurringTransaction>[]),
+          hasLoadedOnce: true,
+        );
+        _homeSpendTrace(
+            'recurring-load return=offline-empty household=$household');
+        return;
+      }
+
+      // Skip loading if already loaded successfully (unless forced refresh)
+      final currentHasIncompleteRules = state.data.valueOrNull?.any(
+            (transaction) => transaction.recurrenceRule == null,
+          ) ??
+          false;
+      if (state.hasLoadedOnce && !forceRefresh && !currentHasIncompleteRules) {
+        _homeSpendTrace(
+            'recurring-load skip=already-loaded household=$household');
+        return;
+      }
+      if (!state.hasLoadedOnce || forceRefresh) {
+        state = state.copyWith(
+          data: const AsyncValue<List<RecurringTransaction>>.loading()
+              .copyWithPrevious(state.data),
+        );
+      }
+
+      await _refreshRecurringTransactionsFromNetwork(userId, limit);
+    } finally {
+      _loadInProgress = false;
+    }
   }
 
   Future<void> _refreshRecurringTransactionsFromNetwork(
@@ -383,12 +437,23 @@ class RecurringTransactionsNotifier
         data: AsyncValue.data(mergedTransactions),
         hasLoadedOnce: true,
       );
+      final household = householdId ?? '<personal>';
+      _homeSpendTrace(
+        'recurring-remote-success household=$household '
+        'serverCount=${allTransactions.length} pendingCount=${pendingOptimistic.length} '
+        'mergedCount=${mergedTransactions.length}',
+      );
       unawaited(_cacheRecurringTransactions(allTransactions, userId));
 
       _debugPrint(
           '[RecurringTx] Loaded ${allTransactions.length} recurring transactions');
     } catch (e, st) {
       _debugPrint('[RecurringTx] Load failed: $e');
+      final household = householdId ?? '<personal>';
+      _homeSpendTrace(
+        'recurring-remote-error household=$household error=$e '
+        'preserveCached=$preserveCachedDataOnError hasValue=${state.data.hasValue}',
+      );
       if (!mounted) return;
       if (preserveCachedDataOnError && state.data.hasValue) {
         return;
@@ -406,7 +471,9 @@ class RecurringTransactionsNotifier
   Future<bool> _hydrateFromLocalCache(
     String userId, {
     required int limit,
+    required bool allowIncompleteRecurrenceRules,
   }) async {
+    final household = householdId ?? '<personal>';
     try {
       final database = await ref.read(localDatabaseProvider.future);
       final rows = await database.getRecurringTransactions(
@@ -414,18 +481,38 @@ class RecurringTransactionsNotifier
         householdId: householdId,
         limit: limit,
       );
+      final expenseCents = rows.fold<int>(0, (sum, entry) {
+        final type = (entry.type ?? 'expense').toLowerCase();
+        return type == 'income' ? sum : sum + entry.amountCents.abs();
+      });
+      _homeSpendTrace(
+        'recurring-hydrate-local household=$household count=${rows.length} '
+        'expenseTotal=${(expenseCents / 100.0).toStringAsFixed(2)}',
+      );
       if (rows.isEmpty || !mounted) return false;
 
+      final cachedTransactions = rows
+          .map(_recurringTransactionFromExpenseEntry)
+          .toList(growable: false);
+      final hasMissingRecurrenceRules = cachedTransactions.any(
+        (transaction) => transaction.recurrenceRule == null,
+      );
+      if (hasMissingRecurrenceRules && !allowIncompleteRecurrenceRules) {
+        _homeSpendTrace(
+          'recurring-hydrate-local incomplete-rules household=$household '
+          'count=${rows.length}',
+        );
+        return false;
+      }
+
       state = state.copyWith(
-        data: AsyncValue.data(
-          rows.map(_recurringTransactionFromExpenseEntry).toList(
-                growable: false,
-              ),
-        ),
+        data: AsyncValue.data(cachedTransactions),
         hasLoadedOnce: true,
       );
       return true;
     } catch (error) {
+      _homeSpendTrace(
+          'recurring-hydrate-local error household=$household error=$error');
       _debugPrint('[RecurringTx] Local hydrate failed: $error');
       return false;
     }
@@ -464,13 +551,13 @@ class RecurringTransactionsNotifier
   /// Add transaction (optimistic update)
   void addRecurring(RecurringTransaction transaction) {
     if (!mounted) return;
-    state.data.whenData((transactions) {
-      final withoutDuplicate = transactions
-          .where((existing) => existing.id != transaction.id)
-          .toList(growable: false);
-      final updated = [transaction, ...withoutDuplicate];
-      state = state.copyWith(data: AsyncValue.data(updated));
-    });
+    final transactions =
+        state.data.valueOrNull ?? const <RecurringTransaction>[];
+    final withoutDuplicate = transactions
+        .where((existing) => existing.id != transaction.id)
+        .toList(growable: false);
+    final updated = [transaction, ...withoutDuplicate];
+    state = state.copyWith(data: AsyncValue.data(updated));
   }
 
   /// Update transaction
@@ -490,48 +577,48 @@ class RecurringTransactionsNotifier
     RecurringTransaction savedTransaction,
   ) {
     if (!mounted) return;
-    state.data.whenData((transactions) {
-      final updated = <RecurringTransaction>[];
-      var inserted = false;
+    final transactions =
+        state.data.valueOrNull ?? const <RecurringTransaction>[];
+    final updated = <RecurringTransaction>[];
+    var inserted = false;
 
-      for (final transaction in transactions) {
-        if (transaction.id == optimisticId) {
-          if (!inserted) {
-            updated.add(savedTransaction);
-            inserted = true;
-          }
-          continue;
+    for (final transaction in transactions) {
+      if (transaction.id == optimisticId) {
+        if (!inserted) {
+          updated.add(savedTransaction);
+          inserted = true;
         }
-        if (transaction.id == savedTransaction.id) {
-          if (!inserted) {
-            updated.add(savedTransaction);
-            inserted = true;
-          }
-          continue;
+        continue;
+      }
+      if (transaction.id == savedTransaction.id) {
+        if (!inserted) {
+          updated.add(savedTransaction);
+          inserted = true;
         }
-        updated.add(transaction);
+        continue;
       }
+      updated.add(transaction);
+    }
 
-      if (!inserted) {
-        updated.insert(0, savedTransaction);
-      }
+    if (!inserted) {
+      updated.insert(0, savedTransaction);
+    }
 
-      state = state.copyWith(data: AsyncValue.data(updated));
-    });
+    state = state.copyWith(data: AsyncValue.data(updated));
   }
 
   /// Remove a pending or deleted recurring transaction from local state.
   void removeRecurring(String transactionId) {
     if (!mounted) return;
-    state.data.whenData((transactions) {
-      state = state.copyWith(
-        data: AsyncValue.data(
-          transactions
-              .where((transaction) => transaction.id != transactionId)
-              .toList(growable: false),
-        ),
-      );
-    });
+    final transactions =
+        state.data.valueOrNull ?? const <RecurringTransaction>[];
+    state = state.copyWith(
+      data: AsyncValue.data(
+        transactions
+            .where((transaction) => transaction.id != transactionId)
+            .toList(growable: false),
+      ),
+    );
   }
 
   /// Delete transaction

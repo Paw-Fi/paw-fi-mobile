@@ -3,6 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
+void _homeSpendTrace(String message) {
+  assert(() {
+    debugPrint('🧾 [HomeSpendTrace] $message');
+    return true;
+  }());
+}
+
+String _traceAmount(num value) => value.toStringAsFixed(2);
+
 class AnimatedAmountText extends StatefulWidget {
   const AnimatedAmountText({
     super.key,
@@ -33,6 +42,9 @@ class _AnimatedAmountTextState extends State<AnimatedAmountText> {
     super.initState();
     _begin = _displayAmount(widget.value);
     _end = _begin;
+    _homeSpendTrace(
+      'animated-amount-init symbol=${widget.symbol} value=${_traceAmount(_end)}',
+    );
   }
 
   @override
@@ -50,6 +62,12 @@ class _AnimatedAmountTextState extends State<AnimatedAmountText> {
       _animate = false;
       return;
     }
+
+    _homeSpendTrace(
+      'animated-amount-change symbol=${widget.symbol} '
+      'from=${_traceAmount(previous)} to=${_traceAmount(next)} '
+      'oldWidget=${_traceAmount(oldWidget.value)} newWidget=${_traceAmount(widget.value)}',
+    );
 
     _begin = previous;
     _end = next;
