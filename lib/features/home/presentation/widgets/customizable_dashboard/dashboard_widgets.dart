@@ -176,7 +176,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
       if (!_jiggleController.isAnimating) {
         _jiggleController.repeat();
       }
-    } else {
+    } else if (_jiggleController.isAnimating || _jiggleController.value != 0) {
       _jiggleController.reset();
     }
 
@@ -204,9 +204,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
             child: AbsorbPointer(
               absorbing:
                   isEditMode, // Disable interaction with widget content in edit mode
-              child: Container(
-                child: widget.child,
-              ),
+              child: widget.child,
             ),
           ),
 

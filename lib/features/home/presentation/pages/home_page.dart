@@ -75,7 +75,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   static const bool _enableDebugLogs =
       bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-  static const double _dashboardScrollCacheExtent = 1600;
+  static const double _dashboardScrollCacheExtent = 900;
 
   void _debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -300,15 +300,19 @@ class _HomePageState extends ConsumerState<HomePage> {
     ref.watch(userCategoryConfigProvider);
     final initUserContact = ref
         .watch(appInitializationV2Provider.select((state) => state.data?.user));
-    final filterState = ref.watch(homeFilterProvider);
-    final user = ref.watch(authProvider);
-    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final selectedCurrencyRaw = ref.watch(
+      homeFilterProvider.select((state) => state.selectedCurrency),
+    );
+    final selectedCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final userId = ref.watch(authProvider.select((user) => user.uid));
+    final householdsAsync = ref.watch(userHouseholdsProvider(userId));
     final householdScope = ref.watch(householdScopeProvider);
     final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
 
     // Global currency remains shared; date ranges move to per-card filters
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
+    final selectedCurrency = selectedCurrencyRaw?.toUpperCase();
     final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
 
     final homePerfSignature = [
@@ -318,7 +322,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       'householdsCount=${householdsAsync.valueOrNull?.length ?? 0}',
       'shouldShowFab=$shouldShowFab',
       'selectedCurrency=${selectedCurrency ?? '<none>'}',
-      'user=${user.uid.isEmpty ? '<empty>' : user.uid}',
+      'user=${userId.isEmpty ? '<empty>' : userId}',
     ].join('|');
     if (_lastHomePerfSignature != homePerfSignature) {
       _lastHomePerfSignature = homePerfSignature;
@@ -329,7 +333,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         'householdsCount': householdsAsync.valueOrNull?.length,
         'shouldShowFab': shouldShowFab,
         'selectedCurrency': selectedCurrency,
-        'user': user.uid.isEmpty ? '<empty>' : user.uid,
+        'user': userId.isEmpty ? '<empty>' : userId,
       });
     }
 
@@ -353,7 +357,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       });
     }
 
-    if (shouldShowFab && !user.isEmpty) {
+    if (shouldShowFab && userId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _startFabTourIfNeeded();
@@ -402,11 +406,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                       Text('${context.l10n.errorInitializingRepository}: $e'),
                 ),
                 data: (_) {
-                  final dashboardContact =
-                      ref.watch(dashboardUserContactProvider).valueOrNull;
-                  final dashboardBudgets =
-                      ref.watch(dashboardPersonalBudgetsProvider).valueOrNull ??
-                          const <DailyBudgetEntry>[];
+                  final dashboardContact = ref.watch(
+                    dashboardUserContactProvider.select(
+                      (state) => state.valueOrNull,
+                    ),
+                  );
+                  final dashboardBudgets = ref.watch(
+                        dashboardPersonalBudgetsProvider.select(
+                          (state) => state.valueOrNull,
+                        ),
+                      ) ??
+                      const <DailyBudgetEntry>[];
                   final selectedCurrencyFilter = selectedCurrency;
                   final selectedCurrencyFilters = selectedCurrencies;
                   final timezoneOffsetMinutes =
@@ -438,7 +448,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     return dateOk && currencyOk;
                   }).toList();
                   final dashboardAsync =
-                      ref.watch(personalDashboardProvider(user.uid));
+                      ref.watch(personalDashboardProvider(userId));
                   final dashboardSignature = [
                     'loading=${dashboardAsync.isLoading}',
                     'hasError=${dashboardAsync.hasError}',
@@ -468,21 +478,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                         configs: configs,
                         onReorder: (oldIndex, newIndex) {
                           ref
-                              .read(
-                                  personalDashboardProvider(user.uid).notifier)
+                              .read(personalDashboardProvider(userId).notifier)
                               .reorder(oldIndex, newIndex);
                         },
                         onToggleVisibility: (id) {
                           ref
-                              .read(
-                                  personalDashboardProvider(user.uid).notifier)
+                              .read(personalDashboardProvider(userId).notifier)
                               .toggleVisibility(id);
                         },
                         onUpdateConfig: (id,
                             {dateRange, viewMode, start, end}) {
                           ref
-                              .read(
-                                  personalDashboardProvider(user.uid).notifier)
+                              .read(personalDashboardProvider(userId).notifier)
                               .updateConfig(id,
                                   dateRange: dateRange,
                                   viewMode: viewMode,
@@ -648,7 +655,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: _shouldShowFAB(householdScope, householdsAsync)
+      floatingActionButton: shouldShowFab
           ? SpotlightTarget(
               controller: _fabTourController,
               id: 'home_unified_fab',

@@ -512,21 +512,24 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           }
 
           // Filters
-          final filterState = ref.watch(homeFilterProvider);
+          final selectedCurrencyFilter = ref.watch(
+            homeFilterProvider.select((state) => state.selectedCurrency),
+          );
+          final selectedCurrencies = ref.watch(
+            homeFilterProvider.select(
+              (state) => state.normalizedSelectedCurrencies,
+            ),
+          );
           final initUserContact = ref.watch(
               appInitializationV2Provider.select((state) => state.data?.user));
-          final rawCurrency =
-              (filterState.selectedCurrency?.trim().isNotEmpty == true
-                      ? filterState.selectedCurrency!.trim()
-                      : (initUserContact?.preferredCurrency
-                                  ?.trim()
-                                  .isNotEmpty ==
-                              true
-                          ? initUserContact!.preferredCurrency!.trim()
-                          : household.currency))
-                  .toUpperCase();
+          final rawCurrency = (selectedCurrencyFilter?.trim().isNotEmpty == true
+                  ? selectedCurrencyFilter!.trim()
+                  : (initUserContact?.preferredCurrency?.trim().isNotEmpty ==
+                          true
+                      ? initUserContact!.preferredCurrency!.trim()
+                      : household.currency))
+              .toUpperCase();
           final selectedCurrency = rawCurrency;
-          final selectedCurrencies = filterState.normalizedSelectedCurrencies;
           final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
               initUserContact?.preferredTimezone);
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);

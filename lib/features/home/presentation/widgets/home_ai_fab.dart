@@ -3288,75 +3288,9 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   }
 
   Widget _buildContextPill(ColorScheme colorScheme) {
-    final householdId = _resolveHouseholdIdForAi(ref);
-    final targetLabel = _resolveLogTargetLabel(context, ref);
-
-    final contact = ref.watch(appUserContactProvider);
-    final filterState = ref.watch(homeFilterProvider);
-    final selectedCurrency =
-        (filterState.selectedCurrency ?? contact?.preferredCurrency ?? 'USD')
-            .trim()
-            .toUpperCase();
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.fastLinearToSlowEaseIn,
-      bottom: 12,
-      right: _isFabOpen ? 72 : 24,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 250),
-        opacity: _isFabOpen ? 1.0 : 0.0,
-        curve: Curves.easeOut,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 300),
-          scale: _isFabOpen ? 1.0 : 0.9,
-          curve: Curves.fastLinearToSlowEaseIn,
-          alignment: Alignment.centerRight,
-          child: IgnorePointer(
-            ignoring: !_isFabOpen,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface.withValues(alpha: 0.7),
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        householdId == null
-                            ? Icons.person_outline
-                            : Icons.people_outline,
-                        size: 14,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$targetLabel • $selectedCurrency',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurfaceVariant,
-                          letterSpacing: -0.2,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return _FabContextPill(
+      colorScheme: colorScheme,
+      isFabOpen: _isFabOpen,
     );
   }
 
@@ -3579,6 +3513,91 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _FabContextPill extends ConsumerWidget {
+  const _FabContextPill({
+    required this.colorScheme,
+    required this.isFabOpen,
+  });
+
+  final ColorScheme colorScheme;
+  final bool isFabOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final householdId = _resolveHouseholdIdForAi(ref);
+    final targetLabel = _resolveLogTargetLabel(context, ref);
+    final preferredCurrency = ref.watch(
+      appUserContactProvider.select((contact) => contact?.preferredCurrency),
+    );
+    final selectedCurrency = ref.watch(
+      homeFilterProvider.select((state) => state.selectedCurrency),
+    );
+    final displayCurrency =
+        (selectedCurrency ?? preferredCurrency ?? 'USD').trim().toUpperCase();
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.fastLinearToSlowEaseIn,
+      bottom: 12,
+      right: isFabOpen ? 72 : 24,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: isFabOpen ? 1.0 : 0.0,
+        curve: Curves.easeOut,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 300),
+          scale: isFabOpen ? 1.0 : 0.9,
+          curve: Curves.fastLinearToSlowEaseIn,
+          alignment: Alignment.centerRight,
+          child: IgnorePointer(
+            ignoring: !isFabOpen,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.7),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        householdId == null
+                            ? Icons.person_outline
+                            : Icons.people_outline,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$targetLabel • $displayCurrency',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurfaceVariant,
+                          letterSpacing: -0.2,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

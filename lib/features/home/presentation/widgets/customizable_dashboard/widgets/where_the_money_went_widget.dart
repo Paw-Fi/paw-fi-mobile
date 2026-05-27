@@ -9,7 +9,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/pages/category_details_page.dart';
 
-class WhereTheMoneyWentWidget extends StatelessWidget {
+class WhereTheMoneyWentWidget extends StatefulWidget {
   final List<ExpenseEntry> expenses;
   final String? currency;
   final VoidCallback? onHelpTap;
@@ -24,35 +24,23 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
   });
 
   @override
+  State<WhereTheMoneyWentWidget> createState() =>
+      _WhereTheMoneyWentWidgetState();
+}
+
+class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
+  _WhereTheMoneyWentCacheKey? _cachedKey;
+  _WhereTheMoneyWentDerivedData? _cachedData;
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Filter expenses by selected currency if applicable
-    var filteredExpenses = expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-        .toList();
-    if (currency != null) {
-      final curr = currency!.toUpperCase();
-      filteredExpenses = filteredExpenses
-          .where((e) => e.currency?.toUpperCase() == curr)
-          .toList();
-    }
-
-    // Aggregate by category for quick stats/legends
-    final Map<String, double> categoryTotals = {};
-    for (final expense in filteredExpenses) {
-      final cat = canonicalizeCategoryKey(expense.category);
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
-    }
-
-    final totalSpent = categoryTotals.values.fold<double>(0, (a, b) => a + b);
-    final sortedCategories = categoryTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final explicitCategories = sortedCategories;
+    final derivedData = _derivedDataFor();
+    final filteredExpenses = derivedData.filteredExpenses;
+    final totalSpent = derivedData.totalSpent;
+    final explicitCategories = derivedData.sortedCategories;
 
     return Material(
-      key: key,
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
@@ -93,13 +81,13 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      dateRange.getLabel(context),
+                      widget.dateRange.getLabel(context),
                       style: WidgetTextStyles.dateLabel(
                           colorScheme.mutedForeground),
                     ),
                   ],
                 ),
-                if (onHelpTap != null)
+                if (widget.onHelpTap != null)
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -108,7 +96,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                       size: 16,
                       color: colorScheme.mutedForeground,
                     ),
-                    onPressed: onHelpTap,
+                    onPressed: widget.onHelpTap,
                   ),
               ],
             ),
@@ -133,14 +121,14 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                     amount: amount,
                     totalSpent: totalSpent,
                     colorScheme: colorScheme,
-                    currency: currency,
+                    currency: widget.currency,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => CategoryDetailsPage(
                             categoryKey: catKey,
-                            currency: currency,
-                            initialDateFilter: dateRange,
+                            currency: widget.currency,
+                            initialDateFilter: widget.dateRange,
                           ),
                         ),
                       );
@@ -153,6 +141,107 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
       ),
     );
   }
+
+  _WhereTheMoneyWentDerivedData _derivedDataFor() {
+    final expensesIdentity = identityHashCode(widget.expenses);
+    final currency = widget.currency?.trim().toUpperCase();
+    final cached = _cachedData;
+    final cachedKey = _cachedKey;
+    if (cached != null &&
+        cachedKey != null &&
+        cachedKey.expensesIdentity == expensesIdentity &&
+        cachedKey.currency == currency) {
+      return cached;
+    }
+
+    final key = _WhereTheMoneyWentCacheKey(
+      expensesIdentity: expensesIdentity,
+      expensesSignature: _expenseListSignature(widget.expenses),
+      currency: currency,
+    );
+    if (cached != null && _cachedKey == key) {
+      return cached;
+    }
+
+    var filteredExpenses = widget.expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList(growable: false);
+    if (widget.currency != null) {
+      final curr = widget.currency!.toUpperCase();
+      filteredExpenses = filteredExpenses
+          .where((e) => e.currency?.toUpperCase() == curr)
+          .toList(growable: false);
+    }
+
+    final categoryTotals = <String, double>{};
+    for (final expense in filteredExpenses) {
+      final cat = canonicalizeCategoryKey(expense.category);
+      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    }
+
+    final sortedCategories = categoryTotals.entries.toList(growable: false)
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final next = _WhereTheMoneyWentDerivedData(
+      filteredExpenses: filteredExpenses,
+      sortedCategories: sortedCategories,
+      totalSpent: categoryTotals.values.fold<double>(0, (a, b) => a + b),
+    );
+    _cachedKey = key;
+    _cachedData = next;
+    return next;
+  }
+}
+
+class _WhereTheMoneyWentDerivedData {
+  const _WhereTheMoneyWentDerivedData({
+    required this.filteredExpenses,
+    required this.sortedCategories,
+    required this.totalSpent,
+  });
+
+  final List<ExpenseEntry> filteredExpenses;
+  final List<MapEntry<String, double>> sortedCategories;
+  final double totalSpent;
+}
+
+class _WhereTheMoneyWentCacheKey {
+  const _WhereTheMoneyWentCacheKey({
+    required this.expensesIdentity,
+    required this.expensesSignature,
+    required this.currency,
+  });
+
+  final int expensesIdentity;
+  final int expensesSignature;
+  final String? currency;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _WhereTheMoneyWentCacheKey &&
+        other.expensesIdentity == expensesIdentity &&
+        other.expensesSignature == expensesSignature &&
+        other.currency == currency;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(expensesIdentity, expensesSignature, currency);
+}
+
+int _expenseListSignature(List<ExpenseEntry> expenses) {
+  var hash = expenses.length;
+  for (final expense in expenses) {
+    hash = Object.hash(
+      hash,
+      expense.date.millisecondsSinceEpoch,
+      expense.amountCents,
+      expense.amount,
+      expense.currency,
+      expense.type,
+      expense.category,
+    );
+  }
+  return hash;
 }
 
 class _CategoryRow extends StatelessWidget {

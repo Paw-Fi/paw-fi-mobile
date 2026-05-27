@@ -70,14 +70,17 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final filterState = ref.watch(homeFilterProvider);
-    final currency = _displayCurrency(filterState.selectedCurrency, contact);
-    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
-        const CurrencyRateTable(
-          baseCurrency: 'USD',
-          rates: CurrencyRates.rates,
-          isStale: true,
-        );
+    final selectedCurrency = _selectedCurrency(ref);
+    final selectedCurrencies = _selectedCurrencies(ref);
+    final currency = _displayCurrency(selectedCurrency, contact);
+    final rateTable = (selectedCurrencies?.length ?? 0) > 1
+        ? ref.watch(currencyRateTableProvider).valueOrNull ??
+            const CurrencyRateTable(
+              baseCurrency: 'USD',
+              rates: CurrencyRates.rates,
+              isStale: true,
+            )
+        : null;
     final range = getDateRangeFromFilter(
       config.dateRange,
       config.customStartDate,
@@ -87,7 +90,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
-      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrency: selectedCurrency,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -107,8 +110,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
-      selectedCurrency: filterState.selectedCurrency,
-      selectedCurrencies: filterState.normalizedSelectedCurrencies,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
 
@@ -146,11 +149,10 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         mergedTransactions,
         contact,
         config.dateRange,
-        key: ValueKey(
-            'spending_data_${config.id}_${filterState.selectedCurrency}'),
+        key: ValueKey('spending_data_${config.id}_$selectedCurrency'),
         referenceNow: userNow,
-        selectedCurrency: filterState.selectedCurrency,
-        selectedCurrencies: filterState.normalizedSelectedCurrencies,
+        selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
         currencyRates: rateTable,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
@@ -178,7 +180,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency = _selectedCurrency(ref);
+    final selectedCurrencies = _selectedCurrencies(ref);
     final currentRange = _getDateRangeForFilter(
       config.dateRange,
       userNow,
@@ -195,14 +198,14 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     final currentQuery = _buildScopedQuery(
       ref: ref,
       scope: scope,
-      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrency: selectedCurrency,
       startDate: currentRange.$1,
       endDate: currentRange.$2,
     );
     final previousQuery = _buildScopedQuery(
       ref: ref,
       scope: scope,
-      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrency: selectedCurrency,
       startDate: previousRange.$1,
       endDate: previousRange.$2,
     );
@@ -241,7 +244,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
           budgets,
           contact,
           config,
-          filterState.selectedCurrency,
+          selectedCurrency,
           key: const ValueKey('net_cashflow_skeleton'),
         ),
       );
@@ -270,8 +273,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       recurringTransactions: recurringTransactions,
       rangeStart: currentRange.$1,
       rangeEnd: currentRange.$2,
-      selectedCurrency: filterState.selectedCurrency,
-      selectedCurrencies: filterState.normalizedSelectedCurrencies,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
     final previousTransactions = mergeActualExpensesWithProjectedRecurring(
@@ -279,30 +282,31 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       recurringTransactions: recurringTransactions,
       rangeStart: previousRange.$1,
       rangeEnd: previousRange.$2,
-      selectedCurrency: filterState.selectedCurrency,
-      selectedCurrencies: filterState.normalizedSelectedCurrencies,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
-    final shouldConvertCurrencies =
-        (filterState.normalizedSelectedCurrencies?.length ?? 0) > 1;
-    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
-        const CurrencyRateTable(
-          baseCurrency: 'USD',
-          rates: CurrencyRates.rates,
-          isStale: true,
-        );
+    final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
+    final rates = shouldConvertCurrencies
+        ? ref.watch(currencyRateTableProvider).valueOrNull ??
+            const CurrencyRateTable(
+              baseCurrency: 'USD',
+              rates: CurrencyRates.rates,
+              isStale: true,
+            )
+        : null;
     final displayCurrentTransactions = shouldConvertCurrencies
         ? convertTransactionsToCurrency(
             currentTransactions,
-            targetCurrency: filterState.selectedCurrency ?? 'USD',
-            rates: rates,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: rates!,
           )
         : currentTransactions;
     final displayPreviousTransactions = shouldConvertCurrencies
         ? convertTransactionsToCurrency(
             previousTransactions,
-            targetCurrency: filterState.selectedCurrency ?? 'USD',
-            rates: rates,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: rates!,
           )
         : previousTransactions;
 
@@ -315,9 +319,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         displayPreviousTransactions,
         contact,
         config.dateRange,
-        key: ValueKey(
-            'net_cashflow_data_${config.id}_${filterState.selectedCurrency}'),
-        selectedCurrency: filterState.selectedCurrency,
+        key: ValueKey('net_cashflow_data_${config.id}_$selectedCurrency'),
+        selectedCurrency: selectedCurrency,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
       ),
@@ -340,8 +343,8 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final auth = ref.watch(authProvider);
-    final selectedCurrency = ref.watch(homeFilterProvider).selectedCurrency;
+    final userId = ref.watch(authProvider.select((user) => user.uid));
+    final selectedCurrency = _selectedCurrency(ref);
     final recurringAsync = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
@@ -350,7 +353,7 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
       FinancialCalendarWidget(
         key: ValueKey(
             'fin_cal_${config.id}_${selectedCurrency ?? fallbackCurrency}'),
-        userId: auth.uid,
+        userId: userId,
         householdId: scope.activeAccountHouseholdId,
         recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
         currency: selectedCurrency ?? fallbackCurrency,
@@ -373,11 +376,11 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency = _selectedCurrency(ref);
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
-      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrency: selectedCurrency,
     );
     final recentAsync = ref.watch(
       dashboardRecentTransactionsProvider(
@@ -398,7 +401,7 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
         _buildRecentTransactionsSkeleton(
           context,
           colorScheme,
-          filterState.selectedCurrency,
+          selectedCurrency,
           key: const ValueKey('recent_skeleton'),
         ),
       );
@@ -425,7 +428,7 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
         colorScheme,
         recentTransactions,
         contact,
-        selectedCurrency: filterState.selectedCurrency,
+        selectedCurrency: selectedCurrency,
         selectedCurrencies: query.normalizedCurrencies,
         householdId: query.householdId,
         onViewAll: () {
@@ -455,9 +458,11 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final filterState = ref.watch(homeFilterProvider);
-    final analyticsContact =
-        ref.watch(dashboardUserContactProvider).valueOrNull;
+    final selectedCurrency = _selectedCurrency(ref);
+    final selectedCurrencies = _selectedCurrencies(ref);
+    final analyticsContact = ref.watch(
+      dashboardUserContactProvider.select((state) => state.valueOrNull),
+    );
     final range = getDateRangeFromFilter(
       config.dateRange,
       config.customStartDate,
@@ -467,7 +472,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
-      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrency: selectedCurrency,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -487,23 +492,22 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
-      selectedCurrency: filterState.selectedCurrency,
-      selectedCurrencies: filterState.normalizedSelectedCurrencies,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
-    final displayExpenses =
-        (filterState.normalizedSelectedCurrencies?.length ?? 0) > 1
-            ? convertTransactionsToCurrency(
-                expenses,
-                targetCurrency: filterState.selectedCurrency ?? 'USD',
-                rates: ref.watch(currencyRateTableProvider).valueOrNull ??
-                    const CurrencyRateTable(
-                      baseCurrency: 'USD',
-                      rates: CurrencyRates.rates,
-                      isStale: true,
-                    ),
-              )
-            : expenses;
+    final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
+        ? convertTransactionsToCurrency(
+            expenses,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                const CurrencyRateTable(
+                  baseCurrency: 'USD',
+                  rates: CurrencyRates.rates,
+                  isStale: true,
+                ),
+          )
+        : expenses;
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
@@ -536,10 +540,9 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
         const [],
         analyticsContact,
         config.dateRange,
-        key: ValueKey(
-            'breakdown_data_${config.id}_${filterState.selectedCurrency}'),
+        key: ValueKey('breakdown_data_${config.id}_$selectedCurrency'),
         referenceNow: userNow,
-        selectedCurrency: filterState.selectedCurrency,
+        selectedCurrency: selectedCurrency,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
       ),
@@ -562,7 +565,8 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency = _selectedCurrency(ref);
+    final selectedCurrencies = _selectedCurrencies(ref);
     final range = getDateRangeFromFilter(
       config.dateRange,
       config.customStartDate,
@@ -572,7 +576,7 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
-      selectedCurrency: filterState.selectedCurrency,
+      selectedCurrency: selectedCurrency,
       startDate: range['from'],
       endDate: range['to'],
     );
@@ -592,23 +596,22 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
-      selectedCurrency: filterState.selectedCurrency,
-      selectedCurrencies: filterState.normalizedSelectedCurrencies,
+      selectedCurrency: selectedCurrency,
+      selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
     );
-    final displayExpenses =
-        (filterState.normalizedSelectedCurrencies?.length ?? 0) > 1
-            ? convertTransactionsToCurrency(
-                expenses,
-                targetCurrency: filterState.selectedCurrency ?? 'USD',
-                rates: ref.watch(currencyRateTableProvider).valueOrNull ??
-                    const CurrencyRateTable(
-                      baseCurrency: 'USD',
-                      rates: CurrencyRates.rates,
-                      isStale: true,
-                    ),
-              )
-            : expenses;
+    final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
+        ? convertTransactionsToCurrency(
+            expenses,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: ref.watch(currencyRateTableProvider).valueOrNull ??
+                const CurrencyRateTable(
+                  baseCurrency: 'USD',
+                  rates: CurrencyRates.rates,
+                  isStale: true,
+                ),
+          )
+        : expenses;
 
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
@@ -635,10 +638,9 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
 
     return _buildDashboardSwitcher(
       WhereTheMoneyWentWidget(
-        key: ValueKey(
-            'where_money_went_data_${config.id}_${filterState.selectedCurrency}'),
+        key: ValueKey('where_money_went_data_${config.id}_$selectedCurrency'),
         expenses: displayExpenses,
-        currency: filterState.selectedCurrency,
+        currency: selectedCurrency,
         onHelpTap: () => showCategoryGuide(context, colorScheme),
         dateRange: config.dateRange,
       ),
@@ -654,10 +656,8 @@ DashboardScopeQuery _buildScopedQuery({
   DateTime? endDate,
   String? intervalGranularity,
 }) {
-  final userId = ref.watch(authProvider).uid;
-  final selectedCurrencies = ref.watch(
-    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
-  );
+  final userId = ref.watch(authProvider.select((user) => user.uid));
+  final selectedCurrencies = _selectedCurrencies(ref);
   return DashboardScopeQuery(
     userId: userId,
     householdId: scope.activeAccountType == ActiveWalletType.personal
@@ -668,6 +668,18 @@ DashboardScopeQuery _buildScopedQuery({
     startDate: startDate,
     endDate: endDate,
     intervalGranularity: intervalGranularity,
+  );
+}
+
+String? _selectedCurrency(WidgetRef ref) {
+  return ref.watch(
+    homeFilterProvider.select((state) => state.selectedCurrency),
+  );
+}
+
+List<String>? _selectedCurrencies(WidgetRef ref) {
+  return ref.watch(
+    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
   );
 }
 

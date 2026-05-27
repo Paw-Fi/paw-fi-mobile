@@ -209,6 +209,27 @@ List<_KeyedRecentEntry> _keyedLatestRecentEntries(
   }).toList(growable: false);
 }
 
+int _recentExpensesSignature(List<ExpenseEntry> expenses) {
+  var hash = expenses.length;
+  for (final expense in expenses) {
+    hash = Object.hash(
+      hash,
+      expense.id,
+      expense.date.millisecondsSinceEpoch,
+      expense.createdAt.millisecondsSinceEpoch,
+      expense.amountCents,
+      expense.currency,
+      expense.type,
+      expense.category,
+      expense.rawText,
+      expense.merchant,
+      expense.splitGroupId,
+      expense.isRecurring,
+    );
+  }
+  return hash;
+}
+
 Widget buildRecentTransactionsCard(
   BuildContext context,
   ColorScheme colorScheme,
@@ -262,11 +283,14 @@ class _RecentTransactionsCardState
   static const _rowAnimationDuration = Duration(milliseconds: 320);
 
   late List<_RecentTransactionRowState> _rows;
+  List<ExpenseEntry>? _cachedExpensesIdentity;
+  int? _cachedExpensesSignature;
+  List<_KeyedRecentEntry>? _cachedKeyedEntries;
 
   @override
   void initState() {
     super.initState();
-    _rows = _keyedLatestRecentEntries(widget.allExpenses)
+    _rows = _keyedEntriesFor(widget.allExpenses)
         .map(
           (entry) => _RecentTransactionRowState(
             key: entry.key,
@@ -281,7 +305,26 @@ class _RecentTransactionsCardState
   @override
   void didUpdateWidget(covariant _RecentTransactionsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncRows(_keyedLatestRecentEntries(widget.allExpenses));
+    _syncRows(_keyedEntriesFor(widget.allExpenses));
+  }
+
+  List<_KeyedRecentEntry> _keyedEntriesFor(List<ExpenseEntry> expenses) {
+    final cached = _cachedKeyedEntries;
+    if (cached != null && identical(_cachedExpensesIdentity, expenses)) {
+      return cached;
+    }
+
+    final signature = _recentExpensesSignature(expenses);
+    if (cached != null && _cachedExpensesSignature == signature) {
+      _cachedExpensesIdentity = expenses;
+      return cached;
+    }
+
+    final next = _keyedLatestRecentEntries(expenses);
+    _cachedExpensesIdentity = expenses;
+    _cachedExpensesSignature = signature;
+    _cachedKeyedEntries = next;
+    return next;
   }
 
   void _syncRows(List<_KeyedRecentEntry> latest) {
@@ -354,9 +397,11 @@ class _RecentTransactionsCardState
       hasRemovingRows = true;
     }
 
-    setState(() {
-      _rows = nextRows;
-    });
+    if (!_rowStatesEqual(oldRows, nextRows)) {
+      setState(() {
+        _rows = nextRows;
+      });
+    }
 
     if (hasRemovingRows) {
       Future<void>.delayed(_rowAnimationDuration, () {
@@ -366,6 +411,24 @@ class _RecentTransactionsCardState
         });
       });
     }
+  }
+
+  bool _rowStatesEqual(
+    List<_RecentTransactionRowState> previous,
+    List<_RecentTransactionRowState> next,
+  ) {
+    if (previous.length != next.length) return false;
+    for (var index = 0; index < previous.length; index += 1) {
+      final a = previous[index];
+      final b = next[index];
+      if (a.key != b.key ||
+          !identical(a.entry, b.entry) ||
+          a.isRemoving != b.isRemoving ||
+          a.animateIn != b.animateIn) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override

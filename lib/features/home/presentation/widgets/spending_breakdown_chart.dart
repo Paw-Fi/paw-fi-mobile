@@ -46,6 +46,8 @@ class CategoryPieChart extends StatefulWidget {
 
 class _CategoryPieChartState extends State<CategoryPieChart> {
   int? _touchedIndex;
+  _CategoryPieChartCacheKey? _cachedKey;
+  _CategoryPieChartDerivedData? _cachedData;
 
   @override
   void dispose() {
@@ -85,12 +87,9 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
-    final spendOnly = widget.expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-        .toList();
-    final categorySummaries =
-        _buildChartSummaries(context, colorScheme, spendOnly);
-    final totalSpent = _getTotalSpent(spendOnly);
+    final derivedData = _derivedDataFor(context, colorScheme);
+    final categorySummaries = derivedData.categorySummaries;
+    final totalSpent = derivedData.totalSpent;
     final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
     final selected = (_touchedIndex != null &&
             _touchedIndex! >= 0 &&
@@ -296,7 +295,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
       spacing: 16,
       runSpacing: 12,
       alignment: widget.legendAlignment,
-      children: categorySummaries.toList().asMap().entries.map((entry) {
+      children: categorySummaries.asMap().entries.map((entry) {
         final index = entry.key;
         final category = entry.value;
         final isSelected = _touchedIndex == index;
@@ -361,6 +360,43 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
       ),
     );
   }
+
+  _CategoryPieChartDerivedData _derivedDataFor(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    final expensesIdentity = identityHashCode(widget.expenses);
+    final cached = _cachedData;
+    final cachedKey = _cachedKey;
+    if (cached != null &&
+        cachedKey != null &&
+        cachedKey.expensesIdentity == expensesIdentity &&
+        cachedKey.legendItemLimit == widget.legendItemLimit &&
+        cachedKey.otherColor == colorScheme.muted) {
+      return cached;
+    }
+
+    final key = _CategoryPieChartCacheKey(
+      expensesIdentity: expensesIdentity,
+      expensesSignature: _expenseListSignature(widget.expenses),
+      legendItemLimit: widget.legendItemLimit,
+      otherColor: colorScheme.muted,
+    );
+    if (cached != null && _cachedKey == key) {
+      return cached;
+    }
+
+    final spendOnly = widget.expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList(growable: false);
+    final next = _CategoryPieChartDerivedData(
+      categorySummaries: _buildChartSummaries(context, colorScheme, spendOnly),
+      totalSpent: _getTotalSpent(spendOnly),
+    );
+    _cachedKey = key;
+    _cachedData = next;
+    return next;
+  }
 }
 
 class SpendingBreakdownChart extends StatefulWidget {
@@ -392,29 +428,12 @@ class SpendingBreakdownChart extends StatefulWidget {
 }
 
 class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
+  _SpendingBreakdownCacheKey? _cachedKey;
+  List<ExpenseEntry>? _cachedFilteredExpenses;
+
   @override
   Widget build(BuildContext context) {
-    // Resolve this card's date range and filter the full lists locally.
-    final range = getDateRangeFromFilter(
-      widget.dateRangeFilter,
-      widget.customStartDate,
-      widget.customEndDate,
-      now: widget.referenceNow,
-    );
-    final from = range['from']!;
-    final to = range['to']!;
-    final selectedCode = widget.selectedCurrency?.toUpperCase();
-
-    final filteredExpenses = widget.expenses.where((e) {
-      final d = DateTime(e.date.year, e.date.month, e.date.day);
-      final dateOk = !d.isBefore(from) && !d.isAfter(to);
-      final rawCode = (e.currency ?? '').trim().toUpperCase();
-      final currencyOk =
-          selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
-      final type = (e.type ?? 'expense').toLowerCase();
-      final isSpend = type != 'income';
-      return dateOk && currencyOk && isSpend;
-    }).toList();
+    final filteredExpenses = _filteredExpensesFor();
 
     return Container(
       decoration: BoxDecoration(
@@ -465,6 +484,149 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
       ),
     );
   }
+
+  List<ExpenseEntry> _filteredExpensesFor() {
+    final now = widget.referenceNow ?? DateTime.now();
+    final expensesIdentity = identityHashCode(widget.expenses);
+    final referenceDayKey =
+        DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    final selectedCurrency = widget.selectedCurrency?.trim().toUpperCase();
+    final customStartDateKey = widget.customStartDate?.microsecondsSinceEpoch;
+    final customEndDateKey = widget.customEndDate?.microsecondsSinceEpoch;
+    final cached = _cachedFilteredExpenses;
+    final cachedKey = _cachedKey;
+    if (cached != null &&
+        cachedKey != null &&
+        cachedKey.expensesIdentity == expensesIdentity &&
+        cachedKey.dateRangeFilter == widget.dateRangeFilter &&
+        cachedKey.referenceDayKey == referenceDayKey &&
+        cachedKey.selectedCurrency == selectedCurrency &&
+        cachedKey.customStartDateKey == customStartDateKey &&
+        cachedKey.customEndDateKey == customEndDateKey) {
+      return cached;
+    }
+
+    final key = _SpendingBreakdownCacheKey(
+      expensesIdentity: expensesIdentity,
+      expensesSignature: _expenseListSignature(widget.expenses),
+      dateRangeFilter: widget.dateRangeFilter,
+      referenceDayKey: referenceDayKey,
+      selectedCurrency: selectedCurrency,
+      customStartDateKey: customStartDateKey,
+      customEndDateKey: customEndDateKey,
+    );
+    if (cached != null && _cachedKey == key) {
+      return cached;
+    }
+
+    final range = getDateRangeFromFilter(
+      widget.dateRangeFilter,
+      widget.customStartDate,
+      widget.customEndDate,
+      now: now,
+    );
+    final from = range['from']!;
+    final to = range['to']!;
+    final selectedCode = widget.selectedCurrency?.toUpperCase();
+
+    final next = widget.expenses.where((e) {
+      final d = DateTime(e.date.year, e.date.month, e.date.day);
+      final dateOk = !d.isBefore(from) && !d.isAfter(to);
+      final rawCode = (e.currency ?? '').trim().toUpperCase();
+      final currencyOk =
+          selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
+      final type = (e.type ?? 'expense').toLowerCase();
+      final isSpend = type != 'income';
+      return dateOk && currencyOk && isSpend;
+    }).toList(growable: false);
+    _cachedKey = key;
+    _cachedFilteredExpenses = next;
+    return next;
+  }
+}
+
+class _CategoryPieChartDerivedData {
+  const _CategoryPieChartDerivedData({
+    required this.categorySummaries,
+    required this.totalSpent,
+  });
+
+  final List<CategorySummary> categorySummaries;
+  final double totalSpent;
+}
+
+class _CategoryPieChartCacheKey {
+  const _CategoryPieChartCacheKey({
+    required this.expensesIdentity,
+    required this.expensesSignature,
+    required this.legendItemLimit,
+    required this.otherColor,
+  });
+
+  final int expensesIdentity;
+  final int expensesSignature;
+  final int? legendItemLimit;
+  final Color otherColor;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _CategoryPieChartCacheKey &&
+        other.expensesIdentity == expensesIdentity &&
+        other.expensesSignature == expensesSignature &&
+        other.legendItemLimit == legendItemLimit &&
+        other.otherColor == otherColor;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        expensesIdentity,
+        expensesSignature,
+        legendItemLimit,
+        otherColor,
+      );
+}
+
+class _SpendingBreakdownCacheKey {
+  const _SpendingBreakdownCacheKey({
+    required this.expensesIdentity,
+    required this.expensesSignature,
+    required this.dateRangeFilter,
+    required this.referenceDayKey,
+    required this.selectedCurrency,
+    required this.customStartDateKey,
+    required this.customEndDateKey,
+  });
+
+  final int expensesIdentity;
+  final int expensesSignature;
+  final DateRangeFilter dateRangeFilter;
+  final int referenceDayKey;
+  final String? selectedCurrency;
+  final int? customStartDateKey;
+  final int? customEndDateKey;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _SpendingBreakdownCacheKey &&
+        other.expensesIdentity == expensesIdentity &&
+        other.expensesSignature == expensesSignature &&
+        other.dateRangeFilter == dateRangeFilter &&
+        other.referenceDayKey == referenceDayKey &&
+        other.selectedCurrency == selectedCurrency &&
+        other.customStartDateKey == customStartDateKey &&
+        other.customEndDateKey == customEndDateKey;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        expensesIdentity,
+        expensesSignature,
+        dateRangeFilter,
+        referenceDayKey,
+        selectedCurrency,
+        customStartDateKey,
+        customEndDateKey,
+      );
 }
 
 List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
@@ -490,6 +652,22 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
   return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+}
+
+int _expenseListSignature(List<ExpenseEntry> expenses) {
+  var hash = expenses.length;
+  for (final expense in expenses) {
+    hash = Object.hash(
+      hash,
+      expense.date.millisecondsSinceEpoch,
+      expense.amountCents,
+      expense.amount,
+      expense.currency,
+      expense.type,
+      expense.category,
+    );
+  }
+  return hash;
 }
 
 /// Backward-compatible function wrapper
