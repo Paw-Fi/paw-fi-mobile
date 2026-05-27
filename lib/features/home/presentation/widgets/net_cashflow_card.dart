@@ -34,33 +34,6 @@ Widget buildNetCashflowCard(
       isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
   final title = _netCashflowTitleForFilter(context, dateFilter);
   final isBetter = currentNet > previousNet;
-  if (amountAnimationTraceEnabled) {
-    debugAmountAnimationTrace('NetCashflowCard.build.amountInput', {
-      'widgetKey': key,
-      'dateFilter': dateFilter.name,
-      'selectedCurrency': selectedCurrency,
-      'currentTransactionCount': currentTransactions.length,
-      'previousTransactionCount': previousTransactions.length,
-      'currentIncome': currentActuals.$1,
-      'currentSpend': currentActuals.$2,
-      'currentNet': currentNet,
-      'previousIncome': previousActuals.$1,
-      'previousSpend': previousActuals.$2,
-      'previousNet': previousNet,
-      'displayValue': absAmount,
-      'displayCents': (absAmount * 100).round(),
-      'symbol': symbol,
-      'isNegative': isNegative,
-      'clientRecordCount': currentTransactions
-          .where((expense) => (expense.clientRecordId ?? '').isNotEmpty)
-          .length,
-      'clientMutationCount': currentTransactions
-          .where((expense) => (expense.clientMutationId ?? '').isNotEmpty)
-          .length,
-      'sampleTransactions':
-          currentTransactions.take(4).map(_netCashflowExpenseTraceKey),
-    });
-  }
 
   return Container(
     key: key,
@@ -98,17 +71,18 @@ Widget buildNetCashflowCard(
         const SizedBox(height: 8),
         FittedBox(
           fit: BoxFit.scaleDown,
-          child: AnimatedAmountText(
-            value: currentNet.abs(),
-            symbol: symbol,
-            isNegative: currentNet < 0,
-            traceLabel: 'NetCashflowCard.currentNet',
-            style: TextStyle(
-              fontSize: _netCashflowFontSize(displayText),
-              fontWeight: FontWeight.w700,
-              letterSpacing: -1.0,
-              color: colorScheme.foreground,
-              height: 1.1,
+          child: RepaintBoundary(
+            child: AnimatedAmountText(
+              value: currentNet.abs(),
+              symbol: symbol,
+              isNegative: currentNet < 0,
+              style: TextStyle(
+                fontSize: _netCashflowFontSize(displayText),
+                fontWeight: FontWeight.w700,
+                letterSpacing: -1.0,
+                color: colorScheme.foreground,
+                height: 1.1,
+              ),
             ),
           ),
         ),
@@ -193,22 +167,4 @@ double _netCashflowFontSize(String displayText) {
   } else {
     return 32;
   }
-}
-
-String _netCashflowExpenseTraceKey(ExpenseEntry expense) {
-  final id = expense.id.isEmpty ? '<empty>' : expense.id;
-  final clientRecordId = expense.clientRecordId;
-  final clientMutationId = expense.clientMutationId;
-  final walletId = expense.walletId;
-  return [
-    'id:$id',
-    'amountCents:${expense.amountCents}',
-    'currency:${expense.currency ?? '<null>'}',
-    'type:${expense.type ?? '<null>'}',
-    if (clientRecordId != null && clientRecordId.isNotEmpty)
-      'clientRecordId:$clientRecordId',
-    if (clientMutationId != null && clientMutationId.isNotEmpty)
-      'clientMutationId:$clientMutationId',
-    if (walletId != null && walletId.isNotEmpty) 'walletId:$walletId',
-  ].join('|');
 }
