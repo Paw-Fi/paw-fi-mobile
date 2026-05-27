@@ -250,8 +250,12 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         }
 
         if (directResult.transactions.isNotEmpty) {
+          final persistedTransactions =
+              await _loadSyncedTransactionsFromDatabase();
           return ParsedSyncedTransactions(
-            transactions: directResult.transactions,
+            transactions: persistedTransactions.isNotEmpty
+                ? persistedTransactions
+                : directResult.transactions,
             syncStatus: latestSyncStatus,
           );
         }
@@ -277,8 +281,11 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     }
 
     final directResult = await _loadTransactionsFromPlaidSyncFunction();
+    final persistedTransactions = await _loadSyncedTransactionsFromDatabase();
     return ParsedSyncedTransactions(
-      transactions: directResult.transactions,
+      transactions: persistedTransactions.isNotEmpty
+          ? persistedTransactions
+          : directResult.transactions,
       syncStatus: directResult.syncStatus ?? latestSyncStatus,
     );
   }
@@ -627,6 +634,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<List<SyncedTransaction>> _loadSyncedTransactionsFromDatabase() async {
+    const pageSize = 1000;
     final bankAccountIds = _accounts
         .map((account) => account.bankAccountId)
         .toList(growable: false);
@@ -634,6 +642,40 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       return const [];
     }
 
+    final rows = <Map<String, dynamic>>[];
+    var offset = 0;
+
+    while (true) {
+      final page = await _loadSyncedTransactionRowsPage(
+        bankAccountIds: bankAccountIds,
+        offset: offset,
+        limit: pageSize,
+      );
+
+      rows.addAll(page);
+
+      if (page.length < pageSize) {
+        break;
+      }
+
+      offset += pageSize;
+    }
+
+    final transactions = rows
+        .map((row) => SyncedTransaction(
+              expense: ExpenseEntry.fromJson(row),
+              isRecurring: row['is_recurring'] == true,
+              recurrenceRule: row['recurrence_rule'] as Map<String, dynamic>?,
+            ))
+        .toList(growable: false);
+    return inferSyncedRecurringTransactions(transactions);
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSyncedTransactionRowsPage({
+    required List<String> bankAccountIds,
+    required int offset,
+    required int limit,
+  }) async {
     var query = Supabase.instance.client
         .from('expenses')
         .select(
@@ -650,17 +692,14 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       query = query.eq('household_id', widget.session.targetHouseholdId!);
     }
 
-    final rows = await query.order('date', ascending: false).limit(200);
+    final rows = await query
+        .order('date', ascending: false)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
-    final transactions = (rows as List<dynamic>)
+    return (rows as List<dynamic>)
         .whereType<Map<String, dynamic>>()
-        .map((row) => SyncedTransaction(
-              expense: ExpenseEntry.fromJson(row),
-              isRecurring: row['is_recurring'] == true,
-              recurrenceRule: row['recurrence_rule'] as Map<String, dynamic>?,
-            ))
         .toList(growable: false);
-    return inferSyncedRecurringTransactions(transactions);
   }
 
   Future<_DirectPlaidFetchResult>
