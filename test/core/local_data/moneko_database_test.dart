@@ -114,6 +114,53 @@ void main() {
       expect(rows.single.id, 'optimistic_1');
     });
 
+    test('preserves client identity when replacing an optimistic transaction',
+        () async {
+      final optimistic = _entry(
+        id: 'optimistic_1',
+        userId: 'user_1',
+        amountCents: 1800,
+        date: DateTime(2026, 4, 5),
+      );
+      final saved = _entry(
+        id: 'server_1',
+        userId: 'user_1',
+        amountCents: 1800,
+        date: DateTime(2026, 4, 5),
+      );
+
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:optimistic_1',
+        operation: 'create',
+        payload: {'amount': 18},
+      );
+      await database.replaceOptimisticTransaction(
+        optimisticId: optimistic.id,
+        savedEntry: saved,
+        clientMutationId: 'mobile:optimistic_1',
+      );
+
+      var rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      expect(rows.single.id, 'server_1');
+      expect(rows.single.clientRecordId, 'optimistic_1');
+      expect(rows.single.clientMutationId, 'mobile:optimistic_1');
+
+      await database.upsertTransactions([saved.copyWith(amountCents: 1900)]);
+      rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      expect(rows.single.amountCents, 1900);
+      expect(rows.single.clientRecordId, 'optimistic_1');
+      expect(rows.single.clientMutationId, 'mobile:optimistic_1');
+    });
+
     test('returns only retryable outbox rows in creation order', () async {
       final now = DateTime.utc(2026, 4, 6, 12);
 

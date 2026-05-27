@@ -102,6 +102,40 @@ bool _hasRecurringExpense(AsyncValue<List<RecurringTransaction>> state) {
       false;
 }
 
+class _ConnectSocialBannerSnapshot {
+  const _ConnectSocialBannerSnapshot({
+    required this.scopeKey,
+    required this.hasSharedSpace,
+    required this.hasTransactionLogged,
+    required this.hasRecurringExpense,
+    required this.messagingConnected,
+    required this.walletCaptureEnabled,
+    required this.emailImportEnabled,
+    required this.recurringCount,
+  });
+
+  final String scopeKey;
+  final bool hasSharedSpace;
+  final bool hasTransactionLogged;
+  final bool hasRecurringExpense;
+  final bool messagingConnected;
+  final bool walletCaptureEnabled;
+  final bool emailImportEnabled;
+  final int recurringCount;
+}
+
+String _connectSocialBannerScopeKey({
+  required AppUser authState,
+  required HouseholdScope householdScope,
+  required String? recurringHouseholdId,
+}) {
+  return [
+    authState.uid,
+    householdScope.activeAccountType.name,
+    recurringHouseholdId ?? 'personal',
+  ].join('|');
+}
+
 class ConnectSocialBanner extends ConsumerStatefulWidget {
   const ConnectSocialBanner({super.key});
 
@@ -112,6 +146,7 @@ class ConnectSocialBanner extends ConsumerStatefulWidget {
 
 class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
   String? _pendingRecurringLoadKey;
+  _ConnectSocialBannerSnapshot? _lastResolvedSnapshot;
 
   void _scheduleRecurringLoad({
     required String key,
@@ -165,6 +200,14 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
 
     final recurringState =
         ref.watch(recurringTransactionsProvider(recurringHouseholdId));
+    final snapshotScopeKey = _connectSocialBannerScopeKey(
+      authState: authState,
+      householdScope: householdScope,
+      recurringHouseholdId: recurringHouseholdId,
+    );
+    if (_lastResolvedSnapshot?.scopeKey != snapshotScopeKey) {
+      _lastResolvedSnapshot = null;
+    }
 
     final shouldTriggerPreviewLoad = ref.watch(previewModeProvider).isActive &&
         !recurringState.hasLoadedOnce &&
@@ -183,7 +226,7 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       );
     }
 
-    final isBannerReady = _asyncValueHasResolved(hasTransactionsAsync) &&
+    final hasResolvedSnapshot = _asyncValueHasResolved(hasTransactionsAsync) &&
         _asyncValueHasResolved(whatsappAsync) &&
         _asyncValueHasResolved(telegramAsync) &&
         _asyncValueHasResolved(walletCaptureAsync) &&
@@ -191,7 +234,27 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
         recurringState.hasLoadedOnce &&
         _asyncValueHasResolved(recurringState.data);
 
-    if (!isBannerReady) {
+    if (hasResolvedSnapshot) {
+      final whatsappConnected = whatsappAsync.valueOrNull ?? false;
+      final telegramConnected = telegramAsync.valueOrNull ?? false;
+      final hasSharedSpace = userHouseholdsAsync?.valueOrNull
+              ?.any((household) => !household.isPortfolio) ??
+          householdScope.isHouseholdView;
+
+      _lastResolvedSnapshot = _ConnectSocialBannerSnapshot(
+        scopeKey: snapshotScopeKey,
+        hasSharedSpace: hasSharedSpace,
+        hasTransactionLogged: hasTransactionsAsync.valueOrNull ?? false,
+        hasRecurringExpense: _hasRecurringExpense(recurringState.data),
+        messagingConnected: whatsappConnected || telegramConnected,
+        walletCaptureEnabled: walletCaptureAsync.valueOrNull ?? false,
+        emailImportEnabled: emailImportAsync.valueOrNull ?? false,
+        recurringCount: recurringState.data.valueOrNull?.length ?? 0,
+      );
+    }
+
+    final bannerSnapshot = _lastResolvedSnapshot;
+    if (bannerSnapshot == null) {
       _debugPrint(
         '[ConnectSocialBanner] waiting hasTransactionsLoading=${hasTransactionsAsync.isLoading} '
         'whatsappLoading=${whatsappAsync.isLoading} '
@@ -204,23 +267,14 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       return const SizedBox.shrink();
     }
 
-    final whatsappConnected = whatsappAsync.valueOrNull ?? false;
-    final telegramConnected = telegramAsync.valueOrNull ?? false;
-    final messagingConnected = whatsappConnected || telegramConnected;
-    final walletCaptureEnabled = walletCaptureAsync.valueOrNull ?? false;
-    final emailImportEnabled = emailImportAsync.valueOrNull ?? false;
-    final hasSharedSpace = userHouseholdsAsync?.valueOrNull
-            ?.any((household) => !household.isPortfolio) ??
-        householdScope.isHouseholdView;
-
     final steps = _buildSteps(
       context: context,
-      hasSharedSpace: hasSharedSpace,
-      hasTransactionLogged: hasTransactionsAsync.valueOrNull ?? false,
-      hasRecurringExpense: _hasRecurringExpense(recurringState.data),
-      messagingConnected: messagingConnected,
-      walletCaptureEnabled: walletCaptureEnabled,
-      emailImportEnabled: emailImportEnabled,
+      hasSharedSpace: bannerSnapshot.hasSharedSpace,
+      hasTransactionLogged: bannerSnapshot.hasTransactionLogged,
+      hasRecurringExpense: bannerSnapshot.hasRecurringExpense,
+      messagingConnected: bannerSnapshot.messagingConnected,
+      walletCaptureEnabled: bannerSnapshot.walletCaptureEnabled,
+      emailImportEnabled: bannerSnapshot.emailImportEnabled,
       onCreateSpace: () => _openCreateSpace(context),
       onLogExpense: () => handleAiFreeFormText(context, ref),
       onRecurringExpense: () => showAddRecurringSheet(
@@ -242,8 +296,8 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       '[ConnectSocialBanner] scope=$recurringHouseholdId '
       'loaded=${recurringState.hasLoadedOnce} '
       'loading=${recurringState.data.isLoading} '
-      'stateCount=${recurringState.data.valueOrNull?.length ?? 0} '
-      'hasRecurringExpense=${_hasRecurringExpense(recurringState.data)} '
+      'stateCount=${bannerSnapshot.recurringCount} '
+      'hasRecurringExpense=${bannerSnapshot.hasRecurringExpense} '
       'error=${recurringState.data.hasError}',
     );
 

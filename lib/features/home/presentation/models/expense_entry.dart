@@ -32,6 +32,9 @@ class ExpenseEntry {
   final String? accountColor;
   final String? type; // 'expense' | 'income'
   final bool isRecurring;
+  final String? clientRecordId;
+  final String? clientMutationId;
+  final String? idempotencyKey;
 
   ExpenseEntry({
     required this.id,
@@ -59,6 +62,9 @@ class ExpenseEntry {
     this.accountColor,
     this.type,
     this.isRecurring = false,
+    this.clientRecordId,
+    this.clientMutationId,
+    this.idempotencyKey,
   });
 
   double get amount => amountCents / 100.0;
@@ -126,6 +132,12 @@ class ExpenseEntry {
       accountColor: _sanitizeNullable(json['account_color'] as String?),
       type: json['type'] as String?,
       isRecurring: json['is_recurring'] == true,
+      clientRecordId: json['client_record_id'] as String? ??
+          json['clientRecordId'] as String?,
+      clientMutationId: json['client_mutation_id'] as String? ??
+          json['clientMutationId'] as String?,
+      idempotencyKey: json['idempotency_key'] as String? ??
+          json['idempotencyKey'] as String?,
     );
   }
 
@@ -156,6 +168,9 @@ class ExpenseEntry {
       'account_color': accountColor,
       'type': type,
       'is_recurring': isRecurring,
+      'client_record_id': clientRecordId,
+      'client_mutation_id': clientMutationId,
+      'idempotency_key': idempotencyKey,
     };
   }
 
@@ -186,6 +201,9 @@ class ExpenseEntry {
     String? accountColor,
     String? type,
     bool? isRecurring,
+    String? clientRecordId,
+    String? clientMutationId,
+    String? idempotencyKey,
   }) {
     return ExpenseEntry(
       id: id ?? this.id,
@@ -213,6 +231,9 @@ class ExpenseEntry {
       accountColor: accountColor ?? this.accountColor,
       type: type ?? this.type,
       isRecurring: isRecurring ?? this.isRecurring,
+      clientRecordId: clientRecordId ?? this.clientRecordId,
+      clientMutationId: clientMutationId ?? this.clientMutationId,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     );
   }
 }

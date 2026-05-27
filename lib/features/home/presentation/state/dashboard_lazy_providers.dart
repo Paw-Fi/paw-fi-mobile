@@ -331,30 +331,34 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
 }) {
   final merged = <ExpenseEntry>[];
   final seen = <String>{};
-  final fingerprintIndexes = <String, int>{};
+  final reconciliationKeyIndexes = <String, int>{};
+
+  void indexReconciliationKeys(ExpenseEntry entry, int index) {
+    for (final key in _dashboardTransactionReconciliationKeys(entry)) {
+      reconciliationKeyIndexes[key] = index;
+    }
+  }
 
   void addIfUnique(ExpenseEntry entry) {
     if (entry.id.isEmpty) return;
     if (!_matchesDashboardQuery(entry, query)) return;
     if (!seen.add(entry.id)) return;
 
-    final fingerprint = _dashboardTransactionReconciliationFingerprint(entry);
-    final existingIndex =
-        fingerprint == null ? null : fingerprintIndexes[fingerprint];
-    if (existingIndex != null) {
+    for (final key in _dashboardTransactionReconciliationKeys(entry)) {
+      final existingIndex = reconciliationKeyIndexes[key];
+      if (existingIndex == null) continue;
+
       final existing = merged[existingIndex];
-      if (_isOptimisticTransactionId(existing.id) !=
-          _isOptimisticTransactionId(entry.id)) {
-        if (!_isOptimisticTransactionId(entry.id)) {
-          merged[existingIndex] = entry;
-        }
+      if (_shouldReconcileDashboardTransactions(existing, entry, key)) {
+        final replacement =
+            _preferredDashboardTransaction(existing: existing, incoming: entry);
+        merged[existingIndex] = replacement;
+        indexReconciliationKeys(replacement, existingIndex);
         return;
       }
     }
 
-    if (fingerprint != null) {
-      fingerprintIndexes[fingerprint] = merged.length;
-    }
+    indexReconciliationKeys(entry, merged.length);
     merged.add(entry);
   }
 
@@ -407,7 +411,63 @@ bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
 
 bool _isOptimisticTransactionId(String id) => id.startsWith('optimistic_');
 
-String? _dashboardTransactionReconciliationFingerprint(ExpenseEntry entry) {
+List<String> _dashboardTransactionReconciliationKeys(ExpenseEntry entry) {
+  final keys = <String>[];
+  final id = entry.id.trim();
+  final clientRecordId = entry.clientRecordId?.trim();
+  final clientMutationId = entry.clientMutationId?.trim();
+  final idempotencyKey = entry.idempotencyKey?.trim();
+
+  if (_isOptimisticTransactionId(id)) {
+    keys.add('client_record:$id');
+  }
+  if (clientRecordId != null && clientRecordId.isNotEmpty) {
+    keys.add('client_record:$clientRecordId');
+  }
+  if (clientMutationId != null && clientMutationId.isNotEmpty) {
+    keys.add('client_mutation:$clientMutationId');
+  }
+  if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+    keys.add('idempotency:$idempotencyKey');
+  }
+
+  final contentKey = _dashboardTransactionContentFingerprint(entry);
+  if (contentKey != null) {
+    keys.add('content:$contentKey');
+  }
+  return keys;
+}
+
+bool _shouldReconcileDashboardTransactions(
+  ExpenseEntry existing,
+  ExpenseEntry incoming,
+  String key,
+) {
+  final existingIsOptimistic = _isOptimisticTransactionId(existing.id);
+  final incomingIsOptimistic = _isOptimisticTransactionId(incoming.id);
+  if (existingIsOptimistic != incomingIsOptimistic) {
+    return true;
+  }
+
+  return !key.startsWith('content:');
+}
+
+ExpenseEntry _preferredDashboardTransaction({
+  required ExpenseEntry existing,
+  required ExpenseEntry incoming,
+}) {
+  final existingIsOptimistic = _isOptimisticTransactionId(existing.id);
+  final incomingIsOptimistic = _isOptimisticTransactionId(incoming.id);
+  if (existingIsOptimistic != incomingIsOptimistic) {
+    return incomingIsOptimistic ? existing : incoming;
+  }
+
+  final existingUpdatedAt = existing.updatedAt ?? existing.createdAt;
+  final incomingUpdatedAt = incoming.updatedAt ?? incoming.createdAt;
+  return incomingUpdatedAt.isAfter(existingUpdatedAt) ? incoming : existing;
+}
+
+String? _dashboardTransactionContentFingerprint(ExpenseEntry entry) {
   final normalizedText = _normalizedDashboardTransactionText(entry);
   if (normalizedText.isEmpty) return null;
   final dateKey = '${entry.date.year.toString().padLeft(4, '0')}-'

@@ -6,6 +6,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 Widget buildNetCashflowCard(
   BuildContext context,
@@ -17,7 +18,6 @@ Widget buildNetCashflowCard(
   DateRangeFilter dateFilter, {
   Key? key,
   String? selectedCurrency,
-
   DateTime? customStartDate,
   DateTime? customEndDate,
 }) {
@@ -34,6 +34,33 @@ Widget buildNetCashflowCard(
       isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
   final title = _netCashflowTitleForFilter(context, dateFilter);
   final isBetter = currentNet > previousNet;
+  if (amountAnimationTraceEnabled) {
+    debugAmountAnimationTrace('NetCashflowCard.build.amountInput', {
+      'widgetKey': key,
+      'dateFilter': dateFilter.name,
+      'selectedCurrency': selectedCurrency,
+      'currentTransactionCount': currentTransactions.length,
+      'previousTransactionCount': previousTransactions.length,
+      'currentIncome': currentActuals.$1,
+      'currentSpend': currentActuals.$2,
+      'currentNet': currentNet,
+      'previousIncome': previousActuals.$1,
+      'previousSpend': previousActuals.$2,
+      'previousNet': previousNet,
+      'displayValue': absAmount,
+      'displayCents': (absAmount * 100).round(),
+      'symbol': symbol,
+      'isNegative': isNegative,
+      'clientRecordCount': currentTransactions
+          .where((expense) => (expense.clientRecordId ?? '').isNotEmpty)
+          .length,
+      'clientMutationCount': currentTransactions
+          .where((expense) => (expense.clientMutationId ?? '').isNotEmpty)
+          .length,
+      'sampleTransactions':
+          currentTransactions.take(4).map(_netCashflowExpenseTraceKey),
+    });
+  }
 
   return Container(
     key: key,
@@ -71,10 +98,11 @@ Widget buildNetCashflowCard(
         const SizedBox(height: 8),
         FittedBox(
           fit: BoxFit.scaleDown,
-          child: _AnimatedNumberText(
+          child: AnimatedAmountText(
             value: currentNet.abs(),
             symbol: symbol,
             isNegative: currentNet < 0,
+            traceLabel: 'NetCashflowCard.currentNet',
             style: TextStyle(
               fontSize: _netCashflowFontSize(displayText),
               fontWeight: FontWeight.w700,
@@ -167,36 +195,20 @@ double _netCashflowFontSize(String displayText) {
   }
 }
 
-/// Animated number that counts up from 0 to target value
-class _AnimatedNumberText extends StatelessWidget {
-  final double value;
-  final String symbol;
-  final TextStyle style;
-  final bool isNegative;
-
-  const _AnimatedNumberText({
-    required this.value,
-    required this.symbol,
-    required this.style,
-    this.isNegative = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value),
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeOutCubic,
-      builder: (context, val, child) {
-        final formatted =
-            formatLocalizedNumber(context, double.parse(formatAmount(val)));
-        final displayText =
-            isNegative ? '-$symbol$formatted' : '$symbol$formatted';
-        return Text(
-          displayText,
-          style: style,
-        );
-      },
-    );
-  }
+String _netCashflowExpenseTraceKey(ExpenseEntry expense) {
+  final id = expense.id.isEmpty ? '<empty>' : expense.id;
+  final clientRecordId = expense.clientRecordId;
+  final clientMutationId = expense.clientMutationId;
+  final walletId = expense.walletId;
+  return [
+    'id:$id',
+    'amountCents:${expense.amountCents}',
+    'currency:${expense.currency ?? '<null>'}',
+    'type:${expense.type ?? '<null>'}',
+    if (clientRecordId != null && clientRecordId.isNotEmpty)
+      'clientRecordId:$clientRecordId',
+    if (clientMutationId != null && clientMutationId.isNotEmpty)
+      'clientMutationId:$clientMutationId',
+    if (walletId != null && walletId.isNotEmpty) 'walletId:$walletId',
+  ].join('|');
 }

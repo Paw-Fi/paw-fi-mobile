@@ -280,16 +280,26 @@ class MonekoDatabase {
     required String operation,
     required Map<String, dynamic> payload,
   }) async {
+    final entryWithMutationMetadata = entry.copyWith(
+      clientRecordId: entry.clientRecordId ?? entry.id,
+      clientMutationId: entry.clientMutationId ?? clientMutationId,
+      idempotencyKey: entry.idempotencyKey ??
+          payload['idempotencyKey']?.toString() ??
+          clientMutationId,
+    );
     _runInTransaction(() {
-      _upsertTransaction(entry, syncStatus: localSyncStatusLocal);
+      _upsertTransaction(
+        entryWithMutationMetadata,
+        syncStatus: localSyncStatusLocal,
+      );
       _enqueueMutationRow(
         clientMutationId: clientMutationId,
         entityType: 'transaction',
-        entityId: entry.id,
+        entityId: entryWithMutationMetadata.id,
         operation: operation,
         payload: payload,
       );
-      _rebuildSummary(_SummaryKey.fromEntry(entry));
+      _rebuildSummary(_SummaryKey.fromEntry(entryWithMutationMetadata));
     });
 
     _notifyChanged();
@@ -531,6 +541,11 @@ class MonekoDatabase {
     required ExpenseEntry savedEntry,
     required String clientMutationId,
   }) async {
+    final savedEntryWithMutationMetadata = savedEntry.copyWith(
+      clientRecordId: savedEntry.clientRecordId ?? optimisticId,
+      clientMutationId: savedEntry.clientMutationId ?? clientMutationId,
+      idempotencyKey: savedEntry.idempotencyKey ?? clientMutationId,
+    );
     final touched = <_SummaryKey>{};
     _runInTransaction(() {
       final optimisticKey = _summaryKeyForTransactionId(optimisticId);
@@ -542,11 +557,11 @@ class MonekoDatabase {
       );
 
       _upsertTransaction(
-        savedEntry,
+        savedEntryWithMutationMetadata,
         syncStatus: localSyncStatusSynced,
         preserveLocalPending: false,
       );
-      touched.add(_SummaryKey.fromEntry(savedEntry));
+      touched.add(_SummaryKey.fromEntry(savedEntryWithMutationMetadata));
       _markMutationStatus(
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
@@ -2084,8 +2099,9 @@ class MonekoDatabase {
         currency, category, created_at, updated_at, raw_text, merchant,
         breakdown_json, receipt_image_url, shared_member_ids_json,
         split_group_id, bank_account_id, wallet_id, account_name, account_icon,
-        account_color, type, is_recurring, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        account_color, type, is_recurring, client_record_id,
+        client_mutation_id, idempotency_key, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -2110,6 +2126,18 @@ class MonekoDatabase {
         account_color = excluded.account_color,
         type = excluded.type,
         is_recurring = excluded.is_recurring,
+        client_record_id = COALESCE(
+          excluded.client_record_id,
+          local_transactions.client_record_id
+        ),
+        client_mutation_id = COALESCE(
+          excluded.client_mutation_id,
+          local_transactions.client_mutation_id
+        ),
+        idempotency_key = COALESCE(
+          excluded.idempotency_key,
+          local_transactions.idempotency_key
+        ),
         sync_status = excluded.sync_status
       ''',
       [
@@ -2137,6 +2165,9 @@ class MonekoDatabase {
         entry.accountColor,
         entry.type ?? 'expense',
         entry.isRecurring ? 1 : 0,
+        entry.clientRecordId,
+        entry.clientMutationId,
+        entry.idempotencyKey,
         syncStatus,
       ],
     );
@@ -2478,6 +2509,9 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     accountColor: row['account_color'] as String?,
     type: row['type'] as String?,
     isRecurring: (row['is_recurring'] as int? ?? 0) == 1,
+    clientRecordId: row['client_record_id'] as String?,
+    clientMutationId: row['client_mutation_id'] as String?,
+    idempotencyKey: row['idempotency_key'] as String?,
   );
 }
 

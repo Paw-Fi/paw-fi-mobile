@@ -151,7 +151,13 @@ Future<void> _dispatchMobileMutation(
         }
         await database.replaceOptimisticTransaction(
           optimisticId: mutation.entityId,
-          savedEntry: ExpenseEntry.fromJson(savedPayload),
+          savedEntry: ExpenseEntry.fromJson(savedPayload).copyWith(
+            clientRecordId: mutation.entityId,
+            clientMutationId: mutation.clientMutationId,
+            idempotencyKey:
+                _metadataFromPayload(payload)['idempotencyKey']?.toString() ??
+                    mutation.clientMutationId,
+          ),
           clientMutationId: mutation.clientMutationId,
         );
       }

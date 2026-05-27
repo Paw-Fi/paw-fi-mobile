@@ -271,10 +271,15 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final saved = responseMap?['data'];
       final savedEntry =
           saved is Map<String, dynamic> ? ExpenseEntry.fromJson(saved) : null;
-      if (savedEntry != null) {
+      final reconciledEntry = savedEntry?.copyWith(
+        clientRecordId: mutationMetadata.clientRecordId,
+        clientMutationId: mutationMetadata.clientMutationId,
+        idempotencyKey: mutationMetadata.idempotencyKey,
+      );
+      if (reconciledEntry != null) {
         await database.replaceOptimisticTransaction(
           optimisticId: optimisticId,
-          savedEntry: savedEntry,
+          savedEntry: reconciledEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
       } else {
@@ -301,7 +306,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       state = const AsyncValue.data(null);
-      return savedEntry;
+      return reconciledEntry;
     } catch (error, stackTrace) {
       if (queuedMutationId != null &&
           optimisticId != null &&
@@ -426,6 +431,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       splitGroupId: splitGroupId,
       walletId: accountId,
       type: 'expense',
+      clientRecordId: expenseId,
     );
   }
 

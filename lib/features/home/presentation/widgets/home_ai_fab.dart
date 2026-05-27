@@ -1095,7 +1095,11 @@ Future<void> _persistAiTransactions(
     required ExpenseEntry savedEntry,
   }) async {
     final optimisticId = prepared.item.optimisticId;
-    var entryToStore = savedEntry;
+    var entryToStore = savedEntry.copyWith(
+      clientRecordId: prepared.metadata.clientRecordId,
+      clientMutationId: prepared.metadata.clientMutationId,
+      idempotencyKey: prepared.metadata.idempotencyKey,
+    );
     final savedHouseholdId = savedEntry.householdId?.trim();
     if (savedHouseholdId != null &&
         savedHouseholdId.isNotEmpty &&
@@ -1128,7 +1132,7 @@ Future<void> _persistAiTransactions(
             .addSplitGroup(savedHouseholdId, optimisticSplitGroup);
         if (existingSplitGroupId == null || existingSplitGroupId.isEmpty) {
           entryToStore =
-              savedEntry.copyWith(splitGroupId: optimisticSplitGroup.id);
+              entryToStore.copyWith(splitGroupId: optimisticSplitGroup.id);
         }
       } else {
         final optimisticSplitsNotifier =

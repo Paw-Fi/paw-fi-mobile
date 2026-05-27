@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
 class SpendingCard extends StatefulWidget {
@@ -109,6 +110,31 @@ class _SpendingCardState extends State<SpendingCard> {
 
     final currencyCode = widget.selectedCurrency ?? 'USD';
     final symbol = resolveCurrencySymbol(currencyCode);
+    if (amountAnimationTraceEnabled) {
+      debugAmountAnimationTrace('SpendingCard.build.amountInput', {
+        'stateId': identityHashCode(this),
+        'widgetKey': widget.key,
+        'dateFilter': widget.dateFilter.name,
+        'selectedCurrency': widget.selectedCurrency,
+        'selectedCurrencies': selectedCurrencies?.join(','),
+        'shouldConvertCurrencies': shouldConvertCurrencies,
+        'sourceExpenseCount': sourceExpenses.length,
+        'filteredExpenseCount': filteredExpenses.length,
+        'periodCount': sortedDates.length,
+        'bucketsTotal': bucketsTotal,
+        'directTotal': directTotal,
+        'totalSpent': totalSpent,
+        'displayCents': (totalSpent * 100).round(),
+        'symbol': symbol,
+        'clientRecordCount': filteredExpenses
+            .where((expense) => (expense.clientRecordId ?? '').isNotEmpty)
+            .length,
+        'clientMutationCount': filteredExpenses
+            .where((expense) => (expense.clientMutationId ?? '').isNotEmpty)
+            .length,
+        'sampleExpenses': filteredExpenses.take(4).map(_expenseTraceKey),
+      });
+    }
 
     // If no data, synthesize a flat 0-line chart
     List<DateTime> effectiveDates = sortedDates;
@@ -200,9 +226,10 @@ class _SpendingCardState extends State<SpendingCard> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _AnimatedNumberText(
+                  AnimatedAmountText(
                     value: totalSpent,
                     symbol: symbol,
+                    traceLabel: 'SpendingCard.totalSpent',
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.w700,
@@ -514,34 +541,6 @@ class _SpendingCardState extends State<SpendingCard> {
   }
 }
 
-/// Animated number that counts up from 0 to target value
-class _AnimatedNumberText extends StatelessWidget {
-  final double value;
-  final String symbol;
-  final TextStyle style;
-
-  const _AnimatedNumberText({
-    required this.value,
-    required this.symbol,
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value),
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeOutCubic,
-      builder: (context, val, child) {
-        return Text(
-          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(val)))}',
-          style: style,
-        );
-      },
-    );
-  }
-}
-
 class _NavButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
@@ -599,4 +598,22 @@ Widget buildSpendingCard(
     customStartDate: customStartDate,
     customEndDate: customEndDate,
   );
+}
+
+String _expenseTraceKey(ExpenseEntry expense) {
+  final id = expense.id.isEmpty ? '<empty>' : expense.id;
+  final clientRecordId = expense.clientRecordId;
+  final clientMutationId = expense.clientMutationId;
+  final walletId = expense.walletId;
+  return [
+    'id:$id',
+    'amountCents:${expense.amountCents}',
+    'currency:${expense.currency ?? '<null>'}',
+    'type:${expense.type ?? '<null>'}',
+    if (clientRecordId != null && clientRecordId.isNotEmpty)
+      'clientRecordId:$clientRecordId',
+    if (clientMutationId != null && clientMutationId.isNotEmpty)
+      'clientMutationId:$clientMutationId',
+    if (walletId != null && walletId.isNotEmpty) 'walletId:$walletId',
+  ].join('|');
 }

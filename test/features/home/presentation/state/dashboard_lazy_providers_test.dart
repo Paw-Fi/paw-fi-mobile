@@ -13,15 +13,28 @@ ExpenseEntry _entry(
   DateTime date, {
   int amountCents = 1000,
   String currency = 'USD',
+  String? userId,
+  String? category,
+  String? rawText,
+  String? merchant,
+  String? clientRecordId,
+  String? clientMutationId,
+  String? idempotencyKey,
 }) =>
     ExpenseEntry(
       id: id,
+      userId: userId,
       date: date,
       amountCents: amountCents,
       createdAt: date,
       type: 'expense',
-      category: 'food',
+      category: category ?? 'food',
       currency: currency,
+      rawText: rawText,
+      merchant: merchant,
+      clientRecordId: clientRecordId,
+      clientMutationId: clientMutationId,
+      idempotencyKey: idempotencyKey,
     );
 
 class _FakeTransactionsFeedService extends TransactionsFeedService {
@@ -174,5 +187,68 @@ void main() {
     expect(result.single.id, 'range');
     expect(service.lastAllPagesQuery?.selectedCurrency, 'USD');
     expect(service.lastAllPagesQuery?.selectedCurrencies, ['EUR', 'USD']);
+  });
+
+  test(
+      'mergeDashboardTransactionsWithLocalOverlay collapses a saved row with its stale optimistic row',
+      () {
+    final date = DateTime(2026, 4, 3);
+    final query = buildQuery().copyWith(selectedCurrencies: const ['USD']);
+    final optimistic = _entry(
+      'optimistic_1',
+      date,
+      userId: 'user-1',
+      amountCents: 1299,
+      category: 'food',
+      rawText: 'coffee',
+    );
+    final saved = _entry(
+      'server_1',
+      date,
+      userId: 'user-1',
+      amountCents: 1299,
+      category: 'cafes',
+      merchant: 'Coffee Shop',
+      clientRecordId: optimistic.id,
+      clientMutationId: 'mobile:${optimistic.id}',
+      idempotencyKey: 'mobile:${optimistic.id}',
+    );
+
+    final merged = mergeDashboardTransactionsWithLocalOverlay(
+      base: [optimistic],
+      localOverlay: [saved],
+      query: query,
+    );
+
+    expect(merged, hasLength(1));
+    expect(merged.single.id, 'server_1');
+  });
+
+  test('mergeDashboardTransactionsWithLocalOverlay keeps distinct server rows',
+      () {
+    final date = DateTime(2026, 4, 3);
+    final query = buildQuery().copyWith(selectedCurrencies: const ['USD']);
+    final first = _entry(
+      'server_1',
+      date,
+      userId: 'user-1',
+      amountCents: 1299,
+      rawText: 'coffee',
+    );
+    final second = _entry(
+      'server_2',
+      date,
+      userId: 'user-1',
+      amountCents: 1299,
+      rawText: 'coffee',
+    );
+
+    final merged = mergeDashboardTransactionsWithLocalOverlay(
+      base: [second],
+      localOverlay: [first],
+      query: query,
+    );
+
+    expect(merged.map((entry) => entry.id), ['server_1', 'server_2']);
   });
 }

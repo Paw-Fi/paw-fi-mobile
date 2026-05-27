@@ -3263,15 +3263,21 @@ class _UnifiedTransactionSheetState
           throw Exception(error ?? 'Failed to save income');
         }
 
+        final savedIncomeEntry =
+            _expenseEntryFromIncome(saved, userId: user.uid).copyWith(
+          clientRecordId: mutationMetadata.clientRecordId,
+          clientMutationId: mutationMetadata.clientMutationId,
+          idempotencyKey: mutationMetadata.idempotencyKey,
+        );
         replaceOptimisticTransactionWithContainer(
           container: container,
           optimisticId: optimisticId,
-          savedEntry: _expenseEntryFromIncome(saved, userId: user.uid),
+          savedEntry: savedIncomeEntry,
           householdId: householdId,
         );
         await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticId,
-          savedEntry: _expenseEntryFromIncome(saved, userId: user.uid),
+          savedEntry: savedIncomeEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
       } else {

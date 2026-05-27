@@ -89,6 +89,7 @@ ExpenseEntry buildOptimisticEntry({
     splitGroupId: splitGroupId,
     walletId: accountId,
     type: type,
+    clientRecordId: optimisticId,
   );
 }
 
