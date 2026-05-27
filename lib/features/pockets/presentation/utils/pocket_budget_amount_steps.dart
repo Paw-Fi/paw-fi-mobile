@@ -39,6 +39,7 @@ const Map<String, double> pocketCurrencyBudgetBaselines = {
   'KES': 120000,
   'KRW': 6000000,
   'LKR': 300000,
+  'MOP': 60000,
   'MXN': 30000,
   'MYR': 10000,
   'MWK': 20000000,

@@ -68,6 +68,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     // Asia‑Pacific
     'CN': 'CNY',
     'HK': 'HKD',
+    'MO': 'MOP',
     'JP': 'JPY',
     'KR': 'KRW',
     'VN': 'VND',

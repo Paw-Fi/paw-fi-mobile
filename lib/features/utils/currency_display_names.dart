@@ -8,6 +8,7 @@ const Map<String, String> currencyDisplayNames = {
   'CNY': 'Chinese Yuan',
   'CHF': 'Swiss Franc',
   'HKD': 'Hong Kong Dollar',
+  'MOP': 'Macanese Pataca',
   'SGD': 'Singapore Dollar',
   'NZD': 'New Zealand Dollar',
   'INR': 'Indian Rupee',
