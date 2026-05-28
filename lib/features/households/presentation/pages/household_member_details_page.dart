@@ -16,11 +16,10 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/features/utils/datetime.dart';
+import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
 
 class HouseholdMemberDetailsPage extends HookConsumerWidget {
   final HouseholdMember member;
@@ -57,7 +56,9 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     final rawTransactionsById = <String, ExpenseEntry>{
       for (final transaction in transactions) transaction.id: transaction,
     };
-    final groupedTransactions = _groupTransactionsByDate(memberTransactions);
+    final renderItems = buildGroupedTransactionRenderItems(memberTransactions);
+    final renderItemIndexByKey =
+        buildGroupedTransactionRenderItemIndexByKey(renderItems);
     final totalSpentCentsForRange = memberTransactions.fold<int>(
       0,
       (sum, entry) => sum + entry.amountCents.abs(),
@@ -116,24 +117,20 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                 ),
               ),
             ),
-            SliverPadding(
+            SliverGroupedTransactionsList(
+              items: renderItems,
+              itemIndexByKey: renderItemIndexByKey,
+              currency: currency,
+              backgroundColor: colorScheme.appBackground,
+              showCurrencyFlag: currencyRates != null,
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final date = groupedTransactions.keys.elementAt(index);
-                    final expenses = groupedTransactions[date]!;
-                    return _buildDaySection(
-                      context,
-                      colorScheme,
-                      date,
-                      expenses,
-                      rawTransactionsById,
-                    );
-                  },
-                  childCount: groupedTransactions.length,
-                ),
-              ),
+              useHorizontalPadding: false,
+              onTransactionTap: (expense) {
+                showUnifiedTransactionSheet(
+                  context,
+                  existingExpense: rawTransactionsById[expense.id] ?? expense,
+                );
+              },
             ),
           ],
         ],
@@ -698,94 +695,6 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildDaySection(
-    BuildContext context,
-    ColorScheme colorScheme,
-    DateTime date,
-    List<ExpenseEntry> expenses,
-    Map<String, ExpenseEntry> rawTransactionsById,
-  ) {
-    final isToday = DateTime.now().difference(date).inDays == 0 &&
-        DateTime.now().day == date.day;
-    final dateStr =
-        isToday ? context.l10n.today : DateFormat.MMMEd().format(date);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12, top: 12),
-          child: Text(
-            dateStr.toUpperCase(),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.8),
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: colorScheme.homeCardSurface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: colorScheme.homeCardBorder,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.homeCardShadow,
-                blurRadius: 32,
-                offset: const Offset(0, 8),
-                spreadRadius: -4,
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Column(
-              children: expenses.mapIndexed((index, expense) {
-                final isLast = index == expenses.length - 1;
-                final rawExpense = rawTransactionsById[expense.id] ?? expense;
-                final isIncome =
-                    (expense.type ?? 'expense').toLowerCase() == 'income';
-                final localDisplayDateTime = combineLocalDateWithLocalTime(
-                  date: expense.date,
-                  timeSource: expense.createdAt,
-                );
-                return Column(
-                  children: [
-                    buildExpenseTransactionTile(
-                      context: context,
-                      category: expense.category,
-                      rawText: expense.rawText,
-                      date: localDisplayDateTime,
-                      amount: expense.amount,
-                      currency: expense.currency ?? currency,
-                      isIncome: isIncome,
-                      onTap: () => showUnifiedTransactionSheet(
-                        context,
-                        existingExpense: rawExpense,
-                      ),
-                    ),
-                    if (!isLast)
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        indent: 56,
-                        color: colorScheme.border.withValues(alpha: 0.1),
-                      ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
     return Center(
       child: Padding(
@@ -980,19 +889,6 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     return memberTransactions;
   }
 
-  Map<DateTime, List<ExpenseEntry>> _groupTransactionsByDate(
-      List<ExpenseEntry> transactions) {
-    final grouped = <DateTime, List<ExpenseEntry>>{};
-    for (final t in transactions) {
-      final date = DateTime(t.date.year, t.date.month, t.date.day);
-      if (!grouped.containsKey(date)) {
-        grouped[date] = [];
-      }
-      grouped[date]!.add(t);
-    }
-    return grouped;
-  }
-
   Future<String?> _getUserAvatarUrl(String userId) async {
     try {
       final supabase = Supabase.instance.client;
@@ -1122,90 +1018,101 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
         ),
         iconTheme: IconThemeData(color: colorScheme.foreground),
       ),
-      body: ListView(
+      body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: colorScheme.cardSurface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: colorScheme.homeCardBorder,
-                width: 1,
+        itemCount: sortedTransactions.isEmpty
+            ? 5
+            : 4 + sortedTransactions.length,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: colorScheme.cardSurface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: colorScheme.homeCardBorder,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.homeCardShadow,
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.homeCardShadow,
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: getCategoryColor(category).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: getCategoryColor(category).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      getCategoryIcon(category),
+                      color: getCategoryColor(category),
+                      size: 24,
+                    ),
                   ),
-                  child: Icon(
-                    getCategoryIcon(category),
-                    color: getCategoryColor(category),
-                    size: 24,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.totalSpent,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '$symbol$formattedTotal',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${sortedTransactions.length} ${context.l10n.transactions}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.totalSpent,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '$symbol$formattedTotal',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${sortedTransactions.length} ${context.l10n.transactions}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.recentTransactions,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (sortedTransactions.isEmpty)
-            Padding(
+                ],
+              ),
+            );
+          }
+          if (index == 1) {
+            return const SizedBox(height: 16);
+          }
+          if (index == 2) {
+            return Text(
+              context.l10n.recentTransactions,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            );
+          }
+          if (index == 3) {
+            return const SizedBox(height: 8);
+          }
+          if (sortedTransactions.isEmpty) {
+            return Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
                 context.l10n.noTransactionsYet,
@@ -1214,25 +1121,26 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
                   color: colorScheme.mutedForeground,
                 ),
               ),
-            )
-          else
-            ...sortedTransactions.map((expense) {
-              final rawExpense = rawTransactionsById[expense.id] ?? expense;
-              return TransactionListTile(
-                category: expense.category ?? category,
-                title: categoryLabel,
-                description: expense.rawText,
-                date: expense.date,
-                amount: expense.amountCents / 100.0,
-                currency: expense.currency ?? currency,
-                isIncome: false,
-                onTap: () => showUnifiedTransactionSheet(
-                  context,
-                  existingExpense: rawExpense,
-                ),
-              );
-            }),
-        ],
+            );
+          }
+
+          final expense = sortedTransactions[index - 4];
+          final rawExpense = rawTransactionsById[expense.id] ?? expense;
+          return TransactionListTile(
+            key: ValueKey('member-category-transaction:${expense.id}'),
+            category: expense.category ?? category,
+            title: categoryLabel,
+            description: expense.rawText,
+            date: expense.date,
+            amount: expense.amountCents / 100.0,
+            currency: expense.currency ?? currency,
+            isIncome: false,
+            onTap: () => showUnifiedTransactionSheet(
+              context,
+              existingExpense: rawExpense,
+            ),
+          );
+        },
       ),
     );
   }

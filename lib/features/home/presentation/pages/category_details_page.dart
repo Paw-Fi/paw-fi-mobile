@@ -62,6 +62,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     for (final filter in _dateFilterOptions) filter: GlobalKey(),
   };
   bool _didScrollInitialDateFilterIntoView = false;
+  _CategoryRenderCacheKey? _renderCacheKey;
+  _CategoryRenderCacheResult? _cachedRenderResult;
 
   late DateRangeFilter _selectedDateFilter;
   DateTime? _customStart;
@@ -224,6 +226,51 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     await ref.read(transactionsFeedProvider(query).notifier).refresh();
   }
 
+  _CategoryRenderCacheResult _resolveRenderItems({
+    required List<ExpenseEntry> displayExpenses,
+    required List<MonthTransactionGroup> monthGroups,
+  }) {
+    final cacheKey = _CategoryRenderCacheKey(
+      displayExpensesSignature: _expenseEntriesSignature(displayExpenses),
+    );
+
+    if (_cachedRenderResult != null && _renderCacheKey == cacheKey) {
+      return _cachedRenderResult!;
+    }
+
+    final items = buildVisibleTransactionRenderItems(
+      monthGroups: monthGroups,
+      visibleExpenseCount: displayExpenses.length,
+    );
+    final result = _CategoryRenderCacheResult(
+      items: items,
+      indexByKey: buildTransactionRenderItemIndexByKey(items),
+    );
+    _renderCacheKey = cacheKey;
+    _cachedRenderResult = result;
+    return result;
+  }
+
+  int _expenseEntriesSignature(List<ExpenseEntry> expenses) {
+    return Object.hashAll(
+      expenses.map(
+        (expense) => Object.hash(
+          expense.id,
+          expense.date,
+          expense.createdAt,
+          expense.amountCents,
+          expense.householdId,
+          expense.currency,
+          expense.category,
+          expense.rawText,
+          expense.type,
+          expense.isRecurring,
+          expense.walletId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -233,15 +280,24 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     final feedState = ref.watch(transactionsFeedProvider(query));
     final isMultiCurrencySelection =
         (query.normalizedSelectedCurrencies?.length ?? 0) > 1;
-    final allItemsAsync = isMultiCurrencySelection
-        ? ref.watch(transactionsFeedAllItemsProvider(query))
-        : null;
     final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
         const CurrencyRateTable(
           baseCurrency: 'USD',
           rates: CurrencyRates.rates,
           isStale: true,
         );
+    final convertedRollupSummary = isMultiCurrencySelection
+        ? summarizeTransactionRollupsInCurrency(
+            feedState.summary,
+            targetCurrency: query.selectedCurrency ?? 'USD',
+            rates: rateTable,
+          )
+        : null;
+    final shouldLoadCompleteAggregateRows =
+        isMultiCurrencySelection && convertedRollupSummary == null;
+    final allItemsAsync = shouldLoadCompleteAggregateRows
+        ? ref.watch(transactionsFeedAllItemsProvider(query))
+        : null;
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final contact =
         ref.watch(analyticsProvider.select((state) => state.contact));
@@ -320,16 +376,17 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           )
         : expenses;
 
-    // Derived states
     final monthGroups = groupTransactionsByMonth(displayExpenses);
-    final renderItems = buildVisibleTransactionRenderItems(
+    final renderResult = _resolveRenderItems(
+      displayExpenses: displayExpenses,
       monthGroups: monthGroups,
-      visibleExpenseCount: displayExpenses.length,
     );
+    final renderItems = renderResult.items;
+    final renderItemIndexByKey = renderResult.indexByKey;
 
     final aggregateActualExpenses =
         allItemsAsync?.valueOrNull ?? const <ExpenseEntry>[];
-    final aggregateExpenses = isMultiCurrencySelection
+    final aggregateExpenses = shouldLoadCompleteAggregateRows
         ? [
             ...aggregateActualExpenses,
             ...dedupeProjectedRecurringExpenseEntries(
@@ -339,11 +396,18 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           ]
         : expenses;
     final aggregateSummary = isMultiCurrencySelection
-        ? summarizeTransactionsInCurrency(
-            aggregateExpenses,
-            targetCurrency: query.selectedCurrency ?? 'USD',
-            rates: rateTable,
-          )
+        ? convertedRollupSummary == null
+            ? summarizeTransactionsInCurrency(
+                aggregateExpenses,
+                targetCurrency: query.selectedCurrency ?? 'USD',
+                rates: rateTable,
+              )
+            : addConvertedExpensesToSummary(
+                convertedRollupSummary,
+                dedupedProjectedRecurringInCategory,
+                targetCurrency: query.selectedCurrency ?? 'USD',
+                rates: rateTable,
+              )
         : feedState.summary.addingExpenses(dedupedProjectedRecurringInCategory);
     final totalSpent = aggregateSummary.expenseTotal.abs();
     final count = aggregateSummary.transactionCount;
@@ -351,13 +415,13 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
 
     // Top merchant
     final Map<String, double> merchantTally = {};
-    final convertedAggregateExpenses = isMultiCurrencySelection
+    final convertedAggregateExpenses = shouldLoadCompleteAggregateRows
         ? convertTransactionsToCurrency(
             aggregateExpenses,
             targetCurrency: query.selectedCurrency ?? 'USD',
             rates: rateTable,
           )
-        : aggregateExpenses;
+        : displayExpenses;
     for (final e in convertedAggregateExpenses) {
       final merchant = (e.merchant ?? e.rawText ?? '').trim();
       if (merchant.isNotEmpty) {
@@ -384,6 +448,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           onRefresh: _refreshData,
           child: CustomScrollView(
             controller: _scrollController,
+            key: PageStorageKey('category_details_scroll_${widget.categoryKey}'),
             slivers: [
               SliverAppBar(
                 pinned: true,
@@ -409,7 +474,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 ),
               ),
 
-              if (isMultiCurrencySelection &&
+              if (shouldLoadCompleteAggregateRows &&
                   allItemsAsync?.valueOrNull == null &&
                   (allItemsAsync?.hasError ?? false))
                 SliverFillRemaining(
@@ -433,7 +498,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   ),
                 )
               else if ((feedState.isLoading && expenses.isEmpty) ||
-                  (isMultiCurrencySelection &&
+                  (shouldLoadCompleteAggregateRows &&
                       allItemsAsync?.valueOrNull == null &&
                       (allItemsAsync?.isLoading ?? false)))
                 SliverFillRemaining(
@@ -496,11 +561,19 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
 
                         if (item.isMonthHeader) {
                           return _buildMonthHeader(
-                              context, item.monthGroup!, colorScheme);
+                            context,
+                            item.monthGroup!,
+                            colorScheme,
+                            key: ValueKey(item.key),
+                          );
                         }
                         if (item.isDayHeader) {
                           return _buildDayHeader(
-                              context, item.dayGroup!, colorScheme);
+                            context,
+                            item.dayGroup!,
+                            colorScheme,
+                            key: ValueKey(item.key),
+                          );
                         }
 
                         final displayExpense =
@@ -513,6 +586,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                           displayExpense,
                           contact,
                           colorScheme,
+                          key: ValueKey(item.key),
                           originalItem: displayExpense,
                           currentUserId: currentUserId,
                           isFirst: item.isFirst,
@@ -520,6 +594,13 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                         );
                       },
                       childCount: renderItems.length,
+                      findChildIndexCallback: (key) {
+                        final valueKey = key;
+                        if (valueKey is! ValueKey<String>) {
+                          return null;
+                        }
+                        return renderItemIndexByKey[valueKey.value];
+                      },
                     ),
                   ),
 
@@ -834,12 +915,17 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   }
 
   // Same helpers as transactions_page.dart
-  Widget _buildMonthHeader(BuildContext context, MonthTransactionGroup group,
-      ColorScheme colorScheme) {
+  Widget _buildMonthHeader(
+    BuildContext context,
+    MonthTransactionGroup group,
+    ColorScheme colorScheme, {
+    Key? key,
+  }) {
     final locale = Localizations.localeOf(context).toString();
     final dateLabel = DateFormat('MMMM yyyy', locale).format(group.monthStart);
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Text(
         dateLabel,
@@ -853,8 +939,12 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     );
   }
 
-  Widget _buildDayHeader(BuildContext context, DayTransactionGroup group,
-      ColorScheme colorScheme) {
+  Widget _buildDayHeader(
+    BuildContext context,
+    DayTransactionGroup group,
+    ColorScheme colorScheme, {
+    Key? key,
+  }) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -871,6 +961,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     }
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
       child: Row(
         children: [
@@ -899,6 +990,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     ExpenseEntry item,
     UserContact? contact,
     ColorScheme colorScheme, {
+    Key? key,
     required ExpenseEntry originalItem,
     required String currentUserId,
     required bool isFirst,
@@ -911,6 +1003,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     final shouldShadow = isFirst || isLast;
 
     return Container(
+      key: key,
       margin: EdgeInsets.fromLTRB(16, 0, 16, isLast ? 16 : 0),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
@@ -1025,4 +1118,34 @@ class _StickyFilterDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _StickyFilterDelegate oldDelegate) {
     return true;
   }
+}
+
+class _CategoryRenderCacheKey {
+  final int displayExpensesSignature;
+
+  const _CategoryRenderCacheKey({
+    required this.displayExpensesSignature,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is _CategoryRenderCacheKey &&
+        displayExpensesSignature == other.displayExpensesSignature;
+  }
+
+  @override
+  int get hashCode => displayExpensesSignature;
+}
+
+class _CategoryRenderCacheResult {
+  final List<TransactionRenderItem> items;
+  final Map<String, int> indexByKey;
+
+  const _CategoryRenderCacheResult({
+    required this.items,
+    required this.indexByKey,
+  });
 }

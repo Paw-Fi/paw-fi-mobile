@@ -217,50 +217,72 @@ final pocketDetailsProvider =
         )
       : actualTransactions;
 
-  // 3. Fetch PREVIOUS month expenses (for comparison)
-  final prevTransactions = await transactionsFeedService.fetchAllPages(
-    TransactionsFeedQuery(
-      userId: authUser.uid,
-      householdId: feedHouseholdId,
-      selectedCurrency: selectedCurrency,
-      selectedCurrencies: selectedCurrencies,
-      selectedCategory: null,
-      selectedCategories: categories,
-      selectedType: 'expense',
-      searchQuery: '',
-      startDate: prevMonthStart,
-      endDate: previousMonthEndInclusive,
-      pageSize: 200,
-    ),
-  );
-  final scopedPrevTransactions = scopeType == PocketsScopeType.portfolio
-      ? prevTransactions
-          .where((transaction) => transaction.userId == authUser.uid)
-          .toList(growable: false)
-      : prevTransactions;
-  final aggregatePrevTransactions = shouldConvertCurrencies
-      ? convertTransactionsToCurrency(
-          scopedPrevTransactions,
-          targetCurrency: selectedCurrency,
-          rates: rateTable,
-        )
-      : scopedPrevTransactions;
-  final totalSpentLastMonth = aggregatePrevTransactions.fold<double>(
-    0,
-    (sum, transaction) {
-      // CRITICAL: previous-month comparison must ignore recurring template rows
-      // for the same reason as the current-month calculation.
-      // STRICT REQUIREMENT: only posted expenses plus projected month rows
-      // should affect pocket comparisons.
-      if (transaction.isRecurring) {
-        return sum;
-      }
-      if ((transaction.type ?? 'expense').toLowerCase() == 'income') {
-        return sum;
-      }
-      return sum + transaction.amount;
-    },
-  );
+  // 3. Fetch PREVIOUS month aggregate (for comparison)
+  final double totalSpentLastMonth;
+  if (scopeType == PocketsScopeType.portfolio) {
+    final prevTransactions = await transactionsFeedService.fetchAllPages(
+      TransactionsFeedQuery(
+        userId: authUser.uid,
+        householdId: feedHouseholdId,
+        selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
+        selectedCategory: null,
+        selectedCategories: categories,
+        selectedType: 'expense',
+        searchQuery: '',
+        startDate: prevMonthStart,
+        endDate: previousMonthEndInclusive,
+        pageSize: 200,
+      ),
+    );
+    final scopedPrevTransactions = prevTransactions
+        .where((transaction) => transaction.userId == authUser.uid)
+        .toList(growable: false);
+    final aggregatePrevTransactions = shouldConvertCurrencies
+        ? convertTransactionsToCurrency(
+            scopedPrevTransactions,
+            targetCurrency: selectedCurrency,
+            rates: rateTable,
+          )
+        : scopedPrevTransactions;
+    totalSpentLastMonth = aggregatePrevTransactions.fold<double>(
+      0,
+      (sum, transaction) {
+        if (transaction.isRecurring) {
+          return sum;
+        }
+        if ((transaction.type ?? 'expense').toLowerCase() == 'income') {
+          return sum;
+        }
+        return sum + transaction.amount;
+      },
+    );
+  } else {
+    final previousMonthSummary = await transactionsFeedService.fetchSummary(
+      TransactionsFeedQuery(
+        userId: authUser.uid,
+        householdId: feedHouseholdId,
+        selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
+        selectedCategory: null,
+        selectedCategories: categories,
+        selectedType: 'expense',
+        searchQuery: '',
+        startDate: prevMonthStart,
+        endDate: previousMonthEndInclusive,
+        pageSize: 200,
+      ),
+    );
+    final aggregatePreviousMonthSummary = shouldConvertCurrencies
+        ? summarizeTransactionRollupsInCurrency(
+              previousMonthSummary,
+              targetCurrency: selectedCurrency,
+              rates: rateTable,
+            ) ??
+            previousMonthSummary
+        : previousMonthSummary;
+    totalSpentLastMonth = aggregatePreviousMonthSummary.expenseTotal;
+  }
 
   // 4. Process Data
 

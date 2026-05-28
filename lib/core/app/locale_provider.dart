@@ -145,9 +145,9 @@ class LocaleNotifier extends StateNotifier<Locale?> {
   void _syncIntlDefaultLocale(Locale? locale) {
     try {
       if (locale == null) {
-        // System default — reset to en_US as safe fallback;
-        // main.dart will re-set from device locale on next startup.
-        intl.Intl.defaultLocale = 'en_US';
+        final safe = intlSafeLocaleName(currentDeviceLocale());
+        intl.Intl.defaultLocale = safe;
+        initializeDateFormatting(safe, null).catchError((_) {});
         return;
       }
       final safe = intlSafeLocaleName(locale);

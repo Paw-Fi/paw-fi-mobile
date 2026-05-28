@@ -41,6 +41,7 @@ class WalletDetailsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final scrollController = useScrollController();
     final actions = ref.watch(walletActionsProvider);
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final preferredTimezone = ref
@@ -195,11 +196,24 @@ class WalletDetailsPage extends HookConsumerWidget {
       feedTransactions: scopedExpenses,
       projectedTransactions: projectedRecurringExpenses,
     );
-    final visibleTransactionsById = {
-      for (final transaction in visibleTransactions)
-        transaction.id: transaction,
-    };
     final displayVisibleTransactions = visibleTransactions;
+    final visibleTransactionsSignature =
+        groupedTransactionEntriesSignature(displayVisibleTransactions);
+    final visibleTransactionsById = useMemoized(
+      () => {
+        for (final transaction in visibleTransactions)
+          transaction.id: transaction,
+      },
+      [visibleTransactionsSignature],
+    );
+    final visibleListItems = useMemoized(
+      () => buildGroupedTransactionRenderItems(displayVisibleTransactions),
+      [visibleTransactionsSignature],
+    );
+    final visibleListItemIndexByKey = useMemoized(
+      () => buildGroupedTransactionRenderItemIndexByKey(visibleListItems),
+      [visibleListItems],
+    );
     final projectedMonthRecurringExpenses = walletRecurringTransactions.isEmpty
         ? const <ExpenseEntry>[]
         : _projectWalletRecurringExpenses(
@@ -423,6 +437,8 @@ class WalletDetailsPage extends HookConsumerWidget {
                   .loadMore();
             },
             child: CustomScrollView(
+              controller: scrollController,
+              key: PageStorageKey('wallet_details_scroll_${latestWallet.id}'),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -527,8 +543,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                     ),
                   ),
                 ),
-                SliverFillRemaining(
-                  hasScrollBody: false,
+                SliverToBoxAdapter(
                   child: Container(
                     decoration: BoxDecoration(
                       color: colorScheme.sheetBackground,
@@ -537,115 +552,146 @@ class WalletDetailsPage extends HookConsumerWidget {
                         topRight: Radius.circular(32),
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                context.l10n.keyInsights,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              context.l10n.keyInsights,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '(${context.l10n.thisMonth.toLowerCase()})',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _StatCard(
-                                  label: context.l10n.totalIncome,
-                                  amount: totalIncome,
-                                  currencyCode: walletCurrencyCode,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _StatCard(
-                                  label: context.l10n.totalSpent,
-                                  amount: totalSpent,
-                                  currencyCode: walletCurrencyCode,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _StatCard(
-                                  label: context.l10n.net,
-                                  amount: net,
-                                  currencyCode: walletCurrencyCode,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            context.l10n.recentTransactions,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (walletFeedState.isLoading &&
-                              displayVisibleTransactions.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: CircularProgressIndicator(),
+                            const SizedBox(width: 8),
+                            Text(
+                              '(${context.l10n.thisMonth.toLowerCase()})',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.mutedForeground,
                               ),
-                            )
-                          else if (walletFeedState.error != null &&
-                              displayVisibleTransactions.isEmpty)
-                            Center(
-                              child: Text(
-                                context.l10n.error(walletFeedState.error!),
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            )
-                          else if (displayVisibleTransactions.isEmpty)
-                            Center(
-                              child: Text(
-                                context.l10n.noTransactionsYet,
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            )
-                          else
-                            GroupedTransactionsList(
-                              transactions: displayVisibleTransactions,
-                              rowDisplayTransactionsById:
-                                  visibleTransactionsById,
-                              currency: walletCurrencyCode,
-                              onTransactionTap: (expense) {
-                                unawaited(handleTransactionTap(
-                                  visibleTransactionsById[expense.id] ??
-                                      expense,
-                                ));
-                              },
                             ),
-                          PaginatedLoadMoreIndicator(
-                            show: walletFeedState.isLoadingMore,
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _StatCard(
+                                label: context.l10n.totalIncome,
+                                amount: totalIncome,
+                                currencyCode: walletCurrencyCode,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _StatCard(
+                                label: context.l10n.totalSpent,
+                                amount: totalSpent,
+                                currencyCode: walletCurrencyCode,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _StatCard(
+                                label: context.l10n.net,
+                                amount: net,
+                                currencyCode: walletCurrencyCode,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          context.l10n.recentTransactions,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 40),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (walletFeedState.isLoading &&
+                    displayVisibleTransactions.isEmpty)
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        ),
                       ),
                     ),
+                  )
+                else if (walletFeedState.error != null &&
+                    displayVisibleTransactions.isEmpty)
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            context.l10n.error(walletFeedState.error!),
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (displayVisibleTransactions.isEmpty)
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            context.l10n.noTransactionsYet,
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverGroupedTransactionsList(
+                    items: visibleListItems,
+                    itemIndexByKey: visibleListItemIndexByKey,
+                    rowDisplayTransactionsById: visibleTransactionsById,
+                    currency: walletCurrencyCode,
+                    preferredTimezone: preferredTimezone,
+                    backgroundColor: colorScheme.sheetBackground,
+                    showCurrencyFlag: false,
+                    onTransactionTap: (expense) {
+                      unawaited(handleTransactionTap(
+                        visibleTransactionsById[expense.id] ?? expense,
+                      ));
+                    },
+                  ),
+                SliverToBoxAdapter(
+                  child: ColoredBox(
+                    color: colorScheme.sheetBackground,
+                    child: PaginatedLoadMoreIndicator(
+                      show: walletFeedState.isLoadingMore,
+                    ),
+                  ),
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: ColoredBox(
+                    color: colorScheme.sheetBackground,
+                    child: const SizedBox(height: 40),
                   ),
                 ),
               ],

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 
 const Map<String, String> currencyOptions = {
   'AED': 'د.إ',
@@ -270,8 +272,14 @@ String _formatAmountWithGrouping(double amount) {
 /// - formatCurrency(50.0, 'USD') → "$50"
 /// - formatCurrency(50.25, 'USD') → "$50.25"
 /// - formatCurrency(1000.5, 'EUR') → "€1,000.50"
-String formatCurrency(double amount, String? currencyCode) {
+String formatCurrency(
+  double amount,
+  String? currencyCode, {
+  BuildContext? context,
+}) {
   final symbol = resolveCurrencySymbol(currencyCode);
-  final formattedAmount = _formatAmountWithGrouping(amount);
+  final formattedAmount = context == null
+      ? _formatAmountWithGrouping(amount)
+      : formatLocalizedNumber(context, amount);
   return '$symbol$formattedAmount';
 }

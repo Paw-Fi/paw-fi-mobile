@@ -43,6 +43,7 @@ class PocketDetailsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(pocketsProvider(scopeParams));
     final colorScheme = Theme.of(context).colorScheme;
+    final scrollController = useScrollController();
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final recurringScopeHouseholdId =
         scopeParams.scope == PocketsScopeType.personal
@@ -203,6 +204,84 @@ class PocketDetailsPage extends HookConsumerWidget {
               buildFeedQuery(detailsData.linkedCategories),
             ),
           );
+    final detailTransactions = useMemoized(
+      () {
+        final data = detailsData;
+        if (data == null) {
+          return const <ExpenseEntry>[];
+        }
+        return data.transactions.map(ExpenseEntry.fromJson).toList(
+              growable: false,
+            );
+      },
+      [detailsData],
+    );
+    final aggregateDetailTransactions = useMemoized(
+      () {
+        final data = detailsData;
+        if (data == null) {
+          return const <ExpenseEntry>[];
+        }
+        return data.aggregateTransactions.map(ExpenseEntry.fromJson).toList(
+              growable: false,
+            );
+      },
+      [detailsData],
+    );
+    final feedTransactions = activeFeedState?.items ?? const <ExpenseEntry>[];
+    final feedTransactionsSignature =
+        groupedTransactionEntriesSignature(feedTransactions);
+    final detailTransactionsSignature =
+        groupedTransactionEntriesSignature(detailTransactions);
+    final visibleTransactions = useMemoized(
+      () => _mergePocketDetailTransactions(
+        feedTransactions: feedTransactions,
+        detailTransactions: detailTransactions,
+      ),
+      [feedTransactionsSignature, detailTransactionsSignature],
+    );
+    final visibleTransactionsSignature =
+        groupedTransactionEntriesSignature(visibleTransactions);
+    final visibleTransactionsById = useMemoized(
+      () => {
+        for (final transaction in visibleTransactions)
+          transaction.id: transaction,
+      },
+      [visibleTransactionsSignature],
+    );
+    final aggregateTransactionsSignature =
+        groupedTransactionEntriesSignature(aggregateDetailTransactions);
+    final aggregateTransactionsById = useMemoized(
+      () => {
+        for (final transaction in aggregateDetailTransactions)
+          transaction.id: transaction,
+      },
+      [aggregateTransactionsSignature],
+    );
+    final displayVisibleTransactions = useMemoized(
+      () {
+        if (aggregateTransactionsById.isEmpty) {
+          return visibleTransactions;
+        }
+        return visibleTransactions
+            .map((transaction) =>
+                aggregateTransactionsById[transaction.id] ?? transaction)
+            .toList(growable: false);
+      },
+      [visibleTransactionsSignature, aggregateTransactionsSignature],
+    );
+    final displayVisibleTransactionsSignature =
+        groupedTransactionEntriesSignature(displayVisibleTransactions);
+    final visibleListItems = useMemoized(
+      () => buildGroupedTransactionRenderItems(displayVisibleTransactions),
+      [displayVisibleTransactionsSignature],
+    );
+    final visibleListItemIndexByKey = useMemoized(
+      () => buildGroupedTransactionRenderItemIndexByKey(visibleListItems),
+      [visibleListItems],
+    );
+    final shouldShowCurrencyFlag =
+        (detailScopeParams.normalizedSelectedCurrencies?.length ?? 0) > 1;
 
     Future<void> refreshPocketDetails(List<String> linkedCategories) async {
       final feedQuery = buildFeedQuery(linkedCategories);
@@ -302,6 +381,8 @@ class PocketDetailsPage extends HookConsumerWidget {
               ref.read(transactionsFeedProvider(query).notifier).loadMore();
             },
             child: CustomScrollView(
+              controller: scrollController,
+              key: PageStorageKey('pocket_details_scroll_$pocketId'),
               physics: const BouncingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics()),
               slivers: [
@@ -460,8 +541,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                     ),
                   ),
                 ),
-                SliverFillRemaining(
-                  hasScrollBody: false,
+                SliverToBoxAdapter(
                   child: Container(
                     decoration: BoxDecoration(
                       color: colorScheme.sheetBackground,
@@ -470,42 +550,10 @@ class PocketDetailsPage extends HookConsumerWidget {
                         topRight: Radius.circular(32),
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: detailsAsync.when(
-                        data: (data) {
-                          final feedQuery =
-                              buildFeedQuery(data.linkedCategories);
-                          final feedState =
-                              ref.watch(transactionsFeedProvider(feedQuery));
-                          final detailTransactions = data.transactions
-                              .map(ExpenseEntry.fromJson)
-                              .toList(growable: false);
-                          final aggregateDetailTransactions = data
-                              .aggregateTransactions
-                              .map(ExpenseEntry.fromJson)
-                              .toList(growable: false);
-                          final visibleTransactions =
-                              _mergePocketDetailTransactions(
-                            feedTransactions: feedState.items,
-                            detailTransactions: detailTransactions,
-                          );
-                          final visibleTransactionsById = {
-                            for (final transaction in visibleTransactions)
-                              transaction.id: transaction,
-                          };
-                          final aggregateTransactionsById = {
-                            for (final transaction
-                                in aggregateDetailTransactions)
-                              transaction.id: transaction,
-                          };
-                          final displayVisibleTransactions = visibleTransactions
-                              .map((transaction) =>
-                                  aggregateTransactionsById[transaction.id] ??
-                                  transaction)
-                              .toList(growable: false);
-
-                          return Column(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                    child: detailsData == null
+                        ? const SizedBox(height: 24)
+                        : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
@@ -516,78 +564,130 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              // 1. Stats Grid
                               _StatsGrid(
                                 spent: pocket.spent,
-                                dailyAverage: data.dailyAverage,
+                                dailyAverage: detailsData.dailyAverage,
                                 allowance: limit,
                                 currency: effectiveCurrency,
                               ),
-                              const SizedBox(height: 24),
-
-                              // 3. Spending Breakdown
-                              if (data.categorySpending.isNotEmpty) ...[
-                                _SpendingBreakdownCard(
-                                  categorySpending: data.categorySpending,
-                                  currency: effectiveCurrency,
-                                ),
+                              if (detailsData.categorySpending.isNotEmpty) ...[
                                 const SizedBox(height: 24),
-                              ],
-
-                              // 4. Recent Transactions
-                              if (feedState.isLoading &&
-                                  displayVisibleTransactions.isEmpty)
-                                const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(32.0),
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              else if (feedState.error != null &&
-                                  displayVisibleTransactions.isEmpty)
-                                Center(
-                                  child: Text(
-                                    context.l10n.error(feedState.error!),
-                                  ),
-                                )
-                              else
-                                GroupedTransactionsList(
-                                  transactions: displayVisibleTransactions,
-                                  rowDisplayTransactionsById:
-                                      visibleTransactionsById,
+                                _SpendingBreakdownCard(
+                                  categorySpending:
+                                      detailsData.categorySpending,
                                   currency: effectiveCurrency,
-                                  onTransactionTap: (expense) {
-                                    unawaited(
-                                      handleTransactionTap(
-                                        visibleTransactionsById[expense.id] ??
-                                            expense,
-                                        data.linkedCategories,
-                                      ),
-                                    );
-                                  },
                                 ),
-                              PaginatedLoadMoreIndicator(
-                                show: feedState.isLoadingMore,
-                                topPadding: 8,
-                              ),
-                              // Add extra padding at bottom for scrolling
-                              const SizedBox(height: 40),
+                              ],
                             ],
-                          );
-                        },
-                        loading: () => const Center(
+                          ),
+                  ),
+                ),
+                if (detailsData == null && detailsAsync.isLoading)
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (detailsData == null && detailsAsync.hasError)
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            context.l10n.error(
+                              detailsAsync.error.toString(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else ...[
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                        child: Text(
+                          context.l10n.recentTransactions,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if ((activeFeedState?.isLoading ?? false) &&
+                      displayVisibleTransactions.isEmpty)
+                    SliverToBoxAdapter(
+                      child: ColoredBox(
+                        color: colorScheme.sheetBackground,
+                        child: const Center(
                           child: Padding(
                             padding: EdgeInsets.all(32.0),
                             child: CircularProgressIndicator(),
                           ),
                         ),
-                        error: (err, stack) => Center(
-                          child: Text(context.l10n.error(err.toString())),
+                      ),
+                    )
+                  else if (activeFeedState?.error != null &&
+                      displayVisibleTransactions.isEmpty)
+                    SliverToBoxAdapter(
+                      child: ColoredBox(
+                        color: colorScheme.sheetBackground,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              context.l10n.error(activeFeedState!.error!),
+                            ),
+                          ),
                         ),
+                      ),
+                    )
+                  else
+                    SliverGroupedTransactionsList(
+                      items: visibleListItems,
+                      itemIndexByKey: visibleListItemIndexByKey,
+                      rowDisplayTransactionsById: visibleTransactionsById,
+                      currency: effectiveCurrency,
+                      backgroundColor: colorScheme.sheetBackground,
+                      showCurrencyFlag: shouldShowCurrencyFlag,
+                      onTransactionTap: (expense) {
+                        unawaited(
+                          handleTransactionTap(
+                            visibleTransactionsById[expense.id] ?? expense,
+                            detailsData!.linkedCategories,
+                          ),
+                        );
+                      },
+                    ),
+                  SliverToBoxAdapter(
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: PaginatedLoadMoreIndicator(
+                        show: activeFeedState?.isLoadingMore ?? false,
+                        topPadding: 8,
                       ),
                     ),
                   ),
-                ),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: ColoredBox(
+                      color: colorScheme.sheetBackground,
+                      child: const SizedBox(height: 40),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
