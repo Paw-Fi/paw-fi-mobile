@@ -636,6 +636,8 @@ Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
 
     final amount = _parseAmount(item['amount']);
     final currency = item['currency']?.toString().trim();
+    final accountCurrency =
+        payload['accountCurrency']?.toString().trim().toUpperCase();
     final date =
         item['date']?.toString().trim() ?? queuedBody?['date']?.toString();
     if (amount == null || currency == null || currency.isEmpty) continue;
@@ -663,7 +665,11 @@ Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
       'clientRecordId': clientRecordId,
       'clientMutationId': 'mobile:$clientRecordId',
       'idempotencyKey': 'mobile:$clientRecordId',
-      if (payload['accountId'] != null) 'accountId': payload['accountId'],
+      if (payload['accountId'] != null &&
+          (accountCurrency == null ||
+              accountCurrency.isEmpty ||
+              accountCurrency == currency.toUpperCase()))
+        'accountId': payload['accountId'],
       if (!isIncome && receiptUrl != null) 'receiptImageUrl': receiptUrl,
       if (item['description']?.toString().trim().isNotEmpty == true)
         'description': item['description'].toString().trim(),

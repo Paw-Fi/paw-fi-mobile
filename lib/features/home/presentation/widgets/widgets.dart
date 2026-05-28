@@ -10,6 +10,8 @@ export 'recent_transactions_card.dart';
 export 'spending_breakdown_chart.dart';
 export 'transactions_pie_chart.dart';
 export 'text_input_drawer.dart';
+export 'ai_camera_capture_view.dart';
+export 'ai_input_target.dart';
 export 'date_range_filter_modal.dart';
 export 'currency_selector_modal.dart';
 export 'home_header_sliver.dart';

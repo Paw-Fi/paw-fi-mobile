@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:camera/camera.dart' hide XFile;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -28,6 +29,7 @@ import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
@@ -35,6 +37,7 @@ import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -45,10 +48,14 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/utils/ai_input_wallet_filter.dart';
 import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
+import 'package:moneko/features/home/presentation/widgets/ai_camera_capture_view.dart';
+import 'package:moneko/features/home/presentation/widgets/ai_input_target.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -372,6 +379,47 @@ String _resolveLogTargetLabel(BuildContext context, WidgetRef ref) {
   return selected.household?.name ?? context.l10n.forUs;
 }
 
+String _resolveLogTargetLabelFromInputTarget(
+  BuildContext context,
+  WidgetRef ref, {
+  required AiInputTarget? inputTarget,
+}) {
+  if (inputTarget == null) {
+    return _resolveLogTargetLabel(context, ref);
+  }
+
+  final explicitLabel = inputTarget.spaceLabel?.trim();
+  if (explicitLabel != null && explicitLabel.isNotEmpty) {
+    return explicitLabel;
+  }
+
+  final householdId = inputTarget.householdId?.trim();
+  if (householdId == null || householdId.isEmpty) {
+    return context.l10n.personalScope;
+  }
+
+  final selected = ref.read(selectedHouseholdProvider);
+  if (selected.household?.id == householdId) {
+    final selectedName = selected.household?.name.trim();
+    if (selectedName != null && selectedName.isNotEmpty) return selectedName;
+  }
+
+  final userId = ref.read(authProvider).uid.trim();
+  if (userId.isNotEmpty) {
+    final households =
+        ref.read(userHouseholdsProvider(userId)).valueOrNull ??
+            const <Household>[];
+    for (final household in households) {
+      if (household.id == householdId) {
+        final name = household.name.trim();
+        if (name.isNotEmpty) return name;
+      }
+    }
+  }
+
+  return context.l10n.forUs;
+}
+
 String _truncateForToast(String? value, {int maxLen = 28}) {
   final s = (value ?? '').trim();
   if (s.isEmpty) return '';
@@ -381,12 +429,13 @@ String _truncateForToast(String? value, {int maxLen = 28}) {
 
 String _formatAiLoggedToastMessage(
   BuildContext context,
-  WidgetRef ref, {
+  {
   required List<_AiParsedItem> items,
+  required String targetLabel,
 }) {
-  final target = _resolveLogTargetLabel(context, ref);
   if (items.isEmpty) return context.l10n.failedToAnalyzeNoData;
 
+  final target = targetLabel;
   final count = items.length;
   final allIncome = items.every((e) => e.transaction.isIncome);
   final allExpense = items.every((e) => !e.transaction.isIncome);
@@ -397,7 +446,14 @@ String _formatAiLoggedToastMessage(
         tx.isIncome ? context.l10n.incomeSaved : context.l10n.expenseSaved;
     final desc = _truncateForToast(tx.description);
     final detail = desc.isEmpty ? '' : ' • $desc';
-    return '$savedLabel ${tx.formattedAmount}$detail → $target';
+    final normalizedCurrency = tx.currency.trim().toUpperCase();
+    final canonicalCurrency = canonicalizeCurrencyCode(normalizedCurrency);
+    final amountDisplay = canonicalCurrency == null
+        ? (normalizedCurrency.isEmpty
+            ? formatAmount(tx.amount)
+            : '$normalizedCurrency ${formatAmount(tx.amount)}')
+        : formatCurrency(tx.amount, canonicalCurrency, context: context);
+    return '$savedLabel $amountDisplay$detail → $target';
   }
 
   if (allIncome) {
@@ -948,6 +1004,7 @@ Future<void> _persistAiTransactions(
   required bool isPortfolio,
   required List<_AiParsedItem> transactions,
   required String? accountId,
+  String? accountCurrency,
   String? localImagePath,
 }) async {
   if (transactions.isEmpty) return;
@@ -979,6 +1036,11 @@ Future<void> _persistAiTransactions(
 
   String? resolveAccountIdForCurrency(String currency) {
     final normalizedCurrency = currency.trim().toUpperCase();
+    if (fallbackAccountId != null &&
+        accountCurrency != null &&
+        normalizedCurrency == accountCurrency.trim().toUpperCase()) {
+      return fallbackAccountId;
+    }
     if (normalizedCurrency.isEmpty) return fallbackAccountId;
     return defaultAccountIdByCurrency[normalizedCurrency] ??
         firstAccountIdByCurrency[normalizedCurrency] ??
@@ -1639,6 +1701,7 @@ Future<void> _persistAiTransactions(
         ),
       ));
     }
+
   } catch (error) {
     _debugPrint('❌ Batch save failed: $error');
 
@@ -1834,6 +1897,7 @@ Map<String, dynamic> buildQueuedAiInputPayload({
   required String? householdId,
   required bool isPortfolio,
   required String? accountId,
+  String? accountCurrency,
   required Map<String, dynamic> analysisBody,
   String? localImagePath,
   String? imageContentType,
@@ -1845,6 +1909,7 @@ Map<String, dynamic> buildQueuedAiInputPayload({
     ..remove('audio');
   final normalizedHouseholdId = householdId?.trim();
   final normalizedAccountId = accountId?.trim();
+  final normalizedAccountCurrency = accountCurrency?.trim().toUpperCase();
   final normalizedImagePath = localImagePath?.trim();
   final normalizedAudioPath = localAudioPath?.trim();
 
@@ -1857,6 +1922,9 @@ Map<String, dynamic> buildQueuedAiInputPayload({
       'isPortfolio': isPortfolio,
     if (normalizedAccountId != null && normalizedAccountId.isNotEmpty)
       'accountId': normalizedAccountId,
+    if (normalizedAccountCurrency != null &&
+        normalizedAccountCurrency.isNotEmpty)
+      'accountCurrency': normalizedAccountCurrency,
     if (normalizedImagePath != null && normalizedImagePath.isNotEmpty)
       'localImagePath': normalizedImagePath,
     if (normalizedImagePath != null && normalizedImagePath.isNotEmpty)
@@ -1958,6 +2026,7 @@ Future<bool> _queueAiInputForBackgroundRetry(
   required String? householdId,
   required bool isPortfolio,
   required String? accountId,
+  String? accountCurrency,
   required Map<String, dynamic> analysisBody,
   String? imagePath,
   Uint8List? audioBytes,
@@ -2005,6 +2074,7 @@ Future<bool> _queueAiInputForBackgroundRetry(
     householdId: householdId,
     isPortfolio: isPortfolio,
     accountId: accountId,
+    accountCurrency: accountCurrency,
     analysisBody: analysisBody,
     localImagePath: durableImagePath,
     imageContentType:
@@ -2036,25 +2106,29 @@ List<List<T>> chunkList<T>(List<T> items, int maxSize) {
 Future<void> handleAiCameraCapture(
   BuildContext context,
   WidgetRef ref, {
+  AiInputTarget? inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
   _debugPrint('🎥 Starting camera capture...');
 
   try {
-    final XFile? photo = await pickImageWithGuard(
-      picker: _imagePicker,
-      source: ImageSource.camera,
-      imageQuality: 85,
+    final captured = await Navigator.of(context, rootNavigator: true)
+        .push<AiCameraCaptureResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => AiCameraCaptureView(initialTarget: inputTarget),
+      ),
     );
 
-    _debugPrint('🎥 Photo captured: ${photo != null}');
+    _debugPrint('🎥 Photo captured: ${captured != null}');
 
-    if (photo != null) {
+    if (captured != null) {
       if (context.mounted) {
         await _processExpense(
           context,
           ref,
-          imagePath: photo.path,
+          imagePath: captured.imagePath,
+          inputTarget: captured.target,
           onSuccess: onSuccess,
         );
       }
@@ -2077,6 +2151,7 @@ Future<void> handleAiCameraCapture(
 Future<void> handleAiLibraryCapture(
   BuildContext context,
   WidgetRef ref, {
+  AiInputTarget? inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
   try {
@@ -2094,6 +2169,7 @@ Future<void> handleAiLibraryCapture(
       context,
       ref,
       imagePath: image.path,
+      inputTarget: inputTarget,
       onSuccess: onSuccess,
     );
   } catch (e) {
@@ -2114,6 +2190,7 @@ Future<void> handleAiAudioBytes(
   WidgetRef ref, {
   required Uint8List audioBytes,
   String contentType = 'audio/aac',
+  AiInputTarget? inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
   if (!context.mounted) return;
@@ -2122,6 +2199,7 @@ Future<void> handleAiAudioBytes(
     ref,
     audioBytes: audioBytes,
     audioContentType: contentType,
+    inputTarget: inputTarget,
     onSuccess: onSuccess,
   );
 }
@@ -2133,22 +2211,24 @@ Future<void> handleAiFreeFormText(
 }) async {
   await showTextInputDrawer(
     context,
-    (text) async {
+    (text, target) async {
       if (!context.mounted) return;
       await _processExpense(
         context,
         ref,
         text: text,
+        inputTarget: target,
         onSuccess: onSuccess,
       );
     },
-    onSubmitAudio: (audioBytes, contentType) async {
+    onSubmitAudio: (audioBytes, contentType, target) async {
       if (!context.mounted) return;
       await _processExpense(
         context,
         ref,
         audioBytes: audioBytes,
         audioContentType: contentType,
+        inputTarget: target,
         onSuccess: onSuccess,
       );
     },
@@ -2379,14 +2459,16 @@ Future<void> _processExpense(
   List<Map<String, dynamic>>? attachments,
   Uint8List? audioBytes,
   String? audioContentType,
+  AiInputTarget? inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
   final user = ref.read(authProvider);
   final preview = ref.read(previewModeProvider);
   final contact = ref.read(appUserContactProvider);
-  final householdId = _resolveHouseholdIdForAi(ref);
+  final householdId = inputTarget?.householdId ?? _resolveHouseholdIdForAi(ref);
   final scope = ref.read(householdScopeProvider);
-  final isPortfolio = scope.activeAccountType == ActiveWalletType.portfolio;
+  final isPortfolio = inputTarget?.isPortfolio ??
+      scope.activeAccountType == ActiveWalletType.portfolio;
   final effectiveUserId = preview.isActive
       ? (PreviewMockData.contact.userId ?? 'preview-user')
       : user.uid;
@@ -2430,7 +2512,10 @@ Future<void> _processExpense(
       userId: user.uid,
       householdId: householdId,
       isPortfolio: isPortfolio,
-      accountId: ref.read(defaultScopedAccountProvider)?.id.trim(),
+      accountId: inputTarget?.accountId?.trim().isNotEmpty == true
+          ? inputTarget!.accountId!.trim()
+          : ref.read(defaultScopedAccountProvider)?.id.trim(),
+      accountCurrency: inputTarget?.accountCurrency,
       analysisBody: analysisRequestBody,
       imagePath: imagePath,
       audioBytes: audioBytes,
@@ -2728,7 +2813,9 @@ Future<void> _processExpense(
         if (items.isNotEmpty) {
           final analyticsContactId = ref.read(appUserContactProvider)?.id;
           final rawScopedDefaultAccountId =
-              ref.read(defaultScopedAccountProvider)?.id.trim();
+              inputTarget?.accountId?.trim().isNotEmpty == true
+                  ? inputTarget!.accountId!.trim()
+                  : ref.read(defaultScopedAccountProvider)?.id.trim();
           final scopedDefaultAccountId =
               rawScopedDefaultAccountId?.isEmpty == true
                   ? null
@@ -2750,6 +2837,12 @@ Future<void> _processExpense(
 
           String? resolveScopedAccountIdForCurrency(String currency) {
             final normalizedCurrency = currency.trim().toUpperCase();
+            final targetAccountCurrency = inputTarget?.accountCurrency;
+            if (scopedDefaultAccountId != null &&
+                targetAccountCurrency != null &&
+                normalizedCurrency == targetAccountCurrency) {
+              return scopedDefaultAccountId;
+            }
             if (normalizedCurrency.isEmpty) return scopedDefaultAccountId;
             return defaultAccountIdByCurrency[normalizedCurrency] ??
                 firstAccountIdByCurrency[normalizedCurrency] ??
@@ -2925,13 +3018,19 @@ Future<void> _processExpense(
             return;
           }
 
+          final optimisticTargetLabel = _resolveLogTargetLabelFromInputTarget(
+            context,
+            ref,
+            inputTarget: inputTarget,
+          );
+
           if (context.mounted) {
             AppToast.success(
               context,
               _formatAiLoggedToastMessage(
                 context,
-                ref,
                 items: parsed,
+                targetLabel: optimisticTargetLabel,
               ),
             );
           }
@@ -2940,7 +3039,7 @@ Future<void> _processExpense(
             onSuccess(
               AiLogSuccess(
                 count: parsed.length,
-                targetLabel: _resolveLogTargetLabel(context, ref),
+                targetLabel: optimisticTargetLabel,
                 items: parsed
                     .map((entry) => entry.transaction)
                     .toList(growable: false),
@@ -2967,6 +3066,7 @@ Future<void> _processExpense(
                 isPortfolio: isPortfolio,
                 transactions: parsed,
                 accountId: scopedDefaultAccountId,
+                accountCurrency: inputTarget?.accountCurrency,
                 localImagePath: imagePath,
               ),
             );

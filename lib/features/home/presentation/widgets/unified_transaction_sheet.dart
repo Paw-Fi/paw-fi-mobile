@@ -994,19 +994,34 @@ class _UnifiedTransactionSheetState
                         behavior: HitTestBehavior.opaque,
                         child: Column(
                           children: [
-                            Text(
-                              '${isIncomeMode ? '+' : ''}$currencySymbol${formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2)))}',
-                              style: TextStyle(
-                                fontSize: 44,
-                                fontWeight: FontWeight.w600,
-                                color: isIncomeMode
-                                    ? colorScheme
-                                        .primary // Use primary for positive/income typically, or custom Green if design system mandates
-                                    : colorScheme.onSurface,
-                                letterSpacing: -0.5,
-                                height: 1.1,
+                            Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${isIncomeMode ? '+' : ''}$currencySymbol${formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2)))}',
+                                    style: TextStyle(
+                                      fontSize: 44,
+                                      fontWeight: FontWeight.w600,
+                                      color: isIncomeMode
+                                          ? colorScheme
+                                              .primary // Use primary for positive/income typically, or custom Green if design system mandates
+                                          : colorScheme.onSurface,
+                                      letterSpacing: -0.5,
+                                      height: 1.1,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.edit_outlined,
+                                    size: 16,
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
