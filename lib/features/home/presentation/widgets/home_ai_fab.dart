@@ -38,7 +38,6 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
@@ -48,14 +47,12 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/utils/ai_input_wallet_filter.dart';
 import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
 import 'package:moneko/features/home/presentation/widgets/ai_camera_capture_view.dart';
 import 'package:moneko/features/home/presentation/widgets/ai_input_target.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
-import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -406,9 +403,8 @@ String _resolveLogTargetLabelFromInputTarget(
 
   final userId = ref.read(authProvider).uid.trim();
   if (userId.isNotEmpty) {
-    final households =
-        ref.read(userHouseholdsProvider(userId)).valueOrNull ??
-            const <Household>[];
+    final households = ref.read(userHouseholdsProvider(userId)).valueOrNull ??
+        const <Household>[];
     for (final household in households) {
       if (household.id == householdId) {
         final name = household.name.trim();
@@ -428,8 +424,7 @@ String _truncateForToast(String? value, {int maxLen = 28}) {
 }
 
 String _formatAiLoggedToastMessage(
-  BuildContext context,
-  {
+  BuildContext context, {
   required List<_AiParsedItem> items,
   required String targetLabel,
 }) {
@@ -1022,18 +1017,6 @@ Future<void> _persistAiTransactions(
   var queuedLocally = false;
   _AutoSplitContext? autoSplitContext;
   final fallbackAccountId = accountId?.trim();
-  final scopedWallets = container.read(effectiveScopeWalletsProvider);
-  final defaultAccountIdByCurrency = <String, String>{};
-  final firstAccountIdByCurrency = <String, String>{};
-  for (final wallet in scopedWallets) {
-    final normalizedCurrency = wallet.currency.trim().toUpperCase();
-    if (normalizedCurrency.isEmpty) continue;
-    firstAccountIdByCurrency.putIfAbsent(normalizedCurrency, () => wallet.id);
-    if (wallet.isDefault) {
-      defaultAccountIdByCurrency[normalizedCurrency] = wallet.id;
-    }
-  }
-
   String? resolveAccountIdForCurrency(String currency) {
     final normalizedCurrency = currency.trim().toUpperCase();
     if (fallbackAccountId != null &&
@@ -1041,10 +1024,7 @@ Future<void> _persistAiTransactions(
         normalizedCurrency == accountCurrency.trim().toUpperCase()) {
       return fallbackAccountId;
     }
-    if (normalizedCurrency.isEmpty) return fallbackAccountId;
-    return defaultAccountIdByCurrency[normalizedCurrency] ??
-        firstAccountIdByCurrency[normalizedCurrency] ??
-        fallbackAccountId;
+    return null;
   }
 
   Future<void> cacheSavedEntriesAndRefresh(
@@ -1701,7 +1681,6 @@ Future<void> _persistAiTransactions(
         ),
       ));
     }
-
   } catch (error) {
     _debugPrint('❌ Batch save failed: $error');
 
@@ -2116,7 +2095,9 @@ Future<void> handleAiCameraCapture(
         .push<AiCameraCaptureResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => AiCameraCaptureView(initialTarget: inputTarget),
+        builder: (_) => AiCameraCaptureView(
+          initialTarget: inputTarget ?? resolveDefaultAiInputTarget(ref),
+        ),
       ),
     );
 
@@ -2169,7 +2150,7 @@ Future<void> handleAiLibraryCapture(
       context,
       ref,
       imagePath: image.path,
-      inputTarget: inputTarget,
+      inputTarget: inputTarget ?? resolveDefaultAiInputTarget(ref),
       onSuccess: onSuccess,
     );
   } catch (e) {
@@ -2199,7 +2180,7 @@ Future<void> handleAiAudioBytes(
     ref,
     audioBytes: audioBytes,
     audioContentType: contentType,
-    inputTarget: inputTarget,
+    inputTarget: inputTarget ?? resolveDefaultAiInputTarget(ref),
     onSuccess: onSuccess,
   );
 }
@@ -2302,6 +2283,7 @@ Future<void> handleAiFileUpload(
         context,
         ref,
         attachments: attachments,
+        inputTarget: resolveDefaultAiInputTarget(ref),
         onSuccess: onSuccess,
       );
     }
@@ -2459,16 +2441,14 @@ Future<void> _processExpense(
   List<Map<String, dynamic>>? attachments,
   Uint8List? audioBytes,
   String? audioContentType,
-  AiInputTarget? inputTarget,
+  required AiInputTarget inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
   final user = ref.read(authProvider);
   final preview = ref.read(previewModeProvider);
   final contact = ref.read(appUserContactProvider);
-  final householdId = inputTarget?.householdId ?? _resolveHouseholdIdForAi(ref);
-  final scope = ref.read(householdScopeProvider);
-  final isPortfolio = inputTarget?.isPortfolio ??
-      scope.activeAccountType == ActiveWalletType.portfolio;
+  final householdId = inputTarget.householdId;
+  final isPortfolio = inputTarget.isPortfolio;
   final effectiveUserId = preview.isActive
       ? (PreviewMockData.contact.userId ?? 'preview-user')
       : user.uid;
@@ -2512,10 +2492,10 @@ Future<void> _processExpense(
       userId: user.uid,
       householdId: householdId,
       isPortfolio: isPortfolio,
-      accountId: inputTarget?.accountId?.trim().isNotEmpty == true
-          ? inputTarget!.accountId!.trim()
-          : ref.read(defaultScopedAccountProvider)?.id.trim(),
-      accountCurrency: inputTarget?.accountCurrency,
+      accountId: inputTarget.accountId?.trim().isNotEmpty == true
+          ? inputTarget.accountId!.trim()
+          : null,
+      accountCurrency: inputTarget.accountCurrency,
       analysisBody: analysisRequestBody,
       imagePath: imagePath,
       audioBytes: audioBytes,
@@ -2813,40 +2793,22 @@ Future<void> _processExpense(
         if (items.isNotEmpty) {
           final analyticsContactId = ref.read(appUserContactProvider)?.id;
           final rawScopedDefaultAccountId =
-              inputTarget?.accountId?.trim().isNotEmpty == true
-                  ? inputTarget!.accountId!.trim()
-                  : ref.read(defaultScopedAccountProvider)?.id.trim();
+              inputTarget.accountId?.trim().isNotEmpty == true
+                  ? inputTarget.accountId!.trim()
+                  : null;
           final scopedDefaultAccountId =
               rawScopedDefaultAccountId?.isEmpty == true
                   ? null
                   : rawScopedDefaultAccountId;
-          final scopedWallets = ref.read(effectiveScopeWalletsProvider);
-          final defaultAccountIdByCurrency = <String, String>{};
-          final firstAccountIdByCurrency = <String, String>{};
-          for (final wallet in scopedWallets) {
-            final normalizedCurrency = wallet.currency.trim().toUpperCase();
-            if (normalizedCurrency.isEmpty) continue;
-            firstAccountIdByCurrency.putIfAbsent(
-              normalizedCurrency,
-              () => wallet.id,
-            );
-            if (wallet.isDefault) {
-              defaultAccountIdByCurrency[normalizedCurrency] = wallet.id;
-            }
-          }
-
           String? resolveScopedAccountIdForCurrency(String currency) {
             final normalizedCurrency = currency.trim().toUpperCase();
-            final targetAccountCurrency = inputTarget?.accountCurrency;
+            final targetAccountCurrency = inputTarget.accountCurrency;
             if (scopedDefaultAccountId != null &&
                 targetAccountCurrency != null &&
                 normalizedCurrency == targetAccountCurrency) {
               return scopedDefaultAccountId;
             }
-            if (normalizedCurrency.isEmpty) return scopedDefaultAccountId;
-            return defaultAccountIdByCurrency[normalizedCurrency] ??
-                firstAccountIdByCurrency[normalizedCurrency] ??
-                scopedDefaultAccountId;
+            return null;
           }
 
           final expenseCategoryRemaps = await _loadLocalCategoryRemaps(
@@ -3066,7 +3028,7 @@ Future<void> _processExpense(
                 isPortfolio: isPortfolio,
                 transactions: parsed,
                 accountId: scopedDefaultAccountId,
-                accountCurrency: inputTarget?.accountCurrency,
+                accountCurrency: inputTarget.accountCurrency,
                 localImagePath: imagePath,
               ),
             );

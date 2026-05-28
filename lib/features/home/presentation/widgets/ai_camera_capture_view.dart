@@ -57,26 +57,14 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final initialTarget = widget.initialTarget;
-    if (initialTarget != null) {
-      _selectedAccountType = initialTarget.accountType;
-      _selectedHouseholdId = initialTarget.householdId;
-      _selectedWalletId = initialTarget.accountId;
-      _hasManuallySelectedWallet = initialTarget.accountId != null;
-    } else {
-      final scope = ref.read(householdScopeProvider);
-      final prefs = ref.read(sharedPreferencesProvider);
-      final savedType = aiInputTargetAccountTypeFromStorage(
-        prefs.getString(aiInputTargetSpaceTypePreferenceKey),
-      );
-      _selectedAccountType = savedType ?? scope.activeAccountType;
-      _selectedHouseholdId = savedType == null
-          ? scope.activeAccountHouseholdId
-          : prefs.getString(aiInputTargetSpaceHouseholdPreferenceKey);
-      if (_selectedAccountType == ActiveWalletType.personal) {
-        _selectedHouseholdId = null;
-      }
-    }
+    final initialSelection = resolveInitialAiInputTargetSelection(
+      ref,
+      initialTarget: widget.initialTarget,
+    );
+    _selectedAccountType = initialSelection.accountType;
+    _selectedHouseholdId = initialSelection.householdId;
+    _selectedWalletId = initialSelection.walletId;
+    _hasManuallySelectedWallet = initialSelection.hasManuallySelectedWallet;
     unawaited(_initializeCamera());
   }
 
@@ -179,13 +167,6 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
     }
   }
 
-  String? _defaultWalletId(List<WalletEntity> wallets) {
-    for (final wallet in wallets) {
-      if (wallet.isDefault) return wallet.id;
-    }
-    return wallets.isNotEmpty ? wallets.first.id : null;
-  }
-
   String _walletLabel(List<WalletEntity> wallets) {
     if (wallets.isEmpty) return context.l10n.tapToSet;
     final selectedId = _selectedWalletId;
@@ -200,7 +181,7 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
         if (wallet.id == savedId) return wallet.name;
       }
     }
-    final defaultId = _defaultWalletId(wallets);
+    final defaultId = resolveAiInputTargetDefaultWalletId(wallets);
     if (defaultId != null) {
       for (final wallet in wallets) {
         if (wallet.id == defaultId) return wallet.name;
@@ -210,13 +191,11 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
   }
 
   String? _savedWalletId() {
-    return ref.read(sharedPreferencesProvider).getString(
-          aiInputTargetWalletPreferenceKey(
-            accountType: _selectedAccountType,
-            householdId: _selectedHouseholdId,
-            currency: ref.read(selectedHomeCurrencyCodeProvider),
-          ),
-        );
+    return resolveAiInputTargetSavedWalletId(
+      ref,
+      accountType: _selectedAccountType,
+      householdId: _selectedHouseholdId,
+    );
   }
 
   Future<void> _applyWalletSelection(WalletEntity selected) async {
@@ -242,11 +221,13 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
       final currentExists =
           currentId != null && wallets.any((wallet) => wallet.id == currentId);
       if (_hasManuallySelectedWallet && currentExists) return currentId;
-      final savedId = _savedWalletId();
-      final savedExists =
-          savedId != null && wallets.any((wallet) => wallet.id == savedId);
-      if (savedExists) return savedId;
-      return _defaultWalletId(wallets);
+      return resolveAiInputTargetWalletId(
+        ref,
+        accountType: _selectedAccountType,
+        householdId: _selectedHouseholdId,
+        wallets: wallets,
+        selectedWalletId: _hasManuallySelectedWallet ? currentId : null,
+      );
     }();
     if (desiredId == _selectedWalletId) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -277,28 +258,13 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
 
   AiInputTarget _target(
       List<Household> households, List<WalletEntity> wallets) {
-    final effectiveWalletId =
-        _selectedWalletId ?? _savedWalletId() ?? _defaultWalletId(wallets);
-    WalletEntity? selectedWallet;
-    for (final wallet in wallets) {
-      if (wallet.id == effectiveWalletId) {
-        selectedWallet = wallet;
-        break;
-      }
-    }
-    final isPortfolio = _selectedAccountType == ActiveWalletType.portfolio ||
-        households.any(
-          (household) =>
-              household.id == _selectedHouseholdId && household.isPortfolio,
-        );
-    return AiInputTarget(
+    return buildAiInputTargetFromSelection(
+      ref,
       accountType: _selectedAccountType,
-      householdId: _selectedAccountType == ActiveWalletType.personal
-          ? null
-          : _selectedHouseholdId,
-      isPortfolio: isPortfolio,
-      accountId: effectiveWalletId,
-      accountCurrency: selectedWallet?.currency.trim().toUpperCase(),
+      householdId: _selectedHouseholdId,
+      selectedWalletId: _selectedWalletId,
+      households: households,
+      wallets: wallets,
       spaceLabel: _spaceLabel(households),
     );
   }
@@ -425,7 +391,7 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
               right: 18,
               bottom: 116,
               child: Row(
-                children: [               
+                children: [
                   Expanded(
                     child: AdaptivePopupMenuButton.widget(
                       child: CameraTargetChip(

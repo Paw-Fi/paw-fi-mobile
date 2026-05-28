@@ -43,6 +43,7 @@ class SpendingCard extends StatefulWidget {
   final CurrencyRateTable? currencyRates;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
+  final String? animationStorageKey;
 
   const SpendingCard({
     super.key,
@@ -56,6 +57,7 @@ class SpendingCard extends StatefulWidget {
     this.currencyRates,
     this.customStartDate,
     this.customEndDate,
+    this.animationStorageKey,
   });
 
   @override
@@ -69,10 +71,63 @@ class _SpendingCardState extends State<SpendingCard> {
       Duration(milliseconds: 800);
   int? _touchedIndex;
   bool _hasPlayedEntranceAnimation = false;
+  String? _restoredAnimationStorageKey;
   List<ExpenseEntry>? _cachedExpensesIdentity;
   int? _cachedExpensesSignature;
   _SpendingCardCacheConfig? _cachedConfig;
   _SpendingCardDerivedData? _cachedDerivedData;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _restoreEntranceAnimationState();
+  }
+
+  @override
+  void didUpdateWidget(covariant SpendingCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animationStorageKey != widget.animationStorageKey) {
+      _restoreEntranceAnimationState(force: true);
+    }
+  }
+
+  void _restoreEntranceAnimationState({bool force = false}) {
+    final key = widget.animationStorageKey;
+    if (!force && _restoredAnimationStorageKey == key) return;
+    _restoredAnimationStorageKey = key;
+    if (key == null) return;
+
+    final hasPlayed = PageStorage.maybeOf(context)?.readState(
+          context,
+          identifier: key,
+        ) ==
+        true;
+    _hasPlayedEntranceAnimation = hasPlayed;
+  }
+
+  void _markEntranceAnimationPlayed() {
+    final key = widget.animationStorageKey;
+    if (key != null) {
+      PageStorage.maybeOf(context)?.writeState(
+        context,
+        true,
+        identifier: key,
+      );
+    }
+    if (!_hasPlayedEntranceAnimation && mounted) {
+      setState(() => _hasPlayedEntranceAnimation = true);
+    }
+  }
+
+  void _persistEntranceAnimationStarted() {
+    final key = widget.animationStorageKey;
+    if (key == null || _hasPlayedEntranceAnimation) return;
+    PageStorage.maybeOf(context)?.writeState(
+      context,
+      true,
+      identifier: key,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +187,9 @@ class _SpendingCardState extends State<SpendingCard> {
     final animationDuration = _hasPlayedEntranceAnimation
         ? Duration.zero
         : _entranceAnimationDuration;
+    if (animationDuration != Duration.zero) {
+      _persistEntranceAnimationStarted();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -203,8 +261,8 @@ class _SpendingCardState extends State<SpendingCard> {
                 duration: animationDuration,
                 curve: Curves.easeOutCubic,
                 onEnd: () {
-                  if (!_hasPlayedEntranceAnimation && mounted) {
-                    setState(() => _hasPlayedEntranceAnimation = true);
+                  if (!_hasPlayedEntranceAnimation) {
+                    _markEntranceAnimationPlayed();
                   }
                 },
                 builder: (context, animationValue, child) {
@@ -711,6 +769,7 @@ Widget buildSpendingCard(
   CurrencyRateTable? currencyRates,
   DateTime? customStartDate,
   DateTime? customEndDate,
+  String? animationStorageKey,
 }) {
   return SpendingCard(
     key: key,
@@ -724,6 +783,7 @@ Widget buildSpendingCard(
     currencyRates: currencyRates,
     customStartDate: customStartDate,
     customEndDate: customEndDate,
+    animationStorageKey: animationStorageKey,
   );
 }
 

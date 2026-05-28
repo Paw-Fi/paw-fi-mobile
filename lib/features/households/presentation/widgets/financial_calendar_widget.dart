@@ -55,6 +55,7 @@ class _FinancialCalendarWidgetState
   late DateTime _focusedMonth;
   late DateTime _focusedWeekStart;
   final DateTime _today = DateTime.now();
+  String? _restoredStorageKey;
 
   Map<DateTime, Map<String, double>> _buildRecurringDailyTotals({
     required List<ExpenseEntry> actualTransactions,
@@ -118,6 +119,71 @@ class _FinancialCalendarWidgetState
         .subtract(const Duration(days: 6));
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _restoreFocusedDates();
+  }
+
+  @override
+  void didUpdateWidget(covariant FinancialCalendarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final storageKey = _storageKey;
+    if (_restoredStorageKey != storageKey) {
+      _restoreFocusedDates(force: true);
+    }
+  }
+
+  String get _storageKey => [
+        'financial_calendar',
+        widget.userId,
+        widget.householdId ?? 'personal',
+        widget.currency,
+        widget.isExpanded ? 'expanded' : 'collapsed',
+      ].join('|');
+
+  void _restoreFocusedDates({bool force = false}) {
+    final key = _storageKey;
+    if (!force && _restoredStorageKey == key) return;
+    _restoredStorageKey = key;
+
+    final bucket = PageStorage.maybeOf(context);
+    final monthValue = bucket?.readState(
+      context,
+      identifier: '$key|month',
+    );
+    final weekValue = bucket?.readState(
+      context,
+      identifier: '$key|week',
+    );
+
+    if (monthValue is int) {
+      _focusedMonth = DateTime.fromMillisecondsSinceEpoch(monthValue);
+    }
+    if (weekValue is int) {
+      _focusedWeekStart = DateTime.fromMillisecondsSinceEpoch(weekValue);
+    }
+  }
+
+  void _writeFocusedDates() {
+    final key = _storageKey;
+    final bucket = PageStorage.maybeOf(context);
+    bucket?.writeState(
+      context,
+      DateTime(_focusedMonth.year, _focusedMonth.month).millisecondsSinceEpoch,
+      identifier: '$key|month',
+    );
+    bucket?.writeState(
+      context,
+      DateTime(
+        _focusedWeekStart.year,
+        _focusedWeekStart.month,
+        _focusedWeekStart.day,
+      ).millisecondsSinceEpoch,
+      identifier: '$key|week',
+    );
+  }
+
   DateTime get _todayDateOnly =>
       DateTime(_today.year, _today.month, _today.day);
 
@@ -130,18 +196,21 @@ class _FinancialCalendarWidgetState
     setState(() {
       _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1);
     });
+    _writeFocusedDates();
   }
 
   void _nextMonth() {
     setState(() {
       _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
     });
+    _writeFocusedDates();
   }
 
   void _previousWeek() {
     setState(() {
       _focusedWeekStart = _focusedWeekStart.subtract(const Duration(days: 7));
     });
+    _writeFocusedDates();
   }
 
   void _nextWeek() {
@@ -149,6 +218,7 @@ class _FinancialCalendarWidgetState
     setState(() {
       _focusedWeekStart = _focusedWeekStart.add(const Duration(days: 7));
     });
+    _writeFocusedDates();
   }
 
   void _handleHorizontalSwipe(DragEndDetails details) {
@@ -247,18 +317,18 @@ class _FinancialCalendarWidgetState
         ref.invalidate(dashboardCalendarTransactionsProvider(query));
       });
     }
- final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
-    const CurrencyRateTable(
-      baseCurrency: 'USD',
-      rates: CurrencyRates.rates,
-      isStale: true,
-    );
+    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: CurrencyRates.rates,
+          isStale: true,
+        );
 
-final resolvedTransactions = mergeDashboardTransactionsWithLocalOverlay(
-  base: transactionsAsync.valueOrNull ?? widget.transactions,
-  localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
-  query: query,
-);
+    final resolvedTransactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? widget.transactions,
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final selectedCurrencies = query.normalizedCurrencies;
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,

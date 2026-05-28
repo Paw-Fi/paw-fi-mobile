@@ -218,14 +218,12 @@ class _WhereTheMoneyWentCacheKey {
   @override
   bool operator ==(Object other) {
     return other is _WhereTheMoneyWentCacheKey &&
-        other.expensesIdentity == expensesIdentity &&
         other.expensesSignature == expensesSignature &&
         other.currency == currency;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(expensesIdentity, expensesSignature, currency);
+  int get hashCode => Object.hash(expensesSignature, currency);
 }
 
 int _expenseListSignature(List<ExpenseEntry> expenses) {

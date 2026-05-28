@@ -63,9 +63,23 @@ Widget _buildDashboardSwitcher(Widget child) {
     child: AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       transitionBuilder: _buildDashboardSwitcherTransition,
-      child: child,
+      child: KeyedSubtree(
+        key: _dashboardSwitcherStateKey(child),
+        child: child,
+      ),
     ),
   );
+}
+
+Key _dashboardSwitcherStateKey(Widget child) {
+  final key = child.key;
+  if (key is ValueKey<String>) {
+    final value = key.value;
+    if (value.contains('skeleton') || value.contains('error')) {
+      return key;
+    }
+  }
+  return const ValueKey('dashboard_data');
 }
 
 Widget _buildDashboardSwitcherTransition(
@@ -201,7 +215,8 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       );
 
       child = GestureDetector(
-        key: ValueKey('spent_by_you_data_${syntheticExpense.id}_$spentByUser'),
+        key: ValueKey(
+            'spent_by_you_data_${household.id}_${config.id}_$selectedCurrency'),
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -222,6 +237,8 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
           config.dateRange,
           referenceNow: referenceNow,
           selectedCurrency: selectedCurrency,
+          animationStorageKey:
+              'household_spent_by_you:${household.id}:${config.id}:$selectedCurrency:${config.dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
         ),
       );
     }
@@ -251,7 +268,7 @@ class LazyHouseholdFinancialCalendarCard extends ConsumerWidget {
     return _buildDashboardSwitcher(
       FinancialCalendarWidget(
         key: ValueKey(
-            'household_fin_cal_${recurringAsync.data.valueOrNull?.length}_$selectedCurrency'),
+            'household_fin_cal_${household.id}_${config.id}_$selectedCurrency'),
         userId: userId,
         householdId: household.id,
         recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
@@ -376,7 +393,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
 
       child = buildHouseholdMemberSpendingCard(
         key: ValueKey(
-            'member_spending_data_${summary.totals.totalExpensesCents}_${membersAsync.valueOrNull?.length}'),
+            'member_spending_data_${household.id}_${config.id}_$selectedCurrency'),
         context,
         Theme.of(context).colorScheme,
         summary,
@@ -572,7 +589,7 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
 
       child = buildSpendingBreakdownChart(
         key: ValueKey(
-            'household_breakdown_data_${expenses.length}_$selectedCurrency'),
+            'household_breakdown_data_${household.id}_${config.id}_$selectedCurrency'),
         context,
         Theme.of(context).colorScheme,
         displayExpenses,
@@ -669,7 +686,7 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
 
       child = WhereTheMoneyWentWidget(
         key: ValueKey(
-            'household_where_money_went_data_${expenses.length}_$selectedCurrency'),
+            'household_where_money_went_data_${household.id}_${config.id}_$selectedCurrency'),
         expenses: displayExpenses,
         currency: selectedCurrency,
         onHelpTap: () =>
@@ -925,7 +942,7 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
 
       child = buildHouseholdBudgetOverviewCard(
         key: ValueKey(
-            'household_budget_data_${spendOnly.length}_$totalSpentByHouseholdCents'),
+            'household_budget_data_${household.id}_${config.id}_$selectedCurrency'),
         context,
         Theme.of(context).colorScheme,
         summary,
@@ -1045,7 +1062,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
 
       child = GroupFairnessMeter(
         key: ValueKey(
-            'fairness_data_${mergedTransactions.length}_$selectedCurrency'),
+            'fairness_data_${household.id}_${config.id}_$selectedCurrency'),
         summary: summary,
         transactions: mergedTransactions,
         splits: splits,
@@ -1102,7 +1119,7 @@ class LazyHouseholdSettlementCard extends ConsumerWidget {
     } else {
       child = SettlementSuggestionsCard(
         key: ValueKey(
-            'settlement_data_${summary.householdId}_${membersAsync.valueOrNull?.length}'),
+            'settlement_data_${household.id}_${config.id}_$selectedCurrency'),
         summary: summary,
         currency: selectedCurrency,
         selectedCurrencies: _selectedCurrencies(ref),

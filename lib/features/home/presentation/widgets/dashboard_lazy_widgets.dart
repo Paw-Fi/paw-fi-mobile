@@ -38,9 +38,23 @@ Widget _buildDashboardSwitcher(Widget child) {
     child: AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       transitionBuilder: _buildDashboardSwitcherTransition,
-      child: child,
+      child: KeyedSubtree(
+        key: _dashboardSwitcherStateKey(child),
+        child: child,
+      ),
     ),
   );
+}
+
+Key _dashboardSwitcherStateKey(Widget child) {
+  final key = child.key;
+  if (key is ValueKey<String>) {
+    final value = key.value;
+    if (value.contains('skeleton') || value.contains('error')) {
+      return key;
+    }
+  }
+  return const ValueKey('dashboard_data');
 }
 
 Widget _buildDashboardSwitcherTransition(
@@ -164,7 +178,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      _homeSpendTrace('spending-render source=tx-error error=${transactionsAsync.error}');
+      _homeSpendTrace(
+          'spending-render source=tx-error error=${transactionsAsync.error}');
       return _buildDashboardSwitcher(
         _buildDashboardErrorCard(
           context,
@@ -177,22 +192,25 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
     if (_hasRecurringTransactionsError(recurringState)) {
-      _homeSpendTrace('spending-render source=recurring-error error=${recurringState.data.error}');
+      _homeSpendTrace(
+          'spending-render source=recurring-error error=${recurringState.data.error}');
       return _buildDashboardSwitcher(
         _buildDashboardErrorCard(
           context,
           colorScheme,
           context.l10n.errorLoadingDashboard,
           onRetry: () => ref
-              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
-                  .notifier)
+              .read(
+                  recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                      .notifier)
               .refresh(ref.read(authProvider).uid),
           key: const ValueKey('spending_recurring_error'),
         ),
       );
     }
     if (!_isRecurringTransactionsReady(recurringState)) {
-      _homeSpendTrace('spending-render source=recurring-skeleton actualTotal=${_traceAmount(_traceExpenseTotal(transactions))}');
+      _homeSpendTrace(
+          'spending-render source=recurring-skeleton actualTotal=${_traceAmount(_traceExpenseTotal(transactions))}');
       return _buildDashboardSwitcher(
         _buildSpendingSkeleton(
           context,
@@ -235,6 +253,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         currencyRates: rateTable,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
+        animationStorageKey:
+            'spending:${config.id}:${selectedCurrency ?? currency}:${config.dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
       ),
     );
   }
@@ -353,8 +373,9 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
           colorScheme,
           context.l10n.errorLoadingDashboard,
           onRetry: () => ref
-              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
-                  .notifier)
+              .read(
+                  recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                      .notifier)
               .refresh(ref.read(authProvider).uid),
           key: const ValueKey('net_cashflow_recurring_error'),
         ),
@@ -464,8 +485,9 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
           colorScheme,
           context.l10n.errorLoadingDashboard,
           onRetry: () => ref
-              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
-                  .notifier)
+              .read(
+                  recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                      .notifier)
               .refresh(ref.read(authProvider).uid),
           key: const ValueKey('financial_calendar_recurring_error'),
         ),
@@ -658,8 +680,9 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
           colorScheme,
           context.l10n.errorLoadingDashboard,
           onRetry: () => ref
-              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
-                  .notifier)
+              .read(
+                  recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                      .notifier)
               .refresh(ref.read(authProvider).uid),
           key: const ValueKey('breakdown_recurring_error'),
         ),
@@ -786,8 +809,9 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
           colorScheme,
           context.l10n.errorLoadingDashboard,
           onRetry: () => ref
-              .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
-                  .notifier)
+              .read(
+                  recurringTransactionsProvider(scope.activeAccountHouseholdId)
+                      .notifier)
               .refresh(ref.read(authProvider).uid),
           key: const ValueKey('where_money_went_recurring_error'),
         ),

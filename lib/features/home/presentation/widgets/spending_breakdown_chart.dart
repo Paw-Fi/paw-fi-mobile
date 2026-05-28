@@ -571,7 +571,6 @@ class _CategoryPieChartCacheKey {
   @override
   bool operator ==(Object other) {
     return other is _CategoryPieChartCacheKey &&
-        other.expensesIdentity == expensesIdentity &&
         other.expensesSignature == expensesSignature &&
         other.legendItemLimit == legendItemLimit &&
         other.otherColor == otherColor;
@@ -579,7 +578,6 @@ class _CategoryPieChartCacheKey {
 
   @override
   int get hashCode => Object.hash(
-        expensesIdentity,
         expensesSignature,
         legendItemLimit,
         otherColor,
@@ -608,7 +606,6 @@ class _SpendingBreakdownCacheKey {
   @override
   bool operator ==(Object other) {
     return other is _SpendingBreakdownCacheKey &&
-        other.expensesIdentity == expensesIdentity &&
         other.expensesSignature == expensesSignature &&
         other.dateRangeFilter == dateRangeFilter &&
         other.referenceDayKey == referenceDayKey &&
@@ -619,7 +616,6 @@ class _SpendingBreakdownCacheKey {
 
   @override
   int get hashCode => Object.hash(
-        expensesIdentity,
         expensesSignature,
         dateRangeFilter,
         referenceDayKey,
