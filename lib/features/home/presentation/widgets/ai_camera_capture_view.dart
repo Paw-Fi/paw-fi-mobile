@@ -6,7 +6,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -302,6 +301,53 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
     }
   }
 
+  Widget _buildCameraStage(
+    BuildContext context,
+    CameraController? controller,
+    bool isReady,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (_isInitializing) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: colorScheme.primary,
+        ),
+      );
+    }
+    if (_cameraError != null || !isReady || controller == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            context.l10n.failedToCapturePhoto,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final previewAspectRatio = 1 / controller.value.aspectRatio;
+        final previewHeight = constraints.maxWidth / previewAspectRatio;
+        return ClipRect(
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              height: previewHeight,
+              child: CameraPreview(controller),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -328,171 +374,205 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
     _syncWalletSelection(wallets);
     final controller = _controller;
     final isReady = controller != null && controller.value.isInitialized;
+    const shutterOuterColor = Color(0xB82F2F33);
+    const shutterBorderColor = Color(0xFF5A5B60);
+    const shutterInnerColor = Color(0xFFF5F5F5);
+    const shutterProgressColor = Color(0xFF101114);
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: _isInitializing
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          color: colorScheme.primary,
-                        ),
-                      )
-                    : _cameraError != null || !isReady
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                context.l10n.failedToCapturePhoto,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: colorScheme.onSurface,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+      backgroundColor: colorScheme.scrim,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewPadding = MediaQuery.paddingOf(context);
+          final topHeight = constraints.maxHeight * 0.14;
+          final cameraHeight = constraints.maxHeight * 0.64;
+          final bottomHeight = constraints.maxHeight - topHeight - cameraHeight;
+
+          return Column(
+            children: [
+              SizedBox(
+                height: topHeight,
+                child: Container(
+                  width: double.infinity,
+                  color: colorScheme.scrim.withValues(alpha: 0.98),
+                  padding: EdgeInsets.only(
+                    top: viewPadding.top + 8,
+                    left: 16,
+                    right: 16,
+                    bottom: 8,
+                  ),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: _CameraGlassButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icons.close_rounded,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: cameraHeight,
+                width: double.infinity,
+                child: _buildCameraStage(context, controller, isReady),
+              ),
+              SizedBox(
+                height: bottomHeight,
+                child: Container(
+                  width: double.infinity,
+                  color: colorScheme.scrim.withValues(alpha: 0.98),
+                  padding: EdgeInsets.fromLTRB(
+                    18,
+                    12,
+                    18,
+                    viewPadding.bottom + 14,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AdaptivePopupMenuButton.widget(
+                              child: CameraTargetChip(
+                                icon: Icons.grid_view_rounded,
+                                value: _spaceLabel(households),
+                              ),
+                              items: spaceOptions.reversed
+                                  .map(
+                                    (option) => AdaptivePopupMenuItem(
+                                      label: option.label,
+                                      icon: option.accountType ==
+                                              ActiveWalletType.personal
+                                          ? Icons.person_outline
+                                          : Icons.people_outline,
+                                      value: option,
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                              onSelected: (index, item) async {
+                                final selected = item.value;
+                                if (selected is! AiInputSpaceOption) return;
+                                HapticFeedback.selectionClick();
+                                await _applySpaceSelection(selected);
+                              },
+                            ),
+                          ),
+                          if (walletsAsync.isLoading || wallets.isNotEmpty) ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AdaptivePopupMenuButton.widget(
+                                child: CameraTargetChip(
+                                  icon: Icons.account_balance_wallet_rounded,
+                                  value: walletsAsync.when(
+                                    data: (_) => _walletLabel(wallets),
+                                    loading: () => context.l10n.loading,
+                                    error: (_, __) => context.l10n.tapToSet,
+                                  ),
                                 ),
+                                items: wallets.reversed
+                                    .map(
+                                      (wallet) => AdaptivePopupMenuItem(
+                                        label: wallet.name,
+                                        icon: Icons
+                                            .account_balance_wallet_rounded,
+                                        value: wallet,
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                                onSelected: (index, item) async {
+                                  final selected = item.value;
+                                  if (selected is! WalletEntity) return;
+                                  HapticFeedback.selectionClick();
+                                  await _applyWalletSelection(selected);
+                                },
                               ),
                             ),
-                          )
-                        : Center(
-                            child: AspectRatio(
-                              aspectRatio: controller.value.aspectRatio,
-                              child: CameraPreview(controller),
-                            ),
-                          ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.surface.withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  color: colorScheme.onSurfaceVariant,
-                  iconSize: 22,
-                  constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 18,
-              right: 18,
-              bottom: 116,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AdaptivePopupMenuButton.widget(
-                      child: CameraTargetChip(
-                        icon: Icons.grid_view_rounded,
-                        value: _spaceLabel(households),
+                          ],
+                        ],
                       ),
-                      items: spaceOptions.reversed
-                          .map(
-                            (option) => AdaptivePopupMenuItem(
-                              label: option.label,
-                              icon: option.accountType ==
-                                      ActiveWalletType.personal
-                                  ? Icons.person_outline
-                                  : Icons.people_outline,
-                              value: option,
+                      GestureDetector(
+                        onTap: isReady && !_isCapturing
+                            ? () => _capture(households, wallets)
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          curve: Curves.easeOut,
+                          width: _isCapturing ? 72 : 82,
+                          height: _isCapturing ? 72 : 82,
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: shutterOuterColor,
+                            border: Border.all(
+                              color: shutterBorderColor,
+                              width: 2,
                             ),
-                          )
-                          .toList(growable: false),
-                      onSelected: (index, item) async {
-                        final selected = item.value;
-                        if (selected is! AiInputSpaceOption) return;
-                        HapticFeedback.selectionClick();
-                        await _applySpaceSelection(selected);
-                      },
-                    ),
-                  ),
-                  if (walletsAsync.isLoading || wallets.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AdaptivePopupMenuButton.widget(
-                        child: CameraTargetChip(
-                          icon: Icons.account_balance_wallet_rounded,
-                          value: walletsAsync.when(
-                            data: (_) => _walletLabel(wallets),
-                            loading: () => context.l10n.loading,
-                            error: (_, __) => context.l10n.tapToSet,
-                          ),
-                        ),
-                        items: wallets.reversed
-                            .map(
-                              (wallet) => AdaptivePopupMenuItem(
-                                label: wallet.name,
-                                icon: Icons.account_balance_wallet_rounded,
-                                value: wallet,
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    colorScheme.shadow.withValues(alpha: 0.26),
+                                blurRadius: 26,
+                                offset: const Offset(0, 10),
                               ),
-                            )
-                            .toList(growable: false),
-                        onSelected: (index, item) async {
-                          final selected = item.value;
-                          if (selected is! WalletEntity) return;
-                          HapticFeedback.selectionClick();
-                          await _applyWalletSelection(selected);
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 24,
-              child: Center(
-                child: GestureDetector(
-                  onTap: isReady && !_isCapturing
-                      ? () => _capture(households, wallets)
-                      : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.onSurface,
-                      border: Border.all(
-                        color: colorScheme.surface.withValues(alpha: 0.92),
-                        width: 6,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.shadow.withValues(alpha: 0.2),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: _isCapturing
-                        ? Padding(
-                            padding: const EdgeInsets.all(22),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: colorScheme.surface,
+                            ],
+                          ),
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: shutterInnerColor,
                             ),
-                          )
-                        : null,
+                            child: _isCapturing
+                                ? const Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      color: shutterProgressColor,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CameraGlassButton extends StatelessWidget {
+  const _CameraGlassButton({
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Material(
+          color: colorScheme.surface.withValues(alpha: 0.24),
+          shape: const CircleBorder(),
+          child: IconButton(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            color: Colors.white,
+            iconSize: 24,
+            constraints: const BoxConstraints(
+              minWidth: 46,
+              minHeight: 46,
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -515,52 +595,59 @@ class CameraTargetChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(26),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Material(
-          color: Colors.transparent,
+          color: colorScheme.surface.withValues(alpha: 0.0),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(26),
             child: Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(20),
+                color: colorScheme.surface.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(26),
                 border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.32),
                   width: 0.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.shadow.withValues(alpha: 0.14),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     icon,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                    size: 21,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.84),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 10),
                   Flexible(
                     child: Text(
                       value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                         color: colorScheme.onSurface,
-                        letterSpacing: -0.1,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  const SizedBox(width: 4),
                   Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    size: 20,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.64),
                   ),
                 ],
               ),

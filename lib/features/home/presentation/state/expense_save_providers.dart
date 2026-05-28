@@ -602,6 +602,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     bool refreshAnalytics = true,
     bool refreshTransactionFeed = true,
     bool emitDashboardRefresh = true,
+    bool refreshWallets = true,
+    bool invalidateHouseholdProviders = true,
   }) async {
     _debugPrint('🔄 Invalidating providers...');
 
@@ -644,12 +646,14 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
           .state += 1;
     }
-    ref.read(walletActionsProvider).refreshAccountData();
+    if (refreshWallets) {
+      ref.read(walletActionsProvider).refreshAccountData();
+    }
 
     // Pockets providers listen to transaction/dashboard refresh signals and
     // reconcile from SQLite without disposing the visible page.
 
-    if (householdId != null) {
+    if (invalidateHouseholdProviders && householdId != null) {
       // Shared expense: refresh household data
       _debugPrint(
           '🔄 Invalidating household providers for household: $householdId');
@@ -681,6 +685,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     bool refreshAnalytics = true,
     bool refreshTransactionFeed = true,
     bool emitDashboardRefresh = true,
+    bool refreshWallets = true,
+    bool invalidateHouseholdProviders = true,
   }) async {
     await _invalidateProviders(
       userId,
@@ -688,6 +694,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       refreshAnalytics: refreshAnalytics,
       refreshTransactionFeed: refreshTransactionFeed,
       emitDashboardRefresh: emitDashboardRefresh,
+      refreshWallets: refreshWallets,
+      invalidateHouseholdProviders: invalidateHouseholdProviders,
     );
   }
 

@@ -1053,7 +1053,6 @@ Future<void> _persistAiTransactions(
       'total=${traceAiAmount(cacheable.fold<double>(0, (sum, entry) => sum + (((entry.type ?? 'expense').toLowerCase() == 'income') ? 0 : entry.amount.abs())))}',
     );
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-    container.read(dashboardRefreshSignalProvider.notifier).state += 1;
     container
         .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
         .state += 1;
@@ -1667,6 +1666,8 @@ Future<void> _persistAiTransactions(
             refreshAnalytics: false,
             refreshTransactionFeed: false,
             emitDashboardRefresh: false,
+            refreshWallets: false,
+            invalidateHouseholdProviders: false,
           );
     }
 
@@ -1773,6 +1774,8 @@ Future<void> _persistAiTransactions(
               refreshAnalytics: false,
               refreshTransactionFeed: false,
               emitDashboardRefresh: false,
+              refreshWallets: false,
+              invalidateHouseholdProviders: false,
             );
       }
 
