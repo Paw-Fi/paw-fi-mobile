@@ -68,6 +68,179 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
   );
 }
 
+TransactionsFeedSummary? summarizeTransactionRollupsInCurrency(
+  TransactionsFeedSummary summary, {
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  if (summary.currencyTypeTotals.isEmpty) {
+    return null;
+  }
+
+  final normalizedTarget = targetCurrency.trim().toUpperCase();
+  final categoryTotals = <String, TransactionsFeedCategorySummary>{};
+  final yearlyTotals = <DateTime, double>{};
+  final periodTotals = <DateTime, double>{};
+  var expenseTotal = 0.0;
+  var incomeTotal = 0.0;
+
+  for (final total in summary.currencyTypeTotals) {
+    expenseTotal += rates.convert(
+      total.expenseTotal,
+      total.currency,
+      normalizedTarget,
+    );
+    incomeTotal += rates.convert(
+      total.incomeTotal,
+      total.currency,
+      normalizedTarget,
+    );
+  }
+
+  for (final category in summary.currencyCategorySummaries) {
+    final converted = rates.convert(
+      category.amount,
+      category.currency,
+      normalizedTarget,
+    );
+    final current = categoryTotals[category.category] ??
+        TransactionsFeedCategorySummary(
+          category: category.category,
+          amount: 0,
+          transactionCount: 0,
+        );
+    categoryTotals[category.category] = current.copyWith(
+      amount: current.amount + converted,
+      transactionCount: current.transactionCount + category.transactionCount,
+    );
+  }
+
+  for (final bucket in summary.currencyYearlyPeriodTotals) {
+    yearlyTotals[bucket.bucketStart] =
+        (yearlyTotals[bucket.bucketStart] ?? 0) +
+            rates.convert(
+              bucket.amount,
+              bucket.currency,
+              normalizedTarget,
+            );
+  }
+
+  final sourcePeriodTotals = summary.currencyPeriodTotals.isEmpty
+      ? summary.currencyYearlyPeriodTotals
+      : summary.currencyPeriodTotals;
+  for (final bucket in sourcePeriodTotals) {
+    periodTotals[bucket.bucketStart] =
+        (periodTotals[bucket.bucketStart] ?? 0) +
+            rates.convert(
+              bucket.amount,
+              bucket.currency,
+              normalizedTarget,
+            );
+  }
+
+  return TransactionsFeedSummary(
+    transactionCount: summary.transactionCount,
+    expenseTotal: expenseTotal,
+    incomeTotal: incomeTotal,
+    hasMultipleCurrencies: summary.hasMultipleCurrencies,
+    categorySummaries: categoryTotals.values.toList(growable: false)
+      ..sort((left, right) => right.amount.compareTo(left.amount)),
+    yearlyPeriodTotals: yearlyTotals,
+    periodTotals: periodTotals,
+    currencyCategorySummaries: summary.currencyCategorySummaries,
+    currencyYearlyPeriodTotals: summary.currencyYearlyPeriodTotals,
+    currencyPeriodTotals: summary.currencyPeriodTotals,
+    currencyTypeTotals: summary.currencyTypeTotals,
+  );
+}
+
+TransactionsFeedSummary addConvertedExpensesToSummary(
+  TransactionsFeedSummary summary,
+  List<ExpenseEntry> entries, {
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+  String intervalGranularity = 'yearly',
+}) {
+  if (entries.isEmpty) {
+    return summary;
+  }
+
+  return combineTransactionSummaries(
+    summary,
+    summarizeTransactionsInCurrency(
+      entries,
+      targetCurrency: targetCurrency,
+      rates: rates,
+      intervalGranularity: intervalGranularity,
+    ),
+  );
+}
+
+TransactionsFeedSummary combineTransactionSummaries(
+  TransactionsFeedSummary base,
+  TransactionsFeedSummary extra,
+) {
+  if (extra.transactionCount == 0) {
+    return base;
+  }
+  if (base.transactionCount == 0 &&
+      base.expenseTotal == 0 &&
+      base.incomeTotal == 0 &&
+      base.categorySummaries.isEmpty &&
+      base.yearlyPeriodTotals.isEmpty &&
+      base.periodTotals.isEmpty) {
+    return extra;
+  }
+
+  final categoryTotals = <String, TransactionsFeedCategorySummary>{};
+  for (final summary in [...base.categorySummaries, ...extra.categorySummaries]) {
+    final category = canonicalizeCategoryKey(summary.category);
+    final current = categoryTotals[category] ??
+        TransactionsFeedCategorySummary(
+          category: category,
+          amount: 0,
+          transactionCount: 0,
+        );
+    categoryTotals[category] = current.copyWith(
+      amount: current.amount + summary.amount,
+      transactionCount: current.transactionCount + summary.transactionCount,
+    );
+  }
+
+  return TransactionsFeedSummary(
+    transactionCount: base.transactionCount + extra.transactionCount,
+    expenseTotal: base.expenseTotal + extra.expenseTotal,
+    incomeTotal: base.incomeTotal + extra.incomeTotal,
+    hasMultipleCurrencies:
+        base.hasMultipleCurrencies || extra.hasMultipleCurrencies,
+    categorySummaries: categoryTotals.values.toList(growable: false)
+      ..sort((left, right) => right.amount.compareTo(left.amount)),
+    yearlyPeriodTotals: _combinePeriodTotals(
+      base.yearlyPeriodTotals,
+      extra.yearlyPeriodTotals,
+    ),
+    periodTotals: _combinePeriodTotals(
+      base.periodTotals,
+      extra.periodTotals,
+    ),
+    currencyCategorySummaries: base.currencyCategorySummaries,
+    currencyYearlyPeriodTotals: base.currencyYearlyPeriodTotals,
+    currencyPeriodTotals: base.currencyPeriodTotals,
+    currencyTypeTotals: base.currencyTypeTotals,
+  );
+}
+
+Map<DateTime, double> _combinePeriodTotals(
+  Map<DateTime, double> base,
+  Map<DateTime, double> extra,
+) {
+  final combined = Map<DateTime, double>.from(base);
+  for (final entry in extra.entries) {
+    combined[entry.key] = (combined[entry.key] ?? 0) + entry.value;
+  }
+  return combined;
+}
+
 List<ExpenseEntry> convertTransactionsToCurrency(
   List<ExpenseEntry> entries, {
   required String targetCurrency,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 
 const Map<String, String> currencyOptions = {
@@ -247,14 +248,30 @@ String formatAmount(double amount) {
   }
 }
 
+String _formatAmountWithGrouping(double amount) {
+  final roundedAmount = (amount * 100).round() / 100;
+  final normalizedAmount = roundedAmount == 0 ? 0.0 : roundedAmount;
+  final hasFraction = normalizedAmount != normalizedAmount.truncateToDouble();
+
+  try {
+    final formatter = NumberFormat.decimalPattern();
+    formatter
+      ..minimumFractionDigits = hasFraction ? 2 : 0
+      ..maximumFractionDigits = hasFraction ? 2 : 0;
+    return formatter.format(normalizedAmount);
+  } catch (_) {
+    return formatAmount(amount);
+  }
+}
+
 /// Formats a monetary amount with currency symbol and smart decimal handling
 ///
 /// Examples:
 /// - formatCurrency(50.0, 'USD') → "$50"
 /// - formatCurrency(50.25, 'USD') → "$50.25"
-/// - formatCurrency(100.5, 'EUR') → "€100.50"
+/// - formatCurrency(1000.5, 'EUR') → "€1,000.50"
 String formatCurrency(double amount, String? currencyCode) {
   final symbol = resolveCurrencySymbol(currencyCode);
-  final formattedAmount = formatAmount(amount);
+  final formattedAmount = _formatAmountWithGrouping(amount);
   return '$symbol$formattedAmount';
 }

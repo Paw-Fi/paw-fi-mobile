@@ -40,6 +40,7 @@ import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
@@ -828,7 +829,10 @@ class AddRecurringSheet extends HookConsumerWidget {
             context,
             context.l10n.splitAmountsMustEqual(
               currencySymbol,
-              amount.toStringAsFixed(2),
+              formatLocalizedNumber(
+                context,
+                double.parse(formatAmount(amount)),
+              ),
               currencySymbol,
             ),
           );

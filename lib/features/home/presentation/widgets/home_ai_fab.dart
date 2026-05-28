@@ -964,6 +964,26 @@ Future<void> _persistAiTransactions(
   MonekoDatabase? localDatabase;
   var queuedLocally = false;
   _AutoSplitContext? autoSplitContext;
+  final fallbackAccountId = accountId?.trim();
+  final scopedWallets = container.read(effectiveScopeWalletsProvider);
+  final defaultAccountIdByCurrency = <String, String>{};
+  final firstAccountIdByCurrency = <String, String>{};
+  for (final wallet in scopedWallets) {
+    final normalizedCurrency = wallet.currency.trim().toUpperCase();
+    if (normalizedCurrency.isEmpty) continue;
+    firstAccountIdByCurrency.putIfAbsent(normalizedCurrency, () => wallet.id);
+    if (wallet.isDefault) {
+      defaultAccountIdByCurrency[normalizedCurrency] = wallet.id;
+    }
+  }
+
+  String? resolveAccountIdForCurrency(String currency) {
+    final normalizedCurrency = currency.trim().toUpperCase();
+    if (normalizedCurrency.isEmpty) return fallbackAccountId;
+    return defaultAccountIdByCurrency[normalizedCurrency] ??
+        firstAccountIdByCurrency[normalizedCurrency] ??
+        fallbackAccountId;
+  }
 
   Future<void> cacheSavedEntriesAndRefresh(
     List<ExpenseEntry> savedEntries,
@@ -1383,12 +1403,18 @@ Future<void> _persistAiTransactions(
       'effectiveCustomSplits=${jsonEncode(effectiveCustomSplits)}',
     );
 
+    final resolvedAccountIdForTransaction = resolveAccountIdForCurrency(
+      tx.currency,
+    );
+
     final commonRequestBody = <String, dynamic>{
       'amount': tx.amount,
       'category': tx.category,
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
-      if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
+      if (resolvedAccountIdForTransaction != null &&
+          resolvedAccountIdForTransaction.isNotEmpty)
+        'accountId': resolvedAccountIdForTransaction,
       'clientCreatedAt': clientCreatedAtIso,
       ...mutationMetadata.toRequestJson(),
       if (isRecurring) 'isRecurring': true,
@@ -2707,6 +2733,29 @@ Future<void> _processExpense(
               rawScopedDefaultAccountId?.isEmpty == true
                   ? null
                   : rawScopedDefaultAccountId;
+          final scopedWallets = ref.read(effectiveScopeWalletsProvider);
+          final defaultAccountIdByCurrency = <String, String>{};
+          final firstAccountIdByCurrency = <String, String>{};
+          for (final wallet in scopedWallets) {
+            final normalizedCurrency = wallet.currency.trim().toUpperCase();
+            if (normalizedCurrency.isEmpty) continue;
+            firstAccountIdByCurrency.putIfAbsent(
+              normalizedCurrency,
+              () => wallet.id,
+            );
+            if (wallet.isDefault) {
+              defaultAccountIdByCurrency[normalizedCurrency] = wallet.id;
+            }
+          }
+
+          String? resolveScopedAccountIdForCurrency(String currency) {
+            final normalizedCurrency = currency.trim().toUpperCase();
+            if (normalizedCurrency.isEmpty) return scopedDefaultAccountId;
+            return defaultAccountIdByCurrency[normalizedCurrency] ??
+                firstAccountIdByCurrency[normalizedCurrency] ??
+                scopedDefaultAccountId;
+          }
+
           final expenseCategoryRemaps = await _loadLocalCategoryRemaps(
             providerContainer,
             userId: user.uid,
@@ -2830,7 +2879,9 @@ Future<void> _processExpense(
                   userId: user.uid,
                   contactId: analyticsContactId,
                   householdId: householdId,
-                  accountId: scopedDefaultAccountId,
+                  accountId: resolveScopedAccountIdForCurrency(
+                    transaction.currency,
+                  ),
                   type: isIncome ? 'income' : 'expense',
                   splitGroupId: optimisticSplitGroup?.id,
                 );

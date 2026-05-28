@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:intl/intl.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/l10n/app_localizations_en.dart';
 
@@ -1338,10 +1339,21 @@ String _buildSummary({
 
 String _formatReportAmount(double amount) {
   final rounded = (amount * 100).round() / 100;
-  if (rounded == rounded.truncate()) {
-    return rounded.truncate().toString();
+  final normalized = rounded == 0 ? 0.0 : rounded;
+  final hasFraction = normalized != normalized.truncateToDouble();
+
+  try {
+    final formatter = NumberFormat.decimalPattern();
+    formatter
+      ..minimumFractionDigits = hasFraction ? 2 : 0
+      ..maximumFractionDigits = hasFraction ? 2 : 0;
+    return formatter.format(normalized);
+  } catch (_) {
+    if (normalized == normalized.truncate()) {
+      return normalized.truncate().toString();
+    }
+    return normalized.toStringAsFixed(2);
   }
-  return rounded.toStringAsFixed(2);
 }
 
 Map<String, double> _expenseTotalsByCategory(

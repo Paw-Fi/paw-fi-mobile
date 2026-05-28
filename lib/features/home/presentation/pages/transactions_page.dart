@@ -100,6 +100,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   TransactionsFeedQuery? _activeFeedQuery;
   _TransactionsDerivedCacheKey? _derivedCacheKey;
   TransactionsPageDerivedData? _cachedDerivedData;
+  _TransactionRenderCacheKey? _renderCacheKey;
+  _TransactionRenderCacheResult? _cachedRenderResult;
 
   static const _dateFilterOptions = [
     DateRangeFilter.last7Days,
@@ -343,6 +345,33 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return derivedData;
   }
 
+  _TransactionRenderCacheResult _resolveTransactionRenderItems(
+    TransactionsPageDerivedData displayDerivedData,
+  ) {
+    final cacheKey = _TransactionRenderCacheKey(
+      displayExpensesSignature:
+          _expenseEntriesSignature(displayDerivedData.filteredExpenses),
+    );
+
+    if (_cachedRenderResult != null && _renderCacheKey == cacheKey) {
+      return _cachedRenderResult!;
+    }
+
+    final items = buildVisibleTransactionRenderItems(
+      monthGroups: displayDerivedData.monthGroups,
+      visibleExpenseCount: displayDerivedData.filteredExpenses.length,
+    );
+    final indexByKey = buildTransactionRenderItemIndexByKey(items);
+    final result = _TransactionRenderCacheResult(
+      items: items,
+      indexByKey: indexByKey,
+    );
+
+    _renderCacheKey = cacheKey;
+    _cachedRenderResult = result;
+    return result;
+  }
+
   int _expenseEntriesSignature(List<ExpenseEntry> expenses) {
     return Object.hashAll(
       expenses.map(
@@ -572,14 +601,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     final feedState = ref.watch(transactionsFeedProvider(feedQuery));
     final isMultiCurrencySelection = (selectedCurrencies?.length ?? 0) > 1;
-    final chartSourceState = isMultiCurrencySelection
-        ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
-        : null;
     final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
         const CurrencyRateTable(
           baseCurrency: 'USD',
           rates: CurrencyRates.rates,
         );
+    final convertedRollupChartSummary = isMultiCurrencySelection
+        ? summarizeTransactionRollupsInCurrency(
+            feedState.summary,
+            targetCurrency: selectedCurrency ?? 'USD',
+            rates: rateTable,
+          )
+        : null;
+    final chartSourceState = isMultiCurrencySelection &&
+            convertedRollupChartSummary == null
+        ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
+        : null;
     _baseExpenses = feedState.items
         .where((entry) => !_optimisticallyDeletedIds.contains(entry.id))
         .toList(growable: false);
@@ -701,14 +738,23 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ).filteredExpenses
         : projectedOnlyDerivedData.filteredExpenses;
 
+    final intervalGranularity =
+        feedQuery.normalizedSummaryIntervalGranularity ?? 'yearly';
     final chartSummary = isMultiCurrencySelection
-        ? summarizeTransactionsInCurrency(
-            chartExpenses,
-            targetCurrency: selectedCurrency ?? 'USD',
-            rates: rateTable,
-            intervalGranularity:
-                feedQuery.normalizedSummaryIntervalGranularity ?? 'yearly',
-          )
+        ? convertedRollupChartSummary == null
+            ? summarizeTransactionsInCurrency(
+                chartExpenses,
+                targetCurrency: selectedCurrency ?? 'USD',
+                rates: rateTable,
+                intervalGranularity: intervalGranularity,
+              )
+            : addConvertedExpensesToSummary(
+                convertedRollupChartSummary,
+                projectedOnlyDerivedData.filteredExpenses,
+                targetCurrency: selectedCurrency ?? 'USD',
+                rates: rateTable,
+                intervalGranularity: intervalGranularity,
+              )
         : feedState.summary.addingExpenses(
             projectedOnlyDerivedData.filteredExpenses,
           );
@@ -720,6 +766,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         (chartSourceState?.hasError ?? false);
 
     final availableCategories = _resolveAvailableCategories(userCategoryLists);
+    final shouldShowCurrencyFlag = (selectedCurrencies?.length ?? 0) > 1;
 
     return _buildMainScaffold(
       colorScheme: colorScheme,
@@ -739,6 +786,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       currentUserId: currentUserId,
       accountLabelsById: accountLabelsById,
       recurringTransactionsById: recurringTransactionsById,
+      shouldShowCurrencyFlag: shouldShowCurrencyFlag,
     );
   }
 
@@ -774,15 +822,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
+    required bool shouldShowCurrencyFlag,
   }) {
     final expensesToExport = derivedData.filteredExpenses;
-    final visibleListItems = buildVisibleTransactionRenderItems(
-      monthGroups: displayDerivedData.monthGroups,
-      visibleExpenseCount: displayDerivedData.filteredExpenses.length,
-    );
-    final visibleListItemIndexByKey = buildTransactionRenderItemIndexByKey(
-      visibleListItems,
-    );
+    final renderResult = _resolveTransactionRenderItems(displayDerivedData);
+    final visibleListItems = renderResult.items;
+    final visibleListItemIndexByKey = renderResult.indexByKey;
 
     // Prepare Filter Menu Items
     final filterItems = <AdaptivePopupMenuItem>[
@@ -954,10 +999,35 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: isChartSourceLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : isChartSourceError
-                            ? Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        _buildChart(
+                          colorScheme,
+                          chartSummary,
+                        ),
+                        if (isChartSourceLoading)
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.card.withValues(alpha: 0.78),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                          ),
+                        if (isChartSourceError)
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.card.withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
                                 child: Text(
                                   context
                                       .l10n.failedToLoadHouseholdTransactions,
@@ -965,11 +1035,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                     color: colorScheme.destructive,
                                   ),
                                 ),
-                              )
-                            : _buildChart(
-                                colorScheme,
-                                chartSummary,
                               ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -1052,6 +1122,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               accountLabelsById: accountLabelsById,
                               recurringTransactionsById:
                                   recurringTransactionsById,
+                              shouldShowCurrencyFlag: shouldShowCurrencyFlag,
                               isFirst: item.isFirst,
                               isLast: item.isLast,
                             );
@@ -1210,6 +1281,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
+    required bool shouldShowCurrencyFlag,
     required bool isFirst,
     required bool isLast,
   }) {
@@ -1246,6 +1318,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         currentUserId: currentUserId,
         accountLabelsById: accountLabelsById,
         recurringTransactionsById: recurringTransactionsById,
+        shouldShowCurrencyFlag: shouldShowCurrencyFlag,
         isLast: isLast,
       ),
     );
@@ -1881,6 +1954,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
+    required bool shouldShowCurrencyFlag,
     bool isLast = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -2028,6 +2102,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           isIncome: isIncome,
                           showYouLabel: isYou,
                           showRecurringChip: isProjectedRecurring,
+                          showCurrencyFlag: shouldShowCurrencyFlag,
                           accountLabel: accountLabel,
                         ),
                       ),
@@ -2294,6 +2369,37 @@ class _TransactionsDerivedCacheKey {
         projectedRecurringExpensesSignature,
         filterCacheKey,
       );
+}
+
+class _TransactionRenderCacheKey {
+  final int displayExpensesSignature;
+
+  const _TransactionRenderCacheKey({
+    required this.displayExpensesSignature,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    return other is _TransactionRenderCacheKey &&
+        displayExpensesSignature == other.displayExpensesSignature;
+  }
+
+  @override
+  int get hashCode => displayExpensesSignature;
+}
+
+class _TransactionRenderCacheResult {
+  final List<TransactionRenderItem> items;
+  final Map<String, int> indexByKey;
+
+  const _TransactionRenderCacheResult({
+    required this.items,
+    required this.indexByKey,
+  });
 }
 
 class _ExpandablePageView extends StatefulWidget {

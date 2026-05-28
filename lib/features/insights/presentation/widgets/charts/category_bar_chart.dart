@@ -4,6 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 Widget buildCategoryBarChart(BuildContext context, ColorScheme colorScheme,
@@ -60,7 +62,10 @@ Widget buildCategoryBarChart(BuildContext context, ColorScheme colorScheme,
                   ),
                   children: <TextSpan>[
                     TextSpan(
-                      text: rod.toY.toStringAsFixed(2),
+                      text: formatLocalizedNumber(
+                        context,
+                        double.parse(formatAmount(rod.toY)),
+                      ),
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontSize: 12,

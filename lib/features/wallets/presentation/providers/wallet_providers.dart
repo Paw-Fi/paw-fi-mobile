@@ -16,9 +16,8 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tra
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
-import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
-import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -531,6 +530,24 @@ final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
 
 final defaultScopedAccountProvider = Provider<WalletEntity?>((ref) {
   final wallets = ref.watch(effectiveScopeWalletsProvider);
+  final baseCurrency =
+      ref.watch(selectedHomeCurrencyCodeProvider).trim().toUpperCase();
+
+  if (baseCurrency.isNotEmpty) {
+    for (final wallet in wallets) {
+      if (!wallet.isDefault) continue;
+      if (wallet.currency.trim().toUpperCase() == baseCurrency) {
+        return wallet;
+      }
+    }
+
+    for (final wallet in wallets) {
+      if (wallet.currency.trim().toUpperCase() == baseCurrency) {
+        return wallet;
+      }
+    }
+  }
+
   for (final wallet in wallets) {
     if (wallet.isDefault) return wallet;
   }

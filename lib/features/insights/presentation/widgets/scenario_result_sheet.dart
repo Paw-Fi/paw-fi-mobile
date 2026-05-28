@@ -6,6 +6,7 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -23,6 +24,15 @@ double _asDouble(dynamic v) {
 String _scenarioMutationId(String operation, String userId, String entityId) {
   return 'mobile:scenario_${operation}_${userId}_$entityId'
       .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+}
+
+String _formatScenarioAmount(
+  BuildContext context,
+  double amount,
+  String currencySymbol,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  return '$currencySymbol${formatLocalizedNumber(context, normalized)}';
 }
 
 Future<String> _enqueueScenarioSave(
@@ -745,17 +755,20 @@ void showScenarioResultSheet(
                                 context,
                                 colorScheme,
                                 context.l10n.currentBalance,
-                                '$currencySymbol${formatAmount(curr)}'),
+                                _formatScenarioAmount(
+                                    context, curr, currencySymbol)),
                             _buildStatRow(
                                 context,
                                 colorScheme,
                                 context.l10n.projectedNoChange,
-                                '$currencySymbol${formatAmount(proj)}'),
+                                _formatScenarioAmount(
+                                    context, proj, currencySymbol)),
                             _buildStatRow(
                                 context,
                                 colorScheme,
                                 context.l10n.avgDailyNet,
-                                '$currencySymbol${formatAmount(avg)}'),
+                                _formatScenarioAmount(
+                                    context, avg, currencySymbol)),
                           ],
 
                           const SizedBox(height: 32),

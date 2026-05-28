@@ -287,7 +287,7 @@ TransactionsPageDerivedData deriveTransactionsPageData(
     }).toList();
   }
 
-  expenses.sort((left, right) => right.date.compareTo(left.date));
+  expenses.sort(compareTransactionsNewestFirst);
 
   return TransactionsPageDerivedData(
     filteredExpenses: expenses,

@@ -18,6 +18,7 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
@@ -975,9 +976,13 @@ String _localizedCategoryTrendInsight(
       (percent ?? change) >= 0 ? context.l10n.higher : context.l10n.lower;
   final category = getCategoryTranslation(context, item.name);
   if (percent == null) {
+    final formattedChange = formatLocalizedNumber(
+      context,
+      double.parse(formatAmount(change.abs())),
+    );
     return context.l10n.categoryChangeThanComparator(
       category,
-      formatAmount(change.abs()),
+      formattedChange,
       comparator,
       direction,
     );

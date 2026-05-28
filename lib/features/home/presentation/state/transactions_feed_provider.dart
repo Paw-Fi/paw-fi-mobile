@@ -9,6 +9,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -292,6 +293,46 @@ class TransactionsFeedCategorySummary {
   }
 }
 
+class TransactionsFeedCurrencyCategorySummary {
+  final String category;
+  final String currency;
+  final double amount;
+  final int transactionCount;
+
+  const TransactionsFeedCurrencyCategorySummary({
+    required this.category,
+    required this.currency,
+    required this.amount,
+    required this.transactionCount,
+  });
+}
+
+class TransactionsFeedCurrencyPeriodTotal {
+  final DateTime bucketStart;
+  final String currency;
+  final double amount;
+
+  const TransactionsFeedCurrencyPeriodTotal({
+    required this.bucketStart,
+    required this.currency,
+    required this.amount,
+  });
+}
+
+class TransactionsFeedCurrencyTypeTotal {
+  final String currency;
+  final double expenseTotal;
+  final double incomeTotal;
+  final int transactionCount;
+
+  const TransactionsFeedCurrencyTypeTotal({
+    required this.currency,
+    required this.expenseTotal,
+    required this.incomeTotal,
+    required this.transactionCount,
+  });
+}
+
 class TransactionsFeedSummary {
   final int transactionCount;
   final double expenseTotal;
@@ -300,6 +341,11 @@ class TransactionsFeedSummary {
   final List<TransactionsFeedCategorySummary> categorySummaries;
   final Map<DateTime, double> yearlyPeriodTotals;
   final Map<DateTime, double> periodTotals;
+  final List<TransactionsFeedCurrencyCategorySummary>
+      currencyCategorySummaries;
+  final List<TransactionsFeedCurrencyPeriodTotal> currencyYearlyPeriodTotals;
+  final List<TransactionsFeedCurrencyPeriodTotal> currencyPeriodTotals;
+  final List<TransactionsFeedCurrencyTypeTotal> currencyTypeTotals;
 
   const TransactionsFeedSummary({
     required this.transactionCount,
@@ -309,6 +355,12 @@ class TransactionsFeedSummary {
     required this.categorySummaries,
     required this.yearlyPeriodTotals,
     this.periodTotals = const <DateTime, double>{},
+    this.currencyCategorySummaries =
+        const <TransactionsFeedCurrencyCategorySummary>[],
+    this.currencyYearlyPeriodTotals =
+        const <TransactionsFeedCurrencyPeriodTotal>[],
+    this.currencyPeriodTotals = const <TransactionsFeedCurrencyPeriodTotal>[],
+    this.currencyTypeTotals = const <TransactionsFeedCurrencyTypeTotal>[],
   });
 
   const TransactionsFeedSummary.empty()
@@ -318,7 +370,13 @@ class TransactionsFeedSummary {
         hasMultipleCurrencies = false,
         categorySummaries = const <TransactionsFeedCategorySummary>[],
         yearlyPeriodTotals = const <DateTime, double>{},
-        periodTotals = const <DateTime, double>{};
+        periodTotals = const <DateTime, double>{},
+        currencyCategorySummaries =
+            const <TransactionsFeedCurrencyCategorySummary>[],
+        currencyYearlyPeriodTotals =
+            const <TransactionsFeedCurrencyPeriodTotal>[],
+        currencyPeriodTotals = const <TransactionsFeedCurrencyPeriodTotal>[],
+        currencyTypeTotals = const <TransactionsFeedCurrencyTypeTotal>[];
 
   TransactionsFeedSummary addingExpenses(List<ExpenseEntry> expenses) {
     if (expenses.isEmpty) {
@@ -391,6 +449,10 @@ class TransactionsFeedSummary {
         ..sort((left, right) => right.amount.compareTo(left.amount)),
       yearlyPeriodTotals: yearlyTotals,
       periodTotals: periodTotals,
+      currencyCategorySummaries: currencyCategorySummaries,
+      currencyYearlyPeriodTotals: currencyYearlyPeriodTotals,
+      currencyPeriodTotals: currencyPeriodTotals,
+      currencyTypeTotals: currencyTypeTotals,
     );
   }
 }
@@ -614,7 +676,82 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
       categorySummaries: categoryRows,
       yearlyPeriodTotals: yearlyPeriodTotals,
       periodTotals: periodTotals,
+      currencyCategorySummaries:
+          _parseCurrencyCategorySummaries(payload['currency_category_summaries']),
+      currencyYearlyPeriodTotals:
+          _parseCurrencyPeriodTotals(payload['currency_yearly_period_totals']),
+      currencyPeriodTotals:
+          _parseCurrencyPeriodTotals(payload['currency_period_totals']),
+      currencyTypeTotals: _parseCurrencyTypeTotals(
+        payload['currency_type_totals'],
+      ),
     );
+  }
+
+  List<TransactionsFeedCurrencyCategorySummary>
+      _parseCurrencyCategorySummaries(dynamic source) {
+    return ((source as List?) ?? const [])
+        .cast<Map>()
+        .map((row) {
+          final currency = row['currency']?.toString().trim().toUpperCase();
+          if (currency == null || currency.isEmpty) {
+            return null;
+          }
+          return TransactionsFeedCurrencyCategorySummary(
+            category: canonicalizeCategoryKey(
+              row['category'] as String? ?? 'uncategorized',
+            ),
+            currency: currency,
+            amount: _centsToDouble(row['amount_cents']),
+            transactionCount:
+                ((row['transaction_count'] as num?)?.toInt() ?? 0),
+          );
+        })
+        .whereType<TransactionsFeedCurrencyCategorySummary>()
+        .toList(growable: false);
+  }
+
+  List<TransactionsFeedCurrencyPeriodTotal> _parseCurrencyPeriodTotals(
+    dynamic source,
+  ) {
+    return ((source as List?) ?? const [])
+        .cast<Map>()
+        .map((row) {
+          final bucketRaw = row['bucket_start'];
+          final currency = row['currency']?.toString().trim().toUpperCase();
+          if (bucketRaw == null || currency == null || currency.isEmpty) {
+            return null;
+          }
+          return TransactionsFeedCurrencyPeriodTotal(
+            bucketStart: DateTime.parse(bucketRaw.toString()),
+            currency: currency,
+            amount: _centsToDouble(row['amount_cents']),
+          );
+        })
+        .whereType<TransactionsFeedCurrencyPeriodTotal>()
+        .toList(growable: false);
+  }
+
+  List<TransactionsFeedCurrencyTypeTotal> _parseCurrencyTypeTotals(
+    dynamic source,
+  ) {
+    return ((source as List?) ?? const [])
+        .cast<Map>()
+        .map((row) {
+          final currency = row['currency']?.toString().trim().toUpperCase();
+          if (currency == null || currency.isEmpty) {
+            return null;
+          }
+          return TransactionsFeedCurrencyTypeTotal(
+            currency: currency,
+            expenseTotal: _centsToDouble(row['expense_total_cents']),
+            incomeTotal: _centsToDouble(row['income_total_cents']),
+            transactionCount:
+                ((row['transaction_count'] as num?)?.toInt() ?? 0),
+          );
+        })
+        .whereType<TransactionsFeedCurrencyTypeTotal>()
+        .toList(growable: false);
   }
 
   double _centsToDouble(dynamic value) {
@@ -821,13 +958,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       for (final item in localItems) item.id: item,
     };
     final merged = mergedById.values.toList(growable: false)
-      ..sort((left, right) {
-        final dateCompare = right.date.compareTo(left.date);
-        if (dateCompare != 0) return dateCompare;
-        final createdCompare = right.createdAt.compareTo(left.createdAt);
-        if (createdCompare != 0) return createdCompare;
-        return right.id.compareTo(left.id);
-      });
+      ..sort(compareTransactionsNewestFirst);
     return merged;
   }
 
@@ -954,6 +1085,48 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
           .toList(growable: false),
       yearlyPeriodTotals: _doubleBucketMap(summary.yearlyPeriodTotalsCents),
       periodTotals: _doubleBucketMap(summary.periodTotalsCents),
+      currencyCategorySummaries: summary.currencyCategorySummaries
+          .map(
+            (entry) => TransactionsFeedCurrencyCategorySummary(
+              category: canonicalizeCategoryKey(entry.category),
+              currency: entry.currency.trim().toUpperCase(),
+              amount: _centsToDouble(entry.amountCents),
+              transactionCount: entry.transactionCount,
+            ),
+          )
+          .where((entry) => entry.currency.isNotEmpty)
+          .toList(growable: false),
+      currencyYearlyPeriodTotals: summary.currencyYearlyPeriodTotals
+          .map(
+            (entry) => TransactionsFeedCurrencyPeriodTotal(
+              bucketStart: entry.bucketStart,
+              currency: entry.currency.trim().toUpperCase(),
+              amount: _centsToDouble(entry.amountCents),
+            ),
+          )
+          .where((entry) => entry.currency.isNotEmpty)
+          .toList(growable: false),
+      currencyPeriodTotals: summary.currencyPeriodTotals
+          .map(
+            (entry) => TransactionsFeedCurrencyPeriodTotal(
+              bucketStart: entry.bucketStart,
+              currency: entry.currency.trim().toUpperCase(),
+              amount: _centsToDouble(entry.amountCents),
+            ),
+          )
+          .where((entry) => entry.currency.isNotEmpty)
+          .toList(growable: false),
+      currencyTypeTotals: summary.currencyTypeTotals
+          .map(
+            (entry) => TransactionsFeedCurrencyTypeTotal(
+              currency: entry.currency.trim().toUpperCase(),
+              expenseTotal: _centsToDouble(entry.expenseTotalCents),
+              incomeTotal: _centsToDouble(entry.incomeTotalCents),
+              transactionCount: entry.transactionCount,
+            ),
+          )
+          .where((entry) => entry.currency.isNotEmpty)
+          .toList(growable: false),
     );
   }
 
@@ -994,6 +1167,7 @@ class TransactionsFeedState {
     String? error,
     bool clearError = false,
     TransactionsFeedCursor? nextCursor,
+    bool clearNextCursor = false,
   }) {
     return TransactionsFeedState(
       summary: summary ?? this.summary,
@@ -1002,7 +1176,7 @@ class TransactionsFeedState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       error: clearError ? null : (error ?? this.error),
-      nextCursor: nextCursor ?? this.nextCursor,
+      nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
     );
   }
 }
@@ -1045,11 +1219,22 @@ final transactionsFeedAllItemsProvider = FutureProvider.autoDispose
 final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
     TransactionsFeedNotifier, TransactionsFeedState, TransactionsFeedQuery>(
   (ref, query) {
-    ref.watch(transactionsFeedRefreshSignalProvider);
     final notifier = TransactionsFeedNotifier(
-      service: ref.watch(transactionsFeedServiceProvider),
+      service: ref.read(transactionsFeedServiceProvider),
       query: query,
     );
+    ref.listen<TransactionsFeedService>(
+      transactionsFeedServiceProvider,
+      (previous, next) {
+        notifier.updateService(next);
+      },
+    );
+    ref.listen<int>(transactionsFeedRefreshSignalProvider, (previous, next) {
+      if (previous == null || previous == next) {
+        return;
+      }
+      unawaited(notifier.refresh());
+    });
     unawaited(notifier.loadInitial());
     return notifier;
   },
@@ -1063,9 +1248,29 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         _query = query,
         super(const TransactionsFeedState());
 
-  final TransactionsFeedService _service;
+  TransactionsFeedService _service;
   final TransactionsFeedQuery _query;
   Future<void>? _backgroundRefresh;
+  int _serviceGeneration = 0;
+
+  void updateService(TransactionsFeedService service) {
+    if (identical(_service, service)) {
+      return;
+    }
+
+    _service = service;
+    _serviceGeneration++;
+
+    if (_query.userId.isEmpty || state.isLoading || state.isLoadingMore) {
+      return;
+    }
+
+    if (state.items.isEmpty) {
+      unawaited(loadInitial());
+    } else if (service.supportsBackgroundRefresh) {
+      _startBackgroundRefresh();
+    }
+  }
 
   Future<void> loadInitial() async {
     if (state.isLoading || state.isLoadingMore) {
@@ -1077,7 +1282,10 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       return;
     }
 
-    if (_service.supportsBackgroundRefresh && state.items.isNotEmpty) {
+    final service = _service;
+    final generation = _serviceGeneration;
+
+    if (service.supportsBackgroundRefresh && state.items.isNotEmpty) {
       state = state.copyWith(clearError: true);
       _startBackgroundRefresh();
       return;
@@ -1091,19 +1299,27 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
     try {
       final results = await Future.wait<dynamic>([
-        _service.fetchSummary(_query),
-        _service.fetchPage(_query),
+        service.fetchSummary(_query),
+        service.fetchPage(_query),
       ]);
       if (!mounted) return;
+      if (generation != _serviceGeneration) {
+        state = state.copyWith(isLoading: false, isLoadingMore: false);
+        unawaited(loadInitial());
+        return;
+      }
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
         summary: summary,
-        items: page.items,
+        items: _mergeRefreshedFirstPageWithExistingTail(
+          refreshedPage: page,
+          existingItems: state.items,
+        ),
         hasMore: page.hasMore,
         nextCursor: page.nextCursor,
       );
-      if (_service.supportsBackgroundRefresh) {
+      if (service.supportsBackgroundRefresh) {
         _startBackgroundRefresh();
       }
     } catch (error) {
@@ -1125,6 +1341,9 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       return;
     }
 
+    final service = _service;
+    final generation = _serviceGeneration;
+
     state = state.copyWith(
       isLoading: true,
       isLoadingMore: false,
@@ -1132,20 +1351,33 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     );
 
     try {
-      if (_service.supportsBackgroundRefresh) {
-        await _service.refreshFromRemote(_query);
+      if (service.supportsBackgroundRefresh) {
+        await service.refreshFromRemote(_query);
         if (!mounted) return;
+        if (generation != _serviceGeneration) {
+          state = state.copyWith(isLoading: false, isLoadingMore: false);
+          unawaited(refresh());
+          return;
+        }
       }
       final results = await Future.wait<dynamic>([
-        _service.fetchSummary(_query),
-        _service.fetchPage(_query),
+        service.fetchSummary(_query),
+        service.fetchPage(_query),
       ]);
       if (!mounted) return;
+      if (generation != _serviceGeneration) {
+        state = state.copyWith(isLoading: false, isLoadingMore: false);
+        unawaited(refresh());
+        return;
+      }
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
         summary: summary,
-        items: page.items,
+        items: _mergeRefreshedFirstPageWithExistingTail(
+          refreshedPage: page,
+          existingItems: state.items,
+        ),
         hasMore: page.hasMore,
         nextCursor: page.nextCursor,
       );
@@ -1168,16 +1400,33 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       return;
     }
 
+    final service = _service;
+    final generation = _serviceGeneration;
+
     state = state.copyWith(isLoadingMore: true, clearError: true);
 
     try {
-      final page = await _service.fetchPage(_query, cursor: cursor);
+      final page = await service.fetchPage(_query, cursor: cursor);
       if (!mounted) return;
+      if (generation != _serviceGeneration) {
+        state = state.copyWith(isLoadingMore: false);
+        return;
+      }
+      final mergedItems = _mergePaginatedItems(
+        existingItems: state.items,
+        nextPageItems: page.items,
+      );
+      final madeProgress = mergedItems.length > state.items.length;
+      final cursorAdvanced = page.nextCursor != null &&
+          (page.nextCursor!.date != cursor.date ||
+              page.nextCursor!.createdAt != cursor.createdAt ||
+              page.nextCursor!.id != cursor.id);
       state = state.copyWith(
-        items: [...state.items, ...page.items],
+        items: mergedItems,
         isLoadingMore: false,
-        hasMore: page.hasMore,
+        hasMore: page.hasMore && (madeProgress || cursorAdvanced),
         nextCursor: page.nextCursor,
+        clearNextCursor: page.nextCursor == null,
       );
     } catch (error) {
       if (!mounted) return;
@@ -1189,19 +1438,25 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
   }
 
   Future<void> _refreshFromRemoteAndReload() async {
+    final service = _service;
+    final generation = _serviceGeneration;
+
     try {
-      await _service.refreshFromRemote(_query);
-      if (!mounted) return;
+      await service.refreshFromRemote(_query);
+      if (!mounted || generation != _serviceGeneration) return;
       final results = await Future.wait<dynamic>([
-        _service.fetchSummary(_query),
-        _service.fetchPage(_query),
+        service.fetchSummary(_query),
+        service.fetchPage(_query),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _serviceGeneration) return;
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
       state = TransactionsFeedState(
         summary: summary,
-        items: page.items,
+        items: _mergeRefreshedFirstPageWithExistingTail(
+          refreshedPage: page,
+          existingItems: state.items,
+        ),
         hasMore: page.hasMore,
         nextCursor: page.nextCursor,
       );
@@ -1216,6 +1471,78 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       _backgroundRefresh = null;
     });
   }
+}
+
+List<ExpenseEntry> _mergePaginatedItems({
+  required List<ExpenseEntry> existingItems,
+  required List<ExpenseEntry> nextPageItems,
+}) {
+  if (existingItems.isEmpty) {
+    return _uniqueSortedTransactions(nextPageItems);
+  }
+  if (nextPageItems.isEmpty) {
+    return existingItems;
+  }
+
+  return _uniqueSortedTransactions([
+    ...existingItems,
+    ...nextPageItems,
+  ]);
+}
+
+List<ExpenseEntry> _mergeRefreshedFirstPageWithExistingTail({
+  required TransactionsFeedPageResult refreshedPage,
+  required List<ExpenseEntry> existingItems,
+}) {
+  if (existingItems.isEmpty || refreshedPage.items.isEmpty) {
+    return _uniqueSortedTransactions(refreshedPage.items);
+  }
+  if (!refreshedPage.hasMore || refreshedPage.nextCursor == null) {
+    return _uniqueSortedTransactions(refreshedPage.items);
+  }
+
+  final boundary = refreshedPage.nextCursor!;
+  final retainedTail = existingItems
+      .where((item) => _isTransactionOlderThanCursor(item, boundary))
+      .toList(growable: false);
+
+  return _uniqueSortedTransactions([
+    ...refreshedPage.items,
+    ...retainedTail,
+  ]);
+}
+
+List<ExpenseEntry> _uniqueSortedTransactions(List<ExpenseEntry> items) {
+  if (items.length <= 1) {
+    return items;
+  }
+
+  final byId = <String, ExpenseEntry>{};
+  for (final item in items) {
+    byId[item.id] = item;
+  }
+
+  return byId.values.toList(growable: false)
+    ..sort(compareTransactionsNewestFirst);
+}
+
+bool _isTransactionOlderThanCursor(
+  ExpenseEntry item,
+  TransactionsFeedCursor cursor,
+) {
+  if (item.date.isBefore(cursor.date)) {
+    return true;
+  }
+  if (item.date.isAfter(cursor.date)) {
+    return false;
+  }
+  if (item.createdAt.isBefore(cursor.createdAt)) {
+    return true;
+  }
+  if (item.createdAt.isAfter(cursor.createdAt)) {
+    return false;
+  }
+  return item.id.compareTo(cursor.id) < 0;
 }
 
 String? _normalizeNullable(String? value) {

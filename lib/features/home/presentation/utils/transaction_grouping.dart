@@ -2,6 +2,16 @@ import 'package:intl/intl.dart';
 
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
+int compareTransactionsNewestFirst(ExpenseEntry left, ExpenseEntry right) {
+  final dateCompare = right.date.compareTo(left.date);
+  if (dateCompare != 0) return dateCompare;
+
+  final createdCompare = right.createdAt.compareTo(left.createdAt);
+  if (createdCompare != 0) return createdCompare;
+
+  return right.id.compareTo(left.id);
+}
+
 class MonthTransactionGroup {
   final DateTime monthStart;
   final List<ExpenseEntry> expenses;
@@ -35,8 +45,7 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
   final sortedMonths = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
   return sortedMonths.map((monthStart) {
-    final items = grouped[monthStart]!
-      ..sort((a, b) => normalize(b).compareTo(normalize(a)));
+    final items = grouped[monthStart]!..sort(compareTransactionsNewestFirst);
     double total = 0;
     for (final e in items) {
       final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
@@ -80,8 +89,7 @@ List<DayTransactionGroup> groupTransactionsByDay(
   final sortedDays = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
   return sortedDays.map((day) {
-    final items = grouped[day]!
-      ..sort((a, b) => normalize(b).compareTo(normalize(a)));
+    final items = grouped[day]!..sort(compareTransactionsNewestFirst);
     double total = 0;
     for (final e in items) {
       final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';

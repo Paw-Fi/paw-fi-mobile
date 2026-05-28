@@ -26,6 +26,7 @@ class TransactionListTile extends ConsumerWidget {
   final bool dense;
   final bool showYouLabel;
   final bool showRecurringChip;
+  final bool? showCurrencyFlag;
   final String? accountLabel;
 
   const TransactionListTile({
@@ -44,6 +45,7 @@ class TransactionListTile extends ConsumerWidget {
     this.dense = true,
     this.showYouLabel = false,
     this.showRecurringChip = false,
+    this.showCurrencyFlag,
     this.accountLabel,
   });
 
@@ -69,10 +71,13 @@ class TransactionListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCurrencyFilters = ref.watch(
-      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
-    );
-    final shouldShowCurrencyFlag = (selectedCurrencyFilters?.length ?? 0) > 1;
+    final shouldShowCurrencyFlag = showCurrencyFlag ??
+        ((ref.watch(
+                  homeFilterProvider
+                      .select((state) => state.normalizedSelectedCurrencies),
+                )?.length ??
+                0) >
+            1);
 
     return ValueListenableBuilder<Map<String, CustomCategoryStyle>>(
       valueListenable: customCategoryStyleOverridesNotifier,

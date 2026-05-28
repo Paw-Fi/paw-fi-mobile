@@ -146,6 +146,46 @@ class LocalTransactionCategorySummary {
   final int transactionCount;
 }
 
+class LocalTransactionCurrencyCategorySummary {
+  const LocalTransactionCurrencyCategorySummary({
+    required this.category,
+    required this.currency,
+    required this.amountCents,
+    required this.transactionCount,
+  });
+
+  final String category;
+  final String currency;
+  final int amountCents;
+  final int transactionCount;
+}
+
+class LocalTransactionCurrencyPeriodTotal {
+  const LocalTransactionCurrencyPeriodTotal({
+    required this.bucketStart,
+    required this.currency,
+    required this.amountCents,
+  });
+
+  final DateTime bucketStart;
+  final String currency;
+  final int amountCents;
+}
+
+class LocalTransactionCurrencyTypeTotal {
+  const LocalTransactionCurrencyTypeTotal({
+    required this.currency,
+    required this.expenseTotalCents,
+    required this.incomeTotalCents,
+    required this.transactionCount,
+  });
+
+  final String currency;
+  final int expenseTotalCents;
+  final int incomeTotalCents;
+  final int transactionCount;
+}
+
 class LocalTransactionsFeedSummary {
   const LocalTransactionsFeedSummary({
     required this.transactionCount,
@@ -155,6 +195,12 @@ class LocalTransactionsFeedSummary {
     required this.categorySummaries,
     required this.yearlyPeriodTotalsCents,
     required this.periodTotalsCents,
+    this.currencyCategorySummaries =
+        const <LocalTransactionCurrencyCategorySummary>[],
+    this.currencyYearlyPeriodTotals =
+        const <LocalTransactionCurrencyPeriodTotal>[],
+    this.currencyPeriodTotals = const <LocalTransactionCurrencyPeriodTotal>[],
+    this.currencyTypeTotals = const <LocalTransactionCurrencyTypeTotal>[],
   });
 
   final int transactionCount;
@@ -164,6 +210,11 @@ class LocalTransactionsFeedSummary {
   final List<LocalTransactionCategorySummary> categorySummaries;
   final Map<DateTime, int> yearlyPeriodTotalsCents;
   final Map<DateTime, int> periodTotalsCents;
+  final List<LocalTransactionCurrencyCategorySummary>
+      currencyCategorySummaries;
+  final List<LocalTransactionCurrencyPeriodTotal> currencyYearlyPeriodTotals;
+  final List<LocalTransactionCurrencyPeriodTotal> currencyPeriodTotals;
+  final List<LocalTransactionCurrencyTypeTotal> currencyTypeTotals;
 }
 
 class LocalMutationOutboxData {
@@ -974,6 +1025,69 @@ class MonekoDatabase {
       args,
     );
 
+    final currencyCategoryRows = _db.select(
+      '''
+      SELECT
+        LOWER(COALESCE(NULLIF(TRIM(category), ''), 'uncategorized')) AS category_key,
+        UPPER(COALESCE(currency, '')) AS currency_key,
+        SUM(ABS(amount_cents)) AS amount_cents,
+        COUNT(*) AS transaction_count
+      FROM local_transactions
+      WHERE $whereSql
+        AND LOWER(COALESCE(type, 'expense')) != 'income'
+      GROUP BY category_key, currency_key
+      ORDER BY amount_cents DESC, category_key ASC, currency_key ASC
+      ''',
+      args,
+    );
+
+    final currencyYearlyRows = _db.select(
+      '''
+      SELECT
+        SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
+        UPPER(COALESCE(currency, '')) AS currency_key,
+        SUM(ABS(amount_cents)) AS amount_cents
+      FROM local_transactions
+      WHERE $whereSql
+        AND LOWER(COALESCE(type, 'expense')) != 'income'
+      GROUP BY bucket_start, currency_key
+      ORDER BY bucket_start ASC, currency_key ASC
+      ''',
+      args,
+    );
+
+    final currencyPeriodRows = _db.select(
+      '''
+      SELECT
+        ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
+        UPPER(COALESCE(currency, '')) AS currency_key,
+        SUM(ABS(amount_cents)) AS amount_cents
+      FROM local_transactions
+      WHERE $whereSql
+        AND LOWER(COALESCE(type, 'expense')) != 'income'
+      GROUP BY bucket_start, currency_key
+      ORDER BY bucket_start ASC, currency_key ASC
+      ''',
+      args,
+    );
+
+    final currencyTypeRows = _db.select(
+      '''
+      SELECT
+        UPPER(COALESCE(currency, '')) AS currency_key,
+        SUM(CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income'
+          THEN 0 ELSE ABS(amount_cents) END) AS expense_total_cents,
+        SUM(CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income'
+          THEN ABS(amount_cents) ELSE 0 END) AS income_total_cents,
+        COUNT(*) AS transaction_count
+      FROM local_transactions
+      WHERE $whereSql
+      GROUP BY currency_key
+      ORDER BY currency_key ASC
+      ''',
+      args,
+    );
+
     return LocalTransactionsFeedSummary(
       transactionCount: _rowInt(totals['transaction_count']),
       expenseTotalCents: _rowInt(totals['expense_total_cents']),
@@ -988,6 +1102,36 @@ class MonekoDatabase {
           .toList(growable: false),
       yearlyPeriodTotalsCents: _bucketMapFromRows(yearlyRows),
       periodTotalsCents: _bucketMapFromRows(periodRows),
+      currencyCategorySummaries: currencyCategoryRows
+          .map((row) => LocalTransactionCurrencyCategorySummary(
+                category: row['category_key']?.toString() ?? 'uncategorized',
+                currency: row['currency_key']?.toString() ?? '',
+                amountCents: _rowInt(row['amount_cents']),
+                transactionCount: _rowInt(row['transaction_count']),
+              ))
+          .toList(growable: false),
+      currencyYearlyPeriodTotals: currencyYearlyRows
+          .map((row) => LocalTransactionCurrencyPeriodTotal(
+                bucketStart: DateTime.parse(row['bucket_start'] as String),
+                currency: row['currency_key']?.toString() ?? '',
+                amountCents: _rowInt(row['amount_cents']),
+              ))
+          .toList(growable: false),
+      currencyPeriodTotals: currencyPeriodRows
+          .map((row) => LocalTransactionCurrencyPeriodTotal(
+                bucketStart: DateTime.parse(row['bucket_start'] as String),
+                currency: row['currency_key']?.toString() ?? '',
+                amountCents: _rowInt(row['amount_cents']),
+              ))
+          .toList(growable: false),
+      currencyTypeTotals: currencyTypeRows
+          .map((row) => LocalTransactionCurrencyTypeTotal(
+                currency: row['currency_key']?.toString() ?? '',
+                expenseTotalCents: _rowInt(row['expense_total_cents']),
+                incomeTotalCents: _rowInt(row['income_total_cents']),
+                transactionCount: _rowInt(row['transaction_count']),
+              ))
+          .toList(growable: false),
     );
   }
 
