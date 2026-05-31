@@ -94,7 +94,15 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         // Send to backend on background thread
         executor.submit {
             try {
-                sendToBackend(config, parsed, packageName, dedupKey)
+                sendToBackend(
+                    config,
+                    parsed,
+                    packageName,
+                    appLabel,
+                    sbn.key,
+                    sbn.postTime,
+                    dedupKey
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send transaction to backend: ${e.message}")
                 // Remove dedup entry on failure so retry is possible
@@ -118,6 +126,9 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         config: NotificationCaptureConfig,
         parsed: ParsedTransaction,
         packageName: String,
+        appLabel: String,
+        notificationKey: String?,
+        notificationPostTimeMillis: Long,
         dedupKey: String
     ) {
         if (!config.isAuthStorageAvailable) {
@@ -165,6 +176,17 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 put("currency", parsed.currencyCode)
                 put("date", parsed.transactionDate)
                 put("packageName", packageName)
+                put("sourceAppLabel", appLabel)
+                if (!notificationKey.isNullOrBlank()) {
+                    put("notificationKey", notificationKey)
+                    put("externalSourceId", notificationKey)
+                }
+                if (notificationPostTimeMillis > 0) {
+                    put(
+                        "notificationPostTime",
+                        java.time.Instant.ofEpochMilli(notificationPostTimeMillis).toString()
+                    )
+                }
                 put("note", parsed.rawText)
             })
             if (scopeId != "personal") {
