@@ -1158,6 +1158,7 @@ class TransactionsFeedState {
   final bool isLoading;
   final bool isLoadingMore;
   final bool hasMore;
+  final bool hasLoadedInitial;
   final String? error;
   final TransactionsFeedCursor? nextCursor;
 
@@ -1167,6 +1168,7 @@ class TransactionsFeedState {
     this.isLoading = false,
     this.isLoadingMore = false,
     this.hasMore = false,
+    this.hasLoadedInitial = false,
     this.error,
     this.nextCursor,
   });
@@ -1177,6 +1179,7 @@ class TransactionsFeedState {
     bool? isLoading,
     bool? isLoadingMore,
     bool? hasMore,
+    bool? hasLoadedInitial,
     String? error,
     bool clearError = false,
     TransactionsFeedCursor? nextCursor,
@@ -1188,6 +1191,7 @@ class TransactionsFeedState {
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
+      hasLoadedInitial: hasLoadedInitial ?? this.hasLoadedInitial,
       error: clearError ? null : (error ?? this.error),
       nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
     );
@@ -1278,7 +1282,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       return;
     }
 
-    if (state.items.isEmpty) {
+    if (state.items.isEmpty && !state.hasLoadedInitial) {
       unawaited(loadInitial());
     } else if (service.supportsBackgroundRefresh) {
       _startBackgroundRefresh();
@@ -1330,6 +1334,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
           existingItems: state.items,
         ),
         hasMore: page.hasMore,
+        hasLoadedInitial: true,
         nextCursor: page.nextCursor,
       );
       if (service.supportsBackgroundRefresh) {
@@ -1392,6 +1397,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
           existingItems: state.items,
         ),
         hasMore: page.hasMore,
+        hasLoadedInitial: true,
         nextCursor: page.nextCursor,
       );
     } catch (error) {
@@ -1471,6 +1477,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
           existingItems: state.items,
         ),
         hasMore: page.hasMore,
+        hasLoadedInitial: true,
         nextCursor: page.nextCursor,
       );
     } catch (_) {

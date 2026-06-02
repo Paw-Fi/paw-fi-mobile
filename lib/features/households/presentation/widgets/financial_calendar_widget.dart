@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -338,70 +339,72 @@ class _FinancialCalendarWidgetState
       rates: rates,
     );
 
-    return GestureDetector(
-      onHorizontalDragEnd: _handleHorizontalSwipe,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.homeCardSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: colorScheme.homeCardBorder,
-            width: 1,
+    return Skeletonizer(
+      enabled: transactionsAsync.isLoading,
+      child: GestureDetector(
+        onHorizontalDragEnd: _handleHorizontalSwipe,
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.homeCardSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: colorScheme.homeCardBorder,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.homeCardShadow,
+                blurRadius: 32,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.homeCardShadow,
-              blurRadius: 32,
-              offset: const Offset(0, 8),
-              spreadRadius: -4,
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (widget.isExpanded) ...[
-                  IconButton(
-                    onPressed: _previousMonth,
-                    icon:
-                        Icon(Icons.chevron_left, color: colorScheme.foreground),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  Text(
-                    DateFormat('MMMM yyyy').format(_focusedMonth),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (widget.isExpanded) ...[
+                    IconButton(
+                      onPressed: _previousMonth,
+                      icon: Icon(Icons.chevron_left,
+                          color: colorScheme.foreground),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                  IconButton(
-                    onPressed: _nextMonth,
-                    icon: Icon(Icons.chevron_right,
-                        color: colorScheme.foreground),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ] else
-                  const Spacer(),
-              ],
-            ),
-            if (widget.isExpanded) const SizedBox(height: 8),
-
-            if (widget.isExpanded)
-              _buildExpandedView(colorScheme, resolvedTransactions,
-                  recurringDailyTotals, rates)
-            else
-              _buildCollapsedView(colorScheme, resolvedTransactions,
-                  recurringDailyTotals, rates),
-          ],
+                    Text(
+                      DateFormat('MMMM yyyy').format(_focusedMonth),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _nextMonth,
+                      icon: Icon(Icons.chevron_right,
+                          color: colorScheme.foreground),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ] else
+                    const Spacer(),
+                ],
+              ),
+              if (widget.isExpanded) const SizedBox(height: 8),
+              if (widget.isExpanded)
+                _buildExpandedView(colorScheme, resolvedTransactions,
+                    recurringDailyTotals, rates, transactionsAsync.isLoading)
+              else
+                _buildCollapsedView(colorScheme, resolvedTransactions,
+                    recurringDailyTotals, rates, transactionsAsync.isLoading),
+            ],
+          ),
         ),
       ),
     );
@@ -412,6 +415,7 @@ class _FinancialCalendarWidgetState
     List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
     CurrencyRateTable rates,
+    bool isLoading,
   ) {
     final daysInMonth =
         DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
@@ -461,7 +465,8 @@ class _FinancialCalendarWidgetState
             final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
 
             return _buildDayCell(
-                date, colorScheme, transactions, recurringDailyTotals, rates);
+                date, colorScheme, transactions, recurringDailyTotals, rates,
+                isLoading: isLoading);
           },
         ),
       ],
@@ -473,6 +478,7 @@ class _FinancialCalendarWidgetState
     List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
     CurrencyRateTable rates,
+    bool isLoading,
   ) {
     final last7Days = List.generate(7, (index) {
       return _focusedWeekStart.add(Duration(days: index));
@@ -494,8 +500,9 @@ class _FinancialCalendarWidgetState
               const SizedBox(height: 4),
               AspectRatio(
                 aspectRatio: 0.85,
-                child: _buildDayCell(date, colorScheme, transactions,
-                    recurringDailyTotals, rates),
+                child: _buildDayCell(
+                    date, colorScheme, transactions, recurringDailyTotals, rates,
+                    isLoading: isLoading),
               ),
             ],
           ),
@@ -509,8 +516,9 @@ class _FinancialCalendarWidgetState
     ColorScheme colorScheme,
     List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
-    CurrencyRateTable rates,
-  ) {
+    CurrencyRateTable rates, {
+    bool isLoading = false,
+  }) {
     final totals = _calculateDailyTotals(
       date,
       transactions: transactions,
@@ -535,6 +543,7 @@ class _FinancialCalendarWidgetState
               currency: widget.currency,
               userId: widget.userId,
               householdId: widget.householdId,
+              isLoading: isLoading,
             ),
           ),
         );

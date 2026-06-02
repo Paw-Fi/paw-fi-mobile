@@ -222,6 +222,15 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         responseData['data'],
         fallback: optimisticExpense,
       );
+      final responsePreservingUpdates = <String, dynamic>{
+        if (updates.containsKey('merchant')) 'merchant': updates['merchant'],
+        if (updates.containsKey('raw_text')) 'raw_text': updates['raw_text'],
+      };
+      final confirmedExpense = responseExpense == null
+          ? optimisticExpense
+          : responsePreservingUpdates.isEmpty
+              ? responseExpense
+              : _applyUpdates(responseExpense, responsePreservingUpdates);
       final affectedHouseholdIds = <String>{
         if (originalExpense?.householdId?.trim().isNotEmpty == true)
           originalExpense!.householdId!.trim(),
@@ -229,15 +238,15 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           originalForRollback!.householdId!.trim(),
         if (optimisticExpense?.householdId?.trim().isNotEmpty == true)
           optimisticExpense!.householdId!.trim(),
-        if (responseExpense?.householdId?.trim().isNotEmpty == true)
-          responseExpense!.householdId!.trim(),
+        if (confirmedExpense?.householdId?.trim().isNotEmpty == true)
+          confirmedExpense!.householdId!.trim(),
       };
       await Future.wait(
         affectedHouseholdIds.map(clearHouseholdPersistentCacheForHousehold),
       );
-      if (localDatabase != null && responseExpense != null) {
+      if (localDatabase != null && confirmedExpense != null) {
         await localDatabase.markOptimisticTransactionUpdateSynced(
-          entry: responseExpense,
+          entry: confirmedExpense,
           clientMutationId: mutationMetadata.clientMutationId,
         );
       } else if (localDatabase != null) {
@@ -586,41 +595,76 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ExpenseEntry expense,
     Map<String, dynamic> updates,
   ) {
-    return expense.copyWith(
+    final updatedDate = updates['date'] != null
+        ? (() {
+            final value = updates['date']?.toString();
+            final dateOnly = tryParseDateOnlyYmd(value);
+            if (dateOnly != null) {
+              return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+            }
+            final parsed = DateTime.tryParse(value ?? '');
+            if (parsed != null) {
+              return DateTime(parsed.year, parsed.month, parsed.day);
+            }
+            return expense.date;
+          })()
+        : expense.date;
+    final updatedCreatedAt = updates['created_at'] != null
+        ? DateTime.tryParse(updates['created_at'].toString()) ??
+            expense.createdAt
+        : expense.createdAt;
+    final updatedRecurrenceRuleJson = updates.containsKey('recurrence_rule')
+        ? updates['recurrence_rule'] is Map<String, dynamic>
+            ? updates['recurrence_rule'] as Map<String, dynamic>?
+            : updates['recurrence_rule'] is Map
+                ? Map<String, dynamic>.from(updates['recurrence_rule'] as Map)
+                : null
+        : expense.recurrenceRuleJson;
+
+    return ExpenseEntry(
+      id: expense.id,
+      contactId: expense.contactId,
+      userId: expense.userId,
+      userName: expense.userName,
+      userAvatarUrl: expense.userAvatarUrl,
+      householdId: updates.containsKey('household_id')
+          ? updates['household_id'] as String?
+          : expense.householdId,
+      date: updatedDate,
       amountCents: updates['amount_cents'] as int? ?? expense.amountCents,
+      currency: updates['currency'] as String? ?? expense.currency,
       category: updates.containsKey('category')
-          ? (updates['category'] as String?)
+          ? updates['category'] as String?
           : expense.category,
+      createdAt: updatedCreatedAt,
+      updatedAt: expense.updatedAt,
       rawText: updates.containsKey('raw_text')
-          ? (updates['raw_text'] as String?)
+          ? updates['raw_text'] as String?
           : expense.rawText,
       merchant: updates.containsKey('merchant')
-          ? (updates['merchant'] as String?)
+          ? updates['merchant'] as String?
           : expense.merchant,
-      date: updates['date'] != null
-          ? (() {
-              final value = updates['date']?.toString();
-              final dateOnly = tryParseDateOnlyYmd(value);
-              if (dateOnly != null) {
-                return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
-              }
-              final parsed = DateTime.tryParse(value ?? '');
-              if (parsed != null) {
-                return DateTime(parsed.year, parsed.month, parsed.day);
-              }
-              return expense.date;
-            })()
-          : expense.date,
-      currency: updates['currency'] as String? ?? expense.currency,
-      householdId: updates['household_id'] is String
-          ? updates['household_id'] as String
-          : expense.householdId,
-      accountId: updates.containsKey('account_id')
-          ? (updates['account_id'] as String?)
-          : expense.walletId,
+      breakdown: expense.breakdown,
       receiptImageUrl: updates.containsKey('receipt_image_url')
-          ? (updates['receipt_image_url'] as String?)
+          ? updates['receipt_image_url'] as String?
           : expense.receiptImageUrl,
+      sharedMemberIds: expense.sharedMemberIds,
+      splitGroupId: updates.containsKey('split_group_id')
+          ? updates['split_group_id'] as String?
+          : expense.splitGroupId,
+      bankAccountId: expense.bankAccountId,
+      walletId: updates.containsKey('account_id')
+          ? updates['account_id'] as String?
+          : expense.walletId,
+      accountName: expense.accountName,
+      accountIcon: expense.accountIcon,
+      accountColor: expense.accountColor,
+      type: expense.type,
+      isRecurring: updates['is_recurring'] as bool? ?? expense.isRecurring,
+      recurrenceRuleJson: updatedRecurrenceRuleJson,
+      clientRecordId: expense.clientRecordId,
+      clientMutationId: expense.clientMutationId,
+      idempotencyKey: expense.idempotencyKey,
     );
   }
 
@@ -644,6 +688,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           updatedExpense.id,
           updatedExpense,
         );
+      } else if (updatedHouseholdId == null || updatedHouseholdId.isEmpty) {
+        householdNotifier.removeExpense(originalHouseholdId, updatedExpense.id);
       } else {
         householdNotifier.replaceExpense(
           originalHouseholdId,
@@ -651,20 +697,27 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           updatedExpense,
         );
       }
+    } else if (updatedHouseholdId != null && updatedHouseholdId.isNotEmpty) {
+      ref.read(householdOptimisticExpensesProvider.notifier).replaceExpense(
+          updatedHouseholdId, updatedExpense.id, updatedExpense);
     }
 
     final analytics = ref.read(analyticsProvider);
+    final updatedIsPersonal =
+        updatedHouseholdId == null || updatedHouseholdId.isEmpty;
 
-    // Update both expenses and allExpenses lists
-    final updatedExpenses = analytics.expenses.map((e) {
-      return e.id == updatedExpense.id ? updatedExpense : e;
-    }).toList();
+    final updatedExpenses = analytics.expenses
+        .where((e) => e.id != updatedExpense.id)
+        .toList(growable: true);
+    final updatedAllExpenses = analytics.allExpenses
+        .where((e) => e.id != updatedExpense.id)
+        .toList(growable: true);
 
-    final updatedAllExpenses = analytics.allExpenses.map((e) {
-      return e.id == updatedExpense.id ? updatedExpense : e;
-    }).toList();
+    if (updatedIsPersonal) {
+      updatedExpenses.add(updatedExpense);
+      updatedAllExpenses.add(updatedExpense);
+    }
 
-    // Update provider state
     ref.read(analyticsProvider.notifier).state = analytics.copyWith(
       expenses: updatedExpenses,
       allExpenses: updatedAllExpenses,

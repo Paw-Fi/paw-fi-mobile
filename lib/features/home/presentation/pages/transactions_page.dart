@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -69,6 +70,21 @@ class TransactionsPage extends ConsumerStatefulWidget {
   ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
 }
 
+bool shouldShowTransactionsChartSkeleton({
+  required bool isFeedLoading,
+  required bool isMultiCurrencySelection,
+  required AsyncValue<List<ExpenseEntry>>? chartSourceState,
+  bool hasResolvedInitialFeedLoad = false,
+}) {
+  if (isFeedLoading && !hasResolvedInitialFeedLoad) {
+    return true;
+  }
+
+  return isMultiCurrencySelection &&
+      chartSourceState?.valueOrNull == null &&
+      (chartSourceState?.isLoading ?? false);
+}
+
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String searchQuery = '';
   String _debouncedSearchQuery = '';
@@ -102,6 +118,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   TransactionsPageDerivedData? _cachedDerivedData;
   _TransactionRenderCacheKey? _renderCacheKey;
   _TransactionRenderCacheResult? _cachedRenderResult;
+  TransactionsFeedQuery? _chartLoadingFeedQuery;
+  bool _hasSeenInitialChartFeedLoading = false;
+  bool _hasResolvedInitialChartFeedLoad = false;
 
   static const _dateFilterOptions = [
     DateRangeFilter.last7Days,
@@ -372,6 +391,32 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return result;
   }
 
+  bool _shouldShowChartSkeleton({
+    required TransactionsFeedQuery feedQuery,
+    required TransactionsFeedState feedState,
+    required bool isMultiCurrencySelection,
+    required AsyncValue<List<ExpenseEntry>>? chartSourceState,
+  }) {
+    if (_chartLoadingFeedQuery != feedQuery) {
+      _chartLoadingFeedQuery = feedQuery;
+      _hasSeenInitialChartFeedLoading = false;
+      _hasResolvedInitialChartFeedLoad = false;
+    }
+
+    if (feedState.isLoading) {
+      _hasSeenInitialChartFeedLoading = true;
+    } else if (_hasSeenInitialChartFeedLoading) {
+      _hasResolvedInitialChartFeedLoad = true;
+    }
+
+    return shouldShowTransactionsChartSkeleton(
+      isFeedLoading: feedState.isLoading,
+      isMultiCurrencySelection: isMultiCurrencySelection,
+      chartSourceState: chartSourceState,
+      hasResolvedInitialFeedLoad: _hasResolvedInitialChartFeedLoad,
+    );
+  }
+
   int _expenseEntriesSignature(List<ExpenseEntry> expenses) {
     return Object.hashAll(
       expenses.map(
@@ -613,10 +658,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             rates: rateTable,
           )
         : null;
-    final chartSourceState = isMultiCurrencySelection &&
-            convertedRollupChartSummary == null
-        ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
-        : null;
+    final chartSourceState =
+        isMultiCurrencySelection && convertedRollupChartSummary == null
+            ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
+            : null;
     _baseExpenses = feedState.items
         .where((entry) => !_optimisticallyDeletedIds.contains(entry.id))
         .toList(growable: false);
@@ -758,9 +803,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         : feedState.summary.addingExpenses(
             projectedOnlyDerivedData.filteredExpenses,
           );
-    final isChartSourceLoading = isMultiCurrencySelection &&
-        chartSourceState?.valueOrNull == null &&
-        (chartSourceState?.isLoading ?? false);
+    final isChartSourceLoading = _shouldShowChartSkeleton(
+      feedQuery: feedQuery,
+      feedState: feedState,
+      isMultiCurrencySelection: isMultiCurrencySelection,
+      chartSourceState: chartSourceState,
+    );
     final isChartSourceError = isMultiCurrencySelection &&
         chartSourceState?.valueOrNull == null &&
         (chartSourceState?.hasError ?? false);
@@ -1005,26 +1053,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         _buildChart(
                           colorScheme,
                           chartSummary,
+                          isLoading: isChartSourceLoading,
                         ),
-                        if (isChartSourceLoading)
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color:
-                                    colorScheme.card.withValues(alpha: 0.78),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          ),
                         if (isChartSourceError)
                           Positioned.fill(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color:
-                                    colorScheme.card.withValues(alpha: 0.92),
+                                color: colorScheme.card.withValues(alpha: 0.92),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Center(
@@ -1044,99 +1079,99 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
 
                 // Transactions List Groups
-                expensesToExport.isEmpty
-                    ? SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(48.0),
-                            child: feedState.isLoading
-                                ? const CircularProgressIndicator()
-                                : Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.receipt_long_outlined,
-                                        size: 64,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        feedState.error == null
-                                            ? context.l10n.noTransactionsFound
-                                            : context.l10n
-                                                .failedToLoadHouseholdTransactions,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: feedState.error == null
-                                              ? colorScheme.mutedForeground
-                                              : colorScheme.destructive,
-                                        ),
-                                      ),
-                                    ],
+                if (expensesToExport.isEmpty || feedState.isLoading)
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(48.0),
+                        child: feedState.isLoading
+                            ? const CircularProgressIndicator()
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 64,
+                                    color: colorScheme.mutedForeground,
                                   ),
-                          ),
-                        ),
-                      )
-                    : SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final item = visibleListItems[index];
-                            if (item.isMonthHeader) {
-                              return _buildMonthHeader(
-                                context,
-                                item.monthGroup!,
-                                colorScheme,
-                                key: ValueKey(item.key),
-                              );
-                            }
-                            if (item.isDayHeader) {
-                              final completeDayGroup = completeGroupTotals
-                                  .dayGroupFor(item.dayGroup!.date);
-                              return _buildDayHeader(
-                                context,
-                                item.dayGroup!,
-                                colorScheme,
-                                key: ValueKey(item.key),
-                                preferredTimezone: contact?.preferredTimezone,
-                                isTotalComplete: !shouldSuppressHeaderTotals &&
-                                    groupCompleteness.isDayComplete(
-                                      item.dayGroup!.date,
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    feedState.error == null
+                                        ? context.l10n.noTransactionsFound
+                                        : context.l10n
+                                            .failedToLoadHouseholdTransactions,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: feedState.error == null
+                                          ? colorScheme.mutedForeground
+                                          : colorScheme.destructive,
                                     ),
-                                totalOverrideGroup: completeDayGroup,
-                              );
-                            }
-
-                            final displayExpense =
-                                resolveTransactionRowDisplayEntry(
-                              item.expense!,
-                              originalExpenseById,
-                            );
-                            return _buildTransactionRow(
-                              context,
-                              displayExpense,
-                              contact,
-                              colorScheme,
-                              key: ValueKey(item.key),
-                              originalExpense: displayExpense,
-                              currentUserId: currentUserId,
-                              accountLabelsById: accountLabelsById,
-                              recurringTransactionsById:
-                                  recurringTransactionsById,
-                              shouldShowCurrencyFlag: shouldShowCurrencyFlag,
-                              isFirst: item.isFirst,
-                              isLast: item.isLast,
-                            );
-                          },
-                          childCount: visibleListItems.length,
-                          findChildIndexCallback: (key) {
-                            final valueKey = key;
-                            if (valueKey is! ValueKey<String>) {
-                              return null;
-                            }
-                            return visibleListItemIndexByKey[valueKey.value];
-                          },
-                        ),
+                                  ),
+                                ],
+                              ),
                       ),
+                    ),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = visibleListItems[index];
+                        if (item.isMonthHeader) {
+                          return _buildMonthHeader(
+                            context,
+                            item.monthGroup!,
+                            colorScheme,
+                            key: ValueKey(item.key),
+                          );
+                        }
+                        if (item.isDayHeader) {
+                          final completeDayGroup = completeGroupTotals
+                              .dayGroupFor(item.dayGroup!.date);
+                          return _buildDayHeader(
+                            context,
+                            item.dayGroup!,
+                            colorScheme,
+                            key: ValueKey(item.key),
+                            preferredTimezone: contact?.preferredTimezone,
+                            isTotalComplete: !shouldSuppressHeaderTotals &&
+                                groupCompleteness.isDayComplete(
+                                  item.dayGroup!.date,
+                                ),
+                            totalOverrideGroup: completeDayGroup,
+                          );
+                        }
+
+                        final displayExpense =
+                            resolveTransactionRowDisplayEntry(
+                          item.expense!,
+                          originalExpenseById,
+                        );
+                        return _buildTransactionRow(
+                          context,
+                          displayExpense,
+                          contact,
+                          colorScheme,
+                          key: ValueKey(item.key),
+                          originalExpense: displayExpense,
+                          currentUserId: currentUserId,
+                          accountLabelsById: accountLabelsById,
+                          recurringTransactionsById: recurringTransactionsById,
+                          shouldShowCurrencyFlag: shouldShowCurrencyFlag,
+                          isFirst: item.isFirst,
+                          isLast: item.isLast,
+                        );
+                      },
+                      childCount: visibleListItems.length,
+                      findChildIndexCallback: (key) {
+                        final valueKey = key;
+                        if (valueKey is! ValueKey<String>) {
+                          return null;
+                        }
+                        return visibleListItemIndexByKey[valueKey.value];
+                      },
+                    ),
+                  ),
 
                 PaginatedLoadMoreSliverIndicator(
                   show: feedState.isLoadingMore,
@@ -1519,8 +1554,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildChart(
     ColorScheme colorScheme,
-    TransactionsFeedSummary summary,
-  ) {
+    TransactionsFeedSummary summary, {
+    required bool isLoading,
+  }) {
     const pageHeights = [420.0, 280.0, 280.0];
 
     return Container(
@@ -1557,19 +1593,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 case 0:
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: _buildPieChart(colorScheme, summary),
+                    child: _buildPieChart(colorScheme, summary, isLoading),
                   );
                 case 1:
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: _buildLineChart(
-                        colorScheme, summary.yearlyPeriodTotals),
+                      colorScheme,
+                      summary.yearlyPeriodTotals,
+                      isLoading,
+                    ),
                   );
                 default:
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child:
-                        _buildBarChart(colorScheme, summary.yearlyPeriodTotals),
+                    child: _buildBarChart(
+                      colorScheme,
+                      summary.yearlyPeriodTotals,
+                      isLoading,
+                    ),
                   );
               }
             },
@@ -1609,6 +1651,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildPieChart(
     ColorScheme colorScheme,
     TransactionsFeedSummary summary,
+    bool isLoading,
   ) {
     final categorySummaries = summary.categorySummaries
         .map(
@@ -1633,6 +1676,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         initialDateFilter: _selectedDateFilter,
         initialStartDate: _customStart,
         initialEndDate: _customEnd,
+        isLoading: isLoading,
       ),
     );
   }
@@ -1675,14 +1719,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildLineChart(
     ColorScheme colorScheme,
     Map<DateTime, double> periodTotals,
+    bool isLoading,
   ) {
     const chartIntervalType = 'yearly';
-    final sortedDates = periodTotals.keys.toList()..sort();
-    if (sortedDates.isEmpty) {
-      return Center(
-        child: Text(context.l10n.noData,
-            style: TextStyle(color: colorScheme.mutedForeground)),
-      );
+    var sortedDates = periodTotals.keys.toList()..sort();
+    var isEmptyChart = false;
+
+    if (isLoading && sortedDates.isEmpty) {
+      final now = DateTime.now();
+      sortedDates =
+          List.generate(6, (i) => DateTime(now.year, now.month - (5 - i), 1))
+            ..sort();
+      periodTotals = {for (var d in sortedDates) d: 0.0};
+    } else if (sortedDates.isEmpty) {
+      final now = DateTime.now();
+      sortedDates =
+          List.generate(6, (i) => DateTime(now.year, now.month - (5 - i), 1))
+            ..sort();
+      periodTotals = {for (var d in sortedDates) d: 0.0};
+      isEmptyChart = true;
     }
 
     // Calculate cumulative spending
@@ -1694,102 +1749,111 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       cumulativeData.add(FlSpot(i.toDouble(), cumulative));
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: cumulative > 0 ? cumulative / 4 : 100,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: colorScheme.border.withValues(alpha: 0.3),
-                strokeWidth: 1,
-                dashArray: [5, 5],
-              );
-            },
-          ),
-          titlesData: FlTitlesData(
-            leftTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 50,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    _formatYAxisValue(value),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  );
-                },
-              ),
+    return Skeletonizer(
+      enabled: isLoading,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 8),
+        child: LineChart(
+          LineChartData(
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: cumulative > 0 ? cumulative / 4 : 100,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: colorScheme.border.withValues(alpha: 0.3),
+                  strokeWidth: 1,
+                  dashArray: [5, 5],
+                );
+              },
             ),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval:
-                    1, // Show all data points (already bucketed to 6-7 points)
-                getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= sortedDates.length) {
-                    return const SizedBox();
-                  }
-                  final date = sortedDates[value.toInt()];
-                  return Text(
-                    formatDateForInterval(date, chartIntervalType),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: cumulativeData,
-              isCurved: true,
-              color: AppTheme.monekoPrimary,
-              barWidth: 3,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  if (index == cumulativeData.length - 1) {
-                    return FlDotCirclePainter(
-                      radius: 7,
-                      color: AppTheme.danger,
-                      strokeWidth: 3,
-                      strokeColor: colorScheme.onError,
+            titlesData: FlTitlesData(
+              leftTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 50,
+                  getTitlesWidget: (value, meta) {
+                    return Text(
+                      _formatYAxisValue(value),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colorScheme.mutedForeground,
+                      ),
                     );
-                  }
-                  return FlDotCirclePainter(
-                    radius: 0,
-                    color: colorScheme.surface.withValues(alpha: 0.0),
-                  );
-                },
+                  },
+                ),
               ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.monekoPrimary.withValues(alpha: 0.28),
-                    AppTheme.monekoPrimary.withValues(alpha: 0.0),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  interval:
+                      1, // Show all data points (already bucketed to 6-7 points)
+                  getTitlesWidget: (value, meta) {
+                    if (value.toInt() >= sortedDates.length) {
+                      return const SizedBox();
+                    }
+                    final date = sortedDates[value.toInt()];
+                    return Text(
+                      formatDateForInterval(date, chartIntervalType),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          ],
-          minY: 0,
-          maxY: cumulative > 0 ? (cumulative * 1.25).ceilToDouble() : 100,
+            borderData: FlBorderData(show: false),
+            lineBarsData: [
+              LineChartBarData(
+                spots: cumulativeData,
+                isCurved: true,
+                color: isEmptyChart
+                    ? colorScheme.muted.withValues(alpha: 0.72)
+                    : AppTheme.monekoPrimary,
+                barWidth: isEmptyChart ? 2 : 3,
+                dotData: FlDotData(
+                  show: !isEmptyChart,
+                  getDotPainter: (spot, percent, barData, index) {
+                    if (index == cumulativeData.length - 1) {
+                      return FlDotCirclePainter(
+                        radius: 7,
+                        color: AppTheme.danger,
+                        strokeWidth: 3,
+                        strokeColor: colorScheme.onError,
+                      );
+                    }
+                    return FlDotCirclePainter(
+                      radius: 0,
+                      color: colorScheme.surface.withValues(alpha: 0.0),
+                    );
+                  },
+                ),
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    colors: [
+                      isEmptyChart
+                          ? colorScheme.muted.withValues(alpha: 0.08)
+                          : AppTheme.monekoPrimary.withValues(alpha: 0.28),
+                      isEmptyChart
+                          ? colorScheme.muted.withValues(alpha: 0.0)
+                          : AppTheme.monekoPrimary.withValues(alpha: 0.0),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ],
+            minY: 0,
+            maxY: cumulative > 0 ? (cumulative * 1.25).ceilToDouble() : 100,
+          ),
         ),
       ),
     );
@@ -1798,15 +1862,38 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildBarChart(
     ColorScheme colorScheme,
     Map<DateTime, double> periodTotals,
+    bool isLoading,
   ) {
     const chartIntervalType = 'yearly';
     final periodDates = <String, DateTime>{};
     final periodLabels = <String, double>{};
-    for (final entry in periodTotals.entries) {
-      final label = formatDateForInterval(entry.key, chartIntervalType);
-      periodDates[label] = entry.key;
-      periodLabels[label] = entry.value;
+    var isEmptyChart = false;
+
+    if (isLoading && periodTotals.isEmpty) {
+      final now = DateTime.now();
+      for (var i = 0; i < 6; i++) {
+        final date = DateTime(now.year, now.month - (5 - i), 1);
+        final label = formatDateForInterval(date, chartIntervalType);
+        periodDates[label] = date;
+        periodLabels[label] = 100.0; // dummy value for skeleton
+      }
+    } else if (periodTotals.isEmpty) {
+      isEmptyChart = true;
+      final now = DateTime.now();
+      for (var i = 0; i < 6; i++) {
+        final date = DateTime(now.year, now.month - (5 - i), 1);
+        final label = formatDateForInterval(date, chartIntervalType);
+        periodDates[label] = date;
+        periodLabels[label] = 0.25;
+      }
+    } else {
+      for (final entry in periodTotals.entries) {
+        final label = formatDateForInterval(entry.key, chartIntervalType);
+        periodDates[label] = entry.key;
+        periodLabels[label] = entry.value;
+      }
     }
+
     final sortedPeriods = periodLabels.keys.toList()
       ..sort(
           (left, right) => periodDates[left]!.compareTo(periodDates[right]!));
@@ -1815,13 +1902,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       periodDates: periodDates,
       sortedPeriods: sortedPeriods,
     );
-
-    if (barData.periodTotals.isEmpty) {
-      return Center(
-        child: Text(context.l10n.noData,
-            style: TextStyle(color: colorScheme.mutedForeground)),
-      );
-    }
 
     final maxValue =
         barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
@@ -1857,90 +1937,95 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       chartMaxY = interval * 5;
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          minY: 0,
-          maxY: chartMaxY,
-          barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
-            final index = entry.key;
-            final period = entry.value;
-            final value = barData.periodTotals[period] ?? 0;
+    return Skeletonizer(
+      enabled: isLoading,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 8),
+        child: BarChart(
+          BarChartData(
+            alignment: BarChartAlignment.spaceAround,
+            minY: 0,
+            maxY: chartMaxY,
+            barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
+              final index = entry.key;
+              final period = entry.value;
+              final value = barData.periodTotals[period] ?? 0;
 
-            return BarChartGroupData(
-              x: index,
-              barRods: [
-                BarChartRodData(
-                  toY: value,
-                  color: colorScheme.success,
-                  width: 40,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(4)),
+              return BarChartGroupData(
+                x: index,
+                barRods: [
+                  BarChartRodData(
+                    toY: value,
+                    color: isEmptyChart
+                        ? colorScheme.muted.withValues(alpha: 0.44)
+                        : colorScheme.success,
+                    width: 40,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(4)),
+                  ),
+                ],
+              );
+            }).toList(),
+            titlesData: FlTitlesData(
+              leftTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 50,
+                  interval: interval,
+                  getTitlesWidget: (value, meta) {
+                    // Only show labels at intervals to avoid clutter
+                    if ((value % interval).abs() > 0.01) {
+                      return const SizedBox();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        _formatYAxisValue(value),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ],
-            );
-          }).toList(),
-          titlesData: FlTitlesData(
-            leftTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 50,
-                interval: interval,
-                getTitlesWidget: (value, meta) {
-                  // Only show labels at intervals to avoid clutter
-                  if ((value % interval).abs() > 0.01) {
-                    return const SizedBox();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Text(
-                      _formatYAxisValue(value),
+              ),
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    if (value.toInt() >= barData.sortedPeriods.length) {
+                      return const SizedBox();
+                    }
+                    return Text(
+                      barData.sortedPeriods[value.toInt()],
                       style: TextStyle(
                         fontSize: 10,
                         color: colorScheme.mutedForeground,
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= barData.sortedPeriods.length) {
-                    return const SizedBox();
-                  }
-                  return Text(
-                    barData.sortedPeriods[value.toInt()],
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  );
-                },
-              ),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: interval,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: colorScheme.border.withValues(alpha: 0.3),
+                  strokeWidth: 1,
+                  dashArray: [5, 5],
+                );
+              },
             ),
+            borderData: FlBorderData(show: false),
           ),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: interval,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: colorScheme.border.withValues(alpha: 0.3),
-                strokeWidth: 1,
-                dashArray: [5, 5],
-              );
-            },
-          ),
-          borderData: FlBorderData(show: false),
         ),
       ),
     );

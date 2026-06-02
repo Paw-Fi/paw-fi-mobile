@@ -32,6 +32,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class CategoryDetailsPage extends ConsumerStatefulWidget {
   final String categoryKey;
@@ -522,7 +523,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 ),
 
                 // Mini Insight Cards
-                if (expenses.isNotEmpty)
+                if (expenses.isNotEmpty || feedState.isLoading)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -530,7 +531,10 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                         children: [
                           Expanded(
                               child: _buildTrendMiniChart(
-                                  colorScheme, aggregateMonthGroups)),
+                            colorScheme,
+                            aggregateMonthGroups,
+                            isLoading: feedState.isLoading,
+                          )),
                           const SizedBox(width: 12),
                           Expanded(
                               child: _buildMerchantSplitCard(
@@ -546,10 +550,13 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 40),
                       child: Center(
-                        child: Text(
-                          context.l10n.noData,
-                          style: TextStyle(color: colorScheme.mutedForeground),
-                        ),
+                        child: feedState.isLoading
+                            ? const CircularProgressIndicator()
+                            : Text(
+                                context.l10n.noData,
+                                style: TextStyle(
+                                    color: colorScheme.mutedForeground),
+                              ),
                       ),
                     ),
                   )
@@ -697,60 +704,75 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     );
   }
 
-  Widget _buildTrendMiniChart(
-      ColorScheme colorScheme, List<MonthTransactionGroup> monthGroups) {
-    if (monthGroups.isEmpty) return const SizedBox.shrink();
+  Widget _buildTrendMiniChart(ColorScheme colorScheme,
+      List<MonthTransactionGroup> monthGroups,
+      {required bool isLoading}) {
+    if (monthGroups.isEmpty && !isLoading) return const SizedBox.shrink();
 
-    // Reverse to chronological order
-    final chronologicalGroups = monthGroups.reversed.toList();
+    var chronologicalGroups = monthGroups.reversed.toList();
 
-    return Container(
-      height: 100,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.border.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Trend',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const Spacer(),
-          SizedBox(
-            height: 40,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceEvenly,
-                minY: 0,
-                barGroups: chronologicalGroups.asMap().entries.map((e) {
-                  final val = e.value.total.abs();
-                  return BarChartGroupData(
-                    x: e.key,
-                    barRods: [
-                      BarChartRodData(
-                        toY: val,
-                        color: getCategoryColor(widget.categoryKey),
-                        width: 8,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ],
-                  );
-                }).toList(),
-                titlesData: const FlTitlesData(show: false),
-                gridData: const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
+    if (isLoading && chronologicalGroups.isEmpty) {
+      // Mock data for skeleton
+      chronologicalGroups = List.generate(
+        6,
+        (i) => MonthTransactionGroup(
+          monthStart: DateTime.now(),
+          expenses: [],
+          total: 100.0 * (i + 1),
+        ),
+      );
+    }
+
+    return Skeletonizer(
+      enabled: isLoading,
+      child: Container(
+        height: 100,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.border.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Trend',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.mutedForeground,
               ),
             ),
-          ),
-        ],
+            const Spacer(),
+            SizedBox(
+              height: 40,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceEvenly,
+                  minY: 0,
+                  barGroups: chronologicalGroups.asMap().entries.map((e) {
+                    final val = e.value.total.abs();
+                    return BarChartGroupData(
+                      x: e.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: val,
+                          color: getCategoryColor(widget.categoryKey),
+                          width: 8,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: const FlTitlesData(show: false),
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -23,11 +24,13 @@ class AccountChartData {
 class AccountSpendListChart extends StatelessWidget {
   final List<AccountChartData> data;
   final String? currencyCode;
+  final bool isLoading;
 
   const AccountSpendListChart({
     super.key,
     required this.data,
     this.currencyCode,
+    this.isLoading = false,
   });
 
   @override
@@ -37,7 +40,22 @@ class AccountSpendListChart extends StatelessWidget {
     final displayCurrency =
         currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
     final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
-    final maxValue = data.fold<double>(
+
+    var displayData = data;
+    if (isLoading && displayData.isEmpty) {
+      displayData = List.generate(
+        3,
+        (i) => AccountChartData(
+          id: '$i',
+          name: 'Account $i',
+          expense: 100.0 * (i + 1),
+          income: 0,
+          dailyExpenses: [],
+        ),
+      );
+    }
+
+    final maxValue = displayData.fold<double>(
         0.0, (max, item) => item.expense > max ? item.expense : max);
     final denom = maxValue > 0 ? maxValue : 1.0;
 
@@ -100,129 +118,22 @@ class AccountSpendListChart extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.hasBoundedHeight) {
-          return ListView.separated(
-            itemCount: data.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 0),
-            itemBuilder: (context, index) => buildRow(data[index], index),
-          );
-        }
+    return Skeletonizer(
+      enabled: isLoading,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.hasBoundedHeight) {
+            return ListView.separated(
+              itemCount: displayData.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 0),
+              itemBuilder: (context, index) => buildRow(displayData[index], index),
+            );
+          }
 
-        return Column(
-          children: List.generate(
-            data.length,
-            (index) => buildRow(data[index], index),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class AccountIncomeExpenseChart extends StatelessWidget {
-  final List<AccountChartData> data;
-  final String? currencyCode;
-
-  const AccountIncomeExpenseChart({
-    super.key,
-    required this.data,
-    this.currencyCode,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final displayCurrency =
-        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
-    final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
-    return SizedBox(
-      height: 120,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: data.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final item = data[index];
-          final net = item.income - item.expense;
-          final netLabel = net >= 0
-              ? '+${formatter.format(net)}'
-              : '-${formatter.format(net.abs())}';
-          final netColor = net >= 0 ? colorScheme.success : colorScheme.error;
-
-          return ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 210, maxWidth: 240),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colorScheme.border.withValues(alpha: 0.6),
-                  width: 0.5,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: netColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: netColor.withValues(alpha: 0.3),
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Text(
-                          netLabel,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: netColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _AccountStatChip(
-                        label: context.l10n.accountIncome,
-                        value: formatter.format(item.income),
-                        color: colorScheme.success,
-                        icon: Icons.arrow_downward_rounded,
-                      ),
-                      _AccountStatChip(
-                        label: context.l10n.accountSpendLabel,
-                        value: formatter.format(item.expense),
-                        color: colorScheme.error,
-                        icon: Icons.arrow_upward_rounded,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+          return Column(
+            children: List.generate(
+              displayData.length,
+              (index) => buildRow(displayData[index], index),
             ),
           );
         },
@@ -231,6 +142,135 @@ class AccountIncomeExpenseChart extends StatelessWidget {
   }
 }
 
+class AccountIncomeExpenseChart extends StatelessWidget {
+  final List<AccountChartData> data;
+  final String? currencyCode;
+  final bool isLoading;
+
+  const AccountIncomeExpenseChart({
+    super.key,
+    required this.data,
+    this.currencyCode,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
+    final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
+
+    var displayData = data;
+    if (isLoading && displayData.isEmpty) {
+      displayData = List.generate(
+        3,
+        (i) => AccountChartData(
+          id: '$i',
+          name: 'Account $i',
+          expense: 50.0 * (i + 1),
+          income: 150.0 * (i + 1),
+          dailyExpenses: [],
+        ),
+      );
+    }
+
+    return Skeletonizer(
+      enabled: isLoading,
+      child: SizedBox(
+        height: 120,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          itemCount: displayData.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final item = displayData[index];
+            final net = item.income - item.expense;
+            final netLabel = net >= 0
+                ? '+${formatter.format(net)}'
+                : '-${formatter.format(net.abs())}';
+            final netColor = net >= 0 ? colorScheme.success : colorScheme.error;
+
+            return ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 210, maxWidth: 240),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.border.withValues(alpha: 0.6),
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: netColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: netColor.withValues(alpha: 0.3),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            netLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: netColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _AccountStatChip(
+                          label: context.l10n.accountIncome,
+                          value: formatter.format(item.income),
+                          color: colorScheme.success,
+                          icon: Icons.arrow_downward_rounded,
+                        ),
+                        _AccountStatChip(
+                          label: context.l10n.accountSpendLabel,
+                          value: formatter.format(item.expense),
+                          color: colorScheme.error,
+                          icon: Icons.arrow_upward_rounded,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
 class _AccountStatChip extends StatelessWidget {
   final String label;
   final String value;
@@ -284,17 +324,38 @@ class _AccountStatChip extends StatelessWidget {
 
 class AccountSpendDonutChart extends StatelessWidget {
   final List<AccountChartData> data;
+  final bool isLoading;
 
-  const AccountSpendDonutChart({super.key, required this.data});
+  const AccountSpendDonutChart({
+    super.key,
+    required this.data,
+    this.isLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const palette = AppTheme.pocketChartPalette;
-    final total = data.fold<double>(0.0, (sum, item) => sum + item.expense);
+
+    var displayData = data;
+    if (isLoading && displayData.isEmpty) {
+      displayData = List.generate(
+        3,
+        (i) => AccountChartData(
+          id: '$i',
+          name: 'Account $i',
+          expense: 100.0 * (i + 1),
+          income: 0,
+          dailyExpenses: [],
+        ),
+      );
+    }
+
+    final total =
+        displayData.fold<double>(0.0, (sum, item) => sum + item.expense);
     final chartSections = <PieChartSectionData>[];
 
-    if (total <= 0) {
+    if (total <= 0 && !isLoading) {
       chartSections.add(
         PieChartSectionData(
           value: 1,
@@ -304,12 +365,12 @@ class AccountSpendDonutChart extends StatelessWidget {
         ),
       );
     } else {
-      for (var i = 0; i < data.length; i++) {
-        final item = data[i];
-        if (item.expense <= 0) continue;
+      for (var i = 0; i < displayData.length; i++) {
+        final item = displayData[i];
+        if (item.expense <= 0 && !isLoading) continue;
         chartSections.add(
           PieChartSectionData(
-            value: item.expense,
+            value: item.expense > 0 ? item.expense : 1,
             color: palette[i % palette.length],
             radius: 40,
             title: '',
@@ -318,139 +379,164 @@ class AccountSpendDonutChart extends StatelessWidget {
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AspectRatio(
-          aspectRatio: 1,
-          child: PieChart(
-            PieChartData(
-              sections: chartSections,
-              centerSpaceRadius: 48,
-              sectionsSpace: 2,
+    return Skeletonizer(
+      enabled: isLoading,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 1,
+            child: PieChart(
+              PieChartData(
+                sections: chartSections,
+                centerSpaceRadius: 48,
+                sectionsSpace: 2,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: List.generate(data.length, (index) {
-            final item = data[index];
-            final color = palette[index % palette.length];
-            final percent = total > 0 ? (item.expense / total) * 100 : 0.0;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List.generate(displayData.length, (index) {
+              final item = displayData[index];
+              final color = palette[index % palette.length];
+              final percent = total > 0 ? (item.expense / total) * 100 : 0.0;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      item.name,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${percent.toStringAsFixed(0)}%',
                       style: TextStyle(
                         fontSize: 12,
-                        color: colorScheme.onSurface,
+                        color: colorScheme.mutedForeground,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    '${percent.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ),
-      ],
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class AccountTrendGrid extends StatelessWidget {
   final List<AccountChartData> data;
+  final bool isLoading;
 
-  const AccountTrendGrid({super.key, required this.data});
+  const AccountTrendGrid({
+    super.key,
+    required this.data,
+    this.isLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const palette = AppTheme.pocketChartPalette;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - 16) / 2;
-        return Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: List.generate(data.length, (index) {
-            final item = data[index];
-            final color = palette[index % palette.length];
-            return SizedBox(
-              width: width,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 60,
-                    child: LineChart(
-                      LineChartData(
-                        gridData: const FlGridData(show: false),
-                        titlesData: const FlTitlesData(
-                          leftTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          topTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        minY: 0,
-                        maxY: _max(item.dailyExpenses),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: _buildSpots(item.dailyExpenses),
-                            isCurved: true,
-                            color: color,
-                            barWidth: 2,
-                            dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: color.withValues(alpha: 0.12),
-                            ),
-                          ),
-                        ],
+    var displayData = data;
+    if (isLoading && displayData.isEmpty) {
+      displayData = List.generate(
+        4,
+        (i) => AccountChartData(
+          id: '$i',
+          name: 'Account $i',
+          expense: 0,
+          income: 0,
+          dailyExpenses: List.generate(7, (j) => (j + 1) * 10.0),
+        ),
+      );
+    }
+
+    return Skeletonizer(
+      enabled: isLoading,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = (constraints.maxWidth - 16) / 2;
+          return Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: List.generate(displayData.length, (index) {
+              final item = displayData[index];
+              final color = palette[index % palette.length];
+              return SizedBox(
+                width: width,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        );
-      },
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 60,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: const FlGridData(show: false),
+                          titlesData: const FlTitlesData(
+                            leftTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          minY: 0,
+                          maxY: _max(item.dailyExpenses),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: _buildSpots(item.dailyExpenses),
+                              isCurved: true,
+                              color: color,
+                              barWidth: 2,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: color.withValues(alpha: 0.12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          );
+        },
+      ),
     );
   }
 

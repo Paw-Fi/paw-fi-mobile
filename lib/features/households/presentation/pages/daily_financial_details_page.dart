@@ -48,6 +48,7 @@ class DailyFinancialDetailsPage extends ConsumerStatefulWidget {
   final String currency;
   final String userId;
   final String? householdId;
+  final bool isLoading;
 
   const DailyFinancialDetailsPage({
     super.key,
@@ -57,6 +58,7 @@ class DailyFinancialDetailsPage extends ConsumerStatefulWidget {
     required this.currency,
     required this.userId,
     this.householdId,
+    this.isLoading = false,
   });
 
   @override
@@ -493,10 +495,11 @@ class _DailyFinancialDetailsPageState
                         const SizedBox(height: 16),
                         if (chartTransactions.any((t) =>
                             (t.type ?? 'expense').toLowerCase() !=
-                            'income')) ...[
+                            'income') || widget.isLoading) ...[
                           _DailySpendingChart(
                             transactions: chartTransactions,
                             currency: widget.currency,
+                            isLoading: widget.isLoading,
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -576,7 +579,9 @@ class _DailyFinancialDetailsPageState
                                 ),
                               )),
                         ],
-                        if (dailyTransactions.isEmpty && dailyRecurring.isEmpty)
+                        if (dailyTransactions.isEmpty &&
+                            dailyRecurring.isEmpty &&
+                            !widget.isLoading)
                           Center(
                             child: Padding(
                               padding: const EdgeInsets.all(20.0),
@@ -585,6 +590,15 @@ class _DailyFinancialDetailsPageState
                                 style: TextStyle(
                                     color: colorScheme.mutedForeground),
                               ),
+                            ),
+                          ),
+                        if (widget.isLoading &&
+                            dailyTransactions.isEmpty &&
+                            dailyRecurring.isEmpty)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(),
                             ),
                           ),
                       ],
@@ -1015,10 +1029,12 @@ class _RecurringTransactionTile extends StatelessWidget {
 class _DailySpendingChart extends StatelessWidget {
   final List<ExpenseEntry> transactions;
   final String currency;
+  final bool isLoading;
 
   const _DailySpendingChart({
     required this.transactions,
     required this.currency,
+    this.isLoading = false,
   });
 
   @override
@@ -1031,7 +1047,7 @@ class _DailySpendingChart extends StatelessWidget {
       return type != 'income';
     }).toList();
 
-    if (expenses.isEmpty) return const SizedBox.shrink();
+    if (expenses.isEmpty && !isLoading) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1069,6 +1085,7 @@ class _DailySpendingChart extends StatelessWidget {
             expenses: expenses,
             selectedCurrency: currency,
             periodLabel: context.l10n.today,
+            isLoading: isLoading,
           ),
         ],
       ),

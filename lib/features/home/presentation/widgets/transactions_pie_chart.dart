@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -20,6 +21,7 @@ class TransactionsPieChart extends StatefulWidget {
   final DateRangeFilter? initialDateFilter;
   final DateTime? initialStartDate;
   final DateTime? initialEndDate;
+  final bool isLoading;
 
   const TransactionsPieChart({
     super.key,
@@ -32,6 +34,7 @@ class TransactionsPieChart extends StatefulWidget {
     this.initialDateFilter,
     this.initialStartDate,
     this.initialEndDate,
+    this.isLoading = false,
   });
 
   @override
@@ -101,10 +104,49 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
         ? List<CategorySummary>.from(widget.categorySummariesOverride!)
         : buildTransactionsPieCategorySummaries(spendOnly);
 
-    final totalSpent = widget.totalSpentOverride ?? _getTotalSpent(spendOnly);
-    final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
+    var totalSpent = widget.totalSpentOverride ?? _getTotalSpent(spendOnly);
+
+    if (widget.isLoading && categorySummaries.isEmpty) {
+      categorySummaries = [
+        CategorySummary(
+          category: 'food',
+          amount: 40,
+          transactionCount: 1,
+          color: Colors.grey.withValues(alpha: 0.3),
+        ),
+        CategorySummary(
+          category: 'transport',
+          amount: 30,
+          transactionCount: 1,
+          color: Colors.grey.withValues(alpha: 0.2),
+        ),
+        CategorySummary(
+          category: 'shopping',
+          amount: 30,
+          transactionCount: 1,
+          color: Colors.grey.withValues(alpha: 0.1),
+        ),
+      ];
+      totalSpent = 100;
+    }
+
+    var hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
+
+    if (!hasData && !widget.isLoading) {
+      categorySummaries = [
+        CategorySummary(
+          category: 'empty',
+          amount: 1,
+          transactionCount: 0,
+          color: widget.colorScheme.muted.withValues(alpha: 0.45),
+        ),
+      ];
+      totalSpent = 0;
+      hasData = false;
+    }
 
     final selected = (_touchedIndex != null &&
+            hasData &&
             _touchedIndex! >= 0 &&
             _touchedIndex! < categorySummaries.length)
         ? categorySummaries[_touchedIndex!]
@@ -116,309 +158,311 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
     String displayAmount(double amount) =>
         '$symbol${formatLocalizedNumber(context, amount)}';
 
-    if (!hasData) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            context.l10n.noData,
-            style: TextStyle(color: widget.colorScheme.mutedForeground),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Pie Chart Area
-        SizedBox(
-          height: 240,
-          child: Stack(
-            children: [
-              Center(
-                child: SizedBox(
-                  width: 240,
-                  height: 240,
-                  child: PieChart(
-                    PieChartData(
-                      pieTouchData: PieTouchData(
-                        touchCallback: (event, response) {
-                          if (event is FlTapDownEvent) {
-                            if (response?.touchedSection != null) {
-                              setState(() {
-                                final nextIndex = response!
-                                    .touchedSection!.touchedSectionIndex;
-                                _touchedIndex = _touchedIndex == nextIndex
-                                    ? null
-                                    : nextIndex;
-                              });
+    return Skeletonizer(
+      enabled: widget.isLoading,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Pie Chart Area
+          SizedBox(
+            height: 240,
+            child: Stack(
+              children: [
+                Center(
+                  child: SizedBox(
+                    width: 240,
+                    height: 240,
+                    child: PieChart(
+                      PieChartData(
+                        pieTouchData: PieTouchData(
+                          touchCallback: (event, response) {
+                            if (widget.isLoading || !hasData) return;
+                            if (event is FlTapDownEvent) {
+                              if (response?.touchedSection != null) {
+                                setState(() {
+                                  final nextIndex = response!
+                                      .touchedSection!.touchedSectionIndex;
+                                  _touchedIndex = _touchedIndex == nextIndex
+                                      ? null
+                                      : nextIndex;
+                                });
+                              }
+                            } else if (event is FlTapUpEvent ||
+                                event is FlTapCancelEvent) {
+                              // Optionally keep selection or clear it
                             }
-                          } else if (event is FlTapUpEvent ||
-                              event is FlTapCancelEvent) {
-                            // Optionally keep selection or clear it
-                          }
+                          },
+                        ),
+                        sectionsSpace: 4,
+                        centerSpaceRadius:
+                            100, // Narrow radius for the donut look
+                        sections: categorySummaries.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final category = entry.value;
+                          final isTouched = idx == _touchedIndex;
+
+                          return PieChartSectionData(
+                            color: category.color,
+                            value: category.amount,
+                            title: '', // No title inside pie section
+                            radius: hasData
+                                ? (isTouched ? 23 : 15)
+                                : 12, // Thinner section
+                            showTitle: false,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+                // Center Text
+                Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: selected != null
+                        ? Column(
+                            key: const ValueKey('selected'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                getCategoryTranslation(
+                                        context, selected.category)
+                                    .toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1.0,
+                                  color: widget.colorScheme.mutedForeground,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  displayAmount(selected.amount),
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            key: const ValueKey('total'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                context.l10n.totalSpent.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1.0,
+                                  color: widget.colorScheme.mutedForeground,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  displayAmount(totalSpent),
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.periodLabel,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: widget.colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Legend Cards
+          if (!hasData && !widget.isLoading)
+            const SizedBox(height: 120)
+          else
+            SizedBox(
+            height: 120, // Increased height to accommodate enhanced shadows
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: categorySummaries.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final category = categorySummaries[index];
+                final percent = (category.amount / totalSpent) * 100;
+                final isSelected = _touchedIndex == index;
+                final canOpenCategory = isTransactionsPieCategoryNavigable(
+                  category.category,
+                );
+
+                return GestureDetector(
+                  onTap: canOpenCategory && !widget.isLoading
+                      ? () {
+                          setState(() {
+                            _touchedIndex = index;
+                          });
+                          _openCategoryDetails(context, category.category);
+                        }
+                      : () {
+                          if (widget.isLoading) return;
+                          setState(() {
+                            _touchedIndex = isSelected ? null : index;
+                          });
                         },
-                      ),
-                      sectionsSpace: 4,
-                      centerSpaceRadius:
-                          100, // Narrow radius for the donut look
-                      sections: categorySummaries.asMap().entries.map((entry) {
-                        final idx = entry.key;
-                        final category = entry.value;
-                        final isTouched = idx == _touchedIndex;
-
-                        return PieChartSectionData(
-                          color: category.color,
-                          value: category.amount,
-                          title: '', // No title inside pie section
-                          radius: isTouched ? 23 : 15, // Thinner section
-                          showTitle: false,
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ),
-              // Center Text
-              Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: selected != null
-                      ? Column(
-                          key: const ValueKey('selected'),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              getCategoryTranslation(context, selected.category)
-                                  .toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.0,
-                                color: widget.colorScheme.mutedForeground,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                displayAmount(selected.amount),
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  color: widget.colorScheme.foreground,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          key: const ValueKey('total'),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              context.l10n.totalSpent.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.0,
-                                color: widget.colorScheme.mutedForeground,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                displayAmount(totalSpent),
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  color: widget.colorScheme.foreground,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.periodLabel,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: widget.colorScheme.mutedForeground,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 32),
-        // Legend Cards
-        SizedBox(
-          height: 120, // Increased height to accommodate enhanced shadows
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: categorySummaries.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final category = categorySummaries[index];
-              final percent = (category.amount / totalSpent) * 100;
-              final isSelected = _touchedIndex == index;
-              final canOpenCategory = isTransactionsPieCategoryNavigable(
-                category.category,
-              );
-
-              return GestureDetector(
-                onTap: canOpenCategory
-                    ? () {
-                        setState(() {
-                          _touchedIndex = index;
-                        });
-                        _openCategoryDetails(context, category.category);
-                      }
-                    : () {
-                        setState(() {
-                          _touchedIndex = isSelected ? null : index;
-                        });
-                      },
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  key: ValueKey('transactions-pie-legend-${category.category}'),
-                  duration: const Duration(milliseconds: 200),
-                  width: 180, // Increased width to show it's scrollable
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? widget.colorScheme.homeCardSurface
-                        : widget.colorScheme.card, // Fallback to a card surface
-                    borderRadius: BorderRadius.circular(
-                        10), // Use radius 10 from aesthetics
-                    border: Border.all(
+                  behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    key:
+                        ValueKey('transactions-pie-legend-${category.category}'),
+                    duration: const Duration(milliseconds: 200),
+                    width: 180, // Increased width to show it's scrollable
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? widget.colorScheme.primary.withValues(alpha: 0.5)
-                          : widget.colorScheme.surface.withValues(alpha: 0.0),
-                      width: 1,
+                          ? widget.colorScheme.homeCardSurface
+                          : widget
+                              .colorScheme.card, // Fallback to a card surface
+                      borderRadius: BorderRadius.circular(
+                          10), // Use radius 10 from aesthetics
+                      border: Border.all(
+                        color: isSelected
+                            ? widget.colorScheme.primary.withValues(alpha: 0.5)
+                            : widget.colorScheme.surface.withValues(alpha: 0.0),
+                        width: 1,
+                      ),
+                      boxShadow: Theme.of(context).brightness == Brightness.dark
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.4),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                                spreadRadius: -1,
+                              ),
+                              BoxShadow(
+                                color: widget.colorScheme.surface
+                                    .withValues(alpha: 0.2),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                                spreadRadius: -2,
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: widget.colorScheme.homeCardShadow
+                                    .withValues(alpha: 0.15),
+                                blurRadius: 13,
+                                offset: const Offset(0, 2),
+                                spreadRadius: -6,
+                              ),
+                              BoxShadow(
+                                color: widget.colorScheme.homeCardShadow
+                                    .withValues(alpha: 0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 3),
+                                spreadRadius: -2,
+                              ),
+                            ],
                     ),
-                    boxShadow: Theme.of(context).brightness == Brightness.dark
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                              spreadRadius: -1,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: category.color,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                            BoxShadow(
-                              color: widget.colorScheme.surface
-                                  .withValues(alpha: 0.2),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                              spreadRadius: -2,
-                            ),
-                          ]
-                        : [
-                            BoxShadow(
-                              color: widget.colorScheme.homeCardShadow
-                                  .withValues(alpha: 0.15),
-                              blurRadius: 13,
-                              offset: const Offset(0, 2),
-                              spreadRadius: -6,
-                            ),
-                            BoxShadow(
-                              color: widget.colorScheme.homeCardShadow
-                                  .withValues(alpha: 0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 3),
-                              spreadRadius: -2,
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                getCategoryTranslation(
+                                    context, category.category),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: widget.colorScheme.foreground,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: category.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              getCategoryTranslation(
-                                  context, category.category),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: widget.colorScheme.foreground,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    displayAmount(category.amount),
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: widget.colorScheme.foreground,
-                                      letterSpacing: -0.5,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (canOpenCategory) ...[
-                                  const SizedBox(width: 2),
-                                  Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 16,
-                                    color: widget.colorScheme.mutedForeground,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${percent.toStringAsFixed(0)}% OF TOTAL',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: widget.colorScheme.mutedForeground,
-                          letterSpacing: 0.5,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      displayAmount(category.amount),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: widget.colorScheme.foreground,
+                                        letterSpacing: -0.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (canOpenCategory) ...[
+                                    const SizedBox(width: 2),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 16,
+                                      color:
+                                          widget.colorScheme.mutedForeground,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${percent.toStringAsFixed(0)}% OF TOTAL',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: widget.colorScheme.mutedForeground,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

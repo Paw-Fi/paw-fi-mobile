@@ -777,20 +777,20 @@ class OverviewDashboardPage extends ConsumerWidget {
                       ),
 
                       // Spending Breakdown Pie Chart
-                      if (hasExpenses)
-                        _DashboardGroup(
-                          title: context.l10n.spendingBreakdown,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: DashboardPieChart(
-                                transactions: myExpenseTransactions,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
+                      _DashboardGroup(
+                        title: context.l10n.spendingBreakdown,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: DashboardPieChart(
+                              transactions: myExpenseTransactions,
+                              amountResolver: resolveCachedExpenseAmount,
+                              currencyCode: displayCurrency,
+                              isLoading: data.isLoading,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
 
                       // Trends Chart Group
                       _DashboardGroup(
@@ -811,6 +811,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 transactions: myExpenseTransactions,
                                 amountResolver: resolveCachedExpenseAmount,
                                 currencyCode: displayCurrency,
+                                isLoading: data.isLoading,
                               ),
                             ),
                           ),
@@ -872,7 +873,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                             ),
                           ),
                           const _Divider(),
-                          if (accountChartData.isEmpty)
+                          if (accountChartData.isEmpty && !data.isLoading)
                             Padding(
                               padding: const EdgeInsets.all(16),
                               child: Text(
@@ -889,6 +890,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               child: AccountSpendListChart(
                                 data: accountChartData,
                                 currencyCode: displayCurrency,
+                                isLoading: data.isLoading,
                               ),
                             ),
                         ],

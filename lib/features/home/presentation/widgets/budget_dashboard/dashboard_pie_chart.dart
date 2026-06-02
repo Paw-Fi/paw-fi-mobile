@@ -8,12 +8,14 @@ class DashboardPieChart extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String? currencyCode;
+  final bool isLoading;
 
   const DashboardPieChart({
     super.key,
     required this.transactions,
     this.amountResolver,
     this.currencyCode,
+    this.isLoading = false,
   });
 
   @override
@@ -28,7 +30,7 @@ class DashboardPieChart extends StatelessWidget {
         .map((tx) => tx.entry)
         .toList();
 
-    if (expenses.isEmpty) {
+    if (expenses.isEmpty && !isLoading) {
       return SizedBox(
         height: 200,
         child: Center(
@@ -45,6 +47,7 @@ class DashboardPieChart extends StatelessWidget {
       expenses: expenses,
       selectedCurrency: displayCurrency ?? 'USD',
       periodLabel: context.l10n.spendingBreakdown,
+      isLoading: isLoading,
     );
   }
 }

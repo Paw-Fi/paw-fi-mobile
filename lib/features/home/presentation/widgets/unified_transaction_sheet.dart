@@ -212,6 +212,7 @@ class _UnifiedTransactionSheetState
   DateTime? _editedDate;
   String? _editedDescription;
   String? _editedMerchant;
+  bool _hasEditedMerchant = false;
 
   void debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -442,7 +443,7 @@ class _UnifiedTransactionSheetState
   }
 
   String? get merchant {
-    if (_editedMerchant != null) return _editedMerchant;
+    if (_hasEditedMerchant) return _editedMerchant;
     if (isNewExpense) return widget.newExpense!.merchant;
     return widget.existingExpense!.merchant;
   }
@@ -2427,6 +2428,7 @@ class _UnifiedTransactionSheetState
 
     setState(() {
       _editedMerchant = normalized;
+      _hasEditedMerchant = true;
     });
   }
 
@@ -3912,8 +3914,8 @@ class _UnifiedTransactionSheetState
               trimmedDescription.isEmpty ? null : trimmedDescription;
         }
 
-        if (_editedMerchant != null) {
-          final trimmedMerchant = _editedMerchant!.trim();
+        if (_hasEditedMerchant) {
+          final trimmedMerchant = _editedMerchant?.trim() ?? '';
           updates['merchant'] =
               trimmedMerchant.isEmpty ? null : trimmedMerchant;
         }
