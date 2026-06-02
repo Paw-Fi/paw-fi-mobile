@@ -428,8 +428,6 @@ class AccountsPage extends HookConsumerWidget {
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
         );
-        await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
-        await ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh();
         if (context.mounted) {
           AppToast.success(context, context.l10n.save);
         }
