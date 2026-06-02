@@ -210,8 +210,7 @@ class LocalTransactionsFeedSummary {
   final List<LocalTransactionCategorySummary> categorySummaries;
   final Map<DateTime, int> yearlyPeriodTotalsCents;
   final Map<DateTime, int> periodTotalsCents;
-  final List<LocalTransactionCurrencyCategorySummary>
-      currencyCategorySummaries;
+  final List<LocalTransactionCurrencyCategorySummary> currencyCategorySummaries;
   final List<LocalTransactionCurrencyPeriodTotal> currencyYearlyPeriodTotals;
   final List<LocalTransactionCurrencyPeriodTotal> currencyPeriodTotals;
   final List<LocalTransactionCurrencyTypeTotal> currencyTypeTotals;
@@ -967,6 +966,8 @@ class MonekoDatabase {
     final filter = _localFeedFilter(query, includeCursor: false);
     final whereSql = '${filter.whereSql} AND sync_status != ?';
     final args = <Object?>[...filter.args, localSyncStatusFailed];
+    final summaryWhereSql = '$whereSql AND id NOT LIKE ?';
+    final summaryArgs = <Object?>[...args, 'transfer:%'];
     final totals = _db.select(
       '''
       SELECT
@@ -977,9 +978,9 @@ class MonekoDatabase {
           THEN 0 ELSE ABS(amount_cents) END) AS expense_total_cents,
         COUNT(DISTINCT currency) AS currency_count
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
       ''',
-      args,
+      summaryArgs,
     ).first;
 
     final categoryRows = _db.select(
@@ -989,12 +990,12 @@ class MonekoDatabase {
         SUM(ABS(amount_cents)) AS amount_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY category_key
       ORDER BY amount_cents DESC, category_key ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     final yearlyRows = _db.select(
@@ -1003,12 +1004,12 @@ class MonekoDatabase {
         SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
         SUM(ABS(amount_cents)) AS amount_cents
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY bucket_start
       ORDER BY bucket_start ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     final periodRows = _db.select(
@@ -1017,12 +1018,12 @@ class MonekoDatabase {
         ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
         SUM(ABS(amount_cents)) AS amount_cents
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY bucket_start
       ORDER BY bucket_start ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     final currencyCategoryRows = _db.select(
@@ -1033,12 +1034,12 @@ class MonekoDatabase {
         SUM(ABS(amount_cents)) AS amount_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY category_key, currency_key
       ORDER BY amount_cents DESC, category_key ASC, currency_key ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     final currencyYearlyRows = _db.select(
@@ -1048,12 +1049,12 @@ class MonekoDatabase {
         UPPER(COALESCE(currency, '')) AS currency_key,
         SUM(ABS(amount_cents)) AS amount_cents
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY bucket_start, currency_key
       ORDER BY bucket_start ASC, currency_key ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     final currencyPeriodRows = _db.select(
@@ -1063,12 +1064,12 @@ class MonekoDatabase {
         UPPER(COALESCE(currency, '')) AS currency_key,
         SUM(ABS(amount_cents)) AS amount_cents
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY bucket_start, currency_key
       ORDER BY bucket_start ASC, currency_key ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     final currencyTypeRows = _db.select(
@@ -1081,11 +1082,11 @@ class MonekoDatabase {
           THEN ABS(amount_cents) ELSE 0 END) AS income_total_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
-      WHERE $whereSql
+      WHERE $summaryWhereSql
       GROUP BY currency_key
       ORDER BY currency_key ASC
       ''',
-      args,
+      summaryArgs,
     );
 
     return LocalTransactionsFeedSummary(
@@ -1138,6 +1139,7 @@ class MonekoDatabase {
   Future<int> getTransactionsFeedCount(
     LocalTransactionsFeedQuery query, {
     String? syncStatus,
+    bool excludeWalletTransferFeedRows = false,
   }) async {
     final filter = _localFeedFilter(query, includeCursor: false);
     final conditions = <String>[filter.whereSql];
@@ -1145,6 +1147,10 @@ class MonekoDatabase {
     if (syncStatus != null) {
       conditions.add('sync_status = ?');
       args.add(syncStatus);
+    }
+    if (excludeWalletTransferFeedRows) {
+      conditions.add('id NOT LIKE ?');
+      args.add('transfer:%');
     }
 
     final rows = _db.select(

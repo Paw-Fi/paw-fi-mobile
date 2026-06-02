@@ -48,6 +48,7 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
     final items = grouped[monthStart]!..sort(compareTransactionsNewestFirst);
     double total = 0;
     for (final e in items) {
+      if (_isWalletTransferFeedEntry(e)) continue;
       final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
       total += (isIncome ? 1 : -1) * e.amount.abs();
     }
@@ -92,6 +93,7 @@ List<DayTransactionGroup> groupTransactionsByDay(
     final items = grouped[day]!..sort(compareTransactionsNewestFirst);
     double total = 0;
     for (final e in items) {
+      if (_isWalletTransferFeedEntry(e)) continue;
       final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
       total += (isIncome ? 1 : -1) * e.amount.abs();
     }
@@ -107,3 +109,6 @@ String formatMonthHeader(DateTime monthStart, {String? locale}) {
   final formatter = DateFormat('MMMM yyyy', locale);
   return formatter.format(monthStart);
 }
+
+bool _isWalletTransferFeedEntry(ExpenseEntry entry) =>
+    entry.id.startsWith('transfer:');

@@ -9,7 +9,10 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
   required CurrencyRateTable rates,
   String intervalGranularity = 'yearly',
 }) {
-  if (entries.isEmpty) return const TransactionsFeedSummary.empty();
+  final summaryEntries = entries
+      .where((entry) => !_isWalletTransferFeedEntry(entry))
+      .toList(growable: false);
+  if (summaryEntries.isEmpty) return const TransactionsFeedSummary.empty();
 
   final normalizedTarget = targetCurrency.trim().toUpperCase();
   final currencies = <String>{};
@@ -19,7 +22,7 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
   var expenseTotal = 0.0;
   var incomeTotal = 0.0;
 
-  for (final entry in entries) {
+  for (final entry in summaryEntries) {
     final sourceCurrency =
         (entry.currency?.trim().toUpperCase().isNotEmpty == true)
             ? entry.currency!.trim().toUpperCase()
@@ -57,7 +60,7 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
   }
 
   return TransactionsFeedSummary(
-    transactionCount: entries.length,
+    transactionCount: summaryEntries.length,
     expenseTotal: expenseTotal,
     incomeTotal: incomeTotal,
     hasMultipleCurrencies: currencies.length > 1,
@@ -67,6 +70,9 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
     periodTotals: periodTotals,
   );
 }
+
+bool _isWalletTransferFeedEntry(ExpenseEntry entry) =>
+    entry.id.startsWith('transfer:');
 
 TransactionsFeedSummary? summarizeTransactionRollupsInCurrency(
   TransactionsFeedSummary summary, {
@@ -116,26 +122,24 @@ TransactionsFeedSummary? summarizeTransactionRollupsInCurrency(
   }
 
   for (final bucket in summary.currencyYearlyPeriodTotals) {
-    yearlyTotals[bucket.bucketStart] =
-        (yearlyTotals[bucket.bucketStart] ?? 0) +
-            rates.convert(
-              bucket.amount,
-              bucket.currency,
-              normalizedTarget,
-            );
+    yearlyTotals[bucket.bucketStart] = (yearlyTotals[bucket.bucketStart] ?? 0) +
+        rates.convert(
+          bucket.amount,
+          bucket.currency,
+          normalizedTarget,
+        );
   }
 
   final sourcePeriodTotals = summary.currencyPeriodTotals.isEmpty
       ? summary.currencyYearlyPeriodTotals
       : summary.currencyPeriodTotals;
   for (final bucket in sourcePeriodTotals) {
-    periodTotals[bucket.bucketStart] =
-        (periodTotals[bucket.bucketStart] ?? 0) +
-            rates.convert(
-              bucket.amount,
-              bucket.currency,
-              normalizedTarget,
-            );
+    periodTotals[bucket.bucketStart] = (periodTotals[bucket.bucketStart] ?? 0) +
+        rates.convert(
+          bucket.amount,
+          bucket.currency,
+          normalizedTarget,
+        );
   }
 
   return TransactionsFeedSummary(
@@ -193,7 +197,10 @@ TransactionsFeedSummary combineTransactionSummaries(
   }
 
   final categoryTotals = <String, TransactionsFeedCategorySummary>{};
-  for (final summary in [...base.categorySummaries, ...extra.categorySummaries]) {
+  for (final summary in [
+    ...base.categorySummaries,
+    ...extra.categorySummaries
+  ]) {
     final category = canonicalizeCategoryKey(summary.category);
     final current = categoryTotals[category] ??
         TransactionsFeedCategorySummary(

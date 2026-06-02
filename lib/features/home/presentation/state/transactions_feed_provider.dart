@@ -341,8 +341,7 @@ class TransactionsFeedSummary {
   final List<TransactionsFeedCategorySummary> categorySummaries;
   final Map<DateTime, double> yearlyPeriodTotals;
   final Map<DateTime, double> periodTotals;
-  final List<TransactionsFeedCurrencyCategorySummary>
-      currencyCategorySummaries;
+  final List<TransactionsFeedCurrencyCategorySummary> currencyCategorySummaries;
   final List<TransactionsFeedCurrencyPeriodTotal> currencyYearlyPeriodTotals;
   final List<TransactionsFeedCurrencyPeriodTotal> currencyPeriodTotals;
   final List<TransactionsFeedCurrencyTypeTotal> currencyTypeTotals;
@@ -379,15 +378,18 @@ class TransactionsFeedSummary {
         currencyTypeTotals = const <TransactionsFeedCurrencyTypeTotal>[];
 
   TransactionsFeedSummary addingExpenses(List<ExpenseEntry> expenses) {
-    if (expenses.isEmpty) {
+    final summaryExpenses = expenses
+        .where((expense) => !expense.id.startsWith('transfer:'))
+        .toList(growable: false);
+    if (summaryExpenses.isEmpty) {
       return this;
     }
 
-    final expenseRows = expenses
+    final expenseRows = summaryExpenses
         .where(
             (expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
         .toList();
-    final incomeRows = expenses
+    final incomeRows = summaryExpenses
         .where(
             (expense) => (expense.type ?? 'expense').toLowerCase() == 'income')
         .toList();
@@ -422,21 +424,21 @@ class TransactionsFeedSummary {
     }
 
     final yearlyTotals = Map<DateTime, double>.from(yearlyPeriodTotals);
-    final addedYearly = groupExpensesByInterval(expenses, 'yearly');
+    final addedYearly = groupExpensesByInterval(summaryExpenses, 'yearly');
     for (final entry in addedYearly.entries) {
       yearlyTotals[entry.key] = (yearlyTotals[entry.key] ?? 0) + entry.value;
     }
 
     final periodTotals = Map<DateTime, double>.from(this.periodTotals);
 
-    final extraCurrencies = expenses
+    final extraCurrencies = summaryExpenses
         .map((expense) => expense.currency?.trim().toUpperCase())
         .where((currency) => currency != null && currency.isNotEmpty)
         .cast<String>()
         .toSet();
 
     return TransactionsFeedSummary(
-      transactionCount: transactionCount + expenses.length,
+      transactionCount: transactionCount + summaryExpenses.length,
       expenseTotal: expenseTotal +
           expenseRows.fold<double>(
               0, (sum, expense) => sum + expense.amount.abs()),
@@ -676,8 +678,8 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
       categorySummaries: categoryRows,
       yearlyPeriodTotals: yearlyPeriodTotals,
       periodTotals: periodTotals,
-      currencyCategorySummaries:
-          _parseCurrencyCategorySummaries(payload['currency_category_summaries']),
+      currencyCategorySummaries: _parseCurrencyCategorySummaries(
+          payload['currency_category_summaries']),
       currencyYearlyPeriodTotals:
           _parseCurrencyPeriodTotals(payload['currency_yearly_period_totals']),
       currencyPeriodTotals:
@@ -688,8 +690,8 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
     );
   }
 
-  List<TransactionsFeedCurrencyCategorySummary>
-      _parseCurrencyCategorySummaries(dynamic source) {
+  List<TransactionsFeedCurrencyCategorySummary> _parseCurrencyCategorySummaries(
+      dynamic source) {
     return ((source as List?) ?? const [])
         .cast<Map>()
         .map((row) {
@@ -809,11 +811,16 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       'localCount=${localPage.items.length} localTotal=${_traceAmountFromCents(_traceExpenseCents(localPage.items))}',
     );
     if (!_remoteEnabled) {
-      _homeSpendTrace('feed-fetchPage return=local-offline count=${localPage.items.length}');
+      _homeSpendTrace(
+          'feed-fetchPage return=local-offline count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
     }
     if (isComplete || cursor != null || hasPendingLocalRows) {
-      final reason = isComplete ? 'complete' : cursor != null ? 'cursor' : 'pending';
+      final reason = isComplete
+          ? 'complete'
+          : cursor != null
+              ? 'cursor'
+              : 'pending';
       _homeSpendTrace(
         'feed-fetchPage return=local-authoritative reason=$reason count=${localPage.items.length}',
       );
@@ -843,7 +850,8 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       if (updatedLocalPage.items.isEmpty) return remotePage;
       return _pageFromLocal(updatedLocalPage, query);
     } catch (error) {
-      _homeSpendTrace('feed-fetchPage remote-error return=local error=$error count=${localPage.items.length}');
+      _homeSpendTrace(
+          'feed-fetchPage remote-error return=local error=$error count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
     }
   }
@@ -870,11 +878,13 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       return _summaryFromLocal(localSummary);
     }
     if (isComplete) {
-      _homeSpendTrace('feed-fetchSummary return=local-authoritative reason=complete');
+      _homeSpendTrace(
+          'feed-fetchSummary return=local-authoritative reason=complete');
       return _summaryFromLocal(localSummary);
     }
     if (hasPendingLocalRows) {
-      _homeSpendTrace('feed-fetchSummary return=local-authoritative reason=pending');
+      _homeSpendTrace(
+          'feed-fetchSummary return=local-authoritative reason=pending');
       return _summaryFromLocal(localSummary);
     }
     try {
@@ -886,7 +896,8 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       );
       return remoteSummary;
     } catch (error) {
-      _homeSpendTrace('feed-fetchSummary remote-error return=local error=$error');
+      _homeSpendTrace(
+          'feed-fetchSummary remote-error return=local error=$error');
       return _summaryFromLocal(localSummary);
     }
   }
@@ -905,7 +916,8 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       'localCount=${localItems.length} localTotal=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
     );
     if (!_remoteEnabled) {
-      _homeSpendTrace('feed-fetchAllPages return=local-offline count=${localItems.length}');
+      _homeSpendTrace(
+          'feed-fetchAllPages return=local-offline count=${localItems.length}');
       return localItems;
     }
     if (isComplete || hasPendingLocalRows) {
@@ -986,6 +998,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final syncedLocalCount = await _database.getTransactionsFeedCount(
       localQuery,
       syncStatus: localSyncStatusSynced,
+      excludeWalletTransferFeedRows: true,
     );
     if (syncedLocalCount > summary.transactionCount) {
       final authoritativeItems = await _remote.fetchAllPages(query);
