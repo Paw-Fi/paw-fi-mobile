@@ -272,6 +272,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final savedEntry =
           saved is Map<String, dynamic> ? ExpenseEntry.fromJson(saved) : null;
       final reconciledEntry = savedEntry?.copyWith(
+        receiptImageUrl: savedEntry.receiptImageUrl ?? receiptImageUrl,
         clientRecordId: mutationMetadata.clientRecordId,
         clientMutationId: mutationMetadata.clientMutationId,
         idempotencyKey: mutationMetadata.idempotencyKey,

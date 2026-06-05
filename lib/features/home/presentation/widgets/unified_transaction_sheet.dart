@@ -40,6 +40,7 @@ import 'package:moneko/shared/widgets/destructive_text_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
@@ -455,10 +456,13 @@ class _UnifiedTransactionSheetState
   }
 
   String? get effectiveImagePath {
-    // For new expenses, use widget.localImagePath
-    if (isNewExpense) return widget.localImagePath;
+    // For new expenses, prefer a photo selected inside this sheet, then the
+    // original image path passed from the parser/AI entry flow.
+    if (isNewExpense) return _localImagePath ?? widget.localImagePath;
     // For existing expenses, use locally captured image first, then stored URL
-    return _localImagePath ?? receiptImageUrl;
+    return _localImagePath ??
+        widget.existingExpense?.localReceiptImagePath ??
+        receiptImageUrl;
   }
 
   // Generate note prefix like "I spent $XX on category"
@@ -1162,8 +1166,10 @@ class _UnifiedTransactionSheetState
                       // Receipt Section
                       _buildReceiptSection(
                         colorScheme: colorScheme,
-                        localImagePath:
-                            isNewExpense ? effectiveImagePath : _localImagePath,
+                        localImagePath: isNewExpense
+                            ? effectiveImagePath
+                            : _localImagePath ??
+                                widget.existingExpense?.localReceiptImagePath,
                         receiptImageUrl: isNewExpense ? null : receiptImageUrl,
                         onAddPhoto:
                             effectiveImagePath == null ? _handleAddPhoto : null,
@@ -3224,6 +3230,42 @@ class _UnifiedTransactionSheetState
     };
   }
 
+  household_split.ExpenseSplitGroup? _buildOptimisticSplitGroupForSheet({
+    required String expenseId,
+    required String? householdId,
+    required bool canUseHouseholdSplits,
+    required double totalAmount,
+    required String currency,
+    required String? description,
+    required Household? household,
+    String? splitGroupId,
+  }) {
+    if (!canUseHouseholdSplits || householdId == null || householdId.isEmpty) {
+      return null;
+    }
+    final payerUserId = _selectedPayerUserId ?? ref.read(authProvider).uid;
+    final rawCustomSplits = _customSplitType != null &&
+            _customSplits != null &&
+            _customSplits!.isNotEmpty
+        ? _customSplitsPayload(_customSplitType!, _customSplits!)
+        : null;
+
+    return buildOptimisticHouseholdSplitGroup(
+      householdId: householdId,
+      expenseId: expenseId,
+      payerUserId: payerUserId,
+      totalAmount: totalAmount,
+      currency: currency,
+      members: _householdMembers ?? const <HouseholdMember>[],
+      autoSplitEnabled: household?.autoSplitEnabled ?? false,
+      autoSplitConfig: household?.autoSplitConfig,
+      rawCustomSplits: rawCustomSplits,
+      description: description,
+      splitGroupId: splitGroupId,
+      keepSemanticallyEqualCustomSplits: true,
+    );
+  }
+
   Future<void> _persistOptimisticNewTransaction({
     required ProviderContainer container,
     required BuildContext toastContext,
@@ -3239,6 +3281,8 @@ class _UnifiedTransactionSheetState
     required List<MemberSplit>? customSplits,
     required String? payerUserId,
     required String? localImagePath,
+    required Household? activeHousehold,
+    required bool isEffectivePortfolio,
   }) async {
     final localDatabase = await localWrite;
     String? receiptUrl;
@@ -3319,15 +3363,39 @@ class _UnifiedTransactionSheetState
           throw Exception('Failed to save expense');
         }
 
+        var savedEntry = saved;
+        final savedSplitGroup = _buildOptimisticSplitGroupForSheet(
+          expenseId: saved.id,
+          householdId: householdId,
+          canUseHouseholdSplits: canUseHouseholdSplits,
+          totalAmount: saved.amount,
+          currency: saved.currency ?? expense.currency,
+          description: saved.rawText ?? expense.description,
+          household: activeHousehold,
+          splitGroupId: saved.splitGroupId,
+        );
+        final splitsNotifier = container.read(
+          householdOptimisticSplitsProvider.notifier,
+        );
+        splitsNotifier.removeSplitByExpenseIdAcrossHouseholds(optimisticId);
+        if (savedSplitGroup != null && householdId != null) {
+          splitsNotifier.addSplitGroup(householdId, savedSplitGroup);
+          if (savedEntry.splitGroupId?.trim() != savedSplitGroup.id) {
+            savedEntry = savedEntry.copyWith(splitGroupId: savedSplitGroup.id);
+          }
+        } else if (isEffectivePortfolio || householdId == null) {
+          splitsNotifier.removeSplitByExpenseIdAcrossHouseholds(saved.id);
+        }
+
         replaceOptimisticTransactionWithContainer(
           container: container,
           optimisticId: optimisticId,
-          savedEntry: saved,
+          savedEntry: savedEntry,
           householdId: householdId,
         );
         await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticId,
-          savedEntry: saved,
+          savedEntry: savedEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
       }
@@ -3362,6 +3430,9 @@ class _UnifiedTransactionSheetState
         optimisticId: optimisticId,
         householdId: householdId,
       );
+      container
+          .read(householdOptimisticSplitsProvider.notifier)
+          .removeSplitByExpenseIdAcrossHouseholds(optimisticId);
       await localDatabase?.rollbackOptimisticTransaction(
         optimisticId: optimisticId,
         clientMutationId: mutationMetadata.clientMutationId,
@@ -3491,6 +3562,15 @@ class _UnifiedTransactionSheetState
     }
     final optimisticId = makeOptimisticTransactionId();
     final mutationMetadata = buildTransactionMutationMetadata(optimisticId);
+    final optimisticSplitGroup = _buildOptimisticSplitGroupForSheet(
+      expenseId: optimisticId,
+      householdId: effectiveHouseholdId,
+      canUseHouseholdSplits: canUseHouseholdSplits && !expenseWithTime.isIncome,
+      totalAmount: expenseWithTime.amount,
+      currency: expenseWithTime.currency,
+      description: expenseWithTime.description,
+      household: activeHousehold,
+    );
     final optimisticEntry = buildOptimisticEntry(
       transaction: expenseWithTime,
       optimisticId: optimisticId,
@@ -3498,6 +3578,10 @@ class _UnifiedTransactionSheetState
       householdId: effectiveHouseholdId,
       accountId: selectedFinancialAccountId,
       type: expenseWithTime.isIncome ? 'income' : 'expense',
+      localReceiptImagePath: expenseWithTime.localImagePath ??
+          _localImagePath ??
+          widget.localImagePath,
+      splitGroupId: optimisticSplitGroup?.id,
     );
     final container = ProviderScope.containerOf(context, listen: false);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -3522,7 +3606,9 @@ class _UnifiedTransactionSheetState
       customSplitType: _customSplitType,
       customSplits: _customSplits,
       payerUserId: _selectedPayerUserId,
-      localImagePath: expenseWithTime.localImagePath ?? widget.localImagePath,
+      localImagePath: expenseWithTime.localImagePath ??
+          _localImagePath ??
+          widget.localImagePath,
     );
 
     addOptimisticTransactionWithContainer(
@@ -3530,6 +3616,11 @@ class _UnifiedTransactionSheetState
       entry: optimisticEntry,
       householdId: effectiveHouseholdId,
     );
+    if (optimisticSplitGroup != null && effectiveHouseholdId != null) {
+      container
+          .read(householdOptimisticSplitsProvider.notifier)
+          .addSplitGroup(effectiveHouseholdId, optimisticSplitGroup);
+    }
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
@@ -3557,7 +3648,11 @@ class _UnifiedTransactionSheetState
       customSplitType: _customSplitType,
       customSplits: _customSplits,
       payerUserId: _selectedPayerUserId,
-      localImagePath: expenseWithTime.localImagePath ?? widget.localImagePath,
+      localImagePath: expenseWithTime.localImagePath ??
+          _localImagePath ??
+          widget.localImagePath,
+      activeHousehold: activeHousehold,
+      isEffectivePortfolio: isEffectivePortfolio,
     ));
   }
 
@@ -3598,6 +3693,52 @@ class _UnifiedTransactionSheetState
     }
 
     String? uploadedReplacementReceiptImageUrl;
+    String? optimisticSplitRollbackHouseholdId;
+    household_split.ExpenseSplitGroup? optimisticSplitRollbackGroup;
+    var didApplyOptimisticSplitMutation = false;
+
+    void rollbackOptimisticSplitMutation() {
+      if (!didApplyOptimisticSplitMutation) return;
+      final expenseId = widget.existingExpense?.id;
+      if (expenseId == null || expenseId.isEmpty) return;
+      final notifier = ref.read(householdOptimisticSplitsProvider.notifier);
+      notifier.removeSplitByExpenseIdAcrossHouseholds(expenseId);
+      if (optimisticSplitRollbackHouseholdId != null &&
+          optimisticSplitRollbackGroup != null) {
+        notifier.addSplitGroup(
+          optimisticSplitRollbackHouseholdId!,
+          optimisticSplitRollbackGroup!,
+        );
+      }
+      didApplyOptimisticSplitMutation = false;
+    }
+
+    void applyOptimisticSplitMutation({
+      required String expenseId,
+      required String? householdId,
+      required household_split.ExpenseSplitGroup? group,
+    }) {
+      final optimisticSplits = ref.read(householdOptimisticSplitsProvider);
+      optimisticSplitRollbackHouseholdId = null;
+      optimisticSplitRollbackGroup = null;
+      for (final entry in optimisticSplits.entries) {
+        for (final candidate in entry.value) {
+          if (candidate.expenseId == expenseId) {
+            optimisticSplitRollbackHouseholdId = entry.key;
+            optimisticSplitRollbackGroup = candidate;
+            break;
+          }
+        }
+        if (optimisticSplitRollbackGroup != null) break;
+      }
+
+      final notifier = ref.read(householdOptimisticSplitsProvider.notifier);
+      notifier.removeSplitByExpenseIdAcrossHouseholds(expenseId);
+      if (group != null && householdId != null && householdId.isNotEmpty) {
+        notifier.addSplitGroup(householdId, group);
+      }
+      didApplyOptimisticSplitMutation = true;
+    }
 
     try {
       final user = ref.read(authProvider);
@@ -4164,6 +4305,35 @@ class _UnifiedTransactionSheetState
             originalCategoryForRemap != 'other' &&
             originalCategoryForRemap != 'uncategorized';
 
+        final updatedAmount = updates.containsKey('amount_cents')
+            ? ((updates['amount_cents'] as int) / 100.0)
+            : widget.existingExpense!.amount;
+        final updatedCurrency = updates.containsKey('currency')
+            ? updates['currency'].toString()
+            : currency;
+        final updatedDescription = updates.containsKey('raw_text')
+            ? updates['raw_text'] as String?
+            : description;
+        final optimisticSplitGroup = _buildOptimisticSplitGroupForSheet(
+          expenseId: widget.existingExpense!.id,
+          householdId: targetHouseholdId,
+          canUseHouseholdSplits: isSharedSpace,
+          totalAmount: updatedAmount,
+          currency: updatedCurrency,
+          description: updatedDescription,
+          household: targetHouseholdId == null
+              ? null
+              : _resolveHouseholdById(targetHouseholdId),
+          splitGroupId: existingSplitGroupId,
+        );
+        if (!isSharedSpace || optimisticSplitGroup != null) {
+          applyOptimisticSplitMutation(
+            expenseId: widget.existingExpense!.id,
+            householdId: targetHouseholdId,
+            group: optimisticSplitGroup,
+          );
+        }
+
         debugPrint(
             ' Updating expense with changed fields=${updates.keys.toList()} hasExtraBody=${extraBody != null}');
 
@@ -4271,6 +4441,7 @@ class _UnifiedTransactionSheetState
             duration: const Duration(seconds: 4),
           );
         } else {
+          rollbackOptimisticSplitMutation();
           if (uploadedReplacementReceiptImageUrl != null) {
             await expenseSaveNotifier
                 .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
@@ -4301,6 +4472,7 @@ class _UnifiedTransactionSheetState
       }
     } catch (error) {
       debugPrint(' Error saving expense: $error');
+      rollbackOptimisticSplitMutation();
       if (uploadedReplacementReceiptImageUrl != null) {
         await expenseSaveNotifier
             .deleteReceiptImage(uploadedReplacementReceiptImageUrl);

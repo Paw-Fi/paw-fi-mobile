@@ -71,6 +71,8 @@ String _recentTransactionContentSignature(ExpenseEntry entry) {
     (entry.category ?? '').trim().toLowerCase(),
     _normalizedRecentText(entry),
     entry.splitGroupId?.trim() ?? '',
+    entry.receiptImageUrl?.trim() ?? '',
+    entry.localReceiptImagePath?.trim() ?? '',
     entry.isRecurring.toString(),
   ].join('|');
 }
@@ -223,6 +225,8 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.category,
       expense.rawText,
       expense.merchant,
+      expense.receiptImageUrl,
+      expense.localReceiptImagePath,
       expense.splitGroupId,
       expense.isRecurring,
     );

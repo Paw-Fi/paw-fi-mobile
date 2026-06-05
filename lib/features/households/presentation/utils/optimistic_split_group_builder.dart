@@ -18,6 +18,7 @@ ExpenseSplitGroup? buildOptimisticHouseholdSplitGroup({
   String? description,
   String? splitGroupId,
   DateTime? createdAt,
+  bool keepSemanticallyEqualCustomSplits = false,
 }) {
   final totalCents = (totalAmount.abs() * 100).round();
   if (householdId.trim().isEmpty ||
@@ -31,6 +32,7 @@ ExpenseSplitGroup? buildOptimisticHouseholdSplitGroup({
     rawCustomSplits,
     totalCents: totalCents,
     fallbackMembers: members,
+    keepSemanticallyEqual: keepSemanticallyEqualCustomSplits,
   );
   final resolved = explicit ??
       _buildLinesFromAutoSplitConfig(
@@ -86,6 +88,7 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
   Object? rawCustomSplits, {
   required int totalCents,
   required List<HouseholdMember> fallbackMembers,
+  required bool keepSemanticallyEqual,
 }) {
   if (rawCustomSplits is! Map) return null;
   final customSplits = Map<String, dynamic>.from(rawCustomSplits);
@@ -103,7 +106,10 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
           )
           .toList(growable: false)
       : const <Map<String, dynamic>>[];
-  if (_isSemanticallyEqualCustomSplit(splitType, rawMaps)) return null;
+  if (!keepSemanticallyEqual &&
+      _isSemanticallyEqualCustomSplit(splitType, rawMaps)) {
+    return null;
+  }
 
   final userIds = rawMaps.isNotEmpty
       ? rawMaps.map((entry) => entry['userId'].toString().trim()).toList()

@@ -40,6 +40,7 @@ class ExpenseEntry {
   final String? merchant;
   final List<String>? breakdown;
   final String? receiptImageUrl;
+  final String? localReceiptImagePath;
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
   final String? bankAccountId;
@@ -71,6 +72,7 @@ class ExpenseEntry {
     this.merchant,
     this.breakdown,
     this.receiptImageUrl,
+    this.localReceiptImagePath,
     this.sharedMemberIds,
     this.splitGroupId,
     this.bankAccountId,
@@ -140,6 +142,8 @@ class ExpenseEntry {
               .toList()
           : null,
       receiptImageUrl: json['receipt_image_url'] as String?,
+      localReceiptImagePath: json['localReceiptImagePath'] as String? ??
+          json['local_receipt_image_path'] as String?,
       sharedMemberIds: json['shared_member_ids'] != null
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
@@ -180,6 +184,7 @@ class ExpenseEntry {
       'merchant': merchant,
       'breakdown': breakdown,
       'receipt_image_url': receiptImageUrl,
+      'localReceiptImagePath': localReceiptImagePath,
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
       'bank_account_id': bankAccountId,
@@ -214,6 +219,7 @@ class ExpenseEntry {
     String? merchant,
     List<String>? breakdown,
     String? receiptImageUrl,
+    String? localReceiptImagePath,
     List<String>? sharedMemberIds,
     String? splitGroupId,
     String? bankAccountId,
@@ -245,6 +251,8 @@ class ExpenseEntry {
       merchant: merchant ?? this.merchant,
       breakdown: breakdown ?? this.breakdown,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
+      localReceiptImagePath:
+          localReceiptImagePath ?? this.localReceiptImagePath,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       bankAccountId: bankAccountId ?? this.bankAccountId,

@@ -69,6 +69,7 @@ ExpenseEntry buildOptimisticEntry({
   String? contactId,
   String? householdId,
   String? receiptImageUrl,
+  String? localReceiptImagePath,
   String? accountId,
   String? splitGroupId,
 }) {
@@ -86,6 +87,7 @@ ExpenseEntry buildOptimisticEntry({
     merchant: transaction.merchant,
     breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,
+    localReceiptImagePath: localReceiptImagePath,
     splitGroupId: splitGroupId,
     walletId: accountId,
     type: type,

@@ -225,6 +225,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       final responsePreservingUpdates = <String, dynamic>{
         if (updates.containsKey('merchant')) 'merchant': updates['merchant'],
         if (updates.containsKey('raw_text')) 'raw_text': updates['raw_text'],
+        if (updates.containsKey('receipt_image_url'))
+          'receipt_image_url': updates['receipt_image_url'],
       };
       final confirmedExpense = responseExpense == null
           ? optimisticExpense

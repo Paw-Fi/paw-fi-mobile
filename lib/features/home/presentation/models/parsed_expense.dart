@@ -5,6 +5,8 @@ import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/utils/currency.dart';
 
+const Object _copyWithUnset = Object();
+
 class ParsedExpense {
   // true = income, false = expense
   final bool isIncome;
@@ -103,12 +105,12 @@ class ParsedExpense {
     String? currency,
     String? currencySymbol,
     DateTime? date,
-    String? description,
-    String? merchant,
-    List<String>? breakdown,
-    String? localImagePath,
-    String? payerUserId,
-    String? payerHint,
+    Object? description = _copyWithUnset,
+    Object? merchant = _copyWithUnset,
+    Object? breakdown = _copyWithUnset,
+    Object? localImagePath = _copyWithUnset,
+    Object? payerUserId = _copyWithUnset,
+    Object? payerHint = _copyWithUnset,
   }) {
     return ParsedExpense(
       isIncome: isIncome ?? this.isIncome,
@@ -117,12 +119,24 @@ class ParsedExpense {
       currency: currency ?? this.currency,
       currencySymbol: currencySymbol ?? this.currencySymbol,
       date: date ?? this.date,
-      description: description ?? this.description,
-      merchant: merchant ?? this.merchant,
-      breakdown: breakdown ?? this.breakdown,
-      localImagePath: localImagePath ?? this.localImagePath,
-      payerUserId: payerUserId ?? this.payerUserId,
-      payerHint: payerHint ?? this.payerHint,
+      description: identical(description, _copyWithUnset)
+          ? this.description
+          : description as String?,
+      merchant: identical(merchant, _copyWithUnset)
+          ? this.merchant
+          : merchant as String?,
+      breakdown: identical(breakdown, _copyWithUnset)
+          ? this.breakdown
+          : breakdown as List<String>?,
+      localImagePath: identical(localImagePath, _copyWithUnset)
+          ? this.localImagePath
+          : localImagePath as String?,
+      payerUserId: identical(payerUserId, _copyWithUnset)
+          ? this.payerUserId
+          : payerUserId as String?,
+      payerHint: identical(payerHint, _copyWithUnset)
+          ? this.payerHint
+          : payerHint as String?,
     );
   }
 
