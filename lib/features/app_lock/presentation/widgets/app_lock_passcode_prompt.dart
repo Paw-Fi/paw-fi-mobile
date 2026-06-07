@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 
@@ -13,7 +17,7 @@ class AppLockPasscodePrompt extends StatefulWidget {
     this.showBiometricButton = false,
     this.onBiometricPressed,
     this.footer,
-    this.biometricTooltip = 'Use biometrics',
+    this.biometricTooltip,
     super.key,
   });
 
@@ -26,7 +30,7 @@ class AppLockPasscodePrompt extends StatefulWidget {
   final bool showBiometricButton;
   final VoidCallback? onBiometricPressed;
   final Widget? footer;
-  final String biometricTooltip;
+  final String? biometricTooltip;
 
   @override
   State<AppLockPasscodePrompt> createState() => _AppLockPasscodePromptState();
@@ -68,69 +72,124 @@ class _AppLockPasscodePromptState extends State<AppLockPasscodePrompt> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fillsHeight =
+            constraints.hasBoundedHeight && constraints.maxHeight.isFinite;
+        final keypadMaxWidth = fillsHeight
+            ? math.min(
+                244.0,
+                math.max(
+                  168.0,
+                  (constraints.maxHeight -
+                          _PasscodeHeader.estimatedHeight -
+                          _PasscodeDots.estimatedFlexibleBandHeight -
+                          (widget.footer == null ? 0 : 76) +
+                          12) *
+                      0.75,
+                ),
+              )
+            : 244.0;
+
+        return SizedBox(
+          height: fillsHeight ? constraints.maxHeight : null,
+          child: Column(
+            mainAxisSize: fillsHeight ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              _PasscodeHeader(
+                title: widget.title,
+                subtitle: widget.subtitle,
+                errorText: widget.errorText,
+              ),
+              fillsHeight
+                  ? Expanded(
+                      child: Center(
+                        child: _PasscodeDots(length: _passcode.length),
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: _PasscodeDots(length: _passcode.length),
+                    ),
+              Align(
+                key: const ValueKey('app-lock-keypad'),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: keypadMaxWidth),
+                  child: _NumericKeypad(
+                    enabled: _canEdit,
+                    onDigit: _appendDigit,
+                    onDelete: _deleteDigit,
+                    showBiometricButton: widget.showBiometricButton,
+                    onBiometricPressed: widget.onBiometricPressed,
+                    biometricTooltip:
+                        widget.biometricTooltip ?? context.l10n.useBiometrics,
+                    passcodeLength: _passcode.length,
+                  ),
+                ),
+              ),
+              if (widget.footer != null) ...[
+                const SizedBox(height: 24),
+                widget.footer!,
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PasscodeHeader extends StatelessWidget {
+  const _PasscodeHeader({
+    required this.title,
+    required this.subtitle,
+    this.errorText,
+  });
+
+  final String title;
+  final String subtitle;
+  final String? errorText;
+
+  static const double estimatedHeight = 112;
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          Icons.lock_rounded,
-          size: 52,
-          color: colorScheme.primary,
+          Icons.lock_outline_rounded,
+          size: 42,
+          color: colorScheme.onSurface,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         Text(
-          widget.title,
+          title,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colorScheme.onSurface,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: 8),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
           child: Text(
-            widget.errorText ?? widget.subtitle,
-            key: ValueKey(widget.errorText ?? widget.subtitle),
+            errorText ?? subtitle,
+            key: ValueKey(errorText ?? subtitle),
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: widget.errorText == null
-                  ? colorScheme.mutedForeground
+              fontSize: 14,
+              color: errorText == null
+                  ? colorScheme.onSurface.withValues(alpha: 0.6)
                   : colorScheme.destructive,
             ),
           ),
         ),
-        const SizedBox(height: 28),
-        _PasscodeDots(length: _passcode.length),
-        const SizedBox(height: 28),
-        Align(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: _NumericKeypad(
-              enabled: _canEdit,
-              onDigit: _appendDigit,
-              onDelete: _deleteDigit,
-            ),
-          ),
-        ),
-        if (widget.showBiometricButton || widget.footer != null) ...[
-          const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.showBiometricButton)
-                IconButton(
-                  tooltip: widget.biometricTooltip,
-                  onPressed: widget.enabled && !widget.isSubmitting
-                      ? widget.onBiometricPressed
-                      : null,
-                  icon: const Icon(Icons.fingerprint_rounded),
-                ),
-              if (widget.footer != null) widget.footer!,
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -140,10 +199,12 @@ class _PasscodeDots extends StatelessWidget {
   const _PasscodeDots({required this.length});
 
   final int length;
+  static const double estimatedFlexibleBandHeight = 32;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children:
@@ -153,12 +214,13 @@ class _PasscodeDots extends StatelessWidget {
           key: ValueKey('app-lock-passcode-dot-$index'),
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
-          width: filled ? 14 : 12,
-          height: filled ? 14 : 12,
-          margin: const EdgeInsets.symmetric(horizontal: 7),
+          width: 14,
+          height: 14,
+          margin: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: filled ? colorScheme.primary : colorScheme.surface,
-            border: Border.all(color: colorScheme.border),
+            color: filled
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
         );
@@ -172,47 +234,219 @@ class _NumericKeypad extends StatelessWidget {
     required this.enabled,
     required this.onDigit,
     required this.onDelete,
+    required this.showBiometricButton,
+    required this.onBiometricPressed,
+    required this.biometricTooltip,
+    required this.passcodeLength,
   });
 
   final bool enabled;
   final ValueChanged<String> onDigit;
   final VoidCallback onDelete;
+  final bool showBiometricButton;
+  final VoidCallback? onBiometricPressed;
+  final String biometricTooltip;
+  final int passcodeLength;
 
   @override
   Widget build(BuildContext context) {
-    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.7,
-      ),
-      itemCount: keys.length,
-      itemBuilder: (context, index) {
-        final value = keys[index];
-        if (value.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return OutlinedButton(
-          onPressed: !enabled
-              ? null
-              : value == 'del'
-                  ? onDelete
-                  : () => onDigit(value),
-          child: value == 'del'
-              ? const Icon(Icons.backspace_outlined)
-              : Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
+    const rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['bio', '0', 'del'],
+    ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < rows.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (int j = 0; j < rows[i].length; j++) ...[
+                if (j > 0) const SizedBox(width: 18),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.0,
+                    child: Builder(builder: (context) {
+                      final keyData = rows[i][j];
+
+                      if (keyData == 'bio') {
+                        if (!showBiometricButton) {
+                          return const SizedBox.shrink();
+                        }
+                        return Tooltip(
+                          message: biometricTooltip,
+                          child: _GlassKeypadButton(
+                            isAction: true,
+                            icon: Icons.face_rounded,
+                            onTap: enabled ? onBiometricPressed : null,
+                          ),
+                        );
+                      }
+
+                      if (keyData == 'del') {
+                        if (passcodeLength == 0) return const SizedBox.shrink();
+                        return _GlassKeypadButton(
+                          isAction: true,
+                          icon: Icons.backspace_rounded,
+                          onTap: enabled ? onDelete : null,
+                          isTransparent:
+                              true, // Make delete button transparent background
+                        );
+                      }
+
+                      return _GlassKeypadButton(
+                        digit: keyData,
+                        onTap: enabled ? () => onDigit(keyData) : null,
+                      );
+                    }),
                   ),
                 ),
-        );
-      },
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GlassKeypadButton extends StatefulWidget {
+  const _GlassKeypadButton({
+    this.digit = '',
+    this.onTap,
+    this.isAction = false,
+    this.icon,
+    this.isTransparent = false,
+  });
+
+  final String digit;
+  final VoidCallback? onTap;
+  final bool isAction;
+  final IconData? icon;
+  final bool isTransparent;
+
+  @override
+  State<_GlassKeypadButton> createState() => _GlassKeypadButtonState();
+}
+
+class _GlassKeypadButtonState extends State<_GlassKeypadButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 150),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    if (widget.onTap != null) _controller.forward();
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (widget.onTap != null) {
+      _controller.reverse();
+      widget.onTap!();
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  void _handleTapCancel() {
+    if (widget.onTap != null) _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      behavior: HitTestBehavior.opaque,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 1.0, end: 0.90).animate(
+          CurvedAnimation(parent: _controller, curve: Curves.easeOutQuad),
+        ),
+        child: Container(
+          decoration: const BoxDecoration(shape: BoxShape.circle),
+          child: _buildButton(colorScheme),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButton(ColorScheme colorScheme) {
+    if (widget.isTransparent) {
+      return AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final isPressed = _controller.value > 0;
+          return Container(
+            decoration: BoxDecoration(
+              color: isPressed
+                  ? colorScheme.onSurface.withValues(alpha: 0.1)
+                  : colorScheme.surface.withValues(alpha: 0.0),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: _buildContent(colorScheme),
+          );
+        },
+      );
+    }
+
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final isPressed = _controller.value > 0;
+            return Container(
+              decoration: BoxDecoration(
+                color: isPressed
+                    ? colorScheme.onSurface.withValues(alpha: 0.15)
+                    : colorScheme.onSurface.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.onSurface.withValues(alpha: 0.05),
+                  width: 1,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: _buildContent(colorScheme),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(ColorScheme colorScheme) {
+    if (widget.isAction) {
+      return Icon(
+        widget.icon,
+        size: 26,
+        color: colorScheme.onSurface,
+      );
+    }
+
+    return Text(
+      widget.digit,
+      style: TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.w400,
+        color: colorScheme.onSurface,
+        height: 1.0,
+      ),
     );
   }
 }

@@ -2,11 +2,15 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_passcode_prompt.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 enum AppLockSetupMode {
@@ -37,14 +41,14 @@ class AppLockSetupPage extends HookConsumerWidget {
     final newPasscode = useState<String?>(null);
     final errorText = useState<String?>(null);
     final promptRevision = useState(0);
-    final biometricEnabled = useState(false);
     final isSubmitting = useState(false);
     final biometricAvailability = useFuture(
       useMemoized(
-        () => ref.read(appLockBiometricServiceProvider).canAuthenticate(),
+        () => ref.read(appLockBiometricServiceProvider).getAvailability(),
       ),
     );
-    final biometricAvailable = biometricAvailability.data ?? false;
+    final availableBiometrics = biometricAvailability.data ??
+        const AppLockBiometricAvailability.unavailable();
 
     void advanceTo(_AppLockSetupStep nextStep) {
       errorText.value = null;
@@ -72,6 +76,35 @@ class AppLockSetupPage extends HookConsumerWidget {
       }
     }
 
+    Future<bool> askForBiometricOptIn() async {
+      if (mode != AppLockSetupMode.enable ||
+          !availableBiometrics.canAuthenticate) {
+        return false;
+      }
+
+      final result = await MonekoAlertDialog.show(
+        context: context,
+        title: availableBiometrics.promptTitle(context.l10n),
+        description: availableBiometrics.promptDescription(context.l10n),
+        confirmLabel: availableBiometrics.actionLabel(context.l10n),
+        cancelLabel: context.l10n.notNow,
+      );
+
+      if (!context.mounted || result?.confirmed != true) {
+        return false;
+      }
+
+      final authenticated =
+          await ref.read(appLockBiometricServiceProvider).authenticate();
+      if (!authenticated && context.mounted) {
+        AppToast.info(
+          context,
+          context.l10n.biometricUnlockNotEnabledPasscodeSaved,
+        );
+      }
+      return authenticated;
+    }
+
     Future<void> finish({
       required String processingMessage,
       required Future<bool> Function() operation,
@@ -90,15 +123,15 @@ class AppLockSetupPage extends HookConsumerWidget {
         }
         hideProcessing(rootNavigator);
         if (!success) {
-          resetStep('Incorrect passcode.');
+          resetStep(context.l10n.incorrectPasscodeSentence);
           return;
         }
-        AppToast.success(context, _successMessage(mode));
+        AppToast.success(context, _successMessage(context.l10n, mode));
         Navigator.of(context).pop(true);
       } catch (_) {
         if (context.mounted) {
           hideProcessing(rootNavigator);
-          resetStep('Could not update app lock.');
+          resetStep(context.l10n.couldNotUpdateAppLock);
         }
       } finally {
         if (context.mounted) {
@@ -113,7 +146,7 @@ class AppLockSetupPage extends HookConsumerWidget {
 
       if (mode == AppLockSetupMode.disable) {
         await finish(
-          processingMessage: 'Turning off App Lock...',
+          processingMessage: context.l10n.turningOffAppLock,
           operation: () => controller.disableWithPasscode(passcode),
         );
         return;
@@ -125,7 +158,7 @@ class AppLockSetupPage extends HookConsumerWidget {
           return;
         }
         isSubmitting.value = true;
-        final rootNavigator = showProcessing('Checking passcode...');
+        final rootNavigator = showProcessing(context.l10n.checkingPasscode);
         try {
           final verified = await controller.verifyPasscode(passcode);
           if (!context.mounted) {
@@ -133,7 +166,7 @@ class AppLockSetupPage extends HookConsumerWidget {
           }
           hideProcessing(rootNavigator);
           if (!verified) {
-            resetStep('Incorrect passcode.');
+            resetStep(context.l10n.incorrectPasscodeSentence);
             return;
           }
           currentPasscode.value = passcode;
@@ -141,7 +174,7 @@ class AppLockSetupPage extends HookConsumerWidget {
         } catch (_) {
           if (context.mounted) {
             hideProcessing(rootNavigator);
-            resetStep('Could not verify passcode.');
+            resetStep(context.l10n.couldNotVerifyPasscode);
           }
         } finally {
           if (context.mounted) {
@@ -161,19 +194,22 @@ class AppLockSetupPage extends HookConsumerWidget {
         if (newPasscode.value != passcode) {
           newPasscode.value = null;
           step.value = _AppLockSetupStep.create;
-          resetStep('Passcodes do not match. Create a new passcode.');
+          resetStep(context.l10n.passcodesDoNotMatchCreateNewPasscode);
           return;
         }
 
+        final processingMessage = mode == AppLockSetupMode.enable
+            ? context.l10n.turningOnAppLock
+            : context.l10n.changingPasscode;
+        final biometricOptedIn = await askForBiometricOptIn();
+
         await finish(
-          processingMessage: mode == AppLockSetupMode.enable
-              ? 'Turning on App Lock...'
-              : 'Changing passcode...',
+          processingMessage: processingMessage,
           operation: () async {
             if (mode == AppLockSetupMode.enable) {
               await controller.enable(
                 passcode: passcode,
-                biometricEnabled: biometricEnabled.value,
+                biometricEnabled: biometricOptedIn,
               );
               return true;
             }
@@ -193,53 +229,28 @@ class AppLockSetupPage extends HookConsumerWidget {
 
     return StatusBarOverlayRegion(
       child: AdaptiveScaffold(
-        appBar: AdaptiveAppBar(title: _title(mode)),
+        appBar: AdaptiveAppBar(title: _title(context.l10n, mode)),
         body: Material(
           color: colorScheme.appBackground,
           child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppLockPasscodePrompt(
-                    key: ValueKey(
-                      'app-lock-setup-${mode.name}-${step.value.name}'
-                      '-${promptRevision.value}',
-                    ),
-                    title: _headline(mode, step.value),
-                    subtitle: _description(mode, step.value),
-                    errorText: errorText.value,
-                    enabled: !isSubmitting.value,
-                    isSubmitting: isSubmitting.value,
-                    onComplete: handlePasscode,
-                  ),
-                  if (mode == AppLockSetupMode.enable &&
-                      biometricAvailable) ...[
-                    const SizedBox(height: 18),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: colorScheme.border),
-                      ),
-                      child: SwitchListTile.adaptive(
-                        value: biometricEnabled.value,
-                        onChanged: (value) => biometricEnabled.value = value,
-                        title: Text(
-                          'Use Face ID or fingerprint',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        subtitle: Text(
-                          'You can still use your passcode if biometrics fail.',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                getSubPageTopPadding(context) + 24,
+                16,
+                32,
+              ),
+              child: AppLockPasscodePrompt(
+                key: ValueKey(
+                  'app-lock-setup-${mode.name}-${step.value.name}'
+                  '-${promptRevision.value}',
+                ),
+                title: _headline(context.l10n, mode, step.value),
+                subtitle: _description(context.l10n, mode, step.value),
+                errorText: errorText.value,
+                enabled: !isSubmitting.value,
+                isSubmitting: isSubmitting.value,
+                onComplete: handlePasscode,
               ),
             ),
           ),
@@ -248,11 +259,14 @@ class AppLockSetupPage extends HookConsumerWidget {
     );
   }
 
-  static String _title(AppLockSetupMode mode) {
+  static String _title(
+    AppLocalizations l10n,
+    AppLockSetupMode mode,
+  ) {
     return switch (mode) {
-      AppLockSetupMode.enable => 'App Lock',
-      AppLockSetupMode.change => 'Change Passcode',
-      AppLockSetupMode.disable => 'Turn Off App Lock',
+      AppLockSetupMode.enable => l10n.appLock,
+      AppLockSetupMode.change => l10n.changePasscode,
+      AppLockSetupMode.disable => l10n.turnOffAppLock,
     };
   }
 
@@ -264,46 +278,56 @@ class AppLockSetupPage extends HookConsumerWidget {
     };
   }
 
-  static String _headline(AppLockSetupMode mode, _AppLockSetupStep step) {
+  static String _headline(
+    AppLocalizations l10n,
+    AppLockSetupMode mode,
+    _AppLockSetupStep step,
+  ) {
     return switch ((mode, step)) {
       (AppLockSetupMode.enable, _AppLockSetupStep.create) =>
-        'Create a Moneko passcode',
+        l10n.createMonekoPasscode,
       (AppLockSetupMode.enable, _AppLockSetupStep.confirm) =>
-        'Confirm your passcode',
+        l10n.confirmYourPasscode,
       (AppLockSetupMode.change, _AppLockSetupStep.current) =>
-        'Enter current passcode',
+        l10n.enterCurrentPasscode,
       (AppLockSetupMode.change, _AppLockSetupStep.create) =>
-        'Choose a new passcode',
+        l10n.chooseNewPasscode,
       (AppLockSetupMode.change, _AppLockSetupStep.confirm) =>
-        'Confirm new passcode',
-      (AppLockSetupMode.disable, _) => 'Confirm your passcode',
-      (_, _) => 'Create a Moneko passcode',
+        l10n.confirmNewPasscode,
+      (AppLockSetupMode.disable, _) => l10n.confirmYourPasscode,
+      (_, _) => l10n.createMonekoPasscode,
     };
   }
 
-  static String _successMessage(AppLockSetupMode mode) {
+  static String _successMessage(
+    AppLocalizations l10n,
+    AppLockSetupMode mode,
+  ) {
     return switch (mode) {
-      AppLockSetupMode.enable => 'App Lock is on.',
-      AppLockSetupMode.change => 'Passcode changed.',
-      AppLockSetupMode.disable => 'App Lock is off.',
+      AppLockSetupMode.enable => l10n.appLockIsOn,
+      AppLockSetupMode.change => l10n.passcodeChanged,
+      AppLockSetupMode.disable => l10n.appLockIsOff,
     };
   }
 
-  static String _description(AppLockSetupMode mode, _AppLockSetupStep step) {
+  static String _description(
+    AppLocalizations l10n,
+    AppLockSetupMode mode,
+    _AppLockSetupStep step,
+  ) {
     return switch ((mode, step)) {
       (AppLockSetupMode.enable, _AppLockSetupStep.create) =>
-        'Enter six digits to protect Moneko on this device.',
+        l10n.enterSixDigitsToProtectMoneko,
       (AppLockSetupMode.enable, _AppLockSetupStep.confirm) =>
-        'Enter the same six digits again.',
+        l10n.enterSameSixDigitsAgain,
       (AppLockSetupMode.change, _AppLockSetupStep.current) =>
-        'Verify your current six-digit passcode first.',
+        l10n.verifyCurrentSixDigitPasscodeFirst,
       (AppLockSetupMode.change, _AppLockSetupStep.create) =>
-        'Enter the new six-digit passcode.',
+        l10n.enterNewSixDigitPasscode,
       (AppLockSetupMode.change, _AppLockSetupStep.confirm) =>
-        'Enter the same new passcode again.',
-      (AppLockSetupMode.disable, _) =>
-        'App Lock can only be turned off after verifying your passcode.',
-      (_, _) => 'Enter six digits to continue.',
+        l10n.enterSameNewPasscodeAgain,
+      (AppLockSetupMode.disable, _) => l10n.appLockDisableRequiresPasscode,
+      (_, _) => l10n.enterSixDigitsToContinue,
     };
   }
 }

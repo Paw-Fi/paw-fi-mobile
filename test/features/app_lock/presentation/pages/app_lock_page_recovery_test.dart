@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -112,5 +113,10 @@ class _FakeBiometricService implements AppLockBiometricService {
   Future<bool> authenticate() async => false;
 
   @override
-  Future<bool> canAuthenticate() async => false;
+  Future<AppLockBiometricAvailability> getAvailability() async =>
+      const AppLockBiometricAvailability(
+        canAuthenticate: false,
+        types: <BiometricType>[],
+        platform: TargetPlatform.android,
+      );
 }

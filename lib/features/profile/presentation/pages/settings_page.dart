@@ -93,12 +93,15 @@ const String _compareWithChatGptUrl =
 const String _compareWithChatGptLabel = 'Compare with ChatGPT';
 const String _compareWithChatGptError = 'Could not open ChatGPT comparison';
 
-String _appLockTimeoutLabel(AppLockTimeout timeout) {
+String _appLockTimeoutLabel(
+  AppLocalizations l10n,
+  AppLockTimeout timeout,
+) {
   return switch (timeout) {
-    AppLockTimeout.immediately => 'Immediately',
-    AppLockTimeout.afterThirtySeconds => 'After 30 seconds',
-    AppLockTimeout.afterOneMinute => 'After 1 minute',
-    AppLockTimeout.afterFiveMinutes => 'After 5 minutes',
+    AppLockTimeout.immediately => l10n.appLockTimeoutImmediately,
+    AppLockTimeout.afterThirtySeconds => l10n.appLockTimeoutAfterThirtySeconds,
+    AppLockTimeout.afterOneMinute => l10n.appLockTimeoutAfterOneMinute,
+    AppLockTimeout.afterFiveMinutes => l10n.appLockTimeoutAfterFiveMinutes,
   };
 }
 
@@ -206,6 +209,8 @@ class SettingsPage extends HookConsumerWidget {
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final appLockState = ref.watch(appLockControllerProvider);
+    final appLockConfigured = appLockState.isConfigured;
+    final appLockSwitchValue = useState(appLockConfigured);
 
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
@@ -215,6 +220,7 @@ class SettingsPage extends HookConsumerWidget {
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
     final isAccountDeletionInProgress = useState(false);
     final isDataResetInProgress = useState(false);
+    final isAppLockSetupInProgress = useState(false);
     final siriStatusReloadKey = useState(0);
     final hasAcknowledgedRestrictedRegion = useState(false);
     final deviceCountryCode = _resolveDeviceCountryCode();
@@ -239,8 +245,10 @@ class SettingsPage extends HookConsumerWidget {
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
       selectedTimezone.value = contact?.preferredTimezone;
+      // Sync the switch value with the actual app lock state
+      appLockSwitchValue.value = appLockConfigured;
       return null;
-    }, [contact?.preferredCurrency, contact?.preferredTimezone]);
+    }, [contact?.preferredCurrency, contact?.preferredTimezone, appLockConfigured]);
 
     Future<void> handleNotificationToggle() async {
       try {
@@ -937,13 +945,37 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     Future<void> handleAppLockToggle(bool enabled) async {
-      await Navigator.of(context).push<bool>(
-        MaterialPageRoute<bool>(
-          builder: (context) => AppLockSetupPage(
-            mode: enabled ? AppLockSetupMode.enable : AppLockSetupMode.disable,
+      if (isAppLockSetupInProgress.value) {
+        return;
+      }
+
+      // Store the current state to revert if needed
+      final previousState = appLockSwitchValue.value;
+      
+      // Optimistically update the switch for better UX
+      appLockSwitchValue.value = enabled;
+
+      isAppLockSetupInProgress.value = true;
+      try {
+        final result = await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (context) => AppLockSetupPage(
+              mode:
+                  enabled ? AppLockSetupMode.enable : AppLockSetupMode.disable,
+            ),
           ),
-        ),
-      );
+        );
+        
+        // Only keep the new state if the setup was completed successfully
+        // If user cancelled (result is null or false), revert to previous state
+        if (result != true) {
+          appLockSwitchValue.value = previousState;
+        }
+      } finally {
+        if (context.mounted) {
+          isAppLockSetupInProgress.value = false;
+        }
+      }
     }
 
     Future<void> handleChangeAppLockPasscode() async {
@@ -961,11 +993,11 @@ class SettingsPage extends HookConsumerWidget {
           appLockState.config?.lockTimeout ?? AppLockTimeout.immediately;
       final result = await MonekoActionSheet.show<AppLockTimeout>(
         context: context,
-        title: 'Lock Timeout',
+        title: context.l10n.lockTimeout,
         actions: [
           for (final timeout in AppLockTimeout.values)
             MonekoActionSheetAction<AppLockTimeout>(
-              label: _appLockTimeoutLabel(timeout),
+              label: _appLockTimeoutLabel(context.l10n, timeout),
               value: timeout,
               icon: timeout == current
                   ? Icons.check_circle_rounded
@@ -982,7 +1014,7 @@ class SettingsPage extends HookConsumerWidget {
       }
       await ref.read(appLockControllerProvider.notifier).setLockTimeout(result);
       if (context.mounted) {
-        AppToast.success(context, 'App Lock timeout updated.');
+        AppToast.success(context, context.l10n.appLockTimeoutUpdated);
       }
     }
 
@@ -1060,7 +1092,7 @@ class SettingsPage extends HookConsumerWidget {
                             }
                           },
                         );
-                      } catch (e, st) {
+                      } catch (e) {
                         debugPrint(
                           context.l10n.unexpectedAvatarUpdateError(e),
                         );
@@ -1138,28 +1170,34 @@ class SettingsPage extends HookConsumerWidget {
                   ),
 
                   _SettingsGroup(
-                    title: 'Security',
+                    title: context.l10n.security,
                     children: [
                       _SettingsTile(
                         icon: Icons.lock_rounded,
-                        label: 'App Lock',
-                        value: appLockState.isEnabled ? 'On' : 'Off',
+                        label: context.l10n.appLock,
+                        value: appLockConfigured
+                            ? context.l10n.appLockOnStatus
+                            : context.l10n.appLockOffStatus,
                         trailing: Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: AdaptiveSwitch(
-                            value: appLockState.isEnabled,
-                            onChanged: (value) => handleAppLockToggle(value),
+                            value: appLockSwitchValue.value,
+                            onChanged: isAppLockSetupInProgress.value
+                                ? null
+                                : (value) => handleAppLockToggle(value),
                           ),
                         ),
                         showChevron: false,
                       ),
-                      if (appLockState.isEnabled) ...[
+                      if (appLockConfigured) ...[
                         _SettingsTile(
                           icon: Icons.fingerprint_rounded,
-                          label: 'Face ID / Fingerprint',
+                          label: appLockState.biometricAvailable
+                              ? appLockState.biometricDisplayName(context.l10n)
+                              : context.l10n.biometricUnlock,
                           value: appLockState.biometricAvailable
                               ? null
-                              : 'Unavailable',
+                              : context.l10n.appLockUnavailable,
                           trailing: appLockState.biometricAvailable
                               ? Padding(
                                   padding: const EdgeInsets.only(right: 16),
@@ -1167,11 +1205,32 @@ class SettingsPage extends HookConsumerWidget {
                                     value:
                                         appLockState.config?.biometricEnabled ??
                                             false,
-                                    onChanged: (value) => ref
-                                        .read(
-                                          appLockControllerProvider.notifier,
-                                        )
-                                        .setBiometricEnabled(value),
+                                    onChanged: (value) async {
+                                      final changed = await ref
+                                          .read(
+                                            appLockControllerProvider.notifier,
+                                          )
+                                          .setBiometricEnabled(value);
+                                      if (!context.mounted) {
+                                        return;
+                                      }
+                                      if (changed) {
+                                        AppToast.success(
+                                          context,
+                                          value
+                                              ? context
+                                                  .l10n.biometricUnlockEnabled
+                                              : context
+                                                  .l10n.biometricUnlockDisabled,
+                                        );
+                                      } else if (value) {
+                                        AppToast.info(
+                                          context,
+                                          context
+                                              .l10n.biometricUnlockNotEnabled,
+                                        );
+                                      }
+                                    },
                                   ),
                                 )
                               : null,
@@ -1179,13 +1238,14 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                         _SettingsTile(
                           icon: Icons.password_rounded,
-                          label: 'Change Passcode',
+                          label: context.l10n.changePasscode,
                           onTap: handleChangeAppLockPasscode,
                         ),
                         _SettingsTile(
                           icon: Icons.timer_rounded,
-                          label: 'Lock Timeout',
+                          label: context.l10n.lockTimeout,
                           value: _appLockTimeoutLabel(
+                            context.l10n,
                             appLockState.config?.lockTimeout ??
                                 AppLockTimeout.immediately,
                           ),
@@ -1389,18 +1449,6 @@ class SettingsPage extends HookConsumerWidget {
                       onTap: () {
                         context.push('/import');
                       },
-                    ),
-                    _SettingsTile(
-                      customIcon: Image.asset(
-                        'lib/assets/images/chatgpt.svg.webp',
-                        width: 20,
-                        height: 20,
-                      ),
-                      label: _compareWithChatGptLabel,
-                      onTap: () => launchIntegrationUrl(
-                        Uri.parse(_compareWithChatGptUrl),
-                        errorMessage: _compareWithChatGptError,
-                      ),
                     ),
                     if (hasPremiumPlanAccess())
                       _SettingsTile(
@@ -1686,6 +1734,20 @@ class SettingsPage extends HookConsumerWidget {
                         icon: Icons.chat_bubble_rounded,
                         label: context.l10n.submitNewFeatureRequest,
                         onTap: () => _showSubmitFeedbackSheet(context),
+                      ),
+                      _SettingsTile(
+                        customIcon: Image.asset(
+                          'lib/assets/images/chatgpt.svg.webp',
+                          width: 20,
+                          height: 20,
+                          color: colorScheme.onSurface,
+                          colorBlendMode: BlendMode.srcIn,
+                        ),
+                        label: _compareWithChatGptLabel,
+                        onTap: () => launchIntegrationUrl(
+                          Uri.parse(_compareWithChatGptUrl),
+                          errorMessage: _compareWithChatGptError,
+                        ),
                       ),
                     ],
                   ),
@@ -3104,22 +3166,7 @@ class _SettingsTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (value != null) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    value!,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ],
+           
               if (valueWidget != null) valueWidget!,
               if (trailing != null) ...[
                 const SizedBox(width: 8),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -19,7 +20,7 @@ void main() {
         overrides: [
           appLockControllerProvider.overrideWith((ref) => appLockController),
           appLockBiometricServiceProvider.overrideWithValue(
-            const _FakeBiometricService(),
+            _FakeBiometricService(),
           ),
         ],
         child: const MaterialApp(
@@ -29,18 +30,65 @@ void main() {
     );
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(OutlinedButton, digit));
+      await tester.tap(find.text(digit));
       await tester.pump();
     }
     expect(find.text('Confirm your passcode'), findsOneWidget);
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(OutlinedButton, digit));
+      await tester.tap(find.text(digit));
       await tester.pump();
     }
 
     expect(find.text('Turning on App Lock...'), findsOneWidget);
     expect(enableCompleter.isCompleted, isFalse);
+
+    enableCompleter.complete();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('prompts for biometric opt-in after confirming passcode',
+      (tester) async {
+    final enableCompleter = Completer<void>();
+    final appLockController = _DelayedEnableAppLockController(enableCompleter);
+    final biometricService = _FakeBiometricService(
+      canAuthenticateResult: true,
+      authenticateResult: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appLockControllerProvider.overrideWith((ref) => appLockController),
+          appLockBiometricServiceProvider.overrideWithValue(biometricService),
+        ],
+        child: const MaterialApp(
+          home: AppLockSetupPage(mode: AppLockSetupMode.enable),
+        ),
+      ),
+    );
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.text(digit));
+      await tester.pump();
+    }
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.text(digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(find.text('Use Fingerprint?'), findsOneWidget);
+    expect(appLockController.lastBiometricEnabled, isNull);
+
+    await tester.tap(find.text('Use Fingerprint'));
+    await tester.pump();
+
+    expect(biometricService.authenticateCalls, 1);
+    expect(find.text('Turning on App Lock...'), findsOneWidget);
+    expect(appLockController.lastBiometricEnabled, isTrue);
 
     enableCompleter.complete();
     await tester.pumpAndSettle();
@@ -57,18 +105,20 @@ class _DelayedEnableAppLockController extends AppLockController {
           hasher: AppLockPasscodeHasher(
             saltBytesFactory: () => List<int>.filled(16, 1),
           ),
-          biometricService: const _FakeBiometricService(),
+          biometricService: _FakeBiometricService(),
           isEnabledFlagSet: false,
           setEnabledFlag: (_) async {},
         );
 
   final Completer<void> enableCompleter;
+  bool? lastBiometricEnabled;
 
   @override
   Future<void> enable({
     required String passcode,
     bool biometricEnabled = false,
   }) async {
+    lastBiometricEnabled = biometricEnabled;
     await enableCompleter.future;
   }
 }
@@ -91,11 +141,28 @@ class _MemoryAppLockKeyValueStore implements AppLockKeyValueStore {
 }
 
 class _FakeBiometricService implements AppLockBiometricService {
-  const _FakeBiometricService();
+  _FakeBiometricService({
+    this.canAuthenticateResult = false,
+    this.authenticateResult = false,
+  });
+
+  final bool canAuthenticateResult;
+  final bool authenticateResult;
+  int authenticateCalls = 0;
 
   @override
-  Future<bool> authenticate() async => false;
+  Future<bool> authenticate() async {
+    authenticateCalls++;
+    return authenticateResult;
+  }
 
   @override
-  Future<bool> canAuthenticate() async => false;
+  Future<AppLockBiometricAvailability> getAvailability() async =>
+      AppLockBiometricAvailability(
+        canAuthenticate: canAuthenticateResult,
+        types: canAuthenticateResult
+            ? const [BiometricType.fingerprint]
+            : const [],
+        platform: TargetPlatform.android,
+      );
 }

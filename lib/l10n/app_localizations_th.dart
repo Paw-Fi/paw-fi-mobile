@@ -8093,4 +8093,201 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get faceIdOrFingerprint => 'Face ID / ลายนิ้วมือ';
+
+  @override
+  String get appLockOnStatus => 'เปิด';
+
+  @override
+  String get appLockOffStatus => 'ปิด';
+
+  @override
+  String get appLockUnavailable => 'ไม่พร้อมใช้งาน';
+
+  @override
+  String get appLockTimeoutImmediately => 'ทันที';
+
+  @override
+  String get appLockTimeoutAfterThirtySeconds => 'หลังจาก 30 วินาที';
+
+  @override
+  String get appLockTimeoutAfterOneMinute => 'หลังจาก 1 นาที';
+
+  @override
+  String get appLockTimeoutAfterFiveMinutes => 'หลังจาก 5 นาที';
+
+  @override
+  String get appLockTimeoutUpdated => 'อัปเดตเวลาล็อกแอปแล้ว';
+
+  @override
+  String get useBiometrics => 'ใช้ข้อมูลชีวมิติ';
+
+  @override
+  String get useFaceIdOrFingerprintTitle => 'ใช้ Face ID หรือลายนิ้วมือไหม';
+
+  @override
+  String get useFaceIdOrFingerprintDescription => 'ปลดล็อก Moneko ได้เร็วขึ้นด้วยข้อมูลชีวมิติของอุปกรณ์ คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
+
+  @override
+  String get useBiometricsAction => 'ใช้ข้อมูลชีวมิติ';
+
+  @override
+  String get notNow => 'ไม่ใช่ตอนนี้';
+
+  @override
+  String get biometricUnlockEnabled => 'เปิดการปลดล็อกด้วยชีวมิติแล้ว';
+
+  @override
+  String get biometricUnlockDisabled => 'ปิดการปลดล็อกด้วยชีวมิติแล้ว';
+
+  @override
+  String get biometricUnlockNotEnabled => 'ยังไม่ได้เปิดการปลดล็อกด้วยชีวมิติ';
+
+  @override
+  String get biometricUnlockNotEnabledPasscodeSaved => 'ยังไม่ได้เปิดการปลดล็อกด้วยชีวมิติ รหัสผ่านของคุณยังถูกบันทึกไว้';
+
+  @override
+  String get enterYourPasscode => 'ป้อนรหัสผ่านของคุณ';
+
+  @override
+  String get tooManyAttemptsTryAgainShortly => 'ลองหลายครั้งเกินไป โปรดลองอีกครั้งในอีกสักครู่';
+
+  @override
+  String get forgotPasscodeSignOut => 'ลืมรหัสผ่านใช่ไหม ออกจากระบบ';
+
+  @override
+  String get couldNotSignOutTryAgain => 'ไม่สามารถออกจากระบบได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get turnOffAppLock => 'ปิดล็อกแอป';
+
+  @override
+  String get createMonekoPasscode => 'สร้างรหัสผ่าน Moneko';
+
+  @override
+  String get confirmYourPasscode => 'ยืนยันรหัสผ่านของคุณ';
+
+  @override
+  String get enterCurrentPasscode => 'ป้อนรหัสผ่านปัจจุบัน';
+
+  @override
+  String get chooseNewPasscode => 'เลือกรหัสผ่านใหม่';
+
+  @override
+  String get confirmNewPasscode => 'ยืนยันรหัสผ่านใหม่';
+
+  @override
+  String get appLockIsOn => 'เปิดล็อกแอปแล้ว';
+
+  @override
+  String get passcodeChanged => 'เปลี่ยนรหัสผ่านแล้ว';
+
+  @override
+  String get appLockIsOff => 'ปิดล็อกแอปแล้ว';
+
+  @override
+  String get enterSixDigitsToProtectMoneko => 'ป้อนตัวเลข 6 หลักเพื่อปกป้อง Moneko บนอุปกรณ์นี้';
+
+  @override
+  String get enterSameSixDigitsAgain => 'ป้อนตัวเลข 6 หลักเดิมอีกครั้ง';
+
+  @override
+  String get verifyCurrentSixDigitPasscodeFirst => 'ยืนยันรหัสผ่าน 6 หลักปัจจุบันของคุณก่อน';
+
+  @override
+  String get enterNewSixDigitPasscode => 'ป้อนรหัสผ่าน 6 หลักใหม่';
+
+  @override
+  String get enterSameNewPasscodeAgain => 'ป้อนรหัสผ่านใหม่เดิมอีกครั้ง';
+
+  @override
+  String get appLockDisableRequiresPasscode => 'สามารถปิดล็อกแอปได้หลังจากยืนยันรหัสผ่านแล้วเท่านั้น';
+
+  @override
+  String get enterSixDigitsToContinue => 'ป้อนตัวเลข 6 หลักเพื่อดำเนินการต่อ';
+
+  @override
+  String get turningOffAppLock => 'กำลังปิดล็อกแอป...';
+
+  @override
+  String get checkingPasscode => 'กำลังตรวจสอบรหัสผ่าน...';
+
+  @override
+  String get turningOnAppLock => 'กำลังเปิดล็อกแอป...';
+
+  @override
+  String get changingPasscode => 'กำลังเปลี่ยนรหัสผ่าน...';
+
+  @override
+  String get incorrectPasscode => 'รหัสผ่านไม่ถูกต้อง';
+
+  @override
+  String get incorrectPasscodeSentence => 'รหัสผ่านไม่ถูกต้อง';
+
+  @override
+  String get tryAgainLater => 'ลองอีกครั้งภายหลัง';
+
+  @override
+  String get couldNotUpdateAppLock => 'ไม่สามารถอัปเดตล็อกแอปได้';
+
+  @override
+  String get couldNotVerifyPasscode => 'ไม่สามารถยืนยันรหัสผ่านได้';
+
+  @override
+  String get passcodesDoNotMatchCreateNewPasscode => '';
+
+  @override
+  String get biometrics => 'ข้อมูลชีวมิติ';
+
+  @override
+  String get faceId => 'Face ID';
+
+  @override
+  String get touchId => 'Touch ID';
+
+  @override
+  String get faceUnlock => 'ปลดล็อกด้วยใบหน้า';
+
+  @override
+  String get fingerprint => 'ลายนิ้วมือ';
+
+  @override
+  String get irisScan => 'สแกนม่านตา';
+
+  @override
+  String get biometricUnlock => 'ปลดล็อกด้วยชีวมิติ';
+
+  @override
+  String useBiometricMethod(Object method) {
+    return 'ใช้ $method';
+  }
+
+  @override
+  String useBiometricMethodQuestion(Object method) {
+    return 'ใช้ $method ไหม';
+  }
+
+  @override
+  String unlockMonekoWithBiometricMethod(Object method) {
+    return 'ปลดล็อก Moneko ด้วย $method';
+  }
+
+  @override
+  String unlockMonekoFasterWithBiometricMethod(Object method) {
+    return 'ปลดล็อก Moneko ได้เร็วขึ้นด้วย $method คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
+  }
+
+  @override
+  String get or => 'หรือ';
+
+  @override
+  String get deviceBiometrics => 'ข้อมูลชีวมิติของอุปกรณ์';
+
+  @override
+  String get unlockMonekoFasterWith => 'ปลดล็อก Moneko ได้เร็วขึ้นด้วย';
+
+  @override
+  String get youCanStillUseYourPasscodeAnytime => 'คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
+
+  @override
+  String get unlockMonekoWith => 'ปลดล็อก Moneko ด้วย';
 }

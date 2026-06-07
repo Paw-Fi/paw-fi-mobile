@@ -8,6 +8,8 @@ import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/l10n/app_localizations_en.dart';
 
 enum AppLockStatus {
   disabled,
@@ -16,52 +18,159 @@ enum AppLockStatus {
   lockedOut,
 }
 
+enum AppLockFailureReason {
+  incorrectPasscode,
+  tryAgainLater,
+}
+
+class AppLockBiometricAvailability {
+  const AppLockBiometricAvailability({
+    required this.canAuthenticate,
+    required this.types,
+    required this.platform,
+  });
+
+  const AppLockBiometricAvailability.unavailable({
+    TargetPlatform platform = TargetPlatform.android,
+  }) : this(
+          canAuthenticate: false,
+          types: const [],
+          platform: platform,
+        );
+
+  final bool canAuthenticate;
+  final List<BiometricType> types;
+  final TargetPlatform platform;
+
+  bool get hasFace => types.contains(BiometricType.face);
+  bool get hasFingerprint => types.contains(BiometricType.fingerprint);
+  bool get hasIris => types.contains(BiometricType.iris);
+  bool get hasOnlyStrengthClass =>
+      types.any((type) =>
+          type == BiometricType.strong || type == BiometricType.weak) &&
+      !hasFace &&
+      !hasFingerprint &&
+      !hasIris;
+
+  bool get _isApplePlatform =>
+      platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
+  String displayName(AppLocalizations l10n) {
+    if (!canAuthenticate || types.isEmpty || hasOnlyStrengthClass) {
+      return l10n.biometrics;
+    }
+
+    final names = <String>[];
+    if (hasFace) {
+      names.add(_isApplePlatform ? l10n.faceId : l10n.faceUnlock);
+    }
+    if (hasFingerprint) {
+      names.add(_isApplePlatform ? l10n.touchId : l10n.fingerprint);
+    }
+    if (hasIris) {
+      names.add(l10n.irisScan);
+    }
+
+    if (names.isEmpty) {
+      return l10n.biometrics;
+    }
+    if (names.length == 1) {
+      return names.first;
+    }
+    return '${names.sublist(0, names.length - 1).join(', ')} '
+        '${l10n.or} ${names.last}';
+  }
+
+  String actionLabel(AppLocalizations l10n) {
+    final method = displayName(l10n);
+    return method == l10n.biometrics
+        ? l10n.useBiometrics
+        : l10n.useBiometricMethod(method);
+  }
+
+  String promptTitle(AppLocalizations l10n) {
+    final method = displayName(l10n);
+    return method == l10n.biometrics
+        ? '${l10n.useBiometrics}?'
+        : l10n.useBiometricMethodQuestion(method);
+  }
+
+  String promptDescription(AppLocalizations l10n) {
+    final method = displayName(l10n) == l10n.biometrics
+        ? l10n.deviceBiometrics
+        : displayName(l10n);
+    return l10n.unlockMonekoFasterWithBiometricMethod(method);
+  }
+
+  String localizedReason(AppLocalizations l10n) {
+    final method = displayName(l10n) == l10n.biometrics
+        ? l10n.biometrics.toLowerCase()
+        : displayName(l10n);
+    return l10n.unlockMonekoWithBiometricMethod(method);
+  }
+}
+
 class AppLockState {
   const AppLockState({
     required this.status,
     this.config,
-    this.biometricAvailable = false,
-    this.failedMessage,
+    this.biometricAvailability =
+        const AppLockBiometricAvailability.unavailable(),
+    this.failureReason,
   });
 
   const AppLockState.disabled()
       : status = AppLockStatus.disabled,
         config = null,
-        biometricAvailable = false,
-        failedMessage = null;
+        biometricAvailability =
+            const AppLockBiometricAvailability.unavailable(),
+        failureReason = null;
 
   final AppLockStatus status;
   final AppLockConfig? config;
-  final bool biometricAvailable;
-  final String? failedMessage;
+  final AppLockBiometricAvailability biometricAvailability;
+  final AppLockFailureReason? failureReason;
 
   bool get isEnabled => config != null || status != AppLockStatus.disabled;
+  bool get isConfigured => config != null;
   bool get isUnlocked => status == AppLockStatus.unlocked;
+  bool get biometricAvailable => biometricAvailability.canAuthenticate;
+  String biometricDisplayName(AppLocalizations l10n) =>
+      biometricAvailability.displayName(l10n);
+  String? failedMessage(AppLocalizations l10n) {
+    return switch (failureReason) {
+      AppLockFailureReason.incorrectPasscode => l10n.incorrectPasscode,
+      AppLockFailureReason.tryAgainLater => l10n.tryAgainLater,
+      null => null,
+    };
+  }
+
   bool get shouldBlockApp =>
       status == AppLockStatus.locked || status == AppLockStatus.lockedOut;
   bool get canUseBiometrics =>
-      config?.biometricEnabled == true && biometricAvailable;
+      config?.biometricEnabled == true && biometricAvailability.canAuthenticate;
 
   AppLockState copyWith({
     AppLockStatus? status,
     AppLockConfig? config,
     bool clearConfig = false,
-    bool? biometricAvailable,
-    String? failedMessage,
+    AppLockBiometricAvailability? biometricAvailability,
+    AppLockFailureReason? failureReason,
     bool clearFailedMessage = false,
   }) {
     return AppLockState(
       status: status ?? this.status,
       config: clearConfig ? null : config ?? this.config,
-      biometricAvailable: biometricAvailable ?? this.biometricAvailable,
-      failedMessage:
-          clearFailedMessage ? null : failedMessage ?? this.failedMessage,
+      biometricAvailability:
+          biometricAvailability ?? this.biometricAvailability,
+      failureReason:
+          clearFailedMessage ? null : failureReason ?? this.failureReason,
     );
   }
 }
 
 abstract class AppLockBiometricService {
-  Future<bool> canAuthenticate();
+  Future<AppLockBiometricAvailability> getAvailability();
   Future<bool> authenticate();
 }
 
@@ -73,28 +182,35 @@ class LocalAuthAppLockBiometricService implements AppLockBiometricService {
   final LocalAuthentication _localAuthentication;
 
   @override
-  Future<bool> canAuthenticate() async {
+  Future<AppLockBiometricAvailability> getAvailability() async {
+    final platform = defaultTargetPlatform;
     if (kIsWeb) {
-      return false;
+      return AppLockBiometricAvailability.unavailable(platform: platform);
     }
     try {
       final deviceSupported = await _localAuthentication.isDeviceSupported();
       final canCheckBiometrics = await _localAuthentication.canCheckBiometrics;
       final available = await _localAuthentication.getAvailableBiometrics();
-      return deviceSupported && canCheckBiometrics && available.isNotEmpty;
+      return AppLockBiometricAvailability(
+        canAuthenticate:
+            deviceSupported && canCheckBiometrics && available.isNotEmpty,
+        types: available,
+        platform: platform,
+      );
     } catch (_) {
-      return false;
+      return AppLockBiometricAvailability.unavailable(platform: platform);
     }
   }
 
   @override
   Future<bool> authenticate() async {
-    if (!await canAuthenticate()) {
+    final availability = await getAvailability();
+    if (!availability.canAuthenticate) {
       return false;
     }
     try {
       return _localAuthentication.authenticate(
-        localizedReason: 'Unlock Moneko',
+        localizedReason: availability.localizedReason(AppLocalizationsEn()),
         options: const AuthenticationOptions(
           biometricOnly: true,
           sensitiveTransaction: true,
@@ -161,7 +277,7 @@ class AppLockController extends StateNotifier<AppLockState> {
       return;
     }
 
-    final biometricAvailable = await _biometricService.canAuthenticate();
+    final biometricAvailability = await _biometricService.getAvailability();
     if (!mounted) {
       return;
     }
@@ -170,7 +286,7 @@ class AppLockController extends StateNotifier<AppLockState> {
           ? AppLockStatus.lockedOut
           : AppLockStatus.locked,
       config: config,
-      biometricAvailable: biometricAvailable,
+      biometricAvailability: biometricAvailability,
     );
   }
 
@@ -179,13 +295,14 @@ class AppLockController extends StateNotifier<AppLockState> {
     bool biometricEnabled = false,
   }) async {
     final passcodeHash = await _hasher.hashPasscode(passcode);
-    final biometricAvailable = await _biometricService.canAuthenticate();
+    final biometricAvailability = await _biometricService.getAvailability();
     final config = AppLockConfig(
       userId: _userId,
       passcodeHashBase64: passcodeHash.hashBase64,
       saltBase64: passcodeHash.saltBase64,
       hashVersion: passcodeHash.version,
-      biometricEnabled: biometricEnabled && biometricAvailable,
+      biometricEnabled:
+          biometricEnabled && biometricAvailability.canAuthenticate,
       lockTimeout: AppLockTimeout.immediately,
     );
     await _repository.saveConfig(config);
@@ -193,7 +310,7 @@ class AppLockController extends StateNotifier<AppLockState> {
     state = AppLockState(
       status: AppLockStatus.unlocked,
       config: config,
-      biometricAvailable: biometricAvailable,
+      biometricAvailability: biometricAvailability,
     );
   }
 
@@ -208,7 +325,7 @@ class AppLockController extends StateNotifier<AppLockState> {
       state = state.copyWith(
         status: AppLockStatus.lockedOut,
         config: config,
-        failedMessage: 'Try again later',
+        failureReason: AppLockFailureReason.tryAgainLater,
       );
       return false;
     }
@@ -245,7 +362,9 @@ class AppLockController extends StateNotifier<AppLockState> {
     state = state.copyWith(
       status: lockedOut ? AppLockStatus.lockedOut : AppLockStatus.locked,
       config: updated,
-      failedMessage: lockedOut ? 'Try again later' : 'Incorrect passcode',
+      failureReason: lockedOut
+          ? AppLockFailureReason.tryAgainLater
+          : AppLockFailureReason.incorrectPasscode,
     );
     return false;
   }
@@ -321,20 +440,35 @@ class AppLockController extends StateNotifier<AppLockState> {
     state = const AppLockState.disabled();
   }
 
-  Future<void> setBiometricEnabled(bool enabled) async {
+  Future<bool> setBiometricEnabled(bool enabled) async {
     final config = state.config;
     if (config == null) {
-      return;
+      return false;
     }
-    final biometricAvailable = await _biometricService.canAuthenticate();
+    final biometricAvailability = await _biometricService.getAvailability();
+    if (enabled) {
+      if (!biometricAvailability.canAuthenticate) {
+        state = state.copyWith(biometricAvailability: biometricAvailability);
+        return false;
+      }
+      final authenticated = await _biometricService.authenticate();
+      if (!authenticated) {
+        state = state.copyWith(biometricAvailability: biometricAvailability);
+        return false;
+      }
+    }
     final updated = config.copyWith(
-      biometricEnabled: enabled && biometricAvailable,
+      biometricEnabled: enabled && biometricAvailability.canAuthenticate,
     );
     await _repository.saveConfig(updated);
+    if (!mounted) {
+      return false;
+    }
     state = state.copyWith(
       config: updated,
-      biometricAvailable: biometricAvailable,
+      biometricAvailability: biometricAvailability,
     );
+    return updated.biometricEnabled == enabled;
   }
 
   Future<void> setLockTimeout(AppLockTimeout timeout) async {
