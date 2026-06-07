@@ -2910,5 +2910,13 @@
   "searchCurrencies": "Valuta’s zoeken…",
   "noCurrenciesMatchSearch": "Geen valuta’s gevonden",
   "atLeastOneCurrencyVisible": "Minimaal één valuta moet zichtbaar blijven.",
-  "saveVisibleCurrencies": "Zichtbare valuta’s opslaan"
+  "saveVisibleCurrencies": "Zichtbare valuta’s opslaan",
+  "compareWithChatGPT": "Vergelijken met ChatGPT",
+  "couldNotOpenChatGPTComparison": "Kan vergelijking met ChatGPT niet openen",
+  "security": "Beveiliging",
+  "appLock": "App-vergrendeling",
+  "unlockMoneko": "Moneko ontgrendelen",
+  "changePasscode": "Toegangscode wijzigen",
+  "lockTimeout": "Vergrendelingstime-out",
+  "faceIdOrFingerprint": "Face ID / Vingerafdruk"
 }

@@ -2913,5 +2913,13 @@
   "searchCurrencies": "Поиск валют…",
   "noCurrenciesMatchSearch": "Валюты не найдены",
   "atLeastOneCurrencyVisible": "Хотя бы одна валюта должна оставаться видимой.",
-  "saveVisibleCurrencies": "Сохранить отображаемые валюты"
+  "saveVisibleCurrencies": "Сохранить отображаемые валюты",
+  "compareWithChatGPT": "Сравнить с помощью ChatGPT",
+  "couldNotOpenChatGPTComparison": "Не удалось открыть сравнение через ChatGPT",
+  "security": "Безопасность",
+  "appLock": "Блокировка приложения",
+  "unlockMoneko": "Разблокировать Moneko",
+  "changePasscode": "Изменить код-пароль",
+  "lockTimeout": "Время до блокировки",
+  "faceIdOrFingerprint": "Face ID / Отпечаток пальца"
 }

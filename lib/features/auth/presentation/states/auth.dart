@@ -386,6 +386,12 @@ class Auth extends _$Auth {
   /// Sign out
   Future<void> signOut() async {
     _isLoading = true;
+    state = const AppUser(
+      uid: '',
+      email: '',
+      displayName: null,
+      photoUrl: null,
+    );
 
     try {
       // Ensure device is unregistered on backend before auth session is cleared

@@ -2963,5 +2963,13 @@
   "searchCurrencies": "通貨を検索…",
   "noCurrenciesMatchSearch": "通貨が見つかりません",
   "atLeastOneCurrencyVisible": "少なくとも1つの通貨を表示しておく必要があります。",
-  "saveVisibleCurrencies": "表示中の通貨を保存"
+  "saveVisibleCurrencies": "表示中の通貨を保存",
+  "compareWithChatGPT": "ChatGPTで比較する",
+  "couldNotOpenChatGPTComparison": "ChatGPTでの比較を開けませんでした",
+  "security": "セキュリティ",
+  "appLock": "アプリロック",
+  "unlockMoneko": "Monekoのロックを解除",
+  "changePasscode": "パスコードを変更",
+  "lockTimeout": "自動ロックまでの時間",
+  "faceIdOrFingerprint": "Face ID / 指紋認証"
 }

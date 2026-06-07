@@ -71,6 +71,8 @@
 	<string>We need permission to save receipt photos to your photo library.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>We need access to your microphone so you can record voice notes about your expenses.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to unlock Moneko.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

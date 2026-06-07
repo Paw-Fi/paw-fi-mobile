@@ -56,6 +56,16 @@ const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
 
 final Map<String, Future<void>> _mobileSyncInFlightByUser = {};
 
+class _MainShellAsyncGuard {
+  bool _isActive = true;
+
+  bool get isActive => _isActive;
+
+  void cancel() {
+    _isActive = false;
+  }
+}
+
 class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   _MainShellLifecycleObserver({required this.onResume});
 
@@ -70,23 +80,33 @@ class _MainShellLifecycleObserver extends WidgetsBindingObserver {
 }
 
 void _silentResyncMainShellData(
-    WidgetRef ref, String userId, int currentIndex) {
+  WidgetRef ref,
+  String userId,
+  int currentIndex,
+  _MainShellAsyncGuard guard,
+) {
+  if (!guard.isActive) return;
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
-  unawaited(_syncThenRefreshMainShellData(ref, userId, currentIndex));
+  unawaited(_syncThenRefreshMainShellData(ref, userId, currentIndex, guard));
 }
 
 Future<void> _syncThenRefreshMainShellData(
   WidgetRef ref,
   String userId,
   int currentIndex,
+  _MainShellAsyncGuard guard,
 ) async {
+  if (!guard.isActive) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
-  await _syncMobileTransactions(ref, userId);
-  await _syncCurrencyRates(ref);
-  await _refreshActiveMainShellTab(ref, userId, currentIndex);
-  await _refreshDeferredMainShellData(ref, userId, currentIndex);
+  await _syncMobileTransactions(ref, userId, guard);
+  if (!guard.isActive) return;
+  await _syncCurrencyRates(ref, guard);
+  if (!guard.isActive) return;
+  await _refreshActiveMainShellTab(ref, userId, currentIndex, guard);
+  if (!guard.isActive) return;
+  await _refreshDeferredMainShellData(ref, userId, currentIndex, guard);
 }
 
 String? _activeMainShellHouseholdId(WidgetRef ref) {
@@ -102,12 +122,15 @@ Future<void> _refreshActiveMainShellTab(
   WidgetRef ref,
   String userId,
   int currentIndex,
+  _MainShellAsyncGuard guard,
 ) async {
+  if (!guard.isActive) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   try {
     switch (currentIndex) {
       case 0:
-        await _refreshActiveTransactionsWindow(ref, userId);
+        await _refreshActiveTransactionsWindow(ref, userId, guard);
+        if (!guard.isActive) return;
         final scope = ref.read(householdScopeProvider);
         if (scope.isHouseholdView) {
           final householdId = _activeMainShellHouseholdId(ref);
@@ -122,6 +145,7 @@ Future<void> _refreshActiveMainShellTab(
         }
         return;
       case 1:
+        if (!guard.isActive) return;
         await ref
             .read(
                 recurringTransactionsProvider(_activeMainShellHouseholdId(ref))
@@ -132,10 +156,11 @@ Future<void> _refreshActiveMainShellTab(
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         return;
       case 3:
-        await _refreshWalletsMainShellData(ref);
+        await _refreshWalletsMainShellData(ref, guard);
         return;
       case 4:
-        await _refreshActiveTransactionsWindow(ref, userId);
+        await _refreshActiveTransactionsWindow(ref, userId, guard);
+        if (!guard.isActive) return;
         ref.read(analyticsProvider.notifier).refresh(userId);
         return;
     }
@@ -145,7 +170,9 @@ Future<void> _refreshActiveMainShellTab(
 Future<void> _refreshActiveTransactionsWindow(
   WidgetRef ref,
   String userId,
+  _MainShellAsyncGuard guard,
 ) async {
+  if (!guard.isActive) return;
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
 
   final filterState = ref.read(homeFilterProvider);
@@ -165,6 +192,7 @@ Future<void> _refreshActiveTransactionsWindow(
   );
 
   await ref.read(transactionsFeedServiceProvider).refreshFromRemote(query);
+  if (!guard.isActive) return;
   ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
 }
 
@@ -172,9 +200,11 @@ Future<void> _refreshDeferredMainShellData(
   WidgetRef ref,
   String userId,
   int currentIndex,
+  _MainShellAsyncGuard guard,
 ) async {
   try {
     await Future<void>.delayed(_foregroundDeferredResyncDelay);
+    if (!guard.isActive) return;
     if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
     if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
@@ -187,6 +217,7 @@ Future<void> _refreshDeferredMainShellData(
 
     if (currentIndex != 1) {
       await Future<void>.delayed(_foregroundDeferredResyncSpacing);
+      if (!guard.isActive) return;
       await ref
           .read(recurringTransactionsProvider(_activeMainShellHouseholdId(ref))
               .notifier)
@@ -195,20 +226,29 @@ Future<void> _refreshDeferredMainShellData(
 
     if (currentIndex != 3) {
       await Future<void>.delayed(_foregroundDeferredResyncSpacing);
-      await _refreshWalletsMainShellData(ref);
+      if (!guard.isActive) return;
+      await _refreshWalletsMainShellData(ref, guard);
     }
 
     if (currentIndex != 0 && currentIndex != 4) {
       await Future<void>.delayed(_foregroundDeferredResyncSpacing);
+      if (!guard.isActive) return;
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
   } catch (_) {}
 }
 
-Future<void> _pullMobileDelta(WidgetRef ref, String userId) async {
+Future<void> _pullMobileDelta(
+  WidgetRef ref,
+  String userId,
+  _MainShellAsyncGuard guard,
+) async {
   try {
+    if (!guard.isActive) return;
     final service = await ref.read(mobileDeltaSyncServiceProvider.future);
+    if (!guard.isActive) return;
     final delta = await service.pullAndApply(userId: userId);
+    if (!guard.isActive) return;
     if (delta.transactions.isNotEmpty ||
         delta.deletedTransactionIds.isNotEmpty) {
       ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
@@ -217,13 +257,23 @@ Future<void> _pullMobileDelta(WidgetRef ref, String userId) async {
   } catch (_) {}
 }
 
-Future<void> _syncCategoryRemaps(WidgetRef ref, String userId) async {
+Future<void> _syncCategoryRemaps(
+  WidgetRef ref,
+  String userId,
+  _MainShellAsyncGuard guard,
+) async {
   try {
+    if (!guard.isActive) return;
     await syncUserCategoryRemapsFromSupabase(ref, userId: userId);
   } catch (_) {}
 }
 
-Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
+Future<void> _syncMobileTransactions(
+  WidgetRef ref,
+  String userId,
+  _MainShellAsyncGuard guard,
+) async {
+  if (!guard.isActive) return;
   if (userId.isEmpty) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
@@ -235,9 +285,11 @@ Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
 
   final sync = () async {
     try {
-      await _drainMobileOutbox(ref);
-      await _syncCategoryRemaps(ref, userId);
-      await _pullMobileDelta(ref, userId);
+      await _drainMobileOutbox(ref, guard);
+      if (!guard.isActive) return;
+      await _syncCategoryRemaps(ref, userId, guard);
+      if (!guard.isActive) return;
+      await _pullMobileDelta(ref, userId, guard);
     } finally {
       _mobileSyncInFlightByUser.remove(userId);
     }
@@ -246,26 +298,45 @@ Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
   await sync;
 }
 
-Future<void> _drainMobileOutbox(WidgetRef ref) async {
+Future<void> _drainMobileOutbox(
+  WidgetRef ref,
+  _MainShellAsyncGuard guard,
+) async {
   try {
+    if (!guard.isActive) return;
     final coordinator = await ref.read(
       mobileOutboxSyncCoordinatorProvider.future,
     );
+    if (!guard.isActive) return;
     await coordinator.drainOutbox();
   } catch (_) {}
 }
 
-Future<void> _syncCurrencyRates(WidgetRef ref) async {
+Future<void> _syncCurrencyRates(
+  WidgetRef ref,
+  _MainShellAsyncGuard guard,
+) async {
   try {
-    await syncCurrencyRates(ref);
+    if (!guard.isActive) return;
+    final repository = await ref.read(currencyRateRepositoryProvider.future);
+    if (!guard.isActive) return;
+    await repository.getRates();
+    if (!guard.isActive) return;
+    ref.invalidate(currencyRateTableProvider);
   } catch (_) {}
 }
 
-Future<void> _refreshWalletsMainShellData(WidgetRef ref) async {
+Future<void> _refreshWalletsMainShellData(
+  WidgetRef ref,
+  _MainShellAsyncGuard guard,
+) async {
+  if (!guard.isActive) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
+  if (!guard.isActive) return;
   final query = ref.read(walletsScopeQueryProvider);
   await ref.read(walletsPageStateProvider(query).future);
+  if (!guard.isActive) return;
   await ref.read(walletsPageStateProvider(query).notifier).refresh();
 }
 
@@ -310,12 +381,14 @@ class MainShell extends HookConsumerWidget {
         return null;
       }
 
+      final guard = _MainShellAsyncGuard();
       _silentResyncMainShellData(
         ref,
         auth.uid,
         ref.read(mainShellTabIndexProvider),
+        guard,
       );
-      return null;
+      return guard.cancel;
     }, [previewState.isActive, auth.uid, hasNetworkAccess]);
 
     useEffect(() {
@@ -351,12 +424,17 @@ class MainShell extends HookConsumerWidget {
       }
 
       warmedWalletsKeyRef.value = warmKey;
+      var isActive = true;
       final timer = Timer(const Duration(milliseconds: 800), () async {
+        if (!isActive) return;
         try {
           await ref.read(scopedWalletsProvider.future);
         } catch (_) {}
       });
-      return timer.cancel;
+      return () {
+        isActive = false;
+        timer.cancel();
+      };
     }, [
       previewState.isActive,
       auth.uid,
@@ -365,8 +443,10 @@ class MainShell extends HookConsumerWidget {
     ]);
 
     useEffect(() {
+      final guard = _MainShellAsyncGuard();
       final observer = _MainShellLifecycleObserver(
         onResume: () {
+          if (!guard.isActive) return;
           ref.invalidate(networkReachabilityProvider);
 
           final userId = ref.read(authProvider).uid;
@@ -385,12 +465,16 @@ class MainShell extends HookConsumerWidget {
               ref,
               userId,
               ref.read(mainShellTabIndexProvider),
+              guard,
             ),
           ));
         },
       );
       WidgetsBinding.instance.addObserver(observer);
-      return () => WidgetsBinding.instance.removeObserver(observer);
+      return () {
+        guard.cancel();
+        WidgetsBinding.instance.removeObserver(observer);
+      };
     }, const []);
 
     Future<void> clearPreviewDataCaches() async {

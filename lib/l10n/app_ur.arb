@@ -2909,5 +2909,13 @@
   "searchCurrencies": "کرنسیاں تلاش کریں…",
   "noCurrenciesMatchSearch": "کوئی کرنسی نہیں ملی",
   "atLeastOneCurrencyVisible": "کم از کم ایک کرنسی نظر آنی چاہیے۔",
-  "saveVisibleCurrencies": "نظر آنے والی کرنسیاں محفوظ کریں"
+  "saveVisibleCurrencies": "نظر آنے والی کرنسیاں محفوظ کریں",
+  "compareWithChatGPT": "ChatGPT کے ذریعے موازنہ کریں",
+  "couldNotOpenChatGPTComparison": "ChatGPT کا موازنہ نہیں کھولا جا سکا",
+  "security": "سیکیورٹی",
+  "appLock": "ایپ لاک",
+  "unlockMoneko": "Moneko کو ان لاک کریں",
+  "changePasscode": "پاس کوڈ تبدیل کریں",
+  "lockTimeout": "لاک ہونے کا وقت",
+  "faceIdOrFingerprint": "فیس آئی ڈی / فنگر پرنٹ"
 }

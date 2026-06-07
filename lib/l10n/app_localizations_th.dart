@@ -8069,4 +8069,28 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get saveVisibleCurrencies => 'บันทึกสกุลเงินที่แสดง';
+
+  @override
+  String get compareWithChatGPT => 'เปรียบเทียบด้วย ChatGPT';
+
+  @override
+  String get couldNotOpenChatGPTComparison => 'ไม่สามารถเปิดการเปรียบเทียบด้วย ChatGPT ได้';
+
+  @override
+  String get security => 'ความปลอดภัย';
+
+  @override
+  String get appLock => 'ล็อกแอป';
+
+  @override
+  String get unlockMoneko => 'ปลดล็อก Moneko';
+
+  @override
+  String get changePasscode => 'เปลี่ยนรหัสผ่าน';
+
+  @override
+  String get lockTimeout => 'เวลาล็อกอัตโนมัติ';
+
+  @override
+  String get faceIdOrFingerprint => 'Face ID / ลายนิ้วมือ';
 }

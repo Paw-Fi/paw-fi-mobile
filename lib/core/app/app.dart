@@ -17,6 +17,7 @@ import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -43,10 +44,15 @@ class _AppState extends ConsumerState<App> {
       onStateChange: (state) {
         debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
         if (state == AppLifecycleState.resumed) {
+          ref.read(appLockControllerProvider.notifier).handleResumed();
           unawaited(
             ref.read(subscriptionManagementProvider.notifier).refresh(),
           );
           unawaited(_syncPendingIosWalletCapturesOnResume());
+        } else if (state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached) {
+          ref.read(appLockControllerProvider.notifier).markBackgrounded();
         }
         unawaited(
           ref.read(onboardingFlowAnalyticsServiceProvider).handleLifecycleState(

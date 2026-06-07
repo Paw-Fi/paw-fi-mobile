@@ -2980,5 +2980,13 @@
   "searchCurrencies": "ค้นหาสกุลเงิน…",
   "noCurrenciesMatchSearch": "ไม่พบสกุลเงิน",
   "atLeastOneCurrencyVisible": "ต้องแสดงอย่างน้อยหนึ่งสกุลเงินไว้เสมอ",
-  "saveVisibleCurrencies": "บันทึกสกุลเงินที่แสดง"
+  "saveVisibleCurrencies": "บันทึกสกุลเงินที่แสดง",
+  "compareWithChatGPT": "เปรียบเทียบด้วย ChatGPT",
+  "couldNotOpenChatGPTComparison": "ไม่สามารถเปิดการเปรียบเทียบด้วย ChatGPT ได้",
+  "security": "ความปลอดภัย",
+  "appLock": "ล็อกแอป",
+  "unlockMoneko": "ปลดล็อก Moneko",
+  "changePasscode": "เปลี่ยนรหัสผ่าน",
+  "lockTimeout": "เวลาล็อกอัตโนมัติ",
+  "faceIdOrFingerprint": "Face ID / ลายนิ้วมือ"
 }

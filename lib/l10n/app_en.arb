@@ -2982,5 +2982,13 @@
   "searchCurrencies": "Search currencies…",
   "noCurrenciesMatchSearch": "No currencies found",
   "atLeastOneCurrencyVisible": "At least one currency must stay visible.",
-  "saveVisibleCurrencies": "Save Visible Currencies"
+  "saveVisibleCurrencies": "Save Visible Currencies",
+  "compareWithChatGPT": "Compare Using ChatGPT",
+  "couldNotOpenChatGPTComparison": "Could not open ChatGPT comparison",
+  "security": "Security",
+  "appLock": "App Lock",
+  "unlockMoneko": "Unlock Moneko",
+  "changePasscode": "Change Passcode",
+  "lockTimeout": "Lock Timeout",
+  "faceIdOrFingerprint": "Face ID / Fingerprint"
 }

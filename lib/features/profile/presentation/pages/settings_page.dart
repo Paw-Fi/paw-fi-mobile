@@ -77,6 +77,9 @@ import 'package:moneko/features/profile/presentation/pages/email_import_settings
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
+import 'package:moneko/features/app_lock/data/app_lock_config.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
+import 'package:moneko/features/app_lock/presentation/pages/app_lock_setup_page.dart';
 
 import 'package:crypto/crypto.dart';
 
@@ -84,6 +87,20 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
+
+const String _compareWithChatGptUrl =
+    'https://moneko.io/compare-with-chatgpt?source=compare-with-chatgpt-mobile-settings';
+const String _compareWithChatGptLabel = 'Compare with ChatGPT';
+const String _compareWithChatGptError = 'Could not open ChatGPT comparison';
+
+String _appLockTimeoutLabel(AppLockTimeout timeout) {
+  return switch (timeout) {
+    AppLockTimeout.immediately => 'Immediately',
+    AppLockTimeout.afterThirtySeconds => 'After 30 seconds',
+    AppLockTimeout.afterOneMinute => 'After 1 minute',
+    AppLockTimeout.afterFiveMinutes => 'After 5 minutes',
+  };
+}
 
 String _holdQuickActionLabel(BuildContext context, AiHoldQuickAction? action) {
   return switch (action) {
@@ -188,6 +205,7 @@ class SettingsPage extends HookConsumerWidget {
     final analyticsState = ref.watch(analyticsProvider);
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
+    final appLockState = ref.watch(appLockControllerProvider);
 
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
@@ -918,6 +936,56 @@ class SettingsPage extends HookConsumerWidget {
       );
     }
 
+    Future<void> handleAppLockToggle(bool enabled) async {
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (context) => AppLockSetupPage(
+            mode: enabled ? AppLockSetupMode.enable : AppLockSetupMode.disable,
+          ),
+        ),
+      );
+    }
+
+    Future<void> handleChangeAppLockPasscode() async {
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (context) => const AppLockSetupPage(
+            mode: AppLockSetupMode.change,
+          ),
+        ),
+      );
+    }
+
+    Future<void> handleAppLockTimeoutChange() async {
+      final current =
+          appLockState.config?.lockTimeout ?? AppLockTimeout.immediately;
+      final result = await MonekoActionSheet.show<AppLockTimeout>(
+        context: context,
+        title: 'Lock Timeout',
+        actions: [
+          for (final timeout in AppLockTimeout.values)
+            MonekoActionSheetAction<AppLockTimeout>(
+              label: _appLockTimeoutLabel(timeout),
+              value: timeout,
+              icon: timeout == current
+                  ? Icons.check_circle_rounded
+                  : Icons.timer_rounded,
+            ),
+        ],
+        cancelAction: MonekoActionSheetAction<AppLockTimeout>(
+          label: context.l10n.cancel,
+          value: current,
+        ),
+      );
+      if (result == null || result == current) {
+        return;
+      }
+      await ref.read(appLockControllerProvider.notifier).setLockTimeout(result);
+      if (context.mounted) {
+        AppToast.success(context, 'App Lock timeout updated.');
+      }
+    }
+
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
@@ -971,7 +1039,7 @@ class SettingsPage extends HookConsumerWidget {
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 40),
             child: Padding(
-        padding:  EdgeInsets.only(top:getSubPageTopPadding(context)),
+              padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -987,7 +1055,8 @@ class SettingsPage extends HookConsumerWidget {
                           () {
                             nameReloadKey.value++;
                             if (authState.uid.isNotEmpty) {
-                              ref.invalidate(userProfileProvider(authState.uid));
+                              ref.invalidate(
+                                  userProfileProvider(authState.uid));
                             }
                           },
                         );
@@ -1002,9 +1071,9 @@ class SettingsPage extends HookConsumerWidget {
                       }
                     },
                   ),
-              
+
                   const SizedBox(height: 32),
-              
+
                   // Account Settings Group
                   _SettingsGroup(
                     title: context.l10n.account,
@@ -1015,7 +1084,8 @@ class SettingsPage extends HookConsumerWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (context) => const OverviewDashboardPage(),
+                              builder: (context) =>
+                                  const OverviewDashboardPage(),
                             ),
                           );
                         },
@@ -1031,12 +1101,14 @@ class SettingsPage extends HookConsumerWidget {
                           final dbName = snapshot.data != null
                               ? snapshot.data!['full_name'] as String?
                               : null;
-                          final currentName = (dbName?.trim().isNotEmpty == true)
-                              ? dbName!.trim()
-                              : (authState.displayName?.trim().isNotEmpty == true
-                                  ? authState.displayName!.trim()
-                                  : '');
-              
+                          final currentName =
+                              (dbName?.trim().isNotEmpty == true)
+                                  ? dbName!.trim()
+                                  : (authState.displayName?.trim().isNotEmpty ==
+                                          true
+                                      ? authState.displayName!.trim()
+                                      : '');
+
                           return _SettingsTile(
                             icon: Icons.person_rounded,
                             label: context.l10n.fullName,
@@ -1064,7 +1136,65 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
+                  _SettingsGroup(
+                    title: 'Security',
+                    children: [
+                      _SettingsTile(
+                        icon: Icons.lock_rounded,
+                        label: 'App Lock',
+                        value: appLockState.isEnabled ? 'On' : 'Off',
+                        trailing: Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: AdaptiveSwitch(
+                            value: appLockState.isEnabled,
+                            onChanged: (value) => handleAppLockToggle(value),
+                          ),
+                        ),
+                        showChevron: false,
+                      ),
+                      if (appLockState.isEnabled) ...[
+                        _SettingsTile(
+                          icon: Icons.fingerprint_rounded,
+                          label: 'Face ID / Fingerprint',
+                          value: appLockState.biometricAvailable
+                              ? null
+                              : 'Unavailable',
+                          trailing: appLockState.biometricAvailable
+                              ? Padding(
+                                  padding: const EdgeInsets.only(right: 16),
+                                  child: AdaptiveSwitch(
+                                    value:
+                                        appLockState.config?.biometricEnabled ??
+                                            false,
+                                    onChanged: (value) => ref
+                                        .read(
+                                          appLockControllerProvider.notifier,
+                                        )
+                                        .setBiometricEnabled(value),
+                                  ),
+                                )
+                              : null,
+                          showChevron: false,
+                        ),
+                        _SettingsTile(
+                          icon: Icons.password_rounded,
+                          label: 'Change Passcode',
+                          onTap: handleChangeAppLockPasscode,
+                        ),
+                        _SettingsTile(
+                          icon: Icons.timer_rounded,
+                          label: 'Lock Timeout',
+                          value: _appLockTimeoutLabel(
+                            appLockState.config?.lockTimeout ??
+                                AppLockTimeout.immediately,
+                          ),
+                          onTap: handleAppLockTimeoutChange,
+                        ),
+                      ],
+                    ],
+                  ),
+
                   // Preferences Group
                   _SettingsGroup(
                     title: context.l10n.preferences,
@@ -1122,7 +1252,7 @@ class SettingsPage extends HookConsumerWidget {
                               } else {
                                 await localeNotifier.setLocale(value);
                               }
-              
+
                               if (authState.uid.isNotEmpty) {
                                 await ref
                                     .read(preferredLanguageSyncServiceProvider)
@@ -1205,7 +1335,7 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
                   // Notifications Group
                   _SettingsGroup(
                     title: context.l10n.notifications,
@@ -1227,7 +1357,7 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
                   // Integrations
                   _SettingsGroup(title: context.l10n.integrations, children: [
                     if (Platform.isIOS)
@@ -1259,6 +1389,18 @@ class SettingsPage extends HookConsumerWidget {
                       onTap: () {
                         context.push('/import');
                       },
+                    ),
+                    _SettingsTile(
+                      customIcon: Image.asset(
+                        'lib/assets/images/chatgpt.svg.webp',
+                        width: 20,
+                        height: 20,
+                      ),
+                      label: _compareWithChatGptLabel,
+                      onTap: () => launchIntegrationUrl(
+                        Uri.parse(_compareWithChatGptUrl),
+                        errorMessage: _compareWithChatGptError,
+                      ),
                     ),
                     if (hasPremiumPlanAccess())
                       _SettingsTile(
@@ -1311,14 +1453,14 @@ class SettingsPage extends HookConsumerWidget {
                           BlendMode.srcIn,
                         ),
                       ),
-                      label:
-                          ref.watch(telegramBindingProvider).asData?.value == true
-                              ? context.l10n.telegramConnected
-                              : context.l10n.connectTelegram,
-                      value:
-                          ref.watch(telegramBindingProvider).asData?.value == true
-                              ? context.l10n.activeStatus
-                              : context.l10n.tapToSet,
+                      label: ref.watch(telegramBindingProvider).asData?.value ==
+                              true
+                          ? context.l10n.telegramConnected
+                          : context.l10n.connectTelegram,
+                      value: ref.watch(telegramBindingProvider).asData?.value ==
+                              true
+                          ? context.l10n.activeStatus
+                          : context.l10n.tapToSet,
                       onTap: () async {
                         final isBound =
                             ref.read(telegramBindingProvider).valueOrNull ??
@@ -1350,10 +1492,10 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                       ),
                       label: context.l10n.whatsAppConnected,
-                      value:
-                          ref.watch(whatsAppBindingProvider).asData?.value == true
-                              ? context.l10n.activeStatus
-                              : context.l10n.tapToSet,
+                      value: ref.watch(whatsAppBindingProvider).asData?.value ==
+                              true
+                          ? context.l10n.activeStatus
+                          : context.l10n.tapToSet,
                       onTap: () async {
                         final tileContext = context;
                         final canProceed = await guardRestrictedRegion();
@@ -1442,7 +1584,7 @@ class SettingsPage extends HookConsumerWidget {
                     //   },
                     // ),
                   ]),
-              
+
                   // Wallet
                   _SettingsGroup(
                     title: context.l10n.wallet,
@@ -1461,7 +1603,7 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
                   // Subscription
                   // Manage Membership
                   _SettingsGroup(
@@ -1472,7 +1614,8 @@ class SettingsPage extends HookConsumerWidget {
                         label: context.l10n.membership,
                         value: subscriptionAsync.when(
                           data: (d) {
-                            final status = d?.subscription?.status?.toLowerCase();
+                            final status =
+                                d?.subscription?.status?.toLowerCase();
                             if (status == 'trialing') {
                               return context.l10n.trialStatus;
                             }
@@ -1493,7 +1636,7 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
                   // App Experience
                   _SettingsGroup(
                     title: context.l10n.appExperience,
@@ -1513,15 +1656,15 @@ class SettingsPage extends HookConsumerWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  const OnboardingPreviewPage(fromSettings: true),
+                              builder: (context) => const OnboardingPreviewPage(
+                                  fromSettings: true),
                             ),
                           );
                         },
                       ),
                     ],
                   ),
-              
+
                   // Support
                   _SettingsGroup(
                     title: context.l10n.support,
@@ -1546,7 +1689,7 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
                   _SettingsGroup(
                     title: context.l10n.dangerZone,
                     children: [
@@ -1576,9 +1719,9 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-              
+
                   const SizedBox(height: 48),
-              
+
                   // Sign Out
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1588,40 +1731,41 @@ class SettingsPage extends HookConsumerWidget {
                           context: context,
                           message: context.l10n.signingOut,
                         );
-              
+
                         try {
                           try {
                             await ref
                                 .read(deviceRegistrationServiceProvider)
                                 .unregisterDevice();
                           } catch (_) {}
-              
+
                           debugPrint(
                             '🧹 Clearing all user-specific Riverpod state before logout',
                           );
-              
+
                           await ref
                               .read(selectedHouseholdProvider.notifier)
                               .clearSelection();
-              
+
                           if (authState.uid.isNotEmpty) {
-                            ref.invalidate(userHouseholdsProvider(authState.uid));
+                            ref.invalidate(
+                                userHouseholdsProvider(authState.uid));
                           }
-              
+
                           // Centralized clean-up for app initialization + primary pages
                           ref
                               .read(appInitializationV2Provider.notifier)
                               .clearCacheAndReset();
-              
+
                           ref.invalidate(incomeSummaryProvider);
                           ref.invalidate(incomeListProvider);
                           ref.invalidate(goalsListProvider);
                           ref.invalidate(goalSummaryProvider);
                           ref.invalidate(subscriptionManagementProvider);
                           ref.invalidate(userProfileProvider);
-              
+
                           debugPrint('✅ All user-specific state cleared');
-              
+
                           if (ref.read(previewModeProvider).isActive) {
                             if (context.mounted) {
                               AppToast.info(
@@ -1645,7 +1789,7 @@ class SettingsPage extends HookConsumerWidget {
                           )),
                     ),
                   ),
-              
+
                   const SizedBox(height: 40),
                   Center(
                     child: material.Text(

@@ -28,6 +28,8 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_account_preparing_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_save_budget_page.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
+import 'package:moneko/features/app_lock/presentation/pages/app_lock_page.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -161,6 +163,12 @@ GoRouter router(RouterRef ref) {
           return AuthCallbackScreen(next: next);
         },
       ),
+      GoRoute(
+        path: '/app-lock',
+        builder: (context, state) {
+          return AppLockPage(from: state.uri.queryParameters['from']);
+        },
+      ),
 
       // Subscription / Paywall
       GoRoute(
@@ -292,6 +300,7 @@ GoRouter router(RouterRef ref) {
         final subscriptionAsync = ref.read(subscriptionNotifierProvider);
         final prefs = ref.read(sharedPreferencesProvider);
         final previewMode = ref.read(previewModeProvider);
+        final appLock = ref.read(appLockControllerProvider);
         final hasCompletedPreauth =
             prefs.getBool('onboarding_preauth_completed') ?? false;
         final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
@@ -333,6 +342,7 @@ GoRouter router(RouterRef ref) {
         final isOnAuthPage = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register' ||
             state.matchedLocation.startsWith('/auth/callback');
+        final isOnAppLockPage = state.matchedLocation == '/app-lock';
         final isOnPreOnboardingPage = state.matchedLocation == '/onboarding' &&
             (onboardingStage == 'pre' || onboardingStage == 'save_budget');
         final isOnPrepareOnboardingPage =
@@ -421,6 +431,20 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
+        if (isOnAppLockPage) {
+          if (!isAuthenticated || !appLock.shouldBlockApp) {
+            final from = state.uri.queryParameters['from'];
+            if (from != null &&
+                from.isNotEmpty &&
+                from != '/app-lock' &&
+                !from.startsWith('/app-lock?')) {
+              return from;
+            }
+            return '/dashboard';
+          }
+          return null;
+        }
+
         // Pre-auth onboarding is only for unauthenticated users.
         if (!isAuthenticated && isOnPreOnboardingPage) {
           return null;
@@ -476,6 +500,20 @@ GoRouter router(RouterRef ref) {
             !isOnAuthPage &&
             !isOnSplashPage) {
           return '/onboarding?stage=post';
+        }
+
+        if (!isPreview &&
+            !kIsWeb &&
+            isAuthenticated &&
+            isPreauthSynced &&
+            hasOnboarded &&
+            appLock.shouldBlockApp &&
+            !isOnAuthPage &&
+            !isOnboardingPage &&
+            !isOnSplashPage &&
+            !isOnErrorPage) {
+          final from = Uri.encodeComponent(state.uri.toString());
+          return '/app-lock?from=$from';
         }
 
         // Allow paywall page only while the router-facing subscription gate
@@ -601,6 +639,10 @@ class RouterNotifier extends ChangeNotifier {
     );
     _ref.listen<PreviewModeState>(
       previewModeProvider,
+      (_, __) => notifyListeners(),
+    );
+    _ref.listen<AppLockState>(
+      appLockControllerProvider,
       (_, __) => notifyListeners(),
     );
   }

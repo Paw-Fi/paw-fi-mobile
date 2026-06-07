@@ -2965,5 +2965,13 @@
   "searchCurrencies": "Buscar monedas…",
   "noCurrenciesMatchSearch": "No se encontraron monedas",
   "atLeastOneCurrencyVisible": "Al menos una moneda debe permanecer visible.",
-  "saveVisibleCurrencies": "Guardar monedas visibles"
+  "saveVisibleCurrencies": "Guardar monedas visibles",
+  "compareWithChatGPT": "Comparar con ChatGPT",
+  "couldNotOpenChatGPTComparison": "No se pudo abrir la comparación con ChatGPT",
+  "security": "Seguridad",
+  "appLock": "Bloqueo de la aplicación",
+  "unlockMoneko": "Desbloquear Moneko",
+  "changePasscode": "Cambiar código de acceso",
+  "lockTimeout": "Tiempo de bloqueo",
+  "faceIdOrFingerprint": "Face ID / Huella dactilar"
 }

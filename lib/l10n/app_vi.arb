@@ -2962,5 +2962,13 @@
   "searchCurrencies": "Tìm kiếm tiền tệ…",
   "noCurrenciesMatchSearch": "Không tìm thấy loại tiền tệ nào",
   "atLeastOneCurrencyVisible": "Phải giữ hiển thị ít nhất một loại tiền tệ.",
-  "saveVisibleCurrencies": "Lưu tiền tệ đang hiển thị"
+  "saveVisibleCurrencies": "Lưu tiền tệ đang hiển thị",
+  "compareWithChatGPT": "So sánh bằng ChatGPT",
+  "couldNotOpenChatGPTComparison": "Không thể mở phần so sánh bằng ChatGPT",
+  "security": "Bảo mật",
+  "appLock": "Khóa ứng dụng",
+  "unlockMoneko": "Mở khóa Moneko",
+  "changePasscode": "Đổi mã khóa",
+  "lockTimeout": "Thời gian tự khóa",
+  "faceIdOrFingerprint": "Face ID / Vân tay"
 }

@@ -2959,5 +2959,13 @@
   "searchCurrencies": "搜索货币…",
   "noCurrenciesMatchSearch": "未找到货币",
   "atLeastOneCurrencyVisible": "至少需要保留一种可见货币。",
-  "saveVisibleCurrencies": "保存显示的货币"
+  "saveVisibleCurrencies": "保存显示的货币",
+  "compareWithChatGPT": "使用 ChatGPT 对比",
+  "couldNotOpenChatGPTComparison": "无法打开 ChatGPT 对比",
+  "security": "安全",
+  "appLock": "应用锁",
+  "unlockMoneko": "解锁 Moneko",
+  "changePasscode": "更改密码",
+  "lockTimeout": "自动锁定时间",
+  "faceIdOrFingerprint": "Face ID / 指纹"
 }
