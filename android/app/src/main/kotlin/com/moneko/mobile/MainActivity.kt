@@ -86,6 +86,7 @@ class MainActivity : FlutterFragmentActivity() {
                     (args["isPortfolio"] as? Boolean)?.let { config.isPortfolio = it }
                     (args["accountId"] as? String)?.let { config.accountId = it }
                     (args["accountName"] as? String)?.let { config.accountName = it }
+                    (args["accountCurrency"] as? String)?.let { config.accountCurrency = it }
                     result.success(true)
                 }
 

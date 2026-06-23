@@ -10,6 +10,9 @@ data class ParsedTransaction(
     val transactionType: String,
     val amount: Double,
     val currencyCode: String,
+    val currencyEvidenceRaw: String?,
+    val currencyEvidenceType: String,
+    val currencyAmbiguous: Boolean,
     val transactionDate: String,
     val confidence: Float,
     val rawText: String
@@ -31,8 +34,11 @@ object NotificationTransactionParser {
 
     // ── Currency symbol → ISO mapping ────────────────────────────────────
     private val MULTI_CHAR_CURRENCY_PREFIXES = listOf(
-        "HK$" to "HKD", "NZ$" to "NZD", "A$" to "AUD",
-        "C$" to "CAD", "S$" to "SGD", "R$" to "BRL",
+        "USD$" to "USD", "US$" to "USD", "CAD$" to "CAD", "CA$" to "CAD",
+        "AUD$" to "AUD", "AU$" to "AUD", "HKD$" to "HKD", "HK$" to "HKD",
+        "NZD$" to "NZD", "NZ$" to "NZD", "SGD$" to "SGD", "SG$" to "SGD",
+        "MX$" to "MXN", "A$" to "AUD", "C$" to "CAD", "S$" to "SGD",
+        "R$" to "BRL",
         "RM" to "MYR", "Kč" to "CZK"
     )
 
@@ -43,6 +49,10 @@ object NotificationTransactionParser {
         "zł" to "PLN", "Ft" to "HUF", "₴" to "UAH",
         "₺" to "TRY", "kr" to "SEK", "lei" to "RON",
         "CHF" to "CHF"
+    )
+
+    private val AMBIGUOUS_SYMBOLS = setOf(
+        "$", "£", "¥", "₩", "₱", "kr", "lei"
     )
 
     /** All known 3-letter ISO codes we accept. */
@@ -169,6 +179,9 @@ object NotificationTransactionParser {
             transactionType = transactionType,
             amount = amount,
             currencyCode = currencyCode,
+            currencyEvidenceRaw = currencyAmount.evidenceRaw,
+            currencyEvidenceType = currencyAmount.evidenceType,
+            currencyAmbiguous = currencyAmount.isAmbiguous,
             transactionDate = dateStr,
             confidence = confidence,
             rawText = combined
@@ -189,7 +202,13 @@ object NotificationTransactionParser {
 
     // ── Internal helpers ─────────────────────────────────────────────────
 
-    private data class CurrencyAmount(val amount: Double, val currencyCode: String)
+    private data class CurrencyAmount(
+        val amount: Double,
+        val currencyCode: String,
+        val evidenceRaw: String?,
+        val evidenceType: String,
+        val isAmbiguous: Boolean
+    )
 
     /**
      * Extracts currency and amount from text. Tries multi-char prefixes first,
@@ -198,7 +217,13 @@ object NotificationTransactionParser {
     private fun extractCurrencyAndAmount(text: String): CurrencyAmount? {
         // Strategy 1: multi-char currency prefix/suffix near an amount
         for ((symbol, iso) in MULTI_CHAR_CURRENCY_PREFIXES) {
-            val result = findAmountNearSymbol(text, symbol, iso)
+            val result = findAmountNearSymbol(
+                text,
+                symbol,
+                iso,
+                evidenceType = "localized_symbol",
+                isAmbiguous = false
+            )
             if (result != null) return result
         }
 
@@ -215,14 +240,27 @@ object NotificationTransactionParser {
                     ?: match.groupValues[2].ifEmpty { null }) ?: continue
                 val amount = normalizeAmount(rawAmount)
                 if (amount != null && amount > 0.0) {
-                    return CurrencyAmount(amount, iso)
+                    return CurrencyAmount(
+                        amount = amount,
+                        currencyCode = iso,
+                        evidenceRaw = iso,
+                        evidenceType = "explicit_code",
+                        isAmbiguous = false
+                    )
                 }
             }
         }
 
         // Strategy 3: single-char symbols
         for ((symbol, iso) in SYMBOL_TO_ISO) {
-            val result = findAmountNearSymbol(text, symbol, iso)
+            val isAmbiguous = AMBIGUOUS_SYMBOLS.contains(symbol)
+            val result = findAmountNearSymbol(
+                text,
+                symbol,
+                iso,
+                evidenceType = if (isAmbiguous) "ambiguous_symbol" else "localized_symbol",
+                isAmbiguous = isAmbiguous
+            )
             if (result != null) return result
         }
 
@@ -235,30 +273,60 @@ object NotificationTransactionParser {
     private fun findAmountNearSymbol(
         text: String,
         symbol: String,
-        iso: String
+        iso: String,
+        evidenceType: String,
+        isAmbiguous: Boolean
     ): CurrencyAmount? {
-        val escaped = Regex.escape(symbol)
+        val escaped = currencyTokenPattern(symbol)
         // Prefix: symbol then amount (e.g. "$45.99")
         val prefixPattern = Regex(
-            """$escaped\s*(\d{1,3}(?:[',.\s]\d{3})*(?:[.,]\d{1,2})?)"""
+            """$escaped\s*(\d{1,3}(?:[',.\s]\d{3})*(?:[.,]\d{1,2})?)""",
+            RegexOption.IGNORE_CASE
         )
         val prefixMatch = prefixPattern.find(text)
         if (prefixMatch != null) {
             val amount = normalizeAmount(prefixMatch.groupValues[1])
-            if (amount != null && amount > 0.0) return CurrencyAmount(amount, iso)
+            if (amount != null && amount > 0.0) {
+                return CurrencyAmount(
+                    amount = amount,
+                    currencyCode = iso,
+                    evidenceRaw = symbol,
+                    evidenceType = evidenceType,
+                    isAmbiguous = isAmbiguous
+                )
+            }
         }
 
         // Suffix: amount then symbol (e.g. "45,99€")
         val suffixPattern = Regex(
-            """(\d{1,3}(?:[',.\s]\d{3})*(?:[.,]\d{1,2})?)\s*$escaped"""
+            """(\d{1,3}(?:[',.\s]\d{3})*(?:[.,]\d{1,2})?)\s*$escaped""",
+            RegexOption.IGNORE_CASE
         )
         val suffixMatch = suffixPattern.find(text)
         if (suffixMatch != null) {
             val amount = normalizeAmount(suffixMatch.groupValues[1])
-            if (amount != null && amount > 0.0) return CurrencyAmount(amount, iso)
+            if (amount != null && amount > 0.0) {
+                return CurrencyAmount(
+                    amount = amount,
+                    currencyCode = iso,
+                    evidenceRaw = symbol,
+                    evidenceType = evidenceType,
+                    isAmbiguous = isAmbiguous
+                )
+            }
         }
 
         return null
+    }
+
+    private fun currencyTokenPattern(symbol: String): String {
+        if (symbol.length > 1 && symbol.endsWith("$")) {
+            val prefix = symbol.dropLast(1)
+            if (prefix.all { it.isLetter() }) {
+                return Regex.escape(prefix) + """\s*\$"""
+            }
+        }
+        return Regex.escape(symbol)
     }
 
     /**

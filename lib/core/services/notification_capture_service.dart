@@ -35,6 +35,7 @@ class NotificationCaptureConfig {
     required this.isPortfolio,
     this.accountId,
     this.accountName,
+    this.accountCurrency,
     required this.hasAuthStorage,
     required this.hasCredentials,
     required this.isReady,
@@ -49,6 +50,7 @@ class NotificationCaptureConfig {
   final bool isPortfolio;
   final String? accountId;
   final String? accountName;
+  final String? accountCurrency;
   final bool hasAuthStorage;
   final bool hasCredentials;
   final bool isReady;
@@ -72,6 +74,7 @@ class NotificationCaptureConfig {
       isPortfolio: map['isPortfolio'] as bool? ?? false,
       accountId: optionalString(map['accountId']),
       accountName: optionalString(map['accountName']),
+      accountCurrency: optionalString(map['accountCurrency'])?.toUpperCase(),
       hasAuthStorage: map['hasAuthStorage'] as bool? ?? true,
       hasCredentials: map['hasCredentials'] as bool? ?? false,
       isReady: map['isReady'] as bool? ?? false,
@@ -93,6 +96,7 @@ class NotificationCaptureConfig {
     bool? isPortfolio,
     String? accountId,
     String? accountName,
+    String? accountCurrency,
     bool clearAccountSelection = false,
     bool? hasAuthStorage,
     bool? hasCredentials,
@@ -109,6 +113,9 @@ class NotificationCaptureConfig {
       accountId: clearAccountSelection ? null : accountId ?? this.accountId,
       accountName:
           clearAccountSelection ? null : accountName ?? this.accountName,
+      accountCurrency: clearAccountSelection
+          ? null
+          : accountCurrency ?? this.accountCurrency,
       hasAuthStorage: hasAuthStorage ?? this.hasAuthStorage,
       hasCredentials: hasCredentials ?? this.hasCredentials,
       isReady: isReady ?? this.isReady,
@@ -126,6 +133,7 @@ class NotificationCaptureConfig {
     isPortfolio: false,
     accountId: null,
     accountName: null,
+    accountCurrency: null,
     hasAuthStorage: true,
     hasCredentials: false,
     isReady: false,
@@ -190,6 +198,7 @@ class NotificationCaptureService {
     bool? isPortfolio,
     String? accountId,
     String? accountName,
+    String? accountCurrency,
   }) async {
     if (!Platform.isAndroid) return;
     final args = <String, dynamic>{};
@@ -199,6 +208,7 @@ class NotificationCaptureService {
     if (isPortfolio != null) args['isPortfolio'] = isPortfolio;
     if (accountId != null) args['accountId'] = accountId;
     if (accountName != null) args['accountName'] = accountName;
+    if (accountCurrency != null) args['accountCurrency'] = accountCurrency;
     await _channel.invokeMethod<void>('setConfig', args);
   }
 
@@ -247,6 +257,7 @@ class NotificationCaptureService {
     required bool isPortfolio,
     String? accountId,
     String? accountName,
+    String? accountCurrency,
   }) async {
     if (!Platform.isAndroid) return;
     await _channel.invokeMethod<void>('setConfig', {
@@ -255,6 +266,7 @@ class NotificationCaptureService {
       'isPortfolio': isPortfolio,
       'accountId': accountId ?? '',
       'accountName': accountName ?? '',
+      'accountCurrency': accountCurrency ?? '',
     });
   }
 }

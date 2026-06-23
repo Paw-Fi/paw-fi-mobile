@@ -81,7 +81,15 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         val parsed = NotificationTransactionParser.parse(title, text, bigText) ?: return
 
         // Local dedup
-        val dedupKey = makeDedupKey(packageName, title, text, parsed.amount)
+        val dedupKey = makeDedupKey(
+            packageName = packageName,
+            notificationKey = sbn.key,
+            title = title,
+            text = text,
+            bigText = bigText,
+            amount = parsed.amount,
+            transactionType = parsed.transactionType
+        )
         if (isDuplicate(dedupKey)) {
             Log.d(TAG, "Duplicate notification blocked locally: $packageName")
             return
@@ -151,6 +159,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         val scopeId = config.scopeId
         val isPortfolio = config.isPortfolio
         val accountId = config.accountId
+        val accountCurrency = config.accountCurrency
 
         // Build request body
         val body = JSONObject().apply {
@@ -174,6 +183,14 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 put("type", parsed.transactionType)
                 put("amount", parsed.amount)
                 put("currency", parsed.currencyCode)
+                if (!parsed.currencyEvidenceRaw.isNullOrBlank()) {
+                    put("currencyEvidenceRaw", parsed.currencyEvidenceRaw)
+                }
+                put("currencyEvidenceType", parsed.currencyEvidenceType)
+                put("currencyAmbiguous", parsed.currencyAmbiguous)
+                if (accountCurrency.isNotBlank()) {
+                    put("accountCurrency", accountCurrency)
+                }
                 put("date", parsed.transactionDate)
                 put("packageName", packageName)
                 put("sourceAppLabel", appLabel)
@@ -375,11 +392,20 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
     private fun makeDedupKey(
         packageName: String,
+        notificationKey: String?,
         title: String?,
         text: String?,
-        amount: Double
+        bigText: String?,
+        amount: Double,
+        transactionType: String
     ): String {
-        val raw = "$packageName|${title.orEmpty()}|${text.orEmpty()}|$amount"
+        val contentKey = if (!notificationKey.isNullOrBlank()) {
+            "notification:$notificationKey"
+        } else {
+            listOf(title, text, bigText)
+                .joinToString("|") { it.orEmpty().trim().replace(Regex("""\s+"""), " ") }
+        }
+        val raw = "$packageName|$contentKey|$transactionType|$amount"
         val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }
     }

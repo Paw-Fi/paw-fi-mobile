@@ -52,30 +52,34 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final walletsAsync =
         ref.watch(walletsByHouseholdIdProvider(captureScopeHouseholdId));
 
-    String? resolveDefaultWalletId(List<WalletEntity> wallets) {
+    WalletEntity? resolveDefaultWallet(List<WalletEntity> wallets) {
       for (final wallet in wallets) {
-        if (wallet.isDefault) return wallet.id;
+        if (wallet.isDefault) return wallet;
       }
-      return wallets.isNotEmpty ? wallets.first.id : null;
+      return wallets.isNotEmpty ? wallets.first : null;
+    }
+
+    WalletEntity? resolveEffectiveWallet(List<WalletEntity> wallets) {
+      final selectedId = config.value.accountId;
+      if (selectedId != null) {
+        for (final wallet in wallets) {
+          if (wallet.id == selectedId) return wallet;
+        }
+      }
+      return resolveDefaultWallet(wallets);
+    }
+
+    String walletLabel(WalletEntity wallet) {
+      final currency = wallet.currency.trim().toUpperCase();
+      return currency.isEmpty ? wallet.name : '${wallet.name} ($currency)';
     }
 
     String selectedWalletLabel(AsyncValue<List<WalletEntity>> state) {
       return state.when(
         data: (wallets) {
           if (wallets.isEmpty) return context.l10n.tapToSet;
-          final selectedId = config.value.accountId;
-          if (selectedId != null) {
-            for (final wallet in wallets) {
-              if (wallet.id == selectedId) return wallet.name;
-            }
-          }
-          final fallbackId = resolveDefaultWalletId(wallets);
-          if (fallbackId != null) {
-            for (final wallet in wallets) {
-              if (wallet.id == fallbackId) return wallet.name;
-            }
-          }
-          return wallets.first.name;
+          final wallet = resolveEffectiveWallet(wallets);
+          return wallet == null ? context.l10n.tapToSet : walletLabel(wallet);
         },
         loading: () => context.l10n.loading,
         error: (_, __) => context.l10n.tapToSet,
@@ -231,6 +235,69 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       }
     });
 
+    useEffect(() {
+      if (!config.value.enabled) return null;
+      final wallets = walletsAsync.valueOrNull;
+      if (wallets == null || wallets.isEmpty) return null;
+
+      WalletEntity? walletToPersist;
+      final configuredAccountId = config.value.accountId;
+      if (configuredAccountId == null) {
+        walletToPersist = resolveDefaultWallet(wallets);
+      } else {
+        for (final wallet in wallets) {
+          if (wallet.id == configuredAccountId) {
+            walletToPersist = wallet;
+            break;
+          }
+        }
+      }
+
+      final wallet = walletToPersist;
+      if (wallet == null) return null;
+      final walletCurrency = wallet.currency.trim().toUpperCase();
+      final currentCurrency = config.value.accountCurrency?.trim().toUpperCase();
+      final needsPersistence = config.value.accountId != wallet.id ||
+          config.value.accountName != wallet.name ||
+          currentCurrency != walletCurrency;
+      if (!needsPersistence) return null;
+
+      var cancelled = false;
+      Future<void>(() async {
+        if (cancelled) return;
+        final previous = config.value;
+        final updated = config.value.copyWith(
+          accountId: wallet.id,
+          accountName: wallet.name,
+          accountCurrency: walletCurrency,
+        );
+        config.value = updated;
+        try {
+          await NotificationCaptureService.instance.setConfig(
+            accountId: wallet.id,
+            accountName: wallet.name,
+            accountCurrency: walletCurrency,
+          );
+        } catch (_) {
+          if (!cancelled) config.value = previous;
+        }
+      });
+
+      return () {
+        cancelled = true;
+      };
+    }, [
+      config.value.enabled,
+      config.value.accountId,
+      config.value.accountName,
+      config.value.accountCurrency,
+      walletsAsync.valueOrNull
+              ?.map((wallet) =>
+                  '${wallet.id}:${wallet.name}:${wallet.currency}')
+              .join('|') ??
+          '',
+    ]);
+
     /// Persists the enabled flag to both Android native (SharedPreferences)
     /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
@@ -242,6 +309,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           '[NotificationCapture] toggleEnabled called: enabled=$enabled uid=${authState.uid} contactId=${contactId.value}');
 
       try {
+        WalletEntity? walletToPersist;
         if (enabled) {
           final didSync = config.value.isReady
               ? true
@@ -250,11 +318,25 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             config.value = previous;
             return;
           }
+          walletToPersist =
+              resolveEffectiveWallet(walletsAsync.valueOrNull ?? const []);
+          if (walletToPersist != null) {
+            config.value = config.value.copyWith(
+              accountId: walletToPersist.id,
+              accountName: walletToPersist.name,
+              accountCurrency: walletToPersist.currency.trim().toUpperCase(),
+            );
+          }
         }
 
         // Write to Android native layer.
         debugPrint('[NotificationCapture] Writing to Android native...');
-        await NotificationCaptureService.instance.setConfig(enabled: enabled);
+        await NotificationCaptureService.instance.setConfig(
+          enabled: enabled,
+          accountId: walletToPersist?.id,
+          accountName: walletToPersist?.name,
+          accountCurrency: walletToPersist?.currency.trim().toUpperCase(),
+        );
         debugPrint('[NotificationCapture] Android native write succeeded');
 
         // Write to Supabase via the update-wallet-capture-setting edge function
@@ -348,6 +430,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           isPortfolio: result['isPortfolio'] as bool,
           accountId: null,
           accountName: null,
+          accountCurrency: null,
         );
       } catch (e) {
         config.value = previous;
@@ -389,6 +472,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       final updated = config.value.copyWith(
         accountId: selected.id,
         accountName: selected.name,
+        accountCurrency: selected.currency.trim().toUpperCase(),
       );
       config.value = updated;
       isUpdatingWallet.value = true;
@@ -396,6 +480,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         await NotificationCaptureService.instance.setConfig(
           accountId: selected.id,
           accountName: selected.name,
+          accountCurrency: selected.currency.trim().toUpperCase(),
         );
       } catch (e) {
         config.value = previous;

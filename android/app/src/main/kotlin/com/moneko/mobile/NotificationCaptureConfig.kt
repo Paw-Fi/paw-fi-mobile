@@ -25,6 +25,7 @@ class NotificationCaptureConfig(context: Context) {
         private const val KEY_IS_PORTFOLIO = "notification_default_is_portfolio"
         private const val KEY_ACCOUNT_ID = "notification_default_account_id"
         private const val KEY_ACCOUNT_NAME = "notification_default_account_name"
+        private const val KEY_ACCOUNT_CURRENCY = "notification_default_account_currency"
         private const val KEY_RECENT_APPS = "recent_notification_packages"
         private const val KEY_ENABLED_PACKAGES = "enabled_notification_packages"
         private const val KEY_SUPABASE_URL = "supabase_url"
@@ -65,6 +66,10 @@ class NotificationCaptureConfig(context: Context) {
     var accountName: String
         get() = prefs.getString(KEY_ACCOUNT_NAME, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ACCOUNT_NAME, value).apply()
+
+    var accountCurrency: String
+        get() = prefs.getString(KEY_ACCOUNT_CURRENCY, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_ACCOUNT_CURRENCY, value.trim().uppercase()).apply()
 
     val supabaseUrl: String
         get() = authPrefs?.getString(KEY_SUPABASE_URL, "") ?: ""
@@ -191,6 +196,7 @@ class NotificationCaptureConfig(context: Context) {
             "isPortfolio" to isPortfolio,
             "accountId" to accountId,
             "accountName" to accountName,
+            "accountCurrency" to accountCurrency,
             "hasAuthStorage" to isAuthStorageAvailable,
             "hasCredentials" to hasCredentials,
             "isReady" to isReady,
