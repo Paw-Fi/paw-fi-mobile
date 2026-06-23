@@ -16,7 +16,7 @@ const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
 
-const int _localDatabaseSchemaVersion = 3;
+const int _localDatabaseSchemaVersion = 4;
 
 String localScopeKey({
   required String userId,
@@ -1946,6 +1946,7 @@ class MonekoDatabase {
         merchant TEXT,
         breakdown_json TEXT,
         receipt_image_url TEXT,
+        local_receipt_image_path TEXT,
         shared_member_ids_json TEXT,
         split_group_id TEXT,
         bank_account_id TEXT,
@@ -2122,6 +2123,7 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'merchant', 'TEXT');
       _ensureColumn('local_transactions', 'breakdown_json', 'TEXT');
       _ensureColumn('local_transactions', 'receipt_image_url', 'TEXT');
+      _ensureColumn('local_transactions', 'local_receipt_image_path', 'TEXT');
       _ensureColumn('local_transactions', 'shared_member_ids_json', 'TEXT');
       _ensureColumn('local_transactions', 'split_group_id', 'TEXT');
       _ensureColumn('local_transactions', 'bank_account_id', 'TEXT');
@@ -2249,11 +2251,12 @@ class MonekoDatabase {
       INSERT INTO local_transactions (
         id, user_id, contact_id, household_id, scope_key, date, amount_cents,
         currency, category, created_at, updated_at, raw_text, merchant,
-        breakdown_json, receipt_image_url, shared_member_ids_json,
-        split_group_id, bank_account_id, wallet_id, account_name, account_icon,
-        account_color, type, is_recurring, recurrence_rule_json, client_record_id,
-        client_mutation_id, idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        breakdown_json, receipt_image_url, local_receipt_image_path,
+        shared_member_ids_json, split_group_id, bank_account_id, wallet_id,
+        account_name, account_icon, account_color, type, is_recurring,
+        recurrence_rule_json, client_record_id, client_mutation_id,
+        idempotency_key, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -2269,6 +2272,7 @@ class MonekoDatabase {
         merchant = excluded.merchant,
         breakdown_json = excluded.breakdown_json,
         receipt_image_url = excluded.receipt_image_url,
+        local_receipt_image_path = excluded.local_receipt_image_path,
         shared_member_ids_json = excluded.shared_member_ids_json,
         split_group_id = excluded.split_group_id,
         bank_account_id = excluded.bank_account_id,
@@ -2315,6 +2319,7 @@ class MonekoDatabase {
         entry.merchant,
         _encodeStringList(entry.breakdown),
         entry.receiptImageUrl,
+        entry.localReceiptImagePath,
         _encodeStringList(entry.sharedMemberIds),
         entry.splitGroupId,
         entry.bankAccountId,
@@ -2659,6 +2664,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     merchant: row['merchant'] as String?,
     breakdown: _decodeStringList(row['breakdown_json'] as String?),
     receiptImageUrl: row['receipt_image_url'] as String?,
+    localReceiptImagePath: row['local_receipt_image_path'] as String?,
     sharedMemberIds:
         _decodeStringList(row['shared_member_ids_json'] as String?),
     splitGroupId: row['split_group_id'] as String?,

@@ -1169,10 +1169,19 @@ Future<void> _persistAiTransactions(
     required ExpenseEntry savedEntry,
   }) async {
     final optimisticId = prepared.item.optimisticId;
+    final savedReceiptImageUrl = savedEntry.receiptImageUrl?.trim();
+    final optimisticLocalReceiptPath =
+        prepared.item.optimisticEntry.localReceiptImagePath?.trim();
     var entryToStore = savedEntry.copyWith(
       clientRecordId: prepared.metadata.clientRecordId,
       clientMutationId: prepared.metadata.clientMutationId,
       idempotencyKey: prepared.metadata.idempotencyKey,
+      localReceiptImagePath: !prepared.item.transaction.isIncome &&
+              (savedReceiptImageUrl == null || savedReceiptImageUrl.isEmpty) &&
+              optimisticLocalReceiptPath != null &&
+              optimisticLocalReceiptPath.isNotEmpty
+          ? optimisticLocalReceiptPath
+          : savedEntry.localReceiptImagePath,
     );
     final savedHouseholdId = savedEntry.householdId?.trim();
     if (savedHouseholdId != null &&
@@ -1497,13 +1506,28 @@ Future<void> _persistAiTransactions(
     final database = await container.read(localDatabaseProvider.future);
     localDatabase = database;
     for (final prepared in preparedMutations) {
+      final entryForLocalQueue = shouldDeferForReceiptUpload &&
+              !prepared.item.transaction.isIncome &&
+              durableReceiptImagePath != null
+          ? prepared.item.optimisticEntry.copyWith(
+              localReceiptImagePath: durableReceiptImagePath,
+            )
+          : prepared.item.optimisticEntry;
+      if (!identical(entryForLocalQueue, prepared.item.optimisticEntry)) {
+        replaceOptimisticTransactionWithContainer(
+          container: container,
+          optimisticId: prepared.item.optimisticId,
+          savedEntry: entryForLocalQueue,
+          householdId: householdId,
+        );
+      }
       await database.writeOptimisticTransaction(
-        entry: prepared.item.optimisticEntry,
+        entry: entryForLocalQueue,
         clientMutationId: prepared.metadata.clientMutationId,
         operation: 'create',
         payload: {
           ...prepared.metadata.toRequestJson(),
-          'transaction': prepared.item.optimisticEntry.toJson(),
+          'transaction': entryForLocalQueue.toJson(),
           'functionName': prepared.functionName,
           'requestBody': prepared.individualRequestBody,
           if (shouldDeferForReceiptUpload &&
@@ -2936,6 +2960,7 @@ Future<void> _processExpense(
                   userId: user.uid,
                   contactId: analyticsContactId,
                   householdId: householdId,
+                  localReceiptImagePath: !isIncome ? imagePath : null,
                   accountId: resolveScopedAccountIdForCurrency(
                     transaction.currency,
                   ),

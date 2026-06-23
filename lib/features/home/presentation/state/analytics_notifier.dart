@@ -854,6 +854,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             .from('expenses')
             .select('id')
             .eq('user_id', userId)
+            .isFilter('deleted_at', null)
             .limit(1)
             .timeout(_warmupTimeout),
       ]);
@@ -941,6 +942,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     }
 
     final response = await query
+        .isFilter('deleted_at', null)
         .order('date', ascending: false)
         .range(from, to)
         .timeout(timeout);

@@ -1176,7 +1176,8 @@ final householdExpensesProvider = FutureProvider.autoDispose
         var query = supabase
             .from('expenses')
             .select(expenseSelectFields)
-            .eq('household_id', params.householdId);
+            .eq('household_id', params.householdId)
+            .isFilter('deleted_at', null);
 
         if (params.startDate != null) {
           query = query.gte('date', formatDateOnlyYmd(params.startDate!));

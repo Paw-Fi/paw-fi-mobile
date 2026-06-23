@@ -405,6 +405,7 @@ class NotificationDispatcher {
             .select(
                 'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,account_id,type,is_recurring')
             .eq('id', expenseId)
+            .isFilter('deleted_at', null)
             .maybeSingle();
 
         if (response != null) {

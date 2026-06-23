@@ -287,6 +287,7 @@ class _RecentTransactionsCardState
   static const _rowAnimationDuration = Duration(milliseconds: 320);
 
   late List<_RecentTransactionRowState> _rows;
+  final Set<String> _optimisticallyDeletedIds = <String>{};
   List<ExpenseEntry>? _cachedExpensesIdentity;
   int? _cachedExpensesSignature;
   List<_KeyedRecentEntry>? _cachedKeyedEntries;
@@ -294,7 +295,7 @@ class _RecentTransactionsCardState
   @override
   void initState() {
     super.initState();
-    _rows = _keyedEntriesFor(widget.allExpenses)
+    _rows = _keyedEntriesFor(_visibleExpenses(widget.allExpenses))
         .map(
           (entry) => _RecentTransactionRowState(
             key: entry.key,
@@ -309,7 +310,14 @@ class _RecentTransactionsCardState
   @override
   void didUpdateWidget(covariant _RecentTransactionsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncRows(_keyedEntriesFor(widget.allExpenses));
+    _syncRows(_keyedEntriesFor(_visibleExpenses(widget.allExpenses)));
+  }
+
+  List<ExpenseEntry> _visibleExpenses(List<ExpenseEntry> expenses) {
+    if (_optimisticallyDeletedIds.isEmpty) return expenses;
+    return expenses
+        .where((entry) => !_optimisticallyDeletedIds.contains(entry.id.trim()))
+        .toList(growable: false);
   }
 
   List<_KeyedRecentEntry> _keyedEntriesFor(List<ExpenseEntry> expenses) {
@@ -588,10 +596,19 @@ class _RecentTransactionsCardState
               final l10n = context.l10n;
               final rootNavigator = Navigator.of(context, rootNavigator: true);
               final toastContext = rootNavigator.context;
+              final deletedId = e.id.trim();
 
               setState(() {
+                if (deletedId.isNotEmpty) {
+                  _optimisticallyDeletedIds.add(deletedId);
+                }
                 _rows = _rows
-                    .where((currentRow) => currentRow.key != row.key)
+                    .where(
+                      (currentRow) =>
+                          currentRow.key != row.key &&
+                          (deletedId.isEmpty ||
+                              currentRow.entry.id.trim() != deletedId),
+                    )
                     .toList(growable: false);
               });
               AppToast.success(toastContext, l10n.transactionDeleted);
@@ -600,7 +617,14 @@ class _RecentTransactionsCardState
                   .deleteExpensesOptimistically([e]);
 
               if (!success) {
+                if (!mounted) return;
                 final error = ref.read(transactionEditProvider).error;
+                setState(() {
+                  _optimisticallyDeletedIds.remove(deletedId);
+                });
+                _syncRows(_keyedEntriesFor(_visibleExpenses(
+                  widget.allExpenses,
+                )));
                 if (!toastContext.mounted) return;
                 AppToast.error(
                   toastContext,

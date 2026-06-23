@@ -241,6 +241,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .from('expenses')
               .select('id')
               .eq('user_id', userId)
+              .isFilter('deleted_at', null)
               .limit(1)
               .maybeSingle(),
           supabase

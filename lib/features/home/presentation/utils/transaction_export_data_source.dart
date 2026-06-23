@@ -92,7 +92,8 @@ class TransactionExportDataSource {
         .select(_selectFields)
         .gte('date', formatDateOnlyYmd(dateRange.start))
         .lte('date', formatDateOnlyYmd(dateRange.end))
-        .eq('is_recurring', false);
+        .eq('is_recurring', false)
+        .isFilter('deleted_at', null);
 
     switch (space.type) {
       case TransactionExportSpaceType.all:
