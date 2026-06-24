@@ -18,6 +18,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
+import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
@@ -497,7 +498,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                 isPopular: false,
                 displayPriceUsd: Constants.subscriptionLifetimePrice,
                 originalPriceUsd: null,
-                sortOrder: 20,
+                sortOrder: 40,
               ),
             ];
 
@@ -519,6 +520,9 @@ class PlanSelectionPage extends HookConsumerWidget {
         );
       }).toList()
         ..sort((a, b) {
+          final catalogOrder = (a.catalogProduct?.sortOrder ?? 999)
+              .compareTo(b.catalogProduct?.sortOrder ?? 999);
+          if (catalogOrder != 0) return catalogOrder;
           const order = {'monthly': 0, 'yearly': 1};
           final aOrder =
               a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
@@ -550,6 +554,27 @@ class PlanSelectionPage extends HookConsumerWidget {
           badgeText: context.l10n.paywallBadgeSave50,
         ),
         PlanOption(
+          id: 'premium_monthly',
+          serverPlanId: 'premium',
+          billingInterval: 'monthly',
+          name: context.l10n.premium,
+          storePrice: null,
+          displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
+          originalPriceUsd: Constants.subscriptionPremiumMonthlyOriginalPrice,
+          tagline: context.l10n.allPremiumFeatures,
+        ),
+        PlanOption(
+          id: 'premium_yearly',
+          serverPlanId: 'premium',
+          billingInterval: 'yearly',
+          name: context.l10n.premium,
+          storePrice: null,
+          displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
+          originalPriceUsd: Constants.subscriptionPremiumYearlyOriginalPrice,
+          tagline: context.l10n.allPremiumFeatures,
+          badgeText: context.l10n.premium,
+        ),
+        PlanOption(
           id: 'lifetime',
           serverPlanId: 'lifetime',
           billingInterval: null,
@@ -564,12 +589,17 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     // Keep selection valid when plan options refresh.
     useEffect(() {
-      if (selectedPlanId.value != null &&
-          !plans.any((p) => p.id == selectedPlanId.value)) {
-        selectedPlanId.value = null;
+      final nextSelection = selectPaywallPlanId(
+        currentPlanId: currentPlanId,
+        currentInterval: currentInterval,
+        plans: plans,
+        currentSelection: selectedPlanId.value,
+      );
+      if (nextSelection != null) {
+        selectedPlanId.value = nextSelection;
       }
       return null;
-    }, [plans.length]);
+    }, [mode, currentPlanId, currentInterval, plans.length]);
 
     // Helpers
     PlanOption? activePlanOption;

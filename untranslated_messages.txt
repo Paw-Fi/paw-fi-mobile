@@ -8,6 +8,7 @@
     "pastDue",
     "trial",
     "unknownFeature",
-    "paywallBenefit5"
+    "paywallBenefit5",
+    "enableNotificationsForPaymentSummary"
   ]
 }

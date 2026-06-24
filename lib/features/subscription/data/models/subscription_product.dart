@@ -1,7 +1,7 @@
 class SubscriptionProduct {
   final String id;
   final String platform; // ios | android
-  final String plan; // plus | lifetime
+  final String plan; // plus | premium | lifetime
   final String? billingInterval; // monthly | yearly | null
   final String storeProductId;
 

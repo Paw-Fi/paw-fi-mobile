@@ -95,13 +95,11 @@ class SubscriptionManagementNotifier
   Future<void> changePlan({
     required String plan,
     String? billingInterval,
-    int? prorationDate,
   }) async {
     await _updateSubscription(
       action: 'change_plan',
       plan: plan,
       billingInterval: billingInterval,
-      prorationDate: prorationDate,
     );
   }
 
@@ -138,7 +136,6 @@ class SubscriptionManagementNotifier
     required String action,
     String? plan,
     String? billingInterval,
-    int? prorationDate,
     DateTime? exitedAtUtc,
     bool refreshAfterUpdate = true,
   }) async {
@@ -154,7 +151,6 @@ class SubscriptionManagementNotifier
           'action': action,
           if (plan != null) 'plan': plan,
           if (billingInterval != null) 'billingInterval': billingInterval,
-          if (prorationDate != null) 'prorationDate': prorationDate,
           if (exitedAtUtc != null)
             'exitAtIso': exitedAtUtc.toUtc().toIso8601String(),
         },

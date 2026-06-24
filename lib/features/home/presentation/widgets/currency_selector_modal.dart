@@ -17,6 +17,9 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
+
 /// Shows a full-screen currency selector modal and returns the selected currency code
 Future<String?> showCurrencySelectorModal(
   BuildContext context,
@@ -329,7 +332,8 @@ class _CurrencySelectorScreenState
 
   @override
   Widget build(BuildContext context) {
-    final canUsePremiumCurrencyFeatures = hasPremiumPlanAccess();
+    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
+    final canUsePremiumCurrencyFeatures = hasPremiumFeatureAccess(subscription);
     final colorScheme = Theme.of(context).colorScheme;
     final summariesAsync = ref.watch(dashboardCurrencySummariesProvider);
     final summaries = summariesAsync.valueOrNull ?? const <CurrencySummary>[];
@@ -547,29 +551,32 @@ class _CurrencySelectorScreenState
                     ),
                   ),
                   const SizedBox(height: 6),
-                  if (canUsePremiumCurrencyFeatures)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          context.push('/currency-rates');
-                        },
-                        icon: const Icon(
-                          Icons.currency_exchange_rounded,
-                          size: 16,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        if (!canUsePremiumCurrencyFeatures) {
+                          PlusLockedSheet.show(context);
+                          return;
+                        }
+                        context.push('/currency-rates');
+                      },
+                      icon: const Icon(
+                        Icons.currency_exchange_rounded,
+                        size: 16,
+                      ),
+                      label: Text(context.l10n.converter),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                        label: Text(context.l10n.converter),
-                        style: TextButton.styleFrom(
-                          foregroundColor: colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          minimumSize: Size.zero,
-                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: Size.zero,
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -632,8 +639,38 @@ class _CurrencySelectorScreenState
                                   .contains(summary.currencyCode),
                               isPrimary:
                                   primaryCurrency == summary.currencyCode,
-                              showSelectionCheckbox:
-                                  canUsePremiumCurrencyFeatures,
+                              showSelectionCheckbox: true,
+                              onCheckboxTap: () {
+                                HapticFeedback.selectionClick();
+                                if (!canUsePremiumCurrencyFeatures) {
+                                  PlusLockedSheet.show(context);
+                                  return;
+                                }
+                                final next = selectedCurrencySet.toSet();
+                                if (primaryCurrency.isEmpty) {
+                                  next.add(summary.currencyCode);
+                                  setState(() {
+                                    _primaryCurrency = summary.currencyCode;
+                                    _selectedCurrencies = next.toList();
+                                  });
+                                  return;
+                                }
+                                if (summary.currencyCode == primaryCurrency) {
+                                  AppToast.warning(
+                                    context,
+                                    context.l10n.setAnotherCurrencyAsPrimary,
+                                  );
+                                  next.add(summary.currencyCode);
+                                } else if (next
+                                    .contains(summary.currencyCode)) {
+                                  next.remove(summary.currencyCode);
+                                } else {
+                                  next.add(summary.currencyCode);
+                                }
+                                setState(() {
+                                  _selectedCurrencies = next.toList();
+                                });
+                              },
                               onTap: () {
                                 HapticFeedback.lightImpact();
                                 if (!canUsePremiumCurrencyFeatures) {
@@ -863,6 +900,7 @@ class _CurrencyCard extends StatelessWidget {
   final bool showSelectionCheckbox;
   final VoidCallback onTap;
   final VoidCallback onPrimaryTap;
+  final VoidCallback? onCheckboxTap;
 
   const _CurrencyCard({
     required this.summary,
@@ -872,6 +910,7 @@ class _CurrencyCard extends StatelessWidget {
     required this.showSelectionCheckbox,
     required this.onTap,
     required this.onPrimaryTap,
+    this.onCheckboxTap,
   });
 
   @override
@@ -910,16 +949,23 @@ class _CurrencyCard extends StatelessWidget {
           child: Row(
             children: [
               if (showSelectionCheckbox) ...[
-                Icon(
-                  isIncluded
-                      ? Icons.check_box_rounded
-                      : Icons.check_box_outline_blank_rounded,
-                  size: 24,
-                  color: isIncluded
-                      ? colorScheme.success
-                      : colorScheme.mutedForeground.withValues(alpha: 0.4),
+                GestureDetector(
+                  onTap: onCheckboxTap ?? onTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.only(right: 12, top: 8, bottom: 8),
+                    child: Icon(
+                      isIncluded
+                          ? Icons.check_box_rounded
+                          : Icons.check_box_outline_blank_rounded,
+                      size: 24,
+                      color: isIncluded
+                          ? colorScheme.success
+                          : colorScheme.mutedForeground.withValues(alpha: 0.4),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 12),
               ],
 
               // 2. Currency Icon

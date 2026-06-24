@@ -17,6 +17,7 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
+import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
@@ -476,7 +477,7 @@ class PaywallScreen extends HookConsumerWidget {
                 isPopular: false,
                 displayPriceUsd: Constants.subscriptionLifetimePrice,
                 originalPriceUsd: null,
-                sortOrder: 20,
+                sortOrder: 40,
               ),
             ];
 
@@ -498,6 +499,9 @@ class PaywallScreen extends HookConsumerWidget {
         );
       }).toList()
         ..sort((a, b) {
+          final catalogOrder = (a.catalogProduct?.sortOrder ?? 999)
+              .compareTo(b.catalogProduct?.sortOrder ?? 999);
+          if (catalogOrder != 0) return catalogOrder;
           const order = {'yearly': 0, 'monthly': 1};
           final aOrder =
               a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
@@ -529,6 +533,27 @@ class PaywallScreen extends HookConsumerWidget {
           badgeText: context.l10n.paywallBadgeSave50,
         ),
         PlanOption(
+          id: 'premium_monthly',
+          serverPlanId: 'premium',
+          billingInterval: 'monthly',
+          name: context.l10n.premium,
+          storePrice: null,
+          displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
+          originalPriceUsd: Constants.subscriptionPremiumMonthlyOriginalPrice,
+          tagline: context.l10n.allPremiumFeatures,
+        ),
+        PlanOption(
+          id: 'premium_yearly',
+          serverPlanId: 'premium',
+          billingInterval: 'yearly',
+          name: context.l10n.premium,
+          storePrice: null,
+          displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
+          originalPriceUsd: Constants.subscriptionPremiumYearlyOriginalPrice,
+          tagline: context.l10n.allPremiumFeatures,
+          badgeText: context.l10n.premium,
+        ),
+        PlanOption(
           id: 'lifetime',
           serverPlanId: 'lifetime',
           billingInterval: null,
@@ -543,27 +568,14 @@ class PaywallScreen extends HookConsumerWidget {
 
     // Effect: If user is already on a plan, try to select it visually
     useEffect(() {
-      if (plans.isNotEmpty && !plans.any((p) => p.id == selectedPlanId.value)) {
-        selectedPlanId.value = plans.first.id;
-      }
-
-      if (currentPlanId == 'lifetime') {
-        selectedPlanId.value = 'lifetime';
-      } else if (currentPlanId == 'plus') {
-        if (currentInterval == 'monthly') {
-          selectedPlanId.value = 'plus_monthly';
-        } else {
-          selectedPlanId.value = 'plus_yearly';
-        }
-      } else {
-        // Free user (both trial and resubscribe): default to yearly
-        final yearly = plans
-            .where((p) =>
-                p.serverPlanId == 'plus' && p.billingInterval == 'yearly')
-            .toList();
-        if (yearly.isNotEmpty) {
-          selectedPlanId.value = yearly.first.id;
-        }
+      final nextSelection = selectPaywallPlanId(
+        currentPlanId: currentPlanId,
+        currentInterval: currentInterval,
+        plans: plans,
+        currentSelection: selectedPlanId.value,
+      );
+      if (nextSelection != null) {
+        selectedPlanId.value = nextSelection;
       }
       return null;
     }, [mode, currentPlanId, currentInterval, plans.length]);

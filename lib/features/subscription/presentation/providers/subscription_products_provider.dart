@@ -127,7 +127,7 @@ const _fallbackIosProducts = <SubscriptionProduct>[
     isPopular: false,
     displayPriceUsd: Constants.subscriptionLifetimePrice,
     originalPriceUsd: null,
-    sortOrder: 20,
+    sortOrder: 40,
   ),
 ];
 

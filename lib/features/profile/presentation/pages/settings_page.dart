@@ -208,6 +208,7 @@ class SettingsPage extends HookConsumerWidget {
     final analyticsState = ref.watch(analyticsProvider);
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
+    final subscription = subscriptionAsync.valueOrNull?.subscription;
     final appLockState = ref.watch(appLockControllerProvider);
     final appLockConfigured = appLockState.isConfigured;
     final appLockSwitchValue = useState(appLockConfigured);
@@ -248,7 +249,11 @@ class SettingsPage extends HookConsumerWidget {
       // Sync the switch value with the actual app lock state
       appLockSwitchValue.value = appLockConfigured;
       return null;
-    }, [contact?.preferredCurrency, contact?.preferredTimezone, appLockConfigured]);
+    }, [
+      contact?.preferredCurrency,
+      contact?.preferredTimezone,
+      appLockConfigured
+    ]);
 
     Future<void> handleNotificationToggle() async {
       try {
@@ -951,7 +956,7 @@ class SettingsPage extends HookConsumerWidget {
 
       // Store the current state to revert if needed
       final previousState = appLockSwitchValue.value;
-      
+
       // Optimistically update the switch for better UX
       appLockSwitchValue.value = enabled;
 
@@ -965,7 +970,7 @@ class SettingsPage extends HookConsumerWidget {
             ),
           ),
         );
-        
+
         // Only keep the new state if the setup was completed successfully
         // If user cancelled (result is null or false), revert to previous state
         if (result != true) {
@@ -1450,7 +1455,7 @@ class SettingsPage extends HookConsumerWidget {
                         context.push('/import');
                       },
                     ),
-                    if (hasPremiumPlanAccess())
+                    if (hasPremiumFeatureAccess(subscription))
                       _SettingsTile(
                         icon: Icons.currency_exchange_rounded,
                         label: context.l10n.currencyConverter,
@@ -3166,7 +3171,6 @@ class _SettingsTile extends StatelessWidget {
                   ),
                 ),
               ),
-           
               if (valueWidget != null) valueWidget!,
               if (trailing != null) ...[
                 const SizedBox(width: 8),

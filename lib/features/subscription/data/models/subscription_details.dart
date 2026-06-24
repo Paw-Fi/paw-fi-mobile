@@ -51,6 +51,8 @@ class SubscriptionDetails {
         return l10n.lifetime;
       case 'plus':
         return l10n.plus;
+      case 'premium':
+        return l10n.premium;
       case 'monthly':
         return l10n.plusMonthly;
       case 'yearly':

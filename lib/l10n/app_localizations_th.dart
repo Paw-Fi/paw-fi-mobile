@@ -8290,4 +8290,154 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get unlockMonekoWith => 'ปลดล็อก Moneko ด้วย';
+
+  @override
+  String get plusLockedTitle => 'ปลดล็อก Plus';
+
+  @override
+  String get plusLockedTrialTitle => 'ต่ออายุ Plus';
+
+  @override
+  String get plusLockedDescription => 'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์ Plus สุดพิเศษ';
+
+  @override
+  String get plusLockedTrialDescription => 'ช่วงทดลองใช้งานใกล้สิ้นสุดแล้ว ต่ออายุแพ็กเกจเพื่อใช้งานฟีเจอร์เหล่านี้ต่อไป';
+
+  @override
+  String get plusLockedViewPlansCta => 'ดูแพ็กเกจ Plus';
+
+  @override
+  String get plusLockedMaybeLaterCta => 'ไว้คราวหลัง';
+
+  @override
+  String get plusLockedCurrentBadge => 'ปัจจุบัน';
+
+  @override
+  String get plusLockedBankSync => 'เชื่อมต่อธนาคาร';
+
+  @override
+  String get plusLockedFreeCurrencies => '1';
+
+  @override
+  String get plusLockedSupportResponse => 'การตอบกลับของฝ่ายสนับสนุน';
+
+  @override
+  String get plusLockedStandardSupport => 'มาตรฐาน';
+
+  @override
+  String get plusLockedPrioritySupport => '< 12 ชม.';
+
+  @override
+  String get premiumLockedTitle => 'ปลดล็อก Premium';
+
+  @override
+  String get premiumLockedDescription => 'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์พรีเมียมสุดพิเศษ';
+
+  @override
+  String get premiumFeatureBankSync => 'เชื่อมต่อธนาคาร';
+
+  @override
+  String get premiumFeatureBankSyncDesc => 'เชื่อมต่อหลายบัญชีธนาคารอย่างปลอดภัย';
+
+  @override
+  String get premiumFeatureMultiCurrency => 'รองรับหลายสกุลเงิน';
+
+  @override
+  String get premiumFeatureMultiCurrencyDesc => 'ติดตามสกุลเงินต่างๆ ได้อย่างราบรื่น';
+
+  @override
+  String get premiumFeatureCurrencyConverter => 'ตัวแปลงสกุลเงิน';
+
+  @override
+  String get premiumFeatureCurrencyConverterDesc => 'อัตราแลกเปลี่ยนแบบเรียลไทม์ในหน้าหลัก';
+
+  @override
+  String get premiumFeatureSupport => 'บริการช่วยเหลือระดับพรีเมียม';
+
+  @override
+  String get premiumFeatureSupportDesc => 'รับความช่วยเหลือเบื้องต้นทันทีที่คุณต้องการ';
+
+  @override
+  String get premiumViewPlansCta => 'ดูแพ็กเกจ Premium';
+
+  @override
+  String get premiumMaybeLaterCta => 'ไว้คราวหลัง';
+
+  @override
+  String get plusLockedUpgradeToPlusEyebrow => 'อัปเกรดเป็น Plus';
+
+  @override
+  String get plusLockedFreeDescription => 'ให้ Moneko ทำงานแทนคุณด้วยการบันทึกอัตโนมัติ การแชร์งบประมาณ และเครื่องมือการนำเข้าที่ดีกว่าเดิม';
+
+  @override
+  String get plusLockedFeatureHeader => 'ฟีเจอร์';
+
+  @override
+  String get plusLockedRecommendedBadge => 'แนะนำ';
+
+  @override
+  String get plusLockedAiExpenseCapture => 'บันทึกรายจ่ายด้วย AI';
+
+  @override
+  String get plusLockedManualValue => 'ด้วยตัวเอง';
+
+  @override
+  String get plusLockedAiCaptureValue => 'เสียง ข้อความ รูปภาพ';
+
+  @override
+  String get plusLockedMessagingAppCapture => 'บันทึกจากแอปแชท';
+
+  @override
+  String get plusLockedEmailReceiptImport => 'นำเข้าใบเสร็จจากอีเมล';
+
+  @override
+  String get plusLockedSharedBudgets => 'แชร์งบประมาณ';
+
+  @override
+  String get plusLockedTrialEyebrow => 'ทดลองใช้ฟรี 7 วัน';
+
+  @override
+  String get plusLockedTrialRetentionDescription => 'ช่วงทดลองใช้มีเวลาจำกัด เลือก Plus เพื่อใช้งานฟีเจอร์ที่คุณกำลังทดลองต่อไป';
+
+  @override
+  String get plusLockedAfterTrialHeader => 'หลังหมดช่วงทดลอง';
+
+  @override
+  String get plusLockedKeepAccessBadge => 'ใช้งานต่อ';
+
+  @override
+  String get plusLockedKeepPlusAfterTrialCta => 'ใช้ Plus ต่อหลังหมดทดลอง';
+
+  @override
+  String get plusLockedTrialReviewPlansNote => 'คุณสามารถดูแพ็กเกจได้โดยที่ช่วงทดลองใช้ 7 วันยังคงมีผลอยู่';
+
+  @override
+  String get plusLockedPremiumFeatureEyebrow => 'ฟีเจอร์ Premium';
+
+  @override
+  String get plusLockedPremiumUpgradeTitle => 'อัปเกรดเป็น Premium';
+
+  @override
+  String get plusLockedPremiumUpgradeDescription => 'Plus ครอบคลุมการบันทึกรายวันของคุณ Premium ปลดล็อกการจัดการสกุลเงินขั้นสูง การเชื่อมต่อธนาคาร และการสนับสนุนที่รวดเร็วยิ่งขึ้น';
+
+  @override
+  String get plusLockedCurrentPlanBadge => 'แพ็กเกจปัจจุบันของคุณ';
+
+  @override
+  String get plusLockedSingleBaseCurrency => '1 สกุลเงินหลัก';
+
+  @override
+  String get plusLockedLiveExchangeRates => 'อัตราแลกเปลี่ยนเรียลไทม์';
+
+  @override
+  String get plusLockedWithin12Hours => 'ภายใน 12 ชม.';
+
+  @override
+  String get plusLockedViewPremiumPlansCta => 'ดูแพ็กเกจ Premium';
+
+  @override
+  String get plusLockedPremiumSupportWithin12HoursNote => 'การสนับสนุนระดับพรีเมียมมักจะตอบกลับภายใน 12 ชั่วโมง';
+
+  @override
+  String get enableNotificationsForPaymentSummary => 'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
 }

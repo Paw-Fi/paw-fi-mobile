@@ -19,6 +19,10 @@ abstract class Constants {
   static const double subscriptionMonthlyOriginalPrice = 7.99;
   static const double subscriptionYearlyPrice = 34.99;
   static const double subscriptionYearlyOriginalPrice = 59.99;
+  static const double subscriptionPremiumMonthlyPrice = 7.99;
+  static const double subscriptionPremiumMonthlyOriginalPrice = 9.99;
+  static const double subscriptionPremiumYearlyPrice = 59.99;
+  static const double subscriptionPremiumYearlyOriginalPrice = 95.88;
   static const double subscriptionLifetimePrice = 69.99;
 
   // Checkout URLs

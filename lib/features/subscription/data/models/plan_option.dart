@@ -2,7 +2,7 @@ import 'package:moneko/features/subscription/data/models/subscription_product.da
 
 class PlanOption {
   final String id; // Unique ID for UI selection
-  final String serverPlanId; // 'plus' or 'lifetime'
+  final String serverPlanId; // 'plus', 'premium', or 'lifetime'
   final String? billingInterval; // 'monthly', 'yearly', or null for lifetime
   // iOS-only (IAP). Android uses Stripe web checkout.
   final String? storeProductId;

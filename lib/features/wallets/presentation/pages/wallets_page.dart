@@ -22,6 +22,8 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
@@ -63,6 +65,7 @@ class AccountsPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final actions = ref.watch(walletActionsProvider);
+    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
     final auth = ref.watch(authProvider);
     final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
     final prefs = ref.read(sharedPreferencesProvider);
@@ -694,11 +697,8 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                          if (!hasPremiumPlanAccess()) {
-                            AppToast.info(
-                              context,
-                              context.l10n.comingSoon,
-                            );
+                          if (!hasPremiumFeatureAccess(subscription)) {
+                            PlusLockedSheet.show(context);
                             return;
                           }
                           if (isPreviewMode) {

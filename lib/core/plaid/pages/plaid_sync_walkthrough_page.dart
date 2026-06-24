@@ -17,8 +17,9 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
-import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -76,23 +77,8 @@ class _PlaidSyncWalkthroughPageState
     }
 
     final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
-    final subscriptionStatus = subscription?.status?.toLowerCase().trim();
-    if (subscriptionStatus == 'trialing') {
-      final result = await MonekoAlertDialog.show(
-        context: context,
-        title: 'Upgrade your plan',
-        description: 'Upgrade your plan to use bank connection.',
-        confirmLabel: 'View plan',
-        cancelLabel: 'Cancel',
-      );
-      if (result?.confirmed == true && mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) =>
-                const PlanSelectionPage(mode: PlanSelectionMode.resubscribe),
-          ),
-        );
-      }
+    if (!hasPremiumFeatureAccess(subscription)) {
+      PlusLockedSheet.show(context);
       return;
     }
 
@@ -335,13 +321,12 @@ class _PlaidSyncWalkthroughPageState
     if (!mounted) return;
     setState(() => _isConnecting = false);
     await MonekoAlertDialog.show(
-      context: context,
-      title: 'Bank already connected',
-      description:
-          'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
-      confirmLabel: 'Back to wallets',
-      showCancelButton:false
-    );
+        context: context,
+        title: 'Bank already connected',
+        description:
+            'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
+        confirmLabel: 'Back to wallets',
+        showCancelButton: false);
     ref.invalidate(bankConnectionsProvider);
     if (mounted) {
       Navigator.of(context).pop();
