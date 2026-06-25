@@ -314,7 +314,10 @@ class AppLockController extends StateNotifier<AppLockState> {
     );
   }
 
-  Future<bool> verifyPasscode(String passcode) async {
+  Future<bool> _verifyPasscode(
+    String passcode, {
+    bool unlockOnSuccess = true,
+  }) async {
     final config = state.config ?? await _repository.loadConfig(_userId);
     if (config == null) {
       state = const AppLockState.disabled();
@@ -343,11 +346,13 @@ class AppLockController extends StateNotifier<AppLockState> {
         clearLockoutUntil: true,
       );
       await _repository.saveConfig(updated);
-      state = state.copyWith(
-        status: AppLockStatus.unlocked,
-        config: updated,
-        clearFailedMessage: true,
-      );
+      if (unlockOnSuccess) {
+        state = state.copyWith(
+          status: AppLockStatus.unlocked,
+          config: updated,
+          clearFailedMessage: true,
+        );
+      }
       return true;
     }
 
@@ -367,6 +372,10 @@ class AppLockController extends StateNotifier<AppLockState> {
           : AppLockFailureReason.incorrectPasscode,
     );
     return false;
+  }
+
+  Future<bool> verifyPasscode(String passcode) async {
+    return _verifyPasscode(passcode);
   }
 
   Future<bool> authenticateWithBiometrics() async {
@@ -421,7 +430,7 @@ class AppLockController extends StateNotifier<AppLockState> {
   }
 
   Future<bool> disableWithPasscode(String passcode) async {
-    final verified = await verifyPasscode(passcode);
+    final verified = await _verifyPasscode(passcode, unlockOnSuccess: false);
     if (!verified) {
       return false;
     }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 
 class AppLockPasscodePrompt extends StatefulWidget {
   const AppLockPasscodePrompt({
@@ -91,48 +92,51 @@ class _AppLockPasscodePromptState extends State<AppLockPasscodePrompt> {
               )
             : 244.0;
 
-        return SizedBox(
-          height: fillsHeight ? constraints.maxHeight : null,
-          child: Column(
-            mainAxisSize: fillsHeight ? MainAxisSize.max : MainAxisSize.min,
-            children: [
-              _PasscodeHeader(
-                title: widget.title,
-                subtitle: widget.subtitle,
-                errorText: widget.errorText,
-              ),
-              fillsHeight
-                  ? Expanded(
-                      child: Center(
+        return Padding(
+          padding:  EdgeInsets.only(top:getSubPageTopPadding(context)),
+          child: SizedBox(
+            height: fillsHeight ? constraints.maxHeight : null,
+            child: Column(
+              mainAxisSize: fillsHeight ? MainAxisSize.max : MainAxisSize.min,
+              children: [
+                _PasscodeHeader(
+                  title: widget.title,
+                  subtitle: widget.subtitle,
+                  errorText: widget.errorText,
+                ),
+                fillsHeight
+                    ? Expanded(
+                        child: Center(
+                          child: _PasscodeDots(length: _passcode.length),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
                         child: _PasscodeDots(length: _passcode.length),
                       ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: _PasscodeDots(length: _passcode.length),
+                Align(
+                  key: const ValueKey('app-lock-keypad'),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: keypadMaxWidth),
+                    child: _NumericKeypad(
+                      enabled: _canEdit,
+                      onDigit: _appendDigit,
+                      onDelete: _deleteDigit,
+                      showBiometricButton: widget.showBiometricButton,
+                      onBiometricPressed: widget.onBiometricPressed,
+                      biometricTooltip:
+                          widget.biometricTooltip ?? context.l10n.useBiometrics,
+                      passcodeLength: _passcode.length,
                     ),
-              Align(
-                key: const ValueKey('app-lock-keypad'),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: keypadMaxWidth),
-                  child: _NumericKeypad(
-                    enabled: _canEdit,
-                    onDigit: _appendDigit,
-                    onDelete: _deleteDigit,
-                    showBiometricButton: widget.showBiometricButton,
-                    onBiometricPressed: widget.onBiometricPressed,
-                    biometricTooltip:
-                        widget.biometricTooltip ?? context.l10n.useBiometrics,
-                    passcodeLength: _passcode.length,
                   ),
                 ),
-              ),
-              if (widget.footer != null) ...[
-                const SizedBox(height: 24),
-                widget.footer!,
-                const SizedBox(height: 8),
+                if (widget.footer != null) ...[
+                  const SizedBox(height: 24),
+                  widget.footer!,
+                  const SizedBox(height: 8),
+                ],
               ],
-            ],
+            ),
           ),
         );
       },

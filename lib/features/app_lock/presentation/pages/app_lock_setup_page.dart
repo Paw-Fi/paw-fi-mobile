@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_passcode_prompt.dart';
-import 'package:moneko/features/utils/sub_page_top_padding.dart';
+import 'package:moneko/features/app_lock/presentation/widgets/app_lock_visual_shell.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -35,7 +33,6 @@ class AppLockSetupPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final step = useState(_initialStep(mode));
     final currentPasscode = useState<String?>(null);
     final newPasscode = useState<String?>(null);
@@ -59,21 +56,6 @@ class AppLockSetupPage extends HookConsumerWidget {
     void resetStep(String message) {
       errorText.value = message;
       promptRevision.value++;
-    }
-
-    NavigatorState showProcessing(String message) {
-      final rootNavigator = Navigator.of(context, rootNavigator: true);
-      showBlockingProcessingDialog(
-        context: context,
-        message: message,
-      );
-      return rootNavigator;
-    }
-
-    void hideProcessing(NavigatorState rootNavigator) {
-      if (rootNavigator.mounted && rootNavigator.canPop()) {
-        rootNavigator.pop();
-      }
     }
 
     Future<bool> askForBiometricOptIn() async {
@@ -114,14 +96,12 @@ class AppLockSetupPage extends HookConsumerWidget {
       }
 
       isSubmitting.value = true;
-      final rootNavigator = showProcessing(processingMessage);
       try {
         final success = await operation();
 
         if (!context.mounted) {
           return;
         }
-        hideProcessing(rootNavigator);
         if (!success) {
           resetStep(context.l10n.incorrectPasscodeSentence);
           return;
@@ -130,7 +110,6 @@ class AppLockSetupPage extends HookConsumerWidget {
         Navigator.of(context).pop(true);
       } catch (_) {
         if (context.mounted) {
-          hideProcessing(rootNavigator);
           resetStep(context.l10n.couldNotUpdateAppLock);
         }
       } finally {
@@ -158,13 +137,11 @@ class AppLockSetupPage extends HookConsumerWidget {
           return;
         }
         isSubmitting.value = true;
-        final rootNavigator = showProcessing(context.l10n.checkingPasscode);
         try {
           final verified = await controller.verifyPasscode(passcode);
           if (!context.mounted) {
             return;
           }
-          hideProcessing(rootNavigator);
           if (!verified) {
             resetStep(context.l10n.incorrectPasscodeSentence);
             return;
@@ -173,7 +150,6 @@ class AppLockSetupPage extends HookConsumerWidget {
           advanceTo(_AppLockSetupStep.create);
         } catch (_) {
           if (context.mounted) {
-            hideProcessing(rootNavigator);
             resetStep(context.l10n.couldNotVerifyPasscode);
           }
         } finally {
@@ -230,27 +206,27 @@ class AppLockSetupPage extends HookConsumerWidget {
     return StatusBarOverlayRegion(
       child: AdaptiveScaffold(
         appBar: AdaptiveAppBar(title: _title(context.l10n, mode)),
-        body: Material(
-          color: colorScheme.appBackground,
+        body: AppLockBackground(
           child: SafeArea(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                getSubPageTopPadding(context) + 24,
-                16,
-                32,
-              ),
-              child: AppLockPasscodePrompt(
-                key: ValueKey(
-                  'app-lock-setup-${mode.name}-${step.value.name}'
-                  '-${promptRevision.value}',
-                ),
-                title: _headline(context.l10n, mode, step.value),
-                subtitle: _description(context.l10n, mode, step.value),
-                errorText: errorText.value,
-                enabled: !isSubmitting.value,
-                isSubmitting: isSubmitting.value,
-                onComplete: handlePasscode,
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  AppLockPasscodePrompt(
+                    key: ValueKey(
+                      'app-lock-setup-${mode.name}-${step.value.name}'
+                      '-${promptRevision.value}',
+                    ),
+                    title: _headline(context.l10n, mode, step.value),
+                    subtitle: _description(context.l10n, mode, step.value),
+                    errorText: errorText.value,
+                    enabled: !isSubmitting.value,
+                    isSubmitting: isSubmitting.value,
+                    onComplete: handlePasscode,
+                  ),
+                  AppLockLoadingOverlay(isLoading: isSubmitting.value),
+                ],
               ),
             ),
           ),
