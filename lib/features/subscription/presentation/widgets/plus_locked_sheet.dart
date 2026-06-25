@@ -154,46 +154,10 @@ class _LockedSheetContent {
       icon: Icons.auto_awesome_rounded,
       iconBackground: (scheme) => scheme.primary.withValues(alpha: 0.12),
       iconForeground: (scheme) => scheme.primary,
-      comparison: _PlanComparisonContent(
-        featureHeader: context.l10n.plusLockedFeatureHeader,
-        columns: [
-          _PlanColumn(title: context.l10n.free),
-          _PlanColumn(
-            title: context.l10n.plus,
-            badge: context.l10n.plusLockedRecommendedBadge,
-          ),
-        ],
-        highlightedColumn: 1,
-        rows: [
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedAiExpenseCapture,
-            values: [
-              _ComparisonValue.text(context.l10n.plusLockedManualValue),
-              _ComparisonValue.text(context.l10n.plusLockedAiCaptureValue),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedMessagingAppCapture,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedEmailReceiptImport,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedSharedBudgets,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-        ],
+      comparison: _plusPremiumComparison(
+        context,
+        highlightedColumn: 0,
+        plusBadge: context.l10n.plusLockedRecommendedBadge,
       ),
       ctaLabel: context.l10n.plusLockedViewPlansCta,
       ctaIcon: Icons.arrow_upward_rounded,
@@ -209,46 +173,11 @@ class _LockedSheetContent {
       icon: Icons.workspace_premium_rounded,
       iconBackground: (scheme) => scheme.warningSurface,
       iconForeground: (scheme) => scheme.warning,
-      comparison: _PlanComparisonContent(
+      comparison: _plusPremiumComparison(
+        context,
         featureHeader: context.l10n.plusLockedAfterTrialHeader,
-        columns: [
-          _PlanColumn(title: context.l10n.free),
-          _PlanColumn(
-            title: context.l10n.plus,
-            badge: context.l10n.plusLockedKeepAccessBadge,
-          ),
-        ],
-        highlightedColumn: 1,
-        rows: [
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedAiExpenseCapture,
-            values: [
-              _ComparisonValue.text(context.l10n.plusLockedManualValue),
-              _ComparisonValue.text(context.l10n.plusLockedAiCaptureValue),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedMessagingAppCapture,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedEmailReceiptImport,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedSharedBudgets,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-        ],
+        highlightedColumn: 0,
+        plusBadge: context.l10n.plusLockedKeepAccessBadge,
       ),
       ctaLabel: context.l10n.plusLockedKeepPlusAfterTrialCta,
       ctaIcon: Icons.check_circle_rounded,
@@ -265,57 +194,97 @@ class _LockedSheetContent {
       icon: Icons.diamond_rounded,
       iconBackground: (scheme) => scheme.primary.withValues(alpha: 0.12),
       iconForeground: (scheme) => scheme.primary,
-      comparison: _PlanComparisonContent(
-        featureHeader: context.l10n.plusLockedFeatureHeader,
-        columns: [
-          _PlanColumn(
-            title: context.l10n.plus,
-            badge: context.l10n.plusLockedCurrentPlanBadge,
-          ),
-          _PlanColumn(title: context.l10n.premium, badge: context.l10n.upgrade),
-        ],
-        highlightedColumn: 0,
-        rows: [
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedBankSync,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.multipleCurrencies,
-            values: [
-              _ComparisonValue.text(context.l10n.plusLockedSingleBaseCurrency),
-              _ComparisonValue.text(context.l10n.unlimited),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.currencyConverter,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.plusLockedLiveExchangeRates,
-            values: [
-              _ComparisonValue.excluded(),
-              _ComparisonValue.included(),
-            ],
-          ),
-          _ComparisonRowData(
-            feature: context.l10n.support,
-            values: [
-              _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
-              _ComparisonValue.text(context.l10n.plusLockedWithin12Hours),
-            ],
-          ),
-        ],
+      comparison: _plusPremiumComparison(
+        context,
+        highlightedColumn: 1,
+        plusBadge: context.l10n.plusLockedCurrentPlanBadge,
+        premiumBadge: context.l10n.upgrade,
       ),
       ctaLabel: context.l10n.plusLockedViewPremiumPlansCta,
       ctaIcon: Icons.diamond_rounded,
       note: context.l10n.plusLockedPremiumSupportWithin12HoursNote,
+    );
+  }
+
+  static _PlanComparisonContent _plusPremiumComparison(
+    BuildContext context, {
+    String? featureHeader,
+    required int highlightedColumn,
+    String? plusBadge,
+    String? premiumBadge,
+  }) {
+    return _PlanComparisonContent(
+      featureHeader: featureHeader ?? context.l10n.plusLockedFeatureHeader,
+      columns: [
+        _PlanColumn(title: context.l10n.plus, badge: plusBadge),
+        _PlanColumn(title: context.l10n.premium, badge: premiumBadge),
+      ],
+      highlightedColumn: highlightedColumn,
+      rows: [
+        _ComparisonRowData(
+          feature: context.l10n.plusLockedAiExpenseCapture,
+          values: [
+            _ComparisonValue.text(context.l10n.plusLockedAiCaptureValue),
+            _ComparisonValue.text(context.l10n.plusLockedAiCaptureValue),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.plusLockedMessagingAppCapture,
+          values: [
+            _ComparisonValue.included(),
+            _ComparisonValue.included(),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.plusLockedEmailReceiptImport,
+          values: [
+            _ComparisonValue.included(),
+            _ComparisonValue.included(),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.plusLockedSharedBudgets,
+          values: [
+            _ComparisonValue.included(),
+            _ComparisonValue.included(),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.plusLockedBankSync,
+          values: [
+            _ComparisonValue.excluded(),
+            _ComparisonValue.included(),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.multipleCurrencies,
+          values: [
+            _ComparisonValue.text(context.l10n.plusLockedSingleBaseCurrency),
+            _ComparisonValue.text(context.l10n.unlimited),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.currencyConverter,
+          values: [
+            _ComparisonValue.excluded(),
+            _ComparisonValue.included(),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.plusLockedLiveExchangeRates,
+          values: [
+            _ComparisonValue.excluded(),
+            _ComparisonValue.included(),
+          ],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.support,
+          values: [
+            _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
+            _ComparisonValue.text(context.l10n.plusLockedWithin12Hours),
+          ],
+        ),
+      ],
     );
   }
 }

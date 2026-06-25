@@ -58,6 +58,27 @@ enum _ProcessingDialogKind {
   // cancelSubscription,  // Uncomment when needed
 }
 
+enum _PlanFamily {
+  plus,
+  premium,
+}
+
+extension _PlanFamilyX on _PlanFamily {
+  String get planId {
+    return switch (this) {
+      _PlanFamily.plus => 'plus',
+      _PlanFamily.premium => 'premium',
+    };
+  }
+
+  String label(BuildContext context) {
+    return switch (this) {
+      _PlanFamily.plus => context.l10n.plus,
+      _PlanFamily.premium => context.l10n.premium,
+    };
+  }
+}
+
 extension PlanSelectionModeX on PlanSelectionMode {
   static PlanSelectionMode fromQuery(String? value) {
     return switch (value) {
@@ -97,6 +118,10 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
+    final selectedPlanFamily = useState(
+      currentPlanId == 'premium' ? _PlanFamily.premium : _PlanFamily.plus,
+    );
+    final lastSyncedPlanFamilyForPlan = useRef<String?>(null);
     final currentInterval = currentSub?.subscription?.billingInterval;
     final currentProvider = currentSub?.subscription?.provider;
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
@@ -113,7 +138,6 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isPlayStoreManagedSubscription = currentProvider == 'play_store';
     final isStoreManagedSubscription = currentSubscription?.isIap ?? false;
     final canManageCurrentSubscription = currentPlanId != 'free' &&
-        currentPlanId != 'lifetime' &&
         !isHouseholdSharedSubscription &&
         !isFamilySharedSubscription;
 
@@ -142,6 +166,21 @@ class PlanSelectionPage extends HookConsumerWidget {
     final didAttemptFamilyAutoRestore = useRef(false);
     final didCompletePlanSelectionFlow = useRef(false);
     final checkoutAttemptCounter = useRef(0);
+
+    useEffect(() {
+      if (lastSyncedPlanFamilyForPlan.value == currentPlanId) {
+        return null;
+      }
+
+      lastSyncedPlanFamilyForPlan.value = currentPlanId;
+      if (currentPlanId == 'premium') {
+        selectedPlanFamily.value = _PlanFamily.premium;
+      } else if (currentPlanId == 'plus' || currentPlanId == 'free') {
+        selectedPlanFamily.value = _PlanFamily.plus;
+      }
+
+      return null;
+    }, [currentPlanId]);
 
     void runAfterBuild(VoidCallback callback) {
       runAfterBuildIfMounted(context, callback);
@@ -446,14 +485,13 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     final List<PlanOption> plans;
     if (useIap) {
-      // iOS uses IAP. Store product IDs:
-      // - lifetime: lifetime_earlybird
-      // - yearly: yearly
-      // - monthly: monthly
+      // iOS uses IAP. Product IDs come from the active subscription catalog.
       final storeDetailsById =
           iapStateAsync.value?.productDetailsById ?? const {};
-      final catalogProducts =
-          productsAsync.value ?? const <SubscriptionProduct>[];
+      final catalogProducts = (productsAsync.value ??
+              const <SubscriptionProduct>[])
+          .where((p) => p.plan == 'plus' || p.plan == 'premium')
+          .toList();
 
       final effectiveCatalogProducts = catalogProducts.isNotEmpty
           ? catalogProducts
@@ -487,18 +525,34 @@ class PlanSelectionPage extends HookConsumerWidget {
                 sortOrder: 10,
               ),
               SubscriptionProduct(
-                id: 'fallback_lifetime_ios',
+                id: 'fallback_premium_monthly_ios',
                 platform: 'ios',
-                plan: 'lifetime',
-                billingInterval: null,
-                storeProductId: 'lifetime_earlybird',
-                displayName: context.l10n.lifetime,
-                tagline: context.l10n.paywallPlanLifetimeTagline,
-                badgeText: context.l10n.paywallBadgeLimited,
+                plan: 'premium',
+                billingInterval: 'monthly',
+                storeProductId: 'premium_monthly',
+                displayName: context.l10n.monthly,
+                tagline: context.l10n.allPremiumFeatures,
+                badgeText: null,
                 isPopular: false,
-                displayPriceUsd: Constants.subscriptionLifetimePrice,
-                originalPriceUsd: null,
-                sortOrder: 40,
+                displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
+                originalPriceUsd:
+                    Constants.subscriptionPremiumMonthlyOriginalPrice,
+                sortOrder: 20,
+              ),
+              SubscriptionProduct(
+                id: 'fallback_premium_yearly_ios',
+                platform: 'ios',
+                plan: 'premium',
+                billingInterval: 'yearly',
+                storeProductId: 'premium_yearly',
+                displayName: context.l10n.yearly,
+                tagline: context.l10n.allPremiumFeatures,
+                badgeText: context.l10n.premium,
+                isPopular: false,
+                displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
+                originalPriceUsd:
+                    Constants.subscriptionPremiumYearlyOriginalPrice,
+                sortOrder: 30,
               ),
             ];
 
@@ -557,7 +611,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           id: 'premium_monthly',
           serverPlanId: 'premium',
           billingInterval: 'monthly',
-          name: context.l10n.premium,
+          name: context.l10n.monthly,
           storePrice: null,
           displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
           originalPriceUsd: Constants.subscriptionPremiumMonthlyOriginalPrice,
@@ -567,51 +621,57 @@ class PlanSelectionPage extends HookConsumerWidget {
           id: 'premium_yearly',
           serverPlanId: 'premium',
           billingInterval: 'yearly',
-          name: context.l10n.premium,
+          name: context.l10n.yearly,
           storePrice: null,
           displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
           originalPriceUsd: Constants.subscriptionPremiumYearlyOriginalPrice,
           tagline: context.l10n.allPremiumFeatures,
           badgeText: context.l10n.premium,
         ),
-        PlanOption(
-          id: 'lifetime',
-          serverPlanId: 'lifetime',
-          billingInterval: null,
-          name: context.l10n.lifetime,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionLifetimePrice,
-          tagline: context.l10n.paywallPlanLifetimeTagline,
-          badgeText: context.l10n.paywallBadgeLimited,
-        ),
       ];
     }
 
+    final visiblePlans = plans
+        .where((plan) => plan.serverPlanId == selectedPlanFamily.value.planId)
+        .toList();
+
     // Keep selection valid when plan options refresh.
     useEffect(() {
+      if (visiblePlans.isEmpty) {
+        if (selectedPlanId.value != null) {
+          selectedPlanId.value = null;
+        }
+        return null;
+      }
+
       final nextSelection = selectPaywallPlanId(
         currentPlanId: currentPlanId,
         currentInterval: currentInterval,
-        plans: plans,
+        plans: visiblePlans,
         currentSelection: selectedPlanId.value,
       );
-      if (nextSelection != null) {
+      if (nextSelection != selectedPlanId.value) {
         selectedPlanId.value = nextSelection;
       }
       return null;
-    }, [mode, currentPlanId, currentInterval, plans.length]);
+    }, [
+      mode,
+      currentPlanId,
+      currentInterval,
+      selectedPlanFamily.value,
+      visiblePlans.length,
+    ]);
 
     // Helpers
     PlanOption? activePlanOption;
-    for (final option in plans) {
+    for (final option in visiblePlans) {
       if (option.id == selectedPlanId.value) {
         activePlanOption = option;
         break;
       }
     }
 
-    final requiresAutoRenewAcknowledgement =
-        activePlanOption != null && activePlanOption.serverPlanId != 'lifetime';
+    final requiresAutoRenewAcknowledgement = activePlanOption != null;
     final canConfirmAutoRenew = activePlanOption != null &&
         (!requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value);
 
@@ -766,18 +826,11 @@ class PlanSelectionPage extends HookConsumerWidget {
         return false;
       }
 
-      if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
-        return true;
-      }
       if (option.serverPlanId == currentPlanId &&
           option.billingInterval == currentInterval) {
         return true;
       }
       return false;
-    }
-
-    if (currentPlanId == 'lifetime') {
-      return const _LifetimeView();
     }
 
     if (useIap && productsAsync.isLoading) {
@@ -793,9 +846,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     String resolveSubscriptionStatusLabel() {
       return switch (currentStatus) {
-        'active' => currentPlanId == 'lifetime'
-            ? context.l10n.activeLifetimeStatus
-            : context.l10n.activeStatus,
+        'active' => context.l10n.activeStatus,
         'trialing' => context.l10n.trialStatus,
         'canceled' => context.l10n.canceledStatus,
         'past_due' => context.l10n.pastDueStatus,
@@ -1276,16 +1327,40 @@ class PlanSelectionPage extends HookConsumerWidget {
                             const SizedBox(height: 32),
 
                             // --- SUBSCRIPTION PLANS ---
-                            UnifiedPlanCard(
-                              plans: plans,
-                              selectedPlanId: selectedPlanId.value ?? '',
-                              onPlanSelected: (id) => selectedPlanId.value = id,
-                              isCurrentPlan: isCurrentPlan,
-                              isNewUser: isNewUser,
+                            _PlanFamilyTabs(
+                              selectedFamily: selectedPlanFamily.value,
+                              onFamilySelected: (family) {
+                                selectedPlanFamily.value = family;
+                              },
                             ),
-
-                            const SizedBox(height: 12),
-                            const PaywallBenefitsChecklist(),
+                            const SizedBox(height: 20),
+                            _PlanSelectionBenefitsChecklist(
+                              premiumSelected:
+                                  selectedPlanFamily.value ==
+                                      _PlanFamily.premium,
+                            ),
+                            const SizedBox(height: 18),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: visiblePlans.isEmpty
+                                  ? _PlanUnavailableMessage(
+                                      key: ValueKey(
+                                          selectedPlanFamily.value.planId),
+                                    )
+                                  : UnifiedPlanCard(
+                                      key: ValueKey(
+                                          selectedPlanFamily.value.planId),
+                                      plans: visiblePlans,
+                                      selectedPlanId:
+                                          selectedPlanId.value ?? '',
+                                      onPlanSelected: (id) =>
+                                          selectedPlanId.value = id,
+                                      isCurrentPlan: isCurrentPlan,
+                                      isNewUser: isNewUser,
+                                    ),
+                            ),
                             const SizedBox(height: 40),
                             const PaywallReviewsSection(),
                             const SizedBox(height: 12),
@@ -1368,16 +1443,9 @@ class PlanSelectionPage extends HookConsumerWidget {
                                           .paywallErrorStoreUnavailableShort
                                       : isCurrentPlan(activePlanOption)
                                           ? context.l10n.alreadyOnThisPlan
-                                          : mode == PlanSelectionMode.trial &&
-                                                  activePlanOption
-                                                          .serverPlanId !=
-                                                      'lifetime'
+                                          : mode == PlanSelectionMode.trial
                                               ? context.l10n.paywallStartTrial
-                                              : activePlanOption.serverPlanId ==
-                                                      'lifetime'
-                                                  ? context
-                                                      .l10n.paywallGetLifetime
-                                                  : '${context.l10n.paywallSubscribe} ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? context.l10n.perMonth : context.l10n.perYear}',
+                                              : '${context.l10n.paywallSubscribe} ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? context.l10n.perMonth : context.l10n.perYear}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1386,8 +1454,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                           ),
                           if (currentPlanId != 'free' &&
                               isStoreManagedSubscription &&
-                              !isFamilySharedSubscription &&
-                              currentPlanId != 'lifetime') ...[
+                              !isFamilySharedSubscription) ...[
                             const SizedBox(height: 16),
                             GestureDetector(
                               onTap: isProcessing
@@ -1421,39 +1488,188 @@ class PlanSelectionPage extends HookConsumerWidget {
 
 // --- COMPONENTS ---
 
-class _LifetimeView extends StatelessWidget {
-  const _LifetimeView();
+class _PlanFamilyTabs extends StatelessWidget {
+  const _PlanFamilyTabs({
+    required this.selectedFamily,
+    required this.onFamilySelected,
+  });
+
+  final _PlanFamily selectedFamily;
+  final ValueChanged<_PlanFamily> onFamilySelected;
 
   @override
   Widget build(BuildContext context) {
-    return StatusBarOverlayRegion(
-      child: AdaptiveScaffold(
-        appBar: const AdaptiveAppBar(title: ''),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  context.l10n.activeLifetimeStatus,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: _PlanFamily.values.map((family) {
+        final selected = family == selectedFamily;
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onFamilySelected(family),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: selected
+                        ? colorScheme.primary
+                        : colorScheme.outlineVariant.withValues(alpha: 0.35),
+                    width: selected ? 2 : 1,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  context.l10n.paywallLifetimeSupport,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.mutedForeground,
-                    fontSize: 14,
-                  ),
+              ),
+              child: Text(
+                family.label(context),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.mutedForeground,
                 ),
-              ],
+              ),
             ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _PlanSelectionBenefitsChecklist extends StatelessWidget {
+  const _PlanSelectionBenefitsChecklist({
+    required this.premiumSelected,
+  });
+
+  final bool premiumSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final features = [
+      _PlanSelectionFeature(l10n.paywallBenefit0),
+      _PlanSelectionFeature(l10n.paywallBenefit1),
+      _PlanSelectionFeature(l10n.paywallBenefit2),
+      _PlanSelectionFeature(l10n.paywallBenefit5),
+      _PlanSelectionFeature(l10n.paywallBenefit3),
+      _PlanSelectionFeature(l10n.paywallBenefit4),
+      _PlanSelectionFeature(l10n.premiumFeatureMultiCurrency,
+          premiumOnly: true),
+      _PlanSelectionFeature(l10n.premiumFeatureCurrencyConverter,
+          premiumOnly: true),
+      _PlanSelectionFeature(l10n.premiumFeatureBankSync, premiumOnly: true),
+      _PlanSelectionFeature(l10n.premiumFeatureSupport, premiumOnly: true),
+    ];
+
+    return Column(
+      children: features.map((feature) {
+        final enabled = premiumSelected || !feature.premiumOnly;
+
+        return _PlanSelectionBenefitRow(
+          feature: feature,
+          enabled: enabled,
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _PlanSelectionFeature {
+  const _PlanSelectionFeature(
+    this.label, {
+    this.premiumOnly = false,
+  });
+
+  final String label;
+  final bool premiumOnly;
+}
+
+class _PlanSelectionBenefitRow extends StatelessWidget {
+  const _PlanSelectionBenefitRow({
+    required this.feature,
+    required this.enabled,
+  });
+
+  final _PlanSelectionFeature feature;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final contentColor = enabled
+        ? colorScheme.onSurface.withValues(alpha: 0.9)
+        : colorScheme.mutedForeground.withValues(alpha: 0.45);
+    final iconColor = enabled
+        ? colorScheme.primary
+        : colorScheme.mutedForeground.withValues(alpha: 0.35);
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      opacity: enabled ? 1 : 0.72,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: iconColor.withValues(alpha: enabled ? 0.18 : 0.12),
+              ),
+              child: Icon(
+                Icons.check,
+                size: 14,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                feature.label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: contentColor,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanUnavailableMessage extends StatelessWidget {
+  const _PlanUnavailableMessage({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+        child: Text(
+          context.l10n.paywallErrorLoadOptions,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: colorScheme.mutedForeground,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),

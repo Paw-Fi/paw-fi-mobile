@@ -24,6 +24,11 @@ String? selectPaywallPlanId({
     planId: 'plus',
     billingInterval: 'yearly',
   );
+  for (final plan in plans) {
+    if (plan.billingInterval == 'yearly') {
+      return defaultPlusYearly?.id ?? plan.id;
+    }
+  }
   return defaultPlusYearly?.id ?? plans.first.id;
 }
 

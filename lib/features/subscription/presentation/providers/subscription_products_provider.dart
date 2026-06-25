@@ -61,8 +61,13 @@ class SubscriptionProductsNotifier
         .map((e) => SubscriptionProduct.fromJson(
               Map<String, dynamic>.from(e as Map),
             ))
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        .toList();
+
+    if (platform == 'ios') {
+      _mergeMissingFallbackProducts(products);
+    }
+
+    products.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return products;
   }
 
@@ -83,6 +88,19 @@ class SubscriptionProductsNotifier
         rethrow;
       }
     });
+  }
+}
+
+void _mergeMissingFallbackProducts(List<SubscriptionProduct> products) {
+  for (final fallback in _fallbackIosProducts) {
+    final exists = products.any(
+      (product) =>
+          product.plan == fallback.plan &&
+          product.billingInterval == fallback.billingInterval,
+    );
+    if (!exists) {
+      products.add(fallback);
+    }
   }
 }
 
@@ -116,18 +134,32 @@ const _fallbackIosProducts = <SubscriptionProduct>[
     sortOrder: 10,
   ),
   SubscriptionProduct(
-    id: 'fallback_lifetime_ios',
+    id: 'fallback_premium_monthly_ios',
     platform: 'ios',
-    plan: 'lifetime',
-    billingInterval: null,
-    storeProductId: 'lifetime_earlybird',
-    displayName: 'Lifetime',
-    tagline: 'Pay once, own it forever.',
-    badgeText: 'LIMITED',
+    plan: 'premium',
+    billingInterval: 'monthly',
+    storeProductId: 'premium_monthly',
+    displayName: 'Monthly',
+    tagline: 'All Premium features.',
+    badgeText: null,
     isPopular: false,
-    displayPriceUsd: Constants.subscriptionLifetimePrice,
-    originalPriceUsd: null,
-    sortOrder: 40,
+    displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
+    originalPriceUsd: Constants.subscriptionPremiumMonthlyOriginalPrice,
+    sortOrder: 20,
+  ),
+  SubscriptionProduct(
+    id: 'fallback_premium_yearly_ios',
+    platform: 'ios',
+    plan: 'premium',
+    billingInterval: 'yearly',
+    storeProductId: 'premium_yearly',
+    displayName: 'Yearly',
+    tagline: 'All Premium features.',
+    badgeText: 'PREMIUM',
+    isPopular: false,
+    displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
+    originalPriceUsd: Constants.subscriptionPremiumYearlyOriginalPrice,
+    sortOrder: 30,
   ),
 ];
 
