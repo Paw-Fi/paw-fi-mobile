@@ -807,6 +807,7 @@ class SettingsPage extends HookConsumerWidget {
           return;
         }
 
+        await ref.read(appLockControllerProvider.notifier).clearForRecovery();
         ref.read(appInitializationV2Provider.notifier).clearCacheAndReset();
         ref.invalidate(analyticsProvider);
         ref.invalidate(incomeSummaryProvider);
@@ -817,9 +818,27 @@ class SettingsPage extends HookConsumerWidget {
         ref.invalidate(recurringTransactionsProvider);
         ref.invalidate(pocketsProvider);
         ref.invalidate(scopedWalletsProvider);
+        ref.invalidate(archivedScopedAccountsProvider);
         ref.invalidate(walletsPageStateProvider);
         ref.invalidate(bankConnectionsProvider);
         ref.invalidate(monthlyFinancialReportProvider);
+        ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
+            const {};
+
+        if (authState.uid.isNotEmpty) {
+          final walletCacheKeys = prefs
+              .getKeys()
+              .where(
+                (key) =>
+                    (key.startsWith('wallets:list:') ||
+                        key.startsWith('wallets:page-state:')) &&
+                    key.contains(':${authState.uid}:'),
+              )
+              .toList(growable: false);
+          for (final key in walletCacheKeys) {
+            await prefs.remove(key);
+          }
+        }
 
         ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
@@ -830,6 +849,10 @@ class SettingsPage extends HookConsumerWidget {
           await database.deleteJsonCacheByPrefix(
             namespace: 'monthly_report',
             cacheKeyPrefix: 'monthly-report:v3:${authState.uid}:',
+          );
+          await database.deleteJsonCacheByPrefix(
+            namespace: 'wallets_page_state',
+            cacheKeyPrefix: 'wallets:page-state:v4:${authState.uid}:',
           );
         } catch (_) {}
 
