@@ -3065,6 +3065,34 @@
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "Support Response",
   "plusLockedStandardSupport": "Standard",
+  "prioritySupport": "Priority Support",
+  "@prioritySupport": {
+    "description": "Text indicating the user has priority support"
+  },
+  "discord": "Discord",
+  "@discord": {
+    "description": "Discord"
+  },
+  "emailLabel": "Email",
+  "@emailLabel": {
+    "description": "Email label"
+  },
+  "contactUs": "Contact Us",
+  "@contactUs": {
+    "description": "Contact Us label"
+  },
+  "contactUsDescription": "How would you like to reach us? For faster responses, we recommend using Discord.",
+  "@contactUsDescription": {
+    "description": "Description for the contact us dialog"
+  },
+  "couldNotOpenEmail": "Could not open email app",
+  "@couldNotOpenEmail": {
+    "description": "Error message when email app fails to open"
+  },
+  "couldNotOpenDiscord": "Could not open Discord",
+  "@couldNotOpenDiscord": {
+    "description": "Error message when Discord fails to open"
+  },
   "plusLockedPrioritySupport": "Priority",
   "premiumLockedTitle": "Unlock Premium",
   "premiumLockedDescription": "Take your financial tracking to the next level with exclusive premium features.",

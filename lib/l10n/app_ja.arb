@@ -11,7 +11,7 @@
   "newToMoneko": "Monekoは初めてですか？",
   "createAccount": "新規登録",
   "resetYourPassword": "パスワードの再設定",
-  "email": "メールアドレス",
+  "email": "メール",
   "exampleEmail": "example@example.com",
   "cancel": "キャンセル",
   "sendResetLink": "再設定リンクを送信",
@@ -3093,5 +3093,11 @@
   "start7DayPremiumFreeTrial": "7日間のプレミアム無料トライアルを開始",
   "premiumWebDashboardDataExport": "すべてのデータを管理・エクスポートできるプレミアムWebダッシュボード",
   "encryptedReceiptPdfStorage": "メールで転送したレシートを保存する専用の暗号化ストレージ。Webダッシュボードからいつでもダウンロードできます",
-  "customerSupport": "サポート"
+  "customerSupport": "サポート",
+  "contactUs": "お問い合わせ",
+  "contactUsDescription": "お問い合わせ方法をお選びください。より迅速な対応をご希望の場合は、Discordのご利用をおすすめします。",
+  "prioritySupport": "優先サポート",
+  "discord": "Discord",
+  "couldNotOpenEmail": "メールアプリを開けませんでした",
+  "couldNotOpenDiscord": "Discordを開けませんでした"
 }

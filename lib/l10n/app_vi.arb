@@ -3092,5 +3092,11 @@
   "start7DayPremiumFreeTrial": "Bắt đầu dùng thử miễn phí gói Cao cấp trong 7 ngày",
   "premiumWebDashboardDataExport": "Bảng điều khiển web Cao cấp để quản lý và xuất toàn bộ dữ liệu",
   "encryptedReceiptPdfStorage": "Kho lưu trữ mã hóa riêng dành cho hóa đơn được chuyển tiếp qua email, có thể tải xuống từ bảng điều khiển web",
-  "customerSupport": "Hỗ trợ"
+  "customerSupport": "Hỗ trợ",
+  "contactUs": "Liên hệ",
+  "contactUsDescription": "Bạn muốn liên hệ với chúng tôi bằng cách nào? Để nhận phản hồi nhanh hơn, chúng tôi khuyên bạn nên sử dụng Discord.",
+  "prioritySupport": "Hỗ trợ ưu tiên",
+  "discord": "Discord",
+  "couldNotOpenEmail": "Không thể mở ứng dụng Email",
+  "couldNotOpenDiscord": "Không thể mở Discord"
 }

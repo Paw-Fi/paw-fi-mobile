@@ -11,7 +11,7 @@
   "newToMoneko": "Вперше в Moneko?",
   "createAccount": "Створити акаунт",
   "resetYourPassword": "Відновити пароль",
-  "email": "Email",
+  "email": "Електронна пошта",
   "exampleEmail": "vy@example.com",
   "cancel": "Скасувати",
   "sendResetLink": "Надіслати посилання",
@@ -3085,5 +3085,11 @@
   "start7DayPremiumFreeTrial": "Розпочати 7-денний безкоштовний пробний період Преміум",
   "premiumWebDashboardDataExport": "Вебпанель Преміум для керування та експорту всіх даних",
   "encryptedReceiptPdfStorage": "Окреме зашифроване сховище для чеків, надісланих електронною поштою, з можливістю завантаження через вебпанель",
-  "customerSupport": "Підтримка"
+  "customerSupport": "Підтримка",
+  "contactUs": "Зв’яжіться з нами",
+  "contactUsDescription": "Як ви хочете зв’язатися з нами? Для швидшої відповіді рекомендуємо скористатися Discord.",
+  "prioritySupport": "Пріоритетна підтримка",
+  "discord": "Discord",
+  "couldNotOpenEmail": "Не вдалося відкрити застосунок електронної пошти",
+  "couldNotOpenDiscord": "Не вдалося відкрити Discord"
 }

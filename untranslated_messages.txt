@@ -1,4 +1,24 @@
 {
+  "de": [
+    "emailLabel"
+  ],
+
+  "es": [
+    "emailLabel"
+  ],
+
+  "fr": [
+    "emailLabel"
+  ],
+
+  "it": [
+    "emailLabel"
+  ],
+
+  "ja": [
+    "emailLabel"
+  ],
+
   "ko": [
     "plus",
     "plusMonthly",
@@ -9,6 +29,39 @@
     "trial",
     "unknownFeature",
     "paywallBenefit5",
+    "emailLabel",
     "enableNotificationsForPaymentSummary"
+  ],
+
+  "nl": [
+    "emailLabel"
+  ],
+
+  "ru": [
+    "emailLabel"
+  ],
+
+  "th": [
+    "emailLabel"
+  ],
+
+  "uk": [
+    "emailLabel"
+  ],
+
+  "ur": [
+    "emailLabel"
+  ],
+
+  "vi": [
+    "emailLabel"
+  ],
+
+  "zh": [
+    "emailLabel"
+  ],
+
+  "zh_TW": [
+    "emailLabel"
   ]
 }

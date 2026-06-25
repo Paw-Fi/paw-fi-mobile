@@ -3093,5 +3093,11 @@
   "start7DayPremiumFreeTrial": "Commencez votre essai gratuit de la version Premium pendant 7 jours",
   "premiumWebDashboardDataExport": "Tableau de bord web Premium pour gérer et exporter toutes vos données",
   "encryptedReceiptPdfStorage": "Stockage chiffré dédié pour les reçus transférés par e-mail, téléchargeables depuis le tableau de bord web",
-  "customerSupport": "Assistance"
+  "customerSupport": "Assistance",
+  "contactUs": "Nous contacter",
+  "contactUsDescription": "Comment souhaitez-vous nous contacter ? Pour une réponse plus rapide, nous vous recommandons d'utiliser Discord.",
+  "prioritySupport": "Assistance prioritaire",
+  "discord": "Discord",
+  "couldNotOpenEmail": "Impossible d'ouvrir l'application de messagerie",
+  "couldNotOpenDiscord": "Impossible d'ouvrir Discord"
 }

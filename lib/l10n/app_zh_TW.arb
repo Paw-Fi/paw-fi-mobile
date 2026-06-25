@@ -11,7 +11,7 @@
   "newToMoneko": "還不是 Moneko 會員？",
   "createAccount": "註冊帳號",
   "resetYourPassword": "重設您的密碼",
-  "email": "Email",
+  "email": "電子郵件",
   "exampleEmail": "you@example.com",
   "cancel": "取消",
   "sendResetLink": "傳送重設連結",
@@ -3037,5 +3037,11 @@
   "start7DayPremiumFreeTrial": "開始 7 天進階版免費試用",
   "premiumWebDashboardDataExport": "進階版網頁儀表板，可管理並匯出所有資料",
   "encryptedReceiptPdfStorage": "專屬加密儲存空間，用於保存透過電子郵件轉寄的收據，並可隨時從網頁版儀表板下載",
-  "customerSupport": "客服"
+  "customerSupport": "客服",
+  "contactUs": "聯絡我們",
+  "contactUsDescription": "請選擇聯絡我們的方式。如需更快獲得回覆，我們建議使用 Discord。",
+  "prioritySupport": "優先客服",
+  "discord": "Discord",
+  "couldNotOpenEmail": "無法開啟郵件應用程式",
+  "couldNotOpenDiscord": "無法開啟 Discord"
 }

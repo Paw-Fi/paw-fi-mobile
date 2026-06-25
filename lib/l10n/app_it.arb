@@ -3040,5 +3040,11 @@
   "start7DayPremiumFreeTrial": "Inizia la prova gratuita di Premium per 7 giorni",
   "premiumWebDashboardDataExport": "Dashboard web Premium per gestire ed esportare tutti i dati",
   "encryptedReceiptPdfStorage": "Archivio crittografato dedicato per le ricevute inoltrate via e-mail, scaricabili dalla dashboard web",
-  "customerSupport": "Assistenza"
+  "customerSupport": "Assistenza",
+  "contactUs": "Contattaci",
+  "contactUsDescription": "Come preferisci contattarci? Per ricevere una risposta più rapida, ti consigliamo di usare Discord.",
+  "prioritySupport": "Assistenza prioritaria",
+  "discord": "Discord",
+  "couldNotOpenEmail": "Impossibile aprire l'app Email",
+  "couldNotOpenDiscord": "Impossibile aprire Discord"
 }

@@ -8,6 +8,9 @@ abstract class Links {
   /// Discord support / community server
   static const String discordSupport = 'https://discord.gg/M2Dgujvtze';
 
+  /// Support email address
+  static const String supportEmail = 'mailto:hello@moneko.io';
+
   /// Web forgot password flow
   static const String forgotPassword = 'https://moneko.io/forgot-password';
 }

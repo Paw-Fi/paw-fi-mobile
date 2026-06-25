@@ -3039,5 +3039,11 @@
   "start7DayPremiumFreeTrial": "7 دن کا پریمیم مفت ٹرائل شروع کریں",
   "premiumWebDashboardDataExport": "تمام ڈیٹا کو منظم اور ایکسپورٹ کرنے کے لیے پریمیم ویب ڈیش بورڈ",
   "encryptedReceiptPdfStorage": "ای میل کے ذریعے بھیجی گئی رسیدوں کے لیے مخصوص خفیہ شدہ اسٹوریج، جسے ویب ڈیش بورڈ سے بعد میں ڈاؤن لوڈ کیا جا سکتا ہے",
-  "customerSupport": "کسٹمر سپورٹ"
+  "customerSupport": "کسٹمر سپورٹ",
+  "contactUs": "ہم سے رابطہ کریں",
+  "contactUsDescription": "آپ ہم سے کیسے رابطہ کرنا چاہیں گے؟ تیز جواب کے لیے ہم Discord استعمال کرنے کی تجویز دیتے ہیں۔",
+  "prioritySupport": "ترجیحی کسٹمر سپورٹ",
+  "discord": "Discord",
+  "couldNotOpenEmail": "ای میل ایپ نہیں کھولی جا سکی",
+  "couldNotOpenDiscord": "Discord نہیں کھولا جا سکا"
 }

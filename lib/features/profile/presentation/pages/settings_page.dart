@@ -71,6 +71,7 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/core/util/constants.dart';
+import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
 import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
@@ -1762,6 +1763,61 @@ class SettingsPage extends HookConsumerWidget {
                         icon: Icons.chat_bubble_rounded,
                         label: context.l10n.submitNewFeatureRequest,
                         onTap: () => _showSubmitFeedbackSheet(context),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.headset_mic_rounded,
+                        label: context.l10n.contactUs,
+                        trailing: isPremiumTierPlan(subscription)
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  context.l10n.prioritySupport,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                              )
+                            : null,
+                        onTap: () async {
+                          await AdaptiveAlertDialog.show(
+                            context: context,
+                            title: context.l10n.contactUs,
+                            message: context.l10n.contactUsDescription,
+                            actions: [
+                              AlertAction(
+                                title: context.l10n.email,
+                                style: AlertActionStyle.secondary,
+                                onPressed: () {
+                                  launchIntegrationUrl(
+                                    Uri.parse(Links.supportEmail),
+                                    errorMessage: context.l10n.couldNotOpenEmail,
+                                  );
+                                },
+                              ),
+                              AlertAction(
+                                title: context.l10n.discord,
+                                style: AlertActionStyle.primary,
+                                onPressed: () {
+                                  launchIntegrationUrl(
+                                    Uri.parse(Links.discordSupport),
+                                    errorMessage: context.l10n.couldNotOpenDiscord,
+                                  );
+                                },
+                              ),
+                              AlertAction(
+                                title: context.l10n.cancel,
+                                style: AlertActionStyle.cancel,
+                                onPressed: () {},
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       _SettingsTile(
                         customIcon: Image.asset(

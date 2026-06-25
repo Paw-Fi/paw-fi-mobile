@@ -2896,5 +2896,11 @@
   "start7DayPremiumFreeTrial": "7일 프리미엄 무료 체험 시작",
   "premiumWebDashboardDataExport": "모든 데이터를 관리하고 내보낼 수 있는 프리미엄 웹 대시보드",
   "encryptedReceiptPdfStorage": "이메일로 전달한 영수증을 저장하는 전용 암호화 저장소. 웹 대시보드에서 언제든지 다운로드할 수 있습니다",
-  "customerSupport": "고객지원"
+  "customerSupport": "고객지원",
+  "contactUs": "문의하기",
+  "contactUsDescription": "어떤 방법으로 문의하시겠어요? 더 빠른 답변을 원하시면 Discord를 이용해 주세요.",
+  "prioritySupport": "우선 고객지원",
+  "discord": "Discord",
+  "couldNotOpenEmail": "이메일 앱을 열 수 없습니다",
+  "couldNotOpenDiscord": "Discord를 열 수 없습니다"
 }

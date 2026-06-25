@@ -3040,5 +3040,11 @@
   "start7DayPremiumFreeTrial": "Start de 7-daagse gratis Premium-proefperiode",
   "premiumWebDashboardDataExport": "Premium webdashboard om al je gegevens te beheren en te exporteren",
   "encryptedReceiptPdfStorage": "Versleutelde, speciale opslag voor via e-mail doorgestuurde bonnen, met downloadtoegang via het webdashboard",
-  "customerSupport": "Klantenservice"
+  "customerSupport": "Klantenservice",
+  "contactUs": "Contact opnemen",
+  "contactUsDescription": "Hoe wil je contact met ons opnemen? Voor een snellere reactie raden we Discord aan.",
+  "prioritySupport": "Klantenservice met prioriteit",
+  "discord": "Discord",
+  "couldNotOpenEmail": "Kan de e-mailapp niet openen",
+  "couldNotOpenDiscord": "Kan Discord niet openen"
 }

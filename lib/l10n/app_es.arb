@@ -11,7 +11,7 @@
   "newToMoneko": "¿Eres nuevo/a en Moneko?",
   "createAccount": "Crear cuenta",
   "resetYourPassword": "Restablece tu contraseña",
-  "email": "Email",
+  "email": "Correo electrónico",
   "exampleEmail": "tu@ejemplo.com",
   "cancel": "Cancelar",
   "sendResetLink": "Enviar enlace",
@@ -3095,5 +3095,11 @@
   "start7DayPremiumFreeTrial": "Comienza la prueba gratuita de Premium durante 7 días",
   "premiumWebDashboardDataExport": "Panel web Premium para gestionar y exportar todos tus datos",
   "encryptedReceiptPdfStorage": "Almacenamiento cifrado exclusivo para recibos enviados por correo electrónico, con acceso para descargarlos desde el panel web",
-  "customerSupport": "Atención"
+  "customerSupport": "Atención",
+  "contactUs": "Contáctanos",
+  "contactUsDescription": "¿Cómo te gustaría ponerte en contacto con nosotros? Para obtener una respuesta más rápida, te recomendamos usar Discord.",
+  "prioritySupport": "Atención prioritaria",
+  "discord": "Discord",
+  "couldNotOpenEmail": "No se pudo abrir la aplicación de correo",
+  "couldNotOpenDiscord": "No se pudo abrir Discord"
 }

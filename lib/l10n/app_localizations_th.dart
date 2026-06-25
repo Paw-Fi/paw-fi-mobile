@@ -8325,6 +8325,27 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedStandardSupport => 'มาตรฐาน';
 
   @override
+  String get prioritySupport => 'บริการช่วยเหลือแบบพิเศษ';
+
+  @override
+  String get discord => 'Discord';
+
+  @override
+  String get emailLabel => 'Email';
+
+  @override
+  String get contactUs => 'ติดต่อเรา';
+
+  @override
+  String get contactUsDescription => 'คุณต้องการติดต่อเราผ่านช่องทางใด? หากต้องการรับการตอบกลับเร็วขึ้น เราแนะนำให้ใช้ Discord';
+
+  @override
+  String get couldNotOpenEmail => 'ไม่สามารถเปิดแอปอีเมลได้';
+
+  @override
+  String get couldNotOpenDiscord => 'ไม่สามารถเปิด Discord ได้';
+
+  @override
   String get plusLockedPrioritySupport => 'พิเศษ';
 
   @override

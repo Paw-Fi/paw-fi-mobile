@@ -3110,5 +3110,11 @@
   "start7DayPremiumFreeTrial": "เริ่มทดลองใช้ฟรีพรีเมียม 7 วัน",
   "premiumWebDashboardDataExport": "แดชบอร์ดเว็บพรีเมียมสำหรับจัดการและส่งออกข้อมูลทั้งหมด",
   "encryptedReceiptPdfStorage": "พื้นที่จัดเก็บแบบเข้ารหัสเฉพาะสำหรับใบเสร็จที่ส่งผ่านอีเมล พร้อมดาวน์โหลดได้จากแดชบอร์ดบนเว็บ",
-  "customerSupport": "ฝ่ายช่วยเหลือ"
+  "customerSupport": "ฝ่ายช่วยเหลือ",
+  "contactUs": "ติดต่อเรา",
+  "contactUsDescription": "คุณต้องการติดต่อเราผ่านช่องทางใด? หากต้องการรับการตอบกลับเร็วขึ้น เราแนะนำให้ใช้ Discord",
+  "prioritySupport": "บริการช่วยเหลือแบบพิเศษ",
+  "discord": "Discord",
+  "couldNotOpenEmail": "ไม่สามารถเปิดแอปอีเมลได้",
+  "couldNotOpenDiscord": "ไม่สามารถเปิด Discord ได้"
 }
