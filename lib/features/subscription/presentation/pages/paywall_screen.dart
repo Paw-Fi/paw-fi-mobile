@@ -18,6 +18,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
+import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
@@ -249,9 +250,13 @@ class PaywallScreen extends HookConsumerWidget {
             ref.read(subscriptionNotifierProvider).valueOrNull;
         final isActive = (subscriptionData?.isSubscribed ?? false) ||
             (directSubscription?.isSubscribed ?? false);
+        final completedOption = checkoutPlanOption.value;
+        final hasExpectedPlan = completedOption == null
+            ? isActive
+            : _subscriptionMatchesPlan(subscriptionData, completedOption) ||
+                _subscriptionMatchesPlan(directSubscription, completedOption);
 
-        if (isActive) {
-          final completedOption = checkoutPlanOption.value;
+        if (hasExpectedPlan) {
           if (completedOption == null) {
             didCompletePaywallFlow.value = true;
             didInitiateCheckout.value = false;
@@ -882,7 +887,7 @@ class PaywallScreen extends HookConsumerWidget {
               .read(subscriptionManagementProvider)
               .valueOrNull
               ?.subscription;
-          return subscriptionData?.isSubscribed ?? false;
+          return _subscriptionMatchesPlan(subscriptionData, option);
         },
       );
 
@@ -1361,6 +1366,17 @@ class PaywallScreen extends HookConsumerWidget {
       ),
     ));
   }
+}
+
+bool _subscriptionMatchesPlan(Subscription? subscription, PlanOption option) {
+  if (!(subscription?.isSubscribed ?? false)) return false;
+  final currentPlan = subscription?.plan?.toLowerCase().trim();
+  final targetPlan = option.serverPlanId.toLowerCase().trim();
+  if (currentPlan != targetPlan) return false;
+
+  final targetInterval = option.billingInterval?.toLowerCase().trim();
+  if (targetInterval == null) return true;
+  return subscription?.billingInterval?.toLowerCase().trim() == targetInterval;
 }
 
 // --- COMPONENTS ---

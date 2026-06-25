@@ -22,6 +22,7 @@ import 'package:moneko/features/subscription/presentation/paywall_plan_selection
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
+import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -177,6 +178,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final didInitiateFamilyAutoRestore = useRef(false);
     final didAttemptFamilyAutoRestore = useRef(false);
     final didCompletePlanSelectionFlow = useRef(false);
+    final checkoutPlanOption = useRef<PlanOption?>(null);
     final checkoutAttemptCounter = useRef(0);
 
     useEffect(() {
@@ -223,6 +225,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       didInitiateCheckout.value = false;
       didInitiateRestore.value = false;
       didInitiateFamilyAutoRestore.value = false;
+      checkoutPlanOption.value = null;
 
       dismissProcessingDialog('plan selection flow completed');
 
@@ -272,6 +275,10 @@ class PlanSelectionPage extends HookConsumerWidget {
         final subscriptionAsync = ref.read(subscriptionManagementProvider);
         final subscriptionData = subscriptionAsync.valueOrNull?.subscription;
         final isActive = subscriptionData?.isSubscribed ?? false;
+        final expectedOption = checkoutPlanOption.value;
+        final hasExpectedPlan = expectedOption == null
+            ? isActive
+            : _subscriptionMatchesPlan(subscriptionData, expectedOption);
 
         _debugLog(
           '📊 Checkout verification snapshot | trigger=$trigger '
@@ -281,8 +288,9 @@ class PlanSelectionPage extends HookConsumerWidget {
           'isSubscribed=$isActive',
         );
 
-        if (isActive) {
+        if (hasExpectedPlan) {
           await completePlanSelectionFlowToDashboard(
+            option: expectedOption,
             source: 'checkout',
             provider: 'iap',
             includePurchaseEvent: true,
@@ -291,6 +299,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         }
 
         didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
         AppToast.error(
           context,
           context.l10n.paywallErrorNotActivated,
@@ -300,6 +309,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             '❌ verifySubscriptionAndCompleteCheckout failed | trigger=$trigger error=$e');
         _debugLog('Stack: $stack');
         didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
         if (context.mounted) {
           dismissProcessingDialog('iap verification error');
           AppToast.error(
@@ -1017,7 +1027,7 @@ class PlanSelectionPage extends HookConsumerWidget {
               .read(subscriptionManagementProvider)
               .valueOrNull
               ?.subscription;
-          return subscriptionData?.isSubscribed ?? false;
+          return _subscriptionMatchesPlan(subscriptionData, option);
         },
       );
 
@@ -1064,6 +1074,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       );
       try {
         didInitiateCheckout.value = true;
+        checkoutPlanOption.value = selectedPlan;
         print('🍎 Platform check - iOS: $isIos');
         if (useIap) {
           // Don't allow purchase attempts until the store/products are ready.
@@ -1136,6 +1147,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
         dismissProcessingDialog('main action catch');
         didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
 
         if (context.mounted) {
           _debugLog('Purchase flow threw: $e');
@@ -1464,6 +1476,17 @@ class PlanSelectionPage extends HookConsumerWidget {
       ),
     ));
   }
+}
+
+bool _subscriptionMatchesPlan(Subscription? subscription, PlanOption option) {
+  if (!(subscription?.isSubscribed ?? false)) return false;
+  final currentPlan = subscription?.plan?.toLowerCase().trim();
+  final targetPlan = option.serverPlanId.toLowerCase().trim();
+  if (currentPlan != targetPlan) return false;
+
+  final targetInterval = option.billingInterval?.toLowerCase().trim();
+  if (targetInterval == null) return true;
+  return subscription?.billingInterval?.toLowerCase().trim() == targetInterval;
 }
 
 // --- COMPONENTS ---
