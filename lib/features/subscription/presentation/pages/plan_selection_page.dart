@@ -97,10 +97,16 @@ extension PlanSelectionModeX on PlanSelectionMode {
 
 // --- PAGE ---
 class PlanSelectionPage extends HookConsumerWidget {
-  const PlanSelectionPage(
-      {super.key, this.mode = PlanSelectionMode.resubscribe});
+  const PlanSelectionPage({
+    super.key,
+    this.mode = PlanSelectionMode.resubscribe,
+    this.preferredPlanId,
+    this.preferredBillingInterval,
+  });
 
   final PlanSelectionMode mode;
+  final String? preferredPlanId;
+  final String? preferredBillingInterval;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -118,8 +124,14 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
+    final preferredPlanFamily = switch (preferredPlanId) {
+      'premium' => _PlanFamily.premium,
+      'plus' => _PlanFamily.plus,
+      _ => null,
+    };
     final selectedPlanFamily = useState(
-      currentPlanId == 'premium' ? _PlanFamily.premium : _PlanFamily.plus,
+      preferredPlanFamily ??
+          (currentPlanId == 'premium' ? _PlanFamily.premium : _PlanFamily.plus),
     );
     final lastSyncedPlanFamilyForPlan = useRef<String?>(null);
     final currentInterval = currentSub?.subscription?.billingInterval;
@@ -168,19 +180,22 @@ class PlanSelectionPage extends HookConsumerWidget {
     final checkoutAttemptCounter = useRef(0);
 
     useEffect(() {
-      if (lastSyncedPlanFamilyForPlan.value == currentPlanId) {
+      final planFamilySyncKey = '$currentPlanId:${preferredPlanId ?? ''}';
+      if (lastSyncedPlanFamilyForPlan.value == planFamilySyncKey) {
         return null;
       }
 
-      lastSyncedPlanFamilyForPlan.value = currentPlanId;
-      if (currentPlanId == 'premium') {
+      lastSyncedPlanFamilyForPlan.value = planFamilySyncKey;
+      if (preferredPlanFamily != null) {
+        selectedPlanFamily.value = preferredPlanFamily;
+      } else if (currentPlanId == 'premium') {
         selectedPlanFamily.value = _PlanFamily.premium;
       } else if (currentPlanId == 'plus' || currentPlanId == 'free') {
         selectedPlanFamily.value = _PlanFamily.plus;
       }
 
       return null;
-    }, [currentPlanId]);
+    }, [currentPlanId, preferredPlanId]);
 
     void runAfterBuild(VoidCallback callback) {
       runAfterBuildIfMounted(context, callback);
@@ -488,10 +503,10 @@ class PlanSelectionPage extends HookConsumerWidget {
       // iOS uses IAP. Product IDs come from the active subscription catalog.
       final storeDetailsById =
           iapStateAsync.value?.productDetailsById ?? const {};
-      final catalogProducts = (productsAsync.value ??
-              const <SubscriptionProduct>[])
-          .where((p) => p.plan == 'plus' || p.plan == 'premium')
-          .toList();
+      final catalogProducts =
+          (productsAsync.value ?? const <SubscriptionProduct>[])
+              .where((p) => p.plan == 'plus' || p.plan == 'premium')
+              .toList();
 
       final effectiveCatalogProducts = catalogProducts.isNotEmpty
           ? catalogProducts
@@ -649,6 +664,8 @@ class PlanSelectionPage extends HookConsumerWidget {
         currentInterval: currentInterval,
         plans: visiblePlans,
         currentSelection: selectedPlanId.value,
+        preferredPlanId: preferredPlanId,
+        preferredBillingInterval: preferredBillingInterval,
       );
       if (nextSelection != selectedPlanId.value) {
         selectedPlanId.value = nextSelection;
@@ -659,6 +676,8 @@ class PlanSelectionPage extends HookConsumerWidget {
       currentPlanId,
       currentInterval,
       selectedPlanFamily.value,
+      preferredPlanId,
+      preferredBillingInterval,
       visiblePlans.length,
     ]);
 
@@ -1335,9 +1354,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 20),
                             _PlanSelectionBenefitsChecklist(
-                              premiumSelected:
-                                  selectedPlanFamily.value ==
-                                      _PlanFamily.premium,
+                              premiumSelected: selectedPlanFamily.value ==
+                                  _PlanFamily.premium,
                             ),
                             const SizedBox(height: 18),
                             AnimatedSwitcher(
@@ -1365,12 +1383,13 @@ class PlanSelectionPage extends HookConsumerWidget {
                             const PaywallReviewsSection(),
                             const SizedBox(height: 12),
                             if (useIap)
-                              _PlanSelectionFooterLinks(
+                              PaywallFooterLinks(
                                 isProcessing: isProcessing || !isStoreReady,
                                 onRestorePurchases: onRestorePurchases,
+                                centered: true,
                               )
                             else
-                              const _LegalLinks(),
+                              const PaywallLegalLinks(),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -1393,64 +1412,25 @@ class PlanSelectionPage extends HookConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (requiresAutoRenewAcknowledgement) ...[
-                            CheckboxListTile(
+                            PaywallAutoRenewCheckbox(
                               value: hasAcknowledgedAutoRenew.value,
-                              onChanged: isProcessing
-                                  ? null
-                                  : (value) => hasAcknowledgedAutoRenew.value =
-                                      value ?? false,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              activeColor: colorScheme.primary,
-                              checkColor: colorScheme.onPrimary,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                mode == PlanSelectionMode.trial
-                                    ? context.l10n.paywallTrialTerms(
-                                        activePlanOption.billingInterval ==
-                                                'monthly'
-                                            ? context.l10n.perMonth
-                                            : context.l10n.perYear,
-                                        activePlanOption.priceDisplay,
-                                      )
-                                    : context.l10n.paywallSubTerms(
-                                        activePlanOption.billingInterval ==
-                                                'monthly'
-                                            ? context.l10n.perMonth
-                                            : context.l10n.perYear,
-                                        activePlanOption.priceDisplay,
-                                      ),
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 13,
-                                  height: 1.35,
-                                ),
-                              ),
+                              onChanged: (value) =>
+                                  hasAcknowledgedAutoRenew.value = value,
+                              isProcessing: isProcessing,
+                              option: activePlanOption,
+                              trialMode: mode == PlanSelectionMode.trial,
+                              bottomPadding: 12,
                             ),
-                            const SizedBox(height: 12),
                           ],
-                          PrimaryAdaptiveButton(
-                            onPressed: isProcessing ||
-                                    !canConfirmAutoRenew ||
-                                    !isStoreReady ||
-                                    isCurrentPlan(activePlanOption)
-                                ? null
-                                : onMainAction,
-                            child: Text(
-                              isProcessing
-                                  ? context.l10n.paywallProcessing
-                                  : !isStoreReady
-                                      ? context.l10n
-                                          .paywallErrorStoreUnavailableShort
-                                      : isCurrentPlan(activePlanOption)
-                                          ? context.l10n.alreadyOnThisPlan
-                                          : mode == PlanSelectionMode.trial
-                                              ? context.l10n.paywallStartTrial
-                                              : '${context.l10n.paywallSubscribe} ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? context.l10n.perMonth : context.l10n.perYear}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          PaywallCheckoutActionButton(
+                            option: activePlanOption,
+                            isProcessing: isProcessing,
+                            isStoreReady: isStoreReady,
+                            canConfirmAutoRenew: canConfirmAutoRenew,
+                            isCurrentPlan: isCurrentPlan(activePlanOption),
+                            trialMode: mode == PlanSelectionMode.trial,
+                            includePrice: true,
+                            onPressed: onMainAction,
                           ),
                           if (currentPlanId != 'free' &&
                               isStoreManagedSubscription &&
@@ -1677,45 +1657,6 @@ class _PlanUnavailableMessage extends StatelessWidget {
   }
 }
 
-class _PlanSelectionFooterLinks extends StatelessWidget {
-  const _PlanSelectionFooterLinks({
-    required this.isProcessing,
-    required this.onRestorePurchases,
-  });
-
-  final bool isProcessing;
-  final VoidCallback onRestorePurchases;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final linkStyle = TextStyle(
-      color: colorScheme.mutedForeground.withValues(alpha: 0.8),
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-    );
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        GestureDetector(
-          onTap: isProcessing ? null : onRestorePurchases,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            child: Text(
-              context.l10n.paywallRestorePurchase,
-              style: linkStyle,
-            ),
-          ),
-        ),
-        Text('|', style: linkStyle),
-        const _LegalLinks(),
-      ],
-    );
-  }
-}
-
 class _FamilySharingBadge extends StatelessWidget {
   const _FamilySharingBadge();
 
@@ -1741,34 +1682,6 @@ class _FamilySharingBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: colorScheme.primary,
           letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
-}
-
-class _LegalLinks extends StatelessWidget {
-  const _LegalLinks();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return GestureDetector(
-      onTap: () async {
-        final uri = Uri.parse('https://moneko.io/terms-of-service');
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Text(
-          context.l10n.paywallTermsPrivacy,
-          style: TextStyle(
-            color: colorScheme.mutedForeground.withValues(alpha: 0.8),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
         ),
       ),
     );

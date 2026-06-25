@@ -8292,10 +8292,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get unlockMonekoWith => 'ปลดล็อก Moneko ด้วย';
 
   @override
-  String get plusLockedTitle => 'ปลดล็อก Plus';
+  String get plusLockedTitle => 'สำหรับพรีเมียมเท่านั้น';
 
   @override
-  String get plusLockedTrialTitle => 'ต่ออายุ Plus';
+  String get plusLockedTrialTitle => 'พรีเมียมปลดล็อกฟีเจอร์นี้';
 
   @override
   String get plusLockedDescription => 'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์ Plus สุดพิเศษ';
@@ -8304,7 +8304,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedTrialDescription => 'ช่วงทดลองใช้งานใกล้สิ้นสุดแล้ว ต่ออายุแพ็กเกจเพื่อใช้งานฟีเจอร์เหล่านี้ต่อไป';
 
   @override
-  String get plusLockedViewPlansCta => 'ดูแพ็กเกจ Plus';
+  String get plusLockedViewPlansCta => 'เริ่มทดลองใช้ฟรี 7 วัน';
 
   @override
   String get plusLockedMaybeLaterCta => 'ไว้คราวหลัง';
@@ -8325,7 +8325,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedStandardSupport => 'มาตรฐาน';
 
   @override
-  String get plusLockedPrioritySupport => '< 12 ชม.';
+  String get plusLockedPrioritySupport => 'พิเศษ';
 
   @override
   String get premiumLockedTitle => 'ปลดล็อก Premium';
@@ -8364,10 +8364,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get premiumMaybeLaterCta => 'ไว้คราวหลัง';
 
   @override
-  String get plusLockedUpgradeToPlusEyebrow => 'อัปเกรดเป็น Plus';
+  String get plusLockedUpgradeToPlusEyebrow => 'ฟีเจอร์พรีเมียม';
 
   @override
-  String get plusLockedFreeDescription => 'ให้ Moneko ทำงานแทนคุณด้วยการบันทึกอัตโนมัติ การแชร์งบประมาณ และเครื่องมือการนำเข้าที่ดีกว่าเดิม';
+  String get plusLockedFreeDescription => 'ฟีเจอร์นี้ใช้งานได้เฉพาะในพรีเมียมเท่านั้น อัปเกรดตอนนี้เพื่อปลดล็อก พร้อมรับอัตราแลกเปลี่ยนแบบเรียลไทม์ การซิงก์ธนาคาร เครื่องมือจัดการสกุลเงินขั้นสูง และการสนับสนุนแบบพิเศษ';
 
   @override
   String get plusLockedFeatureHeader => 'ฟีเจอร์';
@@ -8397,7 +8397,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedTrialEyebrow => 'ทดลองใช้ฟรี 7 วัน';
 
   @override
-  String get plusLockedTrialRetentionDescription => 'ช่วงทดลองใช้มีเวลาจำกัด เลือก Plus เพื่อใช้งานฟีเจอร์ที่คุณกำลังทดลองต่อไป';
+  String get plusLockedTrialRetentionDescription => 'ช่วงทดลองใช้ฟรีช่วยให้คุณได้ลองใช้ Moneko แต่ฟีเจอร์นี้สงวนไว้สำหรับพรีเมียม อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร และการสนับสนุนที่รวดเร็วยิ่งขึ้น';
 
   @override
   String get plusLockedAfterTrialHeader => 'หลังหมดช่วงทดลอง';
@@ -8406,7 +8406,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedKeepAccessBadge => 'ใช้งานต่อ';
 
   @override
-  String get plusLockedKeepPlusAfterTrialCta => 'ใช้ Plus ต่อหลังหมดทดลอง';
+  String get plusLockedKeepPlusAfterTrialCta => 'เริ่มทดลองใช้ฟรี 7 วัน';
 
   @override
   String get plusLockedTrialReviewPlansNote => 'คุณสามารถดูแพ็กเกจได้โดยที่ช่วงทดลองใช้ 7 วันยังคงมีผลอยู่';
@@ -8415,10 +8415,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedPremiumFeatureEyebrow => 'ฟีเจอร์ Premium';
 
   @override
-  String get plusLockedPremiumUpgradeTitle => 'อัปเกรดเป็น Premium';
+  String get plusLockedPremiumUpgradeTitle => 'อัปเกรดเป็นพรีเมียมเพื่อปลดล็อกฟีเจอร์นี้';
 
   @override
-  String get plusLockedPremiumUpgradeDescription => 'Plus ครอบคลุมการบันทึกรายวันของคุณ Premium ปลดล็อกการจัดการสกุลเงินขั้นสูง การเชื่อมต่อธนาคาร และการสนับสนุนที่รวดเร็วยิ่งขึ้น';
+  String get plusLockedPremiumUpgradeDescription => 'ฟีเจอร์นี้ใช้งานได้เฉพาะในพรีเมียมเท่านั้น อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร อัตราแลกเปลี่ยนแบบเรียลไทม์ และการสนับสนุนแบบพิเศษ';
 
   @override
   String get plusLockedCurrentPlanBadge => 'แพ็กเกจปัจจุบันของคุณ';
@@ -8433,7 +8433,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedWithin12Hours => 'ภายใน 12 ชม.';
 
   @override
-  String get plusLockedViewPremiumPlansCta => 'ดูแพ็กเกจ Premium';
+  String get plusLockedViewPremiumPlansCta => 'เริ่มทดลองใช้ฟรี 7 วัน';
 
   @override
   String get plusLockedPremiumSupportWithin12HoursNote => 'การสนับสนุนระดับพรีเมียมมักจะตอบกลับภายใน 12 ชั่วโมง';
@@ -8443,4 +8443,30 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get archivedWalletsWillAppearHere => 'กระเป๋าเงินที่เก็บถาวรจะแสดงที่นี่';
+
+  @override
+  String get currentPlan => 'แผนปัจจุบัน';
+
+  @override
+  String get current => 'ปัจจุบัน';
+
+  @override
+  String subscribeForPricePeriod(Object period, Object price) {
+    return 'สมัครสมาชิกในราคา $price$period';
+  }
+
+  @override
+  String get start7DaysFreeTrial => 'เริ่มทดลองใช้ฟรี 7 วัน';
+
+  @override
+  String get start7DayPremiumFreeTrial => 'เริ่มทดลองใช้ฟรีพรีเมียม 7 วัน';
+
+  @override
+  String get premiumWebDashboardDataExport => 'แดชบอร์ดเว็บพรีเมียมสำหรับจัดการและส่งออกข้อมูลทั้งหมด';
+
+  @override
+  String get encryptedReceiptPdfStorage => 'พื้นที่จัดเก็บแบบเข้ารหัสเฉพาะสำหรับใบเสร็จที่ส่งผ่านอีเมล พร้อมดาวน์โหลดได้จากแดชบอร์ดบนเว็บ';
+
+  @override
+  String get customerSupport => 'ฝ่ายช่วยเหลือ';
 }

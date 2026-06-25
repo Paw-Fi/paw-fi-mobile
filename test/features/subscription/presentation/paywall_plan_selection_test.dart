@@ -37,6 +37,24 @@ void main() {
       expect(selected, 'plus_yearly');
     });
 
+    test('honors a preferred Premium yearly route selection', () {
+      final plans = [
+        _plan('premium_monthly', 'premium', 'monthly'),
+        _plan('premium_yearly', 'premium', 'yearly'),
+      ];
+
+      final selected = selectPaywallPlanId(
+        currentPlanId: 'free',
+        currentInterval: null,
+        plans: plans,
+        currentSelection: null,
+        preferredPlanId: 'premium',
+        preferredBillingInterval: 'yearly',
+      );
+
+      expect(selected, 'premium_yearly');
+    });
+
     test('falls back to Plus yearly when a stale selection disappears', () {
       final plans = [
         _plan('premium_yearly', 'premium', 'yearly'),

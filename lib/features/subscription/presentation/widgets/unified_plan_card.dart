@@ -36,14 +36,12 @@ class UnifiedPlanCard extends StatelessWidget {
           final isDisabled = isCurrentPlan?.call(plan) ?? false;
           final isSelected = selectedPlanId == plan.id;
 
-          final trialText = switch (plan.billingInterval) {
-            'yearly' => context.l10n.paywallYearlyTrial,
-            'monthly' => context.l10n.paywallMonthlyTrial,
-            _ => null,
-          };
+          final trialText = plan.serverPlanId == 'premium'
+              ? context.l10n.paywallMonthlyTrial
+              : null;
           final supportingText = plan.serverPlanId == 'lifetime'
               ? (isDisabled
-                  ? 'Current Plan'
+                  ? context.l10n.currentPlan
                   : context.l10n.paywallLifetimeSupport)
               : context.l10n.paywallFamilySharing;
           final periodText = switch (plan.billingInterval) {
@@ -111,7 +109,7 @@ class UnifiedPlanCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              'Current',
+                              context.l10n.current,
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,

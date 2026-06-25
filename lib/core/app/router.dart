@@ -184,7 +184,11 @@ GoRouter router(RouterRef ref) {
         path: '/plan-selection',
         builder: (context, state) {
           final mode = state.uri.queryParameters['mode'];
-          return PlanSelectionPage(mode: PlanSelectionModeX.fromQuery(mode));
+          return PlanSelectionPage(
+            mode: PlanSelectionModeX.fromQuery(mode),
+            preferredPlanId: state.uri.queryParameters['plan'],
+            preferredBillingInterval: state.uri.queryParameters['interval'],
+          );
         },
       ),
 

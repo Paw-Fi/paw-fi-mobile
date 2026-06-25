@@ -3,7 +3,267 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/data/models/app_store_reviews.dart';
+import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/shared/widgets/app_store_review_card.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+
+bool paywallPlanHasTrial(PlanOption option) => option.serverPlanId == 'premium';
+
+String paywallPeriodLabel(BuildContext context, PlanOption option) {
+  return option.billingInterval == 'monthly'
+      ? context.l10n.paywallPeriodMonth
+      : context.l10n.paywallPeriodYear;
+}
+
+String paywallAutoRenewTerms(
+  BuildContext context, {
+  required PlanOption option,
+  required bool trialMode,
+}) {
+  final period = paywallPeriodLabel(context, option);
+  if (trialMode && paywallPlanHasTrial(option)) {
+    return context.l10n.paywallTrialTerms(period, option.priceDisplay);
+  }
+  return context.l10n.paywallSubTerms(period, option.priceDisplay);
+}
+
+String paywallPrimaryActionLabel(
+  BuildContext context, {
+  required PlanOption option,
+  required bool isProcessing,
+  required bool isStoreReady,
+  required bool isCurrentPlan,
+  required bool trialMode,
+  bool includePrice = false,
+}) {
+  if (isProcessing) return context.l10n.paywallProcessing;
+  if (!isStoreReady) return context.l10n.paywallErrorStoreUnavailableShort;
+  if (isCurrentPlan) return context.l10n.alreadyOnThisPlan;
+  if (trialMode && paywallPlanHasTrial(option)) {
+    return context.l10n.start7DayPremiumFreeTrial;
+  }
+  if (option.serverPlanId == 'lifetime') return context.l10n.paywallGetLifetime;
+  if (includePrice) {
+    return context.l10n.subscribeForPricePeriod(
+      option.priceDisplay,
+      paywallPeriodLabel(context, option),
+    );
+  }
+  return context.l10n.paywallSubscribe;
+}
+
+class PaywallAutoRenewCheckbox extends StatelessWidget {
+  const PaywallAutoRenewCheckbox({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.isProcessing,
+    required this.option,
+    required this.trialMode,
+    this.bottomPadding = 24,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool isProcessing;
+  final PlanOption option;
+  final bool trialMode;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: isProcessing ? null : () => onChanged(!value),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 24,
+              width: 24,
+              child: Checkbox(
+                value: value,
+                onChanged: isProcessing
+                    ? null
+                    : (nextValue) => onChanged(nextValue ?? false),
+                activeColor: colorScheme.primary,
+                checkColor: colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                side: BorderSide(
+                  color: colorScheme.outlineVariant,
+                  width: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                paywallAutoRenewTerms(
+                  context,
+                  option: option,
+                  trialMode: trialMode,
+                ),
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PaywallCheckoutActionButton extends StatelessWidget {
+  const PaywallCheckoutActionButton({
+    super.key,
+    required this.option,
+    required this.isProcessing,
+    required this.isStoreReady,
+    required this.canConfirmAutoRenew,
+    required this.isCurrentPlan,
+    required this.trialMode,
+    required this.onPressed,
+    this.includePrice = false,
+    this.centerText = false,
+    this.fontSize = 16,
+    this.fontWeight = FontWeight.w600,
+  });
+
+  final PlanOption option;
+  final bool isProcessing;
+  final bool isStoreReady;
+  final bool canConfirmAutoRenew;
+  final bool isCurrentPlan;
+  final bool trialMode;
+  final VoidCallback onPressed;
+  final bool includePrice;
+  final bool centerText;
+  final double fontSize;
+  final FontWeight fontWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = paywallPrimaryActionLabel(
+      context,
+      option: option,
+      isProcessing: isProcessing,
+      isStoreReady: isStoreReady,
+      isCurrentPlan: isCurrentPlan,
+      trialMode: trialMode,
+      includePrice: includePrice,
+    );
+
+    final text = Text(
+      label,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+      ),
+    );
+
+    return PrimaryAdaptiveButton(
+      onPressed:
+          isProcessing || !canConfirmAutoRenew || !isStoreReady || isCurrentPlan
+              ? null
+              : onPressed,
+      child: centerText ? Center(child: text) : text,
+    );
+  }
+}
+
+class PaywallFooterLinks extends StatelessWidget {
+  const PaywallFooterLinks({
+    super.key,
+    required this.isProcessing,
+    required this.onRestorePurchases,
+    this.centered = false,
+  });
+
+  final bool isProcessing;
+  final VoidCallback onRestorePurchases;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final linkStyle = TextStyle(
+      color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    );
+
+    final restoreLink = GestureDetector(
+      onTap: isProcessing ? null : onRestorePurchases,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Text(
+          context.l10n.paywallRestorePurchase,
+          style: linkStyle,
+        ),
+      ),
+    );
+
+    if (centered) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          restoreLink,
+          Text('|', style: linkStyle),
+          const PaywallLegalLinks(),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        restoreLink,
+        const PaywallLegalLinks(),
+      ],
+    );
+  }
+}
+
+class PaywallLegalLinks extends StatelessWidget {
+  const PaywallLegalLinks({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse('https://moneko.io/terms-of-service');
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Text(
+          context.l10n.paywallTermsPrivacy,
+          style: TextStyle(
+            color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class PaywallBackgroundDecoration extends StatelessWidget {
   const PaywallBackgroundDecoration({super.key});
@@ -113,7 +373,12 @@ class PaywallAppRatingBadge extends StatelessWidget {
 }
 
 class PaywallBenefitsChecklist extends StatelessWidget {
-  const PaywallBenefitsChecklist({super.key});
+  const PaywallBenefitsChecklist({
+    super.key,
+    this.showPremiumBenefits = false,
+  });
+
+  final bool showPremiumBenefits;
 
   @override
   Widget build(BuildContext context) {

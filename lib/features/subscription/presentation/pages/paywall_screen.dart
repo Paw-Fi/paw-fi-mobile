@@ -1205,7 +1205,10 @@ class PaywallScreen extends HookConsumerWidget {
                             const SizedBox(height: 32),
 
                             // --- BENEFITS CHECKLIST ---
-                            const PaywallBenefitsChecklist(),
+                            PaywallBenefitsChecklist(
+                              showPremiumBenefits:
+                                  activePlanOption.serverPlanId == 'premium',
+                            ),
                             const SizedBox(height: 48),
 
                             // --- REVIEWS ---
@@ -1321,153 +1324,30 @@ class PaywallScreen extends HookConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (requiresAutoRenewAcknowledgement) ...[
-                            GestureDetector(
-                              onTap: isProcessing
-                                  ? null
-                                  : () {
-                                      final nextValue =
-                                          !hasAcknowledgedAutoRenew.value;
-                                      hasAcknowledgedAutoRenew.value =
-                                          nextValue;
-                                    },
-                              behavior: HitTestBehavior.opaque,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 24.0),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: Checkbox(
-                                        value: hasAcknowledgedAutoRenew.value,
-                                        onChanged: isProcessing
-                                            ? null
-                                            : (value) {
-                                                final nextValue =
-                                                    value ?? false;
-                                                hasAcknowledgedAutoRenew.value =
-                                                    nextValue;
-                                              },
-                                        activeColor: colorScheme.primary,
-                                        checkColor: colorScheme.onPrimary,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                        ),
-                                        side: BorderSide(
-                                          color: colorScheme.outlineVariant,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        mode == PaywallMode.trial
-                                            ? context.l10n.paywallTrialTerms(
-                                                activePlanOption.priceDisplay,
-                                                activePlanOption
-                                                            .billingInterval ==
-                                                        'monthly'
-                                                    ? context
-                                                        .l10n.paywallPeriodMonth
-                                                    : context
-                                                        .l10n.paywallPeriodYear)
-                                            : context.l10n.paywallSubTerms(
-                                                activePlanOption.priceDisplay,
-                                                activePlanOption
-                                                            .billingInterval ==
-                                                        'monthly'
-                                                    ? context
-                                                        .l10n.paywallPeriodMonth
-                                                    : context.l10n
-                                                        .paywallPeriodYear),
-                                        style: TextStyle(
-                                          color: colorScheme.mutedForeground,
-                                          fontSize: 12,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            PaywallAutoRenewCheckbox(
+                              value: hasAcknowledgedAutoRenew.value,
+                              onChanged: (value) =>
+                                  hasAcknowledgedAutoRenew.value = value,
+                              isProcessing: isProcessing,
+                              option: activePlanOption,
+                              trialMode: mode == PaywallMode.trial,
                             ),
                           ],
-                          PrimaryAdaptiveButton(
-                            onPressed: isProcessing ||
-                                    !canConfirmAutoRenew ||
-                                    !isStoreReady
-                                ? null
-                                : onMainAction,
-                            child: Center(
-                              child: Text(
-                                isProcessing
-                                    ? context.l10n.paywallProcessing
-                                    : !isStoreReady
-                                        ? context.l10n
-                                            .paywallErrorStoreUnavailableShort
-                                        : mode == PaywallMode.trial &&
-                                                activePlanOption.serverPlanId !=
-                                                    'lifetime'
-                                            ? context.l10n.paywallStartTrial
-                                            : activePlanOption.serverPlanId ==
-                                                    'lifetime'
-                                                ? context
-                                                    .l10n.paywallGetLifetime
-                                                : context.l10n.paywallSubscribe,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.onPrimary,
-                                ),
-                              ),
-                            ),
+                          PaywallCheckoutActionButton(
+                            option: activePlanOption,
+                            isProcessing: isProcessing,
+                            isStoreReady: isStoreReady,
+                            canConfirmAutoRenew: canConfirmAutoRenew,
+                            isCurrentPlan: false,
+                            trialMode: mode == PaywallMode.trial,
+                            onPressed: onMainAction,
+                            centerText: true,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                           ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              GestureDetector(
-                                onTap: isProcessing ? null : onRestorePurchases,
-                                behavior: HitTestBehavior.opaque,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 12, horizontal: 8),
-                                  child: Text(
-                                    context.l10n.paywallRestorePurchase,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground
-                                          .withValues(alpha: 0.8),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () async {
-                                  final uri = Uri.parse(
-                                      'https://moneko.io/terms-of-service');
-                                  await launchUrl(uri,
-                                      mode: LaunchMode.externalApplication);
-                                },
-                                behavior: HitTestBehavior.opaque,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 12, horizontal: 8),
-                                  child: Text(
-                                    context.l10n.paywallTermsPrivacy,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground
-                                          .withValues(alpha: 0.8),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          PaywallFooterLinks(
+                            isProcessing: isProcessing,
+                            onRestorePurchases: onRestorePurchases,
                           ),
                         ],
                       ),

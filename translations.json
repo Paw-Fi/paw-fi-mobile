@@ -1,19 +1,19 @@
 {
-"archivedWalletsWillAppearHere": {
-"en": "Archived wallets will appear here",
-"de": "Archivierte Wallets werden hier angezeigt",
-"es": "Las billeteras archivadas aparecerán aquí",
-"fr": "Les portefeuilles archivés apparaîtront ici",
-"it": "I portafogli archiviati appariranno qui",
-"ja": "アーカイブしたウォレットがここに表示されます",
-"ko": "보관된 지갑이 여기에 표시됩니다",
-"nl": "Gearchiveerde wallets worden hier weergegeven",
-"ur": "آرکائیو کیے گئے والیٹس یہاں دکھائی دیں گے",
-"ru": "Архивированные кошельки будут отображаться здесь",
-"th": "กระเป๋าเงินที่เก็บถาวรจะแสดงที่นี่",
-"uk": "Архівовані гаманці відображатимуться тут",
-"zh": "已归档的钱包会显示在这里",
-"zh_TW": "已封存的錢包會顯示在這裡",
-"vi": "Các ví đã lưu trữ sẽ hiển thị tại đây"
-}
+  "plusLockedPrioritySupport": {
+    "en": "Priority",
+    "de": "Priorisiert",
+    "es": "Prioritario",
+    "fr": "Prioritaire",
+    "it": "Prioritario",
+    "ja": "優先",
+    "ko": "우선",
+    "nl": "Prioriteit",
+    "ur": "ترجیحی",
+    "ru": "Приоритетная",
+    "th": "พิเศษ",
+    "uk": "Пріоритетна",
+    "zh": "优先",
+    "zh_TW": "優先",
+    "vi": "Ưu tiên"
+  }
 }

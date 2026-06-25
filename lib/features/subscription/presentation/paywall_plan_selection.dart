@@ -5,6 +5,8 @@ String? selectPaywallPlanId({
   required String? currentInterval,
   required List<PlanOption> plans,
   required String? currentSelection,
+  String? preferredPlanId,
+  String? preferredBillingInterval,
 }) {
   if (plans.isEmpty) return currentSelection;
 
@@ -14,6 +16,15 @@ String? selectPaywallPlanId({
     billingInterval: currentPlanId == 'lifetime' ? null : currentInterval,
   );
   if (currentPlanMatch != null) return currentPlanMatch.id;
+
+  final preferredPlanMatch = preferredPlanId == null
+      ? null
+      : _matchingPlan(
+          plans,
+          planId: preferredPlanId,
+          billingInterval: preferredBillingInterval,
+        );
+  if (preferredPlanMatch != null) return preferredPlanMatch.id;
 
   if (currentSelection != null && plans.any((p) => p.id == currentSelection)) {
     return currentSelection;

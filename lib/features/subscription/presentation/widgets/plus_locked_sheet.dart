@@ -73,13 +73,10 @@ class PlusLockedSheet extends HookConsumerWidget {
               PrimaryAdaptiveButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  context.push('/plan-selection');
+                  context.push(
+                    '/plan-selection?mode=trial&plan=premium&interval=yearly',
+                  );
                 },
-                prefixIcon: Icon(
-                  content.ctaIcon,
-                  size: 18,
-                  color: colorScheme.primaryForeground,
-                ),
                 child: Text(content.ctaLabel),
               ),
               const SizedBox(height: 10),
@@ -156,11 +153,11 @@ class _LockedSheetContent {
       iconForeground: (scheme) => scheme.primary,
       comparison: _plusPremiumComparison(
         context,
-        highlightedColumn: 0,
-        plusBadge: context.l10n.plusLockedRecommendedBadge,
+        highlightedColumn: 1,
+        premiumBadge: context.l10n.plusLockedRecommendedBadge,
       ),
-      ctaLabel: context.l10n.plusLockedViewPlansCta,
-      ctaIcon: Icons.arrow_upward_rounded,
+      ctaLabel: context.l10n.start7DayPremiumFreeTrial,
+      ctaIcon: Icons.workspace_premium_rounded,
     );
   }
 
@@ -179,7 +176,7 @@ class _LockedSheetContent {
         highlightedColumn: 0,
         plusBadge: context.l10n.plusLockedKeepAccessBadge,
       ),
-      ctaLabel: context.l10n.plusLockedKeepPlusAfterTrialCta,
+      ctaLabel: context.l10n.start7DayPremiumFreeTrial,
       ctaIcon: Icons.check_circle_rounded,
       note: context.l10n.plusLockedTrialReviewPlansNote,
     );
@@ -200,7 +197,7 @@ class _LockedSheetContent {
         plusBadge: context.l10n.plusLockedCurrentPlanBadge,
         premiumBadge: context.l10n.upgrade,
       ),
-      ctaLabel: context.l10n.plusLockedViewPremiumPlansCta,
+      ctaLabel: context.l10n.start7DayPremiumFreeTrial,
       ctaIcon: Icons.diamond_rounded,
       note: context.l10n.plusLockedPremiumSupportWithin12HoursNote,
     );
@@ -224,8 +221,8 @@ class _LockedSheetContent {
         _ComparisonRowData(
           feature: context.l10n.plusLockedAiExpenseCapture,
           values: [
-            _ComparisonValue.text(context.l10n.plusLockedAiCaptureValue),
-            _ComparisonValue.text(context.l10n.plusLockedAiCaptureValue),
+            _ComparisonValue.included(),
+            _ComparisonValue.included(),
           ],
         ),
         _ComparisonRowData(
@@ -259,8 +256,8 @@ class _LockedSheetContent {
         _ComparisonRowData(
           feature: context.l10n.multipleCurrencies,
           values: [
-            _ComparisonValue.text(context.l10n.plusLockedSingleBaseCurrency),
-            _ComparisonValue.text(context.l10n.unlimited),
+            _ComparisonValue.excluded(),
+            _ComparisonValue.included(),
           ],
         ),
         _ComparisonRowData(
@@ -278,10 +275,10 @@ class _LockedSheetContent {
           ],
         ),
         _ComparisonRowData(
-          feature: context.l10n.support,
+          feature: context.l10n.customerSupport,
           values: [
             _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
-            _ComparisonValue.text(context.l10n.plusLockedWithin12Hours),
+            _ComparisonValue.text(context.l10n.plusLockedPrioritySupport),
           ],
         ),
       ],
@@ -503,7 +500,7 @@ class _PlanComparisonHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 6,
+              flex: 8,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
                 child: Text(
@@ -518,7 +515,7 @@ class _PlanComparisonHeader extends StatelessWidget {
             ),
             for (var index = 0; index < content.columns.length; index++)
               Expanded(
-                flex: 4,
+                flex: 3,
                 child: _PlanHeaderCell(
                   column: content.columns[index],
                   highlighted: index == content.highlightedColumn,
@@ -626,7 +623,7 @@ class _PlanComparisonRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 6,
+              flex: 8,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
                 child: Text(
@@ -644,7 +641,7 @@ class _PlanComparisonRow extends StatelessWidget {
             ),
             for (var index = 0; index < data.values.length; index++)
               Expanded(
-                flex: 4,
+                flex: 3,
                 child: _ComparisonValueCell(
                   value: data.values[index],
                   highlighted: index == highlightedColumn,
