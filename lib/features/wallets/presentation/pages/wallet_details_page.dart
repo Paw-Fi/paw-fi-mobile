@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -28,6 +29,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_overflow_menu_button.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 class WalletDetailsPage extends HookConsumerWidget {
@@ -398,6 +400,43 @@ class WalletDetailsPage extends HookConsumerWidget {
       }
     }
 
+    final walletMenuItems = <AdaptivePopupMenuEntry>[
+      AdaptivePopupMenuItem<String>(
+        label: context.l10n.edit,
+        icon: PlatformInfo.isIOS26OrHigher() ? 'pencil' : Icons.edit,
+        value: 'edit',
+      ),
+      if (!latestWallet.isSystem && !latestWallet.isArchived)
+        AdaptivePopupMenuItem<String>(
+          label: context.l10n.archive,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'archivebox'
+              : Icons.archive_outlined,
+          value: 'archive',
+        ),
+    ];
+
+    void handleWalletMenuSelected(
+      int _,
+      AdaptivePopupMenuItem<String> item,
+    ) {
+      switch (item.value) {
+        case 'edit':
+          unawaited(onEdit());
+          break;
+        case 'archive':
+          unawaited(onArchive());
+          break;
+      }
+    }
+
+    final walletOverflowMenu = MonekoOverflowMenuButton<String>(
+      items: walletMenuItems,
+      onSelected: handleWalletMenuSelected,
+      tint: textColor,
+      buttonStyle: PopupButtonStyle.plain,
+    );
+
     return Scaffold(
       backgroundColor: gradientColors.first,
       floatingActionButton: !latestWallet.isArchived
@@ -454,15 +493,8 @@ class WalletDetailsPage extends HookConsumerWidget {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   actions: [
-                    IconButton(
-                      icon: Icon(Icons.edit, color: textColor),
-                      onPressed: onEdit,
-                    ),
-                    if (!latestWallet.isSystem && !latestWallet.isArchived)
-                      IconButton(
-                        icon: Icon(Icons.archive_outlined, color: textColor),
-                        onPressed: onArchive,
-                      ),
+                    walletOverflowMenu,
+                    const SizedBox(width: 8),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     stretchModes: const [

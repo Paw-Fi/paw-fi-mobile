@@ -3031,5 +3031,6 @@
   "plusLockedWithin12Hours": "Binnen 12 uur",
   "plusLockedViewPremiumPlansCta": "Bekijk Premium-abonnementen",
   "plusLockedPremiumSupportWithin12HoursNote": "Premium-support reageert normaal gesproken binnen 12 uur.",
-  "enableNotificationsForPaymentSummary": "Schakel meldingen in om een overzicht te ontvangen telkens wanneer een betaling is geregistreerd."
+  "enableNotificationsForPaymentSummary": "Schakel meldingen in om een overzicht te ontvangen telkens wanneer een betaling is geregistreerd.",
+  "archivedWalletsWillAppearHere": "Gearchiveerde wallets worden hier weergegeven"
 }

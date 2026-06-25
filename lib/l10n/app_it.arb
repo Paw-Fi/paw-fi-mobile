@@ -3031,5 +3031,6 @@
   "plusLockedWithin12Hours": "Entro 12h",
   "plusLockedViewPremiumPlansCta": "Vedi i piani Premium",
   "plusLockedPremiumSupportWithin12HoursNote": "Il supporto Premium solitamente risponde entro 12 ore.",
-  "enableNotificationsForPaymentSummary": "Attiva le notifiche per ricevere un riepilogo ogni volta che viene registrato un pagamento."
+  "enableNotificationsForPaymentSummary": "Attiva le notifiche per ricevere un riepilogo ogni volta che viene registrato un pagamento.",
+  "archivedWalletsWillAppearHere": "I portafogli archiviati appariranno qui"
 }

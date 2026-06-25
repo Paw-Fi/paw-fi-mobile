@@ -3103,5 +3103,6 @@
   "plusLockedWithin12Hours": "Within 12h",
   "plusLockedViewPremiumPlansCta": "View Premium plans",
   "plusLockedPremiumSupportWithin12HoursNote": "Premium support normally replies within 12 hours.",
-  "enableNotificationsForPaymentSummary": "Enable notifications to receive a summary every time a payment is captured."
+  "enableNotificationsForPaymentSummary": "Enable notifications to receive a summary every time a payment is captured.",
+  "archivedWalletsWillAppearHere": "Archived wallets will appear here"
 }

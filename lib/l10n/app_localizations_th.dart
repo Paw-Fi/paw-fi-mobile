@@ -8440,4 +8440,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get enableNotificationsForPaymentSummary => 'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
+
+  @override
+  String get archivedWalletsWillAppearHere => 'กระเป๋าเงินที่เก็บถาวรจะแสดงที่นี่';
 }

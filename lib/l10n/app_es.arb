@@ -3086,5 +3086,6 @@
   "plusLockedWithin12Hours": "En 12 h",
   "plusLockedViewPremiumPlansCta": "Ver planes Premium",
   "plusLockedPremiumSupportWithin12HoursNote": "El soporte Premium suele responder en menos de 12 horas.",
-  "enableNotificationsForPaymentSummary": "Activa las notificaciones para recibir un resumen cada vez que se registre un pago."
+  "enableNotificationsForPaymentSummary": "Activa las notificaciones para recibir un resumen cada vez que se registre un pago.",
+  "archivedWalletsWillAppearHere": "Las billeteras archivadas aparecerán aquí"
 }

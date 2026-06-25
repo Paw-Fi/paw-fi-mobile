@@ -3084,5 +3084,6 @@
   "plusLockedWithin12Hours": "Moins de 12 h",
   "plusLockedViewPremiumPlansCta": "Voir les forfaits Premium",
   "plusLockedPremiumSupportWithin12HoursNote": "Le support Premium répond généralement en moins de 12 heures.",
-  "enableNotificationsForPaymentSummary": "Activez les notifications pour recevoir un résumé à chaque fois qu'un paiement est enregistré."
+  "enableNotificationsForPaymentSummary": "Activez les notifications pour recevoir un résumé à chaque fois qu'un paiement est enregistré.",
+  "archivedWalletsWillAppearHere": "Les portefeuilles archivés apparaîtront ici"
 }

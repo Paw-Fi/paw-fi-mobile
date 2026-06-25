@@ -3076,5 +3076,6 @@
   "plusLockedWithin12Hours": "До 12 год",
   "plusLockedViewPremiumPlansCta": "Переглянути тарифи Premium",
   "plusLockedPremiumSupportWithin12HoursNote": "Підтримка Premium зазвичай відповідає протягом 12 годин.",
-  "enableNotificationsForPaymentSummary": "Увімкніть сповіщення, щоб отримувати підсумок щоразу, коли записується платіж."
+  "enableNotificationsForPaymentSummary": "Увімкніть сповіщення, щоб отримувати підсумок щоразу, коли записується платіж.",
+  "archivedWalletsWillAppearHere": "Архівовані гаманці відображатимуться тут"
 }

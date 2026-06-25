@@ -3080,5 +3080,6 @@
   "plusLockedWithin12Hours": "12 小时内",
   "plusLockedViewPremiumPlansCta": "查看 Premium 方案",
   "plusLockedPremiumSupportWithin12HoursNote": "Premium 客服通常会在 12 小时内回复。",
-  "enableNotificationsForPaymentSummary": "开启通知，以便在每次记录付款时接收摘要。"
+  "enableNotificationsForPaymentSummary": "开启通知，以便在每次记录付款时接收摘要。",
+  "archivedWalletsWillAppearHere": "已归档的钱包会显示在这里"
 }

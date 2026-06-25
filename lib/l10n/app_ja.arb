@@ -3084,5 +3084,6 @@
   "plusLockedWithin12Hours": "12時間以内",
   "plusLockedViewPremiumPlansCta": "Premiumプランを見る",
   "plusLockedPremiumSupportWithin12HoursNote": "Premiumサポートは通常12時間以内に返信します。",
-  "enableNotificationsForPaymentSummary": "支払いが記録されるたびにサマリーを受け取るには、通知をオンにしてください。"
+  "enableNotificationsForPaymentSummary": "支払いが記録されるたびにサマリーを受け取るには、通知をオンにしてください。",
+  "archivedWalletsWillAppearHere": "アーカイブしたウォレットがここに表示されます"
 }

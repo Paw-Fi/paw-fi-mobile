@@ -3034,5 +3034,6 @@
   "plusLockedWithin12Hours": "До 12 ч",
   "plusLockedViewPremiumPlansCta": "Смотреть тарифы Premium",
   "plusLockedPremiumSupportWithin12HoursNote": "Поддержка Premium обычно отвечает в течение 12 часов.",
-  "enableNotificationsForPaymentSummary": "Включите уведомления, чтобы получать сводку при каждой записи платежа."
+  "enableNotificationsForPaymentSummary": "Включите уведомления, чтобы получать сводку при каждой записи платежа.",
+  "archivedWalletsWillAppearHere": "Архивированные кошельки будут отображаться здесь"
 }

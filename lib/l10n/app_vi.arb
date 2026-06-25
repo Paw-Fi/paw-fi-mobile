@@ -3083,5 +3083,6 @@
   "plusLockedWithin12Hours": "Trong 12 giờ",
   "plusLockedViewPremiumPlansCta": "Xem các gói Premium",
   "plusLockedPremiumSupportWithin12HoursNote": "Hỗ trợ Premium thường phản hồi trong vòng 12 giờ.",
-  "enableNotificationsForPaymentSummary": "Bật thông báo để nhận bản tóm tắt mỗi khi một khoản thanh toán được ghi lại."
+  "enableNotificationsForPaymentSummary": "Bật thông báo để nhận bản tóm tắt mỗi khi một khoản thanh toán được ghi lại.",
+  "archivedWalletsWillAppearHere": "Các ví đã lưu trữ sẽ hiển thị tại đây"
 }

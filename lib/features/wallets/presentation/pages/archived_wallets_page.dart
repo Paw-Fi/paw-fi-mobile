@@ -57,7 +57,7 @@ class ArchivedWalletsPage extends ConsumerWidget {
             return Center(
               child: Center(
                 child: Text(
-                  context.l10n.noWalletsYetAddFirst,
+                  context.l10n.archivedWalletsWillAppearHere,
                   style: TextStyle(color: colorScheme.mutedForeground),
                 ),
               ),
