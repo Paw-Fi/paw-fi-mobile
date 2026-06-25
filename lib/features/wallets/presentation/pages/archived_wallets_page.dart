@@ -9,6 +9,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class ArchivedWalletsPage extends ConsumerWidget {
@@ -30,12 +31,21 @@ class ArchivedWalletsPage extends ConsumerWidget {
       );
       if (confirm?.confirmed != true || !context.mounted) return;
 
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.paywallProcessing,
+      );
+
       try {
         await actions.restoreAccount(wallet.id);
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         if (!context.mounted) return;
         AppToast.success(context, context.l10n.walletRestored);
       } catch (error) {
         if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
       }
     }

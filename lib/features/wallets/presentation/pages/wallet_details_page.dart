@@ -27,6 +27,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_overflow_menu_button.dart';
@@ -350,13 +351,22 @@ class WalletDetailsPage extends HookConsumerWidget {
 
       if (confirm?.confirmed != true || !context.mounted) return;
 
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.paywallProcessing,
+      );
+
       try {
         await actions.archiveAccount(latestWallet.id);
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         if (!context.mounted) return;
         AppToast.success(context, context.l10n.walletArchived);
         Navigator.of(context).pop();
       } catch (error) {
         if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
       }
     }

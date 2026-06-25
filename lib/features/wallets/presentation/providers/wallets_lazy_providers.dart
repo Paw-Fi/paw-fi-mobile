@@ -1248,13 +1248,17 @@ List<WalletEntity> _filterWalletsForSelectedCurrencies(
   List<String>? selectedCurrencies,
 ) {
   if (selectedCurrencies == null || selectedCurrencies.isEmpty) {
-    return wallets;
+    return wallets
+        .where((wallet) => !wallet.isArchived)
+        .toList(growable: false);
   }
   return wallets
       .where(
-        (wallet) => selectedCurrencies.contains(
-          wallet.currency.trim().toUpperCase(),
-        ),
+        (wallet) =>
+            !wallet.isArchived &&
+            selectedCurrencies.contains(
+              wallet.currency.trim().toUpperCase(),
+            ),
       )
       .toList(growable: false);
 }

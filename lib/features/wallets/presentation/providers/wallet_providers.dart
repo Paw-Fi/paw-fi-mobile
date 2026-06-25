@@ -178,7 +178,9 @@ final walletsByCurrencyProvider =
                 query.normalizedCurrency,
       ),
     );
-    return _mergeOptimisticAccounts(wallets, scopedCurrencyOverrides);
+    return _activeWallets(
+      _mergeOptimisticAccounts(wallets, scopedCurrencyOverrides),
+    );
   },
 );
 
@@ -223,6 +225,14 @@ List<WalletEntity> _sortWalletsByListOrder(Iterable<WalletEntity> wallets) {
   final sorted = wallets.toList(growable: false);
   sorted.sort(_compareWalletListOrder);
   return sorted;
+}
+
+List<WalletEntity> _activeWallets(Iterable<WalletEntity> wallets) {
+  return wallets.where((wallet) => !wallet.isArchived).toList(growable: false);
+}
+
+List<WalletEntity> _archivedWallets(Iterable<WalletEntity> wallets) {
+  return wallets.where((wallet) => wallet.isArchived).toList(growable: false);
 }
 
 int _compareWalletListOrder(WalletEntity left, WalletEntity right) {
@@ -301,6 +311,8 @@ final archivedScopedAccountsProvider =
 
   final householdId = ref.watch(walletScopeHouseholdIdProvider);
   final scopeQuery = ref.watch(walletsScopeQueryProvider);
+  final optimisticOverrides =
+      ref.watch(optimisticScopedAccountsOverridesProvider);
   final response = await supabase.functions.invoke(
     'list-wallets',
     headers: authHeaders,
@@ -321,11 +333,24 @@ final archivedScopedAccountsProvider =
   }
 
   final data = payload['data'] as List<dynamic>? ?? const [];
-  return data
+  final serverArchivedWallets = data
       .whereType<Map<String, dynamic>>()
       .map(WalletEntity.fromJson)
       .where((wallet) => wallet.isArchived)
       .toList(growable: false);
+  final scopedOverrides = Map<String, WalletEntity>.fromEntries(
+    optimisticOverrides.entries.where(
+      (entry) =>
+          entry.value.householdId == householdId &&
+          _walletMatchesSelectedCurrencies(
+            entry.value,
+            scopeQuery.normalizedSelectedCurrencies,
+          ),
+    ),
+  );
+  return _archivedWallets(
+    _mergeOptimisticAccounts(serverArchivedWallets, scopedOverrides),
+  );
 });
 
 final scopedWalletsProvider =
@@ -372,7 +397,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       if (cachedSessionWallets != null) {
         trace.mark('session-cache-hit-without-auth-headers',
             {'count': cachedSessionWallets.length});
-        return cachedSessionWallets;
+        return _activeWallets(cachedSessionWallets);
       }
 
       if (!bypassPersistedCache) {
@@ -387,11 +412,12 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         if (persistedWallets != null) {
           trace.mark('persisted-cache-hit-without-auth-headers',
               {'count': persistedWallets.length});
+          final activePersistedWallets = _activeWallets(persistedWallets);
           ref.read(walletsListSessionCacheProvider.notifier).state = {
             ...ref.read(walletsListSessionCacheProvider),
-            cacheKey: persistedWallets,
+            cacheKey: activePersistedWallets,
           };
-          return persistedWallets;
+          return activePersistedWallets;
         }
       }
 
@@ -402,7 +428,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     final cachedSessionWallets = sessionCache[cacheKey];
     if (cachedSessionWallets != null) {
       trace.mark('session-cache-hit', {'count': cachedSessionWallets.length});
-      return cachedSessionWallets;
+      return _activeWallets(cachedSessionWallets);
     }
 
     if (!bypassPersistedCache) {
@@ -416,10 +442,11 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       );
       if (persistedWallets != null) {
         trace.mark('persisted-cache-hit', {'count': persistedWallets.length});
+        final activePersistedWallets = _activeWallets(persistedWallets);
         Future<void>(() {
           ref.read(walletsListSessionCacheProvider.notifier).state = {
             ...ref.read(walletsListSessionCacheProvider),
-            cacheKey: persistedWallets,
+            cacheKey: activePersistedWallets,
           };
         });
         Future<void>(() async {
@@ -427,7 +454,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
             await refreshFromNetwork();
           } catch (_) {}
         });
-        return persistedWallets;
+        return activePersistedWallets;
       }
     }
 
@@ -446,7 +473,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
 
     final authHeaders = ref.read(walletAuthHeadersProvider);
     if (authHeaders == null) {
-      return state.valueOrNull ??
+      return _activeWallets(state.valueOrNull ??
           readPersistedWalletsList(
             ref,
             userId: user.uid,
@@ -455,7 +482,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
             selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
             currentMonthStart: scopeQuery.currentMonthStart,
           ) ??
-          const <WalletEntity>[];
+          const <WalletEntity>[]);
     }
 
     final requestKey = walletsListCacheKey(
@@ -468,6 +495,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     final wallets =
         await ref.read(walletsByHouseholdIdProvider(householdId).future);
     _clearSyncedOptimisticAccounts(ref, wallets);
+    final activeWallets = _activeWallets(wallets);
     final currentKey = walletsListCacheKey(
       userId: ref.read(authProvider).uid,
       householdId: ref.read(walletScopeHouseholdIdProvider),
@@ -483,7 +511,7 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
 
     ref.read(walletsListSessionCacheProvider.notifier).state = {
       ...ref.read(walletsListSessionCacheProvider),
-      requestKey: wallets,
+      requestKey: activeWallets,
     };
     ref.read(walletsPersistedCacheBypassCountProvider.notifier).state = 0;
     unawaited(
@@ -494,11 +522,11 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         selectedCurrency: scopeQuery.selectedCurrency,
         selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
         currentMonthStart: scopeQuery.currentMonthStart,
-        wallets: wallets,
+        wallets: activeWallets,
       ),
     );
-    state = AsyncData(wallets);
-    return wallets;
+    state = AsyncData(activeWallets);
+    return activeWallets;
   }
 }
 
@@ -525,7 +553,9 @@ final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
             selectedCurrencies,
           ))
       .toList(growable: false);
-  return _mergeOptimisticAccounts(filteredBaseAccounts, scopedOverrides);
+  return _activeWallets(
+    _mergeOptimisticAccounts(filteredBaseAccounts, scopedOverrides),
+  );
 });
 
 final defaultScopedAccountProvider = Provider<WalletEntity?>((ref) {
@@ -1148,7 +1178,9 @@ class WalletActions {
         ) ??
         ref.read(scopedWalletsProvider).valueOrNull ??
         const <WalletEntity>[];
-    final next = _mergeOptimisticAccounts(current, {account.id: account});
+    final next = _activeWallets(
+      _mergeOptimisticAccounts(current, {account.id: account}),
+    );
     ref.read(walletsListSessionCacheProvider.notifier).state = {
       ...ref.read(walletsListSessionCacheProvider),
       cacheKey: next,
