@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -30,14 +32,43 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
   double _baseAmount = 1.0;
   List<String>? _shownCurrencies;
   List<String>? _orderedCurrencies;
+  DateTime? _localLastUpdatedAt;
 
   static const String _shownCurrenciesKey = 'currency_rates_shown_currencies';
-  static const String _orderedCurrenciesKey = 'currency_rates_ordered_currencies';
+  static const String _orderedCurrenciesKey =
+      'currency_rates_ordered_currencies';
+  static const String _localLastUpdatedAtKey =
+      'currency_rates_local_last_updated_at';
 
   @override
   void initState() {
     super.initState();
     _loadShownCurrencies();
+    unawaited(_markLocalLastUpdatedAt());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_refreshRatesOnOpen());
+    });
+  }
+
+  Future<void> _markLocalLastUpdatedAt() async {
+    final updatedAt = DateTime.now().toUtc();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_localLastUpdatedAtKey, updatedAt.toIso8601String());
+    if (mounted) {
+      setState(() {
+        _localLastUpdatedAt = updatedAt;
+      });
+    }
+  }
+
+  Future<void> _refreshRatesOnOpen() async {
+    try {
+      final repository = await ref.read(currencyRateRepositoryProvider.future);
+      if (!mounted) return;
+      await repository.getRates(forceRefresh: true);
+      if (!mounted) return;
+      ref.invalidate(currencyRateTableProvider);
+    } catch (_) {}
   }
 
   Future<void> _loadShownCurrencies() async {
@@ -57,7 +88,8 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final ratesAsync = ref.watch(currencyRateTableProvider);
     final preferredCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
-    final homeSelectedCurrencies = ref.watch(homeFilterProvider).normalizedSelectedCurrencies;
+    final homeSelectedCurrencies =
+        ref.watch(homeFilterProvider).normalizedSelectedCurrencies;
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
@@ -68,13 +100,16 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
               onPressed: () {
                 final allCodes = value.rates.keys.toList()..sort();
                 final sheetCodes = _getManageSheetCodes(allCodes);
-                final defaultCodes = _getDefaultShownCodes(preferredCurrency, homeSelectedCurrencies);
+                final defaultCodes = _getDefaultShownCodes(
+                    preferredCurrency, homeSelectedCurrencies);
                 final currentShown = _getShownCodes(defaultCodes, allCodes)
                     .where(sheetCodes.contains)
                     .toList();
                 final safeCurrentShown = currentShown.isNotEmpty
                     ? currentShown
-                    : (sheetCodes.isNotEmpty ? <String>[sheetCodes.first] : <String>[]);
+                    : (sheetCodes.isNotEmpty
+                        ? <String>[sheetCodes.first]
+                        : <String>[]);
                 _openManageCurrencies(sheetCodes, safeCurrentShown);
               },
               iosSymbol: 'plus',
@@ -83,7 +118,7 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
         ],
       ),
       body: Padding(
-        padding:  EdgeInsets.only(top:getSubPageTopPadding(context)+50),
+        padding: EdgeInsets.only(top: getSubPageTopPadding(context) + 50),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           child: switch (ratesAsync) {
@@ -134,14 +169,16 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
     List<String>? homeSelectedCurrencies,
   ) {
     final allCodes = table.rates.keys.toList()..sort();
-    final resolvedBase = _resolveBaseCurrency(table, preferredCurrency, allCodes);
-    final defaultCodes = _getDefaultShownCodes(resolvedBase, homeSelectedCurrencies);
+    final resolvedBase =
+        _resolveBaseCurrency(table, preferredCurrency, allCodes);
+    final defaultCodes =
+        _getDefaultShownCodes(resolvedBase, homeSelectedCurrencies);
     final shownCodes = _getShownCodes(defaultCodes, allCodes);
     final orderedCodes = _getOrderedCodes(shownCodes);
 
     // Formatted timestamp
-    final lastUpdatedStr = table.fetchedAt != null
-        ? DateFormat.yMMMd().add_Hm().format(table.fetchedAt!.toLocal())
+    final lastUpdatedStr = _localLastUpdatedAt != null
+        ? DateFormat.yMMMd().add_Hm().format(_localLastUpdatedAt!.toLocal())
         : '';
 
     return Column(
@@ -171,7 +208,7 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
                 orderedCodes.insert(newIndex, item);
                 _orderedCurrencies = orderedCodes;
               });
-              
+
               // Save to SharedPreferences
               final prefs = await SharedPreferences.getInstance();
               await prefs.setStringList(_orderedCurrenciesKey, orderedCodes);
@@ -184,11 +221,16 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
                   child: _CurrencyExchangeTile(
                     code: orderedCodes[i],
                     symbol: resolveCurrencySymbol(orderedCodes[i]),
-                    amountLabel: resolveCurrencySymbol(orderedCodes[i]) + formatLocalizedNumber(context, table.convert(_baseAmount, resolvedBase, orderedCodes[i])),
+                    amountLabel: resolveCurrencySymbol(orderedCodes[i]) +
+                        formatLocalizedNumber(
+                            context,
+                            table.convert(
+                                _baseAmount, resolvedBase, orderedCodes[i])),
                     onTap: () => _showAmountEditor(
                       context,
                       code: orderedCodes[i],
-                      initialAmount: table.convert(_baseAmount, resolvedBase, orderedCodes[i]),
+                      initialAmount: table.convert(
+                          _baseAmount, resolvedBase, orderedCodes[i]),
                     ),
                   ),
                 ),
@@ -286,7 +328,8 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
     final list = _shownCurrencies;
     if (list != null && list.isNotEmpty) {
       // Ensure we keep only valid codes
-      final filteredList = list.where((code) => allCodes.contains(code)).toList();
+      final filteredList =
+          list.where((code) => allCodes.contains(code)).toList();
       // Safety rule: if list is empty after filtering, fall back to default
       if (filteredList.isNotEmpty) {
         // Always ensure base/primary currency is in shown list for usability
@@ -297,7 +340,7 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
         return filteredList;
       }
     }
-    
+
     // Fallback: default codes filtered to exist in allCodes
     return defaultCodes.where((code) => allCodes.contains(code)).toList();
   }
@@ -306,9 +349,11 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
     final ordered = _orderedCurrencies;
     if (ordered != null && ordered.isNotEmpty) {
       // Filter to only include currently shown codes, maintaining order
-      final filtered = ordered.where((code) => shownCodes.contains(code)).toList();
+      final filtered =
+          ordered.where((code) => shownCodes.contains(code)).toList();
       // Add any new codes that aren't in the ordered list
-      final newCodes = shownCodes.where((code) => !ordered.contains(code)).toList();
+      final newCodes =
+          shownCodes.where((code) => !ordered.contains(code)).toList();
       return [...filtered, ...newCodes];
     }
     return shownCodes;
@@ -343,7 +388,9 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
 
   List<String> _getManageSheetCodes(List<String> allCodes) {
     return allCodes
-        .where((code) => currencyOptions.containsKey(code) && getCurrencyFlagPath(code) != null)
+        .where((code) =>
+            currencyOptions.containsKey(code) &&
+            getCurrencyFlagPath(code) != null)
         .toList();
   }
 
@@ -353,7 +400,7 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
     required double initialAmount,
   }) async {
     HapticFeedback.mediumImpact();
-    
+
     final initialValue = initialAmount.toStringAsFixed(
       initialAmount == initialAmount.truncateToDouble() ? 0 : 2,
     );
@@ -572,7 +619,8 @@ class _CurrencyExchangeTile extends StatelessWidget {
 
               // Converted Amount (highlighted to indicate tappable)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),

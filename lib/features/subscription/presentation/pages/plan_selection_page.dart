@@ -137,6 +137,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final lastSyncedPlanFamilyForPlan = useRef<String?>(null);
     final currentInterval = currentSub?.subscription?.billingInterval;
     final currentProvider = currentSub?.subscription?.provider;
+    final normalizedProvider = currentProvider?.toLowerCase().trim();
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
     final renewalInfoLabel = currentSub?.renewalInfo(context.l10n);
     final hasActiveSubscription =
@@ -146,10 +147,17 @@ class PlanSelectionPage extends HookConsumerWidget {
         currentSubscription?.boundToUserId != null;
     final isFamilySharedSubscription =
         currentSubscription?.isAppStoreFamilyShared ?? false;
-    final isAppStoreManagedSubscription = currentProvider == 'app_store' ||
+    final hasLegacyAppStoreOwnership =
         currentSubscription?.appStoreInAppOwnershipType != null;
-    final isPlayStoreManagedSubscription = currentProvider == 'play_store';
-    final isStoreManagedSubscription = currentSubscription?.isIap ?? false;
+    final isLegacyAppStoreManagedSubscription =
+        (normalizedProvider == null || normalizedProvider.isEmpty) &&
+            hasLegacyAppStoreOwnership;
+    final isStripeManagedSubscription = normalizedProvider == 'stripe';
+    final isAppStoreManagedSubscription =
+        normalizedProvider == 'app_store' || isLegacyAppStoreManagedSubscription;
+    final isPlayStoreManagedSubscription = normalizedProvider == 'play_store';
+    final isStoreManagedSubscription =
+        isAppStoreManagedSubscription || isPlayStoreManagedSubscription;
     final canManageCurrentSubscription = currentPlanId != 'free' &&
         !isHouseholdSharedSubscription &&
         !isFamilySharedSubscription;
@@ -894,26 +902,41 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
+    Uri appStoreSubscriptionSettingsUri() {
+      return Uri.parse('https://apps.apple.com/account/subscriptions');
+    }
+
+    Uri playStoreSubscriptionSettingsUri() {
+      final storeProductId = currentSubscription?.storeProductId;
+      return Uri.parse(
+        'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
+      );
+    }
+
+    Future<void> openStoreSubscriptionSettings(Uri uri) async {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && context.mounted) {
+        AppToast.error(context, context.l10n.unableToOpenSubscriptionSettings);
+      }
+    }
+
     Future<void> onManageMembership() async {
       if (!canManageCurrentSubscription) {
         return;
       }
 
-      if (isStoreManagedSubscription) {
-        final storeProductId = currentSubscription?.storeProductId;
-        final uri = isAppStoreManagedSubscription ||
-                (!isPlayStoreManagedSubscription &&
-                    defaultTargetPlatform == TargetPlatform.iOS)
-            ? Uri.parse('https://apps.apple.com/account/subscriptions')
-            : Uri.parse(
-                'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
-              );
-        final launched =
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (!launched && context.mounted) {
-          AppToast.error(
-              context, context.l10n.unableToOpenSubscriptionSettings);
-        }
+      if (isStripeManagedSubscription) {
+        await openMembershipDashboardOnWeb();
+        return;
+      }
+
+      if (isAppStoreManagedSubscription) {
+        await openStoreSubscriptionSettings(appStoreSubscriptionSettingsUri());
+        return;
+      }
+
+      if (isPlayStoreManagedSubscription) {
+        await openStoreSubscriptionSettings(playStoreSubscriptionSettingsUri());
         return;
       }
 
@@ -958,20 +981,10 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     Future<void> onManageStoreSubscription() async {
       _debugLog('🧾 Open manage store subscription');
-      final storeProductId = currentSubscription?.storeProductId;
-      final uri = isAppStoreManagedSubscription ||
-              (!isPlayStoreManagedSubscription &&
-                  defaultTargetPlatform == TargetPlatform.iOS)
-          ? Uri.parse('https://apps.apple.com/account/subscriptions')
-          : Uri.parse(
-              'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
-            );
-
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      _debugLog('🧾 Manage subscription launchUrl result: $ok');
-      if (!ok && context.mounted) {
-        AppToast.error(context, context.l10n.unableToOpenSubscriptionSettings);
-      }
+      final uri = isAppStoreManagedSubscription
+          ? appStoreSubscriptionSettingsUri()
+          : playStoreSubscriptionSettingsUri();
+      await openStoreSubscriptionSettings(uri);
     }
 
     Future<void> startStripeCheckout(PlanOption option) async {
@@ -1065,9 +1078,15 @@ class PlanSelectionPage extends HookConsumerWidget {
         return;
       }
 
-      // Android subscription upgrades/downgrades require passing ChangeSubscriptionParam
-      // with the existing PurchaseDetails. To avoid accidental double subscriptions,
-      // we direct users to manage plan changes in Google Play for now.
+      // Existing Stripe subscriptions must use the web membership flow, which
+      // previews and applies immediate/scheduled changes against the current
+      // subscription instead of creating a second checkout subscription.
+      if (hasActiveSubscription &&
+          canManageCurrentSubscription &&
+          !isStoreManagedSubscription) {
+        await openMembershipDashboardOnWeb();
+        return;
+      }
 
       _debugLog(
         '🧾 Confirmed selection | plan=${selectedPlan.id} serverPlan=${selectedPlan.serverPlanId} interval=${selectedPlan.billingInterval} useIap=$useIap',

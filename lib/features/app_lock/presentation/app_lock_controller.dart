@@ -307,6 +307,7 @@ class AppLockController extends StateNotifier<AppLockState> {
     );
     await _repository.saveConfig(config);
     await _setEnabledFlag(true);
+    _backgroundedAt = null;
     state = AppLockState(
       status: AppLockStatus.unlocked,
       config: config,
@@ -347,6 +348,7 @@ class AppLockController extends StateNotifier<AppLockState> {
       );
       await _repository.saveConfig(updated);
       if (unlockOnSuccess) {
+        _backgroundedAt = null;
         state = state.copyWith(
           status: AppLockStatus.unlocked,
           config: updated,
@@ -395,6 +397,7 @@ class AppLockController extends StateNotifier<AppLockState> {
       clearLockoutUntil: true,
     );
     await _repository.saveConfig(updated);
+    _backgroundedAt = null;
     state = state.copyWith(
       status: AppLockStatus.unlocked,
       config: updated,

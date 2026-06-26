@@ -19,6 +19,7 @@ class AppLockPasscodePrompt extends StatefulWidget {
     this.onBiometricPressed,
     this.footer,
     this.biometricTooltip,
+    this.biometricIcon,
     super.key,
   });
 
@@ -32,6 +33,7 @@ class AppLockPasscodePrompt extends StatefulWidget {
   final VoidCallback? onBiometricPressed;
   final Widget? footer;
   final String? biometricTooltip;
+  final Widget? biometricIcon;
 
   @override
   State<AppLockPasscodePrompt> createState() => _AppLockPasscodePromptState();
@@ -126,6 +128,7 @@ class _AppLockPasscodePromptState extends State<AppLockPasscodePrompt> {
                       onBiometricPressed: widget.onBiometricPressed,
                       biometricTooltip:
                           widget.biometricTooltip ?? context.l10n.useBiometrics,
+                      biometricIcon: widget.biometricIcon,
                       passcodeLength: _passcode.length,
                     ),
                   ),
@@ -241,6 +244,7 @@ class _NumericKeypad extends StatelessWidget {
     required this.showBiometricButton,
     required this.onBiometricPressed,
     required this.biometricTooltip,
+    required this.biometricIcon,
     required this.passcodeLength,
   });
 
@@ -250,6 +254,7 @@ class _NumericKeypad extends StatelessWidget {
   final bool showBiometricButton;
   final VoidCallback? onBiometricPressed;
   final String biometricTooltip;
+  final Widget? biometricIcon;
   final int passcodeLength;
 
   @override
@@ -285,7 +290,8 @@ class _NumericKeypad extends StatelessWidget {
                           message: biometricTooltip,
                           child: _GlassKeypadButton(
                             isAction: true,
-                            icon: Icons.face_rounded,
+                            icon: Icons.fingerprint_rounded,
+                            customIcon: biometricIcon,
                             onTap: enabled ? onBiometricPressed : null,
                           ),
                         );
@@ -324,6 +330,7 @@ class _GlassKeypadButton extends StatefulWidget {
     this.onTap,
     this.isAction = false,
     this.icon,
+    this.customIcon,
     this.isTransparent = false,
   });
 
@@ -331,6 +338,7 @@ class _GlassKeypadButton extends StatefulWidget {
   final VoidCallback? onTap;
   final bool isAction;
   final IconData? icon;
+  final Widget? customIcon;
   final bool isTransparent;
 
   @override
@@ -436,6 +444,11 @@ class _GlassKeypadButtonState extends State<_GlassKeypadButton>
 
   Widget _buildContent(ColorScheme colorScheme) {
     if (widget.isAction) {
+      final customIcon = widget.customIcon;
+      if (customIcon != null) {
+        return customIcon;
+      }
+
       return Icon(
         widget.icon,
         size: 26,

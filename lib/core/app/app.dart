@@ -49,7 +49,7 @@ class _AppState extends ConsumerState<App> {
             ref.read(subscriptionManagementProvider.notifier).refresh(),
           );
           unawaited(_syncPendingIosWalletCapturesOnResume());
-        } else if (state == AppLifecycleState.inactive ||
+        } else if (state == AppLifecycleState.hidden ||
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.detached) {
           ref.read(appLockControllerProvider.notifier).markBackgrounded();

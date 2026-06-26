@@ -320,7 +320,7 @@ Future<void> _syncCurrencyRates(
     if (!guard.isActive) return;
     final repository = await ref.read(currencyRateRepositoryProvider.future);
     if (!guard.isActive) return;
-    await repository.getRates();
+    await repository.getRates(forceRefresh: true);
     if (!guard.isActive) return;
     ref.invalidate(currencyRateTableProvider);
   } catch (_) {}

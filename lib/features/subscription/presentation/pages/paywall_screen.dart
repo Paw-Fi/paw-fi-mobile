@@ -102,6 +102,16 @@ class PaywallScreen extends HookConsumerWidget {
     final currentPlanId = effectiveSubscription?.plan ?? 'free';
     final currentInterval = effectiveSubscription?.billingInterval;
     final currentStatus = effectiveSubscription?.status?.toLowerCase();
+    final currentProvider = effectiveSubscription?.provider;
+    final normalizedProvider = currentProvider?.toLowerCase().trim();
+    final hasLegacyAppStoreOwnership =
+        effectiveSubscription?.appStoreInAppOwnershipType != null;
+    final isLegacyAppStoreManagedSubscription =
+        (normalizedProvider == null || normalizedProvider.isEmpty) &&
+            hasLegacyAppStoreOwnership;
+    final isAppStoreManagedSubscription =
+        normalizedProvider == 'app_store' || isLegacyAppStoreManagedSubscription;
+    final isPlayStoreManagedSubscription = normalizedProvider == 'play_store';
     final hasActiveSubscription =
         (currentSub?.subscription?.isSubscribed ?? false) ||
             (directSubscription?.isSubscribed ?? false);
@@ -820,8 +830,10 @@ class PaywallScreen extends HookConsumerWidget {
 
     Future<void> onManageStoreSubscription() async {
       _debugLog('🧾 Open manage store subscription');
-      final storeProductId = currentSub?.subscription?.storeProductId;
-      final uri = defaultTargetPlatform == TargetPlatform.iOS
+      final storeProductId = effectiveSubscription?.storeProductId;
+      final uri = isAppStoreManagedSubscription ||
+              (!isPlayStoreManagedSubscription &&
+                  defaultTargetPlatform == TargetPlatform.iOS)
           ? Uri.parse('https://apps.apple.com/account/subscriptions')
           : Uri.parse(
               'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',

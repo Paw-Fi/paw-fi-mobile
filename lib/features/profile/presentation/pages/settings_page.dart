@@ -212,6 +212,25 @@ class SettingsPage extends HookConsumerWidget {
     final subscription = subscriptionAsync.valueOrNull?.subscription;
     final appLockState = ref.watch(appLockControllerProvider);
     final appLockConfigured = appLockState.isConfigured;
+    final biometricAvailability = appLockState.biometricAvailability;
+    final hasFaceId = biometricAvailability.hasFace &&
+        (biometricAvailability.platform == TargetPlatform.iOS ||
+            biometricAvailability.platform == TargetPlatform.macOS);
+    final biometricIcon = hasFaceId
+        ? SvgPicture.asset(
+            'lib/assets/images/face-id.svg',
+            width: 20,
+            height: 20,
+            colorFilter: ColorFilter.mode(
+              colorScheme.onSurface,
+              BlendMode.srcIn,
+            ),
+          )
+        : Icon(
+            Icons.fingerprint_rounded,
+            size: 20,
+            color: colorScheme.onSurface,
+          );
     final appLockSwitchValue = useState(appLockConfigured);
 
     final selectedCurrency =
@@ -1219,52 +1238,45 @@ class SettingsPage extends HookConsumerWidget {
                         showChevron: false,
                       ),
                       if (appLockConfigured) ...[
-                        _SettingsTile(
-                          icon: Icons.fingerprint_rounded,
-                          label: appLockState.biometricAvailable
-                              ? appLockState.biometricDisplayName(context.l10n)
-                              : context.l10n.biometricUnlock,
-                          value: appLockState.biometricAvailable
-                              ? null
-                              : context.l10n.appLockUnavailable,
-                          trailing: appLockState.biometricAvailable
-                              ? Padding(
-                                  padding: const EdgeInsets.only(right: 16),
-                                  child: AdaptiveSwitch(
-                                    value:
-                                        appLockState.config?.biometricEnabled ??
-                                            false,
-                                    onChanged: (value) async {
-                                      final changed = await ref
-                                          .read(
-                                            appLockControllerProvider.notifier,
-                                          )
-                                          .setBiometricEnabled(value);
-                                      if (!context.mounted) {
-                                        return;
-                                      }
-                                      if (changed) {
-                                        AppToast.success(
-                                          context,
-                                          value
-                                              ? context
-                                                  .l10n.biometricUnlockEnabled
-                                              : context
-                                                  .l10n.biometricUnlockDisabled,
-                                        );
-                                      } else if (value) {
-                                        AppToast.info(
-                                          context,
-                                          context
-                                              .l10n.biometricUnlockNotEnabled,
-                                        );
-                                      }
-                                    },
-                                  ),
-                                )
-                              : null,
-                          showChevron: false,
-                        ),
+                        if (appLockState.biometricAvailable)
+                          _SettingsTile(
+                            customIcon: biometricIcon,
+                            label:
+                                appLockState.biometricDisplayName(context.l10n),
+                            trailing: Padding(
+                              padding: const EdgeInsets.only(right: 16),
+                              child: AdaptiveSwitch(
+                                value:
+                                    appLockState.config?.biometricEnabled ??
+                                        false,
+                                onChanged: (value) async {
+                                  final changed = await ref
+                                      .read(
+                                        appLockControllerProvider.notifier,
+                                      )
+                                      .setBiometricEnabled(value);
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+                                  if (changed) {
+                                    AppToast.success(
+                                      context,
+                                      value
+                                          ? context.l10n.biometricUnlockEnabled
+                                          : context
+                                              .l10n.biometricUnlockDisabled,
+                                    );
+                                  } else if (value) {
+                                    AppToast.info(
+                                      context,
+                                      context.l10n.biometricUnlockNotEnabled,
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            showChevron: false,
+                          ),
                         _SettingsTile(
                           icon: Icons.password_rounded,
                           label: context.l10n.changePasscode,
@@ -1696,9 +1708,11 @@ class SettingsPage extends HookConsumerWidget {
                             if (status == 'trialing') {
                               return context.l10n.trialStatus;
                             }
-                            return d?.hasActiveSubscription == true
-                                ? context.l10n.plusPlan
-                                : context.l10n.free;
+                            if (d?.hasActiveSubscription != true) {
+                              return context.l10n.free;
+                            }
+                            return d?.planDisplayName(context.l10n) ??
+                                context.l10n.plusPlan;
                           },
                           loading: () => '...',
                           error: (_, __) => context.l10n.error('unknown'),

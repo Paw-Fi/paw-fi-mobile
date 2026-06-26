@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -24,23 +25,55 @@ class AppLockPage extends HookConsumerWidget {
     final appLockState = ref.watch(appLockControllerProvider);
     final isSubmitting = useState(false);
     final promptRevision = useState(0);
+    final biometricAvailability = appLockState.biometricAvailability;
+    final hasFaceId = biometricAvailability.hasFace &&
+        (biometricAvailability.platform == TargetPlatform.iOS ||
+            biometricAvailability.platform == TargetPlatform.macOS);
+    final biometricIcon = hasFaceId
+        ? SvgPicture.asset(
+            'lib/assets/images/face-id.svg',
+            width: 26,
+            height: 26,
+            colorFilter: ColorFilter.mode(
+              Theme.of(context).colorScheme.onSurface,
+              BlendMode.srcIn,
+            ),
+          )
+        : Icon(
+            Icons.fingerprint_rounded,
+            size: 26,
+            color: Theme.of(context).colorScheme.onSurface,
+          );
 
     Future<void> unlockWithPasscode(String passcode) async {
       if (isSubmitting.value) {
         return;
       }
       isSubmitting.value = true;
-      final unlocked = await ref
-          .read(appLockControllerProvider.notifier)
-          .verifyPasscode(passcode);
+      var unlocked = false;
+      try {
+        unlocked = await ref
+            .read(appLockControllerProvider.notifier)
+            .verifyPasscode(passcode);
+      } catch (_) {
+        if (context.mounted) {
+          promptRevision.value++;
+        }
+        return;
+      } finally {
+        if (context.mounted) {
+          isSubmitting.value = false;
+        }
+      }
+
       if (!context.mounted) {
         return;
       }
-      isSubmitting.value = false;
       if (!unlocked) {
         promptRevision.value++;
         return;
       }
+
       _goToUnlockedDestination(context);
     }
 
@@ -49,13 +82,22 @@ class AppLockPage extends HookConsumerWidget {
         return;
       }
       isSubmitting.value = true;
-      final unlocked = await ref
-          .read(appLockControllerProvider.notifier)
-          .authenticateWithBiometrics();
+      var unlocked = false;
+      try {
+        unlocked = await ref
+            .read(appLockControllerProvider.notifier)
+            .authenticateWithBiometrics();
+      } catch (_) {
+        return;
+      } finally {
+        if (context.mounted) {
+          isSubmitting.value = false;
+        }
+      }
+
       if (!context.mounted) {
         return;
       }
-      isSubmitting.value = false;
       if (unlocked) {
         _goToUnlockedDestination(context);
       }
@@ -118,6 +160,7 @@ class AppLockPage extends HookConsumerWidget {
                           enabled: !isSubmitting.value,
                           isSubmitting: isSubmitting.value,
                           showBiometricButton: appLockState.canUseBiometrics,
+                          biometricIcon: biometricIcon,
                           biometricTooltip:
                               appLockState.biometricAvailability.actionLabel(
                             context.l10n,
