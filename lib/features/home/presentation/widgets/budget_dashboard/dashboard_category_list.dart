@@ -87,7 +87,7 @@ class DashboardCategoryList extends StatelessWidget {
       onTap: onTap,
       children: topCategories.map((cat) {
         final percent = maxAmount > 0 ? cat.amount / maxAmount : 0.0;
-        final color = getCategoryColor(cat.id);
+        final color = getCategoryColor(cat.id, context);
 
         return DashboardListTile(
           title: cat.name,

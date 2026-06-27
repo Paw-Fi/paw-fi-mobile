@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -475,33 +476,47 @@ int computeFallbackCategoryColorArgb(String? category) {
   return _fallbackPalette[paletteIndex].toARGB32();
 }
 
-Color getCategoryColor(String? category) {
+Color getCategoryColor(String? category, [BuildContext? context]) {
   final directKey = canonicalizeCategoryKey(category);
+
+  Color? baseColor;
 
   final directOverride = getCustomCategoryStyleOverrides()[directKey];
   final directColorArgb = directOverride?.colorArgb;
   if (directColorArgb is int) {
-    return Color(directColorArgb);
+    baseColor = Color(directColorArgb);
+  } else {
+    final directMapped = categoryColors[directKey];
+    if (directMapped != null) {
+      baseColor = directMapped;
+    } else {
+      final key = directKey.contains(' ')
+          ? directKey
+          : normalizeCategory(category ?? 'uncategorized');
+
+      final override = getCustomCategoryStyleOverrides()[key];
+      final overrideColorArgb = override?.colorArgb;
+      if (overrideColorArgb is int) {
+        baseColor = Color(overrideColorArgb);
+      } else {
+        final mapped = categoryColors[key];
+        if (mapped != null) {
+          baseColor = mapped;
+        } else {
+          final paletteIndex = key.hashCode.abs() % _fallbackPalette.length;
+          baseColor = _fallbackPalette[paletteIndex];
+        }
+      }
+    }
   }
 
-  final directMapped = categoryColors[directKey];
-  if (directMapped != null) return directMapped;
-
-  final key = directKey.contains(' ')
-      ? directKey
-      : normalizeCategory(category ?? 'uncategorized');
-
-  final override = getCustomCategoryStyleOverrides()[key];
-  final overrideColorArgb = override?.colorArgb;
-  if (overrideColorArgb is int) {
-    return Color(overrideColorArgb);
+  if (context != null) {
+    // We import AppTheme if needed. Wait, is AppTheme imported?
+    // We will ensure it is imported.
+    return AppTheme.adaptCategoryColorForTheme(baseColor, Theme.of(context).colorScheme);
   }
 
-  final mapped = categoryColors[key];
-  if (mapped != null) return mapped;
-
-  final paletteIndex = key.hashCode.abs() % _fallbackPalette.length;
-  return _fallbackPalette[paletteIndex];
+  return baseColor;
 }
 
 IconData getCategoryIcon(String? category) {

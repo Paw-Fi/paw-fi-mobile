@@ -7,17 +7,17 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 class PlusLockedSheet extends HookConsumerWidget {
   const PlusLockedSheet({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet(
+    return MonekoBottomSheet.show(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor:
-          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Theme.of(context).colorScheme.sheetBackground,
       builder: (context) => const PlusLockedSheet(),
     );
   }
@@ -34,16 +34,11 @@ class PlusLockedSheet extends HookConsumerWidget {
       child: Container(
         key: ValueKey(content.mode),
         constraints: BoxConstraints(maxHeight: maxHeight),
-        decoration: BoxDecoration(
-          color: colorScheme.sheetBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
-        ),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
             20,
-            12,
+            0,
             20,
             MediaQuery.paddingOf(context).bottom + 20,
           ),
@@ -51,17 +46,6 @@ class PlusLockedSheet extends HookConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.mutedForeground.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
               _SheetHero(content: content),
               const SizedBox(height: 20),
               _PlanComparisonTable(content: content.comparison),
@@ -253,38 +237,7 @@ class _SheetHero extends StatelessWidget {
 
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: colorScheme.sheetElementBackground,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: colorScheme.border),
-          ),
-          child: Text(
-            content.eyebrow,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: content.iconBackground(colorScheme),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            content.icon,
-            size: 34,
-            color: content.iconForeground(colorScheme),
-          ),
-        ),
-        const SizedBox(height: 16),
+     
         Text(
           content.title,
           style: TextStyle(

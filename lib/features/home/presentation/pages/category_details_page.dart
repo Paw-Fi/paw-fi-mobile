@@ -630,7 +630,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     required double avg,
     required MapEntry<String, double>? topMerchant,
   }) {
-    final color = getCategoryColor(widget.categoryKey);
+    final color = getCategoryColor(widget.categoryKey, context);
     final icon = getCategoryIcon(widget.categoryKey);
 
     return Padding(
@@ -758,7 +758,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                       barRods: [
                         BarChartRodData(
                           toY: val,
-                          color: getCategoryColor(widget.categoryKey),
+                          color: getCategoryColor(widget.categoryKey, context),
                           width: 8,
                           borderRadius: BorderRadius.circular(4),
                         ),

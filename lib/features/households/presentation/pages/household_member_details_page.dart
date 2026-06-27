@@ -472,7 +472,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     Map<String, ExpenseEntry> rawTransactionsById,
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
-    final categoryColor = getCategoryColor(summary.category);
+    final categoryColor = getCategoryColor(summary.category, context);
     final percent =
         totalSpentCents > 0 ? summary.amountCents / totalSpentCents : 0.0;
 
@@ -603,7 +603,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     Map<String, ExpenseEntry> rawTransactionsById,
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
-    final categoryColor = getCategoryColor(summary.category);
+    final categoryColor = getCategoryColor(summary.category, context);
     final percent =
         totalSpentCents > 0 ? summary.amountCents / totalSpentCents : 0.0;
 
@@ -1049,12 +1049,12 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: getCategoryColor(category).withValues(alpha: 0.15),
+                      color: getCategoryColor(category, context).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(
                       getCategoryIcon(category),
-                      color: getCategoryColor(category),
+                      color: getCategoryColor(category, context),
                       size: 24,
                     ),
                   ),

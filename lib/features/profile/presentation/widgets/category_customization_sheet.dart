@@ -887,7 +887,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                             leading: CircleAvatar(
                                               radius: 18,
                                               backgroundColor:
-                                                  getCategoryColor(name),
+                                                  getCategoryColor(name, context),
                                               child: Icon(
                                                 getCategoryIcon(name),
                                                 color: colorScheme

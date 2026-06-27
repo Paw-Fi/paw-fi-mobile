@@ -594,7 +594,7 @@ class _CategoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color =
-        _categoryColor(categoryKey, isCustomCategory: isCustomCategory);
+        _categoryColor(context, categoryKey, isCustomCategory: isCustomCategory);
     final icon = _categoryIcon(categoryKey, isCustomCategory: isCustomCategory);
     final label = _categoryLabel(
       context,
@@ -670,9 +670,9 @@ String _categoryLabel(
   return getCategoryTranslation(context, categoryKey);
 }
 
-Color _categoryColor(String categoryKey, {required bool isCustomCategory}) {
+Color _categoryColor(BuildContext context, String categoryKey, {required bool isCustomCategory}) {
   if (!isCustomCategory) {
-    return getCategoryColor(categoryKey);
+    return getCategoryColor(categoryKey, context);
   }
 
   final style = getCustomCategoryStyleOverrides()[categoryKey];

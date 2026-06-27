@@ -83,7 +83,7 @@ class TransactionListTile extends ConsumerWidget {
       valueListenable: customCategoryStyleOverridesNotifier,
       builder: (context, _, __) {
         final colorScheme = Theme.of(context).colorScheme;
-        final color = getCategoryColor(category);
+        final color = getCategoryColor(category, context);
         final icon = getCategoryIcon(category);
         final sign = isIncome ? '+' : '-';
         final normalizedAmount = double.parse(formatAmount(amount.abs()));

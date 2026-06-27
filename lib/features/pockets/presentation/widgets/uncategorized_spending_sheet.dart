@@ -210,7 +210,7 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
-    final categoryColor = getCategoryColor(widget.item.category);
+    final categoryColor = getCategoryColor(widget.item.category, context);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),

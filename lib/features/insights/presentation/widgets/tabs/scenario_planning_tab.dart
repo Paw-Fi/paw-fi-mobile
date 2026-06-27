@@ -647,7 +647,11 @@ class _ScenarioPlanningTabContentState
                                             .stream
                                             .bytesToString();
                                         throw Exception(
-                                          'Failed to analyze scenario (HTTP ${streamedResponse.statusCode}): $bodyText',
+                                          _extractScenarioPlannerError(
+                                            bodyText,
+                                            fallback:
+                                                'Scenario planner request failed',
+                                          ),
                                         );
                                       }
 
@@ -725,8 +729,9 @@ class _ScenarioPlanningTabContentState
                                             }
                                             break;
                                           case 'error':
-                                            final msg =
-                                                obj['error'] ?? 'Unknown error';
+                                            final msg = obj['error'] ??
+                                                obj['message'] ??
+                                                'Unknown error';
                                             throw Exception('$msg');
                                           case 'done':
                                             isCompleteNotifier.value = true;
@@ -800,10 +805,16 @@ class _ScenarioPlanningTabContentState
                                           _scenarioLoading = false;
                                         });
                                       }
-                                      AppToast.info(
-                                          context,
-                                          context.l10n
-                                              .analysisFailed(e.toString()));
+                                      AppToast.error(
+                                        context,
+                                        context.l10n.analysisFailed(
+                                          ErrorHandler.getUserFriendlyMessage(
+                                            e,
+                                            context: BackendErrorContext
+                                                .scenarioPlanner,
+                                          ),
+                                        ),
+                                      );
                                     }
                                   },
                             child: Text(
@@ -1149,4 +1160,25 @@ Future<List<Map<String, dynamic>>> _loadScenarioHistory(
   }
 
   return response.cast<Map<String, dynamic>>();
+}
+
+String _extractScenarioPlannerError(
+  String bodyText, {
+  required String fallback,
+}) {
+  try {
+    final decoded = jsonDecode(bodyText);
+    if (decoded is Map) {
+      final message = decoded['error'] ?? decoded['message'] ?? decoded['code'];
+      if (message is String && message.trim().isNotEmpty) {
+        return message.trim();
+      }
+    }
+  } catch (_) {
+    // Fall through to the plain body handling below.
+  }
+
+  final trimmed = bodyText.trim();
+  if (trimmed.isEmpty) return fallback;
+  return trimmed.length > 300 ? fallback : trimmed;
 }

@@ -584,6 +584,21 @@ class AppTheme {
     return hsl.withLightness((hsl.lightness - 0.10).clamp(0.0, 1.0)).toColor();
   }
 
+  /// Adjust category colors for dark mode legibility.
+  /// Used for icons and charts to maintain WCAG contrast.
+  static Color adaptCategoryColorForTheme(Color baseColor, ColorScheme scheme) {
+    if (scheme.brightness != Brightness.dark) {
+      return baseColor;
+    }
+    
+    final hsl = HSLColor.fromColor(baseColor);
+    // Ensure minimum lightness of 0.65 for dark mode to maintain contrast against dark grey cards.
+    if (hsl.lightness < 0.65) {
+      return hsl.withLightness(0.65).toColor();
+    }
+    return baseColor;
+  }
+
   /// Pockets: progress gradient tuned for the current theme
   static List<Color> pocketProgressGradient({
     required ColorScheme scheme,
@@ -688,8 +703,21 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: lightBackground,
+      splashColor: Colors.transparent, // Modern premium apps suppress Material ripples
+      highlightColor: Colors.transparent,
       appBarTheme: const AppBarTheme(
         systemOverlayStyle: lightSystemUiOverlayStyle,
+        backgroundColor: lightBackground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: lightSheetBg,
+        modalBackgroundColor: lightSheetBg,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)), // Matches latest iOS sheet radii
+        ),
       ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: false),
     );
@@ -718,8 +746,13 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: darkBackground,
+      splashColor: Colors.transparent, // Modern premium apps suppress Material ripples
+      highlightColor: Colors.transparent,
       appBarTheme: const AppBarTheme(
         systemOverlayStyle: darkSystemUiOverlayStyle,
+        backgroundColor: darkBackground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: true),
       bottomSheetTheme: BottomSheetThemeData(
@@ -728,7 +761,7 @@ class AppTheme {
         dragHandleColor: scheme.onSurface.withValues(alpha: 0.4),
         elevation: 0,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)), // Standardized to 28 for premium feel
         ),
       ),
     );

@@ -330,8 +330,13 @@ void showScenarioResultSheet(
                                         if (!context.mounted) return;
                                         AppToast.error(
                                           context,
-                                          context.l10n
-                                              .analysisFailed(e.toString()),
+                                          context.l10n.analysisFailed(
+                                            ErrorHandler.getUserFriendlyMessage(
+                                              e,
+                                              context: BackendErrorContext
+                                                  .scenarioPlanner,
+                                            ),
+                                          ),
                                         );
                                       }
                                     } else {
@@ -537,8 +542,14 @@ void showScenarioResultSheet(
                                             if (!context.mounted) return;
                                             AppToast.error(
                                               context,
-                                              context.l10n
-                                                  .analysisFailed(e.toString()),
+                                              context.l10n.analysisFailed(
+                                                ErrorHandler
+                                                    .getUserFriendlyMessage(
+                                                  e,
+                                                  context: BackendErrorContext
+                                                      .scenarioPlanner,
+                                                ),
+                                              ),
                                             );
                                           }
                                         } else {

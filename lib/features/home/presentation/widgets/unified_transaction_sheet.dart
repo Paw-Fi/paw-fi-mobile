@@ -915,7 +915,8 @@ class _UnifiedTransactionSheetState
       ),
       decoration: BoxDecoration(
         color: colorScheme.sheetBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
       ),
       child: Scaffold(
         // Wrap content in Scaffold to get background color filling the sheet
@@ -1879,7 +1880,7 @@ class _UnifiedTransactionSheetState
             : null);
 
     final colorScheme = Theme.of(context).colorScheme;
-    final categoryColor = getCategoryColor(displayCategory);
+    final categoryColor = getCategoryColor(displayCategory, context);
     final categoryIcon = getCategoryIcon(displayCategory);
     final localizedCategory = _getLocalizedCategory(displayCategory);
 

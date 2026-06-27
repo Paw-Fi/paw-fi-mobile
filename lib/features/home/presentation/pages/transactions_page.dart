@@ -1659,7 +1659,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             category: category.category,
             amount: category.amount,
             transactionCount: category.transactionCount,
-            color: getCategoryColor(category.category),
+            color: getCategoryColor(category.category, context),
           ),
         )
         .toList();

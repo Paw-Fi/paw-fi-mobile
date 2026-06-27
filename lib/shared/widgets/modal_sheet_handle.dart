@@ -11,12 +11,12 @@ class ModalSheetHandle extends StatelessWidget {
 
     return Center(
       child: Container(
-        width: 36,
-        height: 5,
+        width: 40,
+        height: 4,
         margin: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: colorScheme.sheetHandle,
-          borderRadius: BorderRadius.circular(2.5),
+          color: colorScheme.mutedForeground.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(99),
         ),
       ),
     );

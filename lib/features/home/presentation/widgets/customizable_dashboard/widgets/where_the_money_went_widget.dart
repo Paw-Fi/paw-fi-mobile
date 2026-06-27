@@ -262,7 +262,7 @@ class _CategoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = getCategoryTranslation(context, categoryKey);
-    final color = getCategoryColor(categoryKey);
+    final color = getCategoryColor(categoryKey, context);
     final icon = getCategoryIcon(categoryKey);
 
     // Calculate percentage, careful of div by zero

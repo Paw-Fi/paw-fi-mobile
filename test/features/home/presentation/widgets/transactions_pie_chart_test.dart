@@ -34,7 +34,7 @@ ExpenseEntry _entry({
 
 void main() {
   test('legend summaries keep real other and custom categories navigable', () {
-    final summaries = buildTransactionsPieCategorySummaries([
+    final summaries = buildTransactionsPieCategorySummaries(null, [
       _entry(id: 'other-1', category: 'Other', amountCents: 1000),
       _entry(id: 'other-2', category: ' other ', amountCents: 2500),
       _entry(id: 'custom-1', category: 'อาหารแมว', amountCents: 3000),
@@ -57,7 +57,7 @@ void main() {
 
   test('legend summaries do not synthesize overflow into a fake other category',
       () {
-    final summaries = buildTransactionsPieCategorySummaries([
+    final summaries = buildTransactionsPieCategorySummaries(null, [
       for (var index = 0; index < 8; index++)
         _entry(
           id: 'category-$index',
@@ -75,7 +75,7 @@ void main() {
 
   test('legend summaries merge built-in separator variants by canonical key',
       () {
-    final summaries = buildTransactionsPieCategorySummaries([
+    final summaries = buildTransactionsPieCategorySummaries(null, [
       _entry(
         id: 'slash',
         category: 'takeout/delivery',

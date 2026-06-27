@@ -81,7 +81,7 @@ Widget buildCategoryBarChart(BuildContext context, ColorScheme colorScheme,
             final index = entry.key;
             final category = entry.value;
             final value = categoryTotals[category] ?? 0;
-            final color = getCategoryColor(category);
+            final color = getCategoryColor(category, context);
 
             return BarChartGroupData(
               x: index,

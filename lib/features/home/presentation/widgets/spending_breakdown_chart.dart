@@ -59,7 +59,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
     ColorScheme colorScheme,
     List<ExpenseEntry> expenses,
   ) {
-    final summaries = _getCategorySummaries(expenses);
+    final summaries = _getCategorySummaries(context, expenses);
     final limit = widget.legendItemLimit;
     if (limit == null || summaries.length <= limit) {
       return summaries;
@@ -625,7 +625,7 @@ class _SpendingBreakdownCacheKey {
       );
 }
 
-List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
+List<CategorySummary> _getCategorySummaries(BuildContext context, List<ExpenseEntry> expenses) {
   final Map<String, double> categoryTotals = {};
   final Map<String, int> categoryCounts = {};
 
@@ -640,7 +640,7 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
       category: e.key,
       amount: e.value,
       transactionCount: categoryCounts[e.key] ?? 0,
-      color: getCategoryColor(e.key),
+      color: getCategoryColor(e.key, context),
     );
   }).toList()
     ..sort((a, b) => b.amount.compareTo(a.amount));

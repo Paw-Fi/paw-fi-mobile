@@ -359,7 +359,7 @@ class _EditTransactionBottomSheetState
     }
 
     final selectedCategoryColor = _selectedCategory != null
-        ? getCategoryColor(_selectedCategory!)
+        ? getCategoryColor(_selectedCategory!, context)
         : colorScheme.border;
     final selectedCategoryIcon =
         _selectedCategory != null ? getCategoryIcon(_selectedCategory!) : null;

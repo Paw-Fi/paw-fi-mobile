@@ -32,7 +32,7 @@ class MonekoBottomSheet {
       elevation: elevation,
       shape: shape ??
           const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
       clipBehavior: clipBehavior,
       constraints: constraints,
@@ -83,7 +83,8 @@ class _MonekoSheetContent extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

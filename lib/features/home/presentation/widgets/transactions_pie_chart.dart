@@ -42,6 +42,7 @@ class TransactionsPieChart extends StatefulWidget {
 }
 
 List<CategorySummary> buildTransactionsPieCategorySummaries(
+  BuildContext? context,
   List<ExpenseEntry> expenses,
 ) {
   final categoryTotals = <String, double>{};
@@ -59,7 +60,7 @@ List<CategorySummary> buildTransactionsPieCategorySummaries(
       category: entry.key,
       amount: entry.value,
       transactionCount: categoryCounts[entry.key] ?? 0,
-      color: getCategoryColor(entry.key),
+      color: getCategoryColor(entry.key, context),
     );
   }).toList()
     ..sort((left, right) => right.amount.compareTo(left.amount));
@@ -102,7 +103,7 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
 
     var categorySummaries = widget.categorySummariesOverride != null
         ? List<CategorySummary>.from(widget.categorySummariesOverride!)
-        : buildTransactionsPieCategorySummaries(spendOnly);
+        : buildTransactionsPieCategorySummaries(context, spendOnly);
 
     var totalSpent = widget.totalSpentOverride ?? _getTotalSpent(spendOnly);
 

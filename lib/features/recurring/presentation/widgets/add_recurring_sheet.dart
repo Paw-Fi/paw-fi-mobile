@@ -1678,7 +1678,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   final displayCategory =
                                       selectedCategory.value ?? 'other';
                                   final categoryColor =
-                                      getCategoryColor(displayCategory);
+                                      getCategoryColor(displayCategory, context);
                                   final categoryIcon =
                                       getCategoryIcon(displayCategory);
                                   final localizedCategory =
