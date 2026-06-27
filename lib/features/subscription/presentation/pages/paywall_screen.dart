@@ -10,6 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
@@ -109,8 +110,8 @@ class PaywallScreen extends HookConsumerWidget {
     final isLegacyAppStoreManagedSubscription =
         (normalizedProvider == null || normalizedProvider.isEmpty) &&
             hasLegacyAppStoreOwnership;
-    final isAppStoreManagedSubscription =
-        normalizedProvider == 'app_store' || isLegacyAppStoreManagedSubscription;
+    final isAppStoreManagedSubscription = normalizedProvider == 'app_store' ||
+        isLegacyAppStoreManagedSubscription;
     final isPlayStoreManagedSubscription = normalizedProvider == 'play_store';
     final hasActiveSubscription =
         (currentSub?.subscription?.isSubscribed ?? false) ||
@@ -447,7 +448,9 @@ class PaywallScreen extends HookConsumerWidget {
       final storeDetailsById =
           iapStateAsync.value?.productDetailsById ?? const {};
       final catalogProducts =
-          productsAsync.value ?? const <SubscriptionProduct>[];
+          (productsAsync.value ?? const <SubscriptionProduct>[])
+              .where((p) => isSubscriptionPlanPubliclySelectable(p.plan))
+              .toList();
 
       final effectiveCatalogProducts = catalogProducts.isNotEmpty
           ? catalogProducts
@@ -546,27 +549,6 @@ class PaywallScreen extends HookConsumerWidget {
           tagline: context.l10n.paywallPlanYearlyTagline,
           isPopular: true,
           badgeText: context.l10n.paywallBadgeSave50,
-        ),
-        PlanOption(
-          id: 'premium_monthly',
-          serverPlanId: 'premium',
-          billingInterval: 'monthly',
-          name: context.l10n.premium,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
-          originalPriceUsd: Constants.subscriptionPremiumMonthlyOriginalPrice,
-          tagline: context.l10n.allPremiumFeatures,
-        ),
-        PlanOption(
-          id: 'premium_yearly',
-          serverPlanId: 'premium',
-          billingInterval: 'yearly',
-          name: context.l10n.premium,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
-          originalPriceUsd: Constants.subscriptionPremiumYearlyOriginalPrice,
-          tagline: context.l10n.allPremiumFeatures,
-          badgeText: context.l10n.premium,
         ),
         PlanOption(
           id: 'lifetime',
@@ -1222,10 +1204,7 @@ class PaywallScreen extends HookConsumerWidget {
                             const SizedBox(height: 32),
 
                             // --- BENEFITS CHECKLIST ---
-                            PaywallBenefitsChecklist(
-                              showPremiumBenefits:
-                                  activePlanOption.serverPlanId == 'premium',
-                            ),
+                            const PaywallBenefitsChecklist(),
                             const SizedBox(height: 48),
 
                             // --- REVIEWS ---

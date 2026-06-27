@@ -1246,9 +1246,8 @@ class SettingsPage extends HookConsumerWidget {
                             trailing: Padding(
                               padding: const EdgeInsets.only(right: 16),
                               child: AdaptiveSwitch(
-                                value:
-                                    appLockState.config?.biometricEnabled ??
-                                        false,
+                                value: appLockState.config?.biometricEnabled ??
+                                    false,
                                 onChanged: (value) async {
                                   final changed = await ref
                                       .read(
@@ -1781,11 +1780,13 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.headset_mic_rounded,
                         label: context.l10n.contactUs,
-                        trailing: isPremiumTierPlan(subscription)
+                        trailing: hasPremiumFeatureAccess(subscription)
                             ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(alpha: 0.1),
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -1810,7 +1811,8 @@ class SettingsPage extends HookConsumerWidget {
                                 onPressed: () {
                                   launchIntegrationUrl(
                                     Uri.parse(Links.supportEmail),
-                                    errorMessage: context.l10n.couldNotOpenEmail,
+                                    errorMessage:
+                                        context.l10n.couldNotOpenEmail,
                                   );
                                 },
                               ),
@@ -1820,7 +1822,8 @@ class SettingsPage extends HookConsumerWidget {
                                 onPressed: () {
                                   launchIntegrationUrl(
                                     Uri.parse(Links.discordSupport),
-                                    errorMessage: context.l10n.couldNotOpenDiscord,
+                                    errorMessage:
+                                        context.l10n.couldNotOpenDiscord,
                                   );
                                 },
                               ),

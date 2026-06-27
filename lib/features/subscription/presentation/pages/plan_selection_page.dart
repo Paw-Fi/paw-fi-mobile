@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -61,21 +62,12 @@ enum _ProcessingDialogKind {
 
 enum _PlanFamily {
   plus,
-  premium,
 }
 
 extension _PlanFamilyX on _PlanFamily {
   String get planId {
     return switch (this) {
       _PlanFamily.plus => 'plus',
-      _PlanFamily.premium => 'premium',
-    };
-  }
-
-  String label(BuildContext context) {
-    return switch (this) {
-      _PlanFamily.plus => context.l10n.plus,
-      _PlanFamily.premium => context.l10n.premium,
     };
   }
 }
@@ -126,13 +118,11 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final preferredPlanFamily = switch (preferredPlanId) {
-      'premium' => _PlanFamily.premium,
       'plus' => _PlanFamily.plus,
       _ => null,
     };
     final selectedPlanFamily = useState(
-      preferredPlanFamily ??
-          (currentPlanId == 'premium' ? _PlanFamily.premium : _PlanFamily.plus),
+      preferredPlanFamily ?? _PlanFamily.plus,
     );
     final lastSyncedPlanFamilyForPlan = useRef<String?>(null);
     final currentInterval = currentSub?.subscription?.billingInterval;
@@ -153,8 +143,8 @@ class PlanSelectionPage extends HookConsumerWidget {
         (normalizedProvider == null || normalizedProvider.isEmpty) &&
             hasLegacyAppStoreOwnership;
     final isStripeManagedSubscription = normalizedProvider == 'stripe';
-    final isAppStoreManagedSubscription =
-        normalizedProvider == 'app_store' || isLegacyAppStoreManagedSubscription;
+    final isAppStoreManagedSubscription = normalizedProvider == 'app_store' ||
+        isLegacyAppStoreManagedSubscription;
     final isPlayStoreManagedSubscription = normalizedProvider == 'play_store';
     final isStoreManagedSubscription =
         isAppStoreManagedSubscription || isPlayStoreManagedSubscription;
@@ -198,9 +188,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       lastSyncedPlanFamilyForPlan.value = planFamilySyncKey;
       if (preferredPlanFamily != null) {
         selectedPlanFamily.value = preferredPlanFamily;
-      } else if (currentPlanId == 'premium') {
-        selectedPlanFamily.value = _PlanFamily.premium;
-      } else if (currentPlanId == 'plus' || currentPlanId == 'free') {
+      } else {
         selectedPlanFamily.value = _PlanFamily.plus;
       }
 
@@ -523,7 +511,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           iapStateAsync.value?.productDetailsById ?? const {};
       final catalogProducts =
           (productsAsync.value ?? const <SubscriptionProduct>[])
-              .where((p) => p.plan == 'plus' || p.plan == 'premium')
+              .where((p) => isSubscriptionPlanPubliclySelectable(p.plan))
               .toList();
 
       final effectiveCatalogProducts = catalogProducts.isNotEmpty
@@ -556,36 +544,6 @@ class PlanSelectionPage extends HookConsumerWidget {
                 displayPriceUsd: Constants.subscriptionYearlyPrice,
                 originalPriceUsd: Constants.subscriptionYearlyOriginalPrice,
                 sortOrder: 10,
-              ),
-              SubscriptionProduct(
-                id: 'fallback_premium_monthly_ios',
-                platform: 'ios',
-                plan: 'premium',
-                billingInterval: 'monthly',
-                storeProductId: 'premium_monthly',
-                displayName: context.l10n.monthly,
-                tagline: context.l10n.allPremiumFeatures,
-                badgeText: null,
-                isPopular: false,
-                displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
-                originalPriceUsd:
-                    Constants.subscriptionPremiumMonthlyOriginalPrice,
-                sortOrder: 20,
-              ),
-              SubscriptionProduct(
-                id: 'fallback_premium_yearly_ios',
-                platform: 'ios',
-                plan: 'premium',
-                billingInterval: 'yearly',
-                storeProductId: 'premium_yearly',
-                displayName: context.l10n.yearly,
-                tagline: context.l10n.allPremiumFeatures,
-                badgeText: context.l10n.premium,
-                isPopular: false,
-                displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
-                originalPriceUsd:
-                    Constants.subscriptionPremiumYearlyOriginalPrice,
-                sortOrder: 30,
               ),
             ];
 
@@ -639,27 +597,6 @@ class PlanSelectionPage extends HookConsumerWidget {
           tagline: context.l10n.paywallPlanYearlyTagline,
           isPopular: true,
           badgeText: context.l10n.paywallBadgeSave50,
-        ),
-        PlanOption(
-          id: 'premium_monthly',
-          serverPlanId: 'premium',
-          billingInterval: 'monthly',
-          name: context.l10n.monthly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionPremiumMonthlyPrice,
-          originalPriceUsd: Constants.subscriptionPremiumMonthlyOriginalPrice,
-          tagline: context.l10n.allPremiumFeatures,
-        ),
-        PlanOption(
-          id: 'premium_yearly',
-          serverPlanId: 'premium',
-          billingInterval: 'yearly',
-          name: context.l10n.yearly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionPremiumYearlyPrice,
-          originalPriceUsd: Constants.subscriptionPremiumYearlyOriginalPrice,
-          tagline: context.l10n.allPremiumFeatures,
-          badgeText: context.l10n.premium,
         ),
       ];
     }
@@ -914,7 +851,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> openStoreSubscriptionSettings(Uri uri) async {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched && context.mounted) {
         AppToast.error(context, context.l10n.unableToOpenSubscriptionSettings);
       }
@@ -1293,9 +1231,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                                           children: [
                                             Flexible(
                                               child: Text(
-                                                currentSub?.planDisplayName(
-                                                        context.l10n) ??
-                                                    context.l10n.freePlan,
+                                               
+                                                    context.l10n.currentPlan,
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
@@ -1377,17 +1314,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                             const SizedBox(height: 32),
 
                             // --- SUBSCRIPTION PLANS ---
-                            _PlanFamilyTabs(
-                              selectedFamily: selectedPlanFamily.value,
-                              onFamilySelected: (family) {
-                                selectedPlanFamily.value = family;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            _PlanSelectionBenefitsChecklist(
-                              premiumSelected: selectedPlanFamily.value ==
-                                  _PlanFamily.premium,
-                            ),
+                            const _PlanSelectionBenefitsChecklist(),
                             const SizedBox(height: 18),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 180),
@@ -1510,66 +1437,8 @@ bool _subscriptionMatchesPlan(Subscription? subscription, PlanOption option) {
 
 // --- COMPONENTS ---
 
-class _PlanFamilyTabs extends StatelessWidget {
-  const _PlanFamilyTabs({
-    required this.selectedFamily,
-    required this.onFamilySelected,
-  });
-
-  final _PlanFamily selectedFamily;
-  final ValueChanged<_PlanFamily> onFamilySelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      children: _PlanFamily.values.map((family) {
-        final selected = family == selectedFamily;
-
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onFamilySelected(family),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: selected
-                        ? colorScheme.primary
-                        : colorScheme.outlineVariant.withValues(alpha: 0.35),
-                    width: selected ? 2 : 1,
-                  ),
-                ),
-              ),
-              child: Text(
-                family.label(context),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  color: selected
-                      ? colorScheme.primary
-                      : colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
 class _PlanSelectionBenefitsChecklist extends StatelessWidget {
-  const _PlanSelectionBenefitsChecklist({
-    required this.premiumSelected,
-  });
-
-  final bool premiumSelected;
+  const _PlanSelectionBenefitsChecklist();
 
   @override
   Widget build(BuildContext context) {
@@ -1581,21 +1450,19 @@ class _PlanSelectionBenefitsChecklist extends StatelessWidget {
       _PlanSelectionFeature(l10n.paywallBenefit5),
       _PlanSelectionFeature(l10n.paywallBenefit3),
       _PlanSelectionFeature(l10n.paywallBenefit4),
-      _PlanSelectionFeature(l10n.premiumFeatureMultiCurrency,
-          premiumOnly: true),
-      _PlanSelectionFeature(l10n.premiumFeatureCurrencyConverter,
-          premiumOnly: true),
-      _PlanSelectionFeature(l10n.premiumFeatureBankSync, premiumOnly: true),
-      _PlanSelectionFeature(l10n.premiumFeatureSupport, premiumOnly: true),
+      _PlanSelectionFeature(l10n.multipleCurrencies),
+      _PlanSelectionFeature(l10n.currencyConverter),
+      _PlanSelectionFeature(l10n.plusLockedBankSync),
+      _PlanSelectionFeature(l10n.plusLockedLiveExchangeRates),
+      _PlanSelectionFeature(l10n.appLock),
+      _PlanSelectionFeature(l10n.prioritySupport),
     ];
 
     return Column(
       children: features.map((feature) {
-        final enabled = premiumSelected || !feature.premiumOnly;
-
         return _PlanSelectionBenefitRow(
           feature: feature,
-          enabled: enabled,
+          enabled: true,
         );
       }).toList(),
     );
@@ -1603,13 +1470,9 @@ class _PlanSelectionBenefitsChecklist extends StatelessWidget {
 }
 
 class _PlanSelectionFeature {
-  const _PlanSelectionFeature(
-    this.label, {
-    this.premiumOnly = false,
-  });
+  const _PlanSelectionFeature(this.label);
 
   final String label;
-  final bool premiumOnly;
 }
 
 class _PlanSelectionBenefitRow extends StatelessWidget {

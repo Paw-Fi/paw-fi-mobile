@@ -74,7 +74,7 @@ class PlusLockedSheet extends HookConsumerWidget {
                 onPressed: () {
                   Navigator.of(context).pop();
                   context.push(
-                    '/plan-selection?mode=trial&plan=premium&interval=yearly',
+                    '/plan-selection?mode=resubscribe&plan=plus&interval=yearly',
                   );
                 },
                 child: Text(content.ctaLabel),
@@ -102,7 +102,7 @@ class PlusLockedSheet extends HookConsumerWidget {
   }
 }
 
-enum _LockedSheetMode { freeToPlus, trialToPlus, plusToPremium }
+enum _LockedSheetMode { freeToPlus, trialToPlus }
 
 class _LockedSheetContent {
   const _LockedSheetContent({
@@ -133,9 +133,6 @@ class _LockedSheetContent {
 
   static _LockedSheetContent resolve(
       BuildContext context, Subscription? subscription) {
-    if (isPlusPlan(subscription)) {
-      return _premiumUpgrade(context);
-    }
     if (isTrialingPlan(subscription)) {
       return _trialPlus(context);
     }
@@ -145,19 +142,21 @@ class _LockedSheetContent {
   static _LockedSheetContent _freePlus(BuildContext context) {
     return _LockedSheetContent(
       mode: _LockedSheetMode.freeToPlus,
-      eyebrow: context.l10n.plusLockedUpgradeToPlusEyebrow,
-      title: context.l10n.plusLockedTitle,
-      description: context.l10n.plusLockedFreeDescription,
+      eyebrow: context.l10n.plus,
+      title: context.l10n.plusPlan,
+      description: context.l10n.plusLockedDescription,
       icon: Icons.auto_awesome_rounded,
       iconBackground: (scheme) => scheme.primary.withValues(alpha: 0.12),
       iconForeground: (scheme) => scheme.primary,
-      comparison: _plusPremiumComparison(
+      comparison: _plusOnlyComparison(
         context,
-        highlightedColumn: 1,
-        premiumBadge: context.l10n.plusLockedRecommendedBadge,
+        plusBadge: context.l10n.plusLockedRecommendedBadge,
       ),
-      ctaLabel: context.l10n.start7DayPremiumFreeTrial,
-      ctaIcon: Icons.workspace_premium_rounded,
+      ctaLabel: context.l10n.subscribeForPricePeriod(
+        context.l10n.plusPlan,
+        '',
+      ),
+      ctaIcon: Icons.auto_awesome_rounded,
     );
   }
 
@@ -165,119 +164,76 @@ class _LockedSheetContent {
     return _LockedSheetContent(
       mode: _LockedSheetMode.trialToPlus,
       eyebrow: context.l10n.plusLockedTrialEyebrow,
-      title: context.l10n.plusLockedTrialTitle,
-      description: context.l10n.plusLockedTrialRetentionDescription,
-      icon: Icons.workspace_premium_rounded,
+      title: context.l10n.plusPlan,
+      description: context.l10n.plusLockedTrialDescription,
+      icon: Icons.auto_awesome_rounded,
       iconBackground: (scheme) => scheme.warningSurface,
       iconForeground: (scheme) => scheme.warning,
-      comparison: _plusPremiumComparison(
+      comparison: _plusOnlyComparison(
         context,
         featureHeader: context.l10n.plusLockedAfterTrialHeader,
-        highlightedColumn: 0,
         plusBadge: context.l10n.plusLockedKeepAccessBadge,
       ),
-      ctaLabel: context.l10n.start7DayPremiumFreeTrial,
+      ctaLabel: context.l10n.subscribeForPricePeriod(
+        context.l10n.plusPlan,
+        '',
+      ),
       ctaIcon: Icons.check_circle_rounded,
       note: context.l10n.plusLockedTrialReviewPlansNote,
     );
   }
 
-  static _LockedSheetContent _premiumUpgrade(BuildContext context) {
-    return _LockedSheetContent(
-      mode: _LockedSheetMode.plusToPremium,
-      eyebrow: context.l10n.plusLockedPremiumFeatureEyebrow,
-      title: context.l10n.plusLockedPremiumUpgradeTitle,
-      description: context.l10n.plusLockedPremiumUpgradeDescription,
-      icon: Icons.diamond_rounded,
-      iconBackground: (scheme) => scheme.primary.withValues(alpha: 0.12),
-      iconForeground: (scheme) => scheme.primary,
-      comparison: _plusPremiumComparison(
-        context,
-        highlightedColumn: 1,
-        plusBadge: context.l10n.plusLockedCurrentPlanBadge,
-        premiumBadge: context.l10n.upgrade,
-      ),
-      ctaLabel: context.l10n.start7DayPremiumFreeTrial,
-      ctaIcon: Icons.diamond_rounded,
-      note: context.l10n.plusLockedPremiumSupportWithin12HoursNote,
-    );
-  }
-
-  static _PlanComparisonContent _plusPremiumComparison(
+  static _PlanComparisonContent _plusOnlyComparison(
     BuildContext context, {
     String? featureHeader,
-    required int highlightedColumn,
     String? plusBadge,
-    String? premiumBadge,
   }) {
     return _PlanComparisonContent(
       featureHeader: featureHeader ?? context.l10n.plusLockedFeatureHeader,
       columns: [
         _PlanColumn(title: context.l10n.plus, badge: plusBadge),
-        _PlanColumn(title: context.l10n.premium, badge: premiumBadge),
       ],
-      highlightedColumn: highlightedColumn,
+      highlightedColumn: 0,
       rows: [
         _ComparisonRowData(
           feature: context.l10n.plusLockedAiExpenseCapture,
-          values: [
-            _ComparisonValue.included(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.plusLockedMessagingAppCapture,
-          values: [
-            _ComparisonValue.included(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.plusLockedEmailReceiptImport,
-          values: [
-            _ComparisonValue.included(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.plusLockedSharedBudgets,
-          values: [
-            _ComparisonValue.included(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.plusLockedBankSync,
-          values: [
-            _ComparisonValue.excluded(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.multipleCurrencies,
-          values: [
-            _ComparisonValue.excluded(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.currencyConverter,
-          values: [
-            _ComparisonValue.excluded(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.plusLockedLiveExchangeRates,
-          values: [
-            _ComparisonValue.excluded(),
-            _ComparisonValue.included(),
-          ],
+          values: [_ComparisonValue.included()],
+        ),
+        _ComparisonRowData(
+          feature: context.l10n.appLock,
+          values: [_ComparisonValue.included()],
         ),
         _ComparisonRowData(
           feature: context.l10n.customerSupport,
           values: [
-            _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
             _ComparisonValue.text(context.l10n.plusLockedPrioritySupport),
           ],
         ),
@@ -432,10 +388,6 @@ class _ComparisonValue {
 
   factory _ComparisonValue.included() => const _ComparisonValue._(
         included: true,
-      );
-
-  factory _ComparisonValue.excluded() => const _ComparisonValue._(
-        included: false,
       );
 
   factory _ComparisonValue.text(String label) => _ComparisonValue._(

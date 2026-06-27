@@ -373,12 +373,7 @@ class PaywallAppRatingBadge extends StatelessWidget {
 }
 
 class PaywallBenefitsChecklist extends StatelessWidget {
-  const PaywallBenefitsChecklist({
-    super.key,
-    this.showPremiumBenefits = false,
-  });
-
-  final bool showPremiumBenefits;
+  const PaywallBenefitsChecklist({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -391,6 +386,12 @@ class PaywallBenefitsChecklist extends StatelessWidget {
       context.l10n.paywallBenefit5,
       context.l10n.paywallBenefit3,
       context.l10n.paywallBenefit4,
+      context.l10n.multipleCurrencies,
+      context.l10n.currencyConverter,
+      context.l10n.plusLockedBankSync,
+      context.l10n.plusLockedLiveExchangeRates,
+      context.l10n.appLock,
+      context.l10n.prioritySupport,
     ];
 
     return Column(

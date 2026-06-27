@@ -6130,7 +6130,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallBenefit4 => 'ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว';
 
   @override
-  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 6,500+ คน';
+  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 7,100+ คน';
 
   @override
   String get paywallBadgeSave50 => 'ประหยัด 50%';

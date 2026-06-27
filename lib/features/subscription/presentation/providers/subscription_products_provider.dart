@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -28,7 +29,7 @@ class SubscriptionProductsNotifier
         debugPrint(
           '[SubscriptionProducts] Falling back to local iOS catalog: $e',
         );
-        return _fallbackIosProducts;
+        return _publiclySelectableProducts(_fallbackIosProducts);
       }
       rethrow;
     }
@@ -67,8 +68,9 @@ class SubscriptionProductsNotifier
       _mergeMissingFallbackProducts(products);
     }
 
-    products.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    return products;
+    final publicProducts = _publiclySelectableProducts(products);
+    publicProducts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return publicProducts;
   }
 
   Future<void> refresh() async {
@@ -83,7 +85,7 @@ class SubscriptionProductsNotifier
           debugPrint(
             '[SubscriptionProducts] Falling back to local iOS catalog: $e',
           );
-          return _fallbackIosProducts;
+          return _publiclySelectableProducts(_fallbackIosProducts);
         }
         rethrow;
       }
@@ -92,7 +94,7 @@ class SubscriptionProductsNotifier
 }
 
 void _mergeMissingFallbackProducts(List<SubscriptionProduct> products) {
-  for (final fallback in _fallbackIosProducts) {
+  for (final fallback in _publiclySelectableProducts(_fallbackIosProducts)) {
     final exists = products.any(
       (product) =>
           product.plan == fallback.plan &&
@@ -102,6 +104,14 @@ void _mergeMissingFallbackProducts(List<SubscriptionProduct> products) {
       products.add(fallback);
     }
   }
+}
+
+List<SubscriptionProduct> _publiclySelectableProducts(
+  List<SubscriptionProduct> products,
+) {
+  return products
+      .where((product) => isSubscriptionPlanPubliclySelectable(product.plan))
+      .toList();
 }
 
 const _fallbackIosProducts = <SubscriptionProduct>[
