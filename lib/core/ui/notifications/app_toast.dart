@@ -52,7 +52,7 @@ class AppToast {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 3),
   }) {
-    final safeMessage = sanitizeUtf16(message);
+    final safeMessage = sanitizeUtf16(_normalizeTechnicalToastMessage(message));
     // Dismiss any existing toast
     _dismissCurrentToast();
 
@@ -113,7 +113,7 @@ class AppToast {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    final safeMessage = sanitizeUtf16(message);
+    final safeMessage = sanitizeUtf16(_normalizeTechnicalToastMessage(message));
     // Dismiss any existing toast
     _dismissCurrentToast();
 
@@ -172,22 +172,30 @@ class AppToast {
           {Duration duration = const Duration(seconds: 7)}) =>
       show(
         context,
-        _normalizeErrorToastMessage(message),
+        _normalizeTechnicalToastMessage(message),
         type: AppToastType.error,
         duration: duration,
       );
 
-  static String _normalizeErrorToastMessage(String message) {
+  static String _normalizeTechnicalToastMessage(String message) {
     final lowered = message.toLowerCase();
     final looksTechnical =
         lowered.contains('functionexception') ||
         lowered.contains('postgrestexception') ||
+        lowered.contains('exception:') ||
         lowered.contains('pgrst') ||
         lowered.contains('[object object]') ||
         lowered.contains('status:') ||
         lowered.contains('details:') ||
+        lowered.contains('http ') ||
+        lowered.contains('api key') ||
+        lowered.contains('generativelanguage.googleapis.com') ||
+        lowered.contains('aiplatform.googleapis.com') ||
+        lowered.contains('googlegenerativeai') ||
+        lowered.contains('vertex ai') ||
         lowered.contains('schema cache') ||
-        lowered.contains('failed to execute');
+        lowered.contains('failed to execute') ||
+        (message.contains('{') && message.contains('}'));
 
     if (!looksTechnical) {
       return message;

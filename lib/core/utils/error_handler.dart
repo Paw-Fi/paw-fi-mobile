@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 enum BackendErrorContext {
   generic,
   analyzeExpense,
+  scenarioPlanner,
   updateExpense,
   deleteExpense,
   saveRecurring,
@@ -213,7 +214,30 @@ class ErrorHandler {
       if (context == BackendErrorContext.analyzeExpense) {
         return 'This took too long. Try a smaller file.';
       }
+      if (context == BackendErrorContext.scenarioPlanner) {
+        return 'Scenario analysis timed out. Please try again.';
+      }
       return 'Request timed out. Please try again.';
+    }
+
+    if (message.contains('api key not valid') ||
+        message.contains('invalid api key') ||
+        code == 'API_KEY_INVALID') {
+      return 'Invalid API key.';
+    }
+
+    if (message.contains('googlegenerativeai') ||
+        message.contains('generativelanguage.googleapis.com') ||
+        message.contains('aiplatform.googleapis.com') ||
+        message.contains('vertex ai') ||
+        message.contains('gemini')) {
+      if (context == BackendErrorContext.scenarioPlanner) {
+        return 'Could not analyze this scenario. Please try again.';
+      }
+      if (context == BackendErrorContext.analyzeExpense) {
+        return 'Could not analyze this input. Please try again.';
+      }
+      return 'AI service is temporarily unavailable. Please try again.';
     }
 
     if (context == BackendErrorContext.recording) {
@@ -266,6 +290,9 @@ class ErrorHandler {
       }
       if (context == BackendErrorContext.analyzeExpense) {
         return 'Could not analyze this input. Please try again.';
+      }
+      if (context == BackendErrorContext.scenarioPlanner) {
+        return 'Could not analyze this scenario. Please try again.';
       }
       return 'Please check your input and try again.';
     }
