@@ -58,6 +58,14 @@ class AppLockSetupPage extends HookConsumerWidget {
       promptRevision.value++;
     }
 
+    String passcodeFailureMessage() {
+      final config = ref.read(appLockControllerProvider).config;
+      if (config?.isLockedOut(DateTime.now()) == true) {
+        return context.l10n.tryAgainLater;
+      }
+      return context.l10n.incorrectPasscodeSentence;
+    }
+
     Future<bool> askForBiometricOptIn() async {
       if (mode != AppLockSetupMode.enable ||
           !availableBiometrics.canAuthenticate) {
@@ -90,6 +98,7 @@ class AppLockSetupPage extends HookConsumerWidget {
     Future<void> finish({
       required String processingMessage,
       required Future<bool> Function() operation,
+      String Function()? failureMessage,
     }) async {
       if (isSubmitting.value) {
         return;
@@ -103,7 +112,9 @@ class AppLockSetupPage extends HookConsumerWidget {
           return;
         }
         if (!success) {
-          resetStep(context.l10n.incorrectPasscodeSentence);
+          resetStep(
+            failureMessage?.call() ?? context.l10n.incorrectPasscodeSentence,
+          );
           return;
         }
         AppToast.success(context, _successMessage(context.l10n, mode));
@@ -127,6 +138,7 @@ class AppLockSetupPage extends HookConsumerWidget {
         await finish(
           processingMessage: context.l10n.turningOffAppLock,
           operation: () => controller.disableWithPasscode(passcode),
+          failureMessage: passcodeFailureMessage,
         );
         return;
       }
@@ -138,12 +150,12 @@ class AppLockSetupPage extends HookConsumerWidget {
         }
         isSubmitting.value = true;
         try {
-          final verified = await controller.verifyPasscode(passcode);
+          final verified = await controller.verifyPasscodeForSettings(passcode);
           if (!context.mounted) {
             return;
           }
           if (!verified) {
-            resetStep(context.l10n.incorrectPasscodeSentence);
+            resetStep(passcodeFailureMessage());
             return;
           }
           currentPasscode.value = passcode;
@@ -199,6 +211,7 @@ class AppLockSetupPage extends HookConsumerWidget {
               newPasscode: passcode,
             );
           },
+          failureMessage: passcodeFailureMessage,
         );
       }
     }

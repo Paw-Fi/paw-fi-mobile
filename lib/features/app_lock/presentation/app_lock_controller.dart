@@ -257,6 +257,7 @@ class AppLockController extends StateNotifier<AppLockState> {
   final DateTime Function() _now;
 
   DateTime? _backgroundedAt;
+  Future<bool>? _biometricAuthenticationInFlight;
 
   Future<void> initialize() async {
     if (_userId.isEmpty) {
@@ -318,6 +319,7 @@ class AppLockController extends StateNotifier<AppLockState> {
   Future<bool> _verifyPasscode(
     String passcode, {
     bool unlockOnSuccess = true,
+    bool updateLockStateOnFailure = true,
   }) async {
     final config = state.config ?? await _repository.loadConfig(_userId);
     if (config == null) {
@@ -326,11 +328,15 @@ class AppLockController extends StateNotifier<AppLockState> {
     }
 
     if (config.isLockedOut(_now())) {
-      state = state.copyWith(
-        status: AppLockStatus.lockedOut,
-        config: config,
-        failureReason: AppLockFailureReason.tryAgainLater,
-      );
+      if (updateLockStateOnFailure) {
+        state = state.copyWith(
+          status: AppLockStatus.lockedOut,
+          config: config,
+          failureReason: AppLockFailureReason.tryAgainLater,
+        );
+      } else {
+        state = state.copyWith(config: config, clearFailedMessage: true);
+      }
       return false;
     }
 
@@ -354,6 +360,8 @@ class AppLockController extends StateNotifier<AppLockState> {
           config: updated,
           clearFailedMessage: true,
         );
+      } else {
+        state = state.copyWith(config: updated, clearFailedMessage: true);
       }
       return true;
     }
@@ -366,13 +374,17 @@ class AppLockController extends StateNotifier<AppLockState> {
           lockedOut ? _now().add(failedAttemptLockout) : config.lockoutUntil,
     );
     await _repository.saveConfig(updated);
-    state = state.copyWith(
-      status: lockedOut ? AppLockStatus.lockedOut : AppLockStatus.locked,
-      config: updated,
-      failureReason: lockedOut
-          ? AppLockFailureReason.tryAgainLater
-          : AppLockFailureReason.incorrectPasscode,
-    );
+    if (updateLockStateOnFailure) {
+      state = state.copyWith(
+        status: lockedOut ? AppLockStatus.lockedOut : AppLockStatus.locked,
+        config: updated,
+        failureReason: lockedOut
+            ? AppLockFailureReason.tryAgainLater
+            : AppLockFailureReason.incorrectPasscode,
+      );
+    } else {
+      state = state.copyWith(config: updated, clearFailedMessage: true);
+    }
     return false;
   }
 
@@ -380,12 +392,35 @@ class AppLockController extends StateNotifier<AppLockState> {
     return _verifyPasscode(passcode);
   }
 
-  Future<bool> authenticateWithBiometrics() async {
-    if (!state.canUseBiometrics) {
-      return false;
+  Future<bool> verifyPasscodeForSettings(String passcode) async {
+    return _verifyPasscode(
+      passcode,
+      unlockOnSuccess: false,
+      updateLockStateOnFailure: false,
+    );
+  }
+
+  Future<bool> authenticateWithBiometrics() {
+    if (!state.shouldBlockApp || !state.canUseBiometrics) {
+      return Future.value(false);
     }
+    final inFlight = _biometricAuthenticationInFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final authentication = _authenticateWithBiometrics();
+    _biometricAuthenticationInFlight = authentication;
+    return authentication.whenComplete(() {
+      if (identical(_biometricAuthenticationInFlight, authentication)) {
+        _biometricAuthenticationInFlight = null;
+      }
+    });
+  }
+
+  Future<bool> _authenticateWithBiometrics() async {
     final authenticated = await _biometricService.authenticate();
-    if (!authenticated) {
+    if (!mounted || !authenticated || !state.shouldBlockApp) {
       return false;
     }
     final config = state.config;
@@ -397,6 +432,9 @@ class AppLockController extends StateNotifier<AppLockState> {
       clearLockoutUntil: true,
     );
     await _repository.saveConfig(updated);
+    if (!mounted) {
+      return false;
+    }
     _backgroundedAt = null;
     state = state.copyWith(
       status: AppLockStatus.unlocked,
@@ -433,7 +471,7 @@ class AppLockController extends StateNotifier<AppLockState> {
   }
 
   Future<bool> disableWithPasscode(String passcode) async {
-    final verified = await _verifyPasscode(passcode, unlockOnSuccess: false);
+    final verified = await verifyPasscodeForSettings(passcode);
     if (!verified) {
       return false;
     }
@@ -497,7 +535,7 @@ class AppLockController extends StateNotifier<AppLockState> {
     required String currentPasscode,
     required String newPasscode,
   }) async {
-    final verified = await verifyPasscode(currentPasscode);
+    final verified = await verifyPasscodeForSettings(currentPasscode);
     if (!verified) {
       return false;
     }
@@ -542,9 +580,8 @@ final appLockBiometricServiceProvider =
 
 final appLockControllerProvider =
     StateNotifierProvider<AppLockController, AppLockState>((ref) {
-  final auth = ref.watch(authProvider);
+  final userId = ref.watch(authProvider.select((auth) => auth.uid));
   final prefs = ref.watch(sharedPreferencesProvider);
-  final userId = auth.uid;
   final controller = AppLockController(
     userId: userId,
     repository: ref.watch(appLockRepositoryProvider),

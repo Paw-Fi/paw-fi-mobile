@@ -26,6 +26,8 @@ class AppLockPage extends HookConsumerWidget {
     final isSubmitting = useState(false);
     final promptRevision = useState(0);
     final biometricAvailability = appLockState.biometricAvailability;
+    final canUnlockWithBiometrics =
+        appLockState.shouldBlockApp && appLockState.canUseBiometrics;
     final hasFaceId = biometricAvailability.hasFace &&
         (biometricAvailability.platform == TargetPlatform.iOS ||
             biometricAvailability.platform == TargetPlatform.macOS);
@@ -129,11 +131,11 @@ class AppLockPage extends HookConsumerWidget {
     }
 
     useEffect(() {
-      if (appLockState.canUseBiometrics) {
+      if (canUnlockWithBiometrics) {
         Future.microtask(unlockWithBiometrics);
       }
       return null;
-    }, [appLockState.canUseBiometrics]);
+    }, [canUnlockWithBiometrics]);
 
     return StatusBarOverlayRegion(
       child: AdaptiveScaffold(
@@ -159,7 +161,7 @@ class AppLockPage extends HookConsumerWidget {
                           errorText: appLockState.failedMessage(context.l10n),
                           enabled: !isSubmitting.value,
                           isSubmitting: isSubmitting.value,
-                          showBiometricButton: appLockState.canUseBiometrics,
+                          showBiometricButton: canUnlockWithBiometrics,
                           biometricIcon: biometricIcon,
                           biometricTooltip:
                               appLockState.biometricAvailability.actionLabel(
