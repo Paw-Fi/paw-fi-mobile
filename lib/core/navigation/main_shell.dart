@@ -649,13 +649,23 @@ class MainShell extends HookConsumerWidget {
 
     return StatusBarOverlayRegion(
       child: AdaptiveScaffold(
+        minimizeBehavior: TabBarMinimizeBehavior.never,
+        appBar: AdaptiveAppBar(
+          title: context.l10n.appTitle,
+          useNativeToolbar: true,
+        ),
         body: SafeArea(
+          top: false,
           child: Material(
             color: colorScheme.appBackground,
             child: Stack(
               children: [
                 Column(
                   children: [
+                    if (PlatformInfo.isIOS26OrHigher())
+                      SizedBox(
+                        height: MediaQuery.of(context).padding.top + 44,
+                      ),
                     if (previewState.isActive)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -725,31 +735,43 @@ class MainShell extends HookConsumerWidget {
           useNativeBottomBar: false,
           items: [
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.square_grid_2x2_fill
-                  : Icons.dashboard,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'square.grid.2x2.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.square_grid_2x2_fill
+                      : Icons.dashboard,
               label: context.l10n.overview,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'repeat'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.repeat
+                      : Icons.repeat,
               label: context.l10n.recurring,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.chart_pie
-                  : Icons.pie_chart_outline,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'chart.pie.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.chart_pie
+                      : Icons.pie_chart_outline,
               label: context.l10n.budget,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.creditcard
-                  : Icons.account_balance_wallet_outlined,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'creditcard.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.creditcard
+                      : Icons.account_balance_wallet_outlined,
               label: context.l10n.wallet,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.chart_bar_alt_fill
-                  : Icons.bar_chart,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'chart.bar.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.chart_bar_alt_fill
+                      : Icons.bar_chart,
               label: context.l10n.insights,
             ),
           ],
