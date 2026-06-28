@@ -1510,76 +1510,16 @@ class AddRecurringSheet extends HookConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                        MonekoInput(
-                          padding: const EdgeInsets.all(4),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    if (selectedType.value != 'expense') {
-                                      selectedType.value = 'expense';
-                                      selectedCategory.value = null;
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: isExpense
-                                          ? colorScheme.primary
-                                          : colorScheme.surface
-                                              .withValues(alpha: 0.0),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      context.l10n.expenses,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: isExpense
-                                            ? colorScheme.primaryForeground
-                                            : colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    if (selectedType.value != 'income') {
-                                      selectedType.value = 'income';
-                                      selectedCategory.value = null;
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: !isExpense
-                                          ? colorScheme.primary
-                                          : colorScheme.surface
-                                              .withValues(alpha: 0.0),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      context.l10n.income,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: !isExpense
-                                            ? colorScheme.primaryForeground
-                                            : colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        AdaptiveSegmentedControl(
+                          labels: [context.l10n.expenses, context.l10n.income],
+                          selectedIndex: isExpense ? 0 : 1,
+                          onValueChanged: (index) {
+                            final newType = index == 0 ? 'expense' : 'income';
+                            if (selectedType.value != newType) {
+                              selectedType.value = newType;
+                              selectedCategory.value = null;
+                            }
+                          },
                         ),
                         const SizedBox(
                           height: 20,

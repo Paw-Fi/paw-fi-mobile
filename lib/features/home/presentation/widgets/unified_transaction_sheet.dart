@@ -14,6 +14,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -67,7 +68,6 @@ import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
-import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 
@@ -152,7 +152,7 @@ Future<bool?> showUnifiedTransactionSheet(
     useSafeArea: true,
     isScrollControlled: true,
     isDismissible: true,
-    builder: (context) => _UnifiedTransactionSheet(
+    builder: (context) => _UnifiedTransactionSheetV2(
       existingExpense: existingExpense,
       newExpense: newExpense,
       contact: contact,
@@ -161,13 +161,13 @@ Future<bool?> showUnifiedTransactionSheet(
   );
 }
 
-class _UnifiedTransactionSheet extends ConsumerStatefulWidget {
+class _UnifiedTransactionSheetV2 extends ConsumerStatefulWidget {
   final ExpenseEntry? existingExpense;
   final ParsedExpense? newExpense;
   final UserContact? contact;
   final String? localImagePath;
 
-  const _UnifiedTransactionSheet({
+  const _UnifiedTransactionSheetV2({
     this.existingExpense,
     this.newExpense,
     this.contact,
@@ -175,12 +175,12 @@ class _UnifiedTransactionSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_UnifiedTransactionSheet> createState() =>
-      _UnifiedTransactionSheetState();
+  ConsumerState<_UnifiedTransactionSheetV2> createState() =>
+      _UnifiedTransactionSheetV2State();
 }
 
-class _UnifiedTransactionSheetState
-    extends ConsumerState<_UnifiedTransactionSheet> {
+class _UnifiedTransactionSheetV2State
+    extends ConsumerState<_UnifiedTransactionSheetV2> {
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSaving = false;
   bool _isDeleting = false;
@@ -909,291 +909,288 @@ class _UnifiedTransactionSheetState
       ),
     );
 
+    final categoryColor = categoryColors[_normalizeCategoryRemapKey(displayCategory)] ?? colorScheme.primary;
+    final gradientColors = AppTheme.pocketDetailsGradient(categoryColor, colorScheme);
+    final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
+    final textColor = isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
+    final secondaryTextColor = textColor.withValues(alpha: 0.7);
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.95,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.sheetBackground,
+        color: gradientColors.first,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Scaffold(
-        // Wrap content in Scaffold to get background color filling the sheet
-        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+        backgroundColor: Colors.transparent,
         body: PopScope(
           canPop: !_isSaving && !_isDeleting,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
             children: [
-              // Modal Sheet Drag Handle
-              const ModalSheetHandle(),
-
-              // Header with Circle Icons
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Close Button
-                    IconButton(
-                      onPressed: _isSaving || _isDeleting
-                          ? null
-                          : () => Navigator.pop(context),
-                      icon:
-                          Icon(Icons.close, color: colorScheme.mutedForeground),
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.muted.withValues(alpha: 0.2),
-                      ),
+              Positioned.fill(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: gradientColors,
                     ),
-
-                    // Title
-                    Text(
-                      isNewExpense
-                          ? (isIncomeMode
-                              ? context.l10n.income
-                              : context.l10n.expense)
-                          : context.l10n.details,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-
-                    // Check Button
-                    IconButton(
-                      onPressed: _isSaving ? null : _handleSave,
-                      icon: _isSaving
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
-                                ),
-                              ),
-                            )
-                          : Icon(Icons.check, color: colorScheme.primary),
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.primary.withValues(alpha: 0.12),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-
-              Flexible(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20.0, vertical: 24),
-                  child: Column(
-                    children: [
-                      // Amount & Date Hero Section
-                      GestureDetector(
-                        onTap: () => _handleEditAmount(displayAmount),
-                        behavior: HitTestBehavior.opaque,
-                        child: Column(
-                          children: [
-                            Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: 280,
+                    pinned: true,
+                    stretch: true,
+                    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+                    elevation: 0,
+                    leading: IconButton(
+                      icon: Icon(Icons.close, color: textColor),
+                      onPressed: _isSaving || _isDeleting ? null : () => Navigator.pop(context),
+                      style: IconButton.styleFrom(
+                        backgroundColor: textColor.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    actions: [
+                      IconButton(
+                        onPressed: _isSaving ? null : _handleSave,
+                        icon: _isSaving
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(textColor),
+                                ),
+                              )
+                            : Icon(Icons.check, color: textColor),
+                        style: IconButton.styleFrom(
+                          backgroundColor: textColor.withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ],
+                    flexibleSpace: FlexibleSpaceBar(
+                      stretchModes: const [
+                        StretchMode.zoomBackground,
+                        StretchMode.fadeTitle,
+                      ],
+                      background: SafeArea(
+                        child: GestureDetector(
+                          onTap: () => _handleEditAmount(displayAmount),
+                          behavior: HitTestBehavior.opaque,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(height: 20),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: textColor.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    getCategoryIcon(displayCategory),
+                                    size: 36,
+                                    color: textColor,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
                                     '${isIncomeMode ? '+' : ''}$currencySymbol${formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2)))}',
                                     style: TextStyle(
-                                      fontSize: 44,
-                                      fontWeight: FontWeight.w600,
-                                      color: isIncomeMode
-                                          ? colorScheme
-                                              .primary // Use primary for positive/income typically, or custom Green if design system mandates
-                                          : colorScheme.onSurface,
-                                      letterSpacing: -0.5,
+                                      fontSize: 48,
+                                      fontWeight: FontWeight.w800,
+                                      color: textColor,
+                                      letterSpacing: -1,
                                       height: 1.1,
                                     ),
-                                    textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 8),
                                   Icon(
                                     Icons.edit_outlined,
-                                    size: 16,
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.4),
+                                    size: 20,
+                                    color: secondaryTextColor,
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${_formatRelativeDate(displayDate, context)} • ${_selectedTime.format(context)}',
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      accountAndSharingSection,
-
-                      // Metadata Group (Apple-style List)
-                      MonekoInput(
-                        child: Column(
-                          children: [
-                            MonekoDisclosureRow(
-                              label: context.l10n.category,
-                              value: _getLocalizedCategory(displayCategory),
-                              onTap: () => _handleEditCategory(
-                                  displayCategory, userCategoryLists),
-                              isFirst: true,
-                            ),
-                            _buildDivider(colorScheme),
-                            MonekoDisclosureRow(
-                              label: isIncomeMode
-                                  ? context.l10n.source
-                                  : context.l10n.merchant,
-                              value: displayMerchant?.trim().isNotEmpty == true
-                                  ? displayMerchant!.trim()
-                                  : context.l10n.tapToSet,
-                              onTap: () => _handleEditMerchant(
-                                  displayMerchant, isIncomeMode),
-                              isValuePlaceholder:
-                                  displayMerchant?.trim().isNotEmpty != true,
-                            ),
-                            _buildDivider(colorScheme),
-                            MonekoDisclosureRow(
-                              label: context.l10n.currency,
-                              value: currency.toUpperCase(),
-                              onTap: () => _handleEditCurrency(currency),
-                            ),
-                            _buildDivider(colorScheme),
-                            MonekoDisclosureRow(
-                              label: context.l10n.date,
-                              value: DateFormat.yMMMMd(
-                                intlSafeLocaleName(
-                                    Localizations.localeOf(context)),
-                              ).format(DateTime(
-                                displayDate.year,
-                                displayDate.month,
-                                displayDate.day,
-                              )),
-                              onTap: () => _handleEditDate(displayDate),
-                            ),
-                            _buildDivider(colorScheme),
-                            MonekoDisclosureRow(
-                              label: context.l10n.time,
-                              value: _selectedTime.format(context),
-                              onTap: () => _handleEditTime(),
-                              isLast: true,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Notes Group
-                      MonekoInput(
-                        child: InkWell(
-                          onTap: () =>
-                              _handleEditDescription(displayDescription),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0, vertical: 12.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 70, // Fixed label width
-                                  child: Text(
-                                    context.l10n.notes,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                  ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${_formatRelativeDate(displayDate, context)} • ${_selectedTime.format(context)}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: secondaryTextColor,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    displayDescription?.isNotEmpty == true
-                                        ? displayDescription!
-                                        : context.l10n.addANote,
-                                    textAlign: TextAlign.start,
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                      color:
-                                          (displayDescription?.isEmpty ?? true)
-                                              ? colorScheme.onSurface
-                                                  .withValues(alpha: 0.3)
-                                              : colorScheme.onSurface,
-                                    ),
-                                  ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.sheetBackground,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(32),
+                          topRight: Radius.circular(32),
+                        ),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          accountAndSharingSection,
+
+                          // Metadata Group (Apple-style List)
+                          MonekoInput(
+                            child: Column(
+                              children: [
+                                MonekoDisclosureRow(
+                                  label: context.l10n.category,
+                                  value: _getLocalizedCategory(displayCategory),
+                                  onTap: () => _handleEditCategory(displayCategory, userCategoryLists),
+                                  isFirst: true,
+                                ),
+                                _buildDivider(colorScheme),
+                                MonekoDisclosureRow(
+                                  label: isIncomeMode ? context.l10n.source : context.l10n.merchant,
+                                  value: displayMerchant?.trim().isNotEmpty == true
+                                      ? displayMerchant!.trim()
+                                      : context.l10n.tapToSet,
+                                  onTap: () => _handleEditMerchant(displayMerchant, isIncomeMode),
+                                  isValuePlaceholder: displayMerchant?.trim().isNotEmpty != true,
+                                ),
+                                _buildDivider(colorScheme),
+                                MonekoDisclosureRow(
+                                  label: context.l10n.currency,
+                                  value: currency.toUpperCase(),
+                                  onTap: () => _handleEditCurrency(currency),
+                                ),
+                                _buildDivider(colorScheme),
+                                MonekoDisclosureRow(
+                                  label: context.l10n.date,
+                                  value: DateFormat.yMMMMd(
+                                    intlSafeLocaleName(Localizations.localeOf(context)),
+                                  ).format(DateTime(
+                                    displayDate.year,
+                                    displayDate.month,
+                                    displayDate.day,
+                                  )),
+                                  onTap: () => _handleEditDate(displayDate),
+                                ),
+                                _buildDivider(colorScheme),
+                                MonekoDisclosureRow(
+                                  label: context.l10n.time,
+                                  value: _selectedTime.format(context),
+                                  onTap: () => _handleEditTime(),
+                                  isLast: true,
                                 ),
                               ],
                             ),
                           ),
-                        ),
+
+                          const SizedBox(height: 24),
+
+                          // Notes Group
+                          MonekoInput(
+                            child: InkWell(
+                              onTap: () => _handleEditDescription(displayDescription),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 70, // Fixed label width
+                                      child: Text(
+                                        context.l10n.notes,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        displayDescription?.isNotEmpty == true
+                                            ? displayDescription!
+                                            : context.l10n.addANote,
+                                        textAlign: TextAlign.start,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w400,
+                                          color: (displayDescription?.isEmpty ?? true)
+                                              ? colorScheme.onSurface.withValues(alpha: 0.3)
+                                              : colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          if (breakdownItems.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            _buildBreakdownSection(
+                              context: context,
+                              colorScheme: colorScheme,
+                              breakdown: breakdownItems,
+                            ),
+                          ],
+
+                          const SizedBox(height: 24),
+
+                          // Receipt Section
+                          _buildReceiptSection(
+                            colorScheme: colorScheme,
+                            localImagePath: isNewExpense
+                                ? effectiveImagePath
+                                : _localImagePath ?? widget.existingExpense?.localReceiptImagePath,
+                            receiptImageUrl: isNewExpense ? null : receiptImageUrl,
+                            onAddPhoto: effectiveImagePath == null ? _handleAddPhoto : null,
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // Actions
+                          if (isExistingExpense)
+                            DestructiveAdaptiveButton(
+                              onPressed: _isDeleting ? null : _handleDelete,
+                              isLoading: _isDeleting,
+                              child: Text(isIncomeMode ? context.l10n.deleteIncome : context.l10n.deleteExpense),
+                            ),
+
+                          // Bottom spacer for scroll
+                          SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
+                        ],
                       ),
-
-                      if (breakdownItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _buildBreakdownSection(
-                          context: context,
-                          colorScheme: colorScheme,
-                          breakdown: breakdownItems,
-                        ),
-                      ],
-
-                      const SizedBox(height: 24),
-
-                      // Receipt Section
-                      _buildReceiptSection(
-                        colorScheme: colorScheme,
-                        localImagePath: isNewExpense
-                            ? effectiveImagePath
-                            : _localImagePath ??
-                                widget.existingExpense?.localReceiptImagePath,
-                        receiptImageUrl: isNewExpense ? null : receiptImageUrl,
-                        onAddPhoto:
-                            effectiveImagePath == null ? _handleAddPhoto : null,
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Actions
-                      if (isExistingExpense)
-                        DestructiveAdaptiveButton(
-                          onPressed: _isDeleting ? null : _handleDelete,
-                          isLoading: _isDeleting,
-                          child: Text(isIncomeMode
-                              ? context.l10n.deleteIncome
-                              : context.l10n.deleteExpense),
-                        ),
-
-                      // Bottom spacer for scroll
-                      SizedBox(
-                          height: MediaQuery.of(context).padding.bottom + 20),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),

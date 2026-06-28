@@ -103,11 +103,9 @@ class _MonekoSheetContent extends StatelessWidget {
                   if (onClose != null)
                     IconButton(
                       onPressed: onClose,
-                      icon:
-                          Icon(Icons.close, color: colorScheme.mutedForeground),
+                      icon: Icon(Icons.close, color: colorScheme.onSurface),
                       style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.muted.withValues(alpha: 0.2),
+                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
                     )
                   else
@@ -130,19 +128,18 @@ class _MonekoSheetContent extends StatelessWidget {
                       onPressed: isConfirmLoading ? null : onConfirm,
                       icon: isConfirmLoading
                           ? SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: 18,
+                              height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
+                                  colorScheme.onSurface,
                                 ),
                               ),
                             )
-                          : Icon(Icons.check, color: colorScheme.primary),
+                          : Icon(Icons.check, color: colorScheme.onSurface),
                       style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.primary.withValues(alpha: 0.1),
+                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
                     )
                   else

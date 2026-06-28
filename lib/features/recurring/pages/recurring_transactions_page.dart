@@ -21,7 +21,6 @@ import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -52,6 +51,7 @@ class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
   final GlobalKey _recurringFabSpotlightKey = GlobalKey();
   final GlobalKey _recurringTabBarSpotlightKey = GlobalKey();
+  late final PageController _pageController;
   late SpotlightTourController _recurringTourController;
   Locale? _recurringTourLocale;
   bool _didInitRecurringTour = false;
@@ -66,6 +66,20 @@ class _RecurringTransactionsPageState
         .read(recurringTransactionsProvider(householdId).notifier)
         .refresh(user.id);
     await Future.delayed(const Duration(milliseconds: 500));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(
+      initialPage: ref.read(selectedRecurringTabProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -113,6 +127,7 @@ class _RecurringTransactionsPageState
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final selectedRecurringTab = ref.watch(selectedRecurringTabProvider);
     final preview = ref.watch(previewModeProvider);
 
     // Use householdScopeProvider to properly handle portfolio households
@@ -186,17 +201,38 @@ class _RecurringTransactionsPageState
       _startRecurringTourIfNeeded(currentTabIndex);
     });
 
+    void selectRecurringTab(int index) {
+      if (index == selectedRecurringTab) return;
+      ref.read(selectedRecurringTabProvider.notifier).state = index;
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOut,
+      );
+    }
+
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
       body: Column(
         children: [
-          Expanded(
-            child: MonekoTabBarView(
-              tabs: [
+          Padding(
+            key: _recurringTabBarSpotlightKey,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: AdaptiveSegmentedControl(
+              labels: [
                 context.l10n.expenses,
                 context.l10n.income,
               ],
-              tabBarKey: _recurringTabBarSpotlightKey,
+              selectedIndex: selectedRecurringTab,
+              onValueChanged: selectRecurringTab,
+            ),
+          ),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                ref.read(selectedRecurringTabProvider.notifier).state = index;
+              },
               children: [
                 _buildRecurringTabView(
                   colorScheme,
@@ -225,9 +261,6 @@ class _RecurringTransactionsPageState
                   recurringIncomes.isLoading,
                 ),
               ],
-              onTabChanged: (index) {
-                ref.read(selectedRecurringTabProvider.notifier).state = index;
-              },
             ),
           ),
         ],

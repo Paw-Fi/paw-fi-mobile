@@ -214,7 +214,7 @@ class LocalAuthAppLockBiometricService implements AppLockBiometricService {
         options: const AuthenticationOptions(
           biometricOnly: true,
           sensitiveTransaction: true,
-          stickyAuth: true,
+          stickyAuth: false,
         ),
       );
     } catch (_) {
