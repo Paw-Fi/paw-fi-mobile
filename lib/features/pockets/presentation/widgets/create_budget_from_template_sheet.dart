@@ -269,7 +269,8 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                       GestureDetector(
                         onTap: () async {
                           final header = Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
                               color: scheme.brightness == Brightness.dark
                                   ? Colors.white.withValues(alpha: 0.05)
@@ -310,25 +311,30 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                           if (value != null) {
                             budgetController.text = value;
                             // Update pockets proportionally when budget changes
-                            final text = value.replaceAll(RegExp(r'[^0-9.]'), '');
+                            final text =
+                                value.replaceAll(RegExp(r'[^0-9.]'), '');
                             final newTotal = double.tryParse(text) ?? 0.0;
 
                             if (totalFromPockets == 0) {
                               pockets.value = pockets.value.map((p) {
-                                final templatePockets = selectedTemplate.value.pockets;
+                                final templatePockets =
+                                    selectedTemplate.value.pockets;
                                 if (templatePockets.isEmpty) {
                                   return p.copyWith(amount: 0);
                                 }
-                                final templatePocket = templatePockets.firstWhere(
+                                final templatePocket =
+                                    templatePockets.firstWhere(
                                   (tp) => tp.name == p.name,
                                   orElse: () => templatePockets.first,
                                 );
-                                return p.copyWith(amount: newTotal * templatePocket.weight);
+                                return p.copyWith(
+                                    amount: newTotal * templatePocket.weight);
                               }).toList();
                             } else {
                               final ratio = newTotal / totalFromPockets;
                               pockets.value = pockets.value
-                                  .map((p) => p.copyWith(amount: p.amount * ratio))
+                                  .map((p) =>
+                                      p.copyWith(amount: p.amount * ratio))
                                   .toList();
                             }
                           }
@@ -344,7 +350,8 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                               fontWeight: FontWeight.bold,
                               color: budgetController.text.isNotEmpty
                                   ? scheme.primary
-                                  : scheme.mutedForeground.withValues(alpha: 0.3),
+                                  : scheme.mutedForeground
+                                      .withValues(alpha: 0.3),
                             ),
                           ),
                         ),
@@ -489,36 +496,29 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                               lastUpdated: DateTime.now(),
                             );
 
-                            showModalBottomSheet(
+                            EditPocketEnvelopeSheet.show(
                               context: context,
-                              barrierColor: Colors.black.withValues(alpha: 0.5),
-                              enableDrag: true,
-                              useSafeArea: true,
-                              isScrollControlled: true,
-                              builder: (context) => EditPocketEnvelopeSheet(
-                                scopeParams: scopeParams,
-                                existingEnvelope: tempEnvelope,
-                                totalBudget: totalFromPockets,
-                                unallocatedBudget:
-                                    0, // In builder, we just assume 0 or let user adjust
-                                budgetId: null,
-                                initialCategories: pocket.categories,
-                                onSaveOffline: (newTemplate) {
-                                  pockets.value = updatePocketEntryById(
-                                    pockets.value,
-                                    id: pocket.id,
-                                    update: (entry) => entry.copyWith(
-                                      name: newTemplate.name,
-                                      color: newTemplate.color,
-                                      categories:
-                                          newTemplate.suggestedCategories,
-                                      iconName: newTemplate.iconName,
-                                      amount:
-                                          totalFromPockets * newTemplate.weight,
-                                    ),
-                                  );
-                                },
-                              ),
+                              scopeParams: scopeParams,
+                              existingEnvelope: tempEnvelope,
+                              totalBudget: totalFromPockets,
+                              unallocatedBudget:
+                                  0, // In builder, we just assume 0 or let user adjust
+                              budgetId: null,
+                              initialCategories: pocket.categories,
+                              onSaveOffline: (newTemplate) {
+                                pockets.value = updatePocketEntryById(
+                                  pockets.value,
+                                  id: pocket.id,
+                                  update: (entry) => entry.copyWith(
+                                    name: newTemplate.name,
+                                    color: newTemplate.color,
+                                    categories: newTemplate.suggestedCategories,
+                                    iconName: newTemplate.iconName,
+                                    amount:
+                                        totalFromPockets * newTemplate.weight,
+                                  ),
+                                );
+                              },
                             );
                           },
                         );
@@ -798,9 +798,9 @@ class _PocketRow extends HookWidget {
 
     // Sync external amount change to controller
     useEffect(() {
-      final textVal = double.tryParse(
-              controller.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
-          0.0;
+      final textVal =
+          double.tryParse(controller.text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+              0.0;
       // Only update if significantly different to avoid cursor jumps or formatting wars
       if ((textVal - entry.amount).abs() > 0.01) {
         controller.text = formatAmount(entry.amount);
@@ -869,9 +869,12 @@ class _PocketRow extends HookWidget {
               ),
               GestureDetector(
                 onTap: () async {
-                  final iconData = entry.iconName != null ? _getIconData(entry.iconName!) : Icons.pie_chart_rounded;
+                  final iconData = entry.iconName != null
+                      ? _getIconData(entry.iconName!)
+                      : Icons.pie_chart_rounded;
                   final header = Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: entry.color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(100),

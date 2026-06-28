@@ -410,22 +410,13 @@ class PocketsGridSection extends HookConsumerWidget {
                                       context.l10n.pleaseSetMonthlyBudgetFirst);
                                   return;
                                 }
-                                showModalBottomSheet<void>(
+                                EditPocketEnvelopeSheet.show(
                                   context: context,
-                                  barrierColor:
-                                      Colors.black.withValues(alpha: 0.5),
-                                  enableDrag: true,
-                                  useSafeArea: true,
-                                  isScrollControlled: true,
-                                  builder: (sheetContext) {
-                                    return EditPocketEnvelopeSheet(
-                                      scopeParams: scopeParams,
-                                      budgetId: state.budgetId,
-                                      totalBudget: totalBudget,
-                                      unallocatedBudget: unallocatedBudget,
-                                      allPockets: state.editing,
-                                    );
-                                  },
+                                  scopeParams: scopeParams,
+                                  budgetId: state.budgetId,
+                                  totalBudget: totalBudget,
+                                  unallocatedBudget: unallocatedBudget,
+                                  allPockets: state.editing,
                                 );
                               },
                             ),
@@ -502,22 +493,13 @@ class PocketsGridSection extends HookConsumerWidget {
                                       context.l10n.pleaseSetMonthlyBudgetFirst);
                                   return;
                                 }
-                                showModalBottomSheet<void>(
+                                EditPocketEnvelopeSheet.show(
                                   context: context,
-                                  barrierColor:
-                                      Colors.black.withValues(alpha: 0.5),
-                                  enableDrag: true,
-                                  useSafeArea: true,
-                                  isScrollControlled: true,
-                                  builder: (sheetContext) {
-                                    return EditPocketEnvelopeSheet(
-                                      scopeParams: scopeParams,
-                                      budgetId: state.budgetId,
-                                      totalBudget: totalBudget,
-                                      unallocatedBudget: unallocatedBudget,
-                                      allPockets: state.editing,
-                                    );
-                                  },
+                                  scopeParams: scopeParams,
+                                  budgetId: state.budgetId,
+                                  totalBudget: totalBudget,
+                                  unallocatedBudget: unallocatedBudget,
+                                  allPockets: state.editing,
                                 );
                               },
                             ),

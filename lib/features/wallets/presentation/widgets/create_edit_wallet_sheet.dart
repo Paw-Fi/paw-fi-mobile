@@ -14,7 +14,7 @@ import 'package:moneko/features/utils/currency_display_names.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
-import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_selector_button.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -43,12 +43,11 @@ Future<CreateEditWalletResult?> showCreateEditWalletSheet(
   BuildContext context, {
   WalletEntity? initial,
 }) {
-  return showModalBottomSheet<CreateEditWalletResult>(
+  return MonekoBottomSheet.show<CreateEditWalletResult>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: true,
-    useSafeArea: true,
+    title: initial != null ? context.l10n.editWallet : context.l10n.addWallet,
     isScrollControlled: true,
+    onClose: () => Navigator.pop(context),
     builder: (context) => _CreateEditWalletSheet(initial: initial),
   );
 }
@@ -117,85 +116,42 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
       );
     }
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.sheetBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusScope.of(context).unfocus(),
+    return SafeArea(
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ModalSheetHandle(),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        isEditing
-                            ? context.l10n.editWallet
-                            : context.l10n.addWallet,
-                        style: TextStyle(
-                          color: colorScheme.foreground,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: handleSave,
-                      icon: Icon(
-                        Icons.check_rounded,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                  ],
+              Text(
+                context.l10n.walletName,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
                 ),
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.walletName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: nameController,
-                        placeholder: context.l10n.walletNameExample,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        context.l10n.currency,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (canChangeCurrency)
-                        AdaptivePopupMenuButton.widget<String>(
-                          items:
-                              getAvailableCurrencyOptions().keys.map((code) {
+              const SizedBox(height: 8),
+              CustomTextField(
+                controller: nameController,
+                placeholder: context.l10n.walletNameExample,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                context.l10n.currency,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (canChangeCurrency)
+                AdaptivePopupMenuButton.widget<String>(
+                  items: getAvailableCurrencyOptions().keys.map((code) {
                             return AdaptivePopupMenuItem<String>(
                               label:
                                   '$code · ${resolveCurrencyDisplayName(code)}',
@@ -573,10 +529,6 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

@@ -441,7 +441,14 @@ void showScenarioResultSheet(
                                                 AppToast.error(
                                                   context,
                                                   context.l10n.analysisFailed(
-                                                      e.toString()),
+                                                    ErrorHandler
+                                                        .getUserFriendlyMessage(
+                                                      e,
+                                                      context:
+                                                          BackendErrorContext
+                                                              .scenarioPlanner,
+                                                    ),
+                                                  ),
                                                 );
                                               }
                                             },
@@ -655,7 +662,14 @@ void showScenarioResultSheet(
                                                       context,
                                                       context.l10n
                                                           .analysisFailed(
-                                                              e.toString()),
+                                                        ErrorHandler
+                                                            .getUserFriendlyMessage(
+                                                          e,
+                                                          context:
+                                                              BackendErrorContext
+                                                                  .scenarioPlanner,
+                                                        ),
+                                                      ),
                                                     );
                                                   }
                                                 },

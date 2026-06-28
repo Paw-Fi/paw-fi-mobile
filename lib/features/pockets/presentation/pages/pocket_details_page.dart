@@ -416,24 +416,17 @@ class PocketDetailsPage extends HookConsumerWidget {
                           }),
                         ];
 
-                        showModalBottomSheet(
+                        EditPocketEnvelopeSheet.show(
                           context: context,
-                          barrierColor:
-                              colorScheme.scrim.withValues(alpha: 0.5),
-                          enableDrag: true,
-                          useSafeArea: true,
-                          isScrollControlled: true,
-                          builder: (sheetContext) => EditPocketEnvelopeSheet(
-                            scopeParams: scopeParams,
-                            existingEnvelope: pocket,
-                            totalBudget: totalBudget,
-                            unallocatedBudget: unallocatedBudget,
-                            budgetId: state.budgetId,
-                            allPockets: allPockets,
-                            onDeleteCompleted: () {
-                              rootNavigator.pop();
-                            },
-                          ),
+                          scopeParams: scopeParams,
+                          existingEnvelope: pocket,
+                          totalBudget: totalBudget,
+                          unallocatedBudget: unallocatedBudget,
+                          budgetId: state.budgetId,
+                          allPockets: allPockets,
+                          onDeleteCompleted: () {
+                            rootNavigator.pop();
+                          },
                         );
                       },
                     ),

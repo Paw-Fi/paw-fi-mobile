@@ -20,7 +20,7 @@ import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
-import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/destructive_text_button.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
@@ -1491,102 +1491,25 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
     }
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.95,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.sheetBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: PopScope(
-          canPop: !isLoading.value,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Modal Sheet Drag Handle
-                const ModalSheetHandle(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface.withValues(alpha: 0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.close,
-                            size: 20,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        isEditing
-                            ? (isExpense
-                                ? context.l10n.editRecurringExpense
-                                : context.l10n.editRecurringIncome)
-                            : (isExpense
-                                ? context.l10n.addRecurringExpense
-                                : context.l10n.addRecurringIncome),
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: isLoading.value ? null : handleSave,
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface.withValues(alpha: 0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: isLoading.value
-                              ? Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.primary,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.check,
-                                  size: 20,
-                                  color: colorScheme.primary,
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
+    return PopScope(
+      canPop: !isLoading.value,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 16.0,
                 ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20.0,
-                      vertical: 24.0,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                         MonekoInput(
                           padding: const EdgeInsets.all(4),
                           child: Row(
@@ -2462,12 +2385,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ),
     );
   }
 
@@ -2796,12 +2717,17 @@ Future<bool?> showAddRecurringSheet(
   required String type,
   RecurringTransaction? existingTransaction,
 }) {
-  return showModalBottomSheet<bool>(
+  return MonekoBottomSheet.show<bool>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: true,
-    useSafeArea: true,
+    title: existingTransaction != null
+        ? (type == 'expense'
+            ? context.l10n.editRecurringExpense
+            : context.l10n.editRecurringIncome)
+        : (type == 'expense'
+            ? context.l10n.addRecurringExpense
+            : context.l10n.addRecurringIncome),
     isScrollControlled: true,
+    onClose: () => Navigator.pop(context),
     builder: (context) => Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,

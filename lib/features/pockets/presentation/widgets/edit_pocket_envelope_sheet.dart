@@ -30,7 +30,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -52,6 +52,41 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     this.onDeleteCompleted,
     this.onSaveOffline,
   });
+
+  static Future<void> show({
+    required BuildContext context,
+    required PocketsScopeParams scopeParams,
+    PocketEnvelope? existingEnvelope,
+    PocketTemplate? template,
+    List<String> initialCategories = const [],
+    required double totalBudget,
+    required double unallocatedBudget,
+    required String? budgetId,
+    List<PocketEnvelope> allPockets = const [],
+    VoidCallback? onDeleteCompleted,
+    ValueChanged<PocketTemplate>? onSaveOffline,
+  }) {
+    return MonekoBottomSheet.show(
+      context: context,
+      title: existingEnvelope != null
+          ? context.l10n.editPocket
+          : context.l10n.addPocket,
+      isScrollControlled: true,
+      onClose: () => Navigator.pop(context),
+      builder: (context) => EditPocketEnvelopeSheet(
+        scopeParams: scopeParams,
+        existingEnvelope: existingEnvelope,
+        template: template,
+        initialCategories: initialCategories,
+        totalBudget: totalBudget,
+        unallocatedBudget: unallocatedBudget,
+        budgetId: budgetId,
+        allPockets: allPockets,
+        onDeleteCompleted: onDeleteCompleted,
+        onSaveOffline: onSaveOffline,
+      ),
+    );
+  }
 
   final PocketsScopeParams scopeParams;
   final PocketEnvelope? existingEnvelope;
@@ -742,806 +777,701 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
     }
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.sheetBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: PopScope(
-        canPop: !isLoading.value,
-        child: SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Modal Sheet Drag Handle
-                const ModalSheetHandle(),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
+    return PopScope(
+      canPop: !isLoading.value,
+      child: SafeArea(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          isEditing
-                              ? context.l10n.editPocket
-                              : context.l10n.addPocket,
-                          style: TextStyle(
-                            color: colorScheme.foreground,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
+                      Text(
+                        context.l10n.pocketNameLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
-                      IconButton(
-                        onPressed: isLoading.value ? null : handleSave,
-                        icon: isLoading.value
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.foreground,
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                Icons.check_rounded,
-                                color: colorScheme.foreground,
-                              ),
+                      const SizedBox(height: 8),
+                      CustomTextField(
+                        controller: nameController,
+                        placeholder: context.l10n.pocketNamePlaceholder,
                       ),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          context.l10n.pocketNameLabel,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground,
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.pocketCategoriesLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            useSafeArea: true,
+                            backgroundColor:
+                                colorScheme.surface.withValues(alpha: 0.0),
+                            builder: (sheetContext) {
+                              return CategoryPickerBottomSheet(
+                                title: context.l10n.selectCategoriesMultiple,
+                                allCategories: allCategories,
+                                customCategories: customExpenseCategories,
+                                selectedCategories: selectedCategories.value,
+                                onChanged: (value) {
+                                  selectedCategories.value =
+                                      List<String>.from(value);
+                                },
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.card,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: colorScheme.border),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        CustomTextField(
-                          controller: nameController,
-                          placeholder: context.l10n.pocketNamePlaceholder,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          context.l10n.pocketCategoriesLabel,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () {
-                            showModalBottomSheet<void>(
-                              context: context,
-                              isScrollControlled: true,
-                              useSafeArea: true,
-                              backgroundColor:
-                                  colorScheme.surface.withValues(alpha: 0.0),
-                              builder: (sheetContext) {
-                                return CategoryPickerBottomSheet(
-                                  title: context.l10n.selectCategoriesMultiple,
-                                  allCategories: allCategories,
-                                  customCategories: customExpenseCategories,
-                                  selectedCategories: selectedCategories.value,
-                                  onChanged: (value) {
-                                    selectedCategories.value =
-                                        List<String>.from(value);
-                                  },
-                                );
-                              },
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: colorScheme.sheetElementBackground,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colorScheme.homeCardShadow,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: selectedCategories.value.isEmpty
-                                      ? Text(
-                                          context.l10n.tapToSelectCategories,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: colorScheme.mutedForeground,
-                                          ),
-                                        )
-                                      : Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            for (final cat
-                                                in selectedCategories.value)
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 4,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: colorScheme.primary
-                                                      .withValues(alpha: 0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  getCategoryTranslation(
-                                                      context, cat),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: colorScheme.primary,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: selectedCategories.value.isEmpty
+                                    ? Text(
+                                        context.l10n.tapToSelectCategories,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: colorScheme.mutedForeground,
                                         ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right,
-                                  color: colorScheme.mutedForeground,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          context.l10n.pocketColorLabel,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Builder(builder: (context) {
-                          const presetColors = AppTheme.pocketPresetColors;
-                          return SizedBox(
-                            height: 44,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: presetColors.length + 1,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                if (index == 0) {
-                                  // Check if current selected color is one of the presets
-                                  bool isCustomColor = false;
-                                  if (selectedColor.value != null) {
-                                    isCustomColor = true;
-                                    for (final preset in presetColors) {
-                                      String two(int n) =>
-                                          n.toRadixString(16).padLeft(2, '0');
-                                      int toByte(double x) =>
-                                          (x * 255.0).round() & 0xff;
-                                      final hex =
-                                          '#${two(toByte(preset.r))}${two(toByte(preset.g))}${two(toByte(preset.b))}';
-                                      if (selectedColor.value!.toLowerCase() ==
-                                          hex.toLowerCase()) {
-                                        isCustomColor = false;
-                                        break;
-                                      }
-                                    }
-                                  }
-
-                                  return GestureDetector(
-                                    onTap: () {
-                                      final currentColor = selectedColor
-                                                  .value !=
-                                              null
-                                          ? Color(int.parse(
-                                                  selectedColor.value!
-                                                      .substring(1, 7),
-                                                  radix: 16) +
-                                              0xFF000000)
-                                          : AppTheme
-                                              .pocketDefaultBlue; // Default blue
-
-                                      AdaptiveColorPicker.show(
-                                        context: context,
-                                        startingColor: currentColor,
-                                        onColorChanged: (color) {
-                                          String two(int n) => n
-                                              .toRadixString(16)
-                                              .padLeft(2, '0');
-                                          int toByte(double x) =>
-                                              (x * 255.0).round() & 0xff;
-                                          final hex =
-                                              '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                          selectedColor.value = hex;
-                                        },
-                                        label: context.l10n.selectColor,
-                                      );
-                                    },
-                                    child: AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: isCustomColor &&
-                                                selectedColor.value != null
-                                            ? Color(int.parse(
-                                                    selectedColor.value!
-                                                        .substring(1, 7),
-                                                    radix: 16) +
-                                                0xFF000000)
-                                            : null,
-                                        gradient: isCustomColor
-                                            ? null
-                                            : const SweepGradient(
-                                                colors:
-                                                    AppTheme.pocketColorSweep,
+                                      )
+                                    : Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          for (final cat
+                                              in selectedCategories.value)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 4,
                                               ),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: colorScheme.homeCardShadow,
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
+                                              decoration: BoxDecoration(
+                                                color: colorScheme.primary
+                                                    .withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                getCategoryTranslation(
+                                                    context, cat),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: colorScheme.primary,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
                                         ],
                                       ),
-                                      child: AnimatedSwitcher(
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        child: isCustomColor
-                                            ? Icon(Icons.check,
-                                                key: const ValueKey('check'),
-                                                color: colorScheme
-                                                    .primaryForeground,
-                                                size: 20)
-                                            : Icon(Icons.colorize,
-                                                key: const ValueKey('colorize'),
-                                                color: colorScheme
-                                                    .primaryForeground,
-                                                size: 20),
-                                      ),
-                                    ),
-                                  );
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: colorScheme.mutedForeground,
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.pocketColorLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Builder(builder: (context) {
+                        const presetColors = AppTheme.pocketPresetColors;
+                        return SizedBox(
+                          height: 44,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: presetColors.length + 1,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // Check if current selected color is one of the presets
+                                bool isCustomColor = false;
+                                if (selectedColor.value != null) {
+                                  isCustomColor = true;
+                                  for (final preset in presetColors) {
+                                    String two(int n) =>
+                                        n.toRadixString(16).padLeft(2, '0');
+                                    int toByte(double x) =>
+                                        (x * 255.0).round() & 0xff;
+                                    final hex =
+                                        '#${two(toByte(preset.r))}${two(toByte(preset.g))}${two(toByte(preset.b))}';
+                                    if (selectedColor.value!.toLowerCase() ==
+                                        hex.toLowerCase()) {
+                                      isCustomColor = false;
+                                      break;
+                                    }
+                                  }
                                 }
-                                final color = presetColors[index - 1];
-                                String two(int n) =>
-                                    n.toRadixString(16).padLeft(2, '0');
-                                int toByte(double x) =>
-                                    (x * 255.0).round() & 0xff;
-                                final hex =
-                                    '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                final isSelected =
-                                    selectedColor.value?.toLowerCase() ==
-                                        hex.toLowerCase();
 
                                 return GestureDetector(
-                                  onTap: () => selectedColor.value = hex,
+                                  onTap: () {
+                                    final currentColor = selectedColor.value !=
+                                            null
+                                        ? Color(int.parse(
+                                                selectedColor.value!
+                                                    .substring(1, 7),
+                                                radix: 16) +
+                                            0xFF000000)
+                                        : AppTheme
+                                            .pocketDefaultBlue; // Default blue
+
+                                    AdaptiveColorPicker.show(
+                                      context: context,
+                                      startingColor: currentColor,
+                                      onColorChanged: (color) {
+                                        String two(int n) =>
+                                            n.toRadixString(16).padLeft(2, '0');
+                                        int toByte(double x) =>
+                                            (x * 255.0).round() & 0xff;
+                                        final hex =
+                                            '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                                        selectedColor.value = hex;
+                                      },
+                                      label: context.l10n.selectColor,
+                                    );
+                                  },
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 300),
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: color,
+                                      color: isCustomColor &&
+                                              selectedColor.value != null
+                                          ? Color(int.parse(
+                                                  selectedColor.value!
+                                                      .substring(1, 7),
+                                                  radix: 16) +
+                                              0xFF000000)
+                                          : null,
+                                      gradient: isCustomColor
+                                          ? null
+                                          : const SweepGradient(
+                                              colors: AppTheme.pocketColorSweep,
+                                            ),
                                       shape: BoxShape.circle,
-                                      boxShadow: isSelected
-                                          ? [
-                                              BoxShadow(
-                                                color:
-                                                    colorScheme.homeCardShadow,
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ]
-                                          : [
-                                              BoxShadow(
-                                                color:
-                                                    colorScheme.homeCardShadow,
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 1),
-                                              ),
-                                            ],
+                                      border:
+                                          Border.all(color: colorScheme.border),
                                     ),
                                     child: AnimatedSwitcher(
                                       duration:
                                           const Duration(milliseconds: 300),
-                                      child: isSelected
+                                      child: isCustomColor
                                           ? Icon(Icons.check,
-                                              key: const ValueKey('selected'),
+                                              key: const ValueKey('check'),
                                               color:
                                                   colorScheme.primaryForeground,
                                               size: 20)
-                                          : const SizedBox(
-                                              key: ValueKey('unselected')),
+                                          : Icon(Icons.colorize,
+                                              key: const ValueKey('colorize'),
+                                              color:
+                                                  colorScheme.primaryForeground,
+                                              size: 20),
                                     ),
                                   ),
                                 );
-                              },
-                            ),
-                          );
-                        }),
-                        const SizedBox(height: 20),
-                        Text(
-                          context.l10n.pocketIconLabel,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 44,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: pocketIconNames.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 12),
-                            itemBuilder: (context, index) {
-                              final iconName = pocketIconNames[index];
-                              final selectedHex = selectedColor.value;
-                              final selectedColorValue = selectedHex != null
-                                  ? Color(int.parse(
-                                          selectedHex.replaceFirst('#', ''),
-                                          radix: 16) +
-                                      0xFF000000)
-                                  : colorScheme.primary;
-
-                              final iconData = getPocketIconData(iconName);
-                              final isSelected = selectedIcon.value == iconName;
+                              }
+                              final color = presetColors[index - 1];
+                              String two(int n) =>
+                                  n.toRadixString(16).padLeft(2, '0');
+                              int toByte(double x) =>
+                                  (x * 255.0).round() & 0xff;
+                              final hex =
+                                  '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                              final isSelected =
+                                  selectedColor.value?.toLowerCase() ==
+                                      hex.toLowerCase();
 
                               return GestureDetector(
-                                onTap: () => selectedIcon.value = iconName,
-                                child: Container(
+                                onTap: () => selectedColor.value = hex,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? selectedColorValue.withValues(
-                                            alpha: 0.2)
-                                        : colorScheme.card,
+                                    color: color,
                                     shape: BoxShape.circle,
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: colorScheme.foreground,
+                                            width: 2,
+                                          )
+                                        : null,
                                   ),
-                                  child: Icon(
-                                    iconData,
-                                    color: isSelected
-                                        ? selectedColorValue
-                                        : colorScheme.mutedForeground,
-                                    size: 20,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: isSelected
+                                        ? Icon(Icons.check,
+                                            key: const ValueKey('selected'),
+                                            color:
+                                                colorScheme.primaryForeground,
+                                            size: 20)
+                                        : const SizedBox(
+                                            key: ValueKey('unselected')),
                                   ),
                                 ),
                               );
                             },
                           ),
+                        );
+                      }),
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.pocketIconLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
                         ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.sheetElementBackground,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.homeCardShadow,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text(
-                                context.l10n.budgetAmount,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: isLoading.value
-                                    ? null
-                                    : () {
-                                        setAutoAdjustOtherPockets(
-                                          !autoAdjustOtherPockets.value,
-                                        );
-                                      },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeOutCubic,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: autoAdjustAccent.withValues(
-                                      alpha: autoAdjustOtherPockets.value
-                                          ? 0.10
-                                          : 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: autoAdjustAccent.withValues(
-                                        alpha: autoAdjustOtherPockets.value
-                                            ? 0.22
-                                            : 0.30,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                AnimatedSwitcher(
-                                                  duration: const Duration(
-                                                    milliseconds: 180,
-                                                  ),
-                                                  child: Text(
-                                                    autoAdjustTitle,
-                                                    key: ValueKey(
-                                                        autoAdjustTitle),
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: colorScheme
-                                                          .foreground,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Tooltip(
-                                                  message: l10n.balancedManualModeTooltip,
-                                                  triggerMode:
-                                                      TooltipTriggerMode.tap,
-                                                  child: Icon(
-                                                    Icons.help_outline_rounded,
-                                                    size: 18,
-                                                    color: colorScheme
-                                                        .mutedForeground,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 3),
-                                            AnimatedSwitcher(
-                                              duration: const Duration(
-                                                milliseconds: 180,
-                                              ),
-                                              child: Align(
-                                                key: ValueKey(
-                                                    autoAdjustSubtitle),
-                                                alignment: Alignment.centerLeft,
-                                                child: Text(
-                                                  autoAdjustSubtitle,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    height: 1.25,
-                                                    color: colorScheme
-                                                        .mutedForeground,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      AdaptiveSwitch(
-                                        value: autoAdjustOtherPockets.value,
-                                        onChanged: isLoading.value
-                                            ? null
-                                            : setAutoAdjustOtherPockets,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () async {
-                                          final hexColor = selectedColor.value ?? '#6B7280';
-                                          final pocketColor = Color(int.parse(hexColor.replaceFirst('#', ''), radix: 16) + 0xFF000000);
-                                          final iconName = selectedIcon.value ?? 'category';
-                                          final iconData = getPocketIconData(iconName);
-                                          final displayName = nameController.text.trim().isEmpty ? context.l10n.thisPocketFallback : nameController.text.trim();
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 44,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: pocketIconNames.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final iconName = pocketIconNames[index];
+                            final selectedHex = selectedColor.value;
+                            final selectedColorValue = selectedHex != null
+                                ? Color(int.parse(
+                                        selectedHex.replaceFirst('#', ''),
+                                        radix: 16) +
+                                    0xFF000000)
+                                : colorScheme.primary;
 
-                                          final header = Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: pocketColor.withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(100),
-                                              border: Border.all(
-                                                color: pocketColor.withValues(alpha: 0.25),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  iconData,
-                                                  size: 12,
-                                                  color: pocketColor,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  displayName,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: colorScheme.foreground,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
+                            final iconData = getPocketIconData(iconName);
+                            final isSelected = selectedIcon.value == iconName;
 
-                                          final value =
-                                              await showCalculatorKeypadSheet(
-                                            context: context,
-                                            initialValue: amountController.text,
-                                            prefix: resolveCurrencySymbol(currency),
-                                            header: header,
-                                          );
-                                          if (value != null) {
-                                            final normalizedValue =
-                                                normalizeEnteredAmountText(
-                                              value,
-                                            );
-                                            amountController.value =
-                                                TextEditingValue(
-                                              text: normalizedValue,
-                                              selection:
-                                                  TextSelection.collapsed(
-                                                offset: normalizedValue.length,
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        child: Container(
-                                          width: 200,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            border: Border(
-                                              bottom: BorderSide(
-                                                color: colorScheme.foreground,
-                                                width: 1,
-                                              ),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            amountController.text.isNotEmpty
-                                                ? '${resolveCurrencySymbol(currency)}${amountController.text}'
-                                                : context.l10n.tapToSet,
-                                            style: TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.w700,
-                                              color: amountController
-                                                      .text.isNotEmpty
-                                                  ? colorScheme.foreground
-                                                  : colorScheme.mutedForeground,
-                                              letterSpacing: -0.5,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${previewShare.toStringAsFixed(2)}%',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: colorScheme.mutedForeground,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
+                            return GestureDetector(
+                              onTap: () => selectedIcon.value = iconName,
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? selectedColorValue.withValues(
+                                          alpha: 0.1)
+                                      : colorScheme.card,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? selectedColorValue
+                                        : colorScheme.border,
                                   ),
-                                  Text(
-                                    '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, double.parse(formatAmount(totalBudget)))}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: colorScheme.mutedForeground,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              SizedBox(
-                                width: double.infinity,
-                                child: AdaptiveSlider(
-                                  value: sliderPercent,
-                                  min: 0,
-                                  max: 100,
-                                  divisions: 100,
-                                  onChanged: (maxBudgetCents <= 0 ||
-                                          isLoading.value)
-                                      ? null
-                                      : (value) {
-                                          final pct = value.clamp(0.0, 100.0);
-                                          final newCents =
-                                              quantizePocketBudgetAmountCents(
-                                            ((pct / 100.0) * maxBudgetCents)
-                                                .round()
-                                                .clamp(0, maxBudgetCents)
-                                                .toInt(),
-                                            stepCents: allocationStepCents,
-                                          );
-                                          amountController.value =
-                                              TextEditingValue(
-                                            text: formatAmount(
-                                                centsToAmount(newCents)),
-                                          );
-                                        },
+                                ),
+                                child: Icon(
+                                  iconData,
+                                  color: isSelected
+                                      ? selectedColorValue
+                                      : colorScheme.mutedForeground,
+                                  size: 20,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${resolveCurrencySymbol(currency)}0',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: colorScheme.mutedForeground,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, double.parse(formatAmount(totalBudget)))}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: colorScheme.mutedForeground,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colorScheme.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              context.l10n.budgetAmount,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.mutedForeground,
                               ),
-                              const SizedBox(height: 12),
-                              AnimatedSwitcher(
+                            ),
+                            const SizedBox(height: 12),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: isLoading.value
+                                  ? null
+                                  : () {
+                                      setAutoAdjustOtherPockets(
+                                        !autoAdjustOtherPockets.value,
+                                      );
+                                    },
+                              child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
-                                child: previewExceededBudgetCents > 0
-                                    ? Padding(
-                                        key: const ValueKey(
-                                            'budget_exceeded_warning'),
-                                        padding: const EdgeInsets.only(top: 12),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.warning_amber_rounded,
-                                              size: 16,
-                                              color: colorScheme.error,
+                                curve: Curves.easeOutCubic,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.sheetElementBackground,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: colorScheme.border),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              AnimatedSwitcher(
+                                                duration: const Duration(
+                                                  milliseconds: 180,
+                                                ),
+                                                child: Text(
+                                                  autoAdjustTitle,
+                                                  key:
+                                                      ValueKey(autoAdjustTitle),
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: autoAdjustAccent,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Tooltip(
+                                                message: l10n
+                                                    .balancedManualModeTooltip,
+                                                triggerMode:
+                                                    TooltipTriggerMode.tap,
+                                                child: Icon(
+                                                  Icons.help_outline_rounded,
+                                                  size: 18,
+                                                  color: autoAdjustAccent,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 180,
                                             ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
+                                            child: Align(
+                                              key: ValueKey(autoAdjustSubtitle),
+                                              alignment: Alignment.centerLeft,
                                               child: Text(
-                                                '${context.l10n.budgetExceededByLabel} ${formatLocalizedAmount(previewExceededBudgetCents / 100.0)}',
+                                                autoAdjustSubtitle,
                                                 style: TextStyle(
                                                   fontSize: 12,
-                                                  color: colorScheme.error,
-                                                  fontWeight: FontWeight.w500,
+                                                  height: 1.25,
+                                                  color: colorScheme
+                                                      .mutedForeground,
                                                 ),
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(
-                                        key: ValueKey('no_budget_warning'),
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _BudgetDistributionPreview(
-                          totalBudget: totalBudget,
-                          otherPockets: siblingPockets,
-                          otherPocketAmountsCents: previewSiblingAmounts,
-                          currentAmountCents: previewAmountCents,
-                          currentPocketColor: selectedColor.value,
-                          currentPocketName: nameController.text.trim().isEmpty
-                              ? context.l10n.thisPocketFallback
-                              : nameController.text.trim(),
-                          colorScheme: colorScheme,
-                          showUnassignedBudget: !autoAdjustOtherPockets.value,
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: PrimaryAdaptiveButton(
-                            onPressed: isLoading.value ? null : handleSave,
-                            child: isLoading.value
-                                ? SizedBox(
-                                    height: 18,
-                                    width: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(
-                                        colorScheme.primaryForeground,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  )
-                                : Text(
-                                    isEditing
-                                        ? context.l10n.saveChanges
-                                        : context.l10n.save,
-                                  ),
-                          ),
-                        ),
-                        if (isEditing) ...[
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: PlainAdaptiveButton(
-                              onPressed: isLoading.value ? null : handleDelete,
-                              child: Text(
-                                context.l10n.delete,
-                                style: TextStyle(
-                                  color: colorScheme.destructive,
-                                  fontWeight: FontWeight.w600,
+                                    const SizedBox(width: 12),
+                                    AdaptiveSwitch(
+                                      value: autoAdjustOtherPockets.value,
+                                      onChanged: isLoading.value
+                                          ? null
+                                          : setAutoAdjustOtherPockets,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: () async {
+                                final hexColor =
+                                    selectedColor.value ?? '#6B7280';
+                                final pocketColor = Color(int.parse(
+                                        hexColor.replaceFirst('#', ''),
+                                        radix: 16) +
+                                    0xFF000000);
+                                final iconName =
+                                    selectedIcon.value ?? 'category';
+                                final iconData = getPocketIconData(iconName);
+                                final displayName =
+                                    nameController.text.trim().isEmpty
+                                        ? context.l10n.thisPocketFallback
+                                        : nameController.text.trim();
+
+                                final header = Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: pocketColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: Border.all(
+                                      color:
+                                          pocketColor.withValues(alpha: 0.25),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        iconData,
+                                        size: 12,
+                                        color: pocketColor,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        displayName,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                final value = await showCalculatorKeypadSheet(
+                                  context: context,
+                                  initialValue: amountController.text,
+                                  prefix: resolveCurrencySymbol(currency),
+                                  header: header,
+                                );
+                                if (value != null) {
+                                  final normalizedValue =
+                                      normalizeEnteredAmountText(
+                                    value,
+                                  );
+                                  amountController.value = TextEditingValue(
+                                    text: normalizedValue,
+                                    selection: TextSelection.collapsed(
+                                      offset: normalizedValue.length,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.sheetElementBackground,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: colorScheme.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        amountController.text.isNotEmpty
+                                            ? '${resolveCurrencySymbol(currency)}${amountController.text}'
+                                            : context.l10n.tapToSet,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color:
+                                              amountController.text.isNotEmpty
+                                                  ? colorScheme.onSurface
+                                                  : colorScheme.onSurface
+                                                      .withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${previewShare.toStringAsFixed(2)}%',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.mutedForeground,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: AdaptiveSlider(
+                                value: sliderPercent,
+                                min: 0,
+                                max: 100,
+                                divisions: 100,
+                                onChanged:
+                                    (maxBudgetCents <= 0 || isLoading.value)
+                                        ? null
+                                        : (value) {
+                                            final pct = value.clamp(0.0, 100.0);
+                                            final newCents =
+                                                quantizePocketBudgetAmountCents(
+                                              ((pct / 100.0) * maxBudgetCents)
+                                                  .round()
+                                                  .clamp(0, maxBudgetCents)
+                                                  .toInt(),
+                                              stepCents: allocationStepCents,
+                                            );
+                                            amountController.value =
+                                                TextEditingValue(
+                                              text: formatAmount(
+                                                  centsToAmount(newCents)),
+                                            );
+                                          },
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${resolveCurrencySymbol(currency)}0',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorScheme.mutedForeground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, double.parse(formatAmount(totalBudget)))}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorScheme.mutedForeground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: previewExceededBudgetCents > 0
+                                  ? Padding(
+                                      key: const ValueKey(
+                                          'budget_exceeded_warning'),
+                                      padding: const EdgeInsets.only(top: 12),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.warning_amber_rounded,
+                                            size: 16,
+                                            color: colorScheme.error,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              '${context.l10n.budgetExceededByLabel} ${formatLocalizedAmount(previewExceededBudgetCents / 100.0)}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: colorScheme.error,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(
+                                      key: ValueKey('no_budget_warning'),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _BudgetDistributionPreview(
+                        totalBudget: totalBudget,
+                        otherPockets: siblingPockets,
+                        otherPocketAmountsCents: previewSiblingAmounts,
+                        currentAmountCents: previewAmountCents,
+                        currentPocketColor: selectedColor.value,
+                        currentPocketName: nameController.text.trim().isEmpty
+                            ? context.l10n.thisPocketFallback
+                            : nameController.text.trim(),
+                        colorScheme: colorScheme,
+                        showUnassignedBudget: !autoAdjustOtherPockets.value,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryAdaptiveButton(
+                          onPressed: isLoading.value ? null : handleSave,
+                          child: isLoading.value
+                              ? SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      colorScheme.primaryForeground,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  isEditing
+                                      ? context.l10n.saveChanges
+                                      : context.l10n.save,
+                                ),
+                        ),
+                      ),
+                      if (isEditing) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: PlainAdaptiveButton(
+                            onPressed: isLoading.value ? null : handleDelete,
+                            child: Text(
+                              context.l10n.delete,
+                              style: TextStyle(
+                                color: colorScheme.destructive,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1638,15 +1568,9 @@ class _BudgetDistributionPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.sheetElementBackground,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

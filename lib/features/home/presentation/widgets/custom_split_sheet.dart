@@ -10,6 +10,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 enum SplitType { equal, amount, percentage, shares }
@@ -138,22 +139,37 @@ void showCustomSplitSheet({
   List<MemberSplit>? initialSplits,
   bool showEqualOption = false,
 }) {
-  showModalBottomSheet(
+  SplitType? latestType;
+  List<MemberSplit>? latestSplits;
+
+  MonekoBottomSheet.show(
     context: context,
-    backgroundColor:
-        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+    title: context.l10n.splitExpense,
     isScrollControlled: true,
-    useSafeArea: true,
-    isDismissible: true,
-    builder: (context) => _CustomSplitSheet(
-      members: members,
-      totalAmount: totalAmount,
-      currencySymbol: currencySymbol,
-      onSave: onSave,
-      initialSplitType: initialSplitType,
-      initialSplits: initialSplits,
-      showEqualOption: showEqualOption,
-    ),
+    onClose: () {
+      if (latestType != null && latestSplits != null) {
+        onSave(latestType!, latestSplits!);
+      }
+      Navigator.pop(context);
+    },
+    builder: (context) {
+      return SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: CustomSplitEditor(
+          members: members,
+          totalAmount: totalAmount,
+          currencySymbol: currencySymbol,
+          initialSplitType: initialSplitType,
+          initialSplits: initialSplits,
+          showEqualOption: showEqualOption,
+          onChanged: (type, splits) {
+            latestType = type;
+            latestSplits = splits;
+          },
+        ),
+      );
+    },
   );
 }
 
@@ -327,29 +343,6 @@ class GroupSplitEditorSection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _CustomSplitSheet extends StatefulWidget {
-  final List<HouseholdMember> members;
-  final double totalAmount;
-  final String currencySymbol;
-  final Function(SplitType splitType, List<MemberSplit> splits) onSave;
-  final SplitType? initialSplitType;
-  final List<MemberSplit>? initialSplits;
-  final bool showEqualOption;
-
-  const _CustomSplitSheet({
-    required this.members,
-    required this.totalAmount,
-    required this.currencySymbol,
-    required this.onSave,
-    this.initialSplitType,
-    this.initialSplits,
-    this.showEqualOption = false,
-  });
-
-  @override
-  State<_CustomSplitSheet> createState() => _CustomSplitSheetState();
 }
 
 class _CustomSplitEditorState extends State<CustomSplitEditor> {
@@ -1409,90 +1402,5 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     }
 
     return '${context.l10n.owes} ${widget.currencySymbol}${formatAmount(amount)}';
-  }
-}
-
-class _CustomSplitSheetState extends State<_CustomSplitSheet> {
-  SplitType? _latestType;
-  List<MemberSplit>? _latestSplits;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.appleGroupedBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: colorScheme.border.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    context.l10n.splitExpense,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      color: colorScheme.mutedForeground),
-                  iconSize: 24,
-                  onPressed: () {
-                    if (_latestType != null && _latestSplits != null) {
-                      widget.onSave(_latestType!, _latestSplits!);
-                    }
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Flexible(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-              child: CustomSplitEditor(
-                members: widget.members,
-                totalAmount: widget.totalAmount,
-                currencySymbol: widget.currencySymbol,
-                initialSplitType: widget.initialSplitType,
-                initialSplits: widget.initialSplits,
-                showEqualOption: widget.showEqualOption,
-                onChanged: (type, splits) {
-                  _latestType = type;
-                  _latestSplits = splits;
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
