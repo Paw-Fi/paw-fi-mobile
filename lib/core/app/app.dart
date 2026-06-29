@@ -1,4 +1,5 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
@@ -18,6 +19,9 @@ import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
+import 'package:moneko/features/app_lock/presentation/pages/app_lock_page.dart';
+import 'package:moneko/features/app_lock/presentation/widgets/app_lock_visual_shell.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -34,6 +38,7 @@ class App extends ConsumerStatefulWidget {
 class _AppState extends ConsumerState<App> {
   final DeepLinkService _deepLinkService = DeepLinkService();
   bool _deepLinkInitialized = false;
+  bool _shouldObscureForLifecycle = false;
   StreamSubscription<Uri?>? _widgetClickSubscription;
   AppLifecycleListener? _appLifecycleListener;
 
@@ -45,6 +50,7 @@ class _AppState extends ConsumerState<App> {
         debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
         if (state == AppLifecycleState.resumed) {
           ref.read(appLockControllerProvider.notifier).handleResumed();
+          _setLifecycleObscured(false);
           unawaited(
             ref.read(subscriptionManagementProvider.notifier).refresh(),
           );
@@ -52,6 +58,9 @@ class _AppState extends ConsumerState<App> {
         } else if (state == AppLifecycleState.hidden ||
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.detached) {
+          if (_shouldUseLifecyclePrivacyCover()) {
+            _setLifecycleObscured(true);
+          }
           ref.read(appLockControllerProvider.notifier).markBackgrounded();
         }
         unawaited(
@@ -83,6 +92,25 @@ class _AppState extends ConsumerState<App> {
     _checkForWidgetLaunch();
     _widgetClickSubscription ??=
         HomeWidget.widgetClicked.listen(_launchedFromWidget);
+  }
+
+  bool _shouldUseLifecyclePrivacyCover() {
+    if (kIsWeb) {
+      return false;
+    }
+    if (ref.read(authProvider).isEmpty) {
+      return false;
+    }
+    return ref.read(appLockControllerProvider).isConfigured;
+  }
+
+  void _setLifecycleObscured(bool value) {
+    if (!mounted || _shouldObscureForLifecycle == value) {
+      return;
+    }
+    setState(() {
+      _shouldObscureForLifecycle = value;
+    });
   }
 
   void _checkForWidgetLaunch() {
@@ -159,6 +187,15 @@ class _AppState extends ConsumerState<App> {
     final themeMode = ref.watch(themeModeProvider);
     //final themeMode=ThemeMode.dark;
     final locale = ref.watch(localeProvider);
+    final auth = ref.watch(authProvider);
+    final appLockState = ref.watch(appLockControllerProvider);
+    final shouldShowAppLockOverlay =
+        !kIsWeb && !auth.isEmpty && appLockState.shouldBlockApp;
+    final shouldShowLifecyclePrivacyCover = !shouldShowAppLockOverlay &&
+        _shouldObscureForLifecycle &&
+        !kIsWeb &&
+        !auth.isEmpty &&
+        appLockState.isConfigured;
     final localizationsDelegates = <LocalizationsDelegate<dynamic>>[
       ...AppLocalizations.localizationsDelegates,
       GlobalMaterialLocalizations.delegate,
@@ -223,10 +260,33 @@ class _AppState extends ConsumerState<App> {
             context: context,
             locale: locale,
             delegates: localizationsDelegates,
-            child: VersionCheckWrapper(child: child ?? const SplashScreen()),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                VersionCheckWrapper(child: child ?? const SplashScreen()),
+                if (shouldShowLifecyclePrivacyCover)
+                  const _AppLifecyclePrivacyCover(),
+                if (shouldShowAppLockOverlay)
+                  AppLockPage(
+                    onUnlocked: () => _setLifecycleObscured(false),
+                    renderAsOverlay: true,
+                  ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _AppLifecyclePrivacyCover extends StatelessWidget {
+  const _AppLifecyclePrivacyCover();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.expand(
+      child: AppLockBackground(child: SizedBox.expand()),
     );
   }
 }

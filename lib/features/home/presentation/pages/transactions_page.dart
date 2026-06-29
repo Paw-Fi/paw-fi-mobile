@@ -876,6 +876,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final renderResult = _resolveTransactionRenderItems(displayDerivedData);
     final visibleListItems = renderResult.items;
     final visibleListItemIndexByKey = renderResult.indexByKey;
+    final isInitialTransactionsLoad =
+        feedState.isLoading && !feedState.hasLoadedInitial;
 
     // Prepare Filter Menu Items
     final filterItems = <AdaptivePopupMenuItem>[
@@ -1079,12 +1081,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
 
                 // Transactions List Groups
-                if (expensesToExport.isEmpty || feedState.isLoading)
+                if (expensesToExport.isEmpty)
                   SliverToBoxAdapter(
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.all(48.0),
-                        child: feedState.isLoading
+                        child: isInitialTransactionsLoad
                             ? const CircularProgressIndicator()
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2107,7 +2109,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     context,
                     existingExpense: originalExpense,
                     contact: contact,
-                  ).then((_) => _refreshActiveFeed()),
+                  ).then((didMutate) async {
+                    if (!mounted || didMutate != true) {
+                      return;
+                    }
+                    await _refreshActiveFeed();
+                  }),
                 );
               }
             }

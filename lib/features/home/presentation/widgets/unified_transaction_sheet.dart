@@ -909,10 +909,12 @@ class _UnifiedTransactionSheetV2State
       ),
     );
 
-    final categoryColor = categoryColors[_normalizeCategoryRemapKey(displayCategory)] ?? colorScheme.primary;
-    final gradientColors = AppTheme.pocketDetailsGradient(categoryColor, colorScheme);
+    final categoryColor = getCategoryColor(displayCategory, context);
+    final gradientColors =
+        AppTheme.pocketDetailsGradient(categoryColor, colorScheme);
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
-    final textColor = isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
+    final textColor =
+        isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
     return Container(
@@ -944,7 +946,8 @@ class _UnifiedTransactionSheetV2State
                 ),
               ),
               CustomScrollView(
-                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
                   SliverAppBar(
                     expandedHeight: 280,
@@ -954,7 +957,9 @@ class _UnifiedTransactionSheetV2State
                     elevation: 0,
                     leading: IconButton(
                       icon: Icon(Icons.close, color: textColor),
-                      onPressed: _isSaving || _isDeleting ? null : () => Navigator.pop(context),
+                      onPressed: _isSaving || _isDeleting
+                          ? null
+                          : () => Navigator.pop(context),
                       style: IconButton.styleFrom(
                         backgroundColor: textColor.withValues(alpha: 0.1),
                       ),
@@ -968,7 +973,8 @@ class _UnifiedTransactionSheetV2State
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(textColor),
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(textColor),
                                 ),
                               )
                             : Icon(Icons.check, color: textColor),
@@ -1065,17 +1071,24 @@ class _UnifiedTransactionSheetV2State
                                 MonekoDisclosureRow(
                                   label: context.l10n.category,
                                   value: _getLocalizedCategory(displayCategory),
-                                  onTap: () => _handleEditCategory(displayCategory, userCategoryLists),
+                                  onTap: () => _handleEditCategory(
+                                      displayCategory, userCategoryLists),
                                   isFirst: true,
                                 ),
                                 _buildDivider(colorScheme),
                                 MonekoDisclosureRow(
-                                  label: isIncomeMode ? context.l10n.source : context.l10n.merchant,
-                                  value: displayMerchant?.trim().isNotEmpty == true
-                                      ? displayMerchant!.trim()
-                                      : context.l10n.tapToSet,
-                                  onTap: () => _handleEditMerchant(displayMerchant, isIncomeMode),
-                                  isValuePlaceholder: displayMerchant?.trim().isNotEmpty != true,
+                                  label: isIncomeMode
+                                      ? context.l10n.source
+                                      : context.l10n.merchant,
+                                  value:
+                                      displayMerchant?.trim().isNotEmpty == true
+                                          ? displayMerchant!.trim()
+                                          : context.l10n.tapToSet,
+                                  onTap: () => _handleEditMerchant(
+                                      displayMerchant, isIncomeMode),
+                                  isValuePlaceholder:
+                                      displayMerchant?.trim().isNotEmpty !=
+                                          true,
                                 ),
                                 _buildDivider(colorScheme),
                                 MonekoDisclosureRow(
@@ -1087,7 +1100,8 @@ class _UnifiedTransactionSheetV2State
                                 MonekoDisclosureRow(
                                   label: context.l10n.date,
                                   value: DateFormat.yMMMMd(
-                                    intlSafeLocaleName(Localizations.localeOf(context)),
+                                    intlSafeLocaleName(
+                                        Localizations.localeOf(context)),
                                   ).format(DateTime(
                                     displayDate.year,
                                     displayDate.month,
@@ -1111,10 +1125,12 @@ class _UnifiedTransactionSheetV2State
                           // Notes Group
                           MonekoInput(
                             child: InkWell(
-                              onTap: () => _handleEditDescription(displayDescription),
+                              onTap: () =>
+                                  _handleEditDescription(displayDescription),
                               borderRadius: BorderRadius.circular(12),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0, vertical: 12.0),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -1141,8 +1157,10 @@ class _UnifiedTransactionSheetV2State
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w400,
-                                          color: (displayDescription?.isEmpty ?? true)
-                                              ? colorScheme.onSurface.withValues(alpha: 0.3)
+                                          color: (displayDescription?.isEmpty ??
+                                                  true)
+                                              ? colorScheme.onSurface
+                                                  .withValues(alpha: 0.3)
                                               : colorScheme.onSurface,
                                         ),
                                       ),
@@ -1169,9 +1187,14 @@ class _UnifiedTransactionSheetV2State
                             colorScheme: colorScheme,
                             localImagePath: isNewExpense
                                 ? effectiveImagePath
-                                : _localImagePath ?? widget.existingExpense?.localReceiptImagePath,
-                            receiptImageUrl: isNewExpense ? null : receiptImageUrl,
-                            onAddPhoto: effectiveImagePath == null ? _handleAddPhoto : null,
+                                : _localImagePath ??
+                                    widget
+                                        .existingExpense?.localReceiptImagePath,
+                            receiptImageUrl:
+                                isNewExpense ? null : receiptImageUrl,
+                            onAddPhoto: effectiveImagePath == null
+                                ? _handleAddPhoto
+                                : null,
                           ),
 
                           const SizedBox(height: 32),
@@ -1181,11 +1204,15 @@ class _UnifiedTransactionSheetV2State
                             DestructiveAdaptiveButton(
                               onPressed: _isDeleting ? null : _handleDelete,
                               isLoading: _isDeleting,
-                              child: Text(isIncomeMode ? context.l10n.deleteIncome : context.l10n.deleteExpense),
+                              child: Text(isIncomeMode
+                                  ? context.l10n.deleteIncome
+                                  : context.l10n.deleteExpense),
                             ),
 
                           // Bottom spacer for scroll
-                          SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
+                          SizedBox(
+                              height:
+                                  MediaQuery.of(context).padding.bottom + 20),
                         ],
                       ),
                     ),

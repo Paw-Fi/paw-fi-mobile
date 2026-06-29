@@ -431,16 +431,13 @@ class AppLockController extends StateNotifier<AppLockState> {
       failedAttempts: 0,
       clearLockoutUntil: true,
     );
-    await _repository.saveConfig(updated);
-    if (!mounted) {
-      return false;
-    }
     _backgroundedAt = null;
     state = state.copyWith(
       status: AppLockStatus.unlocked,
       config: updated,
       clearFailedMessage: true,
     );
+    unawaited(_repository.saveConfig(updated));
     return true;
   }
 

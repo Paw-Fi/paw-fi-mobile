@@ -15,10 +15,14 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 class AppLockPage extends HookConsumerWidget {
   const AppLockPage({
     this.from,
+    this.onUnlocked,
+    this.renderAsOverlay = false,
     super.key,
   });
 
   final String? from;
+  final VoidCallback? onUnlocked;
+  final bool renderAsOverlay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,11 +94,10 @@ class AppLockPage extends HookConsumerWidget {
             .read(appLockControllerProvider.notifier)
             .authenticateWithBiometrics();
       } catch (_) {
-        return;
-      } finally {
         if (context.mounted) {
           isSubmitting.value = false;
         }
+        return;
       }
 
       if (!context.mounted) {
@@ -102,7 +105,10 @@ class AppLockPage extends HookConsumerWidget {
       }
       if (unlocked) {
         _goToUnlockedDestination(context);
+        return;
       }
+
+      isSubmitting.value = false;
     }
 
     Future<void> recoverBySigningOut() async {
@@ -137,64 +143,75 @@ class AppLockPage extends HookConsumerWidget {
       return null;
     }, [canUnlockWithBiometrics]);
 
-    return StatusBarOverlayRegion(
-      child: AdaptiveScaffold(
-        body: AppLockBackground(
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        AppLockPasscodePrompt(
-                          key: ValueKey(
-                            'app-lock-unlock-${promptRevision.value}',
-                          ),
-                          title: context.l10n.unlockMoneko,
-                          subtitle:
-                              appLockState.status == AppLockStatus.lockedOut
-                                  ? context.l10n.tooManyAttemptsTryAgainShortly
-                                  : context.l10n.enterYourPasscode,
-                          errorText: appLockState.failedMessage(context.l10n),
-                          enabled: !isSubmitting.value,
-                          isSubmitting: isSubmitting.value,
-                          showBiometricButton: canUnlockWithBiometrics,
-                          biometricIcon: biometricIcon,
-                          biometricTooltip:
-                              appLockState.biometricAvailability.actionLabel(
-                            context.l10n,
-                          ),
-                          onBiometricPressed: unlockWithBiometrics,
-                          onComplete: unlockWithPasscode,
-                        ),
-                        AppLockLoadingOverlay(isLoading: isSubmitting.value),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: isSubmitting.value ? null : recoverBySigningOut,
-                    child: Text(
-                      context.l10n.forgotPasscodeSignOut,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
+    final content = AppLockBackground(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    AppLockPasscodePrompt(
+                      key: ValueKey(
+                        'app-lock-unlock-${promptRevision.value}',
                       ),
+                      title: context.l10n.unlockMoneko,
+                      subtitle: appLockState.status == AppLockStatus.lockedOut
+                          ? context.l10n.tooManyAttemptsTryAgainShortly
+                          : context.l10n.enterYourPasscode,
+                      errorText: appLockState.failedMessage(context.l10n),
+                      enabled: !isSubmitting.value,
+                      isSubmitting: isSubmitting.value,
+                      showBiometricButton: canUnlockWithBiometrics,
+                      biometricIcon: biometricIcon,
+                      biometricTooltip:
+                          appLockState.biometricAvailability.actionLabel(
+                        context.l10n,
+                      ),
+                      onBiometricPressed: unlockWithBiometrics,
+                      onComplete: unlockWithPasscode,
                     ),
-                  ),
-                ],
+                    AppLockLoadingOverlay(isLoading: isSubmitting.value),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: isSubmitting.value ? null : recoverBySigningOut,
+                child: Text(
+                  context.l10n.forgotPasscodeSignOut,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+
+    if (renderAsOverlay) {
+      return SizedBox.expand(
+        child: StatusBarOverlayRegion(child: content),
+      );
+    }
+
+    return StatusBarOverlayRegion(
+      child: AdaptiveScaffold(body: content),
+    );
   }
 
   void _goToUnlockedDestination(BuildContext context) {
+    final handleUnlocked = onUnlocked;
+    if (handleUnlocked != null) {
+      handleUnlocked();
+      return;
+    }
+
     final target = from;
     if (target != null &&
         target.isNotEmpty &&
