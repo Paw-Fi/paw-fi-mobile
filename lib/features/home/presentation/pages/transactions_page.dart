@@ -55,6 +55,7 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 class TransactionsPage extends ConsumerStatefulWidget {
   final String? householdId;
   final bool enableDateFilter;
+  final DateRangeFilter? initialDateFilter;
   final DateTime? initialStartDate;
   final DateTime? initialEndDate;
 
@@ -62,6 +63,7 @@ class TransactionsPage extends ConsumerStatefulWidget {
     super.key,
     this.householdId,
     this.enableDateFilter = false,
+    this.initialDateFilter,
     this.initialStartDate,
     this.initialEndDate,
   });
@@ -147,7 +149,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   @override
   void initState() {
     super.initState();
-    _loadDateFilterPreference();
+    if (widget.enableDateFilter &&
+        (widget.initialDateFilter != null ||
+            (widget.initialStartDate != null &&
+                widget.initialEndDate != null))) {
+      _applyInitialDateFilter();
+    } else {
+      _loadDateFilterPreference();
+    }
+  }
+
+  void _applyInitialDateFilter() {
+    final initialFilter = widget.initialDateFilter ?? DateRangeFilter.custom;
+    _selectedDateFilter = initialFilter;
+    _customStart = initialFilter == DateRangeFilter.custom
+        ? widget.initialStartDate
+        : null;
+    _customEnd =
+        initialFilter == DateRangeFilter.custom ? widget.initialEndDate : null;
+    _scheduleInitialDateFilterScroll();
   }
 
   @override
@@ -1660,6 +1680,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         periodLabel: _selectedPeriodLabel(context),
         categorySummariesOverride: categorySummaries,
         totalSpentOverride: summary.expenseTotal,
+        currencyTypeTotals: summary.currencyTypeTotals,
         initialDateFilter: _selectedDateFilter,
         initialStartDate: _customStart,
         initialEndDate: _customEnd,

@@ -19,6 +19,7 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
   final categoryTotals = <String, TransactionsFeedCategorySummary>{};
   final yearlyTotals = <DateTime, double>{};
   final periodTotals = <DateTime, double>{};
+  final currencyTypeTotalsMap = <String, TransactionsFeedCurrencyTypeTotal>{};
   var expenseTotal = 0.0;
   var incomeTotal = 0.0;
 
@@ -35,12 +36,34 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
       normalizedTarget,
     );
     final isIncome = (entry.type ?? 'expense').toLowerCase() == 'income';
+    
+    final currentTypeTotal = currencyTypeTotalsMap[sourceCurrency] ??
+        TransactionsFeedCurrencyTypeTotal(
+          currency: sourceCurrency,
+          expenseTotal: 0,
+          incomeTotal: 0,
+          transactionCount: 0,
+        );
+
     if (isIncome) {
       incomeTotal += converted;
+      currencyTypeTotalsMap[sourceCurrency] = TransactionsFeedCurrencyTypeTotal(
+        currency: sourceCurrency,
+        expenseTotal: currentTypeTotal.expenseTotal,
+        incomeTotal: currentTypeTotal.incomeTotal + entry.amount.abs(),
+        transactionCount: currentTypeTotal.transactionCount + 1,
+      );
       continue;
     }
 
     expenseTotal += converted;
+    currencyTypeTotalsMap[sourceCurrency] = TransactionsFeedCurrencyTypeTotal(
+      currency: sourceCurrency,
+      expenseTotal: currentTypeTotal.expenseTotal + entry.amount.abs(),
+      incomeTotal: currentTypeTotal.incomeTotal,
+      transactionCount: currentTypeTotal.transactionCount + 1,
+    );
+
     final category = canonicalizeCategoryKey(entry.category);
     final current = categoryTotals[category] ??
         TransactionsFeedCategorySummary(
@@ -68,6 +91,7 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
       ..sort((left, right) => right.amount.compareTo(left.amount)),
     yearlyPeriodTotals: yearlyTotals,
     periodTotals: periodTotals,
+    currencyTypeTotals: currencyTypeTotalsMap.values.toList(),
   );
 }
 
@@ -214,6 +238,26 @@ TransactionsFeedSummary combineTransactionSummaries(
     );
   }
 
+  final currencyTypeTotalsMap = <String, TransactionsFeedCurrencyTypeTotal>{};
+  for (final summary in [
+    ...base.currencyTypeTotals,
+    ...extra.currencyTypeTotals,
+  ]) {
+    final current = currencyTypeTotalsMap[summary.currency] ??
+        TransactionsFeedCurrencyTypeTotal(
+          currency: summary.currency,
+          expenseTotal: 0,
+          incomeTotal: 0,
+          transactionCount: 0,
+        );
+    currencyTypeTotalsMap[summary.currency] = TransactionsFeedCurrencyTypeTotal(
+      currency: summary.currency,
+      expenseTotal: current.expenseTotal + summary.expenseTotal,
+      incomeTotal: current.incomeTotal + summary.incomeTotal,
+      transactionCount: current.transactionCount + summary.transactionCount,
+    );
+  }
+
   return TransactionsFeedSummary(
     transactionCount: base.transactionCount + extra.transactionCount,
     expenseTotal: base.expenseTotal + extra.expenseTotal,
@@ -233,7 +277,7 @@ TransactionsFeedSummary combineTransactionSummaries(
     currencyCategorySummaries: base.currencyCategorySummaries,
     currencyYearlyPeriodTotals: base.currencyYearlyPeriodTotals,
     currencyPeriodTotals: base.currencyPeriodTotals,
-    currencyTypeTotals: base.currencyTypeTotals,
+    currencyTypeTotals: currencyTypeTotalsMap.values.toList(),
   );
 }
 

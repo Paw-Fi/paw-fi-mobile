@@ -223,6 +223,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
               builder: (_) => TransactionsPage(
                 householdId: household.id,
                 enableDateFilter: true,
+                initialDateFilter: config.dateRange,
                 initialStartDate: range['from'],
                 initialEndDate: range['to'],
               ),
@@ -415,6 +416,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
               builder: (_) => TransactionsPage(
                 householdId: household.id,
                 enableDateFilter: true,
+                initialDateFilter: config.dateRange,
                 initialStartDate: range['from'],
                 initialEndDate: range['to'],
               ),
@@ -955,6 +957,7 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
               builder: (_) => TransactionsPage(
                 householdId: household.id,
                 enableDateFilter: true,
+                initialDateFilter: config.dateRange,
                 initialStartDate: fromDate,
                 initialEndDate: toDate,
               ),

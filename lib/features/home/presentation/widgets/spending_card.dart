@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
+import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
 void _homeSpendTrace(String message) {
@@ -44,6 +45,7 @@ class SpendingCard extends StatefulWidget {
   final DateTime? customStartDate;
   final DateTime? customEndDate;
   final String? animationStorageKey;
+  final VoidCallback? onTap;
 
   const SpendingCard({
     super.key,
@@ -58,6 +60,7 @@ class SpendingCard extends StatefulWidget {
     this.customStartDate,
     this.customEndDate,
     this.animationStorageKey,
+    this.onTap,
   });
 
   @override
@@ -146,6 +149,10 @@ class _SpendingCardState extends State<SpendingCard> {
 
     final currencyCode = widget.selectedCurrency ?? 'USD';
     final symbol = resolveCurrencySymbol(currencyCode);
+    final currencyTypeTotals = _currencyTypeTotalsFor(now);
+    final shouldShowBreakdownIcon = currencyTypeTotals.length > 1 &&
+        (widget.selectedCurrencies?.length ?? 0) > 1 &&
+        widget.currencyRates != null;
 
     // If no data, synthesize a flat 0-line chart
     List<DateTime> effectiveDates = sortedDates;
@@ -191,7 +198,7 @@ class _SpendingCardState extends State<SpendingCard> {
       _persistEntranceAnimationStarted();
     }
 
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: widget.colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
@@ -220,14 +227,37 @@ class _SpendingCardState extends State<SpendingCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.dateFilter.getSpentLabel(context).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.0,
-                      color: widget.colorScheme.mutedForeground,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.dateFilter.getSpentLabel(context).toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.0,
+                          color: widget.colorScheme.mutedForeground,
+                        ),
+                      ),
+                      if (shouldShowBreakdownIcon) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _showBreakdownSheet(
+                            currencyTypeTotals,
+                            totalSpent,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.info_outline_rounded,
+                              size: 14,
+                              color: widget.colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 8),
                   RepaintBoundary(
@@ -488,6 +518,81 @@ class _SpendingCardState extends State<SpendingCard> {
         ],
       ),
     );
+
+    if (widget.onTap == null) {
+      return card;
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      child: card,
+    );
+  }
+
+  void _showBreakdownSheet(
+    List<TransactionsFeedCurrencyTypeTotal> currencyTypeTotals,
+    double totalSpent,
+  ) {
+    final rates = widget.currencyRates;
+    if (rates == null) return;
+
+    showMultiCurrencyTotalBreakdownSheet(
+      context: context,
+      colorScheme: widget.colorScheme,
+      currencyTypeTotals: currencyTypeTotals,
+      rates: rates,
+      targetCurrency: widget.selectedCurrency ?? 'USD',
+      totalSpent: totalSpent,
+    );
+  }
+
+  List<TransactionsFeedCurrencyTypeTotal> _currencyTypeTotalsFor(DateTime now) {
+    final range = getDateRangeFromFilter(
+      widget.dateFilter,
+      widget.customStartDate,
+      widget.customEndDate,
+      now: now,
+    );
+    final from = range['from']!;
+    final to = range['to']!;
+    final selectedCurrencies =
+        _normalizedCurrencySet(widget.selectedCurrencies);
+    final totals = <String, _CurrencyTypeTotalAccumulator>{};
+
+    for (final expense in widget.expenses) {
+      final type = (expense.type ?? 'expense').toLowerCase();
+      if (type == 'income') continue;
+
+      final date =
+          DateTime(expense.date.year, expense.date.month, expense.date.day);
+      if (date.isBefore(from) || date.isAfter(to)) continue;
+
+      final currency = (expense.currency ?? widget.selectedCurrency ?? 'USD')
+          .trim()
+          .toUpperCase();
+      if (currency.isEmpty ||
+          (selectedCurrencies != null &&
+              !selectedCurrencies.contains(currency))) {
+        continue;
+      }
+
+      final current = totals[currency] ?? _CurrencyTypeTotalAccumulator();
+      current.expenseTotal += expense.amount.abs();
+      current.transactionCount += 1;
+      totals[currency] = current;
+    }
+
+    return totals.entries
+        .map(
+          (entry) => TransactionsFeedCurrencyTypeTotal(
+            currency: entry.key,
+            expenseTotal: entry.value.expenseTotal,
+            incomeTotal: 0,
+            transactionCount: entry.value.transactionCount,
+          ),
+        )
+        .toList(growable: false);
   }
 
   _SpendingCardDerivedData _derivedDataFor(String intervalType, DateTime now) {
@@ -655,6 +760,11 @@ class _SpendingCardDerivedData {
   final double totalSpent;
 }
 
+class _CurrencyTypeTotalAccumulator {
+  double expenseTotal = 0;
+  int transactionCount = 0;
+}
+
 class _SpendingCardCacheConfig {
   const _SpendingCardCacheConfig({
     required this.intervalType,
@@ -770,6 +880,7 @@ Widget buildSpendingCard(
   DateTime? customStartDate,
   DateTime? customEndDate,
   String? animationStorageKey,
+  VoidCallback? onTap,
 }) {
   return SpendingCard(
     key: key,
@@ -784,6 +895,7 @@ Widget buildSpendingCard(
     customStartDate: customStartDate,
     customEndDate: customEndDate,
     animationStorageKey: animationStorageKey,
+    onTap: onTap,
   );
 }
 

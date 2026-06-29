@@ -255,6 +255,19 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         customEndDate: config.customEndDate,
         animationStorageKey:
             'spending:${config.id}:${selectedCurrency ?? currency}:${config.dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TransactionsPage(
+                householdId: query.householdId,
+                enableDateFilter: true,
+                initialDateFilter: config.dateRange,
+                initialStartDate: config.customStartDate,
+                initialEndDate: config.customEndDate,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
