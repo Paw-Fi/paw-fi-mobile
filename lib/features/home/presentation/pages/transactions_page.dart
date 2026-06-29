@@ -418,22 +418,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   int _expenseEntriesSignature(List<ExpenseEntry> expenses) {
-    return Object.hashAll(
-      expenses.map(
-        (expense) => Object.hash(
-          expense.id,
-          expense.date,
-          expense.amountCents,
-          expense.householdId,
-          expense.currency,
-          expense.category,
-          expense.rawText,
-          expense.type,
-          expense.isRecurring,
-          expense.walletId,
-        ),
-      ),
-    );
+    return transactionEntriesContentSignature(expenses);
   }
 
   String _selectedPeriodLabel(BuildContext context) {

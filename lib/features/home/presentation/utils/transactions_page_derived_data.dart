@@ -53,6 +53,66 @@ class TransactionsPageDerivedData {
   });
 }
 
+int transactionEntriesContentSignature(Iterable<ExpenseEntry> expenses) {
+  return Object.hashAll(expenses.map(transactionEntryContentSignature));
+}
+
+int transactionEntryContentSignature(ExpenseEntry expense) {
+  return Object.hashAll([
+    expense.id,
+    expense.contactId,
+    expense.userId,
+    expense.userName,
+    expense.userAvatarUrl,
+    expense.householdId,
+    expense.date,
+    expense.amountCents,
+    expense.currency,
+    expense.category,
+    expense.createdAt,
+    expense.updatedAt,
+    expense.rawText,
+    expense.merchant,
+    Object.hashAll(expense.breakdown ?? const <String>[]),
+    expense.receiptImageUrl,
+    expense.localReceiptImagePath,
+    Object.hashAll(expense.sharedMemberIds ?? const <String>[]),
+    expense.splitGroupId,
+    expense.bankAccountId,
+    expense.walletId,
+    expense.accountName,
+    expense.accountIcon,
+    expense.accountColor,
+    expense.type,
+    expense.isRecurring,
+    _jsonMapSignature(expense.recurrenceRuleJson),
+    expense.clientRecordId,
+    expense.clientMutationId,
+    expense.idempotencyKey,
+  ]);
+}
+
+int _jsonMapSignature(Map<String, dynamic>? value) {
+  if (value == null || value.isEmpty) return 0;
+  final keys = value.keys.toList()..sort();
+  return Object.hashAll(
+    keys.map((key) => Object.hash(key, _jsonValueSignature(value[key]))),
+  );
+}
+
+int _jsonValueSignature(Object? value) {
+  if (value is Map<String, dynamic>) return _jsonMapSignature(value);
+  if (value is Map) {
+    return _jsonMapSignature(
+      value.map((key, value) => MapEntry(key.toString(), value)),
+    );
+  }
+  if (value is Iterable) {
+    return Object.hashAll(value.map(_jsonValueSignature));
+  }
+  return value.hashCode;
+}
+
 enum TransactionRenderItemType {
   monthHeader,
   dayHeader,

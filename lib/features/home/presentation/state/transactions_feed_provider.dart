@@ -1223,6 +1223,10 @@ final transactionsFeedServiceProvider =
 
 final transactionsFeedRefreshSignalProvider = StateProvider<int>((ref) => 0);
 
+final transactionsFeedEditedEntryProvider = StateProvider<ExpenseEntry?>(
+  (ref) => null,
+);
+
 final transactionsFeedAllItemsProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, TransactionsFeedQuery>((ref, query) async {
   ref.watch(transactionsFeedRefreshSignalProvider);
@@ -1251,6 +1255,13 @@ final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
         return;
       }
       unawaited(notifier.refresh());
+    });
+    ref.listen<ExpenseEntry?>(transactionsFeedEditedEntryProvider,
+        (previous, next) {
+      if (next == null) {
+        return;
+      }
+      notifier.applyEditedEntrySnapshot(next);
     });
     unawaited(notifier.loadInitial());
     return notifier;
@@ -1287,6 +1298,106 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     } else if (service.supportsBackgroundRefresh) {
       _startBackgroundRefresh();
     }
+  }
+
+  void applyEditedEntrySnapshot(ExpenseEntry entry) {
+    if (state.items.isEmpty) {
+      return;
+    }
+
+    final existingIndex = state.items.indexWhere((item) => item.id == entry.id);
+    final matches = _entryMatchesQuery(entry);
+    if (existingIndex == -1 && !matches) {
+      return;
+    }
+
+    final nextItems =
+        state.items.where((item) => item.id != entry.id).toList(growable: true);
+    if (matches) {
+      nextItems.add(entry);
+    }
+
+    state = state.copyWith(
+      items: _uniqueSortedTransactions(nextItems),
+      clearError: true,
+    );
+  }
+
+  bool _entryMatchesQuery(ExpenseEntry entry) {
+    final userId = entry.userId?.trim();
+    if (userId == null || userId.isEmpty || userId != _query.userId) {
+      return false;
+    }
+
+    final entryHouseholdId = entry.householdId?.trim();
+    final queryHouseholdId = _query.householdId?.trim();
+    if (queryHouseholdId == null || queryHouseholdId.isEmpty) {
+      if (entryHouseholdId != null && entryHouseholdId.isNotEmpty) {
+        return false;
+      }
+    } else if (entryHouseholdId != queryHouseholdId) {
+      return false;
+    }
+
+    final entryCurrency = entry.currency?.trim().toUpperCase();
+    final currencies = _query.normalizedCurrencies;
+    if (currencies != null &&
+        (entryCurrency == null || !currencies.contains(entryCurrency))) {
+      return false;
+    }
+
+    final category = (entry.category ?? 'uncategorized').trim().toLowerCase();
+    final queryCategory = _query.normalizedCategory?.trim().toLowerCase();
+    if (queryCategory != null && category != queryCategory) {
+      return false;
+    }
+    final queryCategories = _query.normalizedCategories;
+    if (queryCategories != null && !queryCategories.contains(category)) {
+      return false;
+    }
+
+    final queryAccountId = _query.normalizedAccountId;
+    if (queryAccountId != null && entry.walletId != queryAccountId) {
+      return false;
+    }
+
+    final type = (entry.type ?? 'expense').trim().toLowerCase();
+    final queryType = _query.normalizedType;
+    if (queryType != 'all' && type != queryType) {
+      return false;
+    }
+
+    final search = _query.normalizedSearchQuery?.toLowerCase();
+    if (search != null) {
+      final rawText = (entry.rawText ?? '').toLowerCase();
+      final merchant = (entry.merchant ?? '').toLowerCase();
+      final amount = entry.amount.toString();
+      if (!category.contains(search) &&
+          !rawText.contains(search) &&
+          !merchant.contains(search) &&
+          !amount.contains(search)) {
+        return false;
+      }
+    }
+
+    final entryDate =
+        DateTime(entry.date.year, entry.date.month, entry.date.day);
+    final startDate = _query.startDate;
+    if (startDate != null) {
+      final start = DateTime(startDate.year, startDate.month, startDate.day);
+      if (entryDate.isBefore(start)) {
+        return false;
+      }
+    }
+    final endDate = _query.endDate;
+    if (endDate != null) {
+      final end = DateTime(endDate.year, endDate.month, endDate.day);
+      if (entryDate.isAfter(end)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Future<void> loadInitial() async {
@@ -1327,15 +1438,23 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       }
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
+      final mergedPage = await _reloadVisibleRefreshItems(
+        service: service,
+        refreshedPage: page,
+        existingItems: state.items,
+      );
+      if (!mounted) return;
+      if (generation != _serviceGeneration) {
+        state = state.copyWith(isLoading: false, isLoadingMore: false);
+        unawaited(loadInitial());
+        return;
+      }
       state = TransactionsFeedState(
         summary: summary,
-        items: _mergeRefreshedFirstPageWithExistingTail(
-          refreshedPage: page,
-          existingItems: state.items,
-        ),
-        hasMore: page.hasMore,
+        items: mergedPage.items,
+        hasMore: mergedPage.hasMore,
         hasLoadedInitial: true,
-        nextCursor: page.nextCursor,
+        nextCursor: mergedPage.nextCursor,
       );
       if (service.supportsBackgroundRefresh) {
         _startBackgroundRefresh();
@@ -1390,15 +1509,23 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       }
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
+      final mergedPage = await _reloadVisibleRefreshItems(
+        service: service,
+        refreshedPage: page,
+        existingItems: state.items,
+      );
+      if (!mounted) return;
+      if (generation != _serviceGeneration) {
+        state = state.copyWith(isLoading: false, isLoadingMore: false);
+        unawaited(refresh());
+        return;
+      }
       state = TransactionsFeedState(
         summary: summary,
-        items: _mergeRefreshedFirstPageWithExistingTail(
-          refreshedPage: page,
-          existingItems: state.items,
-        ),
-        hasMore: page.hasMore,
+        items: mergedPage.items,
+        hasMore: mergedPage.hasMore,
         hasLoadedInitial: true,
-        nextCursor: page.nextCursor,
+        nextCursor: mergedPage.nextCursor,
       );
     } catch (error) {
       if (!mounted) return;
@@ -1470,15 +1597,18 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       if (!mounted || generation != _serviceGeneration) return;
       final summary = results[0] as TransactionsFeedSummary;
       final page = results[1] as TransactionsFeedPageResult;
+      final mergedPage = await _reloadVisibleRefreshItems(
+        service: service,
+        refreshedPage: page,
+        existingItems: state.items,
+      );
+      if (!mounted || generation != _serviceGeneration) return;
       state = TransactionsFeedState(
         summary: summary,
-        items: _mergeRefreshedFirstPageWithExistingTail(
-          refreshedPage: page,
-          existingItems: state.items,
-        ),
-        hasMore: page.hasMore,
+        items: mergedPage.items,
+        hasMore: mergedPage.hasMore,
         hasLoadedInitial: true,
-        nextCursor: page.nextCursor,
+        nextCursor: mergedPage.nextCursor,
       );
     } catch (_) {
       // The local snapshot is already rendered. Background refresh failures
@@ -1491,6 +1621,70 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       _backgroundRefresh = null;
     });
   }
+
+  Future<_RefreshMergeResult> _reloadVisibleRefreshItems({
+    required TransactionsFeedService service,
+    required TransactionsFeedPageResult refreshedPage,
+    required List<ExpenseEntry> existingItems,
+  }) async {
+    var mergedItems = _uniqueSortedTransactions(refreshedPage.items);
+    var hasMore = refreshedPage.hasMore;
+    var nextCursor = refreshedPage.nextCursor;
+
+    if (existingItems.isEmpty ||
+        !hasMore ||
+        nextCursor == null ||
+        mergedItems.length >= existingItems.length) {
+      return _RefreshMergeResult(
+        items: _mergeRefreshedFirstPageWithExistingTail(
+          refreshedPage: refreshedPage,
+          existingItems: existingItems,
+        ),
+        hasMore: hasMore,
+        nextCursor: nextCursor,
+      );
+    }
+
+    while (hasMore &&
+        nextCursor != null &&
+        mergedItems.length < existingItems.length) {
+      final previousLength = mergedItems.length;
+      final previousCursor = nextCursor;
+      final nextPage = await service.fetchPage(_query, cursor: nextCursor);
+      mergedItems = _uniqueSortedTransactions([
+        ...mergedItems,
+        ...nextPage.items,
+      ]);
+      hasMore = nextPage.hasMore;
+      nextCursor = nextPage.nextCursor;
+
+      final cursorAdvanced = nextCursor != null &&
+          (nextCursor.date != previousCursor.date ||
+              nextCursor.createdAt != previousCursor.createdAt ||
+              nextCursor.id != previousCursor.id);
+      if (mergedItems.length == previousLength && !cursorAdvanced) {
+        break;
+      }
+    }
+
+    return _RefreshMergeResult(
+      items: mergedItems,
+      hasMore: hasMore,
+      nextCursor: nextCursor,
+    );
+  }
+}
+
+class _RefreshMergeResult {
+  final List<ExpenseEntry> items;
+  final bool hasMore;
+  final TransactionsFeedCursor? nextCursor;
+
+  const _RefreshMergeResult({
+    required this.items,
+    required this.hasMore,
+    required this.nextCursor,
+  });
 }
 
 List<ExpenseEntry> _mergePaginatedItems({

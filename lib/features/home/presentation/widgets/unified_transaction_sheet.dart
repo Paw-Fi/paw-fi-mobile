@@ -205,6 +205,7 @@ class _UnifiedTransactionSheetV2State
   String? _selectedFinancialAccountId;
   bool _hasManuallySelectedFinancialAccount = false;
   bool _hasManuallyChangedAccountSelection = false;
+  bool _allowCloseWithUnsavedChanges = false;
 
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -463,6 +464,113 @@ class _UnifiedTransactionSheetV2State
     return _localImagePath ??
         widget.existingExpense?.localReceiptImagePath ??
         receiptImageUrl;
+  }
+
+  bool get _hasUnsavedChanges {
+    if (_isSaving || _isDeleting) return false;
+    return isNewExpense
+        ? _hasUnsavedNewTransactionChanges()
+        : _hasUnsavedExistingTransactionChanges();
+  }
+
+  bool _hasUnsavedNewTransactionChanges() {
+    if (_localImagePath != null && _localImagePath != widget.localImagePath) {
+      return true;
+    }
+    if (_hasManuallyChangedAccountSelection ||
+        _hasManuallySelectedFinancialAccount) {
+      return true;
+    }
+
+    final pending = ref.read(pendingExpenseProvider);
+    final original = widget.newExpense;
+    if (pending == null || original == null) return false;
+
+    return !_parsedExpenseContentMatches(pending, original);
+  }
+
+  bool _hasUnsavedExistingTransactionChanges() {
+    if (_editedAmount != null ||
+        _editedCategory != null ||
+        _editedCurrency != null ||
+        _editedDescription != null ||
+        _hasEditedMerchant ||
+        _editedDate != null ||
+        _localImagePath != null ||
+        _hasManuallyChangedAccountSelection ||
+        _hasManuallySelectedFinancialAccount) {
+      return true;
+    }
+
+    final existing = widget.existingExpense;
+    if (existing == null) return false;
+    final originalTime = _toDeviceWallTime(existing.createdAt);
+    if (_selectedTime.hour != originalTime.hour ||
+        _selectedTime.minute != originalTime.minute) {
+      return true;
+    }
+
+    return _hasSplitConfigChanged();
+  }
+
+  bool _parsedExpenseContentMatches(ParsedExpense left, ParsedExpense right) {
+    return (left.amount * 100).round() == (right.amount * 100).round() &&
+        left.category == right.category &&
+        left.currency.trim().toUpperCase() ==
+            right.currency.trim().toUpperCase() &&
+        _sameCalendarDate(left.date, right.date) &&
+        (left.description ?? '') == (right.description ?? '') &&
+        (left.merchant ?? '') == (right.merchant ?? '') &&
+        left.isIncome == right.isIncome &&
+        _stringListEquals(left.breakdown, right.breakdown);
+  }
+
+  bool _hasSplitConfigChanged() {
+    final initialSignature = _initialSplitSignature;
+    if (initialSignature == null) return false;
+    if (_customSplitType == null || _customSplits == null) {
+      return initialSignature.isNotEmpty;
+    }
+    return _buildSplitSignature(_customSplitType!, _customSplits!) !=
+        initialSignature;
+  }
+
+  bool _sameCalendarDate(DateTime left, DateTime right) {
+    return left.year == right.year &&
+        left.month == right.month &&
+        left.day == right.day;
+  }
+
+  bool _stringListEquals(List<String>? left, List<String>? right) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null || left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
+
+  Future<void> _requestCloseSheet() async {
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Unsaved changes',
+      description: 'Leave without saving your changes?',
+      confirmLabel: 'Leave',
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
+
+    if (result?.confirmed == true && mounted) {
+      _allowCloseWithUnsavedChanges = true;
+      Navigator.of(context).pop();
+    }
   }
 
   // Generate note prefix like "I spent $XX on category"
@@ -724,7 +832,7 @@ class _UnifiedTransactionSheetV2State
     };
   }
 
-  Future<bool> _selectReceiptPhoto({
+  Future<String?> _selectReceiptPhoto({
     required BuildContext pickerContext,
   }) async {
     if (ref.read(previewModeProvider).isActive) {
@@ -735,14 +843,14 @@ class _UnifiedTransactionSheetV2State
           pickerContext.l10n.previewMockReceiptNoted,
         );
       }
-      return false;
+      return null;
     }
 
     debugPrint('📷 Selecting receipt photo...');
 
     try {
       final source = await _chooseReceiptPhotoSource(pickerContext);
-      if (source == null) return false;
+      if (source == null) return null;
 
       final XFile? photo = await pickImageWithGuard(
         picker: _imagePicker,
@@ -751,12 +859,12 @@ class _UnifiedTransactionSheetV2State
       );
 
       if (photo != null) {
-        if (!mounted) return false;
+        if (!mounted) return null;
         debugPrint('📷 Receipt photo selected');
         setState(() {
           _localImagePath = photo.path;
         });
-        return true;
+        return photo.path;
       } else {
         debugPrint('📷 Receipt photo selection cancelled');
       }
@@ -771,7 +879,7 @@ class _UnifiedTransactionSheetV2State
       }
     }
 
-    return false;
+    return null;
   }
 
   /// Handle adding a photo to existing expense
@@ -929,7 +1037,13 @@ class _UnifiedTransactionSheetV2State
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: PopScope(
-          canPop: !_isSaving && !_isDeleting,
+          canPop: !_isSaving &&
+              !_isDeleting &&
+              (!_hasUnsavedChanges || _allowCloseWithUnsavedChanges),
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop || !_hasUnsavedChanges) return;
+            unawaited(_requestCloseSheet());
+          },
           child: Stack(
             children: [
               Positioned.fill(
@@ -956,12 +1070,11 @@ class _UnifiedTransactionSheetV2State
                     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
                     elevation: 0,
                     leading: IconButton(
-                      icon: Icon(Icons.close, color: textColor),
-                      onPressed: _isSaving || _isDeleting
-                          ? null
-                          : () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: colorScheme.onSurface),
+                      onPressed:
+                          _isSaving || _isDeleting ? null : _requestCloseSheet,
                       style: IconButton.styleFrom(
-                        backgroundColor: textColor.withValues(alpha: 0.1),
+                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
                     ),
                     actions: [
@@ -974,12 +1087,12 @@ class _UnifiedTransactionSheetV2State
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor:
-                                      AlwaysStoppedAnimation<Color>(textColor),
+                                      AlwaysStoppedAnimation<Color>(colorScheme.onSurface),
                                 ),
                               )
-                            : Icon(Icons.check, color: textColor),
+                            : Icon(Icons.check, color: colorScheme.onSurface),
                         style: IconButton.styleFrom(
-                          backgroundColor: textColor.withValues(alpha: 0.1),
+                          backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                       ),
                     ],
@@ -4673,7 +4786,7 @@ class _UnifiedTransactionSheetV2State
 class _FullScreenImageViewer extends StatefulWidget {
   final String? localImagePath;
   final String? imageUrl;
-  final Future<bool> Function(BuildContext context)? onReplacePhoto;
+  final Future<String?> Function(BuildContext context)? onReplacePhoto;
 
   const _FullScreenImageViewer({
     this.localImagePath,
@@ -4688,6 +4801,15 @@ class _FullScreenImageViewer extends StatefulWidget {
 class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
   final TransformationController _transformationController =
       TransformationController();
+  late String? _displayLocalImagePath;
+  late String? _displayImageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayLocalImagePath = widget.localImagePath;
+    _displayImageUrl = widget.imageUrl;
+  }
 
   @override
   void dispose() {
@@ -4715,10 +4837,13 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                 icon: const Icon(Icons.find_replace_outlined),
                 label: Text(context.l10n.replace),
                 onPressed: () async {
-                  final navigator = Navigator.of(context);
-                  final replaced = await widget.onReplacePhoto!(context);
-                  if (replaced && mounted) {
-                    navigator.pop();
+                  final selectedPath = await widget.onReplacePhoto!(context);
+                  if (selectedPath != null && mounted) {
+                    setState(() {
+                      _displayLocalImagePath = selectedPath;
+                      _displayImageUrl = null;
+                      _transformationController.value = Matrix4.identity();
+                    });
                   }
                 },
               ),
@@ -4730,14 +4855,14 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
           transformationController: _transformationController,
           minScale: 0.5,
           maxScale: 4.0,
-          child: widget.localImagePath != null
+          child: _displayLocalImagePath != null
               ? Image.file(
-                  File(widget.localImagePath!),
+                  File(_displayLocalImagePath!),
                   fit: BoxFit.contain,
                 )
-              : widget.imageUrl != null
+              : _displayImageUrl != null
                   ? CachedNetworkImage(
-                      imageUrl: widget.imageUrl!,
+                      imageUrl: _displayImageUrl!,
                       fit: BoxFit.contain,
                       placeholder: (context, url) => Center(
                         child: CircularProgressIndicator(

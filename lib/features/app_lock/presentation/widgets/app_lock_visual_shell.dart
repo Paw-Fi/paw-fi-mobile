@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -25,6 +23,9 @@ class AppLockBackground extends StatelessWidget {
       color: colorScheme.appBackground,
       child: Stack(
         children: [
+          Positioned.fill(
+            child: ColoredBox(color: colorScheme.appBackground),
+          ),
           Positioned(
             top: -100,
             left: -50,
@@ -36,12 +37,6 @@ class AppLockBackground extends StatelessWidget {
             right: -100,
             child: _AmbientGlow(
                 color: colorScheme.secondary.withValues(alpha: 0.1), size: 400),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-              child: const SizedBox.expand(),
-            ),
           ),
           child,
         ],

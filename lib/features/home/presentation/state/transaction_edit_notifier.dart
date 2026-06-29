@@ -95,6 +95,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
         // 3. Update UI immediately (optimistic)
         state = state.copyWith(optimisticUpdate: optimisticExpense);
+        ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+            optimisticExpense;
         _applyOptimisticUpdateToProvider(
           optimisticExpense,
           originalExpense: cachedOriginalExpense,
@@ -246,6 +248,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       await Future.wait(
         affectedHouseholdIds.map(clearHouseholdPersistentCacheForHousehold),
       );
+      if (confirmedExpense != null) {
+        ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+            confirmedExpense;
+      }
       if (localDatabase != null && confirmedExpense != null) {
         await localDatabase.markOptimisticTransactionUpdateSynced(
           entry: confirmedExpense,
@@ -327,6 +333,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
             clientMutationId: mutationMetadata.clientMutationId,
             error: e,
           );
+          ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+              originalForRollback;
         }
 
         final originalHouseholdId =

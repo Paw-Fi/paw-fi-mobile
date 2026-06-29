@@ -15,6 +15,7 @@ import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
@@ -48,8 +49,11 @@ class _AppState extends ConsumerState<App> {
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: (state) {
         debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
+        final skipAppLockForImagePicker = isImagePickerActive;
         if (state == AppLifecycleState.resumed) {
-          ref.read(appLockControllerProvider.notifier).handleResumed();
+          if (!skipAppLockForImagePicker) {
+            ref.read(appLockControllerProvider.notifier).handleResumed();
+          }
           _setLifecycleObscured(false);
           unawaited(
             ref.read(subscriptionManagementProvider.notifier).refresh(),
@@ -58,10 +62,12 @@ class _AppState extends ConsumerState<App> {
         } else if (state == AppLifecycleState.hidden ||
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.detached) {
-          if (_shouldUseLifecyclePrivacyCover()) {
+          if (!skipAppLockForImagePicker && _shouldUseLifecyclePrivacyCover()) {
             _setLifecycleObscured(true);
           }
-          ref.read(appLockControllerProvider.notifier).markBackgrounded();
+          if (!skipAppLockForImagePicker) {
+            ref.read(appLockControllerProvider.notifier).markBackgrounded();
+          }
         }
         unawaited(
           ref.read(onboardingFlowAnalyticsServiceProvider).handleLifecycleState(
@@ -266,29 +272,38 @@ class _AppState extends ConsumerState<App> {
                 VersionCheckWrapper(child: child ?? const SplashScreen()),
                 if (shouldShowLifecyclePrivacyCover)
                   const _AppLifecyclePrivacyCover(),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (Widget child, Animation<double> animation) {
-                    if (child.key == const ValueKey('app-lock-overlay')) {
-                      return SlideTransition(
-                        position: Tween<Offset>(
+                Positioned.fill(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                      if (child.key == const ValueKey('app-lock-overlay')) {
+                        final offset = Tween<Offset>(
                           begin: const Offset(0, -1),
                           end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                  child: shouldShowAppLockOverlay
-                      ? AppLockPage(
-                          key: const ValueKey('app-lock-overlay'),
-                          onUnlocked: () => _setLifecycleObscured(false),
-                          renderAsOverlay: true,
-                        )
-                      : const SizedBox.shrink(key: ValueKey('app-lock-empty')),
+                        ).animate(animation);
+
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offset,
+                            child: child,
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                    child: shouldShowAppLockOverlay
+                        ? AppLockPage(
+                            key: const ValueKey('app-lock-overlay'),
+                            onUnlocked: () => _setLifecycleObscured(false),
+                            renderAsOverlay: true,
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('app-lock-empty')),
+                  ),
                 ),
               ],
             ),

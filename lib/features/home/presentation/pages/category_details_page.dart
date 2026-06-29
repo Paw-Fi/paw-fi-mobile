@@ -253,23 +253,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   }
 
   int _expenseEntriesSignature(List<ExpenseEntry> expenses) {
-    return Object.hashAll(
-      expenses.map(
-        (expense) => Object.hash(
-          expense.id,
-          expense.date,
-          expense.createdAt,
-          expense.amountCents,
-          expense.householdId,
-          expense.currency,
-          expense.category,
-          expense.rawText,
-          expense.type,
-          expense.isRecurring,
-          expense.walletId,
-        ),
-      ),
-    );
+    return transactionEntriesContentSignature(expenses);
   }
 
   @override
@@ -449,7 +433,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           onRefresh: _refreshData,
           child: CustomScrollView(
             controller: _scrollController,
-            key: PageStorageKey('category_details_scroll_${widget.categoryKey}'),
+            key:
+                PageStorageKey('category_details_scroll_${widget.categoryKey}'),
             slivers: [
               SliverAppBar(
                 pinned: true,
@@ -704,8 +689,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     );
   }
 
-  Widget _buildTrendMiniChart(ColorScheme colorScheme,
-      List<MonthTransactionGroup> monthGroups,
+  Widget _buildTrendMiniChart(
+      ColorScheme colorScheme, List<MonthTransactionGroup> monthGroups,
       {required bool isLoading}) {
     if (monthGroups.isEmpty && !isLoading) return const SizedBox.shrink();
 
