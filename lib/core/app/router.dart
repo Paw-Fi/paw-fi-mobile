@@ -506,19 +506,8 @@ GoRouter router(RouterRef ref) {
           return '/onboarding?stage=post';
         }
 
-        if (!isPreview &&
-            !kIsWeb &&
-            isAuthenticated &&
-            isPreauthSynced &&
-            hasOnboarded &&
-            appLock.shouldBlockApp &&
-            !isOnAuthPage &&
-            !isOnboardingPage &&
-            !isOnSplashPage &&
-            !isOnErrorPage) {
-          final from = Uri.encodeComponent(state.uri.toString());
-          return '/app-lock?from=$from';
-        }
+        // App lock is enforced as a root overlay in App.builder. Do not route
+        // to /app-lock here or imperative child Navigator stacks are replaced.
 
         // Allow paywall page only while the router-facing subscription gate
         // still requires it. If a purchase just activated, leave paywall even
