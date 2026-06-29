@@ -3071,7 +3071,7 @@
   "plusLockedViewPlansCta": "เริ่มทดลองใช้ฟรี 7 วัน",
   "plusLockedMaybeLaterCta": "ไว้คราวหลัง",
   "plusLockedCurrentBadge": "ปัจจุบัน",
-  "plusLockedBankSync": "เชื่อมต่อธนาคาร",
+  "plusLockedBankSync": "ซิงก์ธนาคารผ่าน Plaid (รองรับธนาคารในสหรัฐฯ และแคนาดา)",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "การตอบกลับของฝ่ายสนับสนุน",
   "plusLockedStandardSupport": "มาตรฐาน",

@@ -3050,7 +3050,7 @@
   "plusLockedViewPlansCta": "开始 7 天免费试用",
   "plusLockedMaybeLaterCta": "以后再说",
   "plusLockedCurrentBadge": "当前",
-  "plusLockedBankSync": "银行同步",
+  "plusLockedBankSync": "Plaid 银行同步（支持美国和加拿大银行）",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "客服响应时间",
   "plusLockedStandardSupport": "标准",

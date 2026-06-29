@@ -3004,7 +3004,7 @@
   "plusLockedViewPlansCta": "Начать 7-дневный бесплатный пробный период",
   "plusLockedMaybeLaterCta": "Позже",
   "plusLockedCurrentBadge": "Текущий",
-  "plusLockedBankSync": "Синхронизация с банком",
+  "plusLockedBankSync": "Синхронизация банков через Plaid (банки США и Канады)",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "Ответ поддержки",
   "plusLockedStandardSupport": "Стандартная",

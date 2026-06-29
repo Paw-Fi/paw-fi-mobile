@@ -3001,7 +3001,7 @@
   "plusLockedViewPlansCta": "Start een gratis proefperiode van 7 dagen",
   "plusLockedMaybeLaterCta": "Misschien later",
   "plusLockedCurrentBadge": "Huidig",
-  "plusLockedBankSync": "Bankkoppeling",
+  "plusLockedBankSync": "Banksynchronisatie via Plaid (banken in de VS en Canada)",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "Reactietijd support",
   "plusLockedStandardSupport": "Standaard",

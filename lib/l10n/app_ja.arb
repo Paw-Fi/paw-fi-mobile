@@ -3054,7 +3054,7 @@
   "plusLockedViewPlansCta": "7日間の無料トライアルを開始",
   "plusLockedMaybeLaterCta": "後で",
   "plusLockedCurrentBadge": "現在",
-  "plusLockedBankSync": "銀行連携",
+  "plusLockedBankSync": "Plaid対応の銀行連携（米国・カナダの銀行）",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "サポート対応",
   "plusLockedStandardSupport": "通常",

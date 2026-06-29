@@ -15,10 +15,10 @@ abstract class Constants {
   static const int discordVoucherMonths = 12;
 
   // Subscription pricing (USD)
-  static const double subscriptionMonthlyPrice = 4.99;
-  static const double subscriptionMonthlyOriginalPrice = 7.99;
-  static const double subscriptionYearlyPrice = 34.99;
-  static const double subscriptionYearlyOriginalPrice = 59.99;
+  static const double subscriptionMonthlyPrice = 10.99;
+  static const double subscriptionMonthlyOriginalPrice = 17.99;
+  static const double subscriptionYearlyPrice = 79.99;
+  static const double subscriptionYearlyOriginalPrice = 131.88;
   static const double subscriptionPremiumMonthlyPrice = 7.99;
   static const double subscriptionPremiumMonthlyOriginalPrice = 9.99;
   static const double subscriptionPremiumYearlyPrice = 59.99;

@@ -8313,7 +8313,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedCurrentBadge => 'ปัจจุบัน';
 
   @override
-  String get plusLockedBankSync => 'เชื่อมต่อธนาคาร';
+  String get plusLockedBankSync => 'ซิงก์ธนาคารผ่าน Plaid (รองรับธนาคารในสหรัฐฯ และแคนาดา)';
 
   @override
   String get plusLockedFreeCurrencies => '1';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
@@ -91,6 +92,7 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
   }
 
   void _handleKeyPress(String key) {
+    HapticFeedback.lightImpact();
     setState(() {
       if (RegExp(r'[0-9]').hasMatch(key)) {
         if (_shouldResetDisplay || _isFirstInput) {

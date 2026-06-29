@@ -2998,7 +2998,7 @@
   "plusLockedViewPlansCta": "開始 7 天免費試用",
   "plusLockedMaybeLaterCta": "以後再說",
   "plusLockedCurrentBadge": "目前",
-  "plusLockedBankSync": "銀行同步",
+  "plusLockedBankSync": "Plaid 銀行同步（支援美國與加拿大銀行）",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "客服回應時間",
   "plusLockedStandardSupport": "標準",

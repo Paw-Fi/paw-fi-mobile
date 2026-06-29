@@ -2858,7 +2858,7 @@
   "plusLockedViewPlansCta": "7일 무료 체험 시작",
   "plusLockedMaybeLaterCta": "나중에 하기",
   "plusLockedCurrentBadge": "현재",
-  "plusLockedBankSync": "은행 연동",
+  "plusLockedBankSync": "Plaid 지원 은행 연동(미국 및 캐나다 은행)",
   "plusLockedFreeCurrencies": "1",
   "plusLockedSupportResponse": "고객 지원 응답",
   "plusLockedStandardSupport": "일반",
