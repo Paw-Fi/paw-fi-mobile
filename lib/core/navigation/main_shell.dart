@@ -10,6 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
@@ -358,6 +359,9 @@ class MainShell extends HookConsumerWidget {
     final walletScopeHouseholdId = previewState.isActive
         ? null
         : ref.watch(walletScopeHouseholdIdProvider);
+    final isAppLockPromptActive = ref.watch(
+      appLockControllerProvider.select((state) => state.shouldBlockApp),
+    );
     final warmedWalletsKeyRef = useRef<String?>(null);
     final showNoNetworkBanner = !hasNetworkAccess;
 
@@ -690,7 +694,7 @@ class MainShell extends HookConsumerWidget {
                       ),
                     ),
                     const TrialReminderBannerGate(),
-                    const HomeHeaderSliver(),
+                    if (!isAppLockPromptActive) const HomeHeaderSliver(),
                     Expanded(
                       child: Stack(
                         children: [

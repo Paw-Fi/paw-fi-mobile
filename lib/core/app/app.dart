@@ -252,17 +252,25 @@ class _AppState extends ConsumerState<App> {
       locale: locale,
       localeResolutionCallback: localeResolutionCallback,
       builder: (context, child) {
-        final colorScheme = Theme.of(context).colorScheme;
+        final brightness = themeMode == ThemeMode.system
+            ? MediaQuery.platformBrightnessOf(context)
+            : (themeMode == ThemeMode.dark ? Brightness.dark : Brightness.light);
+        final themeData = brightness == Brightness.dark
+            ? AppTheme.darkTheme()
+            : AppTheme.lightTheme();
+        final colorScheme = themeData.colorScheme;
         final overlayStyle = colorScheme.brightness == Brightness.dark
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark;
 
         // Never render an empty child on first frames; fallback to SplashScreen
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: overlayStyle.copyWith(
-            statusBarColor: colorScheme.surface.withValues(alpha: 0.0),
-          ),
-          child: Localizations.override(
+        return Theme(
+          data: themeData,
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: overlayStyle.copyWith(
+              statusBarColor: colorScheme.surface.withValues(alpha: 0.0),
+            ),
+            child: Localizations.override(
             context: context,
             locale: locale,
             delegates: localizationsDelegates,
@@ -308,6 +316,7 @@ class _AppState extends ConsumerState<App> {
               ],
             ),
           ),
+        ),
         );
       },
     );

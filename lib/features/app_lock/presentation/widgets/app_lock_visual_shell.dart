@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-class AppLockBackground extends StatelessWidget {
+class AppLockBackground extends HookWidget {
   const AppLockBackground({required this.child, super.key});
 
   final Widget child;
@@ -9,37 +12,63 @@ class AppLockBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isIOS = Theme.of(context).platform == TargetPlatform.iOS ||
-        Theme.of(context).platform == TargetPlatform.macOS;
 
-    if (!isIOS) {
-      return Material(
-        color: colorScheme.appBackground,
-        child: child,
-      );
-    }
+    final animationController = useAnimationController(
+      duration: const Duration(seconds: 12),
+    )..repeat(reverse: true);
 
     return Material(
       color: colorScheme.appBackground,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: ColoredBox(color: colorScheme.appBackground),
-          ),
-          Positioned(
-            top: -100,
-            left: -50,
-            child: _AmbientGlow(
-                color: colorScheme.primary.withValues(alpha: 0.15), size: 300),
-          ),
-          Positioned(
-            bottom: -150,
-            right: -100,
-            child: _AmbientGlow(
-                color: colorScheme.secondary.withValues(alpha: 0.1), size: 400),
-          ),
-          child,
-        ],
+      child: ClipRect(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(color: colorScheme.appBackground),
+            ),
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: animationController,
+                builder: (context, _) {
+                  final moveX =
+                      Curves.easeInOutSine.transform(animationController.value);
+                  final moveY = Curves.easeInOutSine
+                      .transform(1.0 - animationController.value);
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        top: -200 + (moveY * 300),
+                        left: -100 + (moveX * 250),
+                        child: _AmbientGlow(
+                          color: colorScheme.primary.withValues(alpha: 0.65),
+                          size: 320,
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -250 + (moveX * 350),
+                        right: -150 + (moveY * 250),
+                        child: _AmbientGlow(
+                          color: colorScheme.secondary.withValues(alpha: 0.60),
+                          size: 420,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: ColoredBox(
+                  color: colorScheme.appBackground.withValues(alpha: 0.1),
+                ),
+              ),
+            ),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -81,19 +110,15 @@ class _AmbientGlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        boxShadow: [
-          BoxShadow(
-            color: color,
-            blurRadius: size / 2,
-            spreadRadius: size / 4,
-          ),
-        ],
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: size / 4, sigmaY: size / 4),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+        ),
       ),
     );
   }
