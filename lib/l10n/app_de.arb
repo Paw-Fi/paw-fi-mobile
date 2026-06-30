@@ -3099,5 +3099,6 @@
   "prioritySupport": "Priorisierter Kundensupport",
   "discord": "Discord",
   "couldNotOpenEmail": "E-Mail-App konnte nicht geöffnet werden",
-  "couldNotOpenDiscord": "Discord konnte nicht geöffnet werden"
+  "couldNotOpenDiscord": "Discord konnte nicht geöffnet werden",
+  "lightMode": "Heller Modus"
 }

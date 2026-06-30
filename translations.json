@@ -1,19 +1,19 @@
 {
-"plusLockedBankSync": {
-"de": "Banksynchronisierung mit Plaid (Banken in den USA und Kanada)",
-"en": "Bank Sync powered by Plaid (US & Canada banks)",
-"es": "Sincronización bancaria con Plaid (bancos de EE. UU. y Canadá)",
-"fr": "Synchronisation bancaire avec Plaid (banques des États-Unis et du Canada)",
-"it": "Sincronizzazione bancaria con Plaid (banche di USA e Canada)",
-"ja": "Plaid対応の銀行連携（米国・カナダの銀行）",
-"ko": "Plaid 지원 은행 연동(미국 및 캐나다 은행)",
-"nl": "Banksynchronisatie via Plaid (banken in de VS en Canada)",
-"ur": "Plaid کے ذریعے بینک سنک (امریکہ اور کینیڈا کے بینک)",
-"ru": "Синхронизация банков через Plaid (банки США и Канады)",
-"th": "ซิงก์ธนาคารผ่าน Plaid (รองรับธนาคารในสหรัฐฯ และแคนาดา)",
-"uk": "Синхронізація банків через Plaid (банки США та Канади)",
-"zh": "Plaid 银行同步（支持美国和加拿大银行）",
-"zh_TW": "Plaid 銀行同步（支援美國與加拿大銀行）",
-"vi": "Đồng bộ ngân hàng qua Plaid (ngân hàng tại Mỹ & Canada)"
-}
+  "lightMode": {
+    "en": "Light Mode",
+    "de": "Heller Modus",
+    "es": "Modo claro",
+    "fr": "Mode clair",
+    "it": "Modalità chiara",
+    "ja": "ライトモード",
+    "ko": "라이트 모드",
+    "nl": "Lichte modus",
+    "ur": "لائٹ موڈ",
+    "ru": "Светлая тема",
+    "th": "โหมดสว่าง",
+    "uk": "Світла тема",
+    "zh": "浅色模式",
+    "zh_TW": "淺色模式",
+    "vi": "Chế độ sáng"
+  }
 }

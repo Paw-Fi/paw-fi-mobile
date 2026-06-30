@@ -3043,5 +3043,6 @@
   "prioritySupport": "優先客服",
   "discord": "Discord",
   "couldNotOpenEmail": "無法開啟郵件應用程式",
-  "couldNotOpenDiscord": "無法開啟 Discord"
+  "couldNotOpenDiscord": "無法開啟 Discord",
+  "lightMode": "淺色模式"
 }

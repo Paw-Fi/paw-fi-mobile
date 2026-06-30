@@ -3101,5 +3101,6 @@
   "prioritySupport": "Atención prioritaria",
   "discord": "Discord",
   "couldNotOpenEmail": "No se pudo abrir la aplicación de correo",
-  "couldNotOpenDiscord": "No se pudo abrir Discord"
+  "couldNotOpenDiscord": "No se pudo abrir Discord",
+  "lightMode": "Modo claro"
 }

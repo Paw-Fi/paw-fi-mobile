@@ -3116,5 +3116,6 @@
   "prioritySupport": "บริการช่วยเหลือแบบพิเศษ",
   "discord": "Discord",
   "couldNotOpenEmail": "ไม่สามารถเปิดแอปอีเมลได้",
-  "couldNotOpenDiscord": "ไม่สามารถเปิด Discord ได้"
+  "couldNotOpenDiscord": "ไม่สามารถเปิด Discord ได้",
+  "lightMode": "โหมดสว่าง"
 }

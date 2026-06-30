@@ -3049,5 +3049,6 @@
   "prioritySupport": "Приоритетная поддержка",
   "discord": "Discord",
   "couldNotOpenEmail": "Не удалось открыть почтовое приложение",
-  "couldNotOpenDiscord": "Не удалось открыть Discord"
+  "couldNotOpenDiscord": "Не удалось открыть Discord",
+  "lightMode": "Светлая тема"
 }

@@ -3046,5 +3046,6 @@
   "prioritySupport": "Klantenservice met prioriteit",
   "discord": "Discord",
   "couldNotOpenEmail": "Kan de e-mailapp niet openen",
-  "couldNotOpenDiscord": "Kan Discord niet openen"
+  "couldNotOpenDiscord": "Kan Discord niet openen",
+  "lightMode": "Lichte modus"
 }

@@ -3140,5 +3140,6 @@
   "start7DayPremiumFreeTrial": "Start 7-day Premium free trial",
   "premiumWebDashboardDataExport": "Premium web dashboard to manage and export all data",
   "encryptedReceiptPdfStorage": "Dedicated encrypted storage for receipts forwarded by email, with download access from the web dashboard",
-  "customerSupport": "Support"
+  "customerSupport": "Support",
+  "lightMode": "Light Mode"
 }

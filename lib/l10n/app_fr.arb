@@ -3099,5 +3099,6 @@
   "prioritySupport": "Assistance prioritaire",
   "discord": "Discord",
   "couldNotOpenEmail": "Impossible d'ouvrir l'application de messagerie",
-  "couldNotOpenDiscord": "Impossible d'ouvrir Discord"
+  "couldNotOpenDiscord": "Impossible d'ouvrir Discord",
+  "lightMode": "Mode clair"
 }

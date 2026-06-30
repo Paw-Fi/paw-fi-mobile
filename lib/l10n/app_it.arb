@@ -3046,5 +3046,6 @@
   "prioritySupport": "Assistenza prioritaria",
   "discord": "Discord",
   "couldNotOpenEmail": "Impossibile aprire l'app Email",
-  "couldNotOpenDiscord": "Impossibile aprire Discord"
+  "couldNotOpenDiscord": "Impossibile aprire Discord",
+  "lightMode": "Modalità chiara"
 }

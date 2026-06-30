@@ -3045,5 +3045,6 @@
   "prioritySupport": "ترجیحی کسٹمر سپورٹ",
   "discord": "Discord",
   "couldNotOpenEmail": "ای میل ایپ نہیں کھولی جا سکی",
-  "couldNotOpenDiscord": "Discord نہیں کھولا جا سکا"
+  "couldNotOpenDiscord": "Discord نہیں کھولا جا سکا",
+  "lightMode": "لائٹ موڈ"
 }

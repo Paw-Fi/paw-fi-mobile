@@ -2902,5 +2902,6 @@
   "prioritySupport": "우선 고객지원",
   "discord": "Discord",
   "couldNotOpenEmail": "이메일 앱을 열 수 없습니다",
-  "couldNotOpenDiscord": "Discord를 열 수 없습니다"
+  "couldNotOpenDiscord": "Discord를 열 수 없습니다",
+  "lightMode": "라이트 모드"
 }

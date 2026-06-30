@@ -117,6 +117,14 @@ String _holdQuickActionLabel(BuildContext context, AiHoldQuickAction? action) {
   };
 }
 
+String _themeModeLabel(BuildContext context, ThemeMode mode) {
+  return switch (mode) {
+    ThemeMode.system => context.l10n.systemDefault,
+    ThemeMode.light => context.l10n.lightMode,
+    ThemeMode.dark => context.l10n.darkMode,
+  };
+}
+
 const Set<String> _restrictedRegionCountryCodes = {
   'ID', // Indonesia
   'CU', // Cuba
@@ -203,7 +211,7 @@ class SettingsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTheme = ref.watch(themeModeProvider);
-    final isDarkMode = currentTheme == ThemeMode.dark;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
     final analyticsState = ref.watch(analyticsProvider);
@@ -1402,18 +1410,49 @@ class SettingsPage extends HookConsumerWidget {
                         },
                       ),
                       _SettingsTile(
-                        icon: isDarkMode
+                        icon: currentTheme == ThemeMode.dark ||
+                                (currentTheme == ThemeMode.system && isDarkMode)
                             ? Icons.dark_mode_rounded
                             : Icons.light_mode_rounded,
-                        label: context.l10n.darkMode,
-                        trailing: Padding(
-                          padding: const EdgeInsets.only(right: 16.0),
-                          child: AdaptiveSwitch(
-                            value: isDarkMode,
+                        label: context.l10n.appearance,
+                        valueWidget: DropdownButtonHideUnderline(
+                          child: DropdownButton<ThemeMode>(
+                            isDense: true,
+                            alignment: Alignment.centerRight,
+                            icon: Row(
+                              children: [
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ],
+                            ),
+                            dropdownColor: colorScheme.sheetBackground,
+                            value: currentTheme,
+                            items: ThemeMode.values
+                                .map(
+                                  (mode) => DropdownMenuItem<ThemeMode>(
+                                    value: mode,
+                                    child: Text(
+                                      _themeModeLabel(context, mode),
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
                             onChanged: (value) {
-                              ref.read(themeModeProvider.notifier).setThemeMode(
-                                    value ? ThemeMode.dark : ThemeMode.light,
-                                  );
+                              if (value == null || value == currentTheme) {
+                                return;
+                              }
+                              ref
+                                  .read(themeModeProvider.notifier)
+                                  .setThemeMode(value);
                             },
                           ),
                         ),

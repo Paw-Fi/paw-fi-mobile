@@ -21,11 +21,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
     final stored = prefs.getString(_storageKey);
 
     if (stored == null) {
-      final platformBrightness =
-          WidgetsBinding.instance.platformDispatcher.platformBrightness;
-      state = platformBrightness == Brightness.dark
-          ? ThemeMode.dark
-          : ThemeMode.light;
+      state = ThemeMode.system;
       return;
     }
 
@@ -47,7 +43,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
       case 'system':
         return ThemeMode.system;
       default:
-        return ThemeMode.light;
+        return ThemeMode.system;
     }
   }
 
@@ -590,7 +586,7 @@ class AppTheme {
     if (scheme.brightness != Brightness.dark) {
       return baseColor;
     }
-    
+
     final hsl = HSLColor.fromColor(baseColor);
     // Ensure minimum lightness of 0.65 for dark mode to maintain contrast against dark grey cards.
     if (hsl.lightness < 0.65) {
@@ -703,7 +699,8 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: lightBackground,
-      splashColor: Colors.transparent, // Modern premium apps suppress Material ripples
+      splashColor:
+          Colors.transparent, // Modern premium apps suppress Material ripples
       highlightColor: Colors.transparent,
       appBarTheme: const AppBarTheme(
         systemOverlayStyle: lightSystemUiOverlayStyle,
@@ -716,7 +713,8 @@ class AppTheme {
         modalBackgroundColor: lightSheetBg,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)), // Matches latest iOS sheet radii
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(28)), // Matches latest iOS sheet radii
         ),
       ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: false),
@@ -746,7 +744,8 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: darkBackground,
-      splashColor: Colors.transparent, // Modern premium apps suppress Material ripples
+      splashColor:
+          Colors.transparent, // Modern premium apps suppress Material ripples
       highlightColor: Colors.transparent,
       appBarTheme: const AppBarTheme(
         systemOverlayStyle: darkSystemUiOverlayStyle,
@@ -761,7 +760,8 @@ class AppTheme {
         dragHandleColor: scheme.onSurface.withValues(alpha: 0.4),
         elevation: 0,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)), // Standardized to 28 for premium feel
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(28)), // Standardized to 28 for premium feel
         ),
       ),
     );

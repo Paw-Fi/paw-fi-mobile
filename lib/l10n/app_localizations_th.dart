@@ -8490,4 +8490,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get customerSupport => 'ฝ่ายช่วยเหลือ';
+
+  @override
+  String get lightMode => 'โหมดสว่าง';
 }

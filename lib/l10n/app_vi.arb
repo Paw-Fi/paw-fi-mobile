@@ -3098,5 +3098,6 @@
   "prioritySupport": "Hỗ trợ ưu tiên",
   "discord": "Discord",
   "couldNotOpenEmail": "Không thể mở ứng dụng Email",
-  "couldNotOpenDiscord": "Không thể mở Discord"
+  "couldNotOpenDiscord": "Không thể mở Discord",
+  "lightMode": "Chế độ sáng"
 }

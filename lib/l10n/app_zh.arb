@@ -3095,5 +3095,6 @@
   "prioritySupport": "优先客服",
   "discord": "Discord",
   "couldNotOpenEmail": "无法打开邮件应用",
-  "couldNotOpenDiscord": "无法打开 Discord"
+  "couldNotOpenDiscord": "无法打开 Discord",
+  "lightMode": "浅色模式"
 }
