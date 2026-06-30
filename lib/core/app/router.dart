@@ -11,6 +11,7 @@ import 'package:moneko/features/subscription/presentation/pages/paywall_screen.d
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/core/monitoring/auth_logout_debug_telemetry.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:moneko/features/households/presentation/pages/household_invites_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
@@ -299,6 +300,7 @@ GoRouter router(RouterRef ref) {
     ],
     redirect: (context, state) {
       try {
+        AuthLogoutDebugTelemetry.rememberRoute(state.matchedLocation);
         final auth = ref.read(authProvider);
         final subscriptionGateStatus = ref.read(subscriptionGateStatusProvider);
         final subscriptionAsync = ref.read(subscriptionNotifierProvider);

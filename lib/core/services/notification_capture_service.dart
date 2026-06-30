@@ -39,6 +39,8 @@ class NotificationCaptureConfig {
     required this.hasAuthStorage,
     required this.hasCredentials,
     required this.isReady,
+    required this.expiresAt,
+    required this.isAccessTokenExpired,
     required this.hasNotificationAccess,
     required this.enabledPackages,
     required this.recentApps,
@@ -54,6 +56,8 @@ class NotificationCaptureConfig {
   final bool hasAuthStorage;
   final bool hasCredentials;
   final bool isReady;
+  final int expiresAt;
+  final bool isAccessTokenExpired;
   final bool hasNotificationAccess;
   final List<String> enabledPackages;
   final List<RecentNotificationApp> recentApps;
@@ -78,6 +82,8 @@ class NotificationCaptureConfig {
       hasAuthStorage: map['hasAuthStorage'] as bool? ?? true,
       hasCredentials: map['hasCredentials'] as bool? ?? false,
       isReady: map['isReady'] as bool? ?? false,
+      expiresAt: (map['expiresAt'] as num?)?.toInt() ?? 0,
+      isAccessTokenExpired: map['isAccessTokenExpired'] as bool? ?? false,
       hasNotificationAccess: map['hasNotificationAccess'] as bool? ?? false,
       enabledPackages: rawPackages.cast<String>().toList(),
       recentApps: rawApps
@@ -101,6 +107,8 @@ class NotificationCaptureConfig {
     bool? hasAuthStorage,
     bool? hasCredentials,
     bool? isReady,
+    int? expiresAt,
+    bool? isAccessTokenExpired,
     bool? hasNotificationAccess,
     List<String>? enabledPackages,
     List<RecentNotificationApp>? recentApps,
@@ -119,6 +127,8 @@ class NotificationCaptureConfig {
       hasAuthStorage: hasAuthStorage ?? this.hasAuthStorage,
       hasCredentials: hasCredentials ?? this.hasCredentials,
       isReady: isReady ?? this.isReady,
+      expiresAt: expiresAt ?? this.expiresAt,
+      isAccessTokenExpired: isAccessTokenExpired ?? this.isAccessTokenExpired,
       hasNotificationAccess:
           hasNotificationAccess ?? this.hasNotificationAccess,
       enabledPackages: enabledPackages ?? this.enabledPackages,
@@ -137,6 +147,8 @@ class NotificationCaptureConfig {
     hasAuthStorage: true,
     hasCredentials: false,
     isReady: false,
+    expiresAt: 0,
+    isAccessTokenExpired: false,
     hasNotificationAccess: false,
     enabledPackages: [],
     recentApps: [],

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/monitoring/auth_logout_debug_telemetry.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
+import 'package:moneko/core/services/wallet_capture_debug_service.dart';
 
 part 'auth.g.dart';
 
@@ -42,11 +44,17 @@ class Auth extends _$Auth {
   initListener() {
     _authStateSubscription =
         supabase.auth.onAuthStateChange.listen((data) async {
+      final previousUserId = state.uid;
       state = AppUser.fromSession(data.session);
 
       final event = data.event;
       final session = data.session;
 
+      unawaited(_logAuthStateEvent(
+        previousUserId: previousUserId,
+        event: event,
+        session: session,
+      ));
       unawaited(_syncSiriShortcutAuthContext(session));
 
       // Set Crashlytics user identifier for better correlation
@@ -87,8 +95,9 @@ class Auth extends _$Auth {
               name: 'Auth', error: e, stackTrace: st);
         }
       }
-    }, onError: (error) {
+    }, onError: (Object error, StackTrace stackTrace) {
       // Handle auth stream errors gracefully
+      unawaited(_recordAuthStreamError(error, stackTrace));
       appLog('Auth state change error: $error', name: 'Auth', error: error);
       if (_isRefreshTokenNotFound(error)) {
         appLog('Auth session expired, clearing local session', name: 'Auth');
@@ -106,6 +115,134 @@ class Auth extends _$Auth {
         } catch (_) {}
       }
     });
+  }
+
+  Future<void> _logAuthStateEvent({
+    required String? previousUserId,
+    required AuthChangeEvent event,
+    required Session? session,
+  }) async {
+    final payload = AuthLogoutDebugTelemetry.authStatePayload(
+      event: event.name,
+      previousUserId: previousUserId,
+      nextUserId: session?.user.id,
+      hasSession: session != null,
+      sessionExpiresAt: session?.expiresAt,
+      sessionIsExpired: session?.isExpired ?? false,
+      lifecycleState: AuthLogoutDebugTelemetry.currentLifecycleState(),
+      route: AuthLogoutDebugTelemetry.currentRoute,
+      platform: AuthLogoutDebugTelemetry.currentPlatform(),
+      appVersion: AuthLogoutDebugTelemetry.appVersion,
+    );
+    AuthLogoutDebugTelemetry.logAuthStateEvent(payload);
+
+    if (event == AuthChangeEvent.signedOut) {
+      await _logSupportSnapshot();
+    }
+  }
+
+  Future<void> _recordAuthStreamError(
+    Object error,
+    StackTrace stackTrace,
+  ) async {
+    final session = supabase.auth.currentSession;
+    final notificationCapture = await _readNotificationCaptureSnapshot();
+    final payload = AuthLogoutDebugTelemetry.authStreamErrorPayload(
+      error: error,
+      hasSession: session != null,
+      sessionExpiresAt: session?.expiresAt,
+      sessionIsExpired: session?.isExpired ?? false,
+      lifecycleState: AuthLogoutDebugTelemetry.currentLifecycleState(),
+      route: AuthLogoutDebugTelemetry.currentRoute,
+      platform: AuthLogoutDebugTelemetry.currentPlatform(),
+      appVersion: AuthLogoutDebugTelemetry.appVersion,
+      notificationCapture: notificationCapture,
+    );
+
+    AuthLogoutDebugTelemetry.recordAuthStreamError(
+      error,
+      stackTrace,
+      payload,
+    );
+    await _logSupportSnapshot(notificationCapture: notificationCapture);
+  }
+
+  Future<void> _logSupportSnapshot({
+    AuthDebugNativeCaptureSnapshot? notificationCapture,
+  }) async {
+    final session = supabase.auth.currentSession;
+    final snapshot = AuthLogoutDebugSnapshot(
+      platform: AuthLogoutDebugTelemetry.currentPlatform(),
+      appVersion: AuthLogoutDebugTelemetry.appVersion,
+      lifecycleState: AuthLogoutDebugTelemetry.currentLifecycleState(),
+      route: AuthLogoutDebugTelemetry.currentRoute,
+      flutterSession: AuthDebugSessionSnapshot.fromSession(session),
+      androidNotificationCapture:
+          notificationCapture ?? await _readNotificationCaptureSnapshot(),
+      iosWalletCapture: await _readIosWalletCaptureSnapshot(),
+    );
+
+    AuthLogoutDebugTelemetry.logSupportSnapshot(snapshot);
+  }
+
+  Future<AuthDebugNativeCaptureSnapshot>
+      _readNotificationCaptureSnapshot() async {
+    if (!Platform.isAndroid) {
+      return AuthDebugNativeCaptureSnapshot.unavailable;
+    }
+
+    try {
+      final config = await NotificationCaptureService.instance.getConfig();
+      return AuthDebugNativeCaptureSnapshot(
+        available: true,
+        enabled: config.enabled,
+        hasAuthStorage: config.hasAuthStorage,
+        hasCredentials: config.hasCredentials,
+        isReady: config.isReady,
+        hasNotificationAccess: config.hasNotificationAccess,
+        enabledPackagesCount: config.enabledPackages.length,
+        expiresAt: config.expiresAt,
+        isAccessTokenExpired: config.isAccessTokenExpired,
+      );
+    } catch (error, stackTrace) {
+      appLog(
+        'Failed to read notification capture debug snapshot: $error',
+        name: 'Auth',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return AuthDebugNativeCaptureSnapshot.unavailable;
+    }
+  }
+
+  Future<AuthDebugNativeCaptureSnapshot> _readIosWalletCaptureSnapshot() async {
+    if (!Platform.isIOS) {
+      return AuthDebugNativeCaptureSnapshot.unavailable;
+    }
+
+    try {
+      final report = await WalletCaptureDebugService.instance.getReport();
+      final snapshot = report.snapshot;
+      return AuthDebugNativeCaptureSnapshot(
+        available: true,
+        enabled: snapshot.walletCaptureEnabled,
+        hasAuthStorage: snapshot.hasSupabaseConfig,
+        hasCredentials: snapshot.hasCredentials,
+        isReady: snapshot.isReady,
+        hasNotificationAccess: false,
+        enabledPackagesCount: 0,
+        expiresAt: snapshot.expiresAt,
+        isAccessTokenExpired: snapshot.isAccessTokenExpired,
+      );
+    } catch (error, stackTrace) {
+      appLog(
+        'Failed to read iOS wallet capture debug snapshot: $error',
+        name: 'Auth',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return AuthDebugNativeCaptureSnapshot.unavailable;
+    }
   }
 
   Future<void> _syncSiriShortcutAuthContext(Session? session) async {

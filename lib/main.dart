@@ -8,9 +8,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
+import 'package:moneko/core/monitoring/auth_logout_debug_telemetry.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -279,6 +281,23 @@ void main() {
     );
     if (!kIsWeb) {
       FirebaseCrashlytics.instance.log('startup: shared_prefs_ready');
+    }
+
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      AuthLogoutDebugTelemetry.setAppVersion(
+        '${packageInfo.version}+${packageInfo.buildNumber}',
+      );
+    } catch (error, stackTrace) {
+      _debugPrint('[ERR] PackageInfo init failed');
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.recordError(
+          error,
+          stackTrace,
+          reason: 'package_info_for_auth_debug',
+          fatal: false,
+        );
+      }
     }
 
     runApp(

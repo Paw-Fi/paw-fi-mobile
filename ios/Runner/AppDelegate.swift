@@ -36,6 +36,8 @@ private func refreshSiriShortcutSession(
     details: [
       "userId": context.userId,
       "expiresAt": context.expiresAt,
+      "accessTokenExpired": context.isAccessTokenExpired,
+      "hasRefreshToken": !context.refreshToken.isEmpty,
     ]
   )
   guard let url = URL(string: "\(context.supabaseUrl)/auth/v1/token?grant_type=refresh_token") else {
@@ -79,6 +81,7 @@ private func refreshSiriShortcutSession(
       message: "Session refresh returned a non-success status.",
       details: [
         "statusCode": httpResponse.statusCode,
+        "bodyClass": classifySiriAuthBody(String(data: data, encoding: .utf8) ?? ""),
         "body": truncateDiagnosticsBody(String(data: data, encoding: .utf8) ?? "<non-utf8>"),
       ]
     )
@@ -111,6 +114,7 @@ private func refreshSiriShortcutSession(
     details: [
       "userId": userId,
       "expiresAt": expiresAt,
+      "newRefreshTokenPresent": !refreshToken.isEmpty,
     ]
   )
 
@@ -130,6 +134,23 @@ private func normalizeSiriCurrencyCode(_ rawValue: String?) -> String? {
   let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
   guard normalized.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil else { return nil }
   return normalized
+}
+
+private func classifySiriAuthBody(_ body: String) -> String {
+  let lower = body.lowercased()
+  if lower.contains("refresh_token_already_used") || lower.contains("already used") {
+    return "refresh_token_reuse"
+  }
+  if lower.contains("refresh_token_not_found") || lower.contains("refresh token not found") {
+    return "refresh_token_missing"
+  }
+  if lower.contains("jwt") || lower.contains("unauthorized") {
+    return "unauthorized"
+  }
+  if body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    return "empty"
+  }
+  return "other"
 }
 
 @available(iOS 16.0, watchOS 9.0, *)

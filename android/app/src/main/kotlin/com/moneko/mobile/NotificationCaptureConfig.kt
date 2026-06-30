@@ -200,6 +200,8 @@ class NotificationCaptureConfig(context: Context) {
             "hasAuthStorage" to isAuthStorageAvailable,
             "hasCredentials" to hasCredentials,
             "isReady" to isReady,
+            "expiresAt" to expiresAt,
+            "isAccessTokenExpired" to isAccessTokenExpired,
             "hasNotificationAccess" to false,
             "enabledPackages" to getEnabledPackages().toList(),
             "recentApps" to getRecentApps().map { app ->

@@ -23,4 +23,22 @@ void main() {
     expect(copied.accountId, 'wallet-2');
     expect(copied.accountName, 'Travel');
   });
+
+  test('NotificationCaptureConfig maps native auth expiry diagnostics', () {
+    final config = NotificationCaptureConfig.fromMap({
+      'expiresAt': 1893456000,
+      'isAccessTokenExpired': true,
+    });
+
+    expect(config.expiresAt, 1893456000);
+    expect(config.isAccessTokenExpired, isTrue);
+
+    final copied = config.copyWith(
+      expiresAt: 1893457000,
+      isAccessTokenExpired: false,
+    );
+
+    expect(copied.expiresAt, 1893457000);
+    expect(copied.isAccessTokenExpired, isFalse);
+  });
 }
