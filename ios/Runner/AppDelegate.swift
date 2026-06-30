@@ -128,7 +128,7 @@ private func refreshSiriShortcutSession(
 private func normalizeSiriCurrencyCode(_ rawValue: String?) -> String? {
   guard let rawValue else { return nil }
   let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-  guard normalized.count == 3 else { return nil }
+  guard normalized.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil else { return nil }
   return normalized
 }
 
@@ -1401,13 +1401,17 @@ private func makeWalletCaptureRequestBody(
   idempotencyKey: String,
   merchantName: String,
   amount: Double,
+  currencyCode: String?,
   scope: SiriShortcutScopeResolution,
   accountId: String?
 ) -> [String: Any] {
-  let transaction: [String: Any] = [
+  var transaction: [String: Any] = [
     "amount": amount,
     "merchantName": merchantName,
   ]
+  if let currencyCode {
+    transaction["currency"] = currencyCode
+  }
   var body: [String: Any] = [
     "captureSource": "ios_wallet_shortcut",
     "idempotencyKey": idempotencyKey,
@@ -1673,8 +1677,14 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
 @available(iOS 16.0, watchOS 9.0, *)
 private func performWalletPaymentIntegrationCapture(
   merchantName: String?,
-  amount: Double?
+  amount: Double?,
+  currencyCode: String?
 ) async throws -> String {
+  let rawCurrencyCode = currencyCode?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+  let normalizedCurrencyCode = normalizeSiriCurrencyCode(rawCurrencyCode)
+  if !rawCurrencyCode.isEmpty && normalizedCurrencyCode == nil {
+    throw SiriShortcutIntentError.invalidCurrency
+  }
   SiriShortcutDiagnostics.record(
     source: "shortcut",
     action: "wallet-perform-start",
@@ -1682,6 +1692,7 @@ private func performWalletPaymentIntegrationCapture(
     details: [
       "merchant": merchantName ?? "",
       "amount": amount ?? -1,
+      "currency": normalizedCurrencyCode ?? "",
     ]
   )
   NSLog(
@@ -1744,7 +1755,7 @@ private func performWalletPaymentIntegrationCapture(
     userId: context.userId,
     merchantName: resolvedMerchantName,
     amount: amount,
-    currencyCode: nil,
+    currencyCode: normalizedCurrencyCode,
     transactionDate: nil,
     scope: scope
   )
@@ -1772,6 +1783,7 @@ private func performWalletPaymentIntegrationCapture(
     idempotencyKey: idempotencyKey,
     merchantName: resolvedMerchantName,
     amount: amount,
+    currencyCode: normalizedCurrencyCode,
     scope: scope,
     accountId: accountId
   )
@@ -1820,6 +1832,7 @@ private func performWalletPaymentIntegrationCapture(
     details: [
       "merchant": resolvedMerchantName,
       "amount": amount,
+      "currency": normalizedCurrencyCode ?? "",
       "scope": scope.householdId ?? "personal",
     ]
   )
@@ -1846,11 +1859,15 @@ struct CaptureWalletTransactionIntent: AppIntent {
   )
   var amount: Double?
 
+  @Parameter(title: "Currency")
+  var currencyCode: String?
+
   func perform() async throws -> some IntentResult & ProvidesDialog {
     do {
       let message = try await performWalletPaymentIntegrationCapture(
         merchantName: merchantName,
-        amount: amount
+        amount: amount,
+        currencyCode: currencyCode
       )
       return .result(dialog: IntentDialog(stringLiteral: message))
     } catch let intentError as SiriShortcutIntentError {
@@ -2403,6 +2420,7 @@ private enum SiriShortcutIntentError: LocalizedError {
   case notConfigured
   case missingSession
   case invalidInput
+  case invalidCurrency
   case duplicateRequest
   case noExpenseDetected
   case networkFailure
@@ -2419,6 +2437,8 @@ private enum SiriShortcutIntentError: LocalizedError {
       return "Your session expired. Please open Moneko and sign in again."
     case .invalidInput:
       return "I could not understand that expense. Try saying amount and description."
+    case .invalidCurrency:
+      return "Currency must be a 3-letter code like USD."
     case .duplicateRequest:
       return "That sounds like a duplicate request. I skipped it to prevent double logging."
     case .noExpenseDetected:
