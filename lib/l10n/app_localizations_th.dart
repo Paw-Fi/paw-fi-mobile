@@ -6555,7 +6555,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingIntroCarouselSlide4Body => 'เราจัดการค่าใช้จ่ายของคุณเป็นงบง่าย ๆ เพื่อให้คุณควบคุมได้';
 
   @override
-  String get onboardingIntroGetMyPlan => 'สร้างแผนของฉัน';
+  String get onboardingIntroGetMyPlan => 'เริ่มต้น';
 
   @override
   String get onboardingIntroAlreadyHaveAccount => 'ฉันมีบัญชีอยู่แล้ว';

@@ -1,19 +1,19 @@
 {
-  "lightMode": {
-    "en": "Light Mode",
-    "de": "Heller Modus",
-    "es": "Modo claro",
-    "fr": "Mode clair",
-    "it": "Modalità chiara",
-    "ja": "ライトモード",
-    "ko": "라이트 모드",
-    "nl": "Lichte modus",
-    "ur": "لائٹ موڈ",
-    "ru": "Светлая тема",
-    "th": "โหมดสว่าง",
-    "uk": "Світла тема",
-    "zh": "浅色模式",
-    "zh_TW": "淺色模式",
-    "vi": "Chế độ sáng"
-  }
+"onboardingIntroGetMyPlan": {
+"en": "Get Started",
+"de": "Loslegen",
+"es": "Empezar",
+"fr": "Commencer",
+"it": "Inizia",
+"ja": "はじめる",
+"ko": "시작하기",
+"nl": "Aan de slag",
+"ur": "شروع کریں",
+"ru": "Начать",
+"th": "เริ่มต้น",
+"uk": "Почати",
+"zh": "开始使用",
+"zh_TW": "開始使用",
+"vi": "Bắt đầu"
+}
 }
