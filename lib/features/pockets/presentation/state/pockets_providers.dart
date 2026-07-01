@@ -1560,6 +1560,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     unawaited(_drainPendingSilentReload());
   }
 
+  void _prepareFreshMutationReload() {
+    _refreshRevision++;
+    final cacheKey = _lastCacheKey;
+    if (cacheKey != null) {
+      _pocketsMonthCache.invalidate(cacheKey);
+    }
+  }
+
   void _applyFastInMemoryPocketExpenseOverlay() {
     if (!mounted || state.hasChanges || !state.hasDisplayData) return;
     final authUser = ref.read(authProvider);
@@ -2951,6 +2959,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         '[Pockets][Copy] Currency resolution: filter.selectedCurrency=${filter.selectedCurrency}, hasExplicitCurrency=$hasExplicitCurrency, effectiveCurrency=$effectiveCurrency');
 
     final scopeType = params.scope;
+    final isHouseholdScope = scopeType == PocketsScopeType.household;
     final isScopedToHousehold = scopeType != PocketsScopeType.personal;
     final householdId = params.householdId;
 
@@ -2971,7 +2980,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (currentBudgetId == null || currentBudgetId.isEmpty) {
       final existingTargetBudget = await _findBudgetRowForPeriod(
         periodMonth: targetPeriodMonth,
-        isHousehold: isScopedToHousehold,
+        isHousehold: isHouseholdScope,
         householdId: householdId,
         userId: authUser.uid,
         currency: effectiveCurrency,
@@ -2981,6 +2990,35 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     _debugLog(
         '[Pockets][Copy] targetPeriodMonth=$targetPeriodMonth (budgetId=$currentBudgetId), sourcePeriodMonth=$sourcePeriodMonth');
+
+    final selectedCurrencies = params.normalizedSelectedCurrencies;
+    if (selectedCurrencies != null && selectedCurrencies.length > 1) {
+      try {
+        final insertedCount = await _copyPocketsForCurrencies(
+          userId: authUser.uid,
+          scopeType: scopeType,
+          householdId: householdId,
+          sourceMonthStart: sourceMonthStart,
+          targetMonthStart: targetMonthStart,
+          currencies: selectedCurrencies,
+        );
+        if (insertedCount == 0) {
+          throw Exception('No pockets found for the previous month');
+        }
+        _prepareFreshMutationReload();
+        await _load(bypassCache: true);
+        ref.read(analyticsProvider.notifier).refresh(authUser.uid);
+        ref.read(widgetSyncVersionProvider.notifier).state++;
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        state = state.copyWith(
+          isLoading: false,
+          error: ErrorHandler.getUserFriendlyMessage(e),
+        );
+        rethrow;
+      }
+    }
 
     if (!mounted) return;
     state = state.copyWith(isLoading: false, clearError: true);
@@ -3067,7 +3105,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           isLoading: false,
           error: 'No pockets found for the previous month',
         );
-        return;
+        throw Exception('No pockets found for the previous month');
       }
 
       // Fetch envelopes for the previous month budget
@@ -3104,7 +3142,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           isLoading: false,
           error: 'No pockets found for the previous month',
         );
-        return;
+        throw Exception('No pockets found for the previous month');
       }
 
       if (currentBudgetId == null || currentBudgetId.isEmpty) {
@@ -3133,7 +3171,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
           final existingTargetBudget = await _findBudgetRowForPeriod(
             periodMonth: targetPeriodMonth,
-            isHousehold: isScopedToHousehold,
+            isHousehold: isHouseholdScope,
             householdId: householdId,
             userId: authUser.uid,
             currency: effectiveCurrency,
@@ -3319,6 +3357,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _debugLog(
           '[Pockets][Copy] Completed inserts: insertedEnvelopes=$insertedCount, insertedCategoryLinks=${linksPayload.length}');
 
+      _prepareFreshMutationReload();
       await _load(bypassCache: true);
 
       _debugLog(
@@ -3327,6 +3366,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // Refresh analytics + widgets so other surfaces reflect the copied pockets.
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.markMutationSynced(queuedMutationId);
     } catch (e) {
       if (queuedMutationId != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.read(analyticsProvider.notifier).refresh(authUser.uid);
@@ -3338,6 +3379,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         isLoading: false,
         error: ErrorHandler.getUserFriendlyMessage(e),
       );
+      rethrow;
     }
   }
 
@@ -3638,6 +3680,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // Reload from backend to ensure consistency
+      _prepareFreshMutationReload();
       await _load(bypassCache: true);
 
       // Also refresh analytics so widgets and summaries reflect updated
@@ -3979,6 +4022,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // 4. Refresh
+      _prepareFreshMutationReload();
       await _load(bypassCache: true);
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
@@ -3997,6 +4041,195 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       );
       rethrow;
     }
+  }
+
+  Future<int> _copyPocketsForCurrencies({
+    required String userId,
+    required PocketsScopeType scopeType,
+    required String? householdId,
+    required DateTime sourceMonthStart,
+    required DateTime targetMonthStart,
+    required Iterable<String> currencies,
+  }) async {
+    final sourcePeriodMonth = _formatDate(sourceMonthStart);
+    final targetPeriodMonth = _formatDate(targetMonthStart);
+    final isHouseholdScope = scopeType == PocketsScopeType.household;
+    final isScopedToHousehold = scopeType != PocketsScopeType.personal;
+    final nowIso = DateTime.now().toIso8601String();
+    final copiedCurrencies = <String>{};
+    var insertedCount = 0;
+
+    for (final rawCurrency in currencies) {
+      final currency = rawCurrency.trim().toUpperCase();
+      if (currency.isEmpty || !copiedCurrencies.add(currency)) continue;
+
+      final sourceBudgetRow = await _findBudgetRowForPeriod(
+        periodMonth: sourcePeriodMonth,
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: userId,
+        currency: currency,
+      );
+      final sourceBudgetId = sourceBudgetRow?['id'] as String?;
+      final sourceTotalBudgetCents =
+          (sourceBudgetRow?['total_budget_cents'] as num?)?.toInt() ?? 0;
+      if (sourceBudgetId == null || sourceBudgetId.isEmpty) continue;
+
+      var envelopesQuery = supabase
+          .from('budget_envelopes')
+          .select('id,name,budget_amount_cents,color,icon')
+          .eq('currency', currency)
+          .eq('budget_id', sourceBudgetId);
+      envelopesQuery = _applyAccountScopeFilter(
+        envelopesQuery,
+        userId,
+        scope: scopeType,
+        householdId: householdId,
+      );
+      final envelopesRes = await envelopesQuery.order('name');
+      final envRows =
+          (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (envRows.isEmpty) continue;
+
+      final targetBudgetRow = await _findBudgetRowForPeriod(
+        periodMonth: targetPeriodMonth,
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: userId,
+        currency: currency,
+      );
+      var targetBudgetId = (targetBudgetRow?['id'] as String?)?.trim();
+      final targetTotalBudgetCents =
+          (targetBudgetRow?['total_budget_cents'] as num?)?.toInt() ?? 0;
+      final budgetPayload = <String, dynamic>{
+        'user_id': userId,
+        'household_id': isScopedToHousehold ? householdId : null,
+        'currency': currency,
+        'period_month': targetPeriodMonth,
+        'total_budget_cents': sourceTotalBudgetCents,
+        'updated_at': nowIso,
+      };
+
+      if (targetBudgetId == null || targetBudgetId.isEmpty) {
+        final insertRes = await supabase
+            .from('budgets')
+            .insert(budgetPayload)
+            .select('id')
+            .maybeSingle();
+        targetBudgetId = (insertRes?['id'] as String?)?.trim();
+      } else if (targetTotalBudgetCents <= 0 && sourceTotalBudgetCents > 0) {
+        await supabase.from('budgets').update(<String, dynamic>{
+          'total_budget_cents': sourceTotalBudgetCents,
+          'updated_at': nowIso,
+        }).eq('id', targetBudgetId);
+      }
+
+      if (targetBudgetId == null || targetBudgetId.isEmpty) {
+        throw Exception('Unable to prepare current month budget');
+      }
+
+      final sourceEnvIds = envRows
+          .map((row) => row['id'] as String?)
+          .whereType<String>()
+          .toList(growable: false);
+      final allocationsRes = await supabase
+          .from('envelope_allocations')
+          .select('envelope_id,amount_cents')
+          .eq('period_month', sourcePeriodMonth)
+          .inFilter('envelope_id', sourceEnvIds);
+      final allocationRows =
+          (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final allocationCentsByEnvelopeId = <String, int>{
+        for (final row in allocationRows)
+          if ((row['envelope_id'] as String?) != null)
+            if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
+              (row['envelope_id'] as String):
+                  (row['amount_cents'] as num?)!.toInt(),
+      };
+
+      final categoryLinksRes = await supabase
+          .from('envelope_category_links')
+          .select('envelope_id,category')
+          .inFilter('envelope_id', sourceEnvIds);
+      final categoryLinksRows =
+          (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final categoriesByEnvelopeId = <String, List<String>>{};
+      for (final row in categoryLinksRows) {
+        final envId = row['envelope_id'] as String?;
+        final category = (row['category'] as String?)?.toLowerCase().trim();
+        if (envId == null || envId.isEmpty) continue;
+        if (category == null || category.isEmpty) continue;
+        categoriesByEnvelopeId
+            .putIfAbsent(envId, () => <String>[])
+            .add(category);
+      }
+
+      final linksPayload = <Map<String, dynamic>>[];
+      for (final row in envRows) {
+        final sourceEnvId = row['id'] as String?;
+        if (sourceEnvId == null || sourceEnvId.isEmpty) continue;
+        final name = row['name'] as String? ?? '';
+        final rawAmountCents = allocationCentsByEnvelopeId[sourceEnvId] ??
+            (row['budget_amount_cents'] as num?)?.toInt() ??
+            0;
+        final amountCents = normalizePocketBudgetAmountCentsForCurrency(
+          rawAmountCents,
+          currency,
+        );
+        final insertRes = await supabase
+            .from('budget_envelopes')
+            .upsert(
+              <String, dynamic>{
+                'user_id': userId,
+                'budget_id': targetBudgetId,
+                'name': name,
+                'budget_amount_cents': amountCents,
+                'household_id':
+                    scopeType == PocketsScopeType.personal ? null : householdId,
+                'currency': currency,
+                'color': row['color'] as String?,
+                'icon': row['icon']?.toString(),
+                'updated_at': nowIso,
+              },
+              onConflict: 'budget_id,name',
+            )
+            .select('id')
+            .maybeSingle();
+        final newEnvId = insertRes?['id'] as String?;
+        if (newEnvId == null || newEnvId.isEmpty) {
+          throw Exception('Failed to copy pocket: $name');
+        }
+        insertedCount += 1;
+
+        await supabase.from('envelope_allocations').upsert(
+          <String, dynamic>{
+            'envelope_id': newEnvId,
+            'period_month': targetPeriodMonth,
+            'amount_cents': amountCents,
+            'carryover_policy': 'carryover',
+            'updated_at': nowIso,
+          },
+          onConflict: 'envelope_id,period_month',
+        );
+
+        final categories = categoriesByEnvelopeId[sourceEnvId] ?? const [];
+        for (final cat in categories) {
+          linksPayload.add(<String, dynamic>{
+            'envelope_id': newEnvId,
+            'category': cat,
+          });
+        }
+      }
+
+      if (linksPayload.isNotEmpty) {
+        await supabase.from('envelope_category_links').upsert(
+              linksPayload,
+              onConflict: 'envelope_id,category',
+            );
+      }
+    }
+
+    return insertedCount;
   }
 
   Future<void> assignCategoryToPocket(String pocketId, String category) async {
@@ -4045,6 +4278,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'created_at': DateTime.now().toIso8601String(),
       }, onConflict: 'envelope_id,category');
       await database.markMutationSynced(mutationId);
+      _prepareFreshMutationReload();
       await _load(bypassCache: true);
 
       if (!mounted) return;
