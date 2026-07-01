@@ -828,7 +828,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get householdsFeatureDescription => 'แชร์รายจ่าย ติดตามงบ และจัดการเงินร่วมกับสมาชิกในสเปซของคุณ';
 
   @override
-  String get gotIt => 'เข้าใจแล้ว!';
+  String get gotIt => 'ตกลง';
 
   @override
   String get confirmExpense => 'ยืนยันรายจ่าย';
@@ -6832,7 +6832,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get newWallet => 'กระเป๋าใหม่';
 
   @override
-  String get connectBank => 'เชื่อมต่อบัญชีธนาคาร';
+  String get connectBank => 'เชื่อมต่อธนาคาร';
 
   @override
   String get totalNetWorth => 'มูลค่าสุทธิรวม';
@@ -8493,4 +8493,347 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get lightMode => 'โหมดสว่าง';
+
+  @override
+  String availableInDuration(Object duration) {
+    return 'ใช้งานได้ในอีก $duration';
+  }
+
+  @override
+  String get backToWallets => 'กลับไปที่กระเป๋าเงิน';
+
+  @override
+  String get bankAccount => 'บัญชีธนาคาร';
+
+  @override
+  String get bankAlreadyConnected => 'เชื่อมต่อธนาคารแล้ว';
+
+  @override
+  String get bankAlreadyQueuedForPlaidRemoval => 'ธนาคารนี้อยู่ในคิวลบออกจาก Plaid แล้ว ปกติการลบจะเกิดขึ้นทันที หากยังรอดำเนินการ Moneko จะลองใหม่ทุกๆ 15 นาที การซิงค์จะถูกปิดใช้งานระหว่างรอการลบ';
+
+  @override
+  String get bankConnectedInitialSyncPending => 'เชื่อมต่อธนาคารแล้ว รอการซิงค์ข้อมูลครั้งแรก';
+
+  @override
+  String get bankConnection => 'การเชื่อมต่อธนาคาร';
+
+  @override
+  String get bankConnectionUnavailable => 'ไม่สามารถเชื่อมต่อธนาคารได้';
+
+  @override
+  String bankConnectionFailed(Object error) {
+    return 'เชื่อมต่อธนาคารไม่สำเร็จ: $error';
+  }
+
+  @override
+  String get bankConnectionFailedMissingSecurityState => 'เชื่อมต่อธนาคารไม่สำเร็จ: ขาดสถานะความปลอดภัย';
+
+  @override
+  String get bankConnectionsInYourCountryComingSoon => 'การเชื่อมต่อธนาคารในประเทศของคุณกำลังจะมาเร็วๆ นี้!';
+
+  @override
+  String get bankDisconnectPending => 'รอการยกเลิกการเชื่อมต่อธนาคาร';
+
+  @override
+  String get bankDisconnectQueuedDescription => 'อยู่ในคิวยกเลิกการเชื่อมต่อธนาคาร ปกติการลบออกจาก Plaid จะเกิดขึ้นทันที หากยังรอดำเนินการ Moneko จะลองใหม่ทุกๆ 15 นาที';
+
+  @override
+  String get bankDisconnectedSyncsDisabled => 'ยกเลิกการเชื่อมต่อธนาคารแล้ว การซิงค์ในอนาคตจะถูกปิดใช้งานสำหรับการเชื่อมต่อนี้';
+
+  @override
+  String get bankNeedsAttention => 'ธนาคารต้องการความสนใจ';
+
+  @override
+  String get bankNeedsAttentionBeforeSync => 'ธนาคารนี้ต้องได้รับการจัดการก่อนจึงจะซิงค์ได้ โปรดเชื่อมต่อธนาคารใหม่อีกครั้งแล้วลองใหม่';
+
+  @override
+  String get bankNeedsRepairBeforeSyncing => 'ต้องแก้ไขการเชื่อมต่อธนาคารนี้ก่อนจึงจะซิงค์ต่อได้';
+
+  @override
+  String get bankReconnectNotCompletedTryAgain => 'เชื่อมต่อธนาคารใหม่ไม่สำเร็จ โปรดลองอีกครั้ง';
+
+  @override
+  String get bankStillFinishingDisconnect => 'ธนาคารนี้ยังอยู่ระหว่างยกเลิกการเชื่อมต่อ โปรดรอให้การลบเสร็จสมบูรณ์ก่อนเชื่อมต่อใหม่อีกครั้ง';
+
+  @override
+  String get bankSyncStatusUnavailable => 'ไม่สามารถดูสถานะการซิงค์ธนาคารได้';
+
+  @override
+  String get bankUpdatesAvailable => 'มีอัปเดตจากธนาคาร';
+
+  @override
+  String get canada => 'แคนาดา';
+
+  @override
+  String get cannotRequestAnotherPlaidRefreshYet => 'คุณยังไม่สามารถขอรีเฟรช Plaid ได้ในขณะนี้ โปรดลองอีกครั้งในภายหลัง';
+
+  @override
+  String get checkingBankConnectionStatusTryAgain => 'กำลังตรวจสอบสถานะการเชื่อมต่อธนาคาร โปรดลองอีกครั้งในสักครู่';
+
+  @override
+  String get checkingBankSync => 'กำลังตรวจสอบการซิงค์ธนาคาร...';
+
+  @override
+  String get chooseBankToDisconnect => 'เลือกธนาคารที่จะยกเลิกการเชื่อมต่อ';
+
+  @override
+  String get chooseBankToReview => 'เลือกธนาคารเพื่อตรวจสอบ';
+
+  @override
+  String get chooseBankToSync => 'เลือกธนาคารที่จะซิงค์';
+
+  @override
+  String get chooseBankingRegionAvailableSyncing => 'เลือกภูมิภาคของธนาคารเพื่อดูสถาบันที่พร้อมสำหรับการซิงค์ข้อมูล';
+
+  @override
+  String get chooseHowYouWantToAddThisWallet => 'เลือกวิธีที่คุณต้องการเพิ่มกระเป๋าเงินนี้';
+
+  @override
+  String get connectBankAccountAutomaticSyncing => 'เชื่อมต่อบัญชีธนาคารเพื่อซิงค์ข้อมูลอัตโนมัติ';
+
+  @override
+  String get consentSecurity => 'ความยินยอมและ\nความปลอดภัย';
+
+  @override
+  String get consentSecurityDescription => 'คุณอาจต้องป้อนข้อมูลรับรองอีกครั้งหรือต่ออายุความยินยอม ทั้งนี้ขึ้นอยู่กับธนาคารของคุณ การเข้าสู่ระบบธนาคารของคุณจัดการโดย Plaid ไม่ใช่ Moneko';
+
+  @override
+  String get couldNotConnectThisBankRightNow => 'ไม่สามารถเชื่อมต่อธนาคารนี้ได้ในขณะนี้';
+
+  @override
+  String get couldNotDisconnectThisBankRightNow => 'ไม่สามารถยกเลิกการเชื่อมต่อธนาคารนี้ได้ในขณะนี้';
+
+  @override
+  String get couldNotOpenTinkLink => 'ไม่สามารถเปิด Tink Link ได้';
+
+  @override
+  String get couldNotSyncThisBankRightNow => 'ไม่สามารถซิงค์ธนาคารนี้ได้ในขณะนี้';
+
+  @override
+  String get createWalletUpdateBalanceYourself => 'สร้างกระเป๋าเงินและอัปเดตยอดคงเหลือด้วยตัวคุณเอง';
+
+  @override
+  String daysShort(Object count) {
+    return '$count วัน';
+  }
+
+  @override
+  String get disconnect => 'ยกเลิกการเชื่อมต่อ';
+
+  @override
+  String get disconnectBank => 'ยกเลิกการเชื่อมต่อธนาคาร';
+
+  @override
+  String get disconnectBankDescription => 'การทำเช่นนี้จะเป็นการลบการเข้าถึงของ Plaid หยุดการซิงค์ในอนาคต และล้างข้อมูลธนาคารที่จัดเก็บไว้สำหรับการเชื่อมต่อนี้';
+
+  @override
+  String get disconnectBankQuestion => 'ยกเลิกการเชื่อมต่อธนาคารไหม?';
+
+  @override
+  String get disconnectPending => 'รอการยกเลิกการเชื่อมต่อ';
+
+  @override
+  String get disconnectPlaidAccess => 'ยกเลิกการเข้าถึง Plaid';
+
+  @override
+  String get disconnectingBank => 'กำลังยกเลิกการเชื่อมต่อธนาคาร...';
+
+  @override
+  String get disconnectingRemovesPlaidAccess => 'การยกเลิกการเชื่อมต่อจะเป็นการลบการเข้าถึง Plaid สำหรับการเชื่อมต่อธนาคารหนึ่งบัญชี และป้องกันการซิงค์ข้อมูลในอนาคต';
+
+  @override
+  String get duplicateBankConnectionDescription => 'บัญชีธนาคารเหล่านั้นเชื่อมโยงใน Moneko แล้ว เราจะนำคุณกลับไปเพื่อให้คุณสามารถจัดการการเชื่อมต่อธนาคารที่มีอยู่แทนการสร้างรายการซ้ำ';
+
+  @override
+  String get effortlessTracking => 'ติดตาม\nอย่างง่ายดาย';
+
+  @override
+  String get effortlessTrackingDescription => 'เชื่อมต่อธนาคารเพื่อนำเข้ารายการธุรกรรมไปยังกระเป๋าเงินโดยอัตโนมัติ แทนที่จะต้องป้อนข้อมูลทั้งหมดด้วยตนเอง';
+
+  @override
+  String get failedToCreateLinkToken => 'สร้างลิงก์โทเค็นไม่สำเร็จ';
+
+  @override
+  String get failedToCreateTinkLink => 'สร้างลิงก์ Tink ไม่สำเร็จ';
+
+  @override
+  String failedToConnectBank(Object error) {
+    return 'เชื่อมต่อธนาคารไม่สำเร็จ: $error';
+  }
+
+  @override
+  String get failedToExchangeToken => 'แลกเปลี่ยนโทเค็นไม่สำเร็จ';
+
+  @override
+  String get failedToPrepareTinkBankConnection => 'เตรียมการเชื่อมต่อธนาคาร Tink ไม่สำเร็จ';
+
+  @override
+  String hoursMinutesShort(Object hours, Object minutes) {
+    return '$hours ชม. $minutes นาที';
+  }
+
+  @override
+  String hoursShort(Object count) {
+    return '$count ชม.';
+  }
+
+  @override
+  String get keepYourExistingWallets => 'เก็บกระเป๋าเงิน\nที่มีอยู่ไว้';
+
+  @override
+  String get keepYourExistingWalletsDescription => 'เราจะแก้ไขการเชื่อมต่อธนาคารปัจจุบัน เพื่อให้กระเป๋าเงินที่เชื่อมโยงและประวัติการทำธุรกรรมของคุณมีบันทึกการเชื่อมต่อเดียวกัน';
+
+  @override
+  String lastSyncAgo(Object duration) {
+    return 'ซิงค์ล่าสุดเมื่อ $duration ที่แล้ว';
+  }
+
+  @override
+  String get lastSyncJustNow => 'ซิงค์ล่าสุดเมื่อสักครู่';
+
+  @override
+  String get lessThanOneMinuteShort => 'น้อยกว่า 1 นาที';
+
+  @override
+  String get manualPlaidRefreshPaidUsersOnly => 'การรีเฟรช Plaid ด้วยตนเองมีให้เฉพาะผู้ใช้แบบชำระเงินที่มีสิทธิ์เท่านั้น';
+
+  @override
+  String get manualSyncPullsLatestTransactions => 'การซิงค์ด้วยตนเองจะดึงข้อมูลธุรกรรมล่าสุดที่พร้อมใช้งานสำหรับธนาคารที่เชื่อมต่อหนึ่งแห่ง';
+
+  @override
+  String get manualTrackingAccount => 'บัญชีติดตามด้วยตนเอง';
+
+  @override
+  String minutesShort(Object count) {
+    return '$count นาที';
+  }
+
+  @override
+  String get missingBankConnectionData => 'ไม่มีข้อมูลการเชื่อมต่อธนาคาร';
+
+  @override
+  String get missingPlaidLinkToken => 'ขาดลิงก์โทเค็น Plaid';
+
+  @override
+  String get missingPlaidPublicToken => 'ขาดโทเค็นสาธารณะของ Plaid';
+
+  @override
+  String get missingTinkLinkUrl => 'ไม่มี URL ลิงก์ Tink';
+
+  @override
+  String get missingTinkConnectionPayload => 'ไม่มีข้อมูลการเชื่อมต่อ Tink';
+
+  @override
+  String get newBankAccountsAvailableToReview => 'มีบัญชีธนาคารใหม่พร้อมให้ตรวจสอบแล้ว';
+
+  @override
+  String get noConnectedBankAvailableForManualSync => 'ขณะนี้ไม่มีธนาคารที่เชื่อมต่อพร้อมสำหรับการซิงค์ด้วยตนเอง';
+
+  @override
+  String get noSupportedBankAccountsReturned => 'ไม่พบบัญชีธนาคารที่รองรับ';
+
+  @override
+  String get onlyTheAccountsYouPick => 'เฉพาะบัญชี\nที่คุณเลือกเท่านั้น';
+
+  @override
+  String get onlyTheAccountsYouPickDescription => 'คุณจะเลือกบัญชีใหม่ที่พร้อมใช้งานใน Plaid ก่อน Moneko จะนำเข้าเฉพาะบัญชีที่คุณแชร์อย่างชัดเจนเท่านั้น';
+
+  @override
+  String get openBankConnectionNeedsAttention => 'เปิดการเชื่อมต่อธนาคารที่ต้องการความสนใจเพื่อให้คุณสามารถแก้ไขการเข้าถึงหรือตรวจสอบบัญชีใหม่ที่พร้อมใช้งาน';
+
+  @override
+  String get preparingYourBankConnection => 'กำลังเตรียมการเชื่อมต่อธนาคารของคุณ...';
+
+  @override
+  String get privateSecure => 'ส่วนตัวและ\nปลอดภัย';
+
+  @override
+  String get privateSecureDescription => 'ข้อมูลของคุณได้รับการเข้ารหัสด้วยความปลอดภัยระดับธนาคาร เราจะไม่เห็นข้อมูลรับรองของคุณ และเข้าถึงได้แบบอ่านอย่างเดียวเท่านั้น';
+
+  @override
+  String get reconnectBank => 'เชื่อมต่อธนาคารใหม่';
+
+  @override
+  String get refreshRequestedPlaidWillNotify => 'ขอรีเฟรชแล้ว Plaid จะแจ้ง Moneko เมื่อรายการธุรกรรมใหม่พร้อมใช้งาน';
+
+  @override
+  String get refreshUnavailable => 'ไม่สามารถรีเฟรชได้';
+
+  @override
+  String get region => 'ภูมิภาค';
+
+  @override
+  String get repairYourBankConnection => 'แก้ไขการเชื่อมต่อ\nธนาคารของคุณ';
+
+  @override
+  String get repairYourBankConnectionDescription => 'ธนาคารนี้ต้องการความสนใจจากคุณก่อนจึงจะซิงค์ธุรกรรมต่อไปได้ Plaid จะแนะนำคุณตลอดขั้นตอนการแก้ไขที่ธนาคารของคุณต้องการ';
+
+  @override
+  String get requestingBankRefresh => 'กำลังขอรีเฟรชธนาคาร...';
+
+  @override
+  String get reviewAccounts => 'ตรวจสอบบัญชี';
+
+  @override
+  String get reviewBankUpdates => 'ตรวจสอบการอัปเดตจากธนาคาร';
+
+  @override
+  String get reviewNewBankAccounts => 'ตรวจสอบบัญชี\nธนาคารใหม่';
+
+  @override
+  String get reviewNewBankAccountsDescription => 'ธนาคารของคุณมีบัญชีใหม่ที่พร้อมใช้งาน เปิด Plaid เพื่อเลือกบัญชีที่คุณต้องการให้ Moneko เข้าถึง';
+
+  @override
+  String get searchCountry => 'ค้นหาประเทศ';
+
+  @override
+  String securedByProviderName(Object providerName) {
+    return 'รักษาความปลอดภัยโดย $providerName';
+  }
+
+  @override
+  String get secureReadOnly => 'ปลอดภัยและ\nอ่านได้อย่างเดียว';
+
+  @override
+  String get secureReadOnlyExistingConnectionDescription => 'การเชื่อมต่อธนาคารของคุณจะยังคงเข้ารหัสและเข้าถึงได้แบบอ่านอย่างเดียว เราใช้รายการ Plaid ที่มีอยู่เดียวกันแทนการสร้างการเชื่อมต่อธนาคารแห่งที่สอง';
+
+  @override
+  String get selectCountry => 'เลือกประเทศ';
+
+  @override
+  String get selectRegion => 'เลือกภูมิภาค';
+
+  @override
+  String get syncBank => 'ซิงค์ธนาคาร';
+
+  @override
+  String get syncingYourBankData => 'กำลังซิงค์ข้อมูลธนาคารของคุณ...';
+
+  @override
+  String get syncNowAvailable => 'พร้อมซิงค์ข้อมูลแล้ว';
+
+  @override
+  String get syncUnavailable => 'ไม่สามารถซิงค์ได้';
+
+  @override
+  String get unitedStates => 'สหรัฐอเมริกา';
+
+  @override
+  String updatedFailedCounts(Object failedCount, Object updatedCount) {
+    return 'อัปเดตแล้ว $updatedCount ล้มเหลว $failedCount';
+  }
+
+  @override
+  String get walletNotLinkedToActiveBankConnection => 'กระเป๋าเงินนี้ไม่ได้เชื่อมโยงกับการเชื่อมต่อธนาคารที่ใช้งานอยู่';
+
+  @override
+  String get walletsForEachAccount => 'กระเป๋าเงินสำหรับ\nแต่ละบัญชี';
+
+  @override
+  String get walletsForEachAccountDescription => 'บัญชีธนาคารที่เชื่อมโยงแต่ละบัญชีจะมีกระเป๋าเงินของตัวเอง ดังนั้นยอดคงเหลือและประวัติการทำธุรกรรมจะถูกจัดระเบียบในที่ที่เหมาะสม';
+
+  @override
+  String youCannotSyncMoreThanOncePerDay(Object duration) {
+    return 'คุณไม่สามารถซิงค์ข้อมูลได้มากกว่า 1 ครั้งในทุกๆ 24 ชั่วโมง โปรดลองอีกครั้งใน $duration';
+  }
 }

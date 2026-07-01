@@ -560,7 +560,10 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         AppToast.error(
           context,
           context.l10n.failedToUpdateSomeTransactions(
-            'Updated ${batchResult.updatedExpenses.length}, failed ${batchResult.failures.length}.',
+            context.l10n.updatedFailedCounts(
+              batchResult.updatedExpenses.length.toString(),
+              batchResult.failures.length.toString(),
+            ),
           ),
         );
         return;

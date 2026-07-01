@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/core/navigation/main_menu_screen.dart';
@@ -50,7 +51,7 @@ class _PlaidCountrySelectorScreenState
     final query = _searchQuery.trim().toLowerCase();
     final options = plaidCountryOptions.where((option) {
       if (query.isEmpty) return true;
-      final label = option.label.toLowerCase();
+      final label = plaidCountryLabel(context, option).toLowerCase();
       final code = option.code.toLowerCase();
       return label.contains(query) || code.contains(query);
     }).toList();
@@ -65,7 +66,7 @@ class _PlaidCountrySelectorScreenState
           onPressed: () => Navigator.pop(context, null),
         ),
         title: Text(
-          'Select country',
+          context.l10n.selectCountry,
           style: TextStyle(
             color: colorScheme.foreground,
             fontSize: 18,
@@ -104,7 +105,7 @@ class _PlaidCountrySelectorScreenState
                           },
                         )
                       : null,
-                  hintText: 'Search country',
+                  hintText: context.l10n.searchCountry,
                   filled: true,
                   fillColor: colorScheme.card,
                   border: OutlineInputBorder(
@@ -187,7 +188,7 @@ class _PlaidCountrySelectorScreenState
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      option.label,
+                                      plaidCountryLabel(context, option),
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,

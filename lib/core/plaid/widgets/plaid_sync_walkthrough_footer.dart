@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class PlaidSyncWalkthroughFooter extends StatelessWidget {
   const PlaidSyncWalkthroughFooter({
@@ -52,7 +53,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      isLastPage ? connectLabel : 'Continue',
+                      isLastPage ? connectLabel : context.l10n.continueButton,
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -78,7 +79,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Secured by $providerName',
+                          context.l10n.securedByProviderName(providerName),
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.outline,

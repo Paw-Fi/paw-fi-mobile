@@ -1,22 +1,30 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/bank_account.dart';
+import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
@@ -32,6 +40,7 @@ import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_overflow_menu_button.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WalletDetailsPage extends HookConsumerWidget {
   const WalletDetailsPage({
@@ -80,7 +89,76 @@ class WalletDetailsPage extends HookConsumerWidget {
     final latestWallet = providerAccount ?? latestDisplayedAccountState.value;
     final walletCurrencyCode = latestWallet.currency;
     final householdScope = ref.watch(householdScopeProvider);
+    final walletsScopeQuery = ref.watch(walletsScopeQueryProvider);
     final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
+    final bankConnectionsAsync = ref.watch(bankConnectionsProvider);
+    final bankAccountsAsync = ref.watch(bankAccountsProvider);
+    final shouldShowBankSyncStatus = _isPlaidSupportedTimezone(
+      preferredTimezone,
+    );
+    final isManualSyncingState = useState<bool>(false);
+    final plaidConnections =
+        (bankConnectionsAsync.valueOrNull ?? const <BankConnection>[])
+            .where(
+              (connection) =>
+                  connection.provider?.toLowerCase().trim() == 'plaid',
+            )
+            .toList(growable: false);
+    final scopedPlaidConnections = plaidConnections
+        .where(
+          (connection) =>
+              _isConnectionInWalletsScope(connection, householdScope),
+        )
+        .toList(growable: false);
+    final linkedBankAccountId = latestWallet.linkedBankAccountId?.trim();
+    final hasLinkedBankAccount =
+        linkedBankAccountId != null && linkedBankAccountId.isNotEmpty;
+    final linkedBankAccount = hasLinkedBankAccount
+        ? _findLinkedBankAccount(
+            bankAccountsAsync.valueOrNull ?? const <BankAccount>[],
+            linkedBankAccountId,
+          )
+        : null;
+    final linkedBankConnectionId = linkedBankAccount?.bankConnectionId?.trim();
+    final walletPlaidConnections =
+        linkedBankConnectionId == null || linkedBankConnectionId.isEmpty
+            ? const <BankConnection>[]
+            : scopedPlaidConnections
+                .where((connection) => connection.id == linkedBankConnectionId)
+                .toList(growable: false);
+    final hasPlaidConnections = walletPlaidConnections.isNotEmpty;
+    final hasPendingPlaidRemoval = walletPlaidConnections.any(
+      (connection) => connection.isPendingRemoval,
+    );
+    final scopedPlaidActionConnections = walletPlaidConnections
+        .where(
+          (connection) => connection.requiresUserAction,
+        )
+        .toList(growable: false);
+    final removablePlaidConnections = walletPlaidConnections
+        .where((connection) => !connection.isPendingRemoval)
+        .toList(growable: false);
+    final manualSyncCandidates = walletPlaidConnections
+        .where(
+          (connection) => connection.canRequestManualRefresh,
+        )
+        .toList(growable: false);
+    final nowUtc = DateTime.now().toUtc();
+    final latestSuccessfulSyncAt =
+        _latestSuccessfulSyncAt(walletPlaidConnections);
+    final bankSyncStatusLabel = !hasLinkedBankAccount
+        ? null
+        : bankAccountsAsync.isLoading && !bankAccountsAsync.hasValue
+            ? context.l10n.checkingBankSync
+            : _bankSyncStatusLabel(
+                context: context,
+                nowUtc: nowUtc,
+                bankConnectionsAsync: bankConnectionsAsync,
+                hasScopedPlaidConnections: hasPlaidConnections,
+                hasPendingRemoval: hasPendingPlaidRemoval,
+                actionConnections: scopedPlaidActionConnections,
+                latestSuccessfulSyncAt: latestSuccessfulSyncAt,
+              );
     final currencyScopedAccounts = ref
             .watch(walletsByCurrencyProvider(WalletsCurrencyQuery(
               householdId: effectiveHouseholdId,
@@ -269,6 +347,278 @@ class WalletDetailsPage extends HookConsumerWidget {
       actions.refreshAccountData();
     }
 
+    Future<void> refreshWalletsAfterPlaidFlow() async {
+      ref.invalidate(bankConnectionsProvider);
+      ref.invalidate(bankAccountsProvider);
+      await Future.wait([
+        ref.read(scopedWalletsProvider.notifier).refreshFromNetwork(),
+        ref
+            .read(walletsPageStateProvider(walletsScopeQuery).notifier)
+            .refresh(),
+        refreshWalletDetails(),
+      ]);
+    }
+
+    Future<void> onReviewBankAction() async {
+      final selectedConnection = await _selectPlaidActionConnection(
+        context,
+        scopedPlaidActionConnections,
+      );
+      if (selectedConnection == null || !context.mounted) {
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PlaidSyncWalkthroughPage(
+            targetHouseholdId: _resolveScopedHouseholdId(householdScope),
+            connectionId: selectedConnection.id,
+            flowReason: selectedConnection.relinkState,
+          ),
+        ),
+      );
+      if (!context.mounted) {
+        return;
+      }
+      await refreshWalletsAfterPlaidFlow();
+    }
+
+    Future<void> onDisconnectBank() async {
+      final selectedConnection = await _selectDisconnectBankConnection(
+        context,
+        removablePlaidConnections,
+      );
+      if (selectedConnection == null || !context.mounted) {
+        return;
+      }
+
+      final confirmation = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.disconnectBankQuestion,
+        description: context.l10n.disconnectBankDescription,
+        confirmLabel: context.l10n.disconnect,
+        cancelLabel: context.l10n.cancel,
+        isDestructive: true,
+      );
+      if (confirmation?.confirmed != true || !context.mounted) {
+        return;
+      }
+
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.disconnectingBank,
+      );
+
+      try {
+        final response = await supabase.functions.invoke(
+          'plaid-item-control',
+          body: {
+            'action': 'remove_item',
+            'connectionId': selectedConnection.id,
+            'reason': 'user_disconnect',
+          },
+        );
+
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+
+        final responseData = response.data;
+        final payload =
+            responseData is Map<String, dynamic> ? responseData : null;
+        if (response.status >= 400) {
+          if (!context.mounted) {
+            return;
+          }
+          AppToast.error(
+            context,
+            payload?['error']?.toString() ??
+                context.l10n.couldNotDisconnectThisBankRightNow,
+          );
+          return;
+        }
+
+        await refreshWalletsAfterPlaidFlow();
+
+        if (!context.mounted) {
+          return;
+        }
+        final status = payload?['status']?.toString().trim();
+        if (status == 'pending_removal') {
+          final message = payload?['message']?.toString().trim();
+          AppToast.info(
+            context,
+            message != null && message.isNotEmpty
+                ? message
+                : context.l10n.bankDisconnectQueuedDescription,
+          );
+        } else {
+          AppToast.success(
+            context,
+            context.l10n.bankDisconnectedSyncsDisabled,
+          );
+        }
+      } catch (error, stackTrace) {
+        final debugId = _functionErrorDebugId(error);
+        debugPrint(
+          '[wallets] Plaid disconnect failed '
+          'connectionId=${selectedConnection.id} '
+          'debugId=${debugId ?? '<none>'} '
+          'error=$error\n$stackTrace',
+        );
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          AppToast.error(
+            context,
+            ErrorHandler.getUserFriendlyMessage(error),
+          );
+        }
+      }
+    }
+
+    Future<void> onManualBankSync() async {
+      if (bankConnectionsAsync.isLoading && !bankConnectionsAsync.hasValue) {
+        AppToast.info(
+          context,
+          context.l10n.checkingBankConnectionStatusTryAgain,
+        );
+        return;
+      }
+
+      if (!hasPlaidConnections) {
+        await MonekoAlertDialog.show(
+          context: context,
+          title: context.l10n.bankConnectionUnavailable,
+          description: context.l10n.walletNotLinkedToActiveBankConnection,
+          confirmLabel: context.l10n.gotIt,
+          showCancelButton: false,
+        );
+        return;
+      }
+
+      if (hasPendingPlaidRemoval) {
+        await MonekoAlertDialog.show(
+          context: context,
+          title: context.l10n.disconnectPending,
+          description: context.l10n.bankAlreadyQueuedForPlaidRemoval,
+          confirmLabel: context.l10n.gotIt,
+          showCancelButton: false,
+        );
+        return;
+      }
+
+      if (manualSyncCandidates.isEmpty) {
+        await MonekoAlertDialog.show(
+          context: context,
+          title: context.l10n.syncUnavailable,
+          description: context.l10n.bankNeedsAttentionBeforeSync,
+          confirmLabel: context.l10n.gotIt,
+          showCancelButton: false,
+        );
+        return;
+      }
+
+      final selectedConnection = await _selectManualSyncBankConnection(
+        context,
+        manualSyncCandidates,
+        DateTime.now().toUtc(),
+      );
+      if (selectedConnection == null || !context.mounted) {
+        return;
+      }
+
+      final nowForCooldown = DateTime.now().toUtc();
+      final remaining = _manualSyncRemaining(
+        selectedConnection,
+        nowForCooldown,
+      );
+      if (remaining != null) {
+        await MonekoAlertDialog.show(
+          context: context,
+          title: context.l10n.syncUnavailable,
+          description: context.l10n.youCannotSyncMoreThanOncePerDay(
+            _formatDurationCompact(context, remaining),
+          ),
+          confirmLabel: context.l10n.gotIt,
+          showCancelButton: false,
+        );
+        return;
+      }
+
+      isManualSyncingState.value = true;
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.requestingBankRefresh,
+      );
+
+      try {
+        final response = await supabase.functions.invoke(
+          'plaid-item-control',
+          body: {
+            'action': 'request_refresh',
+            'connectionId': selectedConnection.id,
+          },
+        );
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+
+        final payload = response.data as Map<String, dynamic>?;
+        if (response.status >= 400) {
+          if (!context.mounted) {
+            return;
+          }
+          final reason = payload?['reason']?.toString();
+          if (reason == 'cooldown_active') {
+            await MonekoAlertDialog.show(
+              context: context,
+              title: context.l10n.syncUnavailable,
+              description: context.l10n.cannotRequestAnotherPlaidRefreshYet,
+              confirmLabel: context.l10n.gotIt,
+              showCancelButton: false,
+            );
+            return;
+          }
+          if (reason == 'trial_blocked') {
+            await MonekoAlertDialog.show(
+              context: context,
+              title: context.l10n.refreshUnavailable,
+              description: context.l10n.manualPlaidRefreshPaidUsersOnly,
+              confirmLabel: context.l10n.gotIt,
+              showCancelButton: false,
+            );
+            return;
+          }
+          AppToast.error(
+            context,
+            payload?['error']?.toString() ??
+                context.l10n.couldNotSyncThisBankRightNow,
+          );
+          return;
+        }
+
+        await refreshWalletsAfterPlaidFlow();
+
+        if (!context.mounted) {
+          return;
+        }
+        AppToast.success(
+          context,
+          context.l10n.refreshRequestedPlaidWillNotify,
+        );
+      } catch (error) {
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          AppToast.error(
+            context,
+            ErrorHandler.getUserFriendlyMessage(error),
+          );
+        }
+      } finally {
+        isManualSyncingState.value = false;
+      }
+    }
+
     Future<void> handleTransactionTap(ExpenseEntry expense) async {
       final didChange = await showTransactionDetailsSheet(
         context,
@@ -424,6 +774,34 @@ class WalletDetailsPage extends HookConsumerWidget {
               : Icons.archive_outlined,
           value: 'archive',
         ),
+      if (scopedPlaidActionConnections.isNotEmpty)
+        AdaptivePopupMenuItem<String>(
+          label: scopedPlaidActionConnections.every(
+            (connection) => connection.hasNewAccountsAvailable,
+          )
+              ? context.l10n.reviewBankUpdates
+              : context.l10n.reconnectBank,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'arrow.clockwise'
+              : Icons.refresh_rounded,
+          value: 'review_bank',
+        ),
+      if (removablePlaidConnections.isNotEmpty)
+        AdaptivePopupMenuItem<String>(
+          label: context.l10n.disconnectBank,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'xmark.circle'
+              : Icons.link_off_rounded,
+          value: 'disconnect_bank',
+        ),
+      if (bankSyncStatusLabel != null)
+        AdaptivePopupMenuItem<String>(
+          label: context.l10n.syncBank,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'arrow.triangle.2.circlepath'
+              : Icons.sync_rounded,
+          value: 'sync_bank',
+        ),
     ];
 
     void handleWalletMenuSelected(
@@ -436,6 +814,15 @@ class WalletDetailsPage extends HookConsumerWidget {
           break;
         case 'archive':
           unawaited(onArchive());
+          break;
+        case 'review_bank':
+          unawaited(onReviewBankAction());
+          break;
+        case 'disconnect_bank':
+          unawaited(onDisconnectBank());
+          break;
+        case 'sync_bank':
+          unawaited(onManualBankSync());
           break;
       }
     }
@@ -493,7 +880,10 @@ class WalletDetailsPage extends HookConsumerWidget {
               ),
               slivers: [
                 SliverAppBar(
-                  expandedHeight: 300,
+                  expandedHeight:
+                      shouldShowBankSyncStatus && bankSyncStatusLabel != null
+                          ? 332
+                          : 300,
                   pinned: true,
                   stretch: true,
                   backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
@@ -577,6 +967,17 @@ class WalletDetailsPage extends HookConsumerWidget {
                                   color: secondaryTextColor,
                                   fontWeight: FontWeight.w500,
                                 ),
+                              ),
+                            ],
+                            if (shouldShowBankSyncStatus &&
+                                bankSyncStatusLabel != null) ...[
+                              const SizedBox(height: 12),
+                              _WalletBankSyncStatusText(
+                                label: bankSyncStatusLabel,
+                                onSync: isManualSyncingState.value
+                                    ? null
+                                    : onManualBankSync,
+                                textColor: secondaryTextColor,
                               ),
                             ],
                           ],
@@ -866,7 +1267,20 @@ WalletEntity _copyAccount(
     isSystem: source.isSystem,
     isArchived: source.isArchived,
     currentBalanceCents: currentBalanceCents ?? source.currentBalanceCents,
+    linkedBankAccountId: source.linkedBankAccountId,
   );
+}
+
+BankAccount? _findLinkedBankAccount(
+  List<BankAccount> bankAccounts,
+  String linkedBankAccountId,
+) {
+  for (final bankAccount in bankAccounts) {
+    if (bankAccount.id == linkedBankAccountId) {
+      return bankAccount;
+    }
+  }
+  return null;
 }
 
 String? _resolveScopedHouseholdId(HouseholdScope scope) {
@@ -885,6 +1299,462 @@ String? _resolveScopedHouseholdId(HouseholdScope scope) {
         return null;
       }
       return householdId;
+  }
+}
+
+bool _isPlaidSupportedTimezone(String? preferredTimezone) {
+  if (kDebugMode) {
+    return true;
+  }
+  final normalized =
+      canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty) {
+    return false;
+  }
+
+  if (normalized.startsWith('us/')) {
+    return true;
+  }
+
+  const supportedPlaidIanaTimezones = <String>{
+    'america/new_york',
+    'america/detroit',
+    'america/kentucky/louisville',
+    'america/kentucky/monticello',
+    'america/indiana/indianapolis',
+    'america/indiana/vincennes',
+    'america/indiana/winamac',
+    'america/indiana/marengo',
+    'america/indiana/petersburg',
+    'america/indiana/vevay',
+    'america/chicago',
+    'america/indiana/tell_city',
+    'america/indiana/knox',
+    'america/menominee',
+    'america/north_dakota/center',
+    'america/north_dakota/new_salem',
+    'america/north_dakota/beulah',
+    'america/denver',
+    'america/boise',
+    'america/phoenix',
+    'america/los_angeles',
+    'america/anchorage',
+    'america/juneau',
+    'america/sitka',
+    'america/metlakatla',
+    'america/yakutat',
+    'america/nome',
+    'america/adak',
+    'pacific/honolulu',
+    'america/st_johns',
+    'america/halifax',
+    'america/glace_bay',
+    'america/moncton',
+    'america/goose_bay',
+    'america/toronto',
+    'america/iqaluit',
+    'america/winnipeg',
+    'america/rankin_inlet',
+    'america/resolute',
+    'america/regina',
+    'america/swift_current',
+    'america/edmonton',
+    'america/cambridge_bay',
+    'america/inuvik',
+    'america/creston',
+    'america/dawson_creek',
+    'america/fort_nelson',
+    'america/vancouver',
+    'america/whitehorse',
+    'america/dawson',
+  };
+
+  return supportedPlaidIanaTimezones.contains(normalized);
+}
+
+bool _isConnectionInWalletsScope(
+  BankConnection connection,
+  HouseholdScope scope,
+) {
+  final scopeHouseholdId = _resolveScopedHouseholdId(scope);
+  if (scopeHouseholdId == null) {
+    return connection.householdId == null || connection.householdId!.isEmpty;
+  }
+
+  return connection.householdId == scopeHouseholdId;
+}
+
+Future<BankConnection?> _selectPlaidActionConnection(
+  BuildContext context,
+  List<BankConnection> connections,
+) async {
+  if (connections.isEmpty) {
+    return null;
+  }
+
+  if (connections.length == 1) {
+    return connections.first;
+  }
+
+  return showModalBottomSheet<BankConnection>(
+    context: context,
+    backgroundColor: Theme.of(context).colorScheme.sheetBackground,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.chooseBankToReview,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.openBankConnectionNeedsAttention,
+                style: TextStyle(color: colorScheme.mutedForeground),
+              ),
+              const SizedBox(height: 16),
+              for (final connection in connections)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.account_balance_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(_bankConnectionDisplayName(context, connection)),
+                  subtitle: Text(_bankConnectionActionDescription(
+                    context,
+                    connection,
+                  )),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).pop(connection),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<BankConnection?> _selectDisconnectBankConnection(
+  BuildContext context,
+  List<BankConnection> connections,
+) async {
+  if (connections.isEmpty) {
+    return null;
+  }
+
+  if (connections.length == 1) {
+    return connections.first;
+  }
+
+  return showModalBottomSheet<BankConnection>(
+    context: context,
+    backgroundColor: Theme.of(context).colorScheme.sheetBackground,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.chooseBankToDisconnect,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.disconnectingRemovesPlaidAccess,
+                style: TextStyle(color: colorScheme.mutedForeground),
+              ),
+              const SizedBox(height: 16),
+              for (final connection in connections)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.link_off_rounded,
+                    color: colorScheme.destructive,
+                  ),
+                  title: Text(_bankConnectionDisplayName(context, connection)),
+                  subtitle: Text(context.l10n.disconnectPlaidAccess),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).pop(connection),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<BankConnection?> _selectManualSyncBankConnection(
+  BuildContext context,
+  List<BankConnection> connections,
+  DateTime nowUtc,
+) async {
+  if (connections.isEmpty) {
+    AppToast.info(
+      context,
+      context.l10n.noConnectedBankAvailableForManualSync,
+    );
+    return null;
+  }
+
+  if (connections.length == 1) {
+    return connections.first;
+  }
+
+  return showModalBottomSheet<BankConnection>(
+    context: context,
+    backgroundColor: Theme.of(context).colorScheme.sheetBackground,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.chooseBankToSync,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.manualSyncPullsLatestTransactions,
+                style: TextStyle(color: colorScheme.mutedForeground),
+              ),
+              const SizedBox(height: 16),
+              for (final connection in connections)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.account_balance_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(_bankConnectionDisplayName(context, connection)),
+                  subtitle: Text(
+                    _manualSyncRemaining(connection, nowUtc) == null
+                        ? context.l10n.syncNowAvailable
+                        : context.l10n.availableInDuration(
+                            _formatDurationCompact(
+                              context,
+                              _manualSyncRemaining(connection, nowUtc)!,
+                            ),
+                          ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).pop(connection),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Duration? _manualSyncRemaining(BankConnection connection, DateTime nowUtc) {
+  final nextEligibleAt = connection.nextManualRefreshEligibleAt?.toUtc() ??
+      connection.lastSuccessfulSyncAt?.toUtc().add(const Duration(hours: 24));
+  if (nextEligibleAt == null) {
+    return null;
+  }
+
+  if (!nextEligibleAt.isAfter(nowUtc)) {
+    return null;
+  }
+
+  return nextEligibleAt.difference(nowUtc);
+}
+
+DateTime? _latestSuccessfulSyncAt(List<BankConnection> connections) {
+  DateTime? latest;
+  for (final connection in connections) {
+    final value = connection.lastSuccessfulSyncAt;
+    if (value == null) {
+      continue;
+    }
+    if (latest == null || value.isAfter(latest)) {
+      latest = value;
+    }
+  }
+  return latest;
+}
+
+String _formatRelativeTimeAgo(
+  BuildContext context,
+  DateTime nowUtc,
+  DateTime timestamp,
+) {
+  final difference = nowUtc.difference(timestamp.toUtc());
+  if (difference.inMinutes < 1) {
+    return context.l10n.justNow;
+  }
+  if (difference.inHours < 1) {
+    return context.l10n.minutesShort(difference.inMinutes.toString());
+  }
+  if (difference.inDays < 1) {
+    return context.l10n.hoursShort(difference.inHours.toString());
+  }
+  return context.l10n.daysShort(difference.inDays.toString());
+}
+
+String _formatLastSyncLabel(
+  BuildContext context,
+  DateTime nowUtc,
+  DateTime timestamp,
+) {
+  final relative = _formatRelativeTimeAgo(context, nowUtc, timestamp);
+  if (relative == context.l10n.justNow) {
+    return context.l10n.lastSyncJustNow;
+  }
+  return context.l10n.lastSyncAgo(relative);
+}
+
+String? _bankSyncStatusLabel({
+  required BuildContext context,
+  required DateTime nowUtc,
+  required AsyncValue<List<BankConnection>> bankConnectionsAsync,
+  required bool hasScopedPlaidConnections,
+  required bool hasPendingRemoval,
+  required List<BankConnection> actionConnections,
+  required DateTime? latestSuccessfulSyncAt,
+}) {
+  if (bankConnectionsAsync.isLoading && !bankConnectionsAsync.hasValue) {
+    return context.l10n.checkingBankSync;
+  }
+  if (bankConnectionsAsync.hasError && !bankConnectionsAsync.hasValue) {
+    return context.l10n.bankSyncStatusUnavailable;
+  }
+  if (!hasScopedPlaidConnections) {
+    return context.l10n.bankConnectionUnavailable;
+  }
+  if (hasPendingRemoval) {
+    return context.l10n.bankDisconnectPending;
+  }
+  if (actionConnections.isNotEmpty) {
+    if (actionConnections
+        .every((connection) => connection.hasNewAccountsAvailable)) {
+      return context.l10n.bankUpdatesAvailable;
+    }
+    return context.l10n.bankNeedsAttention;
+  }
+  if (latestSuccessfulSyncAt == null) {
+    return context.l10n.bankConnectedInitialSyncPending;
+  }
+  return _formatLastSyncLabel(context, nowUtc, latestSuccessfulSyncAt);
+}
+
+String _bankConnectionDisplayName(
+  BuildContext context,
+  BankConnection connection,
+) {
+  return connection.displayNameOr(context.l10n.bankConnection);
+}
+
+String _bankConnectionActionDescription(
+  BuildContext context,
+  BankConnection connection,
+) {
+  return connection.actionDescription(
+    newAccountsAvailable: context.l10n.newBankAccountsAvailableToReview,
+    needsRepair: context.l10n.bankNeedsRepairBeforeSyncing,
+  );
+}
+
+String? _functionErrorDebugId(Object error) {
+  if (error is! FunctionException) {
+    return null;
+  }
+
+  final details = error.details;
+  if (details is! Map) {
+    return null;
+  }
+
+  final debugId = details['debugId']?.toString().trim();
+  return debugId == null || debugId.isEmpty ? null : debugId;
+}
+
+String _formatDurationCompact(BuildContext context, Duration duration) {
+  final totalMinutes = duration.inMinutes;
+  if (totalMinutes <= 0) {
+    return context.l10n.lessThanOneMinuteShort;
+  }
+
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return context.l10n.minutesShort(minutes.toString());
+  }
+  if (minutes == 0) {
+    return context.l10n.hoursShort(hours.toString());
+  }
+  return context.l10n.hoursMinutesShort(
+    hours.toString(),
+    minutes.toString(),
+  );
+}
+
+class _WalletBankSyncStatusText extends StatelessWidget {
+  const _WalletBankSyncStatusText({
+    required this.label,
+    required this.onSync,
+    required this.textColor,
+  });
+
+  final String label;
+  final VoidCallback? onSync;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: onSync != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onSync,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 }
 

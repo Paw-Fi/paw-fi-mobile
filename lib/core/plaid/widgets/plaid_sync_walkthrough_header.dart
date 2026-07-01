@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 class PlaidSyncWalkthroughHeader extends StatelessWidget {
@@ -29,7 +30,7 @@ class PlaidSyncWalkthroughHeader extends StatelessWidget {
               ? Center(
                   key: const ValueKey('plaid-sync-loading-header'),
                   child: Text(
-                    'Preparing your bank connection...',
+                    context.l10n.preparingYourBankConnection,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: colorScheme.mutedForeground,

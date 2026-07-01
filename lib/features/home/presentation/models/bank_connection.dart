@@ -44,12 +44,16 @@ class BankConnection {
   }
 
   String get displayName {
+    return displayNameOr(id);
+  }
+
+  String displayNameOr(String fallback) {
     final trimmedInstitutionName = institutionName?.trim();
     if (trimmedInstitutionName != null && trimmedInstitutionName.isNotEmpty) {
       return trimmedInstitutionName;
     }
 
-    return 'Bank connection';
+    return fallback;
   }
 
   bool get needsReconnect =>
@@ -60,17 +64,19 @@ class BankConnection {
   bool get hasNewAccountsAvailable => relinkState == 'new_accounts_available';
 
   bool get isPendingRemoval =>
-      itemStatus == 'pending_removal' ||
-      itemHealthState == 'removal_pending';
+      itemStatus == 'pending_removal' || itemHealthState == 'removal_pending';
 
   bool get requiresUserAction =>
       !isPendingRemoval && (needsReconnect || hasNewAccountsAvailable);
 
-  String get actionDescription {
+  String actionDescription({
+    required String newAccountsAvailable,
+    required String needsRepair,
+  }) {
     if (hasNewAccountsAvailable) {
-      return 'New bank accounts are available to review.';
+      return newAccountsAvailable;
     }
-    return 'This bank needs to be repaired before syncing can continue.';
+    return needsRepair;
   }
 
   bool get isHealthy =>

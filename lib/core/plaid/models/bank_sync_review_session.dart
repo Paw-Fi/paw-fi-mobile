@@ -18,6 +18,7 @@ class BankSyncReviewSession {
     required String? flowReason,
     required String provider,
     required String? targetHouseholdId,
+    required String defaultAccountName,
   }) {
     final rawAccounts = data['accounts'] as List<dynamic>? ?? const [];
     return BankSyncReviewSession(
@@ -29,7 +30,10 @@ class BankSyncReviewSession {
           _normalizeString(targetHouseholdId),
       accounts: rawAccounts
           .whereType<Map<String, dynamic>>()
-          .map(BankSyncReviewAccount.fromJson)
+          .map((account) => BankSyncReviewAccount.fromJson(
+                account,
+                defaultAccountName: defaultAccountName,
+              ))
           .toList(growable: false),
     );
   }
@@ -70,9 +74,12 @@ class BankSyncReviewAccount {
   final int openingBalanceCents;
   final bool isDefault;
 
-  factory BankSyncReviewAccount.fromJson(Map<String, dynamic> json) {
+  factory BankSyncReviewAccount.fromJson(
+    Map<String, dynamic> json, {
+    required String defaultAccountName,
+  }) {
     final linkedWallet = json['linkedWallet'] as Map<String, dynamic>?;
-    final defaultName = _normalizeString(json['name']) ?? 'Bank Account';
+    final defaultName = _normalizeString(json['name']) ?? defaultAccountName;
 
     return BankSyncReviewAccount(
       bankAccountId: _normalizeString(json['id']) ?? '',

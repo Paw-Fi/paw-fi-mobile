@@ -133,7 +133,7 @@ class DeepLinkService {
           navCtx!,
           errorMessage?.isNotEmpty == true
               ? errorMessage!
-              : 'Bank reconnect was not completed. Please try again.',
+              : navCtx.l10n.bankReconnectNotCompletedTryAgain,
         );
       }
 
@@ -155,7 +155,7 @@ class DeepLinkService {
         _debugPrint('❌ Tink callback error');
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx?.mounted ?? false) {
-          AppToast.error(navCtx!, 'Bank connection failed: $error');
+          AppToast.error(navCtx!, navCtx.l10n.bankConnectionFailed(error));
         }
         return;
       }
@@ -170,7 +170,7 @@ class DeepLinkService {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx?.mounted ?? false) {
           AppToast.error(
-              navCtx!, 'Bank connection failed: missing security state');
+              navCtx!, navCtx.l10n.bankConnectionFailedMissingSecurityState);
         }
         return;
       }
@@ -386,7 +386,7 @@ class DeepLinkService {
       if (loadingContext != null && loadingContext.mounted) {
         showBlockingProcessingDialog(
           context: loadingContext,
-          message: 'Syncing your bank data...',
+          message: loadingContext.l10n.syncingYourBankData,
         );
         dialogShown = true;
       }
@@ -403,12 +403,15 @@ class DeepLinkService {
       );
 
       if (prepareResponse.status >= 400) {
-        throw Exception('Failed to prepare Tink bank connection');
+        throw Exception(
+          loadingContext?.l10n.failedToPrepareTinkBankConnection ?? '',
+        );
       }
 
       final data = prepareResponse.data as Map<String, dynamic>?;
       if (data == null) {
-        throw Exception('Missing Tink connection payload');
+        throw Exception(
+            loadingContext?.l10n.missingTinkConnectionPayload ?? '');
       }
 
       final session = BankSyncReviewSession.fromResponse(
@@ -416,6 +419,7 @@ class DeepLinkService {
         flowReason: null,
         provider: 'tink',
         targetHouseholdId: pendingState?.targetHouseholdId,
+        defaultAccountName: loadingContext?.l10n.bankAccount ?? '',
       );
       if (!session.hasAccounts) {
         throw Exception('No supported bank accounts were returned');
@@ -442,7 +446,10 @@ class DeepLinkService {
       _debugPrint('❌ Error handling Tink callback');
       final errorContext = rootNavigatorKey.currentContext;
       if (errorContext != null && errorContext.mounted) {
-        AppToast.error(errorContext, 'Failed to connect bank: ${e.toString()}');
+        AppToast.error(
+          errorContext,
+          errorContext.l10n.failedToConnectBank(e.toString()),
+        );
       }
     } finally {
       ref.read(pendingBankLinkStateProvider.notifier).state = null;

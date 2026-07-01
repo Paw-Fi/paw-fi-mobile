@@ -28,9 +28,9 @@ String walletsListCacheKey({
   DateTime? currentMonthStart,
 }) {
   if (selectedCurrency != null && currentMonthStart != null) {
-    return 'wallets:list:v6:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
+    return 'wallets:list:v7:$userId:${householdId ?? 'personal'}:${selectedCurrency.trim().toUpperCase()}:${_cacheDate(currentMonthStart)}:${_currencySelectionCacheSegment(selectedCurrencies)}';
   }
-  return 'wallets:list:v3:$userId:${householdId ?? 'personal'}';
+  return 'wallets:list:v4:$userId:${householdId ?? 'personal'}';
 }
 
 String walletsPageStateCacheKey(WalletsScopeQuery query) {

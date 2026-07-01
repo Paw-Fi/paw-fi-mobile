@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+
 class PlaidCountryOption {
   const PlaidCountryOption({
     required this.code,
@@ -18,8 +21,8 @@ class PlaidCountryOption {
 /// surface the full list of supported currencies/regions from the app.
 const List<PlaidCountryOption> plaidCountryOptions = [
   // Americas / default
-  PlaidCountryOption(code: 'US', label: 'United States'),
-  PlaidCountryOption(code: 'CA', label: 'Canada'),
+  PlaidCountryOption(code: 'US', label: 'US'),
+  PlaidCountryOption(code: 'CA', label: 'CA'),
   //We only supports US and CA banks right now!
   // PlaidCountryOption(code: 'MX', label: 'Mexico'),
   // PlaidCountryOption(code: 'BR', label: 'Brazil'),
@@ -106,3 +109,13 @@ const List<PlaidCountryOption> plaidCountryOptions = [
   // PlaidCountryOption(code: 'UA', label: 'Ukraine'),
   // PlaidCountryOption(code: 'BY', label: 'Belarus'),
 ];
+
+String plaidCountryLabel(BuildContext context, PlaidCountryOption option) {
+  switch (option.code) {
+    case 'US':
+      return context.l10n.unitedStates;
+    case 'CA':
+      return context.l10n.canada;
+  }
+  return option.label;
+}

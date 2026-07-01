@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/main_menu_screen.dart';
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
@@ -42,7 +43,7 @@ class PlaidSyncCountrySelectionStep extends ConsumerWidget {
           ),
           const SizedBox(height: 40),
           Text(
-            'Select Region',
+            context.l10n.selectRegion,
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.w800,
@@ -52,7 +53,7 @@ class PlaidSyncCountrySelectionStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Choose your banking region to see the institutions available for syncing.',
+            context.l10n.chooseBankingRegionAvailableSyncing,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 17,
@@ -116,7 +117,7 @@ class PlaidSyncCountrySelectionStep extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Region',
+                              context.l10n.region,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -125,7 +126,7 @@ class PlaidSyncCountrySelectionStep extends ConsumerWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              selectedOption.label,
+                              plaidCountryLabel(context, selectedOption),
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w600,

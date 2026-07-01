@@ -12,6 +12,7 @@ class WalletEntity {
   final bool isSystem;
   final bool isArchived;
   final int currentBalanceCents;
+  final String? linkedBankAccountId;
 
   const WalletEntity({
     required this.id,
@@ -27,6 +28,7 @@ class WalletEntity {
     required this.isSystem,
     required this.isArchived,
     required this.currentBalanceCents,
+    this.linkedBankAccountId,
   });
 
   factory WalletEntity.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,9 @@ class WalletEntity {
       isArchived: json['is_archived'] == true,
       currentBalanceCents:
           (json['current_balance_cents'] as num?)?.round() ?? 0,
+      linkedBankAccountId: _nullableTrimmedString(
+        json['linked_bank_account_id'],
+      ),
     );
   }
 
@@ -64,6 +69,7 @@ class WalletEntity {
       'is_system': isSystem,
       'is_archived': isArchived,
       'current_balance_cents': currentBalanceCents,
+      'linked_bank_account_id': linkedBankAccountId,
     };
   }
 
@@ -81,6 +87,7 @@ class WalletEntity {
     bool? isSystem,
     bool? isArchived,
     int? currentBalanceCents,
+    String? linkedBankAccountId,
   }) {
     return WalletEntity(
       id: id ?? this.id,
@@ -96,6 +103,13 @@ class WalletEntity {
       isSystem: isSystem ?? this.isSystem,
       isArchived: isArchived ?? this.isArchived,
       currentBalanceCents: currentBalanceCents ?? this.currentBalanceCents,
+      linkedBankAccountId: linkedBankAccountId ?? this.linkedBankAccountId,
     );
   }
+}
+
+String? _nullableTrimmedString(dynamic value) {
+  if (value == null) return null;
+  final result = value.toString().trim();
+  return result.isEmpty ? null : result;
 }
