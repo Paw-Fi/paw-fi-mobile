@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -484,7 +486,7 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
-    final userId = ref.watch(authProvider.select((user) => user.uid));
+    final userId = _dashboardUserId(ref);
     final selectedCurrency = _selectedCurrency(ref);
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
@@ -881,7 +883,7 @@ void _ensureRecurringTransactionsLoaded(
 ) {
   if (recurringState.hasLoadedOnce) return;
 
-  final userId = ref.read(authProvider).uid;
+  final userId = _dashboardUserId(ref);
   if (userId.isEmpty) return;
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -894,6 +896,15 @@ void _ensureRecurringTransactionsLoaded(
             .notifier)
         .loadRecurringTransactions(userId);
   });
+}
+
+String _dashboardUserId(WidgetRef ref) {
+  final userId = ref.watch(authProvider.select((user) => user.uid));
+  if (userId.isNotEmpty) return userId;
+  if (ref.watch(previewModeProvider).isActive) {
+    return PreviewMockData.contact.userId ?? 'preview-user';
+  }
+  return userId;
 }
 
 bool _isRecurringTransactionsReady(RecurringTransactionsState recurringState) {
@@ -917,7 +928,7 @@ DashboardScopeQuery _buildScopedQuery({
   DateTime? endDate,
   String? intervalGranularity,
 }) {
-  final userId = ref.watch(authProvider.select((user) => user.uid));
+  final userId = _dashboardUserId(ref);
   final selectedCurrencies = _selectedCurrencies(ref);
   return DashboardScopeQuery(
     userId: userId,

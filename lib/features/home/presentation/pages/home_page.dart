@@ -306,7 +306,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedCurrencies = ref.watch(
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
+    final analyticsData = ref.watch(analyticsProvider);
     final userId = ref.watch(authProvider.select((user) => user.uid));
+    final previewMode = ref.watch(previewModeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
     final householdScope = ref.watch(householdScopeProvider);
     final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
@@ -346,6 +348,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     const isInitialAnalyticsLoading = false;
 
     _scheduleThaiLanguagePromptCheck(initUserContact);
+
+    if (previewMode.isActive &&
+        analyticsData.allExpenses.isEmpty &&
+        !analyticsData.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final previewUserId = PreviewMockData.contact.userId ?? 'preview-user';
+        ref.read(analyticsProvider.notifier).loadData(previewUserId);
+      });
+    }
 
     if (!_didLogFirstUsefulPaint &&
         !isInitialAnalyticsLoading &&
