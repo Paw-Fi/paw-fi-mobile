@@ -30,6 +30,8 @@ class DeviceRegistrationService {
   final FlutterLocalNotificationsPlugin _localNotifications;
   final NotificationIntentParser _intentParser = NotificationIntentParser();
   bool _initialized = false;
+  bool _interactionHandlersInitialized = false;
+  bool _tokenRefreshListenerInitialized = false;
 
   static const String _androidChannelId = 'high_importance_channel';
   static const String _androidChannelName = 'High Importance Notifications';
@@ -38,6 +40,9 @@ class DeviceRegistrationService {
   static const String _updatesChannelId =
       'household_updates'; // must match server channel_id
   static const String _updatesChannelName = 'Household Updates';
+  static const String _defaultFcmChannelId =
+      'moneko_notifications'; // must match AndroidManifest fallback channel
+  static const String _defaultFcmChannelName = 'Moneko Notifications';
 
   DeviceRegistrationService(
     this._ref,
@@ -84,14 +89,15 @@ class DeviceRegistrationService {
       );
     } catch (e) {
       _debugPrint('❌ Device registration initialization failed');
-      // Mark as initialized anyway to prevent blocking app startup
-      _initialized = true;
+      _initialized = false;
       return;
     }
   }
 
   /// Perform the actual initialization (extracted for timeout handling)
   Future<void> _performInitialization() async {
+    await _ensureInteractionHandlersInitialized();
+
     // Android 13+: request notifications permission via permission_handler
     if (Platform.isAndroid) {
       try {
@@ -157,16 +163,14 @@ class DeviceRegistrationService {
     if (authorized) {
       _debugPrint('✅ Push notification permission granted');
 
-      // Initialize local notifications
-      await _initializeLocalNotifications();
-
-      // iOS local notification presentation already enabled via FCM options above
-
       // Listen for token refresh first so we don't miss an early emission
-      _messaging.onTokenRefresh.listen((newToken) {
-        _debugPrint('🔄 FCM Token refreshed');
-        registerDevice(newToken);
-      });
+      if (!_tokenRefreshListenerInitialized) {
+        _messaging.onTokenRefresh.listen((newToken) {
+          _debugPrint('🔄 FCM Token refreshed');
+          registerDevice(newToken);
+        });
+        _tokenRefreshListenerInitialized = true;
+      }
 
       // iOS: wait briefly for APNs token to be assigned before requesting FCM token
       if (Platform.isIOS) {
@@ -206,25 +210,13 @@ class DeviceRegistrationService {
         // Rely on onTokenRefresh later
       }
 
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-      // Handle background message opened
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
-
-      // Check for initial message (app opened from terminated state)
-      final initialMessage = await _messaging.getInitialMessage();
-      if (initialMessage != null) {
-        _handleBackgroundMessage(initialMessage);
-      }
-
       _initialized = true;
     } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
       _debugPrint('❌ Push notification permission denied');
-      _initialized = true; // Mark as initialized even if denied
+      _initialized = false;
     } else {
       _debugPrint('⚠️ Push notification permission not determined');
-      _initialized = true; // Mark as initialized even if not determined
+      _initialized = false;
     }
   }
 
@@ -241,6 +233,32 @@ class DeviceRegistrationService {
       await Future.delayed(const Duration(milliseconds: 300));
     }
     return apns;
+  }
+
+  Future<void> _ensureInteractionHandlersInitialized() async {
+    if (_interactionHandlersInitialized) {
+      return;
+    }
+
+    await _initializeLocalNotifications();
+
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+    // Handle background message opened
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
+
+    _interactionHandlersInitialized = true;
+
+    // Check for initial message (app opened from terminated state)
+    try {
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _handleBackgroundMessage(initialMessage);
+      }
+    } catch (_) {
+      _debugPrint('⚠️ Failed to read initial FCM notification message');
+    }
   }
 
   /// Initialize local notifications for Android
@@ -304,6 +322,20 @@ class DeviceRegistrationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(updatesChannel);
+
+      const defaultFcmChannel = AndroidNotificationChannel(
+        _defaultFcmChannelId,
+        _defaultFcmChannelName,
+        description: 'Default notifications',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(defaultFcmChannel);
     }
   }
 

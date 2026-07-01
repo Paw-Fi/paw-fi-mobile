@@ -100,6 +100,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- FCM notification taps from the server use this explicit action. -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
             <!-- Generic handler for all custom moneko:// links (aligns with iOS CFBundleURLSchemes) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>

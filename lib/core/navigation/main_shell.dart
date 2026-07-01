@@ -555,14 +555,14 @@ class MainShell extends HookConsumerWidget {
           final promptedKey = 'notifications_prompted:${user.uid}';
           final prompted = prefs.getBool(promptedKey) ?? false;
           final deviceSvc = ref.read(deviceRegistrationServiceProvider);
-          final isRegistered = await deviceSvc.isRegistered();
 
-          if (!isRegistered && !prompted) {
+          if (!prompted) {
             await prefs.setBool(promptedKey, true);
-            try {
-              await deviceSvc.initialize();
-            } catch (_) {}
           }
+
+          try {
+            await deviceSvc.initialize();
+          } catch (_) {}
         } catch (_) {}
       }
 
