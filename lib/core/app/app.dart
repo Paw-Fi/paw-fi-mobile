@@ -23,6 +23,7 @@ import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_page.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_visual_shell.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/widgets/ai_share_intent_listener.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -254,7 +255,9 @@ class _AppState extends ConsumerState<App> {
       builder: (context, child) {
         final brightness = themeMode == ThemeMode.system
             ? MediaQuery.platformBrightnessOf(context)
-            : (themeMode == ThemeMode.dark ? Brightness.dark : Brightness.light);
+            : (themeMode == ThemeMode.dark
+                ? Brightness.dark
+                : Brightness.light);
         final themeData = brightness == Brightness.dark
             ? AppTheme.darkTheme()
             : AppTheme.lightTheme();
@@ -271,52 +274,56 @@ class _AppState extends ConsumerState<App> {
               statusBarColor: colorScheme.surface.withValues(alpha: 0.0),
             ),
             child: Localizations.override(
-            context: context,
-            locale: locale,
-            delegates: localizationsDelegates,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                VersionCheckWrapper(child: child ?? const SplashScreen()),
-                if (shouldShowLifecyclePrivacyCover)
-                  const _AppLifecyclePrivacyCover(),
-                Positioned.fill(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                      if (child.key == const ValueKey('app-lock-overlay')) {
-                        final offset = Tween<Offset>(
-                          begin: const Offset(0, -1),
-                          end: Offset.zero,
-                        ).animate(animation);
-
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: offset,
-                            child: child,
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                    child: shouldShowAppLockOverlay
-                        ? AppLockPage(
-                            key: const ValueKey('app-lock-overlay'),
-                            onUnlocked: () => _setLifecycleObscured(false),
-                            renderAsOverlay: true,
-                          )
-                        : const SizedBox.shrink(
-                            key: ValueKey('app-lock-empty')),
+              context: context,
+              locale: locale,
+              delegates: localizationsDelegates,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  AiShareIntentListener(
+                    child: VersionCheckWrapper(
+                      child: child ?? const SplashScreen(),
+                    ),
                   ),
-                ),
-              ],
+                  if (shouldShowLifecyclePrivacyCover)
+                    const _AppLifecyclePrivacyCover(),
+                  Positioned.fill(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        if (child.key == const ValueKey('app-lock-overlay')) {
+                          final offset = Tween<Offset>(
+                            begin: const Offset(0, -1),
+                            end: Offset.zero,
+                          ).animate(animation);
+
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offset,
+                              child: child,
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                      child: shouldShowAppLockOverlay
+                          ? AppLockPage(
+                              key: const ValueKey('app-lock-overlay'),
+                              onUnlocked: () => _setLifecycleObscured(false),
+                              renderAsOverlay: true,
+                            )
+                          : const SizedBox.shrink(
+                              key: ValueKey('app-lock-empty')),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         );
       },
     );

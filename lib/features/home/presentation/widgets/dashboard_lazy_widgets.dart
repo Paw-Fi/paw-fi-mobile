@@ -113,6 +113,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
     final currency = _displayCurrency(selectedCurrency, contact);
+    final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
     final rateTable = (selectedCurrencies?.length ?? 0) > 1
         ? ref.watch(currencyRateTableProvider).valueOrNull ??
             const CurrencyRateTable(
@@ -122,7 +123,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
             )
         : null;
     final range = getDateRangeFromFilter(
-      config.dateRange,
+      dateRange,
       config.customStartDate,
       config.customEndDate,
       now: userNow,
@@ -172,7 +173,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         _buildSpendingSkeleton(
           context,
           colorScheme,
-          config.dateRange,
+          dateRange,
           currency,
           userNow,
           key: const ValueKey('spending_skeleton'),
@@ -217,7 +218,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         _buildSpendingSkeleton(
           context,
           colorScheme,
-          config.dateRange,
+          dateRange,
           currency,
           userNow,
           key: const ValueKey('spending_recurring_skeleton'),
@@ -247,7 +248,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         colorScheme,
         mergedTransactions,
         contact,
-        config.dateRange,
+        dateRange,
         key: ValueKey('spending_data_${config.id}_$selectedCurrency'),
         referenceNow: userNow,
         selectedCurrency: selectedCurrency,
@@ -256,14 +257,14 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
         animationStorageKey:
-            'spending:${config.id}:${selectedCurrency ?? currency}:${config.dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
+            'spending:${config.id}:${selectedCurrency ?? currency}:${dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => TransactionsPage(
                 householdId: query.householdId,
                 enableDateFilter: true,
-                initialDateFilter: config.dateRange,
+                initialDateFilter: dateRange,
                 initialStartDate: config.customStartDate,
                 initialEndDate: config.customEndDate,
               ),
@@ -296,14 +297,15 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     final scope = ref.watch(householdScopeProvider);
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
+    final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
     final currentRange = _getDateRangeForFilter(
-      config.dateRange,
+      dateRange,
       userNow,
       config.customStartDate,
       config.customEndDate,
     );
     final previousRange = _getPreviousDateRangeForFilter(
-      config.dateRange,
+      dateRange,
       userNow,
       config.customStartDate,
       config.customEndDate,
@@ -461,7 +463,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         displayCurrentTransactions,
         displayPreviousTransactions,
         contact,
-        config.dateRange,
+        dateRange,
         key: ValueKey('net_cashflow_data_${config.id}_$selectedCurrency'),
         selectedCurrency: selectedCurrency,
         customStartDate: config.customStartDate,
@@ -641,8 +643,9 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     final analyticsContact = ref.watch(
       dashboardUserContactProvider.select((state) => state.valueOrNull),
     );
+    final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
     final range = getDateRangeFromFilter(
-      config.dateRange,
+      dateRange,
       config.customStartDate,
       config.customEndDate,
       now: userNow,
@@ -742,7 +745,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
         displayExpenses,
         const [],
         analyticsContact,
-        config.dateRange,
+        dateRange,
         key: ValueKey('breakdown_data_${config.id}_$selectedCurrency'),
         referenceNow: userNow,
         selectedCurrency: selectedCurrency,
@@ -770,8 +773,9 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     final scope = ref.watch(householdScopeProvider);
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
+    final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
     final range = getDateRangeFromFilter(
-      config.dateRange,
+      dateRange,
       config.customStartDate,
       config.customEndDate,
       now: userNow,
@@ -870,10 +874,21 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
         expenses: displayExpenses,
         currency: selectedCurrency,
         onHelpTap: () => showCategoryGuide(context, colorScheme),
-        dateRange: config.dateRange,
+        dateRange: dateRange,
       ),
     );
   }
+}
+
+DateRangeFilter _effectivePreviewDateRange(
+  WidgetRef ref,
+  DateRangeFilter dateRange,
+) {
+  if (dateRange == DateRangeFilter.thisMonth &&
+      ref.watch(previewModeProvider).isActive) {
+    return DateRangeFilter.last30Days;
+  }
+  return dateRange;
 }
 
 void _ensureRecurringTransactionsLoaded(

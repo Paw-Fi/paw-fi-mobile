@@ -214,6 +214,18 @@ class AiLogSuccess {
   });
 }
 
+class AiSharedInputFile {
+  final String path;
+  final String? name;
+  final String? mimeType;
+
+  const AiSharedInputFile({
+    required this.path,
+    this.name,
+    this.mimeType,
+  });
+}
+
 Map<String, dynamic>? _asStringDynamicMap(Object? value) {
   if (value is Map<String, dynamic>) return value;
   if (value is Map) {
@@ -1960,6 +1972,32 @@ String _imageContentTypeForPath(String path) {
   };
 }
 
+bool _isAiImagePath(String path) {
+  final extension = _fileExtensionFromPath(path).toLowerCase();
+  return extension == 'jpg' ||
+      extension == 'jpeg' ||
+      extension == 'png' ||
+      extension == 'heic' ||
+      extension == 'webp';
+}
+
+String? _attachmentContentTypeForPath(String path) {
+  final extension = _fileExtensionFromPath(path).toLowerCase();
+  return switch (extension) {
+    'csv' => 'text/csv',
+    'pdf' => 'application/pdf',
+    'xlsx' =>
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xls' => 'application/vnd.ms-excel',
+    _ => null,
+  };
+}
+
+String _fileNameFromPath(String path) {
+  final name = path.split('/').last.trim();
+  return name.isEmpty ? 'shared-file' : name;
+}
+
 Future<Directory> _pendingAiInputDirectory() async {
   final documents = await getApplicationDocumentsDirectory();
   final directory =
@@ -2209,6 +2247,103 @@ Future<void> handleAiAudioBytes(
     inputTarget: inputTarget ?? resolveDefaultAiInputTarget(ref),
     onSuccess: onSuccess,
   );
+}
+
+Future<Map<String, dynamic>?> _buildSharedAiAttachment(
+  AiSharedInputFile sharedFile,
+) async {
+  final path = sharedFile.path.trim();
+  final file = File(path);
+  if (!await file.exists()) return null;
+
+  final contentType = _attachmentContentTypeForPath(path) ??
+      switch (sharedFile.mimeType?.trim().toLowerCase()) {
+        'text/csv' => 'text/csv',
+        'application/pdf' => 'application/pdf',
+        'application/vnd.ms-excel' => 'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' =>
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        _ => null,
+      };
+  if (contentType == null) return null;
+
+  final bytes = await file.readAsBytes();
+  final base64Data =
+      await foundation.compute<List<int>, String>(base64Encode, bytes);
+  final name = sharedFile.name?.trim();
+  return <String, dynamic>{
+    'filename': name == null || name.isEmpty ? _fileNameFromPath(path) : name,
+    'contentType': contentType,
+    'data': base64Data,
+  };
+}
+
+Future<void> handleSharedAiInputFiles(
+  BuildContext context,
+  WidgetRef ref, {
+  required List<AiSharedInputFile> files,
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
+  final inputTarget = resolveDefaultAiInputTarget(ref);
+  var handledAnyFile = false;
+
+  for (final sharedFile in files) {
+    if (!context.mounted) return;
+    final path = sharedFile.path.trim();
+    if (path.isEmpty) continue;
+
+    final file = File(path);
+    if (!await file.exists()) {
+      if (context.mounted) {
+        AppToast.error(context, context.l10n.failedToAnalyze);
+      }
+      continue;
+    }
+
+    if (_isAiImagePath(path)) {
+      handledAnyFile = true;
+      await _processExpense(
+        context,
+        ref,
+        imagePath: path,
+        inputTarget: inputTarget,
+        onSuccess: onSuccess,
+      );
+      continue;
+    }
+
+    final fileSize = await file.length();
+    if (fileSize > _maxAiFileUploadBytes) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          'File is too large to analyze. Keep it under 20MB or split it into smaller files.',
+        );
+      }
+      continue;
+    }
+
+    final attachment = await _buildSharedAiAttachment(sharedFile);
+    if (attachment == null) {
+      if (context.mounted) {
+        AppToast.error(context, context.l10n.unsupportedFileFormat);
+      }
+      continue;
+    }
+
+    handledAnyFile = true;
+    await _processExpense(
+      context,
+      ref,
+      attachments: [attachment],
+      inputTarget: inputTarget,
+      onSuccess: onSuccess,
+    );
+  }
+
+  if (!handledAnyFile && context.mounted) {
+    AppToast.error(context, context.l10n.failedToAnalyze);
+  }
 }
 
 Future<void> handleAiFreeFormText(
@@ -2645,15 +2780,7 @@ Future<void> _processExpense(
           await foundation.compute<List<int>, String>(base64Encode, bytes);
 
       // Determine content type from file extension
-      String contentType = 'image/jpeg';
-      final extension = imagePath.split('.').last.toLowerCase();
-      if (extension == 'png') {
-        contentType = 'image/png';
-      } else if (extension == 'jpg' || extension == 'jpeg') {
-        contentType = 'image/jpeg';
-      } else if (extension == 'heic') {
-        contentType = 'image/heic';
-      }
+      final contentType = _imageContentTypeForPath(imagePath);
 
       body['image'] = {
         'data': base64Image,
