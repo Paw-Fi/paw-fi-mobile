@@ -13,10 +13,30 @@ class PocketEnvelope {
     this.color,
     this.budgetId,
     this.householdId,
+    this.rolloverGroupId,
+    this.rolloverEnabled = false,
+    this.rolloverNegative = false,
+    this.rolloverCapCents,
+    this.openingRolloverCents = 0,
+    this.rolloverFromPreviousCents = 0,
+    this.hasRolloverFields = true,
+    int? availableBudgetCents,
+    int? remainingCents,
     required this.lastUpdated,
-  });
+  })  : availableBudgetCents = availableBudgetCents ?? budgetAmountCents,
+        remainingCents = remainingCents ??
+            ((availableBudgetCents ?? budgetAmountCents) -
+                (spent * 100).round());
 
   factory PocketEnvelope.fromJson(Map<String, dynamic> json) {
+    final hasRolloverFields = json['has_rollover_fields'] == true ||
+        json.containsKey('rollover_group_id') ||
+        json.containsKey('rollover_enabled') ||
+        json.containsKey('rollover_negative') ||
+        json.containsKey('rollover_cap_cents') ||
+        json.containsKey('opening_rollover_cents') ||
+        json.containsKey('rollover_from_previous_cents');
+
     return PocketEnvelope(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -27,6 +47,17 @@ class PocketEnvelope {
       color: json['color'] as String?,
       budgetId: json['budget_id'] as String?,
       householdId: json['household_id'] as String?,
+      rolloverGroupId: json['rollover_group_id'] as String?,
+      rolloverEnabled: json['rollover_enabled'] == true,
+      rolloverNegative: json['rollover_negative'] == true,
+      rolloverCapCents: (json['rollover_cap_cents'] as num?)?.toInt(),
+      openingRolloverCents:
+          (json['opening_rollover_cents'] as num?)?.toInt() ?? 0,
+      rolloverFromPreviousCents:
+          (json['rollover_from_previous_cents'] as num?)?.toInt() ?? 0,
+      hasRolloverFields: hasRolloverFields,
+      availableBudgetCents: (json['available_budget_cents'] as num?)?.toInt(),
+      remainingCents: (json['remaining_cents'] as num?)?.toInt(),
       lastUpdated: json['last_updated'] != null
           ? DateTime.parse(json['last_updated'] as String)
           : DateTime.now(),
@@ -42,16 +73,39 @@ class PocketEnvelope {
   final String? color;
   final String? budgetId;
   final String? householdId;
+  final String? rolloverGroupId;
+  final bool rolloverEnabled;
+  final bool rolloverNegative;
+  final int? rolloverCapCents;
+  final int openingRolloverCents;
+  final int rolloverFromPreviousCents;
+  final bool hasRolloverFields;
+  final int availableBudgetCents;
+  final int remainingCents;
   final DateTime lastUpdated;
 
   /// Calculate the actual limit based on total budget
   double getLimit(double totalBudget) {
-    return budgetAmountCents / 100.0;
+    return availableBudgetCents / 100.0;
   }
 
   int getLimitFromTotalBudgetCents(int totalBudgetCents) {
-    return budgetAmountCents;
+    return availableBudgetCents;
   }
+
+  double get baseBudget => budgetAmountCents / 100.0;
+
+  double get rolloverFromPrevious => rolloverFromPreviousCents / 100.0;
+
+  double get openingRollover => openingRolloverCents / 100.0;
+
+  double get availableBudget => availableBudgetCents / 100.0;
+
+  double get remaining => remainingCents / 100.0;
+
+  bool get hasRolloverBreakdown =>
+      rolloverEnabled &&
+      (rolloverFromPreviousCents != 0 || openingRolloverCents != 0);
 
   double getProgress(double totalBudget) {
     final limit = getLimit(totalBudget);
@@ -82,6 +136,17 @@ class PocketEnvelope {
       'color': color,
       'budget_id': budgetId,
       'household_id': householdId,
+      'has_rollover_fields': hasRolloverFields,
+      if (hasRolloverFields) ...{
+        'rollover_group_id': rolloverGroupId,
+        'rollover_enabled': rolloverEnabled,
+        'rollover_negative': rolloverNegative,
+        'rollover_cap_cents': rolloverCapCents,
+        'opening_rollover_cents': openingRolloverCents,
+        'rollover_from_previous_cents': rolloverFromPreviousCents,
+      },
+      'available_budget_cents': availableBudgetCents,
+      'remaining_cents': remainingCents,
       'last_updated': lastUpdated.toIso8601String(),
     };
   }
@@ -93,17 +158,62 @@ class PocketEnvelope {
     String? icon,
     String? color,
     String? budgetId,
+    String? rolloverGroupId,
+    bool? rolloverEnabled,
+    bool? rolloverNegative,
+    int? rolloverCapCents,
+    bool clearRolloverCap = false,
+    int? openingRolloverCents,
+    int? rolloverFromPreviousCents,
+    bool? hasRolloverFields,
+    int? availableBudgetCents,
+    int? remainingCents,
   }) {
+    final nextBudgetAmountCents = budgetAmountCents ?? this.budgetAmountCents;
+    final nextRolloverEnabled = rolloverEnabled ?? this.rolloverEnabled;
+    final currentRolloverAdjustmentCents = availableBudgetCents != null
+        ? 0
+        : this.availableBudgetCents - this.budgetAmountCents;
+    final nextAvailableBudgetCents = availableBudgetCents ??
+        (budgetAmountCents != null
+            ? nextBudgetAmountCents +
+                (nextRolloverEnabled ? currentRolloverAdjustmentCents : 0)
+            : this.availableBudgetCents);
+    final rolloverFieldsWereUpdated = rolloverGroupId != null ||
+        rolloverEnabled != null ||
+        rolloverNegative != null ||
+        rolloverCapCents != null ||
+        clearRolloverCap ||
+        openingRolloverCents != null ||
+        rolloverFromPreviousCents != null;
+    final nextHasRolloverFields = hasRolloverFields ??
+        (this.hasRolloverFields || rolloverFieldsWereUpdated);
     return PocketEnvelope(
       id: id,
       name: name,
-      budgetAmountCents: budgetAmountCents ?? this.budgetAmountCents,
+      budgetAmountCents: nextBudgetAmountCents,
       spent: spent ?? this.spent,
       currency: currency ?? this.currency,
       icon: icon ?? this.icon,
       color: color ?? this.color,
       budgetId: budgetId ?? this.budgetId,
       householdId: householdId,
+      rolloverGroupId: rolloverGroupId ?? this.rolloverGroupId,
+      rolloverEnabled: nextRolloverEnabled,
+      rolloverNegative: rolloverNegative ?? this.rolloverNegative,
+      rolloverCapCents:
+          clearRolloverCap ? null : (rolloverCapCents ?? this.rolloverCapCents),
+      openingRolloverCents: openingRolloverCents ?? this.openingRolloverCents,
+      rolloverFromPreviousCents:
+          rolloverFromPreviousCents ?? this.rolloverFromPreviousCents,
+      hasRolloverFields: nextHasRolloverFields,
+      availableBudgetCents: nextAvailableBudgetCents,
+      remainingCents: remainingCents ??
+          (availableBudgetCents != null ||
+                  budgetAmountCents != null ||
+                  spent != null
+              ? nextAvailableBudgetCents - ((spent ?? this.spent) * 100).round()
+              : this.remainingCents),
       lastUpdated: lastUpdated,
     );
   }

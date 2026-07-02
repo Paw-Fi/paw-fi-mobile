@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
@@ -69,6 +70,17 @@ class PocketCard extends StatelessWidget {
     final limitNormalized = double.parse(formatAmount(limit));
     final limitLocalized = formatLocalizedNumber(context, limitNormalized);
     final limitDisplay = '$currencySymbol$limitLocalized';
+    final rolloverAdjustmentCents =
+        pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
+    final rolloverBadgeText = pocket.hasRolloverBreakdown
+        ? context.l10n.pocketRolloverCarryOverBadge(
+            _formatSignedCurrencyCents(
+              context,
+              rolloverAdjustmentCents,
+              currency,
+            ),
+          )
+        : null;
 
     // Calculate text color based on fill level for contrast
     // Since we are using a liquid fill, the text might be over the liquid or the background.
@@ -226,6 +238,41 @@ class PocketCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeInOut,
+                              child: rolloverBadgeText == null
+                                  ? const SizedBox.shrink()
+                                  : Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.primary
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                          border: Border.all(
+                                            color: colorScheme.primary
+                                                .withValues(alpha: 0.18),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          rolloverBadgeText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
                             const SizedBox(height: 6),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
@@ -273,4 +320,15 @@ class PocketCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatSignedCurrencyCents(
+  BuildContext context,
+  int cents,
+  String currency,
+) {
+  final sign = cents < 0 ? '-' : '+';
+  final amount = double.parse(formatAmount(cents.abs() / 100.0));
+  final localized = formatLocalizedNumber(context, amount);
+  return '$sign${resolveCurrencySymbol(currency)}$localized';
 }

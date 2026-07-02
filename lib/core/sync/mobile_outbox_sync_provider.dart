@@ -918,6 +918,26 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
       if (pocket['color'] != null) 'color': pocket['color'].toString(),
       'user_id': userId,
     };
+    if (pocket.containsKey('rolloverEnabled')) {
+      envelopePayload['rollover_enabled'] = pocket['rolloverEnabled'] == true;
+    }
+    if (pocket.containsKey('rolloverNegative')) {
+      envelopePayload['rollover_negative'] = pocket['rolloverNegative'] == true;
+    }
+    if (pocket.containsKey('rolloverCapCents')) {
+      envelopePayload['rollover_cap_cents'] =
+          (pocket['rolloverCapCents'] as num?)?.toInt();
+    }
+    if (pocket.containsKey('openingRolloverCents')) {
+      envelopePayload['opening_rollover_cents'] =
+          (pocket['openingRolloverCents'] as num?)?.toInt() ?? 0;
+    }
+    if (pocket.containsKey('rolloverGroupId')) {
+      final rolloverGroupId = pocket['rolloverGroupId']?.toString();
+      if (rolloverGroupId != null && rolloverGroupId.isNotEmpty) {
+        envelopePayload['rollover_group_id'] = rolloverGroupId;
+      }
+    }
     String envelopeId = id;
     if (id.startsWith('optimistic-')) {
       final inserted = await supabase

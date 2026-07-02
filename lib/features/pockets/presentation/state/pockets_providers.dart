@@ -35,6 +35,29 @@ void _debugLog(String message) {
   }
 }
 
+bool _isMissingRolloverColumnError(Object error) {
+  if (error is! PostgrestException) return false;
+  final message =
+      '${error.code} ${error.message} ${error.details} ${error.hint}'
+          .toLowerCase();
+  final mentionsRolloverColumn = message.contains('rollover_group_id') ||
+      message.contains('rollover_enabled') ||
+      message.contains('rollover_negative') ||
+      message.contains('rollover_cap_cents') ||
+      message.contains('opening_rollover_cents');
+  return mentionsRolloverColumn &&
+      (error.code == '42703' || error.code == 'PGRST204');
+}
+
+bool _rowHasRolloverFields(Map<String, dynamic> row) {
+  return row.containsKey('rollover_group_id') ||
+      row.containsKey('rollover_enabled') ||
+      row.containsKey('rollover_negative') ||
+      row.containsKey('rollover_cap_cents') ||
+      row.containsKey('opening_rollover_cents') ||
+      row.containsKey('rollover_from_previous_cents');
+}
+
 // L1 in-memory month cache.
 // - Keyed by (user, scope, month, currency) + a couple toggles that affect the
 //   computed output.
@@ -51,6 +74,79 @@ typedef _CacheKey = ({
   bool includeUpcomingRecurring,
   bool allowCurrencyFallback,
 });
+
+@foundation.visibleForTesting
+class PocketRolloverBreakdownCents {
+  const PocketRolloverBreakdownCents({
+    required this.baseBudgetCents,
+    required this.rolloverFromPreviousCents,
+    required this.openingRolloverCents,
+    required this.availableBudgetCents,
+    required this.spentCents,
+    required this.remainingCents,
+    required this.carryToNextPeriodCents,
+  });
+
+  final int baseBudgetCents;
+  final int rolloverFromPreviousCents;
+  final int openingRolloverCents;
+  final int availableBudgetCents;
+  final int spentCents;
+  final int remainingCents;
+  final int carryToNextPeriodCents;
+}
+
+@foundation.visibleForTesting
+PocketRolloverBreakdownCents calculatePocketRolloverBreakdownCents({
+  required int baseBudgetCents,
+  required int incomingRolloverCents,
+  required int openingRolloverCents,
+  required int spentCents,
+  required bool rolloverEnabled,
+  required bool rolloverNegative,
+  required int? rolloverCapCents,
+}) {
+  final sanitizedBase = math.max(0, baseBudgetCents);
+  final sanitizedSpent = math.max(0, spentCents);
+  final sanitizedOpening = rolloverEnabled ? openingRolloverCents : 0;
+  final sanitizedIncoming = rolloverEnabled ? incomingRolloverCents : 0;
+  final positiveCap =
+      rolloverCapCents == null ? null : math.max(0, rolloverCapCents).toInt();
+
+  int cappedPositive(int value) {
+    if (positiveCap == null || value <= 0) return value;
+    return math.min(value, positiveCap);
+  }
+
+  if (!rolloverEnabled) {
+    final remaining = math.max(sanitizedBase - sanitizedSpent, 0);
+    return PocketRolloverBreakdownCents(
+      baseBudgetCents: sanitizedBase,
+      rolloverFromPreviousCents: 0,
+      openingRolloverCents: 0,
+      availableBudgetCents: sanitizedBase,
+      spentCents: sanitizedSpent,
+      remainingCents: remaining,
+      carryToNextPeriodCents: 0,
+    );
+  }
+
+  final incoming = cappedPositive(sanitizedIncoming);
+  final available = sanitizedBase + incoming + sanitizedOpening;
+  final remaining = available - sanitizedSpent;
+  final carry =
+      remaining < 0 && !rolloverNegative ? 0 : cappedPositive(remaining);
+
+  return PocketRolloverBreakdownCents(
+    baseBudgetCents: sanitizedBase,
+    rolloverFromPreviousCents: incoming,
+    openingRolloverCents: sanitizedOpening,
+    availableBudgetCents: available,
+    spentCents: sanitizedSpent,
+    remainingCents: remaining,
+    carryToNextPeriodCents: carry,
+  );
+}
 
 class _PocketsMonthCacheEntry {
   _PocketsMonthCacheEntry({
@@ -662,11 +758,16 @@ List<PocketEnvelope> _normalizePocketBudgetAmountsForCurrency(
   return pockets.map((pocket) {
     final currency =
         pocket.currency.trim().isNotEmpty ? pocket.currency : fallbackCurrency;
+    final normalizedBase = normalizePocketBudgetAmountCentsForCurrency(
+      pocket.budgetAmountCents,
+      currency,
+    );
     return pocket.copyWith(
-      budgetAmountCents: normalizePocketBudgetAmountCentsForCurrency(
-        pocket.budgetAmountCents,
-        currency,
-      ),
+      budgetAmountCents: normalizedBase,
+      availableBudgetCents:
+          pocket.availableBudgetCents == pocket.budgetAmountCents
+              ? normalizedBase
+              : pocket.availableBudgetCents,
     );
   }).toList(growable: false);
 }
@@ -1223,6 +1324,14 @@ Map<String, dynamic> buildPocketsMonthMutationPayload({
               'currency': pocket.currency,
               'icon': pocket.icon,
               'color': pocket.color,
+              if (pocket.hasRolloverFields) ...{
+                if (pocket.rolloverGroupId != null)
+                  'rolloverGroupId': pocket.rolloverGroupId,
+                'rolloverEnabled': pocket.rolloverEnabled,
+                'rolloverNegative': pocket.rolloverNegative,
+                'rolloverCapCents': pocket.rolloverCapCents,
+                'openingRolloverCents': pocket.openingRolloverCents,
+              },
               'categories': (envelopeCategories[pocket.id] ?? const <String>[])
                   .map((category) => category.trim().toLowerCase())
                   .where((category) => category.isNotEmpty)
@@ -2399,6 +2508,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           color: row['color'] as String?,
           budgetId: row['budget_id'] as String? ?? budgetId,
           householdId: row['household_id'] as String?,
+          rolloverGroupId: row['rollover_group_id'] as String?,
+          rolloverEnabled: row['rollover_enabled'] == true,
+          rolloverNegative: row['rollover_negative'] == true,
+          rolloverCapCents: (row['rollover_cap_cents'] as num?)?.toInt(),
+          openingRolloverCents:
+              (row['opening_rollover_cents'] as num?)?.toInt() ?? 0,
+          rolloverFromPreviousCents:
+              (row['rollover_from_previous_cents'] as num?)?.toInt() ?? 0,
+          hasRolloverFields: _rowHasRolloverFields(row),
+          availableBudgetCents:
+              (row['available_budget_cents'] as num?)?.toInt() ??
+                  normalizePocketBudgetAmountCentsForCurrency(
+                    rawAmountCents,
+                    currency,
+                  ),
+          remainingCents: (row['remaining_cents'] as num?)?.toInt(),
           lastUpdated: DateTime.now(),
         );
       }).toList(growable: false);
@@ -2488,6 +2613,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
         final color = row['color'] as String?;
         final bId = row['budget_id'] as String? ?? budgetId;
+        final availableBudgetCents =
+            (row['available_budget_cents'] as num?)?.toInt() ??
+                resolvedAmountCents;
+        final spentCents = (spent * 100).round();
+        final remainingCents = shouldComputeSpendFromTransactions
+            ? availableBudgetCents - spentCents
+            : (row['remaining_cents'] as num?)?.toInt() ??
+                (availableBudgetCents - spentCents);
 
         return PocketEnvelope(
           id: id,
@@ -2499,6 +2632,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           color: color,
           budgetId: bId,
           householdId: hhId,
+          rolloverGroupId: row['rollover_group_id'] as String?,
+          rolloverEnabled: row['rollover_enabled'] == true,
+          rolloverNegative: row['rollover_negative'] == true,
+          rolloverCapCents: (row['rollover_cap_cents'] as num?)?.toInt(),
+          openingRolloverCents:
+              (row['opening_rollover_cents'] as num?)?.toInt() ?? 0,
+          rolloverFromPreviousCents:
+              (row['rollover_from_previous_cents'] as num?)?.toInt() ?? 0,
+          hasRolloverFields: _rowHasRolloverFields(row),
+          availableBudgetCents: availableBudgetCents,
+          remainingCents: remainingCents,
           lastUpdated: DateTime.now(),
         );
       }).toList();
@@ -2851,6 +2995,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             color: p.color,
             budgetId: p.budgetId,
             householdId: p.householdId,
+            rolloverGroupId: p.rolloverGroupId,
+            rolloverEnabled: p.rolloverEnabled,
+            rolloverNegative: p.rolloverNegative,
+            rolloverCapCents: p.rolloverCapCents,
+            openingRolloverCents: p.openingRolloverCents,
+            rolloverFromPreviousCents: p.rolloverFromPreviousCents,
+            hasRolloverFields: p.hasRolloverFields,
+            availableBudgetCents: p.availableBudgetCents,
+            remainingCents: p.remainingCents,
             lastUpdated: p.lastUpdated,
           ),
         )
@@ -3058,7 +3211,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           try {
             final env = await supabase
                 .from('budget_envelopes')
-                .select('id,name,currency,budget_amount_cents')
+                .select(
+                    'id,name,currency,budget_amount_cents,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
                 .eq('budget_id', bid)
                 .order('name')
                 .limit(20);
@@ -3109,22 +3263,43 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // Fetch envelopes for the previous month budget
-      var envelopesQuery = supabase
-          .from('budget_envelopes')
-          .select('id,name,budget_amount_cents,color,icon')
-          .eq('currency', effectiveCurrency)
-          .eq('budget_id', sourceBudgetId);
+      List<Map<String, dynamic>> envRows;
+      try {
+        var envelopesQuery = supabase
+            .from('budget_envelopes')
+            .select(
+                'id,name,budget_amount_cents,color,icon,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
+            .eq('currency', effectiveCurrency)
+            .eq('budget_id', sourceBudgetId);
 
-      envelopesQuery = _applyAccountScopeFilter(
-        envelopesQuery,
-        authUser.uid,
-        scope: scopeType,
-        householdId: householdId,
-      );
+        envelopesQuery = _applyAccountScopeFilter(
+          envelopesQuery,
+          authUser.uid,
+          scope: scopeType,
+          householdId: householdId,
+        );
 
-      final envelopesRes = await envelopesQuery.order('name');
-      final envRows =
-          (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+        final envelopesRes = await envelopesQuery.order('name');
+        envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      } catch (e) {
+        if (!_isMissingRolloverColumnError(e)) rethrow;
+        _debugLog(
+          '[Pockets][Copy] Rollover columns unavailable; retrying legacy source envelope select.',
+        );
+        var envelopesQuery = supabase
+            .from('budget_envelopes')
+            .select('id,name,budget_amount_cents,color,icon')
+            .eq('currency', effectiveCurrency)
+            .eq('budget_id', sourceBudgetId);
+        envelopesQuery = _applyAccountScopeFilter(
+          envelopesQuery,
+          authUser.uid,
+          scope: scopeType,
+          householdId: householdId,
+        );
+        final envelopesRes = await envelopesQuery.order('name');
+        envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      }
 
       _debugLog(
           '[Pockets][Copy] Source envelopes fetched: count=${envRows.length}');
@@ -3257,6 +3432,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           color: row['color'] as String?,
           budgetId: currentBudgetId,
           householdId: isScopedToHousehold ? householdId : null,
+          rolloverGroupId: row['rollover_group_id'] as String?,
+          rolloverEnabled: row['rollover_enabled'] == true,
+          rolloverNegative: row['rollover_negative'] == true,
+          rolloverCapCents: (row['rollover_cap_cents'] as num?)?.toInt(),
+          openingRolloverCents: 0,
+          hasRolloverFields: _rowHasRolloverFields(row),
           lastUpdated: copiedAt,
         );
       }).toList(growable: false);
@@ -3304,20 +3485,34 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final dynamic rawIcon = row['icon'];
         final String? icon = rawIcon?.toString();
 
+        final envelopePayload = <String, dynamic>{
+          'user_id': authUser.uid,
+          'budget_id': currentBudgetId,
+          'name': name,
+          'budget_amount_cents': amountCents,
+          'household_id':
+              scopeType == PocketsScopeType.personal ? null : householdId,
+          'currency': effectiveCurrency,
+          'color': color,
+          'icon': icon,
+          'updated_at': nowIso,
+        };
+        if (_rowHasRolloverFields(row)) {
+          envelopePayload.addAll(<String, dynamic>{
+            'rollover_enabled': row['rollover_enabled'] == true,
+            'rollover_negative': row['rollover_negative'] == true,
+            'rollover_cap_cents': (row['rollover_cap_cents'] as num?)?.toInt(),
+            'opening_rollover_cents': 0,
+          });
+          final rolloverGroupId = row['rollover_group_id'] as String?;
+          if (rolloverGroupId != null && rolloverGroupId.isNotEmpty) {
+            envelopePayload['rollover_group_id'] = rolloverGroupId;
+          }
+        }
+
         final insertRes = await supabase
             .from('budget_envelopes')
-            .insert(<String, dynamic>{
-              'user_id': authUser.uid,
-              'budget_id': currentBudgetId,
-              'name': name,
-              'budget_amount_cents': amountCents,
-              'household_id':
-                  scopeType == PocketsScopeType.personal ? null : householdId,
-              'currency': effectiveCurrency,
-              'color': color,
-              'icon': icon,
-              'updated_at': nowIso,
-            })
+            .insert(envelopePayload)
             .select('id')
             .maybeSingle();
 
@@ -3659,13 +3854,26 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final editing = state.editing;
       for (final p in editing) {
-        await supabase.from('budget_envelopes').update(<String, dynamic>{
+        final envelopePayload = <String, dynamic>{
           'budget_amount_cents': p.budgetAmountCents,
           'budget_id': budgetId,
           'household_id': isScopedToHousehold ? householdId : null,
           'currency': selectedCurrency,
           'updated_at': nowIso,
-        }).eq('id', p.id);
+        };
+        if (p.hasRolloverFields) {
+          envelopePayload.addAll(<String, dynamic>{
+            'rollover_enabled': p.rolloverEnabled,
+            'rollover_negative': p.rolloverNegative,
+            'rollover_cap_cents': p.rolloverCapCents,
+            'opening_rollover_cents': p.openingRolloverCents,
+          });
+        }
+
+        await supabase
+            .from('budget_envelopes')
+            .update(envelopePayload)
+            .eq('id', p.id);
 
         await supabase.from('envelope_allocations').upsert(
           <String, dynamic>{
@@ -4075,20 +4283,41 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           (sourceBudgetRow?['total_budget_cents'] as num?)?.toInt() ?? 0;
       if (sourceBudgetId == null || sourceBudgetId.isEmpty) continue;
 
-      var envelopesQuery = supabase
-          .from('budget_envelopes')
-          .select('id,name,budget_amount_cents,color,icon')
-          .eq('currency', currency)
-          .eq('budget_id', sourceBudgetId);
-      envelopesQuery = _applyAccountScopeFilter(
-        envelopesQuery,
-        userId,
-        scope: scopeType,
-        householdId: householdId,
-      );
-      final envelopesRes = await envelopesQuery.order('name');
-      final envRows =
-          (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      List<Map<String, dynamic>> envRows;
+      try {
+        var envelopesQuery = supabase
+            .from('budget_envelopes')
+            .select(
+                'id,name,budget_amount_cents,color,icon,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
+            .eq('currency', currency)
+            .eq('budget_id', sourceBudgetId);
+        envelopesQuery = _applyAccountScopeFilter(
+          envelopesQuery,
+          userId,
+          scope: scopeType,
+          householdId: householdId,
+        );
+        final envelopesRes = await envelopesQuery.order('name');
+        envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      } catch (e) {
+        if (!_isMissingRolloverColumnError(e)) rethrow;
+        _debugLog(
+          '[Pockets][Copy] Rollover columns unavailable; retrying legacy current-month source envelope select.',
+        );
+        var envelopesQuery = supabase
+            .from('budget_envelopes')
+            .select('id,name,budget_amount_cents,color,icon')
+            .eq('currency', currency)
+            .eq('budget_id', sourceBudgetId);
+        envelopesQuery = _applyAccountScopeFilter(
+          envelopesQuery,
+          userId,
+          scope: scopeType,
+          householdId: householdId,
+        );
+        final envelopesRes = await envelopesQuery.order('name');
+        envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      }
       if (envRows.isEmpty) continue;
 
       final targetBudgetRow = await _findBudgetRowForPeriod(
@@ -4176,23 +4405,33 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           rawAmountCents,
           currency,
         );
+        final envelopePayload = <String, dynamic>{
+          'user_id': userId,
+          'budget_id': targetBudgetId,
+          'name': name,
+          'budget_amount_cents': amountCents,
+          'household_id':
+              scopeType == PocketsScopeType.personal ? null : householdId,
+          'currency': currency,
+          'color': row['color'] as String?,
+          'icon': row['icon']?.toString(),
+          'updated_at': nowIso,
+        };
+        if (_rowHasRolloverFields(row)) {
+          envelopePayload.addAll(<String, dynamic>{
+            'rollover_enabled': row['rollover_enabled'] == true,
+            'rollover_negative': row['rollover_negative'] == true,
+            'rollover_cap_cents': (row['rollover_cap_cents'] as num?)?.toInt(),
+            'opening_rollover_cents': 0,
+          });
+          final rolloverGroupId = row['rollover_group_id'] as String?;
+          if (rolloverGroupId != null && rolloverGroupId.isNotEmpty) {
+            envelopePayload['rollover_group_id'] = rolloverGroupId;
+          }
+        }
         final insertRes = await supabase
             .from('budget_envelopes')
-            .upsert(
-              <String, dynamic>{
-                'user_id': userId,
-                'budget_id': targetBudgetId,
-                'name': name,
-                'budget_amount_cents': amountCents,
-                'household_id':
-                    scopeType == PocketsScopeType.personal ? null : householdId,
-                'currency': currency,
-                'color': row['color'] as String?,
-                'icon': row['icon']?.toString(),
-                'updated_at': nowIso,
-              },
-              onConflict: 'budget_id,name',
-            )
+            .upsert(envelopePayload, onConflict: 'budget_id,name')
             .select('id')
             .maybeSingle();
         final newEnvId = insertRes?['id'] as String?;

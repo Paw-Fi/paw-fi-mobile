@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -42,6 +43,26 @@ class DailySpend {
   DailySpend({required this.day, required this.amount});
 }
 
+class PocketRolloverHistoryMonth {
+  const PocketRolloverHistoryMonth({
+    required this.periodMonth,
+    required this.baseBudgetCents,
+    required this.rolloverFromPreviousCents,
+    required this.openingRolloverCents,
+    required this.availableBudgetCents,
+    required this.spentCents,
+    required this.remainingCents,
+  });
+
+  final DateTime periodMonth;
+  final int baseBudgetCents;
+  final int rolloverFromPreviousCents;
+  final int openingRolloverCents;
+  final int availableBudgetCents;
+  final int spentCents;
+  final int remainingCents;
+}
+
 class PocketDetailsData {
   final List<Map<String, dynamic>> transactions;
   final List<Map<String, dynamic>> aggregateTransactions;
@@ -51,6 +72,7 @@ class PocketDetailsData {
   final double totalSpentLastMonth;
   final double projectedSpend;
   final double dailyAverage;
+  final List<PocketRolloverHistoryMonth> rolloverHistory;
 
   PocketDetailsData({
     required this.transactions,
@@ -61,6 +83,7 @@ class PocketDetailsData {
     required this.totalSpentLastMonth,
     required this.projectedSpend,
     required this.dailyAverage,
+    required this.rolloverHistory,
   });
 }
 
@@ -93,6 +116,17 @@ final pocketDetailsProvider =
   final prevMonthEnd = monthStart;
 
   final pocketsState = ref.watch(pocketsProvider(params.scopeParams));
+  final pocket = _findPocketEnvelope(pocketsState, params.pocketId);
+  final rolloverHistory = pocket?.rolloverEnabled == true
+      ? await _fetchPocketRolloverHistory(
+          userId: authUser.uid,
+          scopeType: params.scopeParams.scope,
+          householdId: params.scopeParams.householdId,
+          currency: selectedCurrency,
+          rolloverGroupId: pocket?.rolloverGroupId,
+          periodMonth: monthStart,
+        )
+      : const <PocketRolloverHistoryMonth>[];
   final cachedCategories =
       pocketsState.envelopeCategories[params.pocketId] ?? const <String>[];
   final categories = cachedCategories.isNotEmpty
@@ -113,6 +147,7 @@ final pocketDetailsProvider =
       totalSpentLastMonth: 0,
       projectedSpend: 0,
       dailyAverage: 0,
+      rolloverHistory: rolloverHistory,
     );
   }
 
@@ -128,6 +163,7 @@ final pocketDetailsProvider =
       totalSpentLastMonth: 0,
       projectedSpend: 0,
       dailyAverage: 0,
+      rolloverHistory: rolloverHistory,
     );
   }
 
@@ -343,8 +379,72 @@ final pocketDetailsProvider =
     totalSpentLastMonth: totalSpentLastMonth,
     projectedSpend: projectedSpend,
     dailyAverage: dailyAverage,
+    rolloverHistory: rolloverHistory,
   );
 });
+
+PocketEnvelope? _findPocketEnvelope(PocketsState state, String pocketId) {
+  for (final pocket in [...state.editing, ...state.saved]) {
+    if (pocket.id == pocketId) return pocket;
+  }
+  return null;
+}
+
+Future<List<PocketRolloverHistoryMonth>> _fetchPocketRolloverHistory({
+  required String userId,
+  required PocketsScopeType scopeType,
+  required String? householdId,
+  required String currency,
+  required String? rolloverGroupId,
+  required DateTime periodMonth,
+}) async {
+  if (rolloverGroupId == null || rolloverGroupId.trim().isEmpty) {
+    return const <PocketRolloverHistoryMonth>[];
+  }
+
+  final Object? response;
+  try {
+    response = await supabase.rpc(
+      'get_pocket_rollover_history_v1',
+      params: <String, dynamic>{
+        'p_user_id': userId,
+        'p_scope': switch (scopeType) {
+          PocketsScopeType.personal => 'personal',
+          PocketsScopeType.portfolio => 'portfolio',
+          PocketsScopeType.household => 'household',
+        },
+        'p_household_id': householdId,
+        'p_currency': currency,
+        'p_rollover_group_id': rolloverGroupId,
+        'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+        'p_limit_months': 12,
+      },
+    );
+  } catch (error, stackTrace) {
+    if (foundation.kDebugMode) {
+      foundation.debugPrint(
+        '[PocketDetails] Failed to load rollover history: $error\n$stackTrace',
+      );
+    }
+    return const <PocketRolloverHistoryMonth>[];
+  }
+
+  return ((response as List?) ?? const []).whereType<Map>().map((row) {
+    final data = Map<String, dynamic>.from(row);
+    return PocketRolloverHistoryMonth(
+      periodMonth: DateTime.parse(data['period_month'].toString()),
+      baseBudgetCents: (data['base_budget_cents'] as num?)?.toInt() ?? 0,
+      rolloverFromPreviousCents:
+          (data['rollover_from_previous_cents'] as num?)?.toInt() ?? 0,
+      openingRolloverCents:
+          (data['opening_rollover_cents'] as num?)?.toInt() ?? 0,
+      availableBudgetCents:
+          (data['available_budget_cents'] as num?)?.toInt() ?? 0,
+      spentCents: (data['spent_cents'] as num?)?.toInt() ?? 0,
+      remainingCents: (data['remaining_cents'] as num?)?.toInt() ?? 0,
+    );
+  }).toList(growable: false);
+}
 
 Future<List<String>> _fetchPocketLinkedCategories({
   required String pocketId,
