@@ -30,7 +30,7 @@ Locale resolveSupportedAppLocale(
   Iterable<Locale> supportedLocales = AppLocalizations.supportedLocales,
 }) {
   if (locale == null) {
-    return supportedLocales.first;
+    locale = ui.PlatformDispatcher.instance.locale;
   }
 
   final normalized = normalizeAppLocale(locale);

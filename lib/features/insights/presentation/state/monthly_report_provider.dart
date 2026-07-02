@@ -149,7 +149,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final selectedCurrencies = ref.watch(
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
-    final appLocale = resolveSupportedAppLocale(ref.watch(localeProvider));
+    final rawLocale = ref.watch(localeProvider);
+    final appLocale = resolveSupportedAppLocale(rawLocale);
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);

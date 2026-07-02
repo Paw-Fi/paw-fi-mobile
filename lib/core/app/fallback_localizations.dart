@@ -53,7 +53,7 @@ class FallbackCupertinoLocalizationDelegate
 Locale? _localeResolutionCallback(
     Locale? locale, Iterable<Locale> supportedLocales) {
   if (locale == null) {
-    return supportedLocales.first;
+    locale = WidgetsBinding.instance.platformDispatcher.locale;
   }
 
   // 1) Exact match: language + (optional) country
@@ -67,7 +67,7 @@ Locale? _localeResolutionCallback(
 
   // 2) Language-only match
   final languageOnly = supportedLocales.firstWhere(
-    (l) => l.languageCode == locale.languageCode,
+    (l) => l.languageCode == locale?.languageCode,
     orElse: () => const Locale('@@__no_match__@@'),
   );
   if (languageOnly.languageCode != '@@__no_match__@@') {
