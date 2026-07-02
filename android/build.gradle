@@ -16,6 +16,25 @@ subprojects {
 }
 
 subprojects { subproject ->
+    def configureAndroidJvmTarget = {
+        def applyAndroidCompileOptions = {
+            def androidExtension = subproject.extensions.findByName("android")
+            if (androidExtension != null) {
+                androidExtension.compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_11
+                    targetCompatibility JavaVersion.VERSION_11
+                }
+            }
+        }
+
+        applyAndroidCompileOptions()
+
+        subproject.tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = JavaVersion.VERSION_11.toString()
+            targetCompatibility = JavaVersion.VERSION_11.toString()
+        }
+    }
+
     subproject.plugins.withId("com.android.library") {
         def androidExtension = subproject.extensions.findByName("android")
         if (androidExtension != null && androidExtension.hasProperty("namespace")) {
@@ -24,6 +43,48 @@ subprojects { subproject ->
             }
         }
 
+        configureAndroidJvmTarget()
+    }
+
+    subproject.plugins.withId("com.android.application") {
+        configureAndroidJvmTarget()
+    }
+
+    subproject.plugins.withId("kotlin-android") {
+        def configureKotlinCompileTasks = {
+            subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "11"
+                }
+            }
+        }
+
+        configureKotlinCompileTasks()
+    }
+}
+
+gradle.projectsEvaluated {
+    subprojects { subproject ->
+        def androidExtension = subproject.extensions.findByName("android")
+        if (androidExtension != null) {
+            androidExtension.compileOptions {
+                sourceCompatibility JavaVersion.VERSION_11
+                targetCompatibility JavaVersion.VERSION_11
+            }
+        }
+
+        subproject.tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = JavaVersion.VERSION_11.toString()
+            targetCompatibility = JavaVersion.VERSION_11.toString()
+        }
+
+        subproject.plugins.withId("kotlin-android") {
+            subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "11"
+                }
+            }
+        }
     }
 }
 
