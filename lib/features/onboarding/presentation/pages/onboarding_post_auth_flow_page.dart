@@ -9,6 +9,7 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
@@ -16,6 +17,8 @@ import 'package:moneko/features/import/presentation/pages/import_wizard_page.dar
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_actions.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -26,6 +29,8 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
 const _kTotalSteps = 3;
+const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
+const _kTrialGrantTimeout = Duration(seconds: 20);
 
 Future<void> _maybeShowOnboardingReviewPrompt(
   WidgetRef ref, {
@@ -52,6 +57,80 @@ Future<void> _maybeShowOnboardingReviewPrompt(
   try {
     await inAppReview.requestReview();
   } catch (_) {}
+}
+
+Future<bool?> _hasSubscriptionRow(String userId) async {
+  try {
+    final row = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+    return row != null;
+  } catch (error, stackTrace) {
+    debugPrint(
+      '[OnboardingPostAuth] Subscription row check failed: $error\n$stackTrace',
+    );
+    return null;
+  }
+}
+
+Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
+  final userId = ref.read(authProvider).uid;
+  if (userId.isEmpty) return false;
+
+  await ref
+      .read(subscriptionManagementProvider.notifier)
+      .refresh()
+      .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+    debugPrint(
+      '[OnboardingPostAuth] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
+    );
+  });
+  await ref
+      .read(subscriptionNotifierProvider.notifier)
+      .refresh()
+      .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+    debugPrint(
+      '[OnboardingPostAuth] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
+    );
+  });
+
+  final subscriptionDetails =
+      ref.read(subscriptionManagementProvider).valueOrNull;
+  if (subscriptionDetails?.hasActiveSubscription ?? false) {
+    return true;
+  }
+
+  final hasSubscription = await _hasSubscriptionRow(userId);
+  if (hasSubscription == true) return true;
+  if (hasSubscription == null) return false;
+
+  try {
+    debugPrint(
+      '[OnboardingPostAuth] No subscription detected; retrying onboarding free trial activation',
+    );
+    await ref
+        .read(subscriptionManagementProvider.notifier)
+        .grantPaywallReturnTrial()
+        .timeout(_kTrialGrantTimeout);
+    await ref
+        .read(subscriptionManagementProvider.notifier)
+        .refresh()
+        .timeout(_kSubscriptionRefreshTimeout);
+    await ref
+        .read(subscriptionNotifierProvider.notifier)
+        .refresh()
+        .timeout(_kSubscriptionRefreshTimeout);
+
+    return await _hasSubscriptionRow(userId) == true;
+  } catch (error, stackTrace) {
+    debugPrint(
+      '[OnboardingPostAuth] Free trial activation failed: $error\n$stackTrace',
+    );
+    return await _hasSubscriptionRow(userId) == true;
+  }
 }
 
 class OnboardingPostAuthFlowPage extends HookConsumerWidget {
@@ -338,6 +417,19 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   }
 
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
+    if (!fromSettings) {
+      final hasRequiredSubscription = await _ensurePostAuthTrial(ref);
+      if (!hasRequiredSubscription) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(context.l10n.onboardingPreparingBodyErrorRetry)),
+          );
+        }
+        return;
+      }
+    }
+
     await _markOnboardingCompleted(ref);
     if (!context.mounted) return;
     if (fromSettings) {

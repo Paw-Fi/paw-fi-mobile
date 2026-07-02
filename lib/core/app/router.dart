@@ -386,6 +386,21 @@ GoRouter router(RouterRef ref) {
         final everSubscribed = isAuthenticated
             ? (prefs.getBool('ever_subscribed:${auth.uid}') ?? false)
             : false;
+        final paywallRedirect = everSubscribed || hasExpiredEntitlement
+            ? '/paywall?mode=resubscribe'
+            : '/paywall?mode=trial';
+        final trialRepairRedirect = !everSubscribed && !hasExpiredEntitlement
+            ? '/onboarding?stage=prepare'
+            : paywallRedirect;
+        if (kDebugMode) {
+          debugPrint(
+            '💳 Paywall gate: requiresPaywall=$requiresPaywall '
+            'isSubscriptionChecking=$isSubscriptionChecking '
+            'hasExpiredEntitlement=$hasExpiredEntitlement '
+            'everSubscribed=$everSubscribed redirect=$paywallRedirect '
+            'path=${state.matchedLocation}',
+          );
+        }
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
         if (appInitStateV2.state == AppInitState.failed &&
@@ -416,9 +431,8 @@ GoRouter router(RouterRef ref) {
               return '/onboarding?stage=post';
             }
             if (!isSubscriptionChecking &&
-                ((requiresPaywall && everSubscribed) ||
-                    hasExpiredEntitlement)) {
-              return '/paywall?mode=resubscribe';
+                (requiresPaywall || hasExpiredEntitlement)) {
+              return trialRepairRedirect;
             }
             return '/dashboard';
           } else {
@@ -475,6 +489,10 @@ GoRouter router(RouterRef ref) {
             );
           }
 
+          if (!isSubscriptionChecking &&
+              (requiresPaywall || hasExpiredEntitlement)) {
+            return trialRepairRedirect;
+          }
           return '/dashboard';
         }
 
@@ -516,6 +534,12 @@ GoRouter router(RouterRef ref) {
         // if the widget-level navigation did not run.
         if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
           if (!isSubscriptionChecking &&
+              requiresPaywall &&
+              !everSubscribed &&
+              !hasExpiredEntitlement) {
+            return '/onboarding?stage=prepare';
+          }
+          if (!isSubscriptionChecking &&
               !requiresPaywall &&
               !hasExpiredEntitlement) {
             return '/dashboard';
@@ -524,6 +548,10 @@ GoRouter router(RouterRef ref) {
         }
 
         if (!kIsWeb && isOnPlanSelectionPage && isAuthenticated) {
+          if (!isSubscriptionChecking &&
+              (requiresPaywall || hasExpiredEntitlement)) {
+            return trialRepairRedirect;
+          }
           return null;
         }
 
@@ -550,8 +578,8 @@ GoRouter router(RouterRef ref) {
             return '/onboarding?stage=post';
           }
           if (!isSubscriptionChecking &&
-              ((requiresPaywall && everSubscribed) || hasExpiredEntitlement)) {
-            return '/paywall?mode=resubscribe';
+              (requiresPaywall || hasExpiredEntitlement)) {
+            return trialRepairRedirect;
           }
           return '/dashboard';
         }
@@ -562,12 +590,12 @@ GoRouter router(RouterRef ref) {
             isPreauthSynced &&
             hasOnboarded &&
             !isSubscriptionChecking &&
-            ((requiresPaywall && everSubscribed) || hasExpiredEntitlement) &&
+            (requiresPaywall || hasExpiredEntitlement) &&
             !isOnPaywallPage &&
             !isOnPlanSelectionPage &&
             !isOnboardingPage &&
             !isOnPrepareOnboardingPage) {
-          return '/paywall?mode=resubscribe';
+          return trialRepairRedirect;
         }
 
         // Allow navigation (includes when subscription is loading)

@@ -42,6 +42,29 @@ void _debugLog(Object? message) {
 // ignore: avoid_print
 void print(Object? message) => _debugLog(message);
 
+int? _computeTrialDaysLeft(DateTime? trialEndAt) {
+  if (trialEndAt == null) return null;
+
+  final nowUtc = DateTime.now().toUtc();
+  final endUtc = trialEndAt.toUtc();
+  if (!endUtc.isAfter(nowUtc)) return null;
+
+  final remaining = endUtc.difference(nowUtc);
+  return (remaining.inMilliseconds / Duration.millisecondsPerDay).ceil();
+}
+
+String? _trialDaysLeftLabel(BuildContext context, Subscription? subscription) {
+  if (subscription?.status?.toLowerCase() != 'trialing') return null;
+
+  final daysLeft = _computeTrialDaysLeft(subscription?.currentPeriodEnd);
+  if (daysLeft == null) return null;
+
+  final daysLeftLabel = daysLeft == 1
+      ? context.l10n.dayLeft(daysLeft)
+      : context.l10n.daysLeft(daysLeft);
+  return '${context.l10n.freeTrial}: $daysLeftLabel';
+}
+
 const bool forceUseStripeCheckout = false;
 const String purchaseOwnedByAnotherAccountCode =
     'PURCHASE_OWNED_BY_ANOTHER_ACCOUNT';
@@ -125,14 +148,16 @@ class PlanSelectionPage extends HookConsumerWidget {
       preferredPlanFamily ?? _PlanFamily.plus,
     );
     final lastSyncedPlanFamilyForPlan = useRef<String?>(null);
-    final currentInterval = currentSub?.subscription?.billingInterval;
-    final currentProvider = currentSub?.subscription?.provider;
+    final currentSubscription = currentSub?.subscription;
+    final currentInterval = currentSubscription?.billingInterval;
+    final currentProvider = currentSubscription?.provider;
     final normalizedProvider = currentProvider?.toLowerCase().trim();
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
     final renewalInfoLabel = currentSub?.renewalInfo(context.l10n);
-    final hasActiveSubscription =
-        currentSub?.subscription?.isSubscribed ?? false;
-    final currentSubscription = currentSub?.subscription;
+    final trialDaysLeftLabel =
+        _trialDaysLeftLabel(context, currentSubscription);
+    final currentPlanInfoLabel = trialDaysLeftLabel ?? renewalInfoLabel;
+    final hasActiveSubscription = currentSubscription?.isSubscribed ?? false;
     final isHouseholdSharedSubscription =
         currentSubscription?.boundToUserId != null;
     final isFamilySharedSubscription =
@@ -1231,8 +1256,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                                           children: [
                                             Flexible(
                                               child: Text(
-                                               
-                                                    context.l10n.currentPlan,
+                                                context.l10n.currentPlan,
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
@@ -1274,10 +1298,10 @@ class PlanSelectionPage extends HookConsumerWidget {
                                             ],
                                           ],
                                         ),
-                                        if (renewalInfoLabel != null) ...[
+                                        if (currentPlanInfoLabel != null) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            renewalInfoLabel,
+                                            currentPlanInfoLabel,
                                             style: TextStyle(
                                               fontSize: 13,
                                               color:

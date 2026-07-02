@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -62,18 +61,19 @@ class TrialReminderBannerGate extends HookConsumerWidget {
     final hasConfirmedPaidAccess =
         hasPaidAccessFromPrimary || hasPaidAccessFromManagement;
 
-    final trialEndsAt = subscription?.status?.toLowerCase() == 'trialing'
-        ? subscription?.currentPeriodEnd
-        : null;
+    final trialSubscription = subscription?.status?.toLowerCase() == 'trialing'
+        ? subscription
+        : managedSubscription?.status?.toLowerCase() == 'trialing'
+            ? managedSubscription
+            : null;
+    final trialEndsAt = trialSubscription?.currentPeriodEnd;
     final computedTrialDaysLeft = _computeTrialDaysLeft(trialEndsAt);
-    final effectiveTrialDaysLeft =
-        kDebugMode ? (computedTrialDaysLeft ?? 7) : computedTrialDaysLeft;
+    final effectiveTrialDaysLeft = computedTrialDaysLeft;
     final trialReminderMilestone =
         _trialReminderMilestoneForDaysLeft(effectiveTrialDaysLeft);
 
     final trialEndMs = trialEndsAt?.toUtc().millisecondsSinceEpoch;
-    final trialReminderDismissKey = !kDebugMode &&
-            auth.uid.isNotEmpty &&
+    final trialReminderDismissKey = auth.uid.isNotEmpty &&
             trialEndMs != null &&
             trialReminderMilestone != null
         ? _trialReminderDismissedMilestoneKey(
@@ -86,11 +86,6 @@ class TrialReminderBannerGate extends HookConsumerWidget {
     final hasResolvedTrialReminderVisibility = useState(false);
 
     useEffect(() {
-      if (kDebugMode) {
-        hasResolvedTrialReminderVisibility.value = true;
-        return null;
-      }
-
       var disposed = false;
       hasResolvedTrialReminderVisibility.value = false;
 
@@ -134,8 +129,7 @@ class TrialReminderBannerGate extends HookConsumerWidget {
         effectiveTrialDaysLeft != null &&
         trialReminderMilestone != null &&
         hasResolvedTrialReminderVisibility.value &&
-        (kDebugMode ||
-            trialReminderDismissedMilestone.value == null ||
+        (trialReminderDismissedMilestone.value == null ||
             trialReminderMilestone < trialReminderDismissedMilestone.value!);
 
     if (!shouldShowTrialReminderBanner) {
@@ -182,11 +176,6 @@ class TrialReminderBannerGate extends HookConsumerWidget {
           }());
         },
         onDismissTap: () {
-          if (kDebugMode) {
-            // In debug mode this banner is intentionally always visible.
-            return;
-          }
-
           if (trialReminderDismissKey == null) {
             return;
           }

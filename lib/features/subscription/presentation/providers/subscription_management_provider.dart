@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -112,23 +115,57 @@ class SubscriptionManagementNotifier
   }
 
   Future<void> grantPaywallReturnTrial() async {
-    await _updateSubscription(
-      action: 'grant_paywall_return_trial',
-    );
-  }
+    final user = ref.read(authProvider);
+    if (user.isEmpty) throw Exception('User not logged in');
 
-  Future<void> markPaywallReturnExit({
-    DateTime? exitedAtUtc,
-  }) async {
+    final session = supabase.auth.currentSession;
+    final accessToken = session?.accessToken;
+    final supabaseUrl = Constants.supabaseUrl.trim();
+    final anonKey = Constants.supabaseAnon.trim();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw Exception('Missing Supabase session for trial activation');
+    }
+    if (supabaseUrl.isEmpty || anonKey.isEmpty) {
+      throw Exception('Supabase configuration is missing');
+    }
+
     try {
-      await _updateSubscription(
-        action: 'mark_paywall_return_exit',
-        exitedAtUtc: exitedAtUtc,
-        refreshAfterUpdate: false,
+      final uri = Uri.parse('$supabaseUrl/functions/v1/update-subscription');
+      appLog('Granting onboarding trial via direct HTTP: $uri',
+          name: 'SubscriptionManagement');
+      final response = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'apikey': anonKey,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'action': 'grant_paywall_return_trial',
+        }),
       );
+
+      appLog(
+        'Trial grant HTTP response status=${response.statusCode} body=${response.body}',
+        name: 'SubscriptionManagement',
+      );
+
+      if (response.statusCode >= 400) {
+        String errorMsg = 'Failed to grant onboarding trial';
+        try {
+          final payload = jsonDecode(response.body);
+          if (payload is Map && payload['error'] != null) {
+            errorMsg = payload['error'].toString();
+          }
+        } catch (_) {}
+        throw Exception(errorMsg);
+      }
+
+      await refresh();
     } catch (e, stack) {
-      appLog('Failed to mark paywall return exit',
+      appLog('Error granting onboarding trial',
           name: 'SubscriptionManagement', error: e, stackTrace: stack);
+      rethrow;
     }
   }
 
@@ -136,7 +173,6 @@ class SubscriptionManagementNotifier
     required String action,
     String? plan,
     String? billingInterval,
-    DateTime? exitedAtUtc,
     bool refreshAfterUpdate = true,
   }) async {
     final user = ref.read(authProvider);
@@ -151,8 +187,6 @@ class SubscriptionManagementNotifier
           'action': action,
           if (plan != null) 'plan': plan,
           if (billingInterval != null) 'billingInterval': billingInterval,
-          if (exitedAtUtc != null)
-            'exitAtIso': exitedAtUtc.toUtc().toIso8601String(),
         },
       );
 

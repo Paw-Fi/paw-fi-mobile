@@ -496,7 +496,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> ensureOnboardingSubscription({
+    Future<bool> ensureOnboardingSubscription({
       required String userId,
       required _ExistingAccountState existingState,
       required void Function({
@@ -505,7 +505,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         bool? done,
       }) setProgressState,
     }) async {
-      if (isGrantingOnboardingTrial.value) return;
+      if (isGrantingOnboardingTrial.value) return false;
 
       final prefs = ref.read(sharedPreferencesProvider);
       final alreadyGrantedLocally =
@@ -538,7 +538,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         debugPrint(
           '[OnboardingPrep] Active subscription detected; skipping onboarding trial bootstrap',
         );
-        return;
+        return true;
       }
 
       final hasSubscriptionNow = await hasSubscriptionRow(userId);
@@ -546,20 +546,20 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         debugPrint(
           '[OnboardingPrep] Subscription row check unavailable; skipping onboarding trial bootstrap',
         );
-        return;
+        return false;
       }
       if (hasSubscriptionNow || existingState.hasSubscriptionData) {
         debugPrint(
           '[OnboardingPrep] Existing non-active subscription found; leaving account unchanged for resubscribe flow',
         );
-        return;
+        return true;
       }
 
       if (alreadyGrantedLocally) {
         debugPrint(
-          '[OnboardingPrep] Onboarding trial already granted locally; skipping duplicate activation',
+          '[OnboardingPrep] Local grant marker exists but no server subscription row was found; retrying activation',
         );
-        return;
+        await prefs.remove(paywallReturnTrialGrantedKey(userId));
       }
 
       isGrantingOnboardingTrial.value = true;
@@ -577,8 +577,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             .grantPaywallReturnTrial()
             .timeout(_kTrialGrantTimeout);
 
-        await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
-
         try {
           await ref
               .read(subscriptionManagementProvider.notifier)
@@ -593,6 +591,15 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             '[OnboardingPrep] Post-grant refresh failed: $refreshError\n$refreshStackTrace',
           );
         }
+
+        final hasGrantedSubscription = await hasSubscriptionRow(userId);
+        if (hasGrantedSubscription != true) {
+          throw Exception(
+              'Free trial activation did not create a subscription row');
+        }
+
+        await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+        return true;
       } on TimeoutException catch (error, stackTrace) {
         debugPrint(
           '[OnboardingPrep] Free trial activation timed out: $error\n$stackTrace',
@@ -601,14 +608,20 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         final message = error.toString().toLowerCase();
         if (message.contains('already granted') ||
             message.contains('already has active subscription access')) {
-          await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+          final hasGrantedSubscription = await hasSubscriptionRow(userId);
+          if (hasGrantedSubscription == true) {
+            await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+            return true;
+          }
         }
         debugPrint(
           '[OnboardingPrep] Free trial activation failed: $error\n$stackTrace',
         );
+        return false;
       } finally {
         isGrantingOnboardingTrial.value = false;
       }
+      return false;
     }
 
     Future<void> runSync() async {
@@ -649,11 +662,21 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           '$_kBudgetSyncFailurePrefix${user.uid}:$budgetSyncScope';
       final wasAlreadySynced = store.isSyncedForUser(user.uid);
       final existingState = await loadExistingAccountState(user.uid);
-      await ensureOnboardingSubscription(
+      final hasRequiredSubscription = await ensureOnboardingSubscription(
         userId: user.uid,
         existingState: existingState,
         setProgressState: setProgressState,
       );
+      if (!hasRequiredSubscription) {
+        setProgressState(
+          progressValue: 0.1,
+          label: l10n.onboardingPreparingProgressErrorRetry,
+          done: false,
+        );
+        setupError.value = 'subscription_setup_failed';
+        didStart.value = false;
+        return;
+      }
       final hasExistingData = existingState.hasMeaningfulData;
       final shouldRunOnboardingPrep = !wasAlreadySynced || !hasExistingData;
       final shouldApplyStarterSync =
