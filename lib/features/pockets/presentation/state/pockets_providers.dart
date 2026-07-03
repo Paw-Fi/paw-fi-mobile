@@ -35,7 +35,10 @@ void _debugLog(String message) {
   }
 }
 
-bool _isMissingRolloverColumnError(Object error) {
+const rolloverBackendUnavailableMessage =
+    'Pocket rollover is not available until the app backend is updated.';
+
+bool isMissingRolloverColumnError(Object error) {
   if (error is! PostgrestException) return false;
   final message =
       '${error.code} ${error.message} ${error.details} ${error.hint}'
@@ -96,7 +99,6 @@ class PocketRolloverBreakdownCents {
   final int carryToNextPeriodCents;
 }
 
-@foundation.visibleForTesting
 PocketRolloverBreakdownCents calculatePocketRolloverBreakdownCents({
   required int baseBudgetCents,
   required int incomingRolloverCents,
@@ -119,7 +121,7 @@ PocketRolloverBreakdownCents calculatePocketRolloverBreakdownCents({
   }
 
   if (!rolloverEnabled) {
-    final remaining = math.max(sanitizedBase - sanitizedSpent, 0);
+    final remaining = sanitizedBase - sanitizedSpent;
     return PocketRolloverBreakdownCents(
       baseBudgetCents: sanitizedBase,
       rolloverFromPreviousCents: 0,
@@ -3282,7 +3284,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final envelopesRes = await envelopesQuery.order('name');
         envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       } catch (e) {
-        if (!_isMissingRolloverColumnError(e)) rethrow;
+        if (!isMissingRolloverColumnError(e)) rethrow;
         _debugLog(
           '[Pockets][Copy] Rollover columns unavailable; retrying legacy source envelope select.',
         );
@@ -3908,9 +3910,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         ref.read(widgetSyncVersionProvider.notifier).state++;
         return;
       }
+      if (queuedMutationId != null && isMissingRolloverColumnError(e)) {
+        final database = await ref.read(localDatabaseProvider.future);
+        await database.markMutationCancelled(
+          clientMutationId: queuedMutationId,
+          error: e,
+        );
+      }
       if (!mounted) return;
       state = previousState.copyWith(
-        error: ErrorHandler.getUserFriendlyMessage(e),
+        error: isMissingRolloverColumnError(e)
+            ? rolloverBackendUnavailableMessage
+            : ErrorHandler.getUserFriendlyMessage(e),
       );
     }
   }
@@ -4300,7 +4311,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final envelopesRes = await envelopesQuery.order('name');
         envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       } catch (e) {
-        if (!_isMissingRolloverColumnError(e)) rethrow;
+        if (!isMissingRolloverColumnError(e)) rethrow;
         _debugLog(
           '[Pockets][Copy] Rollover columns unavailable; retrying legacy current-month source envelope select.',
         );

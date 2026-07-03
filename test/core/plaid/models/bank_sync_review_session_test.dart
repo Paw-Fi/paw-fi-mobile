@@ -31,6 +31,7 @@ void main() {
         flowReason: null,
         provider: 'plaid',
         targetHouseholdId: null,
+        defaultAccountName: 'Bank account',
       );
 
       expect(session.connectionId, 'connection-1');
@@ -69,6 +70,7 @@ void main() {
         flowReason: null,
         provider: 'tink',
         targetHouseholdId: 'household-1',
+        defaultAccountName: 'Bank account',
       );
 
       final account = session.accounts.first;

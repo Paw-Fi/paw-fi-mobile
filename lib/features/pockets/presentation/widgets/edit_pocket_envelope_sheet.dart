@@ -11,6 +11,7 @@ import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
@@ -789,11 +790,23 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           }
           return;
         }
+        if (queuedMutationId != null && isMissingRolloverColumnError(e)) {
+          final database = await ref.read(localDatabaseProvider.future);
+          await database.markMutationCancelled(
+            clientMutationId: queuedMutationId,
+            error: e,
+          );
+        }
         ref
             .read(pocketsProvider(scopeParams).notifier)
             .restoreOptimisticPockets(previousPocketsState);
         if (context.mounted) {
-          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
+          AppToast.error(
+            context,
+            isMissingRolloverColumnError(e)
+                ? rolloverBackendUnavailableMessage
+                : ErrorHandler.getUserFriendlyMessage(e),
+          );
         }
       } finally {
         if (context.mounted) {
