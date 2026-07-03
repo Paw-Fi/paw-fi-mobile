@@ -28,7 +28,6 @@ import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
@@ -47,8 +46,6 @@ import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
-import 'package:moneko/features/home/presentation/widgets/ai_camera_capture_view.dart';
-import 'package:moneko/features/home/presentation/widgets/ai_input_target.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
@@ -1966,6 +1963,7 @@ String _imageContentTypeForPath(String path) {
   return switch (extension) {
     'png' => 'image/png',
     'heic' => 'image/heic',
+    'heif' => 'image/heif',
     'webp' => 'image/webp',
     'jpg' || 'jpeg' => 'image/jpeg',
     _ => 'image/jpeg',
@@ -1978,7 +1976,14 @@ bool _isAiImagePath(String path) {
       extension == 'jpeg' ||
       extension == 'png' ||
       extension == 'heic' ||
+      extension == 'heif' ||
       extension == 'webp';
+}
+
+bool _isAiImageInput(AiSharedInputFile file) {
+  final mimeType = file.mimeType?.trim().toLowerCase();
+  if (mimeType != null && mimeType.startsWith('image/')) return true;
+  return _isAiImagePath(file.path);
 }
 
 String? _attachmentContentTypeForPath(String path) {
@@ -2300,7 +2305,8 @@ Future<void> handleSharedAiInputFiles(
       continue;
     }
 
-    if (_isAiImagePath(path)) {
+    if (_isAiImageInput(sharedFile)) {
+      if (!context.mounted) return;
       handledAnyFile = true;
       await _processExpense(
         context,
@@ -2332,6 +2338,7 @@ Future<void> handleSharedAiInputFiles(
     }
 
     handledAnyFile = true;
+    if (!context.mounted) return;
     await _processExpense(
       context,
       ref,
@@ -3134,6 +3141,7 @@ Future<void> _processExpense(
             return;
           }
 
+          if (!context.mounted) return;
           final optimisticTargetLabel = _resolveLogTargetLabelFromInputTarget(
             context,
             ref,

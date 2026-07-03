@@ -66,14 +66,16 @@ class _AiShareIntentListenerState extends ConsumerState<AiShareIntentListener> {
 
   void _enqueueSharedMedia(List<SharedMediaFile> media) {
     final files = media
-        .map((item) => item.path.trim())
-        .where((path) => path.isNotEmpty)
-        .map(
-          (path) => AiSharedInputFile(
+        .map((item) {
+          final path = item.path.trim();
+          if (path.isEmpty) return null;
+          return AiSharedInputFile(
             path: path,
             name: _fileNameFromPath(path),
-          ),
-        )
+            mimeType: item.mimeType,
+          );
+        })
+        .whereType<AiSharedInputFile>()
         .toList(growable: false);
     if (files.isEmpty) return;
 
