@@ -20,7 +20,11 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		A1B2C3D4E5F60718293A4B5C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* Localizable.xcstrings */; };
+		A9F3B0012F72000100ABC001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F3B0062F72000100ABC001 /* ShareViewController.swift */; };
+		A9F3B0022F72000100ABC001 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A9F3B00A2F72000100ABC001 /* MainInterface.storyboard */; };
+		A9F3B0032F72000100ABC001 /* MonekoShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A9F3B0052F72000100ABC001 /* MonekoShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B39585E1CB34561AB97A1D81 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AA2B6F679C3105DB9184BBA9 /* GoogleService-Info.plist */; };
+		E77E4638634E00A258FF8732 /* Pods_MonekoShareExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F05DE03733CD16DE9AFD6A91 /* Pods_MonekoShareExtension.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +42,13 @@
 			remoteGlobalIDString = 566C1C902EDE3B9D00858215;
 			remoteInfo = MonekoWidgetExtension;
 		};
+		A9F3B0042F72000100ABC001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A9F3B00D2F72000100ABC001;
+			remoteInfo = MonekoShareExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -48,6 +59,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				566C1CA72EDE3B9E00858215 /* MonekoWidgetExtension.appex in Embed Foundation Extensions */,
+				A9F3B0032F72000100ABC001 /* MonekoShareExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -65,6 +77,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0376FE5AA24BBBF6707AC644 /* Pods-MonekoShareExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MonekoShareExtension.debug.xcconfig"; path = "Target Support Files/Pods-MonekoShareExtension/Pods-MonekoShareExtension.debug.xcconfig"; sourceTree = "<group>"; };
 		0F77AB416B43EFF300488BD4 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -83,6 +96,7 @@
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
+		8CFE1219A7D47F16261DD9FE /* Pods-MonekoShareExtension.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MonekoShareExtension.profile.xcconfig"; path = "Target Support Files/Pods-MonekoShareExtension/Pods-MonekoShareExtension.profile.xcconfig"; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -90,9 +104,16 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9D1EA180A38372B4EE789B13 /* Pods-MonekoShareExtension.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MonekoShareExtension.release.xcconfig"; path = "Target Support Files/Pods-MonekoShareExtension/Pods-MonekoShareExtension.release.xcconfig"; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A9F3B0052F72000100ABC001 /* MonekoShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MonekoShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A9F3B0062F72000100ABC001 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		A9F3B0072F72000100ABC001 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
+		A9F3B0082F72000100ABC001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A9F3B0092F72000100ABC001 /* MonekoShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MonekoShareExtension.entitlements; sourceTree = "<group>"; };
 		AA2B6F679C3105DB9184BBA9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		D34B71F105E700D4A50CA9BE /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		F05DE03733CD16DE9AFD6A91 /* Pods_MonekoShareExtension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MonekoShareExtension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -146,6 +167,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A9F3B00C2F72000100ABC001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E77E4638634E00A258FF8732 /* Pods_MonekoShareExtension.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -156,6 +185,7 @@
 				566C1C942EDE3B9D00858215 /* SwiftUI.framework */,
 				0F77AB416B43EFF300488BD4 /* Pods_Runner.framework */,
 				30ECA6C10082FEA741888F73 /* Pods_RunnerTests.framework */,
+				F05DE03733CD16DE9AFD6A91 /* Pods_MonekoShareExtension.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -169,6 +199,9 @@
 				38E063C39FA79ED0B698B724 /* Pods-RunnerTests.debug.xcconfig */,
 				D34B71F105E700D4A50CA9BE /* Pods-RunnerTests.release.xcconfig */,
 				32D26529551B99EAD611ED45 /* Pods-RunnerTests.profile.xcconfig */,
+				0376FE5AA24BBBF6707AC644 /* Pods-MonekoShareExtension.debug.xcconfig */,
+				9D1EA180A38372B4EE789B13 /* Pods-MonekoShareExtension.release.xcconfig */,
+				8CFE1219A7D47F16261DD9FE /* Pods-MonekoShareExtension.profile.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -198,6 +231,7 @@
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				566C1C962EDE3B9D00858215 /* MonekoWidget */,
+				A9F3B00B2F72000100ABC001 /* MonekoShareExtension */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				1072855EA654D2117712B437 /* Pods */,
@@ -212,6 +246,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				566C1C912EDE3B9D00858215 /* MonekoWidgetExtension.appex */,
+				A9F3B0052F72000100ABC001 /* MonekoShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -230,6 +265,17 @@
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		A9F3B00B2F72000100ABC001 /* MonekoShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				A9F3B0092F72000100ABC001 /* MonekoShareExtension.entitlements */,
+				A9F3B0082F72000100ABC001 /* Info.plist */,
+				A9F3B0062F72000100ABC001 /* ShareViewController.swift */,
+				A9F3B00A2F72000100ABC001 /* MainInterface.storyboard */,
+			);
+			path = MonekoShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -295,11 +341,30 @@
 			);
 			dependencies = (
 				566C1CA52EDE3B9E00858215 /* PBXTargetDependency */,
+				A9F3B0102F72000100ABC001 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A9F3B00D2F72000100ABC001 /* MonekoShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A9F3B0142F72000100ABC001 /* Build configuration list for PBXNativeTarget "MonekoShareExtension" */;
+			buildPhases = (
+				AF743E28A2AEBCE994FC9C72 /* [CP] Check Pods Manifest.lock */,
+				A9F3B00F2F72000100ABC001 /* Sources */,
+				A9F3B00C2F72000100ABC001 /* Frameworks */,
+				A9F3B00E2F72000100ABC001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MonekoShareExtension;
+			productName = MonekoShareExtension;
+			productReference = A9F3B0052F72000100ABC001 /* MonekoShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -323,6 +388,9 @@
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
 					};
+					A9F3B00D2F72000100ABC001 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
 				};
 			};
 			buildConfigurationList = 97C146E91CF9000F007C117D /* Build configuration list for PBXProject "Runner" */;
@@ -341,6 +409,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				566C1C902EDE3B9D00858215 /* MonekoWidgetExtension */,
+				A9F3B00D2F72000100ABC001 /* MonekoShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -370,6 +439,14 @@
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				A1B2C3D4E5F60718293A4B5C /* Localizable.xcstrings in Resources */,
 				B39585E1CB34561AB97A1D81 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A9F3B00E2F72000100ABC001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9F3B0022F72000100ABC001 /* MainInterface.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -480,6 +557,28 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		AF743E28A2AEBCE994FC9C72 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-MonekoShareExtension-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 		B4BD3BE87379982146F53349 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -546,6 +645,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A9F3B00F2F72000100ABC001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9F3B0012F72000100ABC001 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -558,6 +665,11 @@
 			isa = PBXTargetDependency;
 			target = 566C1C902EDE3B9D00858215 /* MonekoWidgetExtension */;
 			targetProxy = 566C1CA42EDE3B9E00858215 /* PBXContainerItemProxy */;
+		};
+		A9F3B0102F72000100ABC001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A9F3B00D2F72000100ABC001 /* MonekoShareExtension */;
+			targetProxy = A9F3B0042F72000100ABC001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -576,6 +688,14 @@
 				97C147001CF9000F007C117D /* Base */,
 			);
 			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+		A9F3B00A2F72000100ABC001 /* MainInterface.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A9F3B0072F72000100ABC001 /* Base */,
+			);
+			name = MainInterface.storyboard;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -639,6 +759,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "Runner/Runner-Production.entitlements";
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.moneko.mobile;
 				DEVELOPMENT_TEAM = GW28HYRJ9H;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -961,6 +1082,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.moneko.mobile;
 				DEVELOPMENT_TEAM = GW28HYRJ9H;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -989,6 +1111,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "Runner/Runner-Production.entitlements";
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.moneko.mobile;
 				DEVELOPMENT_TEAM = GW28HYRJ9H;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -1007,6 +1130,117 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		A9F3B0112F72000100ABC001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0376FE5AA24BBBF6707AC644 /* Pods-MonekoShareExtension.debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MonekoShareExtension/MonekoShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.moneko.mobile;
+				DEVELOPMENT_TEAM = GW28HYRJ9H;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MonekoShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Moneko;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				PRODUCT_BUNDLE_IDENTIFIER = com.moneko.mobile.MonekoShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A9F3B0122F72000100ABC001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9D1EA180A38372B4EE789B13 /* Pods-MonekoShareExtension.release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MonekoShareExtension/MonekoShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.moneko.mobile;
+				DEVELOPMENT_TEAM = GW28HYRJ9H;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MonekoShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Moneko;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.moneko.mobile.MonekoShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A9F3B0132F72000100ABC001 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8CFE1219A7D47F16261DD9FE /* Pods-MonekoShareExtension.profile.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MonekoShareExtension/MonekoShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.moneko.mobile;
+				DEVELOPMENT_TEAM = GW28HYRJ9H;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MonekoShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Moneko;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.moneko.mobile.MonekoShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1047,6 +1281,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A9F3B0142F72000100ABC001 /* Build configuration list for PBXNativeTarget "MonekoShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9F3B0112F72000100ABC001 /* Debug */,
+				A9F3B0122F72000100ABC001 /* Release */,
+				A9F3B0132F72000100ABC001 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
