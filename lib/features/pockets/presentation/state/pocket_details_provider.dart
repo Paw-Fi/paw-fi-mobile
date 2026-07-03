@@ -9,6 +9,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 class PocketTransactionsParams {
@@ -44,26 +45,6 @@ class DailySpend {
   DailySpend({required this.day, required this.amount});
 }
 
-class PocketRolloverHistoryMonth {
-  const PocketRolloverHistoryMonth({
-    required this.periodMonth,
-    required this.baseBudgetCents,
-    required this.rolloverFromPreviousCents,
-    required this.openingRolloverCents,
-    required this.availableBudgetCents,
-    required this.spentCents,
-    required this.remainingCents,
-  });
-
-  final DateTime periodMonth;
-  final int baseBudgetCents;
-  final int rolloverFromPreviousCents;
-  final int openingRolloverCents;
-  final int availableBudgetCents;
-  final int spentCents;
-  final int remainingCents;
-}
-
 class PocketDetailsData {
   final List<Map<String, dynamic>> transactions;
   final List<Map<String, dynamic>> aggregateTransactions;
@@ -74,6 +55,7 @@ class PocketDetailsData {
   final double projectedSpend;
   final double dailyAverage;
   final List<PocketRolloverHistoryMonth> rolloverHistory;
+  final PocketRolloverBreakdown? rolloverBreakdown;
 
   PocketDetailsData({
     required this.transactions,
@@ -85,6 +67,7 @@ class PocketDetailsData {
     required this.projectedSpend,
     required this.dailyAverage,
     required this.rolloverHistory,
+    required this.rolloverBreakdown,
   });
 }
 
@@ -118,8 +101,8 @@ final pocketDetailsProvider =
 
   final pocketsState = ref.watch(pocketsProvider(params.scopeParams));
   final pocket = _findPocketEnvelope(pocketsState, params.pocketId);
-  final rolloverHistory = pocket?.rolloverEnabled == true
-      ? await _fetchPocketRolloverHistory(
+  final rolloverBreakdown = pocket?.rolloverEnabled == true
+      ? await _fetchPocketRolloverBreakdown(
           userId: authUser.uid,
           scopeType: params.scopeParams.scope,
           householdId: params.scopeParams.householdId,
@@ -127,7 +110,19 @@ final pocketDetailsProvider =
           rolloverGroupId: pocket?.rolloverGroupId,
           periodMonth: monthStart,
         )
-      : const <PocketRolloverHistoryMonth>[];
+      : null;
+  final rolloverHistory = rolloverBreakdown?.monthlyHistory.isNotEmpty == true
+      ? rolloverBreakdown!.monthlyHistory
+      : pocket?.rolloverEnabled == true
+          ? await _fetchPocketRolloverHistory(
+              userId: authUser.uid,
+              scopeType: params.scopeParams.scope,
+              householdId: params.scopeParams.householdId,
+              currency: selectedCurrency,
+              rolloverGroupId: pocket?.rolloverGroupId,
+              periodMonth: monthStart,
+            )
+          : const <PocketRolloverHistoryMonth>[];
   final cachedCategories =
       pocketsState.envelopeCategories[params.pocketId] ?? const <String>[];
   final categories = cachedCategories.isNotEmpty
@@ -149,6 +144,7 @@ final pocketDetailsProvider =
       projectedSpend: 0,
       dailyAverage: 0,
       rolloverHistory: rolloverHistory,
+      rolloverBreakdown: rolloverBreakdown,
     );
   }
 
@@ -165,6 +161,7 @@ final pocketDetailsProvider =
       projectedSpend: 0,
       dailyAverage: 0,
       rolloverHistory: rolloverHistory,
+      rolloverBreakdown: rolloverBreakdown,
     );
   }
 
@@ -381,6 +378,7 @@ final pocketDetailsProvider =
     projectedSpend: projectedSpend,
     dailyAverage: dailyAverage,
     rolloverHistory: rolloverHistory,
+    rolloverBreakdown: rolloverBreakdown,
   );
 });
 
@@ -443,8 +441,59 @@ Future<List<PocketRolloverHistoryMonth>> _fetchPocketRolloverHistory({
           (data['available_budget_cents'] as num?)?.toInt() ?? 0,
       spentCents: (data['spent_cents'] as num?)?.toInt() ?? 0,
       remainingCents: (data['remaining_cents'] as num?)?.toInt() ?? 0,
+      carryToNextCents: (data['carry_to_next_cents'] as num?)?.toInt() ??
+          (data['remaining_cents'] as num?)?.toInt() ??
+          0,
+      rolloverEnabled: data['rollover_enabled'] == true,
+      rolloverNegative: data['rollover_negative'] == true,
+      rolloverCapCents: (data['rollover_cap_cents'] as num?)?.toInt(),
+      capAppliedCents: (data['cap_applied_cents'] as num?)?.toInt() ?? 0,
+      negativeDroppedCents:
+          (data['negative_dropped_cents'] as num?)?.toInt() ?? 0,
     );
   }).toList(growable: false);
+}
+
+Future<PocketRolloverBreakdown?> _fetchPocketRolloverBreakdown({
+  required String userId,
+  required PocketsScopeType scopeType,
+  required String? householdId,
+  required String currency,
+  required String? rolloverGroupId,
+  required DateTime periodMonth,
+}) async {
+  if (rolloverGroupId == null || rolloverGroupId.trim().isEmpty) {
+    return null;
+  }
+
+  try {
+    final response = await supabase.rpc(
+      'get_pocket_rollover_breakdown_v1',
+      params: <String, dynamic>{
+        'p_user_id': userId,
+        'p_scope': switch (scopeType) {
+          PocketsScopeType.personal => 'personal',
+          PocketsScopeType.portfolio => 'portfolio',
+          PocketsScopeType.household => 'household',
+        },
+        'p_household_id': householdId,
+        'p_currency': currency,
+        'p_rollover_group_id': rolloverGroupId,
+        'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+      },
+    );
+    if (response is! Map) return null;
+    return PocketRolloverBreakdown.fromJson(
+      Map<String, dynamic>.from(response),
+    );
+  } catch (error, stackTrace) {
+    if (foundation.kDebugMode) {
+      foundation.debugPrint(
+        '[PocketDetails] Failed to load rollover breakdown: $error\n$stackTrace',
+      );
+    }
+    return null;
+  }
 }
 
 Future<List<String>> _fetchPocketLinkedCategories({

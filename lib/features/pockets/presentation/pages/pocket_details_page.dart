@@ -10,6 +10,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -566,16 +567,23 @@ class PocketDetailsPage extends HookConsumerWidget {
                               if (pocket.rolloverEnabled &&
                                   pocket.hasRolloverBreakdown) ...[
                                 const SizedBox(height: 12),
-                                _RolloverActivityCard(
-                                  pocket: pocket,
-                                  currency: effectiveCurrency,
-                                ),
+                                if (detailsData.rolloverBreakdown != null)
+                                  RolloverContributionCard(
+                                    breakdown: detailsData.rolloverBreakdown!,
+                                    currency: effectiveCurrency,
+                                  )
+                                else
+                                  _RolloverActivityCard(
+                                    pocket: pocket,
+                                    currency: effectiveCurrency,
+                                  ),
                               ],
                               if (pocket.rolloverEnabled) ...[
                                 const SizedBox(height: 12),
                                 _NextRolloverPreviewCard(
                                   pocket: pocket,
                                   currency: effectiveCurrency,
+                                  breakdown: detailsData.rolloverBreakdown,
                                 ),
                                 if (detailsData.rolloverHistory.length > 1) ...[
                                   const SizedBox(height: 12),
@@ -953,30 +961,263 @@ class _RolloverActivityCard extends StatelessWidget {
   }
 }
 
-class _NextRolloverPreviewCard extends StatelessWidget {
-  const _NextRolloverPreviewCard({
-    required this.pocket,
+class RolloverContributionCard extends StatelessWidget {
+  const RolloverContributionCard({
+    super.key,
+    required this.breakdown,
     required this.currency,
   });
 
-  final PocketEnvelope pocket;
+  final PocketRolloverBreakdown breakdown;
   final String currency;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final rawCarryCents = pocket.remainingCents;
-    final cappedPositiveCarryCents =
-        pocket.rolloverCapCents != null && rawCarryCents > 0
-            ? rawCarryCents.clamp(0, pocket.rolloverCapCents!).toInt()
-            : rawCarryCents;
-    final nextCarryCents = rawCarryCents < 0 && !pocket.rolloverNegative
-        ? 0
-        : cappedPositiveCarryCents;
-    final wasCapped = pocket.rolloverCapCents != null &&
-        rawCarryCents > pocket.rolloverCapCents!;
+    final rows = breakdown.explanationRows;
 
-    final description = rawCarryCents < 0 && !pocket.rolloverNegative
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: Container(
+        key: ValueKey(rows.length),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.sheetElementBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.account_tree_rounded,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.l10n.pocketRolloverContributionTitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ),
+                Text(
+                  _formatSignedLocalizedCurrencyCents(
+                    context,
+                    breakdown.currentRolloverTotalCents,
+                    currency,
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: breakdown.currentRolloverTotalCents < 0
+                        ? colorScheme.error
+                        : colorScheme.success,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.l10n.pocketRolloverContributionDescription,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (rows.isEmpty)
+              Text(
+                context.l10n.pocketRolloverContributionEmpty,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                ),
+              )
+            else
+              ...rows.map(
+                (row) => _RolloverContributionRow(
+                  contribution: row,
+                  currency: currency,
+                ),
+              ),
+            if (breakdown.warnings.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _RolloverWarningBanner(warning: breakdown.warnings.first),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RolloverContributionRow extends StatelessWidget {
+  const _RolloverContributionRow({
+    required this.contribution,
+    required this.currency,
+  });
+
+  final PocketRolloverContribution contribution;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isNegative = contribution.amountCents < 0;
+    final icon = switch (contribution.sourceType) {
+      'opening' => Icons.flag_rounded,
+      'cap_adjustment' => Icons.compress_rounded,
+      'negative_dropped' => Icons.block_rounded,
+      'month_deficit' => Icons.trending_down_rounded,
+      'reset' => Icons.restart_alt_rounded,
+      _ => Icons.add_rounded,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: (isNegative ? colorScheme.error : colorScheme.success)
+                  .withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 15,
+              color: isNegative ? colorScheme.error : colorScheme.success,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _contributionLabel(context, contribution),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                if (contribution.reason?.isNotEmpty == true) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    contribution.reason!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.25,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            _formatSignedLocalizedCurrencyCents(
+              context,
+              contribution.amountCents,
+              currency,
+            ),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: isNegative ? colorScheme.error : colorScheme.success,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RolloverWarningBanner extends StatelessWidget {
+  const _RolloverWarningBanner({required this.warning});
+
+  final PocketRolloverWarning warning;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colorScheme.warningSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.warningBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 16,
+            color: colorScheme.warning,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              warning.message.isEmpty
+                  ? context.l10n.pocketRolloverMissingMonthWarning
+                  : warning.message,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NextRolloverPreviewCard extends StatelessWidget {
+  const _NextRolloverPreviewCard({
+    required this.pocket,
+    required this.currency,
+    this.breakdown,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+  final PocketRolloverBreakdown? breakdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final preview = breakdown?.nextMonthPreview;
+    final rawCarryCents = preview?.rawCarryCents ?? pocket.remainingCents;
+    final nextCarryCents = preview?.carryCents ??
+        (rawCarryCents < 0 && !pocket.rolloverNegative
+            ? 0
+            : (pocket.rolloverCapCents != null && rawCarryCents > 0
+                ? rawCarryCents.clamp(0, pocket.rolloverCapCents!).toInt()
+                : rawCarryCents));
+    final wasCapped = preview?.hasCapAdjustment == true ||
+        (pocket.rolloverCapCents != null &&
+            rawCarryCents > pocket.rolloverCapCents!);
+
+    final description = preview?.hasDroppedNegative == true ||
+            (rawCarryCents < 0 && !pocket.rolloverNegative)
         ? context.l10n.pocketRolloverNegativeNotCarriedDescription
         : wasCapped
             ? context.l10n.pocketRolloverCapLimitedDescription
@@ -1193,6 +1434,29 @@ class _RolloverHistoryRow extends StatelessWidget {
 
 String _formatMonthLabel(BuildContext context, DateTime date) {
   return MaterialLocalizations.of(context).formatMonthYear(date);
+}
+
+String _formatShortMonthLabel(BuildContext context, DateTime date) {
+  final label = MaterialLocalizations.of(context).formatMonthYear(date);
+  final parts = label.split(' ');
+  return parts.isEmpty ? label : parts.first;
+}
+
+String _contributionLabel(
+  BuildContext context,
+  PocketRolloverContribution contribution,
+) {
+  final month = contribution.sourcePeriodMonth == null
+      ? ''
+      : _formatShortMonthLabel(context, contribution.sourcePeriodMonth!);
+  return switch (contribution.sourceType) {
+    'opening' => context.l10n.pocketRolloverOpeningLabel,
+    'month_deficit' => context.l10n.pocketRolloverMonthOverspend(month),
+    'cap_adjustment' => context.l10n.pocketRolloverCapAdjustmentLabel,
+    'negative_dropped' => context.l10n.pocketRolloverNegativeDroppedLabel,
+    'reset' => context.l10n.pocketRolloverResetLabel,
+    _ => context.l10n.pocketRolloverMonthLeftover(month),
+  };
 }
 
 class _BreakdownRow extends StatelessWidget {

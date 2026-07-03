@@ -55,6 +55,20 @@ extension PocketRolloverL10nX on AppLocalizations {
       'There is no carry-over expected from this month yet.';
   String get pocketRolloverNextMonthDescription =>
       'When next month is created, this amount is added to the base budget.';
+  String get pocketRolloverContributionTitle => 'Where this rollover came from';
+  String get pocketRolloverContributionDescription =>
+      'Moneko tracks the surviving pieces of your carry-over so the total stays explainable.';
+  String get pocketRolloverContributionEmpty =>
+      'No rollover has been carried into this month yet.';
+  String get pocketRolloverCapAdjustmentLabel => 'Cap adjustment';
+  String get pocketRolloverNegativeDroppedLabel => 'Overspend not carried';
+  String get pocketRolloverResetLabel => 'Rollover reset';
+  String get pocketRolloverMissingMonthWarning =>
+      'Some months are missing in this envelope lineage. Review the timeline before relying on the carry-over total.';
+
+  String pocketRolloverMonthLeftover(String month) => '$month leftover';
+
+  String pocketRolloverMonthOverspend(String month) => '$month overspend';
 
   String pocketRolloverSettingsExample(String currencySymbol) =>
       'Example: if June has ${currencySymbol}400 budget and ${currencySymbol}350 spent, July starts with ${currencySymbol}450 available. Moneko still shows the ${currencySymbol}400 base budget separately.';
