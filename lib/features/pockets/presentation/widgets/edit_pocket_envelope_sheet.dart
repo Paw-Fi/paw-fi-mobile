@@ -648,7 +648,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           budgetId: budgetId,
         );
         queuedMutationId =
-            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync(
+          deletedPocketIds: [existingEnvelope!.id],
+        );
 
         Future<void> persistSiblingAllocations() async {
           for (var index = 0; index < siblingPockets.length; index++) {
@@ -757,10 +759,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             .read(pocketsProvider(scopeParams).notifier)
             .markQueuedPocketsSnapshotSynced(queuedMutationId);
 
-        // CRITICAL: Invalidate RequestDeduplicator cache for household data
         if (isScopedToHousehold && householdId != null) {
-          debugPrint(
-              '🗑️ [POCKET SAVE] Invalidating household cache for: $householdId');
           ref
               .read(cacheInvalidatorProvider)
               .invalidateHouseholdData(householdId);
@@ -768,13 +767,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         // Keep the active page on its optimistic SQLite-backed state while the
         // backend response reconciles in place.
-        debugPrint(
-            '🔄 [POCKET SAVE] Refreshing active pockets provider silently...');
         unawaited(ref
             .read(pocketsProvider(scopeParams).notifier)
             .load(bypassCache: true));
-
-        debugPrint('✅ [POCKET SAVE] Pocket saved and refresh scheduled');
 
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -891,13 +886,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             .read(pocketsProvider(scopeParams).notifier)
             .markQueuedPocketsSnapshotSynced(queuedMutationId);
 
-        // CRITICAL: Invalidate RequestDeduplicator cache for household data
         final isScopedToHousehold =
             scopeParams.scope != PocketsScopeType.personal;
         final householdId = scopeParams.householdId;
         if (isScopedToHousehold && householdId != null) {
-          debugPrint(
-              '🗑️ [POCKET DELETE] Invalidating household cache for: $householdId');
           ref
               .read(cacheInvalidatorProvider)
               .invalidateHouseholdData(householdId);
@@ -905,13 +897,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         // Keep the active page on its optimistic SQLite-backed state while the
         // backend response reconciles in place.
-        debugPrint(
-            '🔄 [POCKET DELETE] Refreshing active pockets provider silently...');
         unawaited(ref
             .read(pocketsProvider(scopeParams).notifier)
             .load(bypassCache: true));
-
-        debugPrint('✅ [POCKET DELETE] Pocket deleted and refresh scheduled');
 
         if (context.mounted) {
           Navigator.of(context).pop(); // close sheet

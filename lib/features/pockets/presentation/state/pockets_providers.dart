@@ -1307,6 +1307,7 @@ Map<String, dynamic> buildPocketsMonthMutationPayload({
   required int totalBudgetCents,
   required List<PocketEnvelope> pockets,
   required Map<String, List<String>> envelopeCategories,
+  List<String> deletedPocketIds = const [],
 }) {
   return {
     'userId': userId,
@@ -1316,8 +1317,13 @@ Map<String, dynamic> buildPocketsMonthMutationPayload({
     'currency': currency,
     'budgetId': budgetId,
     'totalBudgetCents': totalBudgetCents,
-    'replaceMissingPockets': true,
+    'replaceMissingPockets': false,
     'replaceCategories': true,
+    'deletedPocketIds': deletedPocketIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
+        .toSet()
+        .toList(growable: false),
     'pockets': pockets
         .map((pocket) => {
               'id': pocket.id,
@@ -1363,6 +1369,7 @@ class PocketsState {
     required this.uncategorized,
     required this.uncategorizedExpenses,
     this.envelopeCategories = const {},
+    this.savedEnvelopeCategories = const {},
     this.localOverlayExpenseIds = const {},
   });
 
@@ -1383,6 +1390,7 @@ class PocketsState {
   final List<UncategorizedCategory> uncategorized;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
   final Map<String, List<String>> envelopeCategories;
+  final Map<String, List<String>> savedEnvelopeCategories;
   final Set<String> localOverlayExpenseIds;
 
   bool get hasChanges {
@@ -1393,18 +1401,25 @@ class PocketsState {
       return true;
     }
 
-    // Check if pockets have changed
     if (saved.length != editing.length) {
       _debugLog('hasChanges: true (pocket count changed)');
       return true;
     }
     for (var i = 0; i < saved.length; i++) {
-      if (saved[i].id != editing[i].id ||
-          saved[i].budgetAmountCents != editing[i].budgetAmountCents ||
-          saved[i].spent != editing[i].spent) {
+      if (_pocketHasUserEditableChanges(saved[i], editing[i])) {
         _debugLog('hasChanges: true (pocket ${saved[i].name} changed)');
         return true;
       }
+    }
+    final baselineCategories = savedEnvelopeCategories.isEmpty
+        ? envelopeCategories
+        : savedEnvelopeCategories;
+    if (!_normalizedEnvelopeCategoriesEqual(
+      baselineCategories,
+      envelopeCategories,
+    )) {
+      _debugLog('hasChanges: true (pocket categories changed)');
+      return true;
     }
     _debugLog('hasChanges: false');
     return false;
@@ -1441,6 +1456,7 @@ class PocketsState {
     List<UncategorizedCategory>? uncategorized,
     Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses,
     Map<String, List<String>>? envelopeCategories,
+    Map<String, List<String>>? savedEnvelopeCategories,
     Set<String>? localOverlayExpenseIds,
     bool clearError = false,
   }) {
@@ -1465,6 +1481,10 @@ class PocketsState {
       uncategorizedExpenses:
           uncategorizedExpenses ?? this.uncategorizedExpenses,
       envelopeCategories: envelopeCategories ?? this.envelopeCategories,
+      savedEnvelopeCategories: savedEnvelopeCategories ??
+          (envelopeCategories != null && this.savedEnvelopeCategories.isEmpty
+              ? this.envelopeCategories
+              : this.savedEnvelopeCategories),
       localOverlayExpenseIds:
           localOverlayExpenseIds ?? this.localOverlayExpenseIds,
     );
@@ -1488,6 +1508,7 @@ class PocketsState {
         uncategorized: [],
         uncategorizedExpenses: {},
         envelopeCategories: const {},
+        savedEnvelopeCategories: const {},
         localOverlayExpenseIds: const {},
       );
 
@@ -1514,6 +1535,9 @@ class PocketsState {
       'envelope_categories': envelopeCategories.map(
         (key, value) => MapEntry(key, value.toList(growable: false)),
       ),
+      'saved_envelope_categories': savedEnvelopeCategories.map(
+        (key, value) => MapEntry(key, value.toList(growable: false)),
+      ),
       'local_overlay_expense_ids': localOverlayExpenseIds.toList(
         growable: false,
       ),
@@ -1530,6 +1554,12 @@ class PocketsState {
         .cast<Map>()
         .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
         .toList(growable: false);
+    final envelopeCategories = _parseEnvelopeCategories(
+      json['envelope_categories'] as Map?,
+    );
+    final savedEnvelopeCategories = _parseEnvelopeCategories(
+      json['saved_envelope_categories'] as Map?,
+    );
 
     return PocketsState(
       isLoading: json['is_loading'] == true,
@@ -1570,16 +1600,10 @@ class PocketsState {
               .toList(growable: false),
         ),
       ),
-      envelopeCategories:
-          ((json['envelope_categories'] as Map?) ?? const {}).map(
-        (key, value) => MapEntry(
-          key.toString(),
-          ((value as List?) ?? const [])
-              .map((category) => category.toString().trim().toLowerCase())
-              .where((category) => category.isNotEmpty)
-              .toList(growable: false),
-        ),
-      ),
+      envelopeCategories: envelopeCategories,
+      savedEnvelopeCategories: savedEnvelopeCategories.isEmpty
+          ? envelopeCategories
+          : savedEnvelopeCategories,
       localOverlayExpenseIds:
           ((json['local_overlay_expense_ids'] as List?) ?? const [])
               .map((id) => id.toString())
@@ -1587,6 +1611,80 @@ class PocketsState {
               .toSet(),
     );
   }
+}
+
+bool _pocketHasUserEditableChanges(
+  PocketEnvelope saved,
+  PocketEnvelope editing,
+) {
+  final rolloverChanged = saved.hasRolloverFields || editing.hasRolloverFields
+      ? saved.rolloverGroupId != editing.rolloverGroupId ||
+          saved.rolloverEnabled != editing.rolloverEnabled ||
+          saved.rolloverNegative != editing.rolloverNegative ||
+          saved.rolloverCapCents != editing.rolloverCapCents ||
+          saved.openingRolloverCents != editing.openingRolloverCents
+      : false;
+
+  return saved.id != editing.id ||
+      saved.name != editing.name ||
+      saved.budgetAmountCents != editing.budgetAmountCents ||
+      saved.currency.trim().toUpperCase() !=
+          editing.currency.trim().toUpperCase() ||
+      saved.icon != editing.icon ||
+      saved.color != editing.color ||
+      rolloverChanged;
+}
+
+Map<String, List<String>> _parseEnvelopeCategories(Map? raw) {
+  return (raw ?? const {}).map(
+    (key, value) => MapEntry(
+      key.toString(),
+      _normalizeCategoryListPreservingOrder((value as List?) ?? const []),
+    ),
+  );
+}
+
+bool _normalizedEnvelopeCategoriesEqual(
+  Map<String, List<String>> left,
+  Map<String, List<String>> right,
+) {
+  final leftKeys = left.keys.toSet();
+  final rightKeys = right.keys.toSet();
+  if (leftKeys.length != rightKeys.length || !leftKeys.containsAll(rightKeys)) {
+    return false;
+  }
+  for (final key in leftKeys) {
+    final leftCategories = _normalizeCategoryList(left[key] ?? const []);
+    final rightCategories = _normalizeCategoryList(right[key] ?? const []);
+    if (leftCategories.length != rightCategories.length) return false;
+    for (var i = 0; i < leftCategories.length; i++) {
+      if (leftCategories[i] != rightCategories[i]) return false;
+    }
+  }
+  return true;
+}
+
+List<String> _normalizeCategoryList(Iterable<Object?> categories) {
+  final normalized = categories
+      .map((category) => category.toString().trim().toLowerCase())
+      .where((category) => category.isNotEmpty)
+      .toSet()
+      .toList(growable: false)
+    ..sort();
+  return normalized;
+}
+
+List<String> _normalizeCategoryListPreservingOrder(
+  Iterable<Object?> categories,
+) {
+  final seen = <String>{};
+  final normalized = <String>[];
+  for (final category in categories) {
+    final value = category.toString().trim().toLowerCase();
+    if (value.isEmpty || !seen.add(value)) continue;
+    normalized.add(value);
+  }
+  return normalized;
 }
 
 class UncategorizedCategory {
@@ -2758,6 +2856,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         envelopeCategories: categoriesByEnvelopeId.map(
           (key, value) => MapEntry(key, value.toList(growable: false)),
         ),
+        savedEnvelopeCategories: categoriesByEnvelopeId.map(
+          (key, value) => MapEntry(key, value.toList(growable: false)),
+        ),
         localOverlayExpenseIds:
             localOverlayExpenses.map((expense) => expense.id).toSet(),
       );
@@ -3465,6 +3566,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             ? sourceTotalBudgetCents / 100.0
             : state.totalBudget,
         envelopeCategories: optimisticCategories,
+        savedEnvelopeCategories: optimisticCategories,
         clearError: true,
       );
       queuedMutationId = await queueCurrentPocketsSnapshotForSync();
@@ -3593,6 +3695,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       saved: normalizedSaved,
       editing: restored,
       totalBudget: state.savedTotalBudget, // Restore original budget
+      envelopeCategories: state.savedEnvelopeCategories.isEmpty
+          ? state.envelopeCategories
+          : state.savedEnvelopeCategories,
       clearError: true,
     );
   }
@@ -3695,6 +3800,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         saved: optimisticSaved,
         editing: optimisticSaved.map((pocket) => pocket.copyWith()).toList(),
         savedTotalBudget: state.totalBudget,
+        savedEnvelopeCategories: state.envelopeCategories,
         clearError: true,
       );
       await _persistCurrentStateSnapshot(
@@ -3958,7 +4064,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
-  Future<String> queueCurrentPocketsSnapshotForSync() async {
+  Future<String> queueCurrentPocketsSnapshotForSync({
+    List<String> deletedPocketIds = const [],
+  }) async {
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
       throw StateError('Not authenticated');
@@ -3997,6 +4105,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       budgetId: state.budgetId,
       totalBudgetCents: (state.totalBudget * 100).round(),
       pockets: state.saved,
+      deletedPocketIds: deletedPocketIds,
     );
     return mutationId;
   }
@@ -4098,6 +4207,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         totalBudget: normalizedTotalBudget,
         savedTotalBudget: normalizedTotalBudget,
         envelopeCategories: optimisticCategories,
+        savedEnvelopeCategories: optimisticCategories,
         clearError: true,
       );
       await _persistCurrentStateSnapshot(
@@ -4609,6 +4719,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required String? budgetId,
     required int totalBudgetCents,
     required List<PocketEnvelope> pockets,
+    List<String> deletedPocketIds = const [],
   }) async {
     final database = await ref.read(localDatabaseProvider.future);
     await database.enqueueMutation(
@@ -4627,6 +4738,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         totalBudgetCents: totalBudgetCents,
         pockets: pockets,
         envelopeCategories: state.envelopeCategories,
+        deletedPocketIds: deletedPocketIds,
       ),
     );
   }

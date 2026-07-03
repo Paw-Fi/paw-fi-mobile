@@ -507,7 +507,7 @@ void main() {
   });
 
   group('buildPocketsMonthMutationPayload', () {
-    test('marks full-month snapshots as authoritative and keeps categories',
+    test('does not delete server pockets missing from a stale local snapshot',
         () {
       final payload = buildPocketsMonthMutationPayload(
         userId: 'user-1',
@@ -535,7 +535,7 @@ void main() {
         },
       );
 
-      expect(payload['replaceMissingPockets'], isTrue);
+      expect(payload['replaceMissingPockets'], isFalse);
       expect(payload['replaceCategories'], isTrue);
       expect(payload['pockets'], hasLength(1));
       expect(
@@ -613,6 +613,94 @@ void main() {
       expect(pocket.containsKey('rolloverNegative'), isFalse);
       expect(pocket.containsKey('rolloverCapCents'), isFalse);
       expect(pocket.containsKey('openingRolloverCents'), isFalse);
+    });
+  });
+
+  group('PocketsState.hasChanges', () {
+    test('detects user-editable pocket metadata and rollover changes', () {
+      final now = DateTime(2026, 5, 1);
+      final savedPocket = PocketEnvelope(
+        id: 'env-food',
+        name: 'Food',
+        budgetAmountCents: 40000,
+        spent: 120,
+        currency: 'USD',
+        icon: 'restaurant',
+        color: '#111111',
+        budgetId: 'budget-1',
+        rolloverGroupId: 'rollover-food',
+        rolloverEnabled: false,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+        openingRolloverCents: 0,
+        lastUpdated: now,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [savedPocket],
+        editing: [
+          savedPocket.copyWith(
+            rolloverEnabled: true,
+            rolloverNegative: true,
+            rolloverCapCents: 50000,
+            openingRolloverCents: 12500,
+          ),
+        ],
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 400,
+        savedTotalBudget: 400,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'env-food': ['dining', 'groceries'],
+        },
+      );
+
+      expect(state.hasChanges, isTrue);
+    });
+
+    test('detects category changes independent of ordering and case', () {
+      final now = DateTime(2026, 5, 1);
+      final pocket = PocketEnvelope(
+        id: 'env-food',
+        name: 'Food',
+        budgetAmountCents: 40000,
+        spent: 0,
+        currency: 'USD',
+        budgetId: 'budget-1',
+        lastUpdated: now,
+      );
+      final unchanged = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 400,
+        savedTotalBudget: 400,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'env-food': ['Groceries', ' dining '],
+        },
+      );
+      final changed = unchanged.copyWith(
+        envelopeCategories: const {
+          'env-food': ['groceries', 'utilities'],
+        },
+      );
+
+      expect(unchanged.hasChanges, isFalse);
+      expect(changed.hasChanges, isTrue);
     });
   });
 

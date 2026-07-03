@@ -881,7 +881,19 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
   }
 
   final pockets = (payload['pockets'] as List?) ?? const [];
-  final replaceMissingPockets = payload['replaceMissingPockets'] == true;
+  final deletedPocketIds = ((payload['deletedPocketIds'] as List?) ?? const [])
+      .map((id) => id.toString().trim())
+      .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
+      .toSet();
+  for (final deletedPocketId in deletedPocketIds) {
+    await supabase
+        .from('budget_envelopes')
+        .delete()
+        .eq('id', deletedPocketId)
+        .eq('budget_id', budgetId);
+  }
+  final replaceMissingPockets = payload['replaceMissingPockets'] == true &&
+      payload['allowReplaceMissingPockets'] == true;
   final replaceCategories = payload['replaceCategories'] == true;
   if (replaceMissingPockets) {
     final keptEnvelopeIds = pockets

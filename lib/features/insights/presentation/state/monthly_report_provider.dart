@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -1823,14 +1824,14 @@ List<MonthlyReportBudgetInput> _budgetInputs(
       final sourceCurrency = pocket.currency.trim().toUpperCase();
       final budgetAmount = hasMultiCurrencySelection
           ? convertAmountCentsToCurrency(
-                pocket.budgetAmountCents,
+                pocket.availableBudgetCents,
                 fromCurrency:
                     sourceCurrency.isEmpty ? targetCurrency : sourceCurrency,
                 targetCurrency: targetCurrency,
                 rates: rates,
               ) /
               100.0
-          : pocket.budgetAmountCents / 100.0;
+          : pocket.availableBudgetCents / 100.0;
       final spent = hasMultiCurrencySelection
           ? aggregateSpentByEnvelopeId[pocket.id] ??
               convertAmountCentsToCurrency(
@@ -1850,6 +1851,23 @@ List<MonthlyReportBudgetInput> _budgetInputs(
       );
     },
   ).toList(growable: false);
+}
+
+@foundation.visibleForTesting
+List<MonthlyReportBudgetInput> buildMonthlyReportBudgetInputsForTesting(
+  List<PocketEnvelope> pockets, {
+  required String currencyCode,
+  List<String>? selectedCurrencies,
+  required CurrencyRateTable rates,
+  required Map<String, double> aggregateSpentByEnvelopeId,
+}) {
+  return _budgetInputs(
+    pockets,
+    currencyCode: currencyCode,
+    selectedCurrencies: selectedCurrencies,
+    rates: rates,
+    aggregateSpentByEnvelopeId: aggregateSpentByEnvelopeId,
+  );
 }
 
 MonthlyReportTransactionInput _transactionInput(ExpenseEntry entry) {

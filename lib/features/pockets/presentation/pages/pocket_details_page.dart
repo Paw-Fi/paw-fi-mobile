@@ -475,7 +475,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Remaining',
+                              context.l10n.pocketRolloverRemainingLabel,
                               style: TextStyle(
                                 fontSize: 14,
                                 color: secondaryTextColor,
@@ -499,7 +499,8 @@ class PocketDetailsPage extends HookConsumerWidget {
                             _AnimatedAmountText(
                               value: limit,
                               currencyCode: effectiveCurrency,
-                              suffix: 'available',
+                              suffix: context
+                                  .l10n.pocketRolloverAvailableBudgetLabel,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: secondaryTextColor,
