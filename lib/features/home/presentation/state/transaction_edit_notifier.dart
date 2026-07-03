@@ -26,6 +26,15 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+final RegExp _serverExpenseIdPattern = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  caseSensitive: false,
+);
+
+final activeTransactionCreateSyncIdsProvider = StateProvider<Set<String>>(
+  (ref) => const <String>{},
+);
+
 /// Manages transaction editing with optimistic UI updates and automatic rollback on error
 class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   final Ref ref;
@@ -114,6 +123,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
               'extraBody': extraBody,
           },
         );
+        if (localDatabase != null) {
+          await _refreshAfterLocalTransactionMutation(user.uid);
+        }
       } else {
         // Expense not in cache - likely a household expense
         // This is NOT an error, just skip optimistic update
@@ -274,6 +286,22 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // any transformations or calculations done server-side.
       // ═══════════════════════════════════════════════════════════════
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      if (confirmedExpense != null) {
+        final rollbackSource =
+            originalForRollback ?? originalExpense ?? confirmedExpense;
+        ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+            confirmedExpense;
+        _applyOptimisticUpdateToProvider(
+          confirmedExpense,
+          originalExpense: rollbackSource,
+        );
+        if (localDatabase != null) {
+          await localDatabase.markOptimisticTransactionUpdateSynced(
+            entry: confirmedExpense,
+            clientMutationId: mutationMetadata.clientMutationId,
+          );
+        }
+      }
       ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
 
@@ -382,7 +410,47 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     if (targets.isEmpty) return false;
 
     final user = ref.read(authProvider);
-    final ids = targets.map((entry) => entry.id).toList(growable: false);
+    final serverTargets = targets
+        .where((entry) => _isServerBackedExpenseId(entry.id))
+        .toList(growable: false);
+    final localTargets = targets
+        .where((entry) => !_isServerBackedExpenseId(entry.id))
+        .toList(growable: false);
+
+    if (localTargets.isNotEmpty) {
+      final activeCreateSyncIds =
+          ref.read(activeTransactionCreateSyncIdsProvider);
+      final hasActiveCreateSync = localTargets.any(
+        (entry) => activeCreateSyncIds.contains(entry.id.trim()),
+      );
+      if (hasActiveCreateSync) {
+        state = state.copyWith(
+          error:
+              'This transaction is still syncing. Please try again in a moment.',
+        );
+        return false;
+      }
+
+      final cancelledLocalCreates =
+          await _cancelQueuedLocalCreateTransactions(localTargets);
+      if (!cancelledLocalCreates) {
+        state = state.copyWith(
+          error:
+              'This transaction is still syncing. Please try again in a moment.',
+        );
+        return false;
+      }
+
+      _removeLocalOptimisticTransactionsFromProviders(localTargets);
+      await _refreshAfterLocalTransactionMutation(user.uid);
+      state = state.copyWith(clearError: true);
+
+      if (serverTargets.isEmpty) {
+        return true;
+      }
+    }
+
+    final ids = serverTargets.map((entry) => entry.id).toList(growable: false);
     final mutationMetadata = buildTransactionMutationMetadataForRecord(
       clientRecordId: ids.join('_'),
       operation: 'delete_transaction',
@@ -390,9 +458,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     MonekoDatabase? localDatabase;
 
     try {
-      _applyOptimisticDeleteToProviders(targets);
+      _applyOptimisticDeleteToProviders(serverTargets);
       localDatabase = await _writeOptimisticDeleteToLocalStore(
-        entries: targets,
+        entries: serverTargets,
         mutationMetadata: mutationMetadata,
         payload: {
           ...mutationMetadata.toRequestJson(),
@@ -400,6 +468,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           'expenseIds': ids.join(','),
         },
       );
+      await _refreshAfterLocalTransactionMutation(user.uid);
 
       final response = await ref
           .read(transactionEditSupabaseClientProvider)
@@ -427,34 +496,53 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       }
 
       await _refreshAfterTransactionMutation(user.uid);
-      _clearOptimisticDeletedIds(targets);
+      _clearOptimisticDeletedIds(serverTargets);
       state = state.copyWith(clearError: true);
       return true;
     } catch (e) {
       _debugPrint('❌ Delete failed: $e');
 
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
-        await _refreshAfterTransactionMutation(user.uid);
-        _clearOptimisticDeletedIds(targets);
+        await _refreshAfterLocalTransactionMutation(user.uid);
         state = state.copyWith(clearError: true);
         return true;
       }
 
       if (localDatabase != null) {
         await localDatabase.rollbackOptimisticTransactionDelete(
-          entries: targets,
+          entries: serverTargets,
           clientMutationId: mutationMetadata.clientMutationId,
           error: e,
         );
       }
 
-      _rollbackOptimisticDeleteToProviders(targets);
+      _rollbackOptimisticDeleteToProviders(serverTargets);
+      await _refreshAfterLocalTransactionMutation(user.uid);
       state = state.copyWith(
         error: ErrorHandler.getUserFriendlyMessage(
           e,
           context: BackendErrorContext.deleteExpense,
         ),
       );
+      return false;
+    }
+  }
+
+  bool _isServerBackedExpenseId(String id) {
+    return _serverExpenseIdPattern.hasMatch(id.trim());
+  }
+
+  Future<bool> _cancelQueuedLocalCreateTransactions(
+    List<ExpenseEntry> entries,
+  ) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      return database.cancelQueuedOptimisticTransactions(
+        transactionIds: entries.map((entry) => entry.id),
+        error: 'Deleted before sync completed',
+      );
+    } catch (error) {
+      _debugPrint('⚠️ Local optimistic delete cancellation unavailable: $error');
       return false;
     }
   }
@@ -538,6 +626,25 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ref.read(walletActionsProvider).refreshAccountData();
   }
 
+  Future<void> _refreshAfterLocalTransactionMutation(String userId) async {
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+
+    ref.invalidate(userHouseholdsProvider(userId));
+    ref.invalidate(householdExpensesProvider);
+    ref.invalidate(householdSplitsProvider);
+    ref.invalidate(householdBudgetsProvider);
+    ref.invalidate(householdMembersProvider);
+    ref.invalidate(cachedHouseholdExpensesProvider);
+    ref.invalidate(cachedHouseholdSplitsProvider);
+    ref.read(cacheInvalidatorProvider).invalidateAll();
+
+    ref.invalidate(currencyTransactionCountsProvider);
+    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
+        1;
+    ref.read(walletActionsProvider).refreshAccountData();
+  }
+
   void _applyOptimisticDeleteToProviders(List<ExpenseEntry> entries) {
     final analytics = ref.read(analyticsProvider);
     final ids = entries.map((entry) => entry.id).toSet();
@@ -558,6 +665,23 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         entry.key,
         entry.value.map((expense) => expense.id),
       );
+    }
+  }
+
+  void _removeLocalOptimisticTransactionsFromProviders(
+    List<ExpenseEntry> entries,
+  ) {
+    for (final entry in entries) {
+      final householdId = entry.householdId?.trim();
+      if (householdId != null && householdId.isNotEmpty) {
+        ref
+            .read(householdOptimisticExpensesProvider.notifier)
+            .removeExpense(householdId, entry.id);
+      } else {
+        ref
+            .read(analyticsProvider.notifier)
+            .removeOptimisticTransactionById(entry.id);
+      }
     }
   }
 

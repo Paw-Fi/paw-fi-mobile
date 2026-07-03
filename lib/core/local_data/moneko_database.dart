@@ -652,6 +652,92 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  Future<bool> cancelQueuedOptimisticTransactions({
+    required Iterable<String> transactionIds,
+    required Object error,
+  }) async {
+    final normalized = transactionIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (normalized.isEmpty) return false;
+
+    var cancelled = false;
+    final touched = <_SummaryKey>{};
+    _runInTransaction(() {
+      final mutationIdsByTransactionId = <String, String>{};
+      for (final transactionId in normalized) {
+        final transactionRows = _db.select(
+          '''
+          SELECT sync_status
+          FROM local_transactions
+          WHERE id = ?
+          LIMIT 1
+          ''',
+          [transactionId],
+        );
+        if (transactionRows.isEmpty ||
+            transactionRows.first['sync_status'] != localSyncStatusLocal) {
+          return;
+        }
+
+        final mutationRows = _db.select(
+          '''
+          SELECT client_mutation_id, entity_type, entity_id, operation, status
+          FROM local_mutation_outbox
+          WHERE entity_type = ?
+            AND entity_id = ?
+            AND operation = ?
+          LIMIT 1
+          ''',
+          ['transaction', transactionId, 'create'],
+        );
+        if (mutationRows.isEmpty) return;
+
+        final mutation = mutationRows.first;
+        final status = mutation['status'] as String?;
+        final isQueuedOrFailed = status == localMutationStatusQueued ||
+            status == localMutationStatusFailed;
+        final isMatchingCreate =
+            mutation['entity_type'] == 'transaction' &&
+                mutation['entity_id'] == transactionId &&
+                mutation['operation'] == 'create';
+
+        if (!isQueuedOrFailed || !isMatchingCreate) {
+          return;
+        }
+
+        final clientMutationId = mutation['client_mutation_id'] as String?;
+        if (clientMutationId == null || clientMutationId.isEmpty) return;
+        mutationIdsByTransactionId[transactionId] = clientMutationId;
+      }
+
+      for (final entry in mutationIdsByTransactionId.entries) {
+        final transactionId = entry.key;
+        final clientMutationId = entry.value;
+        final key = _summaryKeyForTransactionId(transactionId);
+        if (key != null) touched.add(key);
+
+        _db.execute(
+          'DELETE FROM local_transactions WHERE id = ?',
+          [transactionId],
+        );
+        _markMutationCancelledRow(
+          clientMutationId: clientMutationId,
+          error: error,
+        );
+      }
+
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+      cancelled = true;
+    });
+
+    if (cancelled) _notifyChanged();
+    return cancelled;
+  }
+
   Future<void> deleteTransactionsByIds(List<String> ids) async {
     final normalizedIds =
         ids.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet();

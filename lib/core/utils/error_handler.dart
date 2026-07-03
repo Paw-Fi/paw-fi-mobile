@@ -41,6 +41,10 @@ class ErrorHandler {
 
     final errorString = error.toString().toLowerCase();
 
+    if (errorString.contains('transaction is still syncing')) {
+      return 'This transaction is still syncing. Please try again in a moment.';
+    }
+
     // Network errors
     if (errorString.contains('socketexception') ||
         errorString.contains('network') ||
