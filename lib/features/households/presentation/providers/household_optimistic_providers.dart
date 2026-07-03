@@ -36,10 +36,15 @@ List<ExpenseSplitGroup> mergeHouseholdSplits(
   List<ExpenseSplitGroup> optimistic,
 ) {
   if (optimistic.isEmpty) return base;
-  final baseExpenseIds = base.map((g) => g.expenseId).toSet();
-  final merged = <ExpenseSplitGroup>[...base];
+  final seenExpenseIds = <String>{};
+  final merged = <ExpenseSplitGroup>[];
   for (final group in optimistic) {
-    if (!baseExpenseIds.contains(group.expenseId)) {
+    if (seenExpenseIds.add(group.expenseId)) {
+      merged.add(group);
+    }
+  }
+  for (final group in base) {
+    if (seenExpenseIds.add(group.expenseId)) {
       merged.add(group);
     }
   }

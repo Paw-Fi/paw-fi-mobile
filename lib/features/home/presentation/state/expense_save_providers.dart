@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -92,6 +93,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     String? idempotencyKey,
     bool addHouseholdOptimisticData = true,
     bool invalidateProviders = true,
+    bool queueLocalMutation = true,
+    bool returnQueuedOnRetry = true,
   }) async {
     state = const AsyncValue.loading();
     String? queuedMutationId;
@@ -243,16 +246,20 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         createdAt: DateTime.now(),
         accountId: accountId,
       );
-      final database = await ref.read(localDatabaseProvider.future);
-      await database.writeOptimisticTransaction(
-        entry: optimisticEntry,
-        clientMutationId: mutationMetadata.clientMutationId,
-        operation: 'create',
-        payload: {
-          'functionName': 'save-expense',
-          'requestBody': requestBody,
-        },
-      );
+      MonekoDatabase? database;
+      if (queueLocalMutation) {
+        final localDatabase = await ref.read(localDatabaseProvider.future);
+        await localDatabase.writeOptimisticTransaction(
+          entry: optimisticEntry,
+          clientMutationId: mutationMetadata.clientMutationId,
+          operation: 'create',
+          payload: {
+            'functionName': 'save-expense',
+            'requestBody': requestBody,
+          },
+        );
+        database = localDatabase;
+      }
 
       // Call save-expense edge function
       final response = await supabase.functions.invoke(
@@ -277,13 +284,13 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         clientMutationId: mutationMetadata.clientMutationId,
         idempotencyKey: mutationMetadata.idempotencyKey,
       );
-      if (reconciledEntry != null) {
+      if (reconciledEntry != null && database != null) {
         await database.replaceOptimisticTransaction(
           optimisticId: optimisticId,
           savedEntry: reconciledEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
-      } else {
+      } else if (database != null) {
         await database.markMutationSynced(mutationMetadata.clientMutationId);
       }
 
@@ -313,12 +320,18 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           optimisticId != null &&
           optimisticEntry != null &&
           ErrorHandler.isRetryable(error)) {
+        if (!returnQueuedOnRetry) {
+          state = AsyncValue.error(error, stackTrace);
+          rethrow;
+        }
         ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         state = const AsyncValue.data(null);
         return optimisticEntry;
       }
-      if (queuedMutationId != null && optimisticId != null) {
+      if (queueLocalMutation &&
+          queuedMutationId != null &&
+          optimisticId != null) {
         try {
           final database = await ref.read(localDatabaseProvider.future);
           await database.rollbackOptimisticTransaction(

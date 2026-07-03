@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -70,6 +71,7 @@ import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -2366,158 +2368,71 @@ class _UnifiedTransactionSheetV2State
     }();
     final controller = TextEditingController(text: initialDescription);
 
-    String? result;
-    if (Platform.isIOS) {
-      result = await showCupertinoModalPopup<String>(
-        context: context,
-        builder: (context) {
-          return Container(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
-            color: colorScheme.sheetBackground,
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 10, bottom: 6),
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: colorScheme.sheetBorder,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(context.l10n.cancel),
-                        ),
-                        Text(context.l10n.editNotes,
-                            style: const TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.w600)),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () =>
-                              Navigator.pop(context, controller.text),
-                          child: Text(context.l10n.save),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: CupertinoTextField(
-                      controller: controller,
-                      placeholder: context.l10n.addANote,
-                      maxLines: 4,
-                      autofocus: true,
-                      padding: const EdgeInsets.all(12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    } else {
-      result = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Theme.of(context).colorScheme.sheetBackground,
-        builder: (context) => Container(
+    final result = await MonekoBottomSheet.show<String>(
+      context: context,
+      isScrollControlled: true,
+      title: context.l10n.editNotes,
+      onClose: () => Navigator.pop(context),
+      onConfirm: () => Navigator.pop(context, controller.text),
+      builder: (modalContext) {
+        final rawBottomInset = MediaQuery.of(modalContext).viewInsets.bottom;
+        final safeBottomInset = MediaQuery.of(modalContext).viewPadding.bottom;
+        final minimumBottomPadding = max(20.0, safeBottomInset + 12);
+        return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          decoration: BoxDecoration(
-            color: colorScheme.sheetBackground,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            left: 20,
+            right: 20,
+            top: 8,
+            bottom: rawBottomInset > 0
+                ? rawBottomInset
+                : minimumBottomPadding,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 32,
-                height: 4,
-                alignment: Alignment.center,
+                height: 140,
                 decoration: BoxDecoration(
-                  color: colorScheme.sheetBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                child: Text(
-                  context.l10n.editNotes,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
+                  color: colorScheme.sheetElementBackground
+                      .withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: TextField(
                   controller: controller,
+                  autofocus: true,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: colorScheme.onSurface,
+                    letterSpacing: -0.2,
+                  ),
                   decoration: InputDecoration(
                     hintText: context.l10n.addANote,
-                    filled: true,
-                    fillColor: colorScheme.muted.withValues(alpha: 0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    hintStyle: TextStyle(
+                      color: colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.4),
                     ),
-                  ),
-                  maxLines: 4,
-                  autofocus: true,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.foreground,
+                    contentPadding: const EdgeInsets.all(16),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: AdaptiveButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: AdaptiveButtonStyle.plain,
-                        label: context.l10n.cancel,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AdaptiveButton(
-                        onPressed: () =>
-                            Navigator.pop(context, controller.text),
-                        label: context.l10n.save,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 8),
             ],
           ),
-        ),
-      );
-    }
+        );
+      },
+    );
 
     if (result != null) {
       if (isNewExpense) {
@@ -3268,6 +3183,7 @@ class _UnifiedTransactionSheetV2State
     required String? savedHouseholdId,
   }) {
     container.read(analyticsProvider.notifier).refresh(userId);
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
     container
         .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
@@ -3286,6 +3202,25 @@ class _UnifiedTransactionSheetV2State
       container.invalidate(cachedHouseholdExpensesProvider);
       container.invalidate(cachedHouseholdSplitsProvider);
     }
+  }
+
+  void _setTransactionCreateSyncActive({
+    required ProviderContainer container,
+    required String transactionId,
+    required bool isActive,
+  }) {
+    final id = transactionId.trim();
+    if (id.isEmpty) return;
+
+    final notifier =
+        container.read(activeTransactionCreateSyncIdsProvider.notifier);
+    final next = Set<String>.from(notifier.state);
+    if (isActive) {
+      next.add(id);
+    } else {
+      next.remove(id);
+    }
+    notifier.state = Set<String>.unmodifiable(next);
   }
 
   Future<MonekoDatabase?> _writeOptimisticTransactionToLocalStore({
@@ -3495,6 +3430,8 @@ class _UnifiedTransactionSheetV2State
               idempotencyKey: mutationMetadata.idempotencyKey,
               addHouseholdOptimisticData: false,
               invalidateProviders: false,
+              queueLocalMutation: false,
+              returnQueuedOnRetry: false,
             );
 
         if (saved == null) {
@@ -3587,6 +3524,12 @@ class _UnifiedTransactionSheetV2State
           duration: const Duration(seconds: 5),
         );
       }
+    } finally {
+      _setTransactionCreateSyncActive(
+        container: container,
+        transactionId: optimisticId,
+        isActive: false,
+      );
     }
   }
 
@@ -3748,6 +3691,15 @@ class _UnifiedTransactionSheetV2State
           _localImagePath ??
           widget.localImagePath,
     );
+    final localDatabase = await localWrite;
+    if (!mounted || !toastContext.mounted) {
+      return;
+    }
+    _setTransactionCreateSyncActive(
+      container: container,
+      transactionId: optimisticId,
+      isActive: true,
+    );
 
     addOptimisticTransactionWithContainer(
       container: container,
@@ -3779,7 +3731,7 @@ class _UnifiedTransactionSheetV2State
       expense: expenseWithTime,
       optimisticId: optimisticId,
       mutationMetadata: mutationMetadata,
-      localWrite: localWrite,
+      localWrite: Future<MonekoDatabase?>.value(localDatabase),
       householdId: effectiveHouseholdId,
       accountId: selectedFinancialAccountId,
       canUseHouseholdSplits: canUseHouseholdSplits,
@@ -4749,7 +4701,13 @@ class _UnifiedTransactionSheetV2State
       );
 
       if (!deleted) {
-        throw Exception(failedToDeleteExpenseMsg);
+        if (!toastContext.mounted) return;
+        AppToast.error(
+          toastContext,
+          ref.read(transactionEditProvider).error ?? failedToDeleteExpenseMsg,
+          duration: const Duration(seconds: 5),
+        );
+        return;
       }
 
       debugPrint(' Expense deleted successfully');
