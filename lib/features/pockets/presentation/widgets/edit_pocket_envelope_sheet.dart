@@ -648,9 +648,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           budgetId: budgetId,
         );
         queuedMutationId =
-            await pocketsNotifier.queueCurrentPocketsSnapshotForSync(
-          deletedPocketIds: [existingEnvelope!.id],
-        );
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
 
         Future<void> persistSiblingAllocations() async {
           for (var index = 0; index < siblingPockets.length; index++) {
@@ -860,7 +858,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           budgetId: budgetId,
         );
         queuedMutationId =
-            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync(
+          deletedPocketIds: [existingEnvelope!.id],
+        );
 
         await supabase
             .from('budget_envelopes')

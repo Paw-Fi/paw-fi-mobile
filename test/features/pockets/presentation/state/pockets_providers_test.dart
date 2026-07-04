@@ -104,7 +104,7 @@ void main() {
       expect(carried.carryToNextPeriodCents, -5000);
     });
 
-    test('applies opening rollover and positive cap', () {
+    test('applies cap only to outgoing carry, not current availability', () {
       final breakdown = calculatePocketRolloverBreakdownCents(
         baseBudgetCents: 40000,
         incomingRolloverCents: 70000,
@@ -115,8 +115,8 @@ void main() {
         rolloverCapCents: 50000,
       );
 
-      expect(breakdown.rolloverFromPreviousCents, 50000);
-      expect(breakdown.availableBudgetCents, 115000);
+      expect(breakdown.rolloverFromPreviousCents, 70000);
+      expect(breakdown.availableBudgetCents, 135000);
       expect(breakdown.carryToNextPeriodCents, 50000);
     });
   });
@@ -536,12 +536,36 @@ void main() {
       );
 
       expect(payload['replaceMissingPockets'], isFalse);
+      expect(payload['deletedPocketIds'], isEmpty);
       expect(payload['replaceCategories'], isTrue);
       expect(payload['pockets'], hasLength(1));
       expect(
         (payload['pockets'] as List).single,
         containsPair('categories', ['groceries', 'dining']),
       );
+    });
+
+    test('serializes only explicit deleted pocket ids for delete replays', () {
+      final payload = buildPocketsMonthMutationPayload(
+        userId: 'user-1',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-05-01',
+        currency: 'USD',
+        budgetId: 'budget-1',
+        totalBudgetCents: 100000,
+        pockets: const [],
+        envelopeCategories: const {},
+        deletedPocketIds: const [
+          ' pocket-food ',
+          'optimistic-temp',
+          '',
+          'pocket-food',
+        ],
+      );
+
+      expect(payload['replaceMissingPockets'], isFalse);
+      expect(payload['deletedPocketIds'], ['pocket-food']);
     });
 
     test('preserves rollover settings in authoritative snapshots', () {

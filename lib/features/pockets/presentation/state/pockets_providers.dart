@@ -133,7 +133,7 @@ PocketRolloverBreakdownCents calculatePocketRolloverBreakdownCents({
     );
   }
 
-  final incoming = cappedPositive(sanitizedIncoming);
+  final incoming = sanitizedIncoming;
   final available = sanitizedBase + incoming + sanitizedOpening;
   final remaining = available - sanitizedSpent;
   final carry =
