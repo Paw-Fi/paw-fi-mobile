@@ -627,86 +627,174 @@ class _RolloverSummaryCard extends StatelessWidget {
       (sum, pocket) =>
           sum + pocket.rolloverFromPreviousCents + pocket.openingRolloverCents,
     );
-    final visibleRows = pockets.take(4).toList(growable: false);
-    final remainingCount = pockets.length - visibleRows.length;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.event_repeat_rounded,
-                size: 18,
-                color: colorScheme.primary,
+    if (totalCarryCents == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              backgroundColor: colorScheme.surface,
+              builder: (context) => _RolloverSummarySheet(
+                pockets: pockets,
+                currency: currency,
+                colorScheme: colorScheme,
+                onPocketTap: (pocket) {
+                  Navigator.of(context).pop();
+                  onPocketTap(pocket);
+                },
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  context.l10n.pocketRolloverSummaryTitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
+            );
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.pocketRolloverSummaryTitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                _formatSignedCurrencyCents(
-                  context,
-                  totalCarryCents,
-                  currency,
+                Text(
+                  _formatSignedCurrencyCents(
+                    context,
+                    totalCarryCents,
+                    currency,
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: totalCarryCents < 0
+                        ? colorScheme.error
+                        : colorScheme.success,
+                  ),
                 ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: colorScheme.mutedForeground,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RolloverSummarySheet extends StatelessWidget {
+  const _RolloverSummarySheet({
+    required this.pockets,
+    required this.currency,
+    required this.colorScheme,
+    required this.onPocketTap,
+  });
+
+  final List<PocketEnvelope> pockets;
+  final String currency;
+  final ColorScheme colorScheme;
+  final ValueChanged<PocketEnvelope> onPocketTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCarryCents = pockets.fold<int>(
+      0,
+      (sum, pocket) =>
+          sum + pocket.rolloverFromPreviousCents + pocket.openingRolloverCents,
+    );
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.pocketRolloverSummaryTitle,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.pocketRolloverSummaryDescription,
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: totalCarryCents < 0
-                      ? colorScheme.error
-                      : colorScheme.success,
+                  height: 1.4,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  Text(
+                    _formatSignedCurrencyCents(
+                      context,
+                      totalCarryCents,
+                      currency,
+                    ),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: totalCarryCents < 0
+                          ? colorScheme.error
+                          : colorScheme.success,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(color: colorScheme.border),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: pockets.length,
+                  itemBuilder: (context, index) {
+                    final pocket = pockets[index];
+                    return _RolloverSummaryRow(
+                      pocket: pocket,
+                      currency: currency,
+                      colorScheme: colorScheme,
+                      onTap: () => onPocketTap(pocket),
+                    );
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            context.l10n.pocketRolloverSummaryDescription,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.25,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final pocket in visibleRows)
-            _RolloverSummaryRow(
-              pocket: pocket,
-              currency: currency,
-              colorScheme: colorScheme,
-              onTap: () => onPocketTap(pocket),
-            ),
-          if (remainingCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                context.l10n.pocketRolloverMoreCount(remainingCount),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

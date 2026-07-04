@@ -308,12 +308,8 @@ class WalletDetailsPage extends HookConsumerWidget {
           );
     final walletColor =
         parseWalletColor(latestWallet.color, colorScheme.primary);
-    final gradientColors =
-        AppTheme.pocketDetailsGradient(walletColor, colorScheme);
-    final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
-    final textColor =
-        isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
-    final secondaryTextColor = textColor.withValues(alpha: 0.7);
+    final textColor = colorScheme.onSurface;
+    final secondaryTextColor = colorScheme.onSurfaceVariant;
 
     final currentBalanceCents = latestWallet.currentBalanceCents;
     // CRITICAL: the "this month" stat cards must include the same projected
@@ -835,7 +831,7 @@ class WalletDetailsPage extends HookConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: gradientColors.first,
+      backgroundColor: colorScheme.surface,
       floatingActionButton: !latestWallet.isArchived
           ? Padding(
               padding: const EdgeInsets.only(right: 8, bottom: 8),
@@ -854,13 +850,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: gradientColors,
-                ),
-              ),
+              color: colorScheme.surface,
             ),
           ),
           AutoPaginatedScroll(
@@ -911,49 +901,49 @@ class WalletDetailsPage extends HookConsumerWidget {
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 600),
                               curve: Curves.easeOutCubic,
-                              width: 64,
-                              height: 64,
+                              width: 56,
+                              height: 56,
                               decoration: BoxDecoration(
-                                color: textColor.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(18),
+                                color: walletColor.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
                               ),
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 300),
                                 child: Icon(
                                   resolveWalletIcon(latestWallet.icon),
                                   key: ValueKey(latestWallet.icon),
-                                  color: textColor,
-                                  size: 30,
+                                  color: walletColor,
+                                  size: 26,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
                             Text(
                               latestWallet.name,
                               style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
                                 color: textColor,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             Text(
                               context.l10n.balanceSummary,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 color: secondaryTextColor,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
                             _AnimatedAmountText(
                               value: currentBalanceCents / 100.0,
                               currencyCode: walletCurrencyCode,
                               style: TextStyle(
-                                fontSize: 44,
+                                fontSize: 48,
                                 fontWeight: FontWeight.w800,
                                 color: textColor,
-                                letterSpacing: -1,
+                                letterSpacing: -1.5,
                               ),
                             ),
                             if (latestWallet.goalAmountCents != null) ...[
@@ -1003,9 +993,10 @@ class WalletDetailsPage extends HookConsumerWidget {
                           children: [
                             Text(
                               context.l10n.keyInsights,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1014,7 +1005,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: colorScheme.mutedForeground,
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -1029,7 +1020,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 currencyCode: walletCurrencyCode,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: _StatCard(
                                 label: context.l10n.totalSpent,
@@ -1037,22 +1028,21 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 currencyCode: walletCurrencyCode,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _StatCard(
-                                label: context.l10n.net,
-                                amount: net,
-                                currencyCode: walletCurrencyCode,
-                              ),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
+                        _StatCard(
+                          label: context.l10n.net,
+                          amount: net,
+                          currencyCode: walletCurrencyCode,
+                        ),
+                        const SizedBox(height: 32),
                         Text(
                           context.l10n.recentTransactions,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -1096,12 +1086,25 @@ class WalletDetailsPage extends HookConsumerWidget {
                       color: colorScheme.sheetBackground,
                       child: Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            context.l10n.noTransactionsYet,
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                            ),
+                          padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.receipt_long_rounded,
+                                size: 32,
+                                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                context.l10n.noTransactionsYet,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1770,30 +1773,40 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.pocketCardSurface,
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+        ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11,
-              color: colorScheme.mutedForeground,
+              fontSize: 13,
+              color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 6),
-          _AnimatedAmountText(
-            value: amount,
-            currencyCode: currencyCode,
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.foreground,
-              fontWeight: FontWeight.w700,
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: _AnimatedAmountText(
+              value: amount,
+              currencyCode: currencyCode,
+              style: TextStyle(
+                fontSize: 18,
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
         ],
