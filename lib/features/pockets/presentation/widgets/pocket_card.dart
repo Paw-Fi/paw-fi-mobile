@@ -326,6 +326,33 @@ class _PocketLogoAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmedLogoUrl = logoUrl?.trim();
     final cacheSize = (38 * MediaQuery.of(context).devicePixelRatio).round();
+    final hasLogo = trimmedLogoUrl != null && trimmedLogoUrl.isNotEmpty;
+
+    if (hasLogo) {
+      return SizedBox(
+        width: 33,
+        height: 33,
+        child: ClipOval(
+          child: Image.network(
+            trimmedLogoUrl,
+            fit: BoxFit.cover,
+            cacheWidth: cacheSize,
+            cacheHeight: cacheSize,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _PocketFallbackIcon(
+                iconData: iconData,
+                baseColor: baseColor,
+              );
+            },
+            errorBuilder: (_, __, ___) => _PocketFallbackIcon(
+              iconData: iconData,
+              baseColor: baseColor,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
       width: 38,
@@ -342,25 +369,7 @@ class _PocketLogoAvatar extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-        child: trimmedLogoUrl == null || trimmedLogoUrl.isEmpty
-            ? _PocketFallbackIcon(iconData: iconData, baseColor: baseColor)
-            : Image.network(
-                trimmedLogoUrl,
-                fit: BoxFit.cover,
-                cacheWidth: cacheSize,
-                cacheHeight: cacheSize,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return _PocketFallbackIcon(
-                    iconData: iconData,
-                    baseColor: baseColor,
-                  );
-                },
-                errorBuilder: (_, __, ___) => _PocketFallbackIcon(
-                  iconData: iconData,
-                  baseColor: baseColor,
-                ),
-              ),
+        child: _PocketFallbackIcon(iconData: iconData, baseColor: baseColor),
       ),
     );
   }

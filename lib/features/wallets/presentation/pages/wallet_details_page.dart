@@ -308,8 +308,13 @@ class WalletDetailsPage extends HookConsumerWidget {
           );
     final walletColor =
         parseWalletColor(latestWallet.color, colorScheme.primary);
-    final textColor = colorScheme.onSurface;
-    final secondaryTextColor = colorScheme.onSurfaceVariant;
+    final gradientColors = AppTheme.pocketDetailsGradient(walletColor, colorScheme);
+
+    // Determine text color based on background luminance
+    final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
+    final textColor =
+        isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
+    final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
     final currentBalanceCents = latestWallet.currentBalanceCents;
     // CRITICAL: the "this month" stat cards must include the same projected
@@ -834,7 +839,7 @@ class WalletDetailsPage extends HookConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: gradientColors.first,
       floatingActionButton: !latestWallet.isArchived
           ? Padding(
               padding: const EdgeInsets.only(right: 8, bottom: 8),
@@ -853,7 +858,13 @@ class WalletDetailsPage extends HookConsumerWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeOutCubic,
-              color: colorScheme.surface,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: gradientColors,
+                ),
+              ),
             ),
           ),
           AutoPaginatedScroll(

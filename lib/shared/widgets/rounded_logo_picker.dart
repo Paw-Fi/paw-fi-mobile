@@ -135,13 +135,13 @@ class RoundedLogoPicker extends HookWidget {
         ),
         if (hasLogo && enabled)
           Positioned(
-            right: -4,
-            top: -4,
+            right: -2,
+            top: -1,
             child: GestureDetector(
               onTap: () => onChanged(null),
               child: Container(
-                width: 18,
-                height: 18,
+                width: 16,
+                height: 16,
                 decoration: BoxDecoration(
                   color: colorScheme.destructive,
                   shape: BoxShape.circle,

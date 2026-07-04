@@ -370,7 +370,7 @@ class _WalletLogoAvatar extends StatelessWidget {
               )
             : Image.network(
                 trimmedLogoUrl,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 cacheWidth: cacheSize,
                 cacheHeight: cacheSize,
                 loadingBuilder: (context, child, loadingProgress) {

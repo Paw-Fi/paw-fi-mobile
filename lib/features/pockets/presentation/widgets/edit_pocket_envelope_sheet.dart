@@ -170,9 +170,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final selectedColor =
         useState<String?>(existingEnvelope?.color ?? getTemplateColorHex());
 
-    final selectedIcon =
-        useState<String?>(existingEnvelope?.icon ?? template?.iconName);
     final selectedLogoUrl = useState<String?>(existingEnvelope?.logoUrl);
+    final selectedIcon = useState<String?>(
+      existingEnvelope?.logoUrl != null && existingEnvelope?.logoUrl?.isNotEmpty == true
+          ? null
+          : (existingEnvelope?.icon ?? template?.iconName),
+    );
     final isLoading = useState<bool>(false);
     final prefs = ref.read(sharedPreferencesProvider);
     final autoAdjustOtherPockets = useState<bool>(
@@ -1249,6 +1252,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     StorageConfig.pocketLogosPath,
                                 onChanged: (value) {
                                   selectedLogoUrl.value = value;
+                                  if (value != null) {
+                                    selectedIcon.value = null;
+                                  }
                                 },
                                 fallbackIcon: getPocketIconData(
                                   selectedIcon.value ?? 'category',
@@ -1262,7 +1268,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             final iconName = pocketIconNames[index - 1];
 
                             final iconData = getPocketIconData(iconName);
-                            final isSelected = selectedIcon.value == iconName;
+                            final isSelected =
+                                selectedLogoUrl.value == null &&
+                                selectedIcon.value == iconName;
 
                             return GestureDetector(
                               onTap: () {

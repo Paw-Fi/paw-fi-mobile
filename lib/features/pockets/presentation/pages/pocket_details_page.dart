@@ -448,14 +448,53 @@ class PocketDetailsPage extends HookConsumerWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (pocket.icon != null) ...[
+                                if (pocket.icon != null || pocket.logoUrl != null) ...[
                                   AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
-                                    child: Icon(
-                                      getPocketIconData(pocket.icon),
-                                      key: ValueKey(pocket.icon),
-                                      size: 28,
-                                      color: textColor,
+                                    child: Builder(
+                                      key: ValueKey(pocket.logoUrl ?? pocket.icon),
+                                      builder: (context) {
+                                        final trimmedLogoUrl = pocket.logoUrl?.trim();
+                                        final iconData = pocket.icon != null
+                                            ? getPocketIconData(pocket.icon)
+                                            : null;
+                                        final cacheSize =
+                                            (28 * MediaQuery.of(context).devicePixelRatio).round();
+
+                                        if (trimmedLogoUrl != null &&
+                                            trimmedLogoUrl.isNotEmpty) {
+                                          return SizedBox(
+                                            width: 28,
+                                            height: 28,
+                                            child: ClipOval(
+                                              child: Image.network(
+                                                trimmedLogoUrl,
+                                                fit: BoxFit.contain,
+                                                cacheWidth: cacheSize,
+                                                cacheHeight: cacheSize,
+                                                errorBuilder: (_, __, ___) =>
+                                                    iconData != null
+                                                        ? Icon(
+                                                            iconData,
+                                                            size: 28,
+                                                            color: textColor,
+                                                          )
+                                                        : const SizedBox.shrink(),
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        if (iconData != null) {
+                                          return Icon(
+                                            iconData,
+                                            size: 28,
+                                            color: textColor,
+                                          );
+                                        }
+
+                                        return const SizedBox.shrink();
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 12),

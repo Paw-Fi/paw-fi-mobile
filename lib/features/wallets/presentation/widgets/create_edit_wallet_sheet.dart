@@ -79,9 +79,13 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     );
     useListenable(openingController);
     useListenable(goalController);
-    final selectedIcon = useState<String>(initial?.icon ?? 'wallet');
-    final selectedColor = useState<String>(initial?.color ?? '#6B7280');
     final selectedLogoUrl = useState<String?>(initial?.logoUrl);
+    final selectedIcon = useState<String>(
+      initial?.logoUrl != null && initial?.logoUrl?.isNotEmpty == true
+          ? 'wallet'
+          : (initial?.icon ?? 'wallet'),
+    );
+    final selectedColor = useState<String>(initial?.color ?? '#6B7280');
     final initialCurrency = initial?.currency.trim().toUpperCase();
     final selectedCurrency = useState<String>(
       isSupportedCurrencyCode(initialCurrency)
@@ -305,6 +309,9 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                         storagePathPrefix: StorageConfig.walletLogosPath,
                         onChanged: (value) {
                           selectedLogoUrl.value = value;
+                          if (value != null) {
+                            selectedIcon.value = 'wallet';
+                          }
                         },
                         fallbackIcon: resolveWalletIcon(selectedIcon.value),
                         accentColor: selectedColorValue,
@@ -312,7 +319,9 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     }
 
                     final iconName = _walletIcons[index - 1];
-                    final isSelected = selectedIcon.value == iconName;
+                    final isSelected =
+                        selectedLogoUrl.value == null &&
+                        selectedIcon.value == iconName;
                     return GestureDetector(
                       onTap: () {
                         selectedIcon.value = iconName;
