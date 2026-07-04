@@ -1332,6 +1332,7 @@ Map<String, dynamic> buildPocketsMonthMutationPayload({
               'currency': pocket.currency,
               'icon': pocket.icon,
               'color': pocket.color,
+              'logoUrl': pocket.logoUrl,
               if (pocket.hasRolloverFields) ...{
                 if (pocket.rolloverGroupId != null)
                   'rolloverGroupId': pocket.rolloverGroupId,
@@ -1632,6 +1633,7 @@ bool _pocketHasUserEditableChanges(
           editing.currency.trim().toUpperCase() ||
       saved.icon != editing.icon ||
       saved.color != editing.color ||
+      saved.logoUrl != editing.logoUrl ||
       rolloverChanged;
 }
 
@@ -2456,6 +2458,23 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final envIds =
           envRows.map((e) => e['id'] as String).toList(growable: false);
 
+      try {
+        final logoRows = await supabase
+            .from('budget_envelopes')
+            .select('id,logo_url')
+            .inFilter('id', envIds);
+        final logoUrlByEnvelopeId = <String, String?>{
+          for (final row in (logoRows as List?) ?? const [])
+            if (row is Map && row['id'] is String)
+              row['id'] as String: row['logo_url'] as String?,
+        };
+        for (final row in envRows) {
+          row['logo_url'] = logoUrlByEnvelopeId[row['id'] as String];
+        }
+      } catch (error) {
+        _debugLog('[Pockets] logo_url enrichment skipped: $error');
+      }
+
       final allocationRows = payloads
           .expand((payload) => ((payload['allocations'] as List?) ?? const []))
           .cast<Map>()
@@ -2606,6 +2625,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           currency: currency,
           icon: row['icon']?.toString(),
           color: row['color'] as String?,
+          logoUrl: row['logo_url'] as String?,
           budgetId: row['budget_id'] as String? ?? budgetId,
           householdId: row['household_id'] as String?,
           rolloverGroupId: row['rollover_group_id'] as String?,
@@ -2730,6 +2750,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           currency: currency,
           icon: icon,
           color: color,
+          logoUrl: row['logo_url'] as String?,
           budgetId: bId,
           householdId: hhId,
           rolloverGroupId: row['rollover_group_id'] as String?,
@@ -3096,6 +3117,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             currency: p.currency,
             icon: p.icon,
             color: p.color,
+            logoUrl: p.logoUrl,
             budgetId: p.budgetId,
             householdId: p.householdId,
             rolloverGroupId: p.rolloverGroupId,
@@ -3371,7 +3393,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         var envelopesQuery = supabase
             .from('budget_envelopes')
             .select(
-                'id,name,budget_amount_cents,color,icon,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
+                'id,name,budget_amount_cents,color,icon,logo_url,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
             .eq('currency', effectiveCurrency)
             .eq('budget_id', sourceBudgetId);
 
@@ -3391,7 +3413,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
         var envelopesQuery = supabase
             .from('budget_envelopes')
-            .select('id,name,budget_amount_cents,color,icon')
+            .select('id,name,budget_amount_cents,color,icon,logo_url')
             .eq('currency', effectiveCurrency)
             .eq('budget_id', sourceBudgetId);
         envelopesQuery = _applyAccountScopeFilter(
@@ -3533,6 +3555,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           currency: effectiveCurrency,
           icon: row['icon']?.toString(),
           color: row['color'] as String?,
+          logoUrl: row['logo_url'] as String?,
           budgetId: currentBudgetId,
           householdId: isScopedToHousehold ? householdId : null,
           rolloverGroupId: row['rollover_group_id'] as String?,
@@ -3599,6 +3622,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           'currency': effectiveCurrency,
           'color': color,
           'icon': icon,
+          'logo_url': row['logo_url'] as String?,
           'updated_at': nowIso,
         };
         if (_rowHasRolloverFields(row)) {
@@ -4409,7 +4433,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         var envelopesQuery = supabase
             .from('budget_envelopes')
             .select(
-                'id,name,budget_amount_cents,color,icon,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
+                'id,name,budget_amount_cents,color,icon,logo_url,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
             .eq('currency', currency)
             .eq('budget_id', sourceBudgetId);
         envelopesQuery = _applyAccountScopeFilter(
@@ -4427,7 +4451,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
         var envelopesQuery = supabase
             .from('budget_envelopes')
-            .select('id,name,budget_amount_cents,color,icon')
+            .select('id,name,budget_amount_cents,color,icon,logo_url')
             .eq('currency', currency)
             .eq('budget_id', sourceBudgetId);
         envelopesQuery = _applyAccountScopeFilter(
@@ -4536,6 +4560,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           'currency': currency,
           'color': row['color'] as String?,
           'icon': row['icon']?.toString(),
+          'logo_url': row['logo_url'] as String?,
           'updated_at': nowIso,
         };
         if (_rowHasRolloverFields(row)) {

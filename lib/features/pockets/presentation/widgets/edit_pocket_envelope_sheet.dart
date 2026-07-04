@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 
@@ -33,6 +34,7 @@ import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/rounded_logo_picker.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
@@ -170,6 +172,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     final selectedIcon =
         useState<String?>(existingEnvelope?.icon ?? template?.iconName);
+    final selectedLogoUrl = useState<String?>(existingEnvelope?.logoUrl);
     final isLoading = useState<bool>(false);
     final prefs = ref.read(sharedPreferencesProvider);
     final autoAdjustOtherPockets = useState<bool>(
@@ -365,6 +368,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       String? resolvedName,
       String? resolvedColor,
       String? resolvedIcon,
+      String? resolvedLogoUrl,
+      bool includeLogoUrl = false,
       bool includeRolloverFields = false,
       bool rolloverEnabledValue = false,
       bool rolloverNegativeValue = false,
@@ -385,6 +390,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         payload['name'] = resolvedName;
         payload['color'] = resolvedColor;
         payload['icon'] = resolvedIcon;
+        if (includeLogoUrl) {
+          payload['logo_url'] = resolvedLogoUrl;
+        }
       }
 
       if (includeRolloverFields) {
@@ -568,6 +576,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 currency: selectedCurrency,
                 icon: selectedIcon.value,
                 color: selectedColor.value,
+                logoUrl: selectedLogoUrl.value,
                 budgetId: budgetId,
                 householdId: pocket.householdId,
                 rolloverGroupId: pocket.rolloverGroupId,
@@ -600,6 +609,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               currency: selectedCurrency,
               icon: selectedIcon.value,
               color: selectedColor.value,
+              logoUrl: selectedLogoUrl.value,
               budgetId: budgetId,
               householdId: existingEnvelope!.householdId,
               rolloverGroupId: existingEnvelope!.rolloverGroupId,
@@ -624,6 +634,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               currency: selectedCurrency,
               icon: selectedIcon.value,
               color: selectedColor.value,
+              logoUrl: selectedLogoUrl.value,
               budgetId: budgetId,
               householdId: scopeParams.scope == PocketsScopeType.personal
                   ? null
@@ -684,6 +695,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             resolvedName: name,
             resolvedColor: selectedColor.value,
             resolvedIcon: selectedIcon.value,
+            resolvedLogoUrl: selectedLogoUrl.value,
+            includeLogoUrl: true,
             includeRolloverFields: shouldWriteRolloverFields,
             rolloverEnabledValue: rolloverEnabledValue,
             rolloverNegativeValue: rolloverNegativeValue,
@@ -711,6 +724,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             'currency': selectedCurrency,
             'color': selectedColor.value,
             'icon': selectedIcon.value,
+            'logo_url': selectedLogoUrl.value,
           };
           if (shouldWriteRolloverFields) {
             insertPayload.addAll(<String, dynamic>{
@@ -1216,11 +1230,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         height: 44,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: pocketIconNames.length,
+                          itemCount: pocketIconNames.length + 1,
                           separatorBuilder: (_, __) =>
                               const SizedBox(width: 12),
                           itemBuilder: (context, index) {
-                            final iconName = pocketIconNames[index];
                             final selectedHex = selectedColor.value;
                             final selectedColorValue = selectedHex != null
                                 ? Color(int.parse(
@@ -1229,11 +1242,33 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     0xFF000000)
                                 : colorScheme.primary;
 
+                            if (index == 0) {
+                              return RoundedLogoPicker(
+                                logoUrl: selectedLogoUrl.value,
+                                storagePathPrefix:
+                                    StorageConfig.pocketLogosPath,
+                                onChanged: (value) {
+                                  selectedLogoUrl.value = value;
+                                },
+                                fallbackIcon: getPocketIconData(
+                                  selectedIcon.value ?? 'category',
+                                ),
+                                accentColor: selectedColorValue,
+                                enabled:
+                                    !ref.read(previewModeProvider).isActive,
+                              );
+                            }
+
+                            final iconName = pocketIconNames[index - 1];
+
                             final iconData = getPocketIconData(iconName);
                             final isSelected = selectedIcon.value == iconName;
 
                             return GestureDetector(
-                              onTap: () => selectedIcon.value = iconName,
+                              onTap: () {
+                                selectedIcon.value = iconName;
+                                selectedLogoUrl.value = null;
+                              },
                               child: Container(
                                 width: 44,
                                 height: 44,

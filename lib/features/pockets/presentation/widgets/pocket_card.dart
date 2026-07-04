@@ -135,24 +135,11 @@ class PocketCard extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: colorScheme.pocketGlassSurface,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colorScheme.pocketIconShadow,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              iconData,
-                              size: 18,
-                              color: baseColor,
-                            ),
+                          _PocketLogoAvatar(
+                            logoUrl: pocket.logoUrl,
+                            iconData: iconData,
+                            baseColor: baseColor,
+                            colorScheme: colorScheme,
                           ),
                           if (isOverBudget)
                             Container(
@@ -317,6 +304,84 @@ class PocketCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PocketLogoAvatar extends StatelessWidget {
+  const _PocketLogoAvatar({
+    required this.logoUrl,
+    required this.iconData,
+    required this.baseColor,
+    required this.colorScheme,
+  });
+
+  final String? logoUrl;
+  final IconData iconData;
+  final Color baseColor;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedLogoUrl = logoUrl?.trim();
+    final cacheSize = (38 * MediaQuery.of(context).devicePixelRatio).round();
+
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: colorScheme.pocketGlassSurface,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.pocketIconShadow,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: trimmedLogoUrl == null || trimmedLogoUrl.isEmpty
+            ? _PocketFallbackIcon(iconData: iconData, baseColor: baseColor)
+            : Image.network(
+                trimmedLogoUrl,
+                fit: BoxFit.cover,
+                cacheWidth: cacheSize,
+                cacheHeight: cacheSize,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return _PocketFallbackIcon(
+                    iconData: iconData,
+                    baseColor: baseColor,
+                  );
+                },
+                errorBuilder: (_, __, ___) => _PocketFallbackIcon(
+                  iconData: iconData,
+                  baseColor: baseColor,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _PocketFallbackIcon extends StatelessWidget {
+  const _PocketFallbackIcon({
+    required this.iconData,
+    required this.baseColor,
+  });
+
+  final IconData iconData;
+  final Color baseColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Icon(
+        iconData,
+        size: 18,
+        color: baseColor,
       ),
     );
   }

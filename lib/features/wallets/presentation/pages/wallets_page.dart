@@ -394,6 +394,7 @@ class AccountsPage extends HookConsumerWidget {
           name: result.name,
           icon: result.icon,
           color: result.color,
+          logoUrl: result.logoUrl,
           currency: result.currency,
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,

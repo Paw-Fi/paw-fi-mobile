@@ -17,6 +17,8 @@ class StorageConfig {
   /// Storage paths
   static const String householdCoversPath = 'household-covers';
   static const String userAvatarsPath = 'user-avatars';
+  static const String walletLogosPath = 'wallet-logos';
+  static const String pocketLogosPath = 'pocket-logos';
 
   /// Validates if file extension is allowed
   static bool isAllowedFormat(String filename) {

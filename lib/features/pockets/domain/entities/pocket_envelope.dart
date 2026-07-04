@@ -11,6 +11,7 @@ class PocketEnvelope {
     required this.currency,
     this.icon,
     this.color,
+    this.logoUrl,
     this.budgetId,
     this.householdId,
     this.rolloverGroupId,
@@ -45,6 +46,7 @@ class PocketEnvelope {
       currency: json['currency'] as String? ?? 'USD',
       icon: json['icon'] as String?,
       color: json['color'] as String?,
+      logoUrl: _nullableTrimmedString(json['logo_url']),
       budgetId: json['budget_id'] as String?,
       householdId: json['household_id'] as String?,
       rolloverGroupId: json['rollover_group_id'] as String?,
@@ -71,6 +73,7 @@ class PocketEnvelope {
   final String currency;
   final String? icon;
   final String? color;
+  final String? logoUrl;
   final String? budgetId;
   final String? householdId;
   final String? rolloverGroupId;
@@ -134,6 +137,7 @@ class PocketEnvelope {
       'currency': currency,
       'icon': icon,
       'color': color,
+      'logo_url': logoUrl,
       'budget_id': budgetId,
       'household_id': householdId,
       'has_rollover_fields': hasRolloverFields,
@@ -157,6 +161,8 @@ class PocketEnvelope {
     String? currency,
     String? icon,
     String? color,
+    String? logoUrl,
+    bool clearLogoUrl = false,
     String? budgetId,
     String? rolloverGroupId,
     bool? rolloverEnabled,
@@ -196,6 +202,7 @@ class PocketEnvelope {
       currency: currency ?? this.currency,
       icon: icon ?? this.icon,
       color: color ?? this.color,
+      logoUrl: clearLogoUrl ? null : (logoUrl ?? this.logoUrl),
       budgetId: budgetId ?? this.budgetId,
       householdId: householdId,
       rolloverGroupId: rolloverGroupId ?? this.rolloverGroupId,
@@ -217,4 +224,10 @@ class PocketEnvelope {
       lastUpdated: lastUpdated,
     );
   }
+}
+
+String? _nullableTrimmedString(dynamic value) {
+  if (value == null) return null;
+  final result = value.toString().trim();
+  return result.isEmpty ? null : result;
 }

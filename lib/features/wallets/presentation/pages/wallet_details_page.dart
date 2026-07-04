@@ -634,7 +634,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       if (!context.mounted) return;
 
       debugPrint(
-        '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
+        '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} logo=${result.logoUrl} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
       );
 
       final retargetedCurrentBalanceCents =
@@ -649,6 +649,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         name: result.name,
         icon: result.icon,
         color: result.color,
+        logoUrl: result.logoUrl,
         currency: latestWallet.currency,
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,
@@ -664,6 +665,8 @@ class WalletDetailsPage extends HookConsumerWidget {
           name: result.name,
           icon: result.icon,
           color: result.color,
+          logoUrl: result.logoUrl,
+          includeLogoUrl: true,
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
@@ -1086,14 +1089,16 @@ class WalletDetailsPage extends HookConsumerWidget {
                       color: colorScheme.sheetBackground,
                       child: Center(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 24),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 64, horizontal: 24),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.receipt_long_rounded,
                                 size: 32,
-                                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.5),
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -1250,6 +1255,7 @@ WalletEntity _copyAccount(
   String? name,
   String? icon,
   String? color,
+  String? logoUrl,
   String? currency,
   int? openingBalanceCents,
   int? goalAmountCents,
@@ -1263,6 +1269,7 @@ WalletEntity _copyAccount(
     name: name ?? source.name,
     icon: icon ?? source.icon,
     color: color ?? source.color,
+    logoUrl: logoUrl,
     currency: currency ?? source.currency,
     openingBalanceCents: openingBalanceCents ?? source.openingBalanceCents,
     goalAmountCents: goalAmountCents,

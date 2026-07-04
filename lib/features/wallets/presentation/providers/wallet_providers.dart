@@ -284,6 +284,7 @@ bool _walletOverrideMatchesServer(
   return optimistic.name == server.name &&
       optimistic.icon == server.icon &&
       optimistic.color == server.color &&
+      optimistic.logoUrl == server.logoUrl &&
       optimistic.currency == server.currency &&
       optimistic.openingBalanceCents == server.openingBalanceCents &&
       optimistic.goalAmountCents == server.goalAmountCents &&
@@ -663,6 +664,7 @@ class WalletActions {
     required String name,
     required String icon,
     required String color,
+    String? logoUrl,
     int openingBalanceCents = 0,
     int? goalAmountCents,
     required String currency,
@@ -680,6 +682,7 @@ class WalletActions {
       name: name,
       icon: icon,
       color: color,
+      logoUrl: logoUrl,
       currency: currency.trim().toUpperCase(),
       openingBalanceCents: openingBalanceCents,
       goalAmountCents: goalAmountCents,
@@ -693,6 +696,7 @@ class WalletActions {
       'name': name,
       'icon': icon,
       'color': color,
+      'logoUrl': logoUrl,
       'currency': currency.trim().toUpperCase(),
       'openingBalanceCents': openingBalanceCents,
       'goalAmountCents': goalAmountCents,
@@ -747,10 +751,12 @@ class WalletActions {
     String? name,
     String? icon,
     String? color,
+    String? logoUrl,
     int? openingBalanceCents,
     int? goalAmountCents,
     String? currency,
     bool includeGoalAmount = false,
+    bool includeLogoUrl = false,
     bool? isDefault,
     bool invalidate = true,
   }) async {
@@ -782,6 +788,7 @@ class WalletActions {
         name: name ?? existingWallet.name,
         icon: icon ?? existingWallet.icon,
         color: color ?? existingWallet.color,
+        logoUrl: includeLogoUrl ? logoUrl : existingWallet.logoUrl,
         currency: existingWallet.currency,
         openingBalanceCents: nextOpeningBalanceCents,
         goalAmountCents: includeGoalAmount
@@ -794,7 +801,7 @@ class WalletActions {
       ));
     }
     debugPrint(
-      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
+      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color logo=$logoUrl opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount includeLogo=$includeLogoUrl isDefault=$isDefault invalidate=$invalidate',
     );
 
     final requestBody = {
@@ -802,6 +809,7 @@ class WalletActions {
       if (name != null) 'name': name,
       if (icon != null) 'icon': icon,
       if (color != null) 'color': color,
+      if (includeLogoUrl) 'logoUrl': logoUrl,
       if (requestedCurrency != null) 'currency': requestedCurrency,
       if (openingBalanceCents != null)
         'openingBalanceCents': openingBalanceCents,

@@ -928,6 +928,7 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
       if (pocket['name'] != null) 'name': pocket['name'].toString(),
       if (pocket['icon'] != null) 'icon': pocket['icon'].toString(),
       if (pocket['color'] != null) 'color': pocket['color'].toString(),
+      'logo_url': _nullableString(pocket['logoUrl']),
       'user_id': userId,
     };
     if (pocket.containsKey('rolloverEnabled')) {
@@ -1075,4 +1076,10 @@ Future<void> _saveSharedBudget(Map<String, dynamic> payload) async {
     'is_active': true,
     ...updates,
   });
+}
+
+String? _nullableString(dynamic value) {
+  if (value == null) return null;
+  final trimmed = value.toString().trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

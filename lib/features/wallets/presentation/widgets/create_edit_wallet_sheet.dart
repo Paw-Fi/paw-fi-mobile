@@ -2,6 +2,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -18,11 +19,13 @@ import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_selector_button.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/rounded_logo_picker.dart';
 
 class CreateEditWalletResult {
   final String name;
   final String icon;
   final String color;
+  final String? logoUrl;
   final String currency;
   final int openingBalanceCents;
   final int? goalAmountCents;
@@ -32,6 +35,7 @@ class CreateEditWalletResult {
     required this.name,
     required this.icon,
     required this.color,
+    required this.logoUrl,
     required this.currency,
     required this.openingBalanceCents,
     required this.goalAmountCents,
@@ -77,6 +81,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     useListenable(goalController);
     final selectedIcon = useState<String>(initial?.icon ?? 'wallet');
     final selectedColor = useState<String>(initial?.color ?? '#6B7280');
+    final selectedLogoUrl = useState<String?>(initial?.logoUrl);
     final initialCurrency = initial?.currency.trim().toUpperCase();
     final selectedCurrency = useState<String>(
       isSupportedCurrencyCode(initialCurrency)
@@ -108,6 +113,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
           name: name,
           icon: selectedIcon.value,
           color: selectedColor.value,
+          logoUrl: selectedLogoUrl.value,
           currency: selectedCurrency.value,
           openingBalanceCents: openingCents,
           goalAmountCents: goalCents,
@@ -152,383 +158,384 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
               if (canChangeCurrency)
                 AdaptivePopupMenuButton.widget<String>(
                   items: getAvailableCurrencyOptions().keys.map((code) {
-                            return AdaptivePopupMenuItem<String>(
-                              label:
-                                  '$code · ${resolveCurrencyDisplayName(code)}',
-                              value: code,
-                            );
-                          }).toList(growable: false),
-                          onSelected: (_, item) {
-                            final value = item.value;
-                            if (value == null || value.isEmpty) return;
-                            selectedCurrency.value = value;
-                          },
-                          child: IgnorePointer(
-                            child: MonekoSelectorButton(
-                              label:
-                                  '${selectedCurrency.value} · ${resolveCurrencyDisplayName(selectedCurrency.value)}',
-                              onPressed: () {},
-                            ),
-                          ),
-                        )
-                      else
-                        AbsorbPointer(
-                          child: Opacity(
-                            opacity: 0.72,
-                            child: MonekoSelectorButton(
-                              label:
-                                  '${selectedCurrency.value} · ${resolveCurrencyDisplayName(selectedCurrency.value)}',
-                              onPressed: () {},
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 20),
-                      Text(
-                        context.l10n.walletColor,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 44,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: AppTheme.pocketPresetColors.length + 1,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              return GestureDetector(
-                                onTap: () {
-                                  AdaptiveColorPicker.show(
-                                    context: context,
-                                    startingColor: parseWalletColor(
-                                      selectedColor.value,
-                                      AppTheme.pocketDefaultBlue,
-                                    ),
-                                    onColorChanged: (color) {
-                                      String two(int n) =>
-                                          n.toRadixString(16).padLeft(2, '0');
-                                      int toByte(double x) =>
-                                          (x * 255.0).round() & 0xff;
-                                      selectedColor.value =
-                                          '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                    },
-                                    label: context.l10n.selectColor,
-                                  );
-                                },
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    gradient: const SweepGradient(
-                                      colors: AppTheme.pocketColorSweep,
-                                    ),
-                                    shape: BoxShape.circle,
-                                    border:
-                                        Border.all(color: colorScheme.border),
-                                  ),
-                                  child: Icon(
-                                    Icons.colorize,
-                                    color: colorScheme.primaryForeground,
-                                    size: 20,
-                                  ),
-                                ),
-                              );
-                            }
-
-                            final color =
-                                AppTheme.pocketPresetColors[index - 1];
-                            String two(int n) =>
-                                n.toRadixString(16).padLeft(2, '0');
-                            int toByte(double x) => (x * 255.0).round() & 0xff;
-                            final hex =
-                                '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                            final isSelected =
-                                selectedColor.value.toLowerCase() ==
-                                    hex.toLowerCase();
-
-                            return GestureDetector(
-                              onTap: () => selectedColor.value = hex,
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: isSelected
-                                      ? Border.all(
-                                          color: colorScheme.foreground,
-                                          width: 2,
-                                        )
-                                      : null,
-                                ),
-                                child: isSelected
-                                    ? Icon(
-                                        Icons.check,
-                                        color: colorScheme.primaryForeground,
-                                        size: 20,
-                                      )
-                                    : null,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        context.l10n.walletIcon,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 44,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _walletIcons.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final iconName = _walletIcons[index];
-                            final isSelected = selectedIcon.value == iconName;
-                            final selectedColorValue = parseWalletColor(
-                              selectedColor.value,
-                              colorScheme.primary,
-                            );
-                            return GestureDetector(
-                              onTap: () => selectedIcon.value = iconName,
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? selectedColorValue.withValues(
-                                          alpha: 0.1)
-                                      : colorScheme.card,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? selectedColorValue
-                                        : colorScheme.border,
-                                  ),
-                                ),
-                                child: Icon(
-                                  resolveWalletIcon(iconName),
-                                  color: isSelected
-                                      ? selectedColorValue
-                                      : colorScheme.mutedForeground,
-                                  size: 20,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        context.l10n.initialBalance,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Builder(
-                        builder: (context) => GestureDetector(
-                          onTap: () async {
-                            final header = Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.brightness == Brightness.dark
-                                    ? Colors.white.withValues(alpha: 0.05)
-                                    : Colors.black.withValues(alpha: 0.03),
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(
-                                  color: colorScheme.outline
-                                      .withValues(alpha: 0.08),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.account_balance_wallet_rounded,
-                                    size: 14,
-                                    color: colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    context.l10n.initialBalance,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.foreground,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            final value = await showCalculatorKeypadSheet(
-                              context: context,
-                              initialValue: openingController.text,
-                              prefix: currencySymbol,
-                              header: header,
-                            );
-                            if (value != null) {
-                              openingController.text = value;
-                            }
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.card,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: colorScheme.border),
-                            ),
-                            child: Text(
-                              openingController.text.isNotEmpty
-                                  ? openingController.text
-                                  : context.l10n.tapToSet,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: openingController.text.isNotEmpty
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurface
-                                        .withValues(alpha: 0.3),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        context.l10n.goalAmount,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Builder(
-                        builder: (context) => GestureDetector(
-                          onTap: () async {
-                            final header = Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.brightness == Brightness.dark
-                                    ? Colors.white.withValues(alpha: 0.05)
-                                    : Colors.black.withValues(alpha: 0.03),
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(
-                                  color: colorScheme.outline
-                                      .withValues(alpha: 0.08),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.flag_rounded,
-                                    size: 14,
-                                    color: colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    context.l10n.goalAmount,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.foreground,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            final value = await showCalculatorKeypadSheet(
-                              context: context,
-                              initialValue: goalController.text,
-                              prefix: currencySymbol,
-                              header: header,
-                            );
-                            if (value != null) {
-                              goalController.text = value;
-                            }
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.card,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: colorScheme.border),
-                            ),
-                            child: Text(
-                              goalController.text.isNotEmpty
-                                  ? goalController.text
-                                  : context.l10n.tapToSet,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: goalController.text.isNotEmpty
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurface
-                                        .withValues(alpha: 0.3),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        value: isDefault.value,
-                        title: Text(context.l10n.primaryWallet),
-                        subtitle: Text(
-                          context.l10n.primaryWalletDescription,
-                        ),
-                        onChanged: isPrimaryWalletLocked
-                            ? null
-                            : (value) => isDefault.value = value,
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: PrimaryAdaptiveButton(
-                          onPressed: handleSave,
-                          child: Text(
-                            isEditing
-                                ? context.l10n.saveChanges
-                                : context.l10n.save,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: PlainAdaptiveButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text(context.l10n.cancel),
-                        ),
-                      ),
-                    ],
+                    return AdaptivePopupMenuItem<String>(
+                      label: '$code · ${resolveCurrencyDisplayName(code)}',
+                      value: code,
+                    );
+                  }).toList(growable: false),
+                  onSelected: (_, item) {
+                    final value = item.value;
+                    if (value == null || value.isEmpty) return;
+                    selectedCurrency.value = value;
+                  },
+                  child: IgnorePointer(
+                    child: MonekoSelectorButton(
+                      label:
+                          '${selectedCurrency.value} · ${resolveCurrencyDisplayName(selectedCurrency.value)}',
+                      onPressed: () {},
+                    ),
                   ),
+                )
+              else
+                AbsorbPointer(
+                  child: Opacity(
+                    opacity: 0.72,
+                    child: MonekoSelectorButton(
+                      label:
+                          '${selectedCurrency.value} · ${resolveCurrencyDisplayName(selectedCurrency.value)}',
+                      onPressed: () {},
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
+              Text(
+                context.l10n.walletColor,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: AppTheme.pocketPresetColors.length + 1,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return GestureDetector(
+                        onTap: () {
+                          AdaptiveColorPicker.show(
+                            context: context,
+                            startingColor: parseWalletColor(
+                              selectedColor.value,
+                              AppTheme.pocketDefaultBlue,
+                            ),
+                            onColorChanged: (color) {
+                              String two(int n) =>
+                                  n.toRadixString(16).padLeft(2, '0');
+                              int toByte(double x) =>
+                                  (x * 255.0).round() & 0xff;
+                              selectedColor.value =
+                                  '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                            },
+                            label: context.l10n.selectColor,
+                          );
+                        },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: const SweepGradient(
+                              colors: AppTheme.pocketColorSweep,
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colorScheme.border),
+                          ),
+                          child: Icon(
+                            Icons.colorize,
+                            color: colorScheme.primaryForeground,
+                            size: 20,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final color = AppTheme.pocketPresetColors[index - 1];
+                    String two(int n) => n.toRadixString(16).padLeft(2, '0');
+                    int toByte(double x) => (x * 255.0).round() & 0xff;
+                    final hex =
+                        '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                    final isSelected =
+                        selectedColor.value.toLowerCase() == hex.toLowerCase();
+
+                    return GestureDetector(
+                      onTap: () => selectedColor.value = hex,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(
+                                  color: colorScheme.foreground,
+                                  width: 2,
+                                )
+                              : null,
+                        ),
+                        child: isSelected
+                            ? Icon(
+                                Icons.check,
+                                color: colorScheme.primaryForeground,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                context.l10n.walletIcon,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _walletIcons.length + 1,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final selectedColorValue = parseWalletColor(
+                      selectedColor.value,
+                      colorScheme.primary,
+                    );
+                    if (index == 0) {
+                      return RoundedLogoPicker(
+                        logoUrl: selectedLogoUrl.value,
+                        storagePathPrefix: StorageConfig.walletLogosPath,
+                        onChanged: (value) {
+                          selectedLogoUrl.value = value;
+                        },
+                        fallbackIcon: resolveWalletIcon(selectedIcon.value),
+                        accentColor: selectedColorValue,
+                      );
+                    }
+
+                    final iconName = _walletIcons[index - 1];
+                    final isSelected = selectedIcon.value == iconName;
+                    return GestureDetector(
+                      onTap: () {
+                        selectedIcon.value = iconName;
+                        selectedLogoUrl.value = null;
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? selectedColorValue.withValues(alpha: 0.1)
+                              : colorScheme.card,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? selectedColorValue
+                                : colorScheme.border,
+                          ),
+                        ),
+                        child: Icon(
+                          resolveWalletIcon(iconName),
+                          color: isSelected
+                              ? selectedColorValue
+                              : colorScheme.mutedForeground,
+                          size: 20,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                context.l10n.initialBalance,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) => GestureDetector(
+                  onTap: () async {
+                    final header = Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.brightness == Brightness.dark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: colorScheme.outline.withValues(alpha: 0.08),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet_rounded,
+                            size: 14,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.l10n.initialBalance,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    final value = await showCalculatorKeypadSheet(
+                      context: context,
+                      initialValue: openingController.text,
+                      prefix: currencySymbol,
+                      header: header,
+                    );
+                    if (value != null) {
+                      openingController.text = value;
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Text(
+                      openingController.text.isNotEmpty
+                          ? openingController.text
+                          : context.l10n.tapToSet,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: openingController.text.isNotEmpty
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurface.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                context.l10n.goalAmount,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) => GestureDetector(
+                  onTap: () async {
+                    final header = Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.brightness == Brightness.dark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: colorScheme.outline.withValues(alpha: 0.08),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.flag_rounded,
+                            size: 14,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.l10n.goalAmount,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    final value = await showCalculatorKeypadSheet(
+                      context: context,
+                      initialValue: goalController.text,
+                      prefix: currencySymbol,
+                      header: header,
+                    );
+                    if (value != null) {
+                      goalController.text = value;
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Text(
+                      goalController.text.isNotEmpty
+                          ? goalController.text
+                          : context.l10n.tapToSet,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: goalController.text.isNotEmpty
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurface.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: isDefault.value,
+                title: Text(context.l10n.primaryWallet),
+                subtitle: Text(
+                  context.l10n.primaryWalletDescription,
+                ),
+                onChanged: isPrimaryWalletLocked
+                    ? null
+                    : (value) => isDefault.value = value,
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: PrimaryAdaptiveButton(
+                  onPressed: handleSave,
+                  child: Text(
+                    isEditing ? context.l10n.saveChanges : context.l10n.save,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: PlainAdaptiveButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(context.l10n.cancel),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

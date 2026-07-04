@@ -15,6 +15,7 @@ class ImageCompressor {
   static Future<Uint8List> compressFile(
     File file, {
     ImageCompressConfig config = ImageCompressConfig.receipt,
+    bool useOriginalWhenSmaller = true,
   }) async {
     try {
       final originalBytes = await file.readAsBytes();
@@ -36,7 +37,7 @@ class ImageCompressor {
       }
 
       // Only use compressed if actually smaller
-      if (result.length >= originalBytes.length) {
+      if (useOriginalWhenSmaller && result.length >= originalBytes.length) {
         debugPrint('ℹ️ ImageCompressor: compressed is not smaller '
             '(${result.length} >= ${originalBytes.length}), using original');
         return originalBytes;
@@ -61,6 +62,7 @@ class ImageCompressor {
   static Future<Uint8List> compressBytes(
     Uint8List bytes, {
     ImageCompressConfig config = ImageCompressConfig.avatar,
+    bool useOriginalWhenSmaller = true,
   }) async {
     try {
       final result = await FlutterImageCompress.compressWithList(
@@ -78,7 +80,7 @@ class ImageCompressor {
         return bytes;
       }
 
-      if (result.length >= bytes.length) {
+      if (useOriginalWhenSmaller && result.length >= bytes.length) {
         debugPrint('ℹ️ ImageCompressor: compressed is not smaller '
             '(${result.length} >= ${bytes.length}), using original');
         return bytes;
@@ -148,6 +150,14 @@ class ImageCompressConfig {
   static const householdCover = ImageCompressConfig(
     quality: 85,
     maxDimension: 800,
+    preferredFormat: CompressFormat.jpeg,
+  );
+
+  /// Wallet and pocket logos: tiny JPEG at 160px.
+  /// These render as small circular thumbnails, so keep bytes aggressively low.
+  static const logo = ImageCompressConfig(
+    quality: 75,
+    maxDimension: 160,
     preferredFormat: CompressFormat.jpeg,
   );
 }

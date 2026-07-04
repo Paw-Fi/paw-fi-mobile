@@ -7,6 +7,72 @@ import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets('choosing a built-in wallet icon clears custom logoUrl',
+      (tester) async {
+    const wallet = WalletEntity(
+      id: 'w1',
+      userId: 'u1',
+      householdId: null,
+      name: 'Main Wallet',
+      icon: 'wallet',
+      color: '#6B7280',
+      logoUrl: 'https://example.com/logo.jpg',
+      openingBalanceCents: 100000,
+      goalAmountCents: null,
+      isDefault: true,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 98000,
+    );
+    CreateEditWalletResult? result;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                return TextButton(
+                  onPressed: () async {
+                    result = await showCreateEditWalletSheet(
+                      context,
+                      initial: wallet,
+                    );
+                  },
+                  child: const Text('Open'),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.groups_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Save Changes'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+
+    expect(result?.icon, 'joint');
+    expect(result?.logoUrl, null);
+  });
+
   testWidgets('edit wallet sheet seeds balance field from opening balance',
       (tester) async {
     const wallet = WalletEntity(
@@ -54,10 +120,12 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
-    final balanceField = tester.widget<TextFormField>(
-      find.byType(TextFormField).at(1),
+    await tester.scrollUntilVisible(
+      find.text('1000'),
+      300,
+      scrollable: find.byType(Scrollable).last,
     );
 
-    expect(balanceField.controller?.text, '1000');
+    expect(find.text('1000'), findsOneWidget);
   });
 }
