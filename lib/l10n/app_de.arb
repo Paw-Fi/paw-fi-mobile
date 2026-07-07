@@ -3274,5 +3274,10 @@
   "trialWelcomeFaqNoChargeAnswer": "Nein. Wir buchen nichts ab. Du musst nichts tun — die Testphase läuft einfach von selbst ab.",
   "trialWelcomeFaqAfterTrialQuestion": "Was passiert, wenn ich kein Abo abschließe?",
   "trialWelcomeFaqAfterTrialAnswer": "Das ist überhaupt kein Problem! Du kannst Moneko weiterhin kostenlos mit leicht eingeschränkten Funktionen nutzen. Kein Druck, keine Überraschungen.",
-  "trialWelcomeCta": "Loslegen"
+  "trialWelcomeCta": "Loslegen",
+  "onboardingHeardAboutTitle": "Wie hast du von uns erfahren?",
+  "onboardingHeardAboutSubtitle": "Wähle die passende Option aus. Falls es etwas anderes war, wähle „Sonstiges“.",
+  "onboardingHeardAboutOtherHint": "Erzähl uns, wo",
+  "onboardingHeardAboutValidation": "Bitte wähle aus, wo du von Moneko erfahren hast.",
+  "onboardingHeardAboutSaveError": "Deine Antwort konnte nicht gespeichert werden. Bitte versuche es erneut."
 }

@@ -3274,5 +3274,10 @@
   "trialWelcomeFaqNoChargeAnswer": "いいえ。料金が請求されることはありません。何もしなくても、トライアルは自動的に終了します。",
   "trialWelcomeFaqAfterTrialQuestion": "定期購入しないとどうなりますか？",
   "trialWelcomeFaqAfterTrialAnswer": "もちろん大丈夫です！Monekoの一部の機能は制限されますが、引き続き無料でご利用いただけます。プレッシャーやサプライズは一切ありません。",
-  "trialWelcomeCta": "さっそく試してみる"
+  "trialWelcomeCta": "さっそく試してみる",
+  "onboardingHeardAboutTitle": "Monekoをどこで知りましたか？",
+  "onboardingHeardAboutSubtitle": "最も当てはまるものを選んでください。それ以外の場合は「その他」を選択してください。",
+  "onboardingHeardAboutOtherHint": "どこか教えてください",
+  "onboardingHeardAboutValidation": "Monekoを知ったきっかけを選択してください。",
+  "onboardingHeardAboutSaveError": "回答を保存できませんでした。もう一度お試しください。"
 }

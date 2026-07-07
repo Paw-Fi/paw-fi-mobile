@@ -3273,5 +3273,10 @@
   "trialWelcomeFaqNoChargeAnswer": "Không. Chúng tôi sẽ không trừ bất kỳ khoản tiền nào. Bạn không cần làm gì cả — thời gian dùng thử sẽ tự động hết hạn.",
   "trialWelcomeFaqAfterTrialQuestion": "Điều gì xảy ra nếu tôi không đăng ký?",
   "trialWelcomeFaqAfterTrialAnswer": "Hoàn toàn không sao! Bạn vẫn có thể tiếp tục sử dụng Moneko miễn phí với một số tính năng bị giới hạn. Không áp lực, không có gì bất ngờ.",
-  "trialWelcomeCta": "Bắt đầu khám phá"
+  "trialWelcomeCta": "Bắt đầu khám phá",
+  "onboardingHeardAboutTitle": "Bạn biết đến Moneko từ đâu?",
+  "onboardingHeardAboutSubtitle": "Chọn tùy chọn phù hợp nhất. Nếu là từ nguồn khác, hãy chọn \"Khác\".",
+  "onboardingHeardAboutOtherHint": "Hãy cho chúng tôi biết",
+  "onboardingHeardAboutValidation": "Vui lòng chọn nơi bạn biết đến Moneko.",
+  "onboardingHeardAboutSaveError": "Không thể lưu câu trả lời của bạn. Vui lòng thử lại."
 }

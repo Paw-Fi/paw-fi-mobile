@@ -3220,5 +3220,10 @@
   "trialWelcomeFaqNoChargeAnswer": "نہیں ۔ ہم آپ سے کچھ بھی نہیں کاٹیں گے۔ آپ کو کچھ کرنے کی ضرورت نہیں ہے — ٹرائل بس خود بخود ختم ہو جاتا ہے۔",
   "trialWelcomeFaqAfterTrialQuestion": "اگر میں سبسکرائب نہیں کرتا تو کیا ہوگا؟",
   "trialWelcomeFaqAfterTrialAnswer": "یہ بالکل ٹھیک ہے! آپ محدود خصوصیات کے ساتھ Moneko کا مفت استعمال جاری رکھ سکتے ہیں۔ کوئی دباؤ نہیں، کوئی حیرت نہیں۔",
-  "trialWelcomeCta": "دریافت کرنا شروع کریں"
+  "trialWelcomeCta": "دریافت کرنا شروع کریں",
+  "onboardingHeardAboutTitle": "آپ نے ہمارے بارے میں کہاں سے سنا؟",
+  "onboardingHeardAboutSubtitle": "جو آپ پر سب سے زیادہ لاگو ہوتا ہے وہ منتخب کریں۔ اگر کسی اور جگہ سے معلوم ہوا ہو تو \"دیگر\" منتخب کریں۔",
+  "onboardingHeardAboutOtherHint": "ہمیں بتائیں کہاں سے",
+  "onboardingHeardAboutValidation": "براہ کرم منتخب کریں کہ آپ نے Moneko کے بارے میں کہاں سے سنا۔",
+  "onboardingHeardAboutSaveError": "آپ کا جواب محفوظ نہیں کیا جا سکا۔ براہ کرم دوبارہ کوشش کریں۔"
 }

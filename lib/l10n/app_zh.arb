@@ -3270,5 +3270,10 @@
   "trialWelcomeFaqNoChargeAnswer": "不会。我们不会扣除您任何费用。您什么都不用做——试用期会自动结束。",
   "trialWelcomeFaqAfterTrialQuestion": "如果我不订阅会怎么样？",
   "trialWelcomeFaqAfterTrialAnswer": "完全没问题！您可以继续免费使用 Moneko，只是一些高级功能会受到限制。没有压力，没有意外。",
-  "trialWelcomeCta": "开始探索"
+  "trialWelcomeCta": "开始探索",
+  "onboardingHeardAboutTitle": "您是从哪里知道 Moneko 的？",
+  "onboardingHeardAboutSubtitle": "请选择最符合的选项。如果是在其他地方了解到的，请选择“其他”。",
+  "onboardingHeardAboutOtherHint": "请告诉我们是哪里",
+  "onboardingHeardAboutValidation": "请选择您是从哪里知道 Moneko 的。",
+  "onboardingHeardAboutSaveError": "无法保存您的回答，请重试。"
 }

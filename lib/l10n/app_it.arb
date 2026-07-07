@@ -3221,5 +3221,10 @@
   "trialWelcomeFaqNoChargeAnswer": "No. Non ti addebiteremo nulla. Non devi fare nulla: la prova scadrà semplicemente da sola.",
   "trialWelcomeFaqAfterTrialQuestion": "Cosa succede se non mi abbono?",
   "trialWelcomeFaqAfterTrialAnswer": "Nessun problema! Puoi continuare a usare Moneko gratuitamente con alcune funzionalità limitate. Nessuna pressione, nessuna sorpresa.",
-  "trialWelcomeCta": "Inizia a esplorare"
+  "trialWelcomeCta": "Inizia a esplorare",
+  "onboardingHeardAboutTitle": "Come hai saputo di noi?",
+  "onboardingHeardAboutSubtitle": "Scegli l'opzione più adatta. Se era un'altra fonte, seleziona \"Altro\".",
+  "onboardingHeardAboutOtherHint": "Dicci dove",
+  "onboardingHeardAboutValidation": "Seleziona dove hai scoperto Moneko.",
+  "onboardingHeardAboutSaveError": "Non siamo riusciti a salvare la tua risposta. Riprova."
 }

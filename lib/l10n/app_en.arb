@@ -3315,5 +3315,10 @@
   "trialWelcomeFaqNoChargeAnswer": "No. We won't deduct anything from you. You don't need to do anything — the trial simply expires on its own.",
   "trialWelcomeFaqAfterTrialQuestion": "What happens if I don't subscribe?",
   "trialWelcomeFaqAfterTrialAnswer": "That's absolutely fine! You can continue using Moneko for free with some features limited. No pressure, no surprises.",
-  "trialWelcomeCta": "Start exploring"
+  "trialWelcomeCta": "Start exploring",
+  "onboardingHeardAboutTitle": "Where did you hear about us?",
+  "onboardingHeardAboutSubtitle": "Pick the option that fits best. If it was somewhere else, choose Other.",
+  "onboardingHeardAboutOtherHint": "Tell us where",
+  "onboardingHeardAboutValidation": "Please choose where you heard about Moneko.",
+  "onboardingHeardAboutSaveError": "We could not save your answer. Please try again."
 }

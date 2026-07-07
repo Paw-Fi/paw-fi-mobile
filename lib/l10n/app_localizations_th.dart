@@ -9051,4 +9051,19 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get trialWelcomeCta => 'เริ่มต้นใช้งาน';
+
+  @override
+  String get onboardingHeardAboutTitle => 'คุณรู้จัก Moneko จากที่ไหน?';
+
+  @override
+  String get onboardingHeardAboutSubtitle => 'เลือกตัวเลือกที่ตรงที่สุด หากมาจากที่อื่น ให้เลือก \"อื่น ๆ\"';
+
+  @override
+  String get onboardingHeardAboutOtherHint => 'บอกเราหน่อยว่าที่ไหน';
+
+  @override
+  String get onboardingHeardAboutValidation => 'โปรดเลือกว่าคุณรู้จัก Moneko จากที่ไหน';
+
+  @override
+  String get onboardingHeardAboutSaveError => 'ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง';
 }

@@ -3221,5 +3221,10 @@
   "trialWelcomeFaqNoChargeAnswer": "Nee hoor. We schrijven niets af. Je hoeft niets te doen — de proefperiode verloopt gewoon vanzelf.",
   "trialWelcomeFaqAfterTrialQuestion": "Wat gebeurt er als ik me niet abonneer?",
   "trialWelcomeFaqAfterTrialAnswer": "Dat is helemaal prima! Je kunt Moneko gratis blijven gebruiken, maar dan met wat beperkte functies. Geen druk, geen verrassingen.",
-  "trialWelcomeCta": "Begin met ontdekken"
+  "trialWelcomeCta": "Begin met ontdekken",
+  "onboardingHeardAboutTitle": "Hoe heb je over ons gehoord?",
+  "onboardingHeardAboutSubtitle": "Kies de optie die het beste past. Was het ergens anders? Kies dan 'Overig'.",
+  "onboardingHeardAboutOtherHint": "Vertel ons waar",
+  "onboardingHeardAboutValidation": "Kies waar je over Moneko hebt gehoord.",
+  "onboardingHeardAboutSaveError": "We konden je antwoord niet opslaan. Probeer het opnieuw."
 }

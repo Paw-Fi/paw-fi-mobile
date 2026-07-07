@@ -3218,5 +3218,10 @@
   "trialWelcomeFaqNoChargeAnswer": "不會。我們不會扣除您任何費用。您什麼都不用做——試用期會自動結束。",
   "trialWelcomeFaqAfterTrialQuestion": "如果我不訂閱會怎麼樣？",
   "trialWelcomeFaqAfterTrialAnswer": "完全沒問題！您可以繼續免費使用 Moneko，只是一些進階功能會受到限制。沒有壓力，沒有意外。",
-  "trialWelcomeCta": "開始探索"
+  "trialWelcomeCta": "開始探索",
+  "onboardingHeardAboutTitle": "您是從哪裡知道 Moneko 的？",
+  "onboardingHeardAboutSubtitle": "請選擇最符合的選項。如果是在其他地方得知的，請選擇「其他」。",
+  "onboardingHeardAboutOtherHint": "請告訴我們是哪裡",
+  "onboardingHeardAboutValidation": "請選擇您是從哪裡知道 Moneko 的。",
+  "onboardingHeardAboutSaveError": "無法儲存您的回答，請再試一次。"
 }

@@ -3274,5 +3274,10 @@
   "trialWelcomeFaqNoChargeAnswer": "Non. Nous ne vous prélèverons rien. Vous n'avez rien à faire : l'essai expire tout seul.",
   "trialWelcomeFaqAfterTrialQuestion": "Que se passe-t-il si je ne m'abonne pas ?",
   "trialWelcomeFaqAfterTrialAnswer": "Aucun problème ! Vous pouvez continuer à utiliser Moneko gratuitement avec certaines fonctionnalités limitées. Pas de pression, pas de mauvaises surprises.",
-  "trialWelcomeCta": "Commencer l'exploration"
+  "trialWelcomeCta": "Commencer l'exploration",
+  "onboardingHeardAboutTitle": "Comment avez-vous entendu parler de nous ?",
+  "onboardingHeardAboutSubtitle": "Choisissez l’option qui correspond le mieux. Si c’était ailleurs, sélectionnez « Autre ».",
+  "onboardingHeardAboutOtherHint": "Dites-nous où",
+  "onboardingHeardAboutValidation": "Veuillez indiquer où vous avez découvert Moneko.",
+  "onboardingHeardAboutSaveError": "Nous n'avons pas pu enregistrer votre réponse. Veuillez réessayer."
 }

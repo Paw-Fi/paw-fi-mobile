@@ -3224,5 +3224,10 @@
   "trialWelcomeFaqNoChargeAnswer": "Нет. Мы ничего с вас не спишем. Вам не нужно ничего делать — пробный период просто завершится.",
   "trialWelcomeFaqAfterTrialQuestion": "Что будет, если я не оформлю подписку?",
   "trialWelcomeFaqAfterTrialAnswer": "Абсолютно ничего страшного! Вы можете продолжать пользоваться Moneko бесплатно с некоторыми ограничениями. Без давления и скрытых условий.",
-  "trialWelcomeCta": "Начать знакомство"
+  "trialWelcomeCta": "Начать знакомство",
+  "onboardingHeardAboutTitle": "Где вы узнали о Moneko?",
+  "onboardingHeardAboutSubtitle": "Выберите наиболее подходящий вариант. Если это был другой источник, выберите «Другое».",
+  "onboardingHeardAboutOtherHint": "Расскажите, где",
+  "onboardingHeardAboutValidation": "Выберите, где вы узнали о Moneko.",
+  "onboardingHeardAboutSaveError": "Не удалось сохранить ваш ответ. Попробуйте ещё раз."
 }

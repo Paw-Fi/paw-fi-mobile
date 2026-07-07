@@ -3291,5 +3291,10 @@
   "trialWelcomeFaqNoChargeAnswer": "ไม่เลย เราจะไม่หักเงินจากคุณ คุณไม่ต้องทำอะไรทั้งสิ้น — สิทธิ์ทดลองใช้จะสิ้นสุดลงเองเมื่อครบกำหนด",
   "trialWelcomeFaqAfterTrialQuestion": "จะเกิดอะไรขึ้นหากฉันไม่สมัครสมาชิก?",
   "trialWelcomeFaqAfterTrialAnswer": "ไม่เป็นไรเลย! คุณยังสามารถใช้งาน Moneko ได้ฟรีตามปกติ โดยจะมีแค่บางฟีเจอร์ที่ถูกจำกัด สบายใจได้ ไม่มีข้อผูกมัดหรือค่าใช้จ่ายแอบแฝง",
-  "trialWelcomeCta": "เริ่มต้นใช้งาน"
+  "trialWelcomeCta": "เริ่มต้นใช้งาน",
+  "onboardingHeardAboutTitle": "คุณรู้จัก Moneko จากที่ไหน?",
+  "onboardingHeardAboutSubtitle": "เลือกตัวเลือกที่ตรงที่สุด หากมาจากที่อื่น ให้เลือก \"อื่น ๆ\"",
+  "onboardingHeardAboutOtherHint": "บอกเราหน่อยว่าที่ไหน",
+  "onboardingHeardAboutValidation": "โปรดเลือกว่าคุณรู้จัก Moneko จากที่ไหน",
+  "onboardingHeardAboutSaveError": "ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง"
 }
