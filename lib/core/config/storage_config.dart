@@ -12,6 +12,8 @@ class StorageConfig {
     '.jpeg',
     '.png',
     '.webp',
+    '.heic',
+    '.heif',
   ];
 
   /// Storage paths

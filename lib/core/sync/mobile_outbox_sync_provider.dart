@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -762,6 +763,11 @@ Future<String> _uploadQueuedReceiptImage(
     imageFile,
     config: ImageCompressConfig.receipt,
   );
+  if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+    throw Exception(
+      'Receipt image too large (${StorageConfig.getFileSizeString(compressedBytes.length)}). Max is ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+    );
+  }
   final safeStorageKey = storageKey
       ?.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')
       .replaceAll(RegExp(r'_+'), '_')

@@ -155,6 +155,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
     final selectedImportApp = useState<String>('YNAB');
+    final recordedImportApp = useState<String?>(null);
     final selectedExpenseSource = useState(_ExpenseCaptureSource.textAudio);
     final loggedExpensePreview =
         useState<OnboardingLoggedExpensePreview?>(null);
@@ -252,6 +253,22 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
     Future<void> handleImportExpenses() async {
       final notUsingAnApp = context.l10n.notUsingAnApp;
+      final appName = selectedImportApp.value;
+      if (recordedImportApp.value != appName) {
+        try {
+          await supabase.from('onboarding_heard_about_responses').insert({
+            'source': 'budgeting_app_import',
+            'source_label': appName,
+            'other_text': null,
+          });
+          recordedImportApp.value = appName;
+        } catch (error, stackTrace) {
+          debugPrint(
+            '[OnboardingPostAuth] Import app selection tracking failed: $error\n$stackTrace',
+          );
+        }
+      }
+
       if (selectedImportApp.value == notUsingAnApp) {
         next();
         return;

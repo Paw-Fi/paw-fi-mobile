@@ -664,8 +664,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
       final convertPortfolioToShared =
           household.isPortfolio && (_isSharedSpace ?? false);
 
-      final updatedHousehold =
-          await ref.read(householdRepositoryProvider).updateHousehold(
+      final updatedHousehold = await ref
+          .read(householdRepositoryProvider)
+          .updateHousehold(
             householdId: widget.householdId,
             name: _nameController.text.trim(),
             coverImageUrl: imageUrl,
@@ -848,21 +849,27 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
   Future<String?> _uploadImage(File imageFile) async {
     final supabase = Supabase.instance.client;
     final user = ref.read(authProvider);
-    final ext = imageFile.path.contains('.')
-        ? '.${imageFile.path.split('.').last.toLowerCase()}'
-        : '';
     final fileName =
-        '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
+        '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
     // Compress before upload to reduce egress
     final compressedBytes = await ImageCompressor.compressFile(
       imageFile,
       config: ImageCompressConfig.householdCover,
     );
+    if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+      throw Exception(
+        'File too large (${StorageConfig.getFileSizeString(compressedBytes.length)}). Max is ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+      );
+    }
 
-    await supabase.storage.from(StorageConfig.publicBucket).uploadBinary(
-        fileName, compressedBytes,
-        fileOptions: const FileOptions(cacheControl: '31536000'));
+    await supabase.storage
+        .from(StorageConfig.publicBucket)
+        .uploadBinary(fileName, compressedBytes,
+            fileOptions: const FileOptions(
+              cacheControl: '31536000',
+              contentType: 'image/jpeg',
+            ));
 
     return supabase.storage
         .from(StorageConfig.publicBucket)

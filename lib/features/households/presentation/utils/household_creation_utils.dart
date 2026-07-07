@@ -55,21 +55,20 @@ class HouseholdCreationUtils {
         );
       }
 
-      final fileExt = imageFile.path.contains('.')
+      final originalExtension = imageFile.path.contains('.')
           ? '.${imageFile.path.split('.').last.toLowerCase()}'
           : '';
-      if (!StorageConfig.isAllowedFormat(fileExt)) {
-        throw Exception('Unsupported file format: $fileExt');
+      if (!StorageConfig.isAllowedFormat(originalExtension)) {
+        throw Exception('Unsupported file format: $originalExtension');
       }
 
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_$userId$fileExt';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$userId.jpg';
       final filePath = '${StorageConfig.householdCoversPath}/$fileName';
 
       debugPrint('📤 Uploading to Supabase Storage:');
       debugPrint('  - Bucket: ${StorageConfig.publicBucket}');
       debugPrint('  - Path: $filePath');
-      debugPrint('  - Content-Type: ${_getContentType(fileExt)}');
+      debugPrint('  - Content-Type: image/jpeg');
 
       try {
         await Supabase.instance.client.storage
@@ -79,7 +78,7 @@ class HouseholdCreationUtils {
               bytes,
               fileOptions: FileOptions(
                 upsert: false,
-                contentType: _getContentType(fileExt),
+                contentType: 'image/jpeg',
                 cacheControl: '31536000',
               ),
             );
@@ -101,20 +100,6 @@ class HouseholdCreationUtils {
       debugPrint('  - Error: $e');
       debugPrint('  - Stack: $stackTrace');
       throw Exception('Failed to upload image: $e');
-    }
-  }
-
-  static String _getContentType(String extension) {
-    switch (extension.toLowerCase()) {
-      case '.jpg':
-      case '.jpeg':
-        return 'image/jpeg';
-      case '.png':
-        return 'image/png';
-      case '.webp':
-        return 'image/webp';
-      default:
-        return 'image/jpeg';
     }
   }
 }

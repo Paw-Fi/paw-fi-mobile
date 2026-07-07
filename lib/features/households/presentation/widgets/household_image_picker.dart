@@ -390,20 +390,8 @@ class HouseholdImagePicker {
 
       if (image == null) return null;
 
-      final file = File(image.path);
-      final fileSize = await file.length();
-
-      if (!StorageConfig.isValidFileSize(fileSize)) {
-        if (context.mounted) {
-          _showError(
-            context,
-            '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). ${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-          );
-        }
-        return null;
-      }
-
-      if (!StorageConfig.isAllowedFormat(image.path)) {
+      final sourceName = image.name.trim().isNotEmpty ? image.name : image.path;
+      if (!StorageConfig.isAllowedFormat(sourceName)) {
         if (context.mounted) {
           _showError(
             context,

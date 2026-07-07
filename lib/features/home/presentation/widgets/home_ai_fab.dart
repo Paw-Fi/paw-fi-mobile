@@ -20,6 +20,7 @@ import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -2054,6 +2055,11 @@ Future<String> _uploadReceiptImageForAiQueue(
     imageFile,
     config: ImageCompressConfig.receipt,
   );
+  if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+    throw Exception(
+      'Receipt image too large (${StorageConfig.getFileSizeString(compressedBytes.length)}). Max is ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+    );
+  }
   final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
   final path = 'receipts/$userId/$fileName';
   final response = await supabase.storage.from('expense-receipts').uploadBinary(

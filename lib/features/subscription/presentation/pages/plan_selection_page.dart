@@ -1207,8 +1207,6 @@ class PlanSelectionPage extends HookConsumerWidget {
                             const SizedBox(height: 32),
 
                             // --- SUBSCRIPTION PLANS ---
-                            const _PlanSelectionBenefitsChecklist(),
-                            const SizedBox(height: 18),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 180),
                               switchInCurve: Curves.easeOut,
@@ -1230,6 +1228,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                                       isNewUser: isNewUser,
                                     ),
                             ),
+                            const SizedBox(height: 18),
+                            const _PlanSelectionBenefitsChecklist(),
                             const SizedBox(height: 40),
                             const PaywallReviewsSection(),
                             const SizedBox(height: 12),

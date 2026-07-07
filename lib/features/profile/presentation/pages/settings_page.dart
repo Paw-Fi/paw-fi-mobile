@@ -55,6 +55,7 @@ import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
@@ -1353,7 +1354,8 @@ class SettingsPage extends HookConsumerWidget {
                           );
                           if (pickedOption == null) return;
 
-                          final localeNotifier = ref.read(localeProvider.notifier);
+                          final localeNotifier =
+                              ref.read(localeProvider.notifier);
                           final pickedLocale = pickedOption.locale;
                           final unchanged = pickedLocale == null
                               ? selectedSupportedLocale == null
@@ -1363,7 +1365,8 @@ class SettingsPage extends HookConsumerWidget {
                                           .toLowerCase() &&
                                   (pickedLocale.countryCode ?? '')
                                           .toUpperCase() ==
-                                      (selectedSupportedLocale.countryCode ?? '')
+                                      (selectedSupportedLocale.countryCode ??
+                                              '')
                                           .toUpperCase();
                           if (unchanged) return;
 
@@ -1427,14 +1430,17 @@ class SettingsPage extends HookConsumerWidget {
                         label: context.l10n.appearance,
                         value: themeDisplay,
                         onTap: () async {
-                          final pickedTheme = await MonekoListPicker.show<ThemeMode>(
+                          final pickedTheme =
+                              await MonekoListPicker.show<ThemeMode>(
                             context: context,
                             items: ThemeMode.values,
                             initial: currentTheme,
                             title: context.l10n.appearance,
-                            labelBuilder: (mode) => _themeModeLabel(context, mode),
+                            labelBuilder: (mode) =>
+                                _themeModeLabel(context, mode),
                           );
-                          if (pickedTheme == null || pickedTheme == currentTheme) {
+                          if (pickedTheme == null ||
+                              pickedTheme == currentTheme) {
                             return;
                           }
                           ref
@@ -2804,6 +2810,7 @@ CompressFormat _compressFormatForExtension(String path) {
     case 'webp':
       return CompressFormat.webp;
     case 'heic':
+    case 'heif':
       return CompressFormat.heic;
     default:
       return CompressFormat.jpeg;
@@ -2827,6 +2834,7 @@ String _inferMimeType(String fileName) {
     case 'webp':
       return 'image/webp';
     case 'heic':
+    case 'heif':
       return 'image/heic';
     case 'jpeg':
     case 'jpg':
@@ -2854,20 +2862,6 @@ Future<File?> _pickAndCropAvatarImage(
     );
 
     if (image == null) return null;
-
-    final file = File(image.path);
-    final fileSize = await file.length();
-
-    if (!StorageConfig.isValidFileSize(fileSize)) {
-      if (context.mounted) {
-        AppToast.error(
-          context,
-          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
-          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-        );
-      }
-      return null;
-    }
 
     if (!context.mounted) return null;
 
@@ -2912,18 +2906,6 @@ Future<File?> _pickAndCropAvatarImage(
     if (!await outputFile.exists()) {
       if (context.mounted) {
         AppToast.error(context, context.l10n.failedToSaveAvatar);
-      }
-      return null;
-    }
-
-    final outputFileSize = await outputFile.length();
-    if (!StorageConfig.isValidFileSize(outputFileSize)) {
-      if (context.mounted) {
-        AppToast.error(
-          context,
-          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(outputFileSize)}). '
-          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-        );
       }
       return null;
     }
@@ -2978,15 +2960,6 @@ Future<void> _uploadAndSaveAvatar(
       return;
     }
 
-    final fileSize = await imageFile.length();
-
-    if (!StorageConfig.isValidFileSize(fileSize)) {
-      errorToastMessage =
-          '${l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
-          '${l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.';
-      return;
-    }
-
     if (context.mounted) {
       try {
         await Future<void>.delayed(Duration.zero);
@@ -3002,17 +2975,24 @@ Future<void> _uploadAndSaveAvatar(
       }
     }
 
-    final path = '${user.id}/avatar.png';
+    final path = '${user.id}/avatar.jpg';
+    final imageBytes = await ImageCompressor.compressFile(
+      imageFile,
+      config: ImageCompressConfig.profileAvatar,
+    );
+    if (!StorageConfig.isValidFileSize(imageBytes.length)) {
+      errorToastMessage =
+          '${l10n.imageTooLarge} (${StorageConfig.getFileSizeString(imageBytes.length)}). '
+          '${l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.';
+      return;
+    }
 
-    // Read file bytes for deterministic hash computation
-    final imageBytes = await imageFile.readAsBytes();
-
-    await client.storage.from('avatars').upload(
+    await client.storage.from('avatars').uploadBinary(
           path,
-          imageFile,
+          imageBytes,
           fileOptions: const FileOptions(
             upsert: true,
-            contentType: 'image/png',
+            contentType: 'image/jpeg',
             cacheControl: '31536000',
           ),
         );

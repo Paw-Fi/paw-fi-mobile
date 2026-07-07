@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -723,6 +724,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         imageFile,
         config: ImageCompressConfig.receipt,
       );
+      if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+        throw Exception(
+          'Receipt image too large (${StorageConfig.getFileSizeString(compressedBytes.length)}). Max is ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        );
+      }
 
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
 

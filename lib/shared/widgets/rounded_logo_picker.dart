@@ -13,6 +13,19 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+const _maxLogoFileSizeBytes = 8 * 1024;
+const _logoCompressionProfiles = <({int quality, int size})>[
+  (quality: 75, size: 160),
+  (quality: 65, size: 128),
+  (quality: 55, size: 112),
+  (quality: 45, size: 96),
+  (quality: 35, size: 80),
+  (quality: 25, size: 64),
+  (quality: 15, size: 48),
+  (quality: 10, size: 36),
+  (quality: 5, size: 24),
+];
+
 class RoundedLogoPicker extends HookWidget {
   const RoundedLogoPicker({
     super.key,
@@ -239,12 +252,12 @@ Future<String?> _pickCropCompressAndUploadLogo({
   if (croppedBytes.isEmpty) return null;
 
   final compressedBytes = await _compressLogoBytes(croppedBytes);
-  if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+  if (compressedBytes.length > _maxLogoFileSizeBytes) {
     if (context.mounted) {
       AppToast.error(
         context,
         '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(compressedBytes.length)}). '
-        '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(_maxLogoFileSizeBytes)}.',
       );
     }
     return null;
@@ -280,15 +293,28 @@ Future<String?> _pickCropCompressAndUploadLogo({
 
 Future<Uint8List> _compressLogoBytes(Uint8List bytes) async {
   try {
-    final result = await FlutterImageCompress.compressWithList(
-      bytes,
-      quality: 75,
-      minWidth: 160,
-      minHeight: 160,
-      format: CompressFormat.jpeg,
-      keepExif: false,
-    );
-    return result.isEmpty ? bytes : Uint8List.fromList(result);
+    Uint8List? smallestResult;
+
+    for (final profile in _logoCompressionProfiles) {
+      final result = await FlutterImageCompress.compressWithList(
+        bytes,
+        quality: profile.quality,
+        minWidth: profile.size,
+        minHeight: profile.size,
+        format: CompressFormat.jpeg,
+        keepExif: false,
+      );
+      if (result.isEmpty) continue;
+
+      if (smallestResult == null || result.length < smallestResult.length) {
+        smallestResult = result;
+      }
+      if (result.length <= _maxLogoFileSizeBytes) {
+        return result;
+      }
+    }
+
+    return smallestResult ?? bytes;
   } catch (error, stackTrace) {
     debugPrint('Logo compression failed: $error\n$stackTrace');
     return bytes;

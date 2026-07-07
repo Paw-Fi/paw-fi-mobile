@@ -376,23 +376,25 @@ class _AvatarCustomizerScreenState
       if (byteData == null) throw Exception('Failed to encode image');
       final pngBytes = byteData.buffer.asUint8List();
 
-      // Compress avatar before upload (1200px PNG -> 600px, ~40-60% reduction)
+      // Compress avatar before upload; the rendered preview already has an
+      // opaque background, so JPEG keeps storage small without losing needed UI detail.
       final compressedBytes = await ImageCompressor.compressBytes(
         pngBytes,
-        config: ImageCompressConfig.avatar,
+        config: ImageCompressConfig.profileAvatar,
+        useOriginalWhenSmaller: false,
       );
       setState(() {
         _uploadProgress = 50;
       });
 
-      final path = '${user.id}/avatar.png';
+      final path = '${user.id}/avatar.jpg';
       // Upload with upsert
       await client.storage.from('avatars').uploadBinary(
             path,
             compressedBytes,
             fileOptions: const FileOptions(
               upsert: true,
-              contentType: 'image/png',
+              contentType: 'image/jpeg',
               cacheControl: '31536000',
             ),
           );
