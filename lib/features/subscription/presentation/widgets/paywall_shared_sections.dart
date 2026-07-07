@@ -47,8 +47,8 @@ String paywallPrimaryActionLabel(
   if (option.serverPlanId == 'lifetime') return context.l10n.paywallGetLifetime;
   if (includePrice) {
     return context.l10n.subscribeForPricePeriod(
-      option.priceDisplay,
       paywallPeriodLabel(context, option),
+      option.priceDisplay,
     );
   }
   return context.l10n.paywallSubscribe;

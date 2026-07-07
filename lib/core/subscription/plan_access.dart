@@ -4,12 +4,6 @@ bool isSubscriptionPlanPubliclySelectable(String planId) {
   return planId.toLowerCase().trim() != 'premium';
 }
 
-/// Access gate for paid plan features currently sold through Plus, Premium, or Lifetime.
-bool hasPremiumPlanAccess(Subscription? subscription) {
-  if (subscription == null || subscription.isFreePlan) return false;
-  return subscription.isSubscribed;
-}
-
 bool isTrialingPlan(Subscription? subscription) {
   return subscription?.status?.toLowerCase().trim() == 'trialing' &&
       (subscription?.isSubscribed ?? false);
@@ -21,13 +15,22 @@ bool isPlusPlan(Subscription? subscription) {
       !isTrialingPlan(subscription);
 }
 
-bool isPremiumTierPlan(Subscription? subscription) {
-  final plan = subscription?.plan?.toLowerCase().trim();
-  return plan == 'premium' || plan == 'lifetime';
+bool hasExpiredSubscriptionAccess(Subscription? subscription) {
+  if (subscription == null || subscription.isFreePlan) return false;
+
+  final plan = subscription.plan?.toLowerCase().trim();
+  final status = subscription.status?.toLowerCase().trim();
+  if (plan == 'lifetime' && status == 'active') return false;
+  if (status != 'trialing' && status != 'active' && status != 'past_due') {
+    return false;
+  }
+
+  final currentPeriodEnd = subscription.currentPeriodEnd;
+  return currentPeriodEnd == null || !currentPeriodEnd.isAfter(DateTime.now());
 }
 
-/// Access gate for advanced paid features. Trial/free users stay blocked.
+/// Access gate for Plus features. Valid trialing users are included; free or expired users are blocked.
 bool hasPremiumFeatureAccess(Subscription? subscription) {
   if (subscription == null || !(subscription.isSubscribed)) return false;
-  return !isTrialingPlan(subscription);
+  return true;
 }

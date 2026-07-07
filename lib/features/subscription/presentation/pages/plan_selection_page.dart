@@ -8,7 +8,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -18,11 +17,10 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
-import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
+import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
-import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
@@ -299,7 +297,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         final expectedOption = checkoutPlanOption.value;
         final hasExpectedPlan = expectedOption == null
             ? isActive
-            : _subscriptionMatchesPlan(subscriptionData, expectedOption);
+            : subscriptionMatchesPlanOption(subscriptionData, expectedOption);
 
         _debugLog(
           '📊 Checkout verification snapshot | trigger=$trigger '
@@ -529,102 +527,12 @@ class PlanSelectionPage extends HookConsumerWidget {
       processingDialogKind.value,
     ]);
 
-    final List<PlanOption> plans;
-    if (useIap) {
-      // iOS uses IAP. Product IDs come from the active subscription catalog.
-      final storeDetailsById =
-          iapStateAsync.value?.productDetailsById ?? const {};
-      final catalogProducts =
-          (productsAsync.value ?? const <SubscriptionProduct>[])
-              .where((p) => isSubscriptionPlanPubliclySelectable(p.plan))
-              .toList();
-
-      final effectiveCatalogProducts = catalogProducts.isNotEmpty
-          ? catalogProducts
-          : <SubscriptionProduct>[
-              SubscriptionProduct(
-                id: 'fallback_plus_monthly_ios',
-                platform: 'ios',
-                plan: 'plus',
-                billingInterval: 'monthly',
-                storeProductId: 'monthly',
-                displayName: context.l10n.monthly,
-                tagline: context.l10n.paywallPlanMonthlyTagline,
-                badgeText: null,
-                isPopular: false,
-                displayPriceUsd: Constants.subscriptionMonthlyPrice,
-                originalPriceUsd: Constants.subscriptionMonthlyOriginalPrice,
-                sortOrder: 0,
-              ),
-              SubscriptionProduct(
-                id: 'fallback_plus_yearly_ios',
-                platform: 'ios',
-                plan: 'plus',
-                billingInterval: 'yearly',
-                storeProductId: 'yearly',
-                displayName: context.l10n.yearly,
-                tagline: context.l10n.paywallPlanYearlyTagline,
-                badgeText: context.l10n.paywallBadgeSave50,
-                isPopular: true,
-                displayPriceUsd: Constants.subscriptionYearlyPrice,
-                originalPriceUsd: Constants.subscriptionYearlyOriginalPrice,
-                sortOrder: 10,
-              ),
-            ];
-
-      plans = effectiveCatalogProducts.map((p) {
-        final details = storeDetailsById[p.storeProductId];
-        return PlanOption(
-          id: p.optionId,
-          serverPlanId: p.plan,
-          billingInterval: p.billingInterval,
-          storeProductId: p.storeProductId,
-          catalogProduct: p,
-          name: p.displayName,
-          storePrice: details?.price,
-          displayPriceUsd: p.displayPriceUsd,
-          originalPriceUsd: p.originalPriceUsd,
-          tagline: p.tagline,
-          isPopular: p.isPopular,
-          badgeText: p.badgeText,
-        );
-      }).toList()
-        ..sort((a, b) {
-          final catalogOrder = (a.catalogProduct?.sortOrder ?? 999)
-              .compareTo(b.catalogProduct?.sortOrder ?? 999);
-          if (catalogOrder != 0) return catalogOrder;
-          const order = {'monthly': 0, 'yearly': 1};
-          final aOrder =
-              a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
-          final bOrder =
-              b.billingInterval != null ? (order[b.billingInterval] ?? 2) : 2;
-          return aOrder.compareTo(bOrder);
-        });
-    } else {
-      // Android remains Stripe checkout (web) for now.
-      plans = [
-        PlanOption(
-          id: 'plus_monthly',
-          serverPlanId: 'plus',
-          billingInterval: 'monthly',
-          name: context.l10n.monthly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionMonthlyPrice,
-          tagline: context.l10n.paywallPlanMonthlyTagline,
-        ),
-        PlanOption(
-          id: 'plus_yearly',
-          serverPlanId: 'plus',
-          billingInterval: 'yearly',
-          name: context.l10n.yearly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionYearlyPrice,
-          tagline: context.l10n.paywallPlanYearlyTagline,
-          isPopular: true,
-          badgeText: context.l10n.paywallBadgeSave50,
-        ),
-      ];
-    }
+    final plans = buildPlusPlanOptions(
+      context: context,
+      useIap: useIap,
+      productsAsync: productsAsync,
+      iapStateAsync: iapStateAsync,
+    );
 
     final visiblePlans = plans
         .where((plan) => plan.serverPlanId == selectedPlanFamily.value.planId)
@@ -951,50 +859,16 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> startStripeCheckout(PlanOption option) async {
-      print('🔄 Starting Stripe checkout for plan: ${option.serverPlanId}');
-      _debugLog(
-        '🧾 Stripe checkout start | plan=${option.serverPlanId} interval=${option.billingInterval}',
-      );
-      final noSessionError = context.l10n.paywallErrorNoSession;
-      final startCheckoutError = context.l10n.paywallErrorStartCheckout;
-      final noCheckoutUrlError = context.l10n.paywallErrorNoCheckoutUrl;
-      final paymentCanceledMessage = context.l10n.paymentCanceled;
-      final paymentFailedMessage = context.l10n.paymentFailed;
-      final notActivatedMessage = context.l10n.paywallErrorNotActivated;
-
-      final result = await startMobileStripeCheckout(
+      final result = await startStripeCheckoutForOption(
         context: context,
+        option: option,
         supabaseClient: supabase,
-        plan: option.serverPlanId,
-        billingInterval: option.billingInterval,
-        noSessionError: noSessionError,
-        startCheckoutError: startCheckoutError,
-        noCheckoutUrlError: noCheckoutUrlError,
-      );
-
-      if (result.isCanceled) {
-        throw Exception(paymentCanceledMessage);
-      }
-
-      if (result.isFailed) {
-        throw Exception(result.errorMessage ?? paymentFailedMessage);
-      }
-
-      if (result.sessionId != null && result.sessionId!.isNotEmpty) {
-        try {
-          await supabase.functions.invoke(
-            'verify-payment',
-            body: {
-              'sessionId': result.sessionId,
-              if (result.verificationNonce != null &&
-                  result.verificationNonce!.isNotEmpty)
-                'v': result.verificationNonce,
-            },
-          );
-        } catch (_) {}
-      }
-
-      final isActive = await waitForMobileStripeSubscriptionActivation(
+        noSessionError: context.l10n.paywallErrorNoSession,
+        startCheckoutError: context.l10n.paywallErrorStartCheckout,
+        noCheckoutUrlError: context.l10n.paywallErrorNoCheckoutUrl,
+        paymentCanceledMessage: context.l10n.paymentCanceled,
+        paymentFailedMessage: context.l10n.paymentFailed,
+        notActivatedMessage: context.l10n.paywallErrorNotActivated,
         refreshSubscription: () async {
           await ref.read(subscriptionManagementProvider.notifier).refresh();
         },
@@ -1003,17 +877,12 @@ class PlanSelectionPage extends HookConsumerWidget {
               .read(subscriptionManagementProvider)
               .valueOrNull
               ?.subscription;
-          return _subscriptionMatchesPlan(subscriptionData, option);
+          return subscriptionMatchesPlanOption(subscriptionData, option);
         },
       );
-
-      if (!context.mounted) return;
-
-      if (isActive) {
-        return;
+      if (result != null) {
+        _debugLog('🧾 Stripe checkout success | sessionId=${result.sessionId}');
       }
-
-      throw Exception(notActivatedMessage);
     }
 
     // Action Logic
@@ -1446,17 +1315,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       ),
     ));
   }
-}
-
-bool _subscriptionMatchesPlan(Subscription? subscription, PlanOption option) {
-  if (!(subscription?.isSubscribed ?? false)) return false;
-  final currentPlan = subscription?.plan?.toLowerCase().trim();
-  final targetPlan = option.serverPlanId.toLowerCase().trim();
-  if (currentPlan != targetPlan) return false;
-
-  final targetInterval = option.billingInterval?.toLowerCase().trim();
-  if (targetInterval == null) return true;
-  return subscription?.billingInterval?.toLowerCase().trim() == targetInterval;
 }
 
 // --- COMPONENTS ---

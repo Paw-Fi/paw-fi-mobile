@@ -56,6 +56,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -218,6 +219,7 @@ class SettingsPage extends HookConsumerWidget {
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final subscription = subscriptionAsync.valueOrNull?.subscription;
+    final canUsePlusFeatures = hasPremiumFeatureAccess(subscription);
     final appLockState = ref.watch(appLockControllerProvider);
     final appLockConfigured = appLockState.isConfigured;
     final biometricAvailability = appLockState.biometricAvailability;
@@ -1529,37 +1531,49 @@ class SettingsPage extends HookConsumerWidget {
                         context.push('/import');
                       },
                     ),
-                    if (hasPremiumFeatureAccess(subscription))
-                      _SettingsTile(
-                        icon: Icons.currency_exchange_rounded,
-                        label: context.l10n.currencyConverter,
-                        value: "",
-                        onTap: () {
-                          context.push('/currency-rates');
-                        },
-                      ),
+                    _SettingsTile(
+                      icon: Icons.currency_exchange_rounded,
+                      label: context.l10n.currencyConverter,
+                      value: canUsePlusFeatures ? "" : context.l10n.plus,
+                      isLocked: !canUsePlusFeatures,
+                      onTap: () {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(context);
+                          return;
+                        }
+                        context.push('/currency-rates');
+                      },
+                    ),
                     _SettingsTile(
                       icon: Icons.forward_to_inbox_rounded,
                       label: context.l10n.emailFileImportEnableSwitchTitle,
-                      valueWidget: FutureBuilder<bool>(
-                        future: emailImportEnabledFuture,
-                        builder: (context, snapshot) {
-                          final isEnabled = snapshot.data ?? false;
-                          return Text(
-                            isEnabled
-                                ? context.l10n.activeStatus
-                                : context.l10n.tapToSet,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.mutedForeground,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        },
-                      ),
+                      value: canUsePlusFeatures ? null : context.l10n.plus,
+                      isLocked: !canUsePlusFeatures,
+                      valueWidget: canUsePlusFeatures
+                          ? FutureBuilder<bool>(
+                              future: emailImportEnabledFuture,
+                              builder: (context, snapshot) {
+                                final isEnabled = snapshot.data ?? false;
+                                return Text(
+                                  isEnabled
+                                      ? context.l10n.activeStatus
+                                      : context.l10n.tapToSet,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                );
+                              },
+                            )
+                          : null,
                       onTap: () {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(context);
+                          return;
+                        }
                         Navigator.of(context)
                             .push(
                               MaterialPageRoute<void>(
@@ -1584,11 +1598,18 @@ class SettingsPage extends HookConsumerWidget {
                               true
                           ? context.l10n.telegramConnected
                           : context.l10n.connectTelegram,
-                      value: ref.watch(telegramBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.activeStatus
-                          : context.l10n.tapToSet,
+                      value: !canUsePlusFeatures
+                          ? context.l10n.plus
+                          : ref.watch(telegramBindingProvider).asData?.value ==
+                                  true
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
+                      isLocked: !canUsePlusFeatures,
                       onTap: () async {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(context);
+                          return;
+                        }
                         final isBound =
                             ref.read(telegramBindingProvider).valueOrNull ??
                                 false;
@@ -1619,11 +1640,18 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                       ),
                       label: context.l10n.whatsAppConnected,
-                      value: ref.watch(whatsAppBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.activeStatus
-                          : context.l10n.tapToSet,
+                      value: !canUsePlusFeatures
+                          ? context.l10n.plus
+                          : ref.watch(whatsAppBindingProvider).asData?.value ==
+                                  true
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
+                      isLocked: !canUsePlusFeatures,
                       onTap: () async {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(context);
+                          return;
+                        }
                         final tileContext = context;
                         final canProceed = await guardRestrictedRegion();
                         if (!canProceed) {
@@ -1656,26 +1684,33 @@ class SettingsPage extends HookConsumerWidget {
                       label: Platform.isIOS
                           ? context.l10n.applePayIntegration
                           : context.l10n.autoTransactionCapture,
-                      value: null,
-                      valueWidget: FutureBuilder<bool>(
-                        future: walletCaptureEnabledFuture,
-                        builder: (context, snapshot) {
-                          final isEnabled = snapshot.data ?? false;
-                          return Text(
-                            isEnabled
-                                ? context.l10n.activeStatus
-                                : context.l10n.tapToSet,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        },
-                      ),
+                      value: canUsePlusFeatures ? null : context.l10n.plus,
+                      isLocked: !canUsePlusFeatures,
+                      valueWidget: canUsePlusFeatures
+                          ? FutureBuilder<bool>(
+                              future: walletCaptureEnabledFuture,
+                              builder: (context, snapshot) {
+                                final isEnabled = snapshot.data ?? false;
+                                return Text(
+                                  isEnabled
+                                      ? context.l10n.activeStatus
+                                      : context.l10n.tapToSet,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                );
+                              },
+                            )
+                          : null,
                       onTap: () {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(context);
+                          return;
+                        }
                         if (Platform.isIOS) {
                           Navigator.of(context)
                               .push(
@@ -3255,6 +3290,7 @@ class _SettingsTile extends StatelessWidget {
     this.iconColor,
     this.onTap,
     this.showChevron = true,
+    this.isLocked = false,
   });
 
   final IconData? icon;
@@ -3267,6 +3303,7 @@ class _SettingsTile extends StatelessWidget {
   final Color? iconColor;
   final VoidCallback? onTap;
   final bool showChevron;
+  final bool isLocked;
 
   @override
   Widget build(BuildContext context) {
@@ -3306,10 +3343,34 @@ class _SettingsTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (valueWidget != null) valueWidget!,
+              if (valueWidget != null)
+                Flexible(child: valueWidget!),
+        
               if (trailing != null) ...[
                 const SizedBox(width: 8),
                 trailing!,
+              ] else if (isLocked) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: colorScheme.primary.withValues(alpha: 0.2),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    'PLUS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.primary,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
               ] else if (showChevron && onTap != null) ...[
                 const SizedBox(width: 8),
                 Icon(

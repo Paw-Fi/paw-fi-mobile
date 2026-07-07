@@ -18,80 +18,7 @@ void main() {
     );
   }
 
-  test('denies access when subscription is null', () {
-    expect(hasPremiumPlanAccess(null), isFalse);
-  });
-
-  test('denies access for free subscriptions', () {
-    expect(
-      hasPremiumPlanAccess(
-        subscription(
-          plan: 'free',
-          status: 'active',
-          currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
-        ),
-      ),
-      isFalse,
-    );
-  });
-
-  test('denies access for canceled subscriptions', () {
-    expect(
-      hasPremiumPlanAccess(
-        subscription(
-          plan: 'plus',
-          status: 'canceled',
-          currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
-        ),
-      ),
-      isFalse,
-    );
-  });
-
-  test('denies access for expired active subscriptions', () {
-    final expiredSubscription = subscription(
-      plan: 'plus',
-      status: 'active',
-      currentPeriodEnd: DateTime.now().subtract(const Duration(days: 1)),
-    );
-
-    expect(expiredSubscription.isSubscribed, isFalse);
-    expect(hasPremiumPlanAccess(expiredSubscription), isFalse);
-  });
-
-  test('allows access for active Plus subscriptions', () {
-    final activeSubscription = subscription(
-      plan: 'plus',
-      status: 'active',
-      currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
-    );
-
-    expect(activeSubscription.isSubscribed, isTrue);
-    expect(hasPremiumPlanAccess(activeSubscription), isTrue);
-  });
-
-  test('allows access for active Premium subscriptions', () {
-    final activeSubscription = subscription(
-      plan: 'premium',
-      status: 'active',
-      currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
-    );
-
-    expect(activeSubscription.isSubscribed, isTrue);
-    expect(hasPremiumPlanAccess(activeSubscription), isTrue);
-  });
-
-  test('allows access for active Lifetime subscriptions', () {
-    final activeSubscription = subscription(
-      plan: 'lifetime',
-      status: 'active',
-    );
-
-    expect(activeSubscription.isSubscribed, isTrue);
-    expect(hasPremiumPlanAccess(activeSubscription), isTrue);
-  });
-
-  test('allows access for valid trialing subscriptions', () {
+  test('allows Plus feature access during a valid trial', () {
     final trialingSubscription = subscription(
       plan: 'plus',
       status: 'trialing',
@@ -99,7 +26,19 @@ void main() {
     );
 
     expect(trialingSubscription.isSubscribed, isTrue);
-    expect(hasPremiumPlanAccess(trialingSubscription), isTrue);
+    expect(hasPremiumFeatureAccess(trialingSubscription), isTrue);
+  });
+
+  test('allows Plus feature access during a valid past_due entitlement window',
+      () {
+    final pastDueSubscription = subscription(
+      plan: 'plus',
+      status: 'past_due',
+      currentPeriodEnd: DateTime.now().add(const Duration(days: 3)),
+    );
+
+    expect(pastDueSubscription.isSubscribed, isTrue);
+    expect(hasPremiumFeatureAccess(pastDueSubscription), isTrue);
   });
 
   test('denies access for expired trialing subscriptions', () {
@@ -110,6 +49,34 @@ void main() {
     );
 
     expect(expiredTrialingSubscription.isSubscribed, isFalse);
-    expect(hasPremiumPlanAccess(expiredTrialingSubscription), isFalse);
+    expect(hasExpiredSubscriptionAccess(expiredTrialingSubscription), isTrue);
+  });
+
+  test('detects expired active subscriptions by period end', () {
+    final expiredActiveSubscription = subscription(
+      plan: 'plus',
+      status: 'active',
+      currentPeriodEnd: DateTime.now().subtract(const Duration(days: 1)),
+    );
+
+    expect(expiredActiveSubscription.isSubscribed, isFalse);
+    expect(hasExpiredSubscriptionAccess(expiredActiveSubscription), isTrue);
+  });
+
+  test('does not treat free or valid subscriptions as expired', () {
+    final freeSubscription = subscription(
+      plan: 'free',
+      status: 'active',
+      currentPeriodEnd: DateTime.now().subtract(const Duration(days: 1)),
+    );
+    final activeSubscription = subscription(
+      plan: 'plus',
+      status: 'active',
+      currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
+    );
+
+    expect(hasExpiredSubscriptionAccess(null), isFalse);
+    expect(hasExpiredSubscriptionAccess(freeSubscription), isFalse);
+    expect(hasExpiredSubscriptionAccess(activeSubscription), isFalse);
   });
 }

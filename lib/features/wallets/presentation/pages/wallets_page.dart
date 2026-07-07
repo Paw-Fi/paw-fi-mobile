@@ -387,6 +387,13 @@ class AccountsPage extends HookConsumerWidget {
         return;
       }
 
+      final activeWalletCount =
+          effectiveWallets.where((wallet) => !wallet.isArchived).length;
+      if (!hasPremiumFeatureAccess(subscription) && activeWalletCount >= 2) {
+        await PlusLockedSheet.show(context);
+        return;
+      }
+
       final result = await showCreateEditWalletSheet(context);
       if (result == null) return;
       try {

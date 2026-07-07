@@ -6,6 +6,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
@@ -23,6 +24,8 @@ import 'package:moneko/features/households/presentation/widgets/spaces_explanati
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -130,6 +133,10 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = _isCreating || _isUploadingImage;
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId != null) {
+      ref.watch(userHouseholdsProvider(currentUserId));
+    }
 
     // Use the theme background for an airy, unified surface.
     final backgroundColor = colorScheme.appBackground;
@@ -202,6 +209,10 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     return SpaceVisibilitySelectorCard(
       isSharedSpace: _isSharedSpace,
       onChanged: (value) {
+        if (_isFreeSpaceLimitReached(value)) {
+          PlusLockedSheet.show(context);
+          return;
+        }
         if (!mounted) return;
         setState(() => _isSharedSpace = value);
       },
@@ -215,7 +226,6 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-    
         Container(
           decoration: BoxDecoration(
             color: colorScheme.cardSurface,
@@ -281,6 +291,10 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   }
 
   Future<void> _handleCreation() async {
+    if (_isFreeSpaceLimitReached(_isSharedSpace)) {
+      await PlusLockedSheet.show(context);
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       AppToast.error(context, context.l10n.pleaseEnterValidSpaceName);
       return;
@@ -389,6 +403,25 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   void _handleAutoSplitToggle(bool value) {
     if (!mounted) return;
     setState(() => _autoSplitEnabled = value);
+  }
+
+  bool _isFreeSpaceLimitReached(bool sharedSpace) {
+    final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
+    if (hasPremiumFeatureAccess(subscription)) return false;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return false;
+
+    final households = ref.read(userHouseholdsProvider(userId)).valueOrNull ??
+        const <Household>[];
+    final ownedHouseholds =
+        households.where((household) => household.ownerId == userId);
+    final ownedPrivateSpaces =
+        ownedHouseholds.where((household) => household.isPortfolio).length;
+    final ownedSharedSpaces =
+        ownedHouseholds.where((household) => !household.isPortfolio).length;
+
+    return sharedSpace ? ownedSharedSpaces >= 1 : ownedPrivateSpaces >= 1;
   }
 
   Future<void> _generateInvitationAndNavigate(

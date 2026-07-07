@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -17,6 +18,8 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -134,6 +137,9 @@ class MonthlyReportPage extends HookConsumerWidget {
         MonthlyReportQuery(monthStart: initialMonthStart).normalized();
     final reportProvider = monthlyFinancialReportProvider(query);
     final reportAsync = ref.watch(reportProvider);
+    final canOpenReportDetails = hasPremiumFeatureAccess(
+      ref.watch(subscriptionNotifierProvider).valueOrNull,
+    );
     final loadedSnapshot = reportAsync.valueOrNull;
     final visibleSnapshot = useState<MonthlyFinancialReportSnapshot?>(null);
     final isCompletingInitialLoad = useState(false);
@@ -173,6 +179,7 @@ class MonthlyReportPage extends HookConsumerWidget {
                 colorScheme,
                 snapshot,
                 query,
+                canOpenReportDetails,
               )
             : reportAsync.hasError && loadedSnapshot == null
                 ? _buildErrorState(context, colorScheme, reportAsync.error!)
@@ -196,6 +203,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReportSnapshot snapshot,
     MonthlyReportQuery query,
+    bool canOpenReportDetails,
   ) {
     final report = snapshot.report;
     final month = MaterialLocalizations.of(context).formatMonthYear(
@@ -233,39 +241,75 @@ class MonthlyReportPage extends HookConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildBalanceSummaryCard(context, colorScheme, report, query),
+                _buildBalanceSummaryCard(
+                  context,
+                  colorScheme,
+                  report,
+                  query,
+                  canOpenReportDetails,
+                ),
                 const SizedBox(height: 12),
-                _buildSummaryMetricGrid(context, colorScheme, report, query),
+                _buildSummaryMetricGrid(
+                  context,
+                  colorScheme,
+                  report,
+                  query,
+                  canOpenReportDetails,
+                ),
                 const SizedBox(height: 16),
                 _MonthlyReportSectionTitle(
                   title: context.l10n.highlights,
                   actionLabel: "",
-                  onActionTap: () => context.push(
+                  onActionTap: () => _openReportDetail(
+                    context,
+                    canOpenReportDetails,
                     _monthlyReportRoute(_monthlyReportSpendingRoute, query),
                   ),
                   colorScheme: colorScheme,
                 ),
-                _buildHighlights(context, colorScheme, report, query),
+                _buildHighlights(
+                  context,
+                  colorScheme,
+                  report,
+                  query,
+                  canOpenReportDetails,
+                ),
                 const SizedBox(height: 15),
                 _MonthlyReportSectionTitle(
                   title: context.l10n.categories,
                   actionLabel: "",
-                  onActionTap: () => context.push(
+                  onActionTap: () => _openReportDetail(
+                    context,
+                    canOpenReportDetails,
                     _monthlyReportRoute(_monthlyReportCategoriesRoute, query),
                   ),
                   colorScheme: colorScheme,
                 ),
-                _buildCategoryPreview(context, colorScheme, report, query),
+                _buildCategoryPreview(
+                  context,
+                  colorScheme,
+                  report,
+                  query,
+                  canOpenReportDetails,
+                ),
                 const SizedBox(height: 16),
                 _MonthlyReportSectionTitle(
                   title: context.l10n.upcomingBills,
                   actionLabel: "",
-                  onActionTap: () => context.push(
+                  onActionTap: () => _openReportDetail(
+                    context,
+                    canOpenReportDetails,
                     _monthlyReportRoute(_monthlyReportRecurringRoute, query),
                   ),
                   colorScheme: colorScheme,
                 ),
-                _buildUpcomingPreview(context, colorScheme, report, query),
+                _buildUpcomingPreview(
+                  context,
+                  colorScheme,
+                  report,
+                  query,
+                  canOpenReportDetails,
+                ),
               ],
             ),
           ),
@@ -279,6 +323,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool canOpenReportDetails,
   ) {
     final rings = _buildHealthRingMetrics(context, colorScheme, report);
     final score = _overallHealthScore(rings);
@@ -297,7 +342,9 @@ class MonthlyReportPage extends HookConsumerWidget {
       ),
       caption: caption,
       accent: _statusColor(report.overview.status, colorScheme),
-      onTap: () => context.push(
+      onTap: () => _openReportDetail(
+        context,
+        canOpenReportDetails,
         _monthlyReportRoute(_monthlyReportBalanceRoute, query),
       ),
       visual: _MonthlyReportHealthRing(
@@ -315,6 +362,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool canOpenReportDetails,
   ) {
     final budgetProgress = _budgetUsedProgress(report);
     final spendingCaption = report.trendSummary.spendingChange == 0
@@ -414,7 +462,9 @@ class MonthlyReportPage extends HookConsumerWidget {
                 child: _MonthlyReportMetricCard(
                   colorScheme: colorScheme,
                   spec: item,
-                  onTap: () => context.push(
+                  onTap: () => _openReportDetail(
+                    context,
+                    canOpenReportDetails,
                     _monthlyReportRoute(item.route, query),
                   ),
                 ),
@@ -430,6 +480,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool canOpenReportDetails,
   ) {
     final highlights =
         _buildHighlightItems(context, colorScheme, report).take(3).toList();
@@ -446,7 +497,11 @@ class MonthlyReportPage extends HookConsumerWidget {
               label: item.label,
               accent: _statusColor(item.status, colorScheme),
               icon: item.icon,
-              onTap: () => context.push(_monthlyReportRoute(item.route, query)),
+              onTap: () => _openReportDetail(
+                context,
+                canOpenReportDetails,
+                _monthlyReportRoute(item.route, query),
+              ),
               chart: item.chart,
             ),
             if (item != highlights.last) const SizedBox(height: 12),
@@ -461,6 +516,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool canOpenReportDetails,
   ) {
     final categories = report.categoryTrends.take(3).toList(growable: false);
 
@@ -471,7 +527,9 @@ class MonthlyReportPage extends HookConsumerWidget {
         label: context.l10n.comparableSpendingWillAppearHere,
         accent: colorScheme.info,
         icon: Icons.category_rounded,
-        onTap: () => context.push(
+        onTap: () => _openReportDetail(
+          context,
+          canOpenReportDetails,
           _monthlyReportRoute(_monthlyReportCategoriesRoute, query),
         ),
       );
@@ -493,7 +551,9 @@ class MonthlyReportPage extends HookConsumerWidget {
             value: formatCurrency(item.currentSpent, report.currencyCode),
             accent: _statusColor(item.status, colorScheme),
             icon: Icons.category_rounded,
-            onTap: () => context.push(
+            onTap: () => _openReportDetail(
+              context,
+              canOpenReportDetails,
               _monthlyReportRoute(
                 _monthlyReportCategoriesRoute,
                 query,
@@ -516,6 +576,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool canOpenReportDetails,
   ) {
     final upcoming = report.upcomingObligations.take(3).toList(growable: false);
     final subscriptions =
@@ -535,15 +596,19 @@ class MonthlyReportPage extends HookConsumerWidget {
           icon: item.type == 'income'
               ? Icons.arrow_downward_rounded
               : Icons.event_note_rounded,
-          onTap: () => context.push(_monthlyReportDrillDownRouteFor(
-            query: query,
-            title: item.name,
-            subtitle: _formatShortDate(context, item.date),
-            sourceTransactionIds: [
-              if (item.sourceTransactionId != null) item.sourceTransactionId!,
-            ],
-            recurringId: item.recurringId,
-          )),
+          onTap: () => _openReportDetail(
+            context,
+            canOpenReportDetails,
+            _monthlyReportDrillDownRouteFor(
+              query: query,
+              title: item.name,
+              subtitle: _formatShortDate(context, item.date),
+              sourceTransactionIds: [
+                if (item.sourceTransactionId != null) item.sourceTransactionId!,
+              ],
+              recurringId: item.recurringId,
+            ),
+          ),
         ),
       for (final item in subscriptions)
         item.recurringId == null || item.recurringId!.trim().isEmpty
@@ -561,13 +626,17 @@ class MonthlyReportPage extends HookConsumerWidget {
                 value: formatCurrency(item.amount, report.currencyCode),
                 accent: _subscriptionColor(item.status, colorScheme),
                 icon: Icons.receipt_long_rounded,
-                onTap: () => context.push(_monthlyReportDrillDownRouteFor(
-                  query: query,
-                  title: item.name,
-                  subtitle: _formatShortDate(context, item.nextDate),
-                  sourceTransactionIds: const <String>[],
-                  recurringId: item.recurringId,
-                )),
+                onTap: () => _openReportDetail(
+                  context,
+                  canOpenReportDetails,
+                  _monthlyReportDrillDownRouteFor(
+                    query: query,
+                    title: item.name,
+                    subtitle: _formatShortDate(context, item.nextDate),
+                    sourceTransactionIds: const <String>[],
+                    recurringId: item.recurringId,
+                  ),
+                ),
               ),
     ];
 
@@ -578,7 +647,9 @@ class MonthlyReportPage extends HookConsumerWidget {
         label: context.l10n.recurringExpensesWillAppearHere,
         accent: colorScheme.success,
         icon: Icons.event_available_rounded,
-        onTap: () => context.push(
+        onTap: () => _openReportDetail(
+          context,
+          canOpenReportDetails,
           _monthlyReportRoute(_monthlyReportRecurringRoute, query),
         ),
       );
@@ -588,6 +659,19 @@ class MonthlyReportPage extends HookConsumerWidget {
       colorScheme: colorScheme,
       children: rows,
     );
+  }
+
+  void _openReportDetail(
+    BuildContext context,
+    bool canOpenReportDetails,
+    String route,
+  ) {
+    if (!canOpenReportDetails) {
+      PlusLockedSheet.show(context);
+      return;
+    }
+
+    context.push(route);
   }
 
   List<_MonthlyHighlightItem> _buildHighlightItems(

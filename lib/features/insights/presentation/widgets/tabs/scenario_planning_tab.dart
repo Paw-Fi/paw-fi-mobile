@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -19,6 +20,8 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 import 'package:moneko/shared/widgets/beta_pill.dart';
@@ -377,6 +380,10 @@ class _ScenarioPlanningTabContentState
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
     final preview = ref.watch(previewModeProvider);
+    final canUseAiScenarios = preview.isActive ||
+        hasPremiumFeatureAccess(
+          ref.watch(subscriptionNotifierProvider).valueOrNull,
+        );
 
     if (!preview.isActive && user.uid.isNotEmpty) {
       _ensureScenarioHistoryFuture(
@@ -510,6 +517,11 @@ class _ScenarioPlanningTabContentState
                             onPressed: _scenarioLoading
                                 ? null
                                 : () async {
+                                    if (!canUseAiScenarios) {
+                                      await PlusLockedSheet.show(context);
+                                      return;
+                                    }
+
                                     final q =
                                         _scenarioQuestionController.text.trim();
                                     final d = _scenarioDate == null
@@ -986,6 +998,11 @@ class _ScenarioPlanningTabContentState
                               padding: const EdgeInsets.only(bottom: 16.0),
                               child: InkWell(
                                 onTap: () {
+                                  if (!canUseAiScenarios) {
+                                    PlusLockedSheet.show(context);
+                                    return;
+                                  }
+
                                   showScenarioResultSheet(
                                     context,
                                     a,

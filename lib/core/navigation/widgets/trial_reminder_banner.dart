@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -17,6 +18,9 @@ String _trialReminderDismissedMilestoneKey({
   required int trialEndMs,
 }) =>
     'trial_reminder_banner_dismissed_milestone:$userId:$trialEndMs';
+
+String _expiredSubscriptionBannerDismissedKey(String userId) =>
+    'expired_subscription_banner_dismissed:$userId';
 
 int? _computeTrialDaysLeft(DateTime? trialEndAt) {
   if (trialEndAt == null) return null;
@@ -195,6 +199,106 @@ class TrialReminderBannerGate extends HookConsumerWidget {
   }
 }
 
+class ExpiredSubscriptionBannerGate extends HookConsumerWidget {
+  const ExpiredSubscriptionBannerGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final previewState = ref.watch(previewModeProvider);
+    final auth = ref.watch(authProvider);
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final subscription = subscriptionAsync.valueOrNull;
+    final isSubscriptionResolved =
+        subscriptionAsync.hasValue || subscriptionAsync.hasError;
+    final subscriptionManagementAsync =
+        ref.watch(subscriptionManagementProvider);
+    final managedSubscription =
+        subscriptionManagementAsync.valueOrNull?.subscription;
+
+    final expiredSubscription = hasExpiredSubscriptionAccess(subscription)
+        ? subscription
+        : hasExpiredSubscriptionAccess(managedSubscription)
+            ? managedSubscription
+            : null;
+    final dismissKey = auth.uid.isNotEmpty
+        ? _expiredSubscriptionBannerDismissedKey(auth.uid)
+        : null;
+
+    final hasDismissed = useState(false);
+    final hasResolvedVisibility = useState(false);
+
+    useEffect(() {
+      var disposed = false;
+      hasResolvedVisibility.value = false;
+
+      Future<void> resolveVisibility() async {
+        if (dismissKey == null) {
+          if (disposed) return;
+          hasDismissed.value = false;
+          hasResolvedVisibility.value = true;
+          return;
+        }
+
+        final prefs = ref.read(sharedPreferencesProvider);
+        final dismissed = prefs.getBool(dismissKey) ?? false;
+
+        if (disposed) return;
+        hasDismissed.value = dismissed;
+        hasResolvedVisibility.value = true;
+      }
+
+      unawaited(resolveVisibility());
+      return () {
+        disposed = true;
+      };
+    }, [dismissKey]);
+
+    final shouldShowExpiredBanner = !previewState.isActive &&
+        isSubscriptionResolved &&
+        expiredSubscription != null &&
+        dismissKey != null &&
+        hasResolvedVisibility.value &&
+        !hasDismissed.value;
+
+    useEffect(() {
+      final activeDismissKey = dismissKey;
+      if (!shouldShowExpiredBanner || activeDismissKey == null) return null;
+
+      unawaited(() async {
+        final prefs = ref.read(sharedPreferencesProvider);
+        await prefs.setBool(activeDismissKey, true);
+      }());
+      return null;
+    }, [shouldShowExpiredBanner, dismissKey]);
+
+    if (!shouldShowExpiredBanner) {
+      return const SizedBox.shrink();
+    }
+    final visibleDismissKey = dismissKey;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: _ExpiredSubscriptionBanner(
+        onManageTap: () {
+          unawaited(() async {
+            await context.push('/plan-selection?mode=resubscribe');
+            if (auth.uid.isEmpty) return;
+            await ref.read(subscriptionNotifierProvider.notifier).refresh();
+            await ref.read(subscriptionManagementProvider.notifier).refresh();
+          }());
+        },
+        onDismissTap: () {
+          hasDismissed.value = true;
+          unawaited(() async {
+            final prefs = ref.read(sharedPreferencesProvider);
+            await prefs.setBool(visibleDismissKey, true);
+          }());
+        },
+      ),
+    );
+  }
+}
+
 class _TrialEndingReminderBanner extends StatelessWidget {
   const _TrialEndingReminderBanner({
     required this.daysLeft,
@@ -243,6 +347,80 @@ class _TrialEndingReminderBanner extends StatelessWidget {
               minimumSize: const Size(0, 30),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               foregroundColor: colorScheme.info,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(
+              context.l10n.viewPlans,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            onPressed: onDismissTap,
+            icon: Icon(
+              Icons.close,
+              size: 18,
+              color: colorScheme.mutedForeground,
+            ),
+            tooltip: context.l10n.dismiss,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpiredSubscriptionBanner extends StatelessWidget {
+  const _ExpiredSubscriptionBanner({
+    required this.onManageTap,
+    required this.onDismissTap,
+  });
+
+  final VoidCallback onManageTap;
+  final VoidCallback onDismissTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: colorScheme.warningSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.warningBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.workspace_premium_rounded,
+            size: 18,
+            color: colorScheme.warning,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Your Plus plan has expired. Subscribe to keep enjoying Plus benefits.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colorScheme.warning,
+                fontSize: 13,
+                height: 1.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onManageTap,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 30),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              foregroundColor: colorScheme.warning,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
             ),

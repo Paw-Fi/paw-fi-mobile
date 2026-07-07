@@ -138,6 +138,7 @@ class _CurrencySelectorScreenState
   List<String>? _customOrder;
   List<String>? _selectedCurrencies;
   String? _primaryCurrency;
+  bool _hasEnforcedFreeCurrencySelection = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   List<String>? _stableCurrencyCodes;
@@ -330,10 +331,39 @@ class _CurrencySelectorScreenState
     }
   }
 
+  Future<void> _enforcePrimaryCurrencyOnlyForFreePlan(
+    String primaryCurrency,
+    Set<String> selectedCurrencySet,
+  ) async {
+    if (_hasEnforcedFreeCurrencySelection || selectedCurrencySet.length <= 1) {
+      return;
+    }
+
+    final normalizedPrimary = primaryCurrency.trim().toUpperCase();
+    if (normalizedPrimary.isEmpty) return;
+
+    _hasEnforcedFreeCurrencySelection = true;
+    final primaryOnly = <String>[normalizedPrimary];
+    setState(() {
+      _primaryCurrency = normalizedPrimary;
+      _selectedCurrencies = primaryOnly;
+    });
+
+    final container = ProviderScope.containerOf(context, listen: false);
+    await _applyLocalCurrencySelection(
+      container,
+      primaryCurrency: normalizedPrimary,
+      selectedCurrencies: primaryOnly,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
-    final canUsePremiumCurrencyFeatures = hasPremiumFeatureAccess(subscription);
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final subscription = subscriptionAsync.valueOrNull;
+    final isSubscriptionResolved = subscriptionAsync.hasValue;
+    final canUsePremiumCurrencyFeatures =
+        !isSubscriptionResolved || hasPremiumFeatureAccess(subscription);
     final colorScheme = Theme.of(context).colorScheme;
     final summariesAsync = ref.watch(dashboardCurrencySummariesProvider);
     final summaries = summariesAsync.valueOrNull ?? const <CurrencySummary>[];
@@ -394,6 +424,20 @@ class _CurrencySelectorScreenState
           filterState.normalizedSelectedCurrencies ??
           <String>[primaryCurrency],
     ).toSet();
+
+    if (isSubscriptionResolved &&
+        !canUsePremiumCurrencyFeatures &&
+        selectedCurrencySet.length > 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _enforcePrimaryCurrencyOnlyForFreePlan(
+          primaryCurrency,
+          selectedCurrencySet,
+        );
+      });
+    } else if (canUsePremiumCurrencyFeatures) {
+      _hasEnforcedFreeCurrencySelection = false;
+    }
 
     // Initialize stable list on first load
     if (_stableCurrencyCodes == null && allCurrencySummaries.isNotEmpty) {
