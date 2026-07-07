@@ -404,7 +404,7 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Your Plus plan has expired. Subscribe to keep enjoying Plus benefits.',
+              context.l10n.expiredSubscriptionMessage,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

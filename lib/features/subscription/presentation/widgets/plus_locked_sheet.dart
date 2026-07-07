@@ -21,6 +21,11 @@ import 'package:moneko/features/subscription/presentation/widgets/paywall_shared
 import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
+String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
+  final monthlyPrice = yearlyPrice / 12;
+  return r'$' + monthlyPrice.toStringAsFixed(2);
+}
+
 const _plusLockedInAppAiExpenseLogging = 'In-app AI expense logging';
 const _plusLockedHealthDetails = 'Health report details';
 const _plusLockedAiScenarios = 'AI scenarios';

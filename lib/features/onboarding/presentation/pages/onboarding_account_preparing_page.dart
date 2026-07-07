@@ -33,6 +33,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
+import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 import 'dart:io';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -599,6 +600,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         }
 
         await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+        await prefs.setBool(trialWelcomePendingKey(userId), true);
         return true;
       } on TimeoutException catch (error, stackTrace) {
         debugPrint(
@@ -611,6 +613,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           final hasGrantedSubscription = await hasSubscriptionRow(userId);
           if (hasGrantedSubscription == true) {
             await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+            await prefs.setBool(trialWelcomePendingKey(userId), true);
             return true;
           }
         }

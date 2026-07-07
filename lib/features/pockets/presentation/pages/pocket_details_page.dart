@@ -1663,9 +1663,9 @@ class _RolloverHistoryChart extends StatelessWidget {
                     final remainingFormatted = _formatLocalizedCurrency(context, month.remainingCents.abs() / 100.0, currency);
                     
                     final summary = context.l10n.pocketRolloverHistorySummary(
-                      base: baseFormatted,
-                      rollover: rolloverFormatted,
-                      spent: spentFormatted,
+                      baseFormatted,
+                      rolloverFormatted,
+                      spentFormatted,
                     ).replaceAll(' - ', '\n');
 
                     return BarTooltipItem(

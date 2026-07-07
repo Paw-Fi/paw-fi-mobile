@@ -84,3 +84,31 @@ extension PocketRolloverL10nX on AppLocalizations {
   }) =>
       'Base $base - Rollover $rollover - Spent $spent';
 }
+
+extension TrialWelcomeL10nX on AppLocalizations {
+  String get trialWelcomeTitle => 'You\'ve got 7 days of Plus — free!';
+  String get trialWelcomeSubtitle =>
+      'Enjoy all Plus features at no cost for the next 7 days. Here\'s what you can try:';
+  String get trialWelcomeFeatureMessagingTitle => 'Log expenses via Telegram & WhatsApp';
+  String get trialWelcomeFeatureMessagingBody =>
+      'Forward a message or receipt from your favorite chat app and Moneko captures it automatically.';
+  String get trialWelcomeFeatureEmailTitle => 'Email receipt capture';
+  String get trialWelcomeFeatureEmailBody =>
+      'Forward any receipt email and Moneko will extract and record the transaction for you.';
+  String get trialWelcomeFeatureMultiCurrencyTitle => 'Multi-currency display';
+  String get trialWelcomeFeatureMultiCurrencyBody =>
+      'Track spending across multiple currencies with real-time exchange rates.';
+  String get trialWelcomeFeatureInsightsTitle => 'Advanced insights & what-ifs';
+  String get trialWelcomeFeatureInsightsBody =>
+      'Scenario planning, running balance projections, and 30-day look-ahead analysis.';
+  String get trialWelcomeFaqHeader => 'Good to know';
+  String get trialWelcomeFaqNoChargeQuestion =>
+      'Will I be charged when the trial ends?';
+  String get trialWelcomeFaqNoChargeAnswer =>
+      'No. We won\'t deduct anything from you. You don\'t need to do anything — the trial simply expires on its own.';
+  String get trialWelcomeFaqAfterTrialQuestion =>
+      'What happens if I don\'t subscribe?';
+  String get trialWelcomeFaqAfterTrialAnswer =>
+      'That\'s absolutely fine! You can continue using Moneko for free with some features limited. No pressure, no surprises.';
+  String get trialWelcomeCta => 'Start exploring';
+}

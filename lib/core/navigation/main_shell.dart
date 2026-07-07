@@ -55,6 +55,7 @@ import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
+import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
@@ -680,6 +681,23 @@ class MainShell extends HookConsumerWidget {
         });
       };
     }, const []);
+
+    useEffect(() {
+      if (previewState.isActive || auth.uid.isEmpty) return null;
+
+      final prefs = ref.read(sharedPreferencesProvider);
+      final key = trialWelcomePendingKey(auth.uid);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        final pending = prefs.getBool(key) ?? false;
+        if (!pending) return;
+        prefs.remove(key);
+        unawaited(TrialWelcomeDialog.show(context));
+      });
+
+      return null;
+    }, [previewState.isActive, auth.uid]);
 
     final pageBuilders = [
       () => const HomePage(),

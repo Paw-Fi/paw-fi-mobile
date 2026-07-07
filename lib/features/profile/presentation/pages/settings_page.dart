@@ -62,6 +62,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_settings_tile.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -500,7 +501,38 @@ class SettingsPage extends HookConsumerWidget {
 
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
-    final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
+    final selectedSupportedLocale =
+        _coerceToSupported(selectedLocale, supportedLocales);
+    final localeOptions = <_LocalePickerOption>[
+      _LocalePickerOption(
+        locale: null,
+        label: context.l10n.systemDefault,
+      ),
+      ...supportedLocales.map(
+        (locale) => _LocalePickerOption(
+          locale: locale,
+          label: _displayLocaleName(locale),
+        ),
+      ),
+    ];
+    final selectedLocaleOption = localeOptions.firstWhere(
+      (option) {
+        final locale = option.locale;
+        if (locale == null) {
+          return selectedSupportedLocale == null;
+        }
+        if (selectedSupportedLocale == null) {
+          return false;
+        }
+        return locale.languageCode.toLowerCase() ==
+                selectedSupportedLocale.languageCode.toLowerCase() &&
+            (locale.countryCode ?? '').toUpperCase() ==
+                (selectedSupportedLocale.countryCode ?? '').toUpperCase();
+      },
+      orElse: () => localeOptions.first,
+    );
+    final localeDisplay = selectedLocaleOption.label;
+    final themeDisplay = _themeModeLabel(context, currentTheme);
     final canonicalSelectedTimezone =
         canonicalTimezoneValue(selectedTimezone.value);
     final isLegacyTimezone =
@@ -1233,9 +1265,6 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.lock_rounded,
                         label: context.l10n.appLock,
-                        value: appLockConfigured
-                            ? context.l10n.appLockOnStatus
-                            : context.l10n.appLockOffStatus,
                         trailing: Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: AdaptiveSwitch(
@@ -1312,71 +1341,50 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.language_rounded,
                         label: context.l10n.language,
-                        valueWidget: DropdownButtonHideUnderline(
-                          child: DropdownButton<Locale?>(
-                            isDense: true,
-                            alignment: Alignment.centerRight,
-                            icon: Row(
-                              children: [
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: Colors.grey.withValues(alpha: 0.6),
-                                ),
-                              ],
-                            ),
-                            dropdownColor: isDarkMode
-                                ? const Color(0xFF2C2C2E)
-                                : Colors.white,
-                            value: dropdownValue,
-                            items: [
-                              DropdownMenuItem<Locale?>(
-                                value: null,
-                                child: Text(
-                                  context.l10n.systemDefault,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                ),
-                              ),
-                              ...supportedLocales.map(
-                                (locale) => DropdownMenuItem<Locale?>(
-                                  value: locale,
-                                  child: Text(
-                                    _displayLocaleName(locale),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) async {
-                              final localeNotifier =
-                                  ref.read(localeProvider.notifier);
-                              if (value == null) {
-                                await localeNotifier.setSystem();
-                              } else {
-                                await localeNotifier.setLocale(value);
-                              }
+                        value: localeDisplay,
+                        onTap: () async {
+                          final pickedOption =
+                              await MonekoListPicker.show<_LocalePickerOption>(
+                            context: context,
+                            items: localeOptions,
+                            initial: selectedLocaleOption,
+                            title: context.l10n.language,
+                            labelBuilder: (option) => option.label,
+                          );
+                          if (pickedOption == null) return;
 
-                              if (authState.uid.isNotEmpty) {
-                                await ref
-                                    .read(preferredLanguageSyncServiceProvider)
-                                    .syncForUserSafely(
-                                      userId: authState.uid,
-                                      locale: value == null
-                                          ? await resolveEffectiveAppLocale()
-                                          : normalizeAppLocale(value),
-                                      force: true,
-                                    );
-                              }
-                            },
-                          ),
-                        ),
+                          final localeNotifier = ref.read(localeProvider.notifier);
+                          final pickedLocale = pickedOption.locale;
+                          final unchanged = pickedLocale == null
+                              ? selectedSupportedLocale == null
+                              : selectedSupportedLocale != null &&
+                                  pickedLocale.languageCode.toLowerCase() ==
+                                      selectedSupportedLocale.languageCode
+                                          .toLowerCase() &&
+                                  (pickedLocale.countryCode ?? '')
+                                          .toUpperCase() ==
+                                      (selectedSupportedLocale.countryCode ?? '')
+                                          .toUpperCase();
+                          if (unchanged) return;
+
+                          if (pickedLocale == null) {
+                            await localeNotifier.setSystem();
+                          } else {
+                            await localeNotifier.setLocale(pickedLocale);
+                          }
+
+                          if (authState.uid.isNotEmpty) {
+                            await ref
+                                .read(preferredLanguageSyncServiceProvider)
+                                .syncForUserSafely(
+                                  userId: authState.uid,
+                                  locale: pickedLocale == null
+                                      ? await resolveEffectiveAppLocale()
+                                      : normalizeAppLocale(pickedLocale),
+                                  force: true,
+                                );
+                          }
+                        },
                       ),
                       _SettingsTile(
                         icon: Icons.public_rounded,
@@ -1417,47 +1425,22 @@ class SettingsPage extends HookConsumerWidget {
                             ? Icons.dark_mode_rounded
                             : Icons.light_mode_rounded,
                         label: context.l10n.appearance,
-                        valueWidget: DropdownButtonHideUnderline(
-                          child: DropdownButton<ThemeMode>(
-                            isDense: true,
-                            alignment: Alignment.centerRight,
-                            icon: Row(
-                              children: [
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: colorScheme.mutedForeground
-                                      .withValues(alpha: 0.6),
-                                ),
-                              ],
-                            ),
-                            dropdownColor: colorScheme.sheetBackground,
-                            value: currentTheme,
-                            items: ThemeMode.values
-                                .map(
-                                  (mode) => DropdownMenuItem<ThemeMode>(
-                                    value: mode,
-                                    child: Text(
-                                      _themeModeLabel(context, mode),
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              if (value == null || value == currentTheme) {
-                                return;
-                              }
-                              ref
-                                  .read(themeModeProvider.notifier)
-                                  .setThemeMode(value);
-                            },
-                          ),
-                        ),
+                        value: themeDisplay,
+                        onTap: () async {
+                          final pickedTheme = await MonekoListPicker.show<ThemeMode>(
+                            context: context,
+                            items: ThemeMode.values,
+                            initial: currentTheme,
+                            title: context.l10n.appearance,
+                            labelBuilder: (mode) => _themeModeLabel(context, mode),
+                          );
+                          if (pickedTheme == null || pickedTheme == currentTheme) {
+                            return;
+                          }
+                          ref
+                              .read(themeModeProvider.notifier)
+                              .setThemeMode(pickedTheme);
+                        },
                       ),
                       _SettingsTile(
                         icon: Icons.category_rounded,
@@ -3307,82 +3290,18 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.onSurface.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: customIcon ??
-                    Icon(
-                      icon,
-                      size: 20,
-                      color: iconColor ?? colorScheme.onSurface,
-                    ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: label == "Email" ? 1 : 4,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: labelColor ?? colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              if (valueWidget != null)
-                Flexible(child: valueWidget!),
-        
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ] else if (isLocked) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: colorScheme.primary.withValues(alpha: 0.2),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    'PLUS',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.primary,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ] else if (showChevron && onTap != null) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: Colors.grey.withValues(alpha: 0.4),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return MonekoSettingsTile(
+      icon: icon,
+      customIcon: customIcon,
+      label: label,
+      labelColor: labelColor,
+      value: value,
+      valueWidget: valueWidget,
+      trailing: trailing,
+      iconColor: iconColor,
+      onTap: onTap,
+      showChevron: showChevron,
+      isLocked: isLocked,
     );
   }
 }
@@ -3393,6 +3312,16 @@ String _formatOffsetMinutes(int offsetMinutes) {
   final hours = (absMinutes ~/ 60).toString().padLeft(2, '0');
   final minutes = (absMinutes % 60).toString().padLeft(2, '0');
   return '$sign$hours:$minutes';
+}
+
+class _LocalePickerOption {
+  const _LocalePickerOption({
+    required this.locale,
+    required this.label,
+  });
+
+  final Locale? locale;
+  final String label;
 }
 
 class _TimezoneOption {

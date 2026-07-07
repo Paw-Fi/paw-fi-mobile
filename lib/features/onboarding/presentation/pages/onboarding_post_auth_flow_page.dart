@@ -23,6 +23,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -124,7 +125,12 @@ Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
         .refresh()
         .timeout(_kSubscriptionRefreshTimeout);
 
-    return await _hasSubscriptionRow(userId) == true;
+    final granted = await _hasSubscriptionRow(userId) == true;
+    if (granted) {
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(trialWelcomePendingKey(userId), true);
+    }
+    return granted;
   } catch (error, stackTrace) {
     debugPrint(
       '[OnboardingPostAuth] Free trial activation failed: $error\n$stackTrace',
