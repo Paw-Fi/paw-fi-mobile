@@ -3016,9 +3016,9 @@
   "plusLockedAiExpenseCapture": "Учет расходов с ИИ",
   "plusLockedManualValue": "Вручную",
   "plusLockedAiCaptureValue": "Голос, текст, фото",
-  "plusLockedMessagingAppCapture": "Запись из мессенджеров",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "Импорт чеков из email",
-  "plusLockedSharedBudgets": "Совместные бюджеты",
+  "plusLockedSharedBudgets": "Создание пространств",
   "plusLockedTrialEyebrow": "Активен пробный период (7 дней)",
   "plusLockedTrialRetentionDescription": "Пробный период позволяет познакомиться с Moneko, но эта функция доступна только в Премиум. Обновитесь сейчас, чтобы получить расширенные настройки валют, синхронизацию с банком и более быструю поддержку.",
   "plusLockedAfterTrialHeader": "После пробного периода",
@@ -3229,5 +3229,9 @@
   "onboardingHeardAboutSubtitle": "Выберите наиболее подходящий вариант. Если это был другой источник, выберите «Другое».",
   "onboardingHeardAboutOtherHint": "Расскажите, где",
   "onboardingHeardAboutValidation": "Выберите, где вы узнали о Moneko.",
-  "onboardingHeardAboutSaveError": "Не удалось сохранить ваш ответ. Попробуйте ещё раз."
+  "onboardingHeardAboutSaveError": "Не удалось сохранить ваш ответ. Попробуйте ещё раз.",
+  "walletCreation": "Создание кошельков",
+  "plusLockedLifetimeDiscountPromo": "Хорошие новости! Вам доступна скидка 50% на наш пожизненный тариф.",
+  "plusLockedLifetimeDiscountClaim": ", чтобы получить скидку.",
+  "plusLockedIncludedInPlus": "Входит в Plus"
 }

@@ -3065,9 +3065,9 @@
   "plusLockedAiExpenseCapture": "Ghi chép chi tiêu bằng AI",
   "plusLockedManualValue": "Thủ công",
   "plusLockedAiCaptureValue": "Giọng nói, văn bản, ảnh",
-  "plusLockedMessagingAppCapture": "Ghi qua ứng dụng nhắn tin",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "Nhập biên lai từ email",
-  "plusLockedSharedBudgets": "Ngân sách chung",
+  "plusLockedSharedBudgets": "Tạo không gian",
   "plusLockedTrialEyebrow": "Đang dùng thử 7 ngày",
   "plusLockedTrialRetentionDescription": "Bản dùng thử giúp bạn khám phá Moneko, nhưng tính năng này chỉ dành cho gói Cao cấp. Nâng cấp ngay để mở khóa các tùy chọn tiền tệ nâng cao, đồng bộ ngân hàng và hỗ trợ nhanh hơn.",
   "plusLockedAfterTrialHeader": "Sau khi dùng thử",
@@ -3278,5 +3278,9 @@
   "onboardingHeardAboutSubtitle": "Chọn tùy chọn phù hợp nhất. Nếu là từ nguồn khác, hãy chọn \"Khác\".",
   "onboardingHeardAboutOtherHint": "Hãy cho chúng tôi biết",
   "onboardingHeardAboutValidation": "Vui lòng chọn nơi bạn biết đến Moneko.",
-  "onboardingHeardAboutSaveError": "Không thể lưu câu trả lời của bạn. Vui lòng thử lại."
+  "onboardingHeardAboutSaveError": "Không thể lưu câu trả lời của bạn. Vui lòng thử lại.",
+  "walletCreation": "Tạo ví",
+  "plusLockedLifetimeDiscountPromo": "Tin tốt! Bạn đủ điều kiện nhận giảm giá 50% cho gói trọn đời của chúng tôi.",
+  "plusLockedLifetimeDiscountClaim": " để nhận ưu đãi của bạn.",
+  "plusLockedIncludedInPlus": "Bao gồm trong Plus"
 }

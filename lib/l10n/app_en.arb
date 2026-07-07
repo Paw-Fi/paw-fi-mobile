@@ -3073,10 +3073,6 @@
   "@discord": {
     "description": "Discord"
   },
-  "emailLabel": "Email",
-  "@emailLabel": {
-    "description": "Email label"
-  },
   "contactUs": "Contact Us",
   "@contactUs": {
     "description": "Contact Us label"
@@ -3110,12 +3106,13 @@
   "plusLockedFreeDescription": "This feature is only available with Premium. Upgrade now to unlock it, plus live exchange rates, bank sync, advanced currency tools, and priority support.",
   "plusLockedFeatureHeader": "Feature",
   "plusLockedRecommendedBadge": "Recommended",
+  "plusLockedIncludedInPlus": "Included in Plus",
   "plusLockedAiExpenseCapture": "AI expense capture",
   "plusLockedManualValue": "Manual",
   "plusLockedAiCaptureValue": "Voice, text, photo",
-  "plusLockedMessagingAppCapture": "Messaging app capture",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "Email receipt import",
-  "plusLockedSharedBudgets": "Shared budgets",
+  "plusLockedSharedBudgets": "Space Creation",
   "plusLockedTrialEyebrow": "7-day trial active",
   "plusLockedTrialRetentionDescription": "Your trial lets you explore Moneko, but this feature is reserved for Premium. Upgrade now to unlock advanced currency controls, bank sync, and faster support.",
   "plusLockedAfterTrialHeader": "After trial",
@@ -3320,5 +3317,8 @@
   "onboardingHeardAboutSubtitle": "Pick the option that fits best. If it was somewhere else, choose Other.",
   "onboardingHeardAboutOtherHint": "Tell us where",
   "onboardingHeardAboutValidation": "Please choose where you heard about Moneko.",
-  "onboardingHeardAboutSaveError": "We could not save your answer. Please try again."
+  "onboardingHeardAboutSaveError": "We could not save your answer. Please try again.",
+  "walletCreation": "Wallet Creation",
+  "plusLockedLifetimeDiscountPromo": "Good news! You're eligible for 50% off our Lifetime plan.",
+  "plusLockedLifetimeDiscountClaim": " to claim your discount."
 }

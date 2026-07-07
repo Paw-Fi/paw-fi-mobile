@@ -3010,9 +3010,9 @@
   "plusLockedAiExpenseCapture": "AI 自動記帳",
   "plusLockedManualValue": "手動",
   "plusLockedAiCaptureValue": "語音、文字、照片",
-  "plusLockedMessagingAppCapture": "通訊軟體記帳",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "匯入電子郵件收據",
-  "plusLockedSharedBudgets": "共享預算",
+  "plusLockedSharedBudgets": "建立空間",
   "plusLockedTrialEyebrow": "7 天免費試用中",
   "plusLockedTrialRetentionDescription": "試用期間您可以體驗 Moneko，但此功能僅限進階版用戶使用。立即升級即可解鎖進階貨幣管理、銀行同步與更快速的支援。",
   "plusLockedAfterTrialHeader": "試用期結束後",
@@ -3223,5 +3223,9 @@
   "onboardingHeardAboutSubtitle": "請選擇最符合的選項。如果是在其他地方得知的，請選擇「其他」。",
   "onboardingHeardAboutOtherHint": "請告訴我們是哪裡",
   "onboardingHeardAboutValidation": "請選擇您是從哪裡知道 Moneko 的。",
-  "onboardingHeardAboutSaveError": "無法儲存您的回答，請再試一次。"
+  "onboardingHeardAboutSaveError": "無法儲存您的回答，請再試一次。",
+  "walletCreation": "建立錢包",
+  "plusLockedLifetimeDiscountPromo": "好消息！您可享有終身方案 5 折優惠。",
+  "plusLockedLifetimeDiscountClaim": " 以領取您的優惠。",
+  "plusLockedIncludedInPlus": "Plus 已包含"
 }

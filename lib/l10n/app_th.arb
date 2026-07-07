@@ -3083,9 +3083,9 @@
   "plusLockedAiExpenseCapture": "บันทึกรายจ่ายด้วย AI",
   "plusLockedManualValue": "ด้วยตัวเอง",
   "plusLockedAiCaptureValue": "เสียง ข้อความ รูปภาพ",
-  "plusLockedMessagingAppCapture": "บันทึกจากแอปแชท",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "นำเข้าใบเสร็จจากอีเมล",
-  "plusLockedSharedBudgets": "แชร์งบประมาณ",
+  "plusLockedSharedBudgets": "สร้างพื้นที่",
   "plusLockedTrialEyebrow": "ทดลองใช้ฟรี 7 วัน",
   "plusLockedTrialRetentionDescription": "ช่วงทดลองใช้ฟรีช่วยให้คุณได้ลองใช้ Moneko แต่ฟีเจอร์นี้สงวนไว้สำหรับพรีเมียม อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร และการสนับสนุนที่รวดเร็วยิ่งขึ้น",
   "plusLockedAfterTrialHeader": "หลังหมดช่วงทดลอง",
@@ -3296,5 +3296,9 @@
   "onboardingHeardAboutSubtitle": "เลือกตัวเลือกที่ตรงที่สุด หากมาจากที่อื่น ให้เลือก \"อื่น ๆ\"",
   "onboardingHeardAboutOtherHint": "บอกเราหน่อยว่าที่ไหน",
   "onboardingHeardAboutValidation": "โปรดเลือกว่าคุณรู้จัก Moneko จากที่ไหน",
-  "onboardingHeardAboutSaveError": "ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง"
+  "onboardingHeardAboutSaveError": "ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง",
+  "walletCreation": "สร้างกระเป๋าเงิน",
+  "plusLockedLifetimeDiscountPromo": "ข่าวดี! คุณมีสิทธิ์รับส่วนลด 50% สำหรับแผนตลอดชีพของเรา",
+  "plusLockedLifetimeDiscountClaim": " เพื่อรับส่วนลดของคุณ",
+  "plusLockedIncludedInPlus": "รวมอยู่ใน Plus"
 }

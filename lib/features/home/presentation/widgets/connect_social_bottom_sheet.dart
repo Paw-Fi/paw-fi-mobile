@@ -82,7 +82,11 @@ class ConnectSocialBottomSheet extends ConsumerWidget {
                       if (!canUsePlusFeatures) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (rootContext.mounted) {
-                            PlusLockedSheet.show(rootContext);
+                            PlusLockedSheet.show(
+                              rootContext,
+                              highlightedFeature:
+                                  PlusFeature.messagingAppCapture,
+                            );
                           }
                         });
                         return;
@@ -116,7 +120,11 @@ class ConnectSocialBottomSheet extends ConsumerWidget {
                       if (!canUsePlusFeatures) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (rootContext.mounted) {
-                            PlusLockedSheet.show(rootContext);
+                            PlusLockedSheet.show(
+                              rootContext,
+                              highlightedFeature:
+                                  PlusFeature.messagingAppCapture,
+                            );
                           }
                         });
                         return;

@@ -1266,11 +1266,19 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.lock_rounded,
                         label: context.l10n.appLock,
+                        isLocked: !canUsePlusFeatures,
+                        onTap: !canUsePlusFeatures
+                            ? () => PlusLockedSheet.show(
+                                  context,
+                                  highlightedFeature: PlusFeature.appLock,
+                                )
+                            : null,
                         trailing: Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: AdaptiveSwitch(
                             value: appLockSwitchValue.value,
-                            onChanged: isAppLockSetupInProgress.value
+                            onChanged: isAppLockSetupInProgress.value ||
+                                    !canUsePlusFeatures
                                 ? null
                                 : (value) => handleAppLockToggle(value),
                           ),
@@ -1523,11 +1531,14 @@ class SettingsPage extends HookConsumerWidget {
                     _SettingsTile(
                       icon: Icons.currency_exchange_rounded,
                       label: context.l10n.currencyConverter,
-                      value: canUsePlusFeatures ? "" : context.l10n.plus,
                       isLocked: !canUsePlusFeatures,
                       onTap: () {
                         if (!canUsePlusFeatures) {
-                          PlusLockedSheet.show(context);
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.currencyConverter,
+                          );
                           return;
                         }
                         context.push('/currency-rates');
@@ -1536,7 +1547,6 @@ class SettingsPage extends HookConsumerWidget {
                     _SettingsTile(
                       icon: Icons.forward_to_inbox_rounded,
                       label: context.l10n.emailFileImportEnableSwitchTitle,
-                      value: canUsePlusFeatures ? null : context.l10n.plus,
                       isLocked: !canUsePlusFeatures,
                       valueWidget: canUsePlusFeatures
                           ? FutureBuilder<bool>(
@@ -1560,7 +1570,11 @@ class SettingsPage extends HookConsumerWidget {
                           : null,
                       onTap: () {
                         if (!canUsePlusFeatures) {
-                          PlusLockedSheet.show(context);
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.emailReceiptImport,
+                          );
                           return;
                         }
                         Navigator.of(context)
@@ -1587,16 +1601,18 @@ class SettingsPage extends HookConsumerWidget {
                               true
                           ? context.l10n.telegramConnected
                           : context.l10n.connectTelegram,
-                      value: !canUsePlusFeatures
-                          ? context.l10n.plus
-                          : ref.watch(telegramBindingProvider).asData?.value ==
+                      value: ref.watch(telegramBindingProvider).asData?.value ==
                                   true
                               ? context.l10n.activeStatus
                               : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
                         if (!canUsePlusFeatures) {
-                          PlusLockedSheet.show(context);
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.messagingAppCapture,
+                          );
                           return;
                         }
                         final isBound =
@@ -1629,16 +1645,18 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                       ),
                       label: context.l10n.whatsAppConnected,
-                      value: !canUsePlusFeatures
-                          ? context.l10n.plus
-                          : ref.watch(whatsAppBindingProvider).asData?.value ==
+                      value: ref.watch(whatsAppBindingProvider).asData?.value ==
                                   true
                               ? context.l10n.activeStatus
                               : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
                         if (!canUsePlusFeatures) {
-                          PlusLockedSheet.show(context);
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.messagingAppCapture,
+                          );
                           return;
                         }
                         final tileContext = context;
@@ -1673,7 +1691,6 @@ class SettingsPage extends HookConsumerWidget {
                       label: Platform.isIOS
                           ? context.l10n.applePayIntegration
                           : context.l10n.autoTransactionCapture,
-                      value: canUsePlusFeatures ? null : context.l10n.plus,
                       isLocked: !canUsePlusFeatures,
                       valueWidget: canUsePlusFeatures
                           ? FutureBuilder<bool>(
@@ -1697,7 +1714,11 @@ class SettingsPage extends HookConsumerWidget {
                           : null,
                       onTap: () {
                         if (!canUsePlusFeatures) {
-                          PlusLockedSheet.show(context);
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.messagingAppCapture,
+                          );
                           return;
                         }
                         if (Platform.isIOS) {

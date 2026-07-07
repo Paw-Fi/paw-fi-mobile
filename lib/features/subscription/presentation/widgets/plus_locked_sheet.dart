@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
@@ -18,8 +20,9 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
-import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
   final monthlyPrice = yearlyPrice / 12;
@@ -31,18 +34,40 @@ const _plusLockedHealthDetails = 'Health report details';
 const _plusLockedAiScenarios = 'AI scenarios';
 const _plusLockedWallets = 'Wallets';
 
+enum PlusFeature {
+  healthDetails,
+  aiScenarios,
+  messagingAppCapture,
+  emailReceiptImport,
+  sharedBudgets,
+  walletCreation,
+  bankSync,
+  multipleCurrencies,
+  currencyConverter,
+  liveExchangeRates,
+  appLock,
+  customerSupport,
+}
+
 class PlusLockedSheet extends HookConsumerWidget {
-  const PlusLockedSheet({super.key});
+  const PlusLockedSheet({super.key, this.highlightedFeature});
+
+  final PlusFeature? highlightedFeature;
 
   static const bool _forceUseStripeCheckout = false;
 
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(
+    BuildContext context, {
+    PlusFeature? highlightedFeature,
+  }) {
     return MonekoBottomSheet.show(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.sheetBackground,
-      builder: (context) => const PlusLockedSheet(),
+      builder: (context) => PlusLockedSheet(
+        highlightedFeature: highlightedFeature,
+      ),
     );
   }
 
@@ -60,6 +85,8 @@ class PlusLockedSheet extends HookConsumerWidget {
     final currentStatus = currentSubscription?.status?.toLowerCase();
     final selectedPlanId = useState<String?>(null);
     final isCheckoutProcessing = useState(false);
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
+    final isBankSyncEligible = isPlaidSupportedTimezone(preferredTimezone);
 
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !_forceUseStripeCheckout;
@@ -69,8 +96,7 @@ class PlusLockedSheet extends HookConsumerWidget {
       productsAsync: productsAsync,
       iapStateAsync: iapStateAsync,
     );
-    final visiblePlans =
-        plans.where((plan) => plan.serverPlanId == 'plus').toList();
+    final visiblePlans = sortPlanOptions(plans);
     final isStoreReady = !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
     useEffect(() {
@@ -222,7 +248,10 @@ class PlusLockedSheet extends HookConsumerWidget {
                   children: [
                     _SheetHero(content: content),
                     const SizedBox(height: 32),
-                    _PremiumFeaturesList(features: content.features),
+                    _PremiumFeaturesList(
+                      features: content.features,
+                      highlightedFeature: highlightedFeature,
+                    ),
                   ],
                 ),
               ),
@@ -253,54 +282,82 @@ class PlusLockedSheet extends HookConsumerWidget {
                           _SheetNote(text: content.note!),
                           const SizedBox(height: 12),
                         ],
-                        Container(
+                        SizedBox(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.sheetElementBackground,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: colorScheme.border.withValues(alpha: 0.6),
-                            ),
-                          ),
+                       
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                             
-                              if (visiblePlans.isEmpty)
-                                Text(
-                                  context.l10n.paywallErrorLoadOptions,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                              PlanSelectionCardRow(
+                                plans: visiblePlans,
+                                selectedPlanId: selectedPlanId.value ?? '',
+                                onPlanSelected: (id) => selectedPlanId.value = id,
+                                isCurrentPlan: isCurrentPlan,
+                                isNewUser: currentSubscription == null,
+                              ),
+                              if (!isBankSyncEligible) ...[
+                                const SizedBox(height: 10),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.mutedForeground,
+                                        height: 1.4,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: context.l10n
+                                              .plusLockedLifetimeDiscountPromo,
+                                        ),
+                                        WidgetSpan(
+                                          child: GestureDetector(
+                                            onTap: () => launchUrl(
+                                              Uri.parse(
+                                                  'https://moneko.io/support'),
+                                            ),
+                                            child: Text(
+                                              context.l10n.contactUs,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.primary,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                                decorationColor:
+                                                    colorScheme.primary,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: context.l10n
+                                              .plusLockedLifetimeDiscountClaim,
+                                        ),
+                                      ],
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                )
-                              else ...[
-                                UnifiedPlanCard(
-                                  plans: visiblePlans,
-                                  selectedPlanId: selectedPlanId.value ?? '',
-                                  onPlanSelected: (id) => selectedPlanId.value = id,
-                                  isCurrentPlan: isCurrentPlan,
-                                  isNewUser: currentSubscription == null,
                                 ),
-                                const SizedBox(height: 12),
-                                if (effectiveActivePlanOption != null)
-                                  PaywallCheckoutActionButton(
-                                    option: effectiveActivePlanOption,
-                                    isProcessing: isCheckoutProcessing.value,
-                                    isStoreReady: isStoreReady,
-                                    canConfirmAutoRenew: true,
-                                    isCurrentPlan: isCurrentPlan(effectiveActivePlanOption),
-                                    trialMode: false,
-                                    includePrice: true,
-                                    centerText: true,
-                                    onPressed: onCheckoutPressed,
-                                  ),
                               ],
+                              const SizedBox(height: 12),
+                              if (effectiveActivePlanOption != null)
+                                PaywallCheckoutActionButton(
+                                  option: effectiveActivePlanOption,
+                                  isProcessing: isCheckoutProcessing.value,
+                                  isStoreReady: isStoreReady,
+                                  canConfirmAutoRenew: true,
+                                  isCurrentPlan: isCurrentPlan(effectiveActivePlanOption),
+                                  trialMode: false,
+                                  includePrice: true,
+                                  centerText: true,
+                                  onPressed: onCheckoutPressed,
+                                ),
                             ],
                           ),
                         ),
@@ -405,60 +462,67 @@ class _LockedSheetContent {
   static List<_PremiumFeature> _plusOnlyFeatures(BuildContext context) {
     return [
       _PremiumFeature(
-        icon: Icons.auto_awesome_rounded,
-        title: _plusLockedInAppAiExpenseLogging,
-        value: context.l10n.unlimited,
-      ),
-      const _PremiumFeature(
         icon: Icons.monitor_heart_rounded,
-        title: _plusLockedHealthDetails,
+        title: context.l10n.plusLockedHealthDetails,
+        featureKey: PlusFeature.healthDetails,
       ),
-      const _PremiumFeature(
+      _PremiumFeature(
         icon: Icons.insights_rounded,
-        title: _plusLockedAiScenarios,
+        title: context.l10n.plusLockedAiScenarios,
+        featureKey: PlusFeature.aiScenarios,
       ),
       _PremiumFeature(
         icon: Icons.chat_bubble_rounded,
         title: context.l10n.plusLockedMessagingAppCapture,
+        featureKey: PlusFeature.messagingAppCapture,
       ),
       _PremiumFeature(
         icon: Icons.receipt_long_rounded,
         title: context.l10n.plusLockedEmailReceiptImport,
+        featureKey: PlusFeature.emailReceiptImport,
       ),
       _PremiumFeature(
         icon: Icons.group_rounded,
-        title: context.l10n.plusLockedSharedBudgets,
+        title: "${context.l10n.plusLockedSharedBudgets} ∞",
         value: context.l10n.unlimited,
+        featureKey: PlusFeature.sharedBudgets,
       ),
       _PremiumFeature(
         icon: Icons.account_balance_wallet_rounded,
-        title: _plusLockedWallets,
+        title: "${context.l10n.walletCreation} ∞",
         value: context.l10n.unlimited,
+        featureKey: PlusFeature.walletCreation,
       ),
       _PremiumFeature(
         icon: Icons.account_balance_rounded,
         title: context.l10n.plusLockedBankSync,
+        featureKey: PlusFeature.bankSync,
       ),
       _PremiumFeature(
         icon: Icons.public_rounded,
         title: context.l10n.multipleCurrencies,
+        featureKey: PlusFeature.multipleCurrencies,
       ),
       _PremiumFeature(
         icon: Icons.currency_exchange_rounded,
         title: context.l10n.currencyConverter,
+        featureKey: PlusFeature.currencyConverter,
       ),
       _PremiumFeature(
         icon: Icons.trending_up_rounded,
         title: context.l10n.plusLockedLiveExchangeRates,
+        featureKey: PlusFeature.liveExchangeRates,
       ),
       _PremiumFeature(
         icon: Icons.lock_rounded,
         title: context.l10n.appLock,
+        featureKey: PlusFeature.appLock,
       ),
       _PremiumFeature(
         icon: Icons.support_agent_rounded,
         title: context.l10n.customerSupport,
         value: context.l10n.plusLockedPrioritySupport,
+        featureKey: PlusFeature.customerSupport,
       ),
     ];
   }
@@ -469,11 +533,13 @@ class _PremiumFeature {
     required this.icon,
     required this.title,
     this.value,
+    this.featureKey,
   });
 
   final IconData icon;
   final String title;
   final String? value;
+  final PlusFeature? featureKey;
 }
 
 class _SheetHero extends StatelessWidget {
@@ -571,13 +637,27 @@ class _SheetNote extends StatelessWidget {
 }
 
 class _PremiumFeaturesList extends StatelessWidget {
-  const _PremiumFeaturesList({required this.features});
+  const _PremiumFeaturesList({
+    required this.features,
+    this.highlightedFeature,
+  });
 
   final List<_PremiumFeature> features;
+  final PlusFeature? highlightedFeature;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    final sortedFeatures = List<_PremiumFeature>.from(features);
+    if (highlightedFeature != null) {
+      final index =
+          sortedFeatures.indexWhere((f) => f.featureKey == highlightedFeature);
+      if (index > 0) {
+        final item = sortedFeatures.removeAt(index);
+        sortedFeatures.insert(0, item);
+      }
+    }
 
     return ShaderMask(
       shaderCallback: (Rect bounds) {
@@ -606,17 +686,37 @@ class _PremiumFeaturesList extends StatelessWidget {
             right: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
           ),
         ),
-        padding: const EdgeInsets.only(top: 4, bottom: 0),
+        padding: const EdgeInsets.only(top: 0, bottom: 0),
         child: Column(
-          children: features.map((feature) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+          children: sortedFeatures.map((feature) {
+            final isHighlighted = highlightedFeature != null &&
+                feature.featureKey == highlightedFeature;
+            return Container(
+              decoration: isHighlighted
+                  ? BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.08),
+                      border: Border(
+                        left: BorderSide(
+                          color: colorScheme.primary,
+                          width: 3,
+                        ),
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      )
+                    )
+                  : null,
+              padding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
               child: Row(
                 children: [
                   Icon(
                     feature.icon,
                     size: 16,
-                    color: colorScheme.foreground,
+                    color: isHighlighted
+                        ? colorScheme.primary
+                        : colorScheme.foreground,
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -627,16 +727,37 @@ class _PremiumFeaturesList extends StatelessWidget {
                           feature.title,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
+                            fontWeight: isHighlighted
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isHighlighted
+                                ? colorScheme.primary
+                                : colorScheme.foreground,
                             letterSpacing: -0.2,
                           ),
                         ),
-                      
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  if (isHighlighted) ...[
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        context.l10n.plusLockedIncludedInPlus,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.primaryForeground,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   IconButton(
                     onPressed: () {
                       showDialog(
@@ -653,6 +774,7 @@ class _PremiumFeaturesList extends StatelessWidget {
                                     context,
                                     plusBadge:
                                         context.l10n.plusLockedRecommendedBadge,
+                                    highlightedFeature: highlightedFeature,
                                   ),
                                 ),
                               ),
@@ -699,12 +821,14 @@ class _PlanComparisonContent {
     required this.columns,
     required this.rows,
     required this.highlightedColumn,
+    this.highlightedRowIndex = -1,
   });
 
   final String featureHeader;
   final List<_PlanColumn> columns;
   final List<_ComparisonRowData> rows;
   final int highlightedColumn;
+  final int highlightedRowIndex;
 }
 
 class _PlanColumn {
@@ -718,10 +842,12 @@ class _ComparisonRowData {
   const _ComparisonRowData({
     required this.feature,
     required this.values,
+    this.featureKey,
   });
 
   final String feature;
   final List<_ComparisonValue> values;
+  final PlusFeature? featureKey;
 }
 
 class _ComparisonValue {
@@ -752,24 +878,28 @@ class _PlanComparisonTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.sheetElementBackground,
-          border: Border.all(color: colorScheme.border),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          children: [
-            _PlanComparisonHeader(content: content),
-            for (var index = 0; index < content.rows.length; index++)
-              _PlanComparisonRow(
-                data: content.rows[index],
-                highlightedColumn: content.highlightedColumn,
-                isLast: index == content.rows.length - 1,
-              ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 54),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.sheetElementBackground,
+            border: Border.all(color: colorScheme.border),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            children: [
+              _PlanComparisonHeader(content: content),
+              for (var index = 0; index < content.rows.length; index++)
+                _PlanComparisonRow(
+                  data: content.rows[index],
+                  highlightedColumn: content.highlightedColumn,
+                  isLast: index == content.rows.length - 1,
+                  isHighlighted: index == content.highlightedRowIndex,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -894,11 +1024,13 @@ class _PlanComparisonRow extends StatelessWidget {
     required this.data,
     required this.highlightedColumn,
     required this.isLast,
+    this.isHighlighted = false,
   });
 
   final _ComparisonRowData data;
   final int highlightedColumn;
   final bool isLast;
+  final bool isHighlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -906,6 +1038,9 @@ class _PlanComparisonRow extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
+        color: isHighlighted
+            ? colorScheme.primary.withValues(alpha: 0.06)
+            : null,
         border: isLast
             ? null
             : Border(
@@ -928,8 +1063,12 @@ class _PlanComparisonRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
+                    fontWeight: isHighlighted
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                    color: isHighlighted
+                        ? colorScheme.primary
+                        : colorScheme.foreground,
                     height: 1.25,
                   ),
                 ),
@@ -970,7 +1109,7 @@ class _ComparisonValueCell extends StatelessWidget {
       true => Icon(
           Icons.check_circle_rounded,
           size: 20,
-          color: highlighted ? colorScheme.primary : colorScheme.success,
+          color: colorScheme.primary,
         ),
       false => Icon(
           Icons.cancel_rounded,
@@ -1005,7 +1144,108 @@ _PlanComparisonContent _freeVsPlusComparison(
   BuildContext context, {
   String? featureHeader,
   String? plusBadge,
+  PlusFeature? highlightedFeature,
 }) {
+  final rows = [
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedAiExpenseCapture,
+      values: [
+        _ComparisonValue.included(),
+        _ComparisonValue.included()
+      ],
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedSharedBudgets,
+      values: [
+        _ComparisonValue.text('2'),
+        _ComparisonValue.text(context.l10n.unlimited),
+      ],
+      featureKey: PlusFeature.sharedBudgets,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.walletCreation,
+      values: [
+        _ComparisonValue.text('2'),
+        _ComparisonValue.text(context.l10n.unlimited),
+      ],
+      featureKey: PlusFeature.walletCreation,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedMessagingAppCapture,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.messagingAppCapture,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedEmailReceiptImport,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.emailReceiptImport,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedBankSync,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.bankSync,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.multipleCurrencies,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.multipleCurrencies,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.currencyConverter,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.currencyConverter,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedLiveExchangeRates,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.liveExchangeRates,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.appLock,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.appLock,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.customerSupport,
+      values: [
+        _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
+        _ComparisonValue.text(context.l10n.plusLockedPrioritySupport),
+      ],
+      featureKey: PlusFeature.customerSupport,
+    ),
+  ];
+
+  var highlightedRowIndex = -1;
+  if (highlightedFeature != null) {
+    final index = rows.indexWhere((r) => r.featureKey == highlightedFeature);
+    if (index >= 0) {
+      final row = rows.removeAt(index);
+      rows.insert(0, row);
+      highlightedRowIndex = 0;
+    }
+  }
+
   return _PlanComparisonContent(
     featureHeader: featureHeader ?? context.l10n.plusLockedFeatureHeader,
     columns: [
@@ -1013,77 +1253,7 @@ _PlanComparisonContent _freeVsPlusComparison(
       _PlanColumn(title: context.l10n.plus, badge: plusBadge),
     ],
     highlightedColumn: 1,
-    rows: [
-      _ComparisonRowData(
-        feature: context.l10n.plusLockedAiExpenseCapture,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.plusLockedMessagingAppCapture,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.plusLockedEmailReceiptImport,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.plusLockedSharedBudgets,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.plusLockedBankSync,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.multipleCurrencies,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.currencyConverter,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.plusLockedLiveExchangeRates,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.appLock,
-        values: [
-          const _ComparisonValue._(included: false),
-          _ComparisonValue.included()
-        ],
-      ),
-      _ComparisonRowData(
-        feature: context.l10n.customerSupport,
-        values: [
-          _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
-          _ComparisonValue.text(context.l10n.plusLockedPrioritySupport),
-        ],
-      ),
-    ],
+    rows: rows,
+    highlightedRowIndex: highlightedRowIndex,
   );
 }

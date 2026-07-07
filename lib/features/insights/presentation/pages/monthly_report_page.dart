@@ -667,7 +667,10 @@ class MonthlyReportPage extends HookConsumerWidget {
     String route,
   ) {
     if (!canOpenReportDetails) {
-      PlusLockedSheet.show(context);
+      PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.healthDetails,
+      );
       return;
     }
 

@@ -2,16 +2,17 @@ import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
+import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-import 'package:moneko/core/subscription/plan_access.dart' show hasPremiumFeatureAccess, isSubscriptionStatusTrialing;
+import 'package:moneko/core/subscription/plan_access.dart'
+    show hasPremiumFeatureAccess;
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -182,9 +183,9 @@ class AccountsPage extends HookConsumerWidget {
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final locale = Localizations.localeOf(context);
-    final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
+    final shouldShowConnectBankButton = isPlaidSupportedTimezone(
       preferredTimezone,
-    ) && !isSubscriptionStatusTrialing(subscription);
+    );
     final bankConnectionsAsync = isPreviewMode
         ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
         : ref.watch(bankConnectionsProvider);
@@ -390,7 +391,10 @@ class AccountsPage extends HookConsumerWidget {
       final activeWalletCount =
           effectiveWallets.where((wallet) => !wallet.isArchived).length;
       if (!hasPremiumFeatureAccess(subscription) && activeWalletCount >= 2) {
-        await PlusLockedSheet.show(context);
+        await PlusLockedSheet.show(
+          context,
+          highlightedFeature: PlusFeature.walletCreation,
+        );
         return;
       }
 
@@ -419,7 +423,10 @@ class AccountsPage extends HookConsumerWidget {
 
     Future<void> onConnectBankAccount() async {
       if (!hasPremiumFeatureAccess(subscription)) {
-        PlusLockedSheet.show(context);
+        PlusLockedSheet.show(
+          context,
+          highlightedFeature: PlusFeature.bankSync,
+        );
         return;
       }
       if (isPreviewMode) {
@@ -677,76 +684,6 @@ class AccountsPage extends HookConsumerWidget {
       ),
     ));
   }
-}
-
-bool _isPlaidSupportedTimezone(String? preferredTimezone) {
-  if (kDebugMode) {
-    return true;
-  }
-  final normalized =
-      canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
-  if (normalized == null || normalized.isEmpty) {
-    return false;
-  }
-
-  if (normalized.startsWith('us/')) {
-    return true;
-  }
-
-  const supportedPlaidIanaTimezones = <String>{
-    'america/new_york',
-    'america/detroit',
-    'america/kentucky/louisville',
-    'america/kentucky/monticello',
-    'america/indiana/indianapolis',
-    'america/indiana/vincennes',
-    'america/indiana/winamac',
-    'america/indiana/marengo',
-    'america/indiana/petersburg',
-    'america/indiana/vevay',
-    'america/chicago',
-    'america/indiana/tell_city',
-    'america/indiana/knox',
-    'america/menominee',
-    'america/north_dakota/center',
-    'america/north_dakota/new_salem',
-    'america/north_dakota/beulah',
-    'america/denver',
-    'america/boise',
-    'america/phoenix',
-    'america/los_angeles',
-    'america/anchorage',
-    'america/juneau',
-    'america/sitka',
-    'america/metlakatla',
-    'america/yakutat',
-    'america/nome',
-    'america/adak',
-    'pacific/honolulu',
-    'america/st_johns',
-    'america/halifax',
-    'america/glace_bay',
-    'america/moncton',
-    'america/goose_bay',
-    'america/toronto',
-    'america/iqaluit',
-    'america/winnipeg',
-    'america/rankin_inlet',
-    'america/resolute',
-    'america/regina',
-    'america/swift_current',
-    'america/edmonton',
-    'america/cambridge_bay',
-    'america/inuvik',
-    'america/creston',
-    'america/dawson_creek',
-    'america/fort_nelson',
-    'america/vancouver',
-    'america/whitehorse',
-    'america/dawson',
-  };
-
-  return supportedPlaidIanaTimezones.contains(normalized);
 }
 
 class _AnimatedNumberText extends StatelessWidget {

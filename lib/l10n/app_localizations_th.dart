@@ -8331,9 +8331,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get discord => 'Discord';
 
   @override
-  String get emailLabel => 'Email';
-
-  @override
   String get contactUs => 'ติดต่อเรา';
 
   @override
@@ -8397,6 +8394,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedRecommendedBadge => 'แนะนำ';
 
   @override
+  String get plusLockedIncludedInPlus => 'รวมอยู่ใน Plus';
+
+  @override
   String get plusLockedAiExpenseCapture => 'บันทึกรายจ่ายด้วย AI';
 
   @override
@@ -8406,13 +8406,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedAiCaptureValue => 'เสียง ข้อความ รูปภาพ';
 
   @override
-  String get plusLockedMessagingAppCapture => 'บันทึกจากแอปแชท';
+  String get plusLockedMessagingAppCapture => 'WhatsApp + Telegram';
 
   @override
   String get plusLockedEmailReceiptImport => 'นำเข้าใบเสร็จจากอีเมล';
 
   @override
-  String get plusLockedSharedBudgets => 'แชร์งบประมาณ';
+  String get plusLockedSharedBudgets => 'สร้างพื้นที่';
 
   @override
   String get plusLockedTrialEyebrow => 'ทดลองใช้ฟรี 7 วัน';
@@ -9066,4 +9066,13 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get onboardingHeardAboutSaveError => 'ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get walletCreation => 'สร้างกระเป๋าเงิน';
+
+  @override
+  String get plusLockedLifetimeDiscountPromo => 'ข่าวดี! คุณมีสิทธิ์รับส่วนลด 50% สำหรับแผนตลอดชีพของเรา';
+
+  @override
+  String get plusLockedLifetimeDiscountClaim => ' เพื่อรับส่วนลดของคุณ';
 }

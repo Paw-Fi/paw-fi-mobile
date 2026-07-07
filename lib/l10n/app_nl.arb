@@ -3013,9 +3013,9 @@
   "plusLockedAiExpenseCapture": "AI-uitgavenregistratie",
   "plusLockedManualValue": "Handmatig",
   "plusLockedAiCaptureValue": "Spraak, tekst, foto",
-  "plusLockedMessagingAppCapture": "Invoer via chatapps",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "E-mailbonnen importeren",
-  "plusLockedSharedBudgets": "Gedeelde budgetten",
+  "plusLockedSharedBudgets": "Ruimtes aanmaken",
   "plusLockedTrialEyebrow": "7 dagen proef actief",
   "plusLockedTrialRetentionDescription": "Met je proefperiode kun je Moneko ontdekken, maar deze functie is alleen beschikbaar voor Premium. Upgrade nu voor geavanceerde valutafuncties, banksynchronisatie en snellere ondersteuning.",
   "plusLockedAfterTrialHeader": "Na proefperiode",
@@ -3226,5 +3226,9 @@
   "onboardingHeardAboutSubtitle": "Kies de optie die het beste past. Was het ergens anders? Kies dan 'Overig'.",
   "onboardingHeardAboutOtherHint": "Vertel ons waar",
   "onboardingHeardAboutValidation": "Kies waar je over Moneko hebt gehoord.",
-  "onboardingHeardAboutSaveError": "We konden je antwoord niet opslaan. Probeer het opnieuw."
+  "onboardingHeardAboutSaveError": "We konden je antwoord niet opslaan. Probeer het opnieuw.",
+  "walletCreation": "Wallet aanmaken",
+  "plusLockedLifetimeDiscountPromo": "Goed nieuws! Je komt in aanmerking voor 50% korting op ons levenslange abonnement.",
+  "plusLockedLifetimeDiscountClaim": " om je korting te ontvangen.",
+  "plusLockedIncludedInPlus": "Inbegrepen bij Plus"
 }

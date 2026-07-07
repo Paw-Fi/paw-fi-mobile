@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
@@ -383,6 +384,12 @@ class _AvatarCustomizerScreenState
         config: ImageCompressConfig.profileAvatar,
         useOriginalWhenSmaller: false,
       );
+      if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+        throw Exception(
+          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(compressedBytes.length)}). '
+          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        );
+      }
       setState(() {
         _uploadProgress = 50;
       });

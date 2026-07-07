@@ -2870,9 +2870,9 @@
   "plusLockedAiExpenseCapture": "AI 지출 기록",
   "plusLockedManualValue": "수동",
   "plusLockedAiCaptureValue": "음성, 텍스트, 사진",
-  "plusLockedMessagingAppCapture": "메시징 앱에서 기록",
+  "plusLockedMessagingAppCapture": "WhatsApp · Telegram",
   "plusLockedEmailReceiptImport": "이메일 영수증 가져오기",
-  "plusLockedSharedBudgets": "공유 예산",
+  "plusLockedSharedBudgets": "스페이스 생성",
   "plusLockedTrialEyebrow": "7일 무료 체험 중",
   "plusLockedTrialRetentionDescription": "무료 체험으로 Moneko를 이용해 볼 수 있지만, 이 기능은 프리미엄 전용입니다. 업그레이드하면 고급 통화 설정, 은행 동기화 및 더 빠른 지원을 이용할 수 있습니다.",
   "plusLockedAfterTrialHeader": "무료 체험 후",
@@ -3082,5 +3082,9 @@
   "onboardingHeardAboutSubtitle": "가장 알맞은 항목을 선택하세요. 해당하는 항목이 없다면 '기타'를 선택해 주세요.",
   "onboardingHeardAboutOtherHint": "어디인지 알려주세요",
   "onboardingHeardAboutValidation": "Moneko를 알게 된 경로를 선택해 주세요.",
-  "onboardingHeardAboutSaveError": "응답을 저장하지 못했습니다. 다시 시도해 주세요."
+  "onboardingHeardAboutSaveError": "응답을 저장하지 못했습니다. 다시 시도해 주세요.",
+  "walletCreation": "지갑 생성",
+  "plusLockedLifetimeDiscountPromo": "좋은 소식입니다! 평생 플랜을 50% 할인된 가격으로 이용하실 수 있습니다.",
+  "plusLockedLifetimeDiscountClaim": "하여 할인을 받으세요.",
+  "plusLockedIncludedInPlus": "Plus에 포함"
 }

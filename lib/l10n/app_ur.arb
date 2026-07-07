@@ -3012,9 +3012,9 @@
   "plusLockedAiExpenseCapture": "AI اخراجات کا اندراج",
   "plusLockedManualValue": "دستی",
   "plusLockedAiCaptureValue": "آواز، متن، تصویر",
-  "plusLockedMessagingAppCapture": "میسجنگ ایپ کے ذریعے اندراج",
+  "plusLockedMessagingAppCapture": "واٹس ایپ + ٹیلیگرام",
   "plusLockedEmailReceiptImport": "ای میل رسید امپورٹ کریں",
-  "plusLockedSharedBudgets": "مشترکہ بجٹ",
+  "plusLockedSharedBudgets": "اسپیس بنانا",
   "plusLockedTrialEyebrow": "7 دن کا ٹرائل فعال ہے",
   "plusLockedTrialRetentionDescription": "آپ کا ٹرائل آپ کو Moneko آزمانے دیتا ہے، لیکن یہ فیچر صرف پریمیم کے لیے ہے۔ ابھی اپ گریڈ کریں اور جدید کرنسی کنٹرولز، بینک سنک اور تیز تر سپورٹ حاصل کریں۔",
   "plusLockedAfterTrialHeader": "ٹرائل کے بعد",
@@ -3225,5 +3225,9 @@
   "onboardingHeardAboutSubtitle": "جو آپ پر سب سے زیادہ لاگو ہوتا ہے وہ منتخب کریں۔ اگر کسی اور جگہ سے معلوم ہوا ہو تو \"دیگر\" منتخب کریں۔",
   "onboardingHeardAboutOtherHint": "ہمیں بتائیں کہاں سے",
   "onboardingHeardAboutValidation": "براہ کرم منتخب کریں کہ آپ نے Moneko کے بارے میں کہاں سے سنا۔",
-  "onboardingHeardAboutSaveError": "آپ کا جواب محفوظ نہیں کیا جا سکا۔ براہ کرم دوبارہ کوشش کریں۔"
+  "onboardingHeardAboutSaveError": "آپ کا جواب محفوظ نہیں کیا جا سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "walletCreation": "والیٹ بنانا",
+  "plusLockedLifetimeDiscountPromo": "خبر خوش! آپ ہماری لائف ٹائم پلان پر 50% رعایت کے اہل ہیں۔",
+  "plusLockedLifetimeDiscountClaim": " اپنی رعایت حاصل کرنے کے لیے۔",
+  "plusLockedIncludedInPlus": "Plus میں شامل"
 }

@@ -600,7 +600,10 @@ class _CurrencySelectorScreenState
                     child: TextButton.icon(
                       onPressed: () {
                         if (!canUsePremiumCurrencyFeatures) {
-                          PlusLockedSheet.show(context);
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature: PlusFeature.currencyConverter,
+                          );
                           return;
                         }
                         context.push('/currency-rates');
@@ -687,7 +690,11 @@ class _CurrencySelectorScreenState
                               onCheckboxTap: () {
                                 HapticFeedback.selectionClick();
                                 if (!canUsePremiumCurrencyFeatures) {
-                                  PlusLockedSheet.show(context);
+                                  PlusLockedSheet.show(
+                                    context,
+                                    highlightedFeature:
+                                        PlusFeature.multipleCurrencies,
+                                  );
                                   return;
                                 }
                                 final next = selectedCurrencySet.toSet();

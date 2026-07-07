@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 class PlaidCountryOption {
   const PlaidCountryOption({
@@ -118,4 +120,74 @@ String plaidCountryLabel(BuildContext context, PlaidCountryOption option) {
       return context.l10n.canada;
   }
   return option.label;
+}
+
+bool isPlaidSupportedTimezone(String? preferredTimezone) {
+  if (kDebugMode) {
+    return true;
+  }
+  final normalized =
+      canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty) {
+    return false;
+  }
+
+  if (normalized.startsWith('us/')) {
+    return true;
+  }
+
+  const supportedPlaidIanaTimezones = <String>{
+    'america/new_york',
+    'america/detroit',
+    'america/kentucky/louisville',
+    'america/kentucky/monticello',
+    'america/indiana/indianapolis',
+    'america/indiana/vincennes',
+    'america/indiana/winamac',
+    'america/indiana/marengo',
+    'america/indiana/petersburg',
+    'america/indiana/vevay',
+    'america/chicago',
+    'america/indiana/tell_city',
+    'america/indiana/knox',
+    'america/menominee',
+    'america/north_dakota/center',
+    'america/north_dakota/new_salem',
+    'america/north_dakota/beulah',
+    'america/denver',
+    'america/boise',
+    'america/phoenix',
+    'america/los_angeles',
+    'america/anchorage',
+    'america/juneau',
+    'america/sitka',
+    'america/metlakatla',
+    'america/yakutat',
+    'america/nome',
+    'america/adak',
+    'pacific/honolulu',
+    'america/st_johns',
+    'america/halifax',
+    'america/glace_bay',
+    'america/moncton',
+    'america/goose_bay',
+    'america/toronto',
+    'america/iqaluit',
+    'america/winnipeg',
+    'america/rankin_inlet',
+    'america/resolute',
+    'america/regina',
+    'america/swift_current',
+    'america/edmonton',
+    'america/cambridge_bay',
+    'america/inuvik',
+    'america/creston',
+    'america/dawson_creek',
+    'america/fort_nelson',
+    'america/vancouver',
+    'america/whitehorse',
+    'america/dawson',
+  };
+
+  return supportedPlaidIanaTimezones.contains(normalized);
 }

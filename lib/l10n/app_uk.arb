@@ -3058,9 +3058,9 @@
   "plusLockedAiExpenseCapture": "Облік витрат за допомогою ШІ",
   "plusLockedManualValue": "Вручну",
   "plusLockedAiCaptureValue": "Голос, текст, фото",
-  "plusLockedMessagingAppCapture": "Запис з месенджерів",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "Імпорт чеків з email",
-  "plusLockedSharedBudgets": "Спільні бюджети",
+  "plusLockedSharedBudgets": "Створення просторів",
   "plusLockedTrialEyebrow": "Активний пробний період (7 днів)",
   "plusLockedTrialRetentionDescription": "Пробний період дозволяє ознайомитися з Moneko, але ця функція доступна лише в Преміум. Оновіться зараз, щоб отримати розширене керування валютами, синхронізацію з банком і швидшу підтримку.",
   "plusLockedAfterTrialHeader": "Після пробного періоду",
@@ -3271,5 +3271,9 @@
   "onboardingHeardAboutSubtitle": "Виберіть варіант, який найкраще підходить. Якщо це було інше джерело, виберіть «Інше».",
   "onboardingHeardAboutOtherHint": "Розкажіть, звідки",
   "onboardingHeardAboutValidation": "Будь ласка, виберіть, звідки ви дізналися про Moneko.",
-  "onboardingHeardAboutSaveError": "Не вдалося зберегти вашу відповідь. Спробуйте ще раз."
+  "onboardingHeardAboutSaveError": "Не вдалося зберегти вашу відповідь. Спробуйте ще раз.",
+  "walletCreation": "Створення гаманців",
+  "plusLockedLifetimeDiscountPromo": "Чудова новина! Вам доступна знижка 50% на наш довічний тариф.",
+  "plusLockedLifetimeDiscountClaim": ", щоб отримати знижку.",
+  "plusLockedIncludedInPlus": "Включено в Plus"
 }

@@ -518,7 +518,11 @@ class _ScenarioPlanningTabContentState
                                 ? null
                                 : () async {
                                     if (!canUseAiScenarios) {
-                                      await PlusLockedSheet.show(context);
+                                      await PlusLockedSheet.show(
+                                        context,
+                                        highlightedFeature:
+                                            PlusFeature.aiScenarios,
+                                      );
                                       return;
                                     }
 
@@ -999,7 +1003,11 @@ class _ScenarioPlanningTabContentState
                               child: InkWell(
                                 onTap: () {
                                   if (!canUseAiScenarios) {
-                                    PlusLockedSheet.show(context);
+                                    PlusLockedSheet.show(
+                                      context,
+                                      highlightedFeature:
+                                          PlusFeature.aiScenarios,
+                                    );
                                     return;
                                   }
 

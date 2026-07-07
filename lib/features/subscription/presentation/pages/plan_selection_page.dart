@@ -23,7 +23,7 @@ import 'package:moneko/features/subscription/presentation/widgets/paywall_shared
 import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
-import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
@@ -83,12 +83,14 @@ enum _ProcessingDialogKind {
 
 enum _PlanFamily {
   plus,
+  lifetime,
 }
 
 extension _PlanFamilyX on _PlanFamily {
   String get planId {
     return switch (this) {
       _PlanFamily.plus => 'plus',
+      _PlanFamily.lifetime => 'lifetime',
     };
   }
 }
@@ -140,6 +142,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final preferredPlanFamily = switch (preferredPlanId) {
       'plus' => _PlanFamily.plus,
+      'lifetime' => _PlanFamily.lifetime,
       _ => null,
     };
     final selectedPlanFamily = useState(
@@ -534,9 +537,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       iapStateAsync: iapStateAsync,
     );
 
-    final visiblePlans = plans
-        .where((plan) => plan.serverPlanId == selectedPlanFamily.value.planId)
-        .toList();
+    final visiblePlans = sortPlanOptions(plans);
 
     // Keep selection valid when plan options refresh.
     useEffect(() {
@@ -578,7 +579,9 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
-    final requiresAutoRenewAcknowledgement = activePlanOption != null;
+    final requiresAutoRenewAcknowledgement =
+        activePlanOption != null &&
+            activePlanOption.serverPlanId != 'lifetime';
     final canConfirmAutoRenew = activePlanOption != null &&
         (!requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value);
 
@@ -1211,22 +1214,17 @@ class PlanSelectionPage extends HookConsumerWidget {
                               duration: const Duration(milliseconds: 180),
                               switchInCurve: Curves.easeOut,
                               switchOutCurve: Curves.easeIn,
-                              child: visiblePlans.isEmpty
-                                  ? _PlanUnavailableMessage(
-                                      key: ValueKey(
-                                          selectedPlanFamily.value.planId),
-                                    )
-                                  : UnifiedPlanCard(
-                                      key: ValueKey(
-                                          selectedPlanFamily.value.planId),
-                                      plans: visiblePlans,
-                                      selectedPlanId:
-                                          selectedPlanId.value ?? '',
-                                      onPlanSelected: (id) =>
-                                          selectedPlanId.value = id,
-                                      isCurrentPlan: isCurrentPlan,
-                                      isNewUser: isNewUser,
-                                    ),
+                              child: PlanSelectionCardRow(
+                                key: ValueKey(
+                                    selectedPlanFamily.value.planId),
+                                plans: visiblePlans,
+                                selectedPlanId:
+                                    selectedPlanId.value ?? '',
+                                onPlanSelected: (id) =>
+                                    selectedPlanId.value = id,
+                                isCurrentPlan: isCurrentPlan,
+                                isNewUser: isNewUser,
+                              ),
                             ),
                             const SizedBox(height: 18),
                             const _PlanSelectionBenefitsChecklist(),
@@ -1411,33 +1409,6 @@ class _PlanSelectionBenefitRow extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlanUnavailableMessage extends StatelessWidget {
-  const _PlanUnavailableMessage({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      width: double.infinity,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-        child: Text(
-          context.l10n.paywallErrorLoadOptions,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: colorScheme.mutedForeground,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
         ),
       ),
     );

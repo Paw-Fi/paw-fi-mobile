@@ -3066,9 +3066,9 @@
   "plusLockedAiExpenseCapture": "KI-Kostenerfassung",
   "plusLockedManualValue": "Manuell",
   "plusLockedAiCaptureValue": "Sprache, Text, Foto",
-  "plusLockedMessagingAppCapture": "Über Messenger erfassen",
+  "plusLockedMessagingAppCapture": "WhatsApp + Telegram",
   "plusLockedEmailReceiptImport": "E-Mail-Belege importieren",
-  "plusLockedSharedBudgets": "Geteilte Budgets",
+  "plusLockedSharedBudgets": "Bereiche erstellen",
   "plusLockedTrialEyebrow": "7-Tage-Testversion aktiv",
   "plusLockedTrialRetentionDescription": "Mit deiner Testversion kannst du Moneko entdecken, aber diese Funktion ist Premium vorbehalten. Upgrade jetzt für erweiterte Währungseinstellungen, Banksynchronisierung und schnelleren Support.",
   "plusLockedAfterTrialHeader": "Nach der Testversion",
@@ -3279,5 +3279,9 @@
   "onboardingHeardAboutSubtitle": "Wähle die passende Option aus. Falls es etwas anderes war, wähle „Sonstiges“.",
   "onboardingHeardAboutOtherHint": "Erzähl uns, wo",
   "onboardingHeardAboutValidation": "Bitte wähle aus, wo du von Moneko erfahren hast.",
-  "onboardingHeardAboutSaveError": "Deine Antwort konnte nicht gespeichert werden. Bitte versuche es erneut."
+  "onboardingHeardAboutSaveError": "Deine Antwort konnte nicht gespeichert werden. Bitte versuche es erneut.",
+  "walletCreation": "Wallet erstellen",
+  "plusLockedLifetimeDiscountPromo": "Gute Neuigkeiten! Du hast Anspruch auf 50 % Rabatt auf unseren Lifetime-Plan.",
+  "plusLockedLifetimeDiscountClaim": ", um deinen Rabatt zu erhalten.",
+  "plusLockedIncludedInPlus": "In Plus enthalten"
 }

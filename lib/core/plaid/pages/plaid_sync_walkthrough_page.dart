@@ -79,7 +79,10 @@ class _PlaidSyncWalkthroughPageState
 
     final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
     if (!hasPremiumFeatureAccess(subscription)) {
-      PlusLockedSheet.show(context);
+      PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.bankSync,
+      );
       return;
     }
 

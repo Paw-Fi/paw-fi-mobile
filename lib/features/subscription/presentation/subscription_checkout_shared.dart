@@ -26,20 +26,6 @@ List<PlanOption> buildPlusPlanOptions({
         ? catalogProducts
         : <SubscriptionProduct>[
             SubscriptionProduct(
-              id: 'fallback_plus_monthly_ios',
-              platform: 'ios',
-              plan: 'plus',
-              billingInterval: 'monthly',
-              storeProductId: 'monthly',
-              displayName: context.l10n.monthly,
-              tagline: context.l10n.paywallPlanMonthlyTagline,
-              badgeText: null,
-              isPopular: false,
-              displayPriceUsd: Constants.subscriptionMonthlyPrice,
-              originalPriceUsd: Constants.subscriptionMonthlyOriginalPrice,
-              sortOrder: 0,
-            ),
-            SubscriptionProduct(
               id: 'fallback_plus_yearly_ios',
               platform: 'ios',
               plan: 'plus',
@@ -51,7 +37,35 @@ List<PlanOption> buildPlusPlanOptions({
               isPopular: true,
               displayPriceUsd: Constants.subscriptionYearlyPrice,
               originalPriceUsd: Constants.subscriptionYearlyOriginalPrice,
+              sortOrder: 0,
+            ),
+            SubscriptionProduct(
+              id: 'fallback_plus_monthly_ios',
+              platform: 'ios',
+              plan: 'plus',
+              billingInterval: 'monthly',
+              storeProductId: 'monthly',
+              displayName: context.l10n.monthly,
+              tagline: context.l10n.paywallPlanMonthlyTagline,
+              badgeText: null,
+              isPopular: false,
+              displayPriceUsd: Constants.subscriptionMonthlyPrice,
+              originalPriceUsd: Constants.subscriptionMonthlyOriginalPrice,
               sortOrder: 10,
+            ),
+            SubscriptionProduct(
+              id: 'fallback_lifetime_ios',
+              platform: 'ios',
+              plan: 'lifetime',
+              billingInterval: null,
+              storeProductId: 'lifetime_earlybird',
+              displayName: context.l10n.lifetime,
+              tagline: context.l10n.paywallPlanLifetimeTagline,
+              badgeText: context.l10n.paywallBadgeLimited,
+              isPopular: false,
+              displayPriceUsd: Constants.subscriptionLifetimePrice,
+              originalPriceUsd: null,
+              sortOrder: 40,
             ),
           ];
 
@@ -77,7 +91,7 @@ List<PlanOption> buildPlusPlanOptions({
             (a.catalogProduct?.sortOrder ?? 999).compareTo(b.catalogProduct?.sortOrder ?? 999);
         if (catalogOrder != 0) return catalogOrder;
 
-        const intervalOrder = {'monthly': 0, 'yearly': 1};
+        const intervalOrder = {'yearly': 0, 'monthly': 1};
         final aOrder =
             a.billingInterval != null ? (intervalOrder[a.billingInterval] ?? 2) : 2;
         final bOrder =
@@ -88,15 +102,6 @@ List<PlanOption> buildPlusPlanOptions({
 
   return [
     PlanOption(
-      id: 'plus_monthly',
-      serverPlanId: 'plus',
-      billingInterval: 'monthly',
-      name: context.l10n.monthly,
-      storePrice: null,
-      displayPriceUsd: Constants.subscriptionMonthlyPrice,
-      tagline: context.l10n.paywallPlanMonthlyTagline,
-    ),
-    PlanOption(
       id: 'plus_yearly',
       serverPlanId: 'plus',
       billingInterval: 'yearly',
@@ -106,6 +111,25 @@ List<PlanOption> buildPlusPlanOptions({
       tagline: context.l10n.paywallPlanYearlyTagline,
       isPopular: true,
       badgeText: context.l10n.paywallBadgeSave50,
+    ),
+    PlanOption(
+      id: 'plus_monthly',
+      serverPlanId: 'plus',
+      billingInterval: 'monthly',
+      name: context.l10n.monthly,
+      storePrice: null,
+      displayPriceUsd: Constants.subscriptionMonthlyPrice,
+      tagline: context.l10n.paywallPlanMonthlyTagline,
+    ),
+    PlanOption(
+      id: 'lifetime',
+      serverPlanId: 'lifetime',
+      billingInterval: null,
+      name: context.l10n.lifetime,
+      storePrice: null,
+      displayPriceUsd: Constants.subscriptionLifetimePrice,
+      tagline: context.l10n.paywallPlanLifetimeTagline,
+      badgeText: context.l10n.paywallBadgeLimited,
     ),
   ];
 }

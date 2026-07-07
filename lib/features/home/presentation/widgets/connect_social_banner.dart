@@ -396,7 +396,10 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
   void _openCaptureFlow(BuildContext context, WidgetRef ref) {
     final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
     if (!hasPremiumFeatureAccess(subscription)) {
-      PlusLockedSheet.show(context);
+      PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.messagingAppCapture,
+      );
       return;
     }
 
@@ -417,7 +420,10 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
   void _openEmailImportSettings(BuildContext context, WidgetRef ref) {
     final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
     if (!hasPremiumFeatureAccess(subscription)) {
-      PlusLockedSheet.show(context);
+      PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.emailReceiptImport,
+      );
       return;
     }
 

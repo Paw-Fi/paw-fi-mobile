@@ -210,7 +210,10 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
       isSharedSpace: _isSharedSpace,
       onChanged: (value) {
         if (_isFreeSpaceLimitReached(value)) {
-          PlusLockedSheet.show(context);
+          PlusLockedSheet.show(
+            context,
+            highlightedFeature: PlusFeature.sharedBudgets,
+          );
           return;
         }
         if (!mounted) return;
@@ -292,7 +295,10 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
 
   Future<void> _handleCreation() async {
     if (_isFreeSpaceLimitReached(_isSharedSpace)) {
-      await PlusLockedSheet.show(context);
+      await PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.sharedBudgets,
+      );
       return;
     }
     if (!_formKey.currentState!.validate()) {
