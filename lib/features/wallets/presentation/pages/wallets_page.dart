@@ -11,7 +11,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-import 'package:moneko/core/subscription/plan_access.dart';
+import 'package:moneko/core/subscription/plan_access.dart' show hasPremiumFeatureAccess, isSubscriptionStatusTrialing;
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -184,7 +184,7 @@ class AccountsPage extends HookConsumerWidget {
     final locale = Localizations.localeOf(context);
     final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
       preferredTimezone,
-    );
+    ) && !isSubscriptionStatusTrialing(subscription);
     final bankConnectionsAsync = isPreviewMode
         ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
         : ref.watch(bankConnectionsProvider);

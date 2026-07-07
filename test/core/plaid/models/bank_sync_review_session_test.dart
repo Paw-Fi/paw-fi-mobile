@@ -21,6 +21,7 @@ void main() {
                 'name': 'Main Checking',
                 'icon': 'checking',
                 'color': '#3B82F6',
+                'logo_url': 'https://example.supabase.co/storage/logo.png',
                 'goal_amount_cents': 150000,
                 'opening_balance_cents': 2500,
                 'is_default': true,
@@ -47,6 +48,10 @@ void main() {
       expect(account.walletName, 'Main Checking');
       expect(account.walletIcon, 'checking');
       expect(account.walletColor, '#3B82F6');
+      expect(
+        account.walletLogoUrl,
+        'https://example.supabase.co/storage/logo.png',
+      );
       expect(account.goalAmountCents, 150000);
       expect(account.openingBalanceCents, 2500);
       expect(account.isDefault, isTrue);
@@ -80,6 +85,64 @@ void main() {
       expect(account.walletColor, startsWith('#'));
       expect(account.currency, 'EUR');
       expect(session.targetHouseholdId, 'household-1');
+    });
+
+    test('uses institution logo URL for new linked-wallet defaults', () {
+      final session = BankSyncReviewSession.fromResponse(
+        data: {
+          'connectionId': 'connection-3',
+          'accounts': [
+            {
+              'id': 'bank-account-3',
+              'name': 'Card',
+              'currency': 'usd',
+              'type': 'credit',
+              'institutionLogoUrl':
+                  'https://example.supabase.co/storage/bank-logo.png',
+            },
+          ],
+        },
+        flowReason: null,
+        provider: 'plaid',
+        targetHouseholdId: null,
+        defaultAccountName: 'Bank account',
+      );
+
+      expect(
+        session.accounts.first.walletLogoUrl,
+        'https://example.supabase.co/storage/bank-logo.png',
+      );
+    });
+
+    test('does not reapply institution logo to an existing linked wallet', () {
+      final session = BankSyncReviewSession.fromResponse(
+        data: {
+          'connectionId': 'connection-4',
+          'accounts': [
+            {
+              'id': 'bank-account-4',
+              'name': 'Checking',
+              'currency': 'usd',
+              'institutionLogoUrl':
+                  'https://example.supabase.co/storage/bank-logo.png',
+              'linkedWallet': {
+                'id': 'wallet-4',
+                'name': 'Checking',
+                'icon': 'checking',
+                'color': '#3B82F6',
+                'logo_url': null,
+              },
+            },
+          ],
+        },
+        flowReason: null,
+        provider: 'plaid',
+        targetHouseholdId: null,
+        defaultAccountName: 'Bank account',
+      );
+
+      expect(session.accounts.first.hasLinkedWallet, isTrue);
+      expect(session.accounts.first.walletLogoUrl, isNull);
     });
   });
 }

@@ -9,6 +9,11 @@ bool isTrialingPlan(Subscription? subscription) {
       (subscription?.isSubscribed ?? false);
 }
 
+/// Simple status check for trialing subscription (without isSubscribed requirement)
+bool isSubscriptionStatusTrialing(Subscription? subscription) {
+  return subscription?.status?.toLowerCase().trim() == 'trialing';
+}
+
 bool isPlusPlan(Subscription? subscription) {
   return subscription?.plan?.toLowerCase().trim() == 'plus' &&
       (subscription?.isSubscribed ?? false) &&
