@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -164,42 +165,47 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     );
   }
 
-  void _showCreateInviteDialog(BuildContext context) {
+  Future<void> _showCreateInviteDialog(BuildContext context) async {
     final emailController = TextEditingController();
     final messageController = TextEditingController();
-    int expiresInDays = 7;
+    final expiresInDaysNotifier = ValueNotifier<int>(7);
 
-    showDialog(
+    final result = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.createInvitation),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: context.l10n.emailOptional,
-                  hintText: context.l10n.friendEmailExample,
-                ),
-                keyboardType: TextInputType.emailAddress,
+      title: context.l10n.createInvitation,
+      confirmLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(
+                labelText: context.l10n.emailOptional,
+                hintText: context.l10n.friendEmailExample,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: messageController,
-                decoration: InputDecoration(
-                  labelText: context.l10n.personalMessageOptional,
-                  hintText: context.l10n.joinHouseholdBudget,
-                ),
-                maxLines: 3,
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: messageController,
+              decoration: InputDecoration(
+                labelText: context.l10n.personalMessageOptional,
+                hintText: context.l10n.joinHouseholdBudget,
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                initialValue: expiresInDays,
-                decoration: InputDecoration(labelText: context.l10n.expiresIn),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            ValueListenableBuilder<int>(
+              valueListenable: expiresInDaysNotifier,
+              builder: (context, value, child) => DropdownButtonFormField<int>(
+                initialValue: value,
+                decoration:
+                    InputDecoration(labelText: context.l10n.expiresIn),
                 items: [
-                  DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
+                  DropdownMenuItem(
+                      value: 1, child: Text(context.l10n.oneDay)),
                   DropdownMenuItem(
                       value: 3, child: Text(context.l10n.threeDays)),
                   DropdownMenuItem(
@@ -212,37 +218,30 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                       value: 0, child: Text(context.l10n.unlimited)),
                 ],
                 onChanged: (value) {
-                  if (value != null) expiresInDays = value;
+                  if (value != null) expiresInDaysNotifier.value = value;
                 },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _createInvite(
-                email: emailController.text.isNotEmpty
-                    ? emailController.text
-                    : null,
-                message: messageController.text.isNotEmpty
-                    ? messageController.text
-                    : null,
-                expiresInDays: expiresInDays,
-              );
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: Text(context.l10n.create),
-          ),
-        ],
       ),
     );
+
+    if (result?.confirmed == true) {
+      await _createInvite(
+        email: emailController.text.isNotEmpty
+            ? emailController.text
+            : null,
+        message: messageController.text.isNotEmpty
+            ? messageController.text
+            : null,
+        expiresInDays: expiresInDaysNotifier.value,
+      );
+    }
+
+    emailController.dispose();
+    messageController.dispose();
+    expiresInDaysNotifier.dispose();
   }
 
   Future<void> _createInvite({
@@ -298,29 +297,16 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.revokeInvitation),
-        content: Text(context.l10n.confirmRevokeInvitation),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.destructive,
-            ),
-            child: Text(context.l10n.revoke),
-          ),
-        ],
-      ),
+      title: context.l10n.revokeInvitation,
+      description: context.l10n.confirmRevokeInvitation,
+      confirmLabel: context.l10n.revoke,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
     );
 
-    if (confirmed == true) {
+    if (confirmed?.confirmed == true) {
       try {
         final repository = ref.read(householdRepositoryProvider);
         await repository.revokeInvite(inviteId: invite.id);

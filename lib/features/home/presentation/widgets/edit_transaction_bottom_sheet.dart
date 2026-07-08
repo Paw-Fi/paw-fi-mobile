@@ -8,6 +8,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
@@ -751,162 +752,93 @@ class _EditTransactionBottomSheetState
     if (dontShowAgain || !mounted) return;
 
     final colorScheme = Theme.of(context).colorScheme;
-    bool checkboxValue = false;
+    final checkboxNotifier = ValueNotifier<bool>(false);
 
     if (!mounted) return;
-    await showDialog(
+    final result = await MonekoAlertDialog.show(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: colorScheme.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          contentPadding: const EdgeInsets.all(20),
-          content: SizedBox(
-            width: 300,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      title: 'Transaction Moved',
+      description:
+          'This transaction has been moved to $newCurrency currency.',
+      confirmLabel: 'Got it',
+      showCancelButton: false,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.muted.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: colorScheme.border.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.info_outline,
-                        color: colorScheme.primary,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Transaction Moved',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.filter_alt_outlined,
+                  size: 16,
+                  color: colorScheme.mutedForeground,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'This transaction has been moved to $newCurrency currency.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.foreground,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.filter_alt_outlined,
-                        size: 16,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'To view this transaction, change the currency on the home page.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.foreground,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      checkboxValue = !checkboxValue;
-                    });
-                  },
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Checkbox(
-                          value: checkboxValue,
-                          onChanged: (value) {
-                            setState(() {
-                              checkboxValue = value ?? false;
-                            });
-                          },
-                          activeColor: colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Don\'t show this message again',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (checkboxValue) {
-                        await prefs.setBool(
-                            'dont_show_currency_change_notification', true);
-                      }
-                      if (context.mounted) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.primaryForeground,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Got it',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'To view this transaction, change the currency on the home page.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.foreground,
+                      height: 1.4,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 16),
+          ValueListenableBuilder<bool>(
+            valueListenable: checkboxNotifier,
+            builder: (context, value, child) => InkWell(
+              onTap: () {
+                checkboxNotifier.value = !value;
+              },
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Checkbox(
+                      value: value,
+                      onChanged: (v) {
+                        checkboxNotifier.value = v ?? false;
+                      },
+                      activeColor: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Don\'t show this message again',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
+
+    if (result?.confirmed == true && checkboxNotifier.value) {
+      await prefs.setBool('dont_show_currency_change_notification', true);
+    }
+
+    checkboxNotifier.dispose();
   }
 
   String? _validate() {

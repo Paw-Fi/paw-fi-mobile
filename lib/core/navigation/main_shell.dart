@@ -56,6 +56,7 @@ import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
@@ -837,12 +838,66 @@ class MainShell extends HookConsumerWidget {
     );
   }
 
-  void _showWidgetConfigurationDialog(
-      BuildContext context, WidgetRef ref, int widgetId) {
-    showDialog(
+  Future<void> _showWidgetConfigurationDialog(
+      BuildContext context, WidgetRef ref, int widgetId) async {
+    final user = ref.read(authProvider);
+    final households =
+        ref.read(userHouseholdsProvider(user.uid)).valueOrNull;
+    final currencyCode = ref.read(selectedHomeCurrencyCodeProvider);
+    final selectedScopeNotifier = ValueNotifier<String>('personal');
+
+    final result = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => _WidgetConfigurationDialog(widgetId: widgetId),
+      title: context.l10n.configureWidgetTitle,
+      confirmLabel: context.l10n.save,
+      cancelLabel: context.l10n.cancel,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ValueListenableBuilder<String>(
+            valueListenable: selectedScopeNotifier,
+            builder: (context, value, child) =>
+                DropdownButtonFormField<String>(
+              initialValue: value,
+              decoration: InputDecoration(
+                labelText: context.l10n.space,
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'personal',
+                  child: Text(context.l10n.personalScope),
+                ),
+                ...?households?.map((h) => DropdownMenuItem(
+                      value: h.id,
+                      child: Text(h.name),
+                    )),
+              ],
+              onChanged: (value) {
+                if (value != null) selectedScopeNotifier.value = value;
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${context.l10n.currencyLabel}: $currencyCode',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
     );
+
+    if (result?.confirmed == true) {
+      await WidgetService().saveWidgetConfiguration(
+        widgetId: widgetId,
+        scopeId: selectedScopeNotifier.value,
+        currency: currencyCode,
+      );
+    }
+
+    selectedScopeNotifier.dispose();
   }
 }
 
@@ -1105,71 +1160,3 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
   }
 }
 
-class _WidgetConfigurationDialog extends HookConsumerWidget {
-  final int widgetId;
-
-  const _WidgetConfigurationDialog({required this.widgetId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider);
-    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
-
-    final selectedScope = useState<String>('personal');
-
-    return AlertDialog(
-      title: Text(context.l10n.configureWidgetTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Scope Selector
-          DropdownButtonFormField<String>(
-            initialValue: selectedScope.value,
-            decoration: InputDecoration(
-              labelText: context.l10n.space,
-            ),
-            items: [
-              DropdownMenuItem(
-                value: 'personal',
-                child: Text(context.l10n.personalScope),
-              ),
-              ...?householdsAsync.valueOrNull?.map((h) => DropdownMenuItem(
-                    value: h.id,
-                    child: Text(h.name),
-                  )),
-            ],
-            onChanged: (value) {
-              if (value != null) selectedScope.value = value;
-            },
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${context.l10n.currencyLabel}: $currencyCode',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(context.l10n.cancel),
-        ),
-        FilledButton(
-          onPressed: () async {
-            await WidgetService().saveWidgetConfiguration(
-              widgetId: widgetId,
-              scopeId: selectedScope.value,
-              currency: currencyCode,
-            );
-            if (context.mounted) Navigator.pop(context);
-          },
-          child: Text(context.l10n.save),
-        ),
-      ],
-    );
-  }
-}

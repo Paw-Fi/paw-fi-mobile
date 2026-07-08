@@ -9,6 +9,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 String _formatLocalizedCurrency(
   BuildContext context,
@@ -548,42 +549,11 @@ Future<String?> _getUserAvatarUrl(String userId) async {
 
 /// Show total spent info dialog
 void _showTotalSpentInfoDialog(BuildContext context, ColorScheme colorScheme) {
-  showDialog(
+  MonekoAlertDialog.show(
     context: context,
-    barrierDismissible: true,
-    builder: (dialogContext) {
-      return AlertDialog(
-        backgroundColor: colorScheme.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          context.l10n.spentByHousehold,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.foreground,
-          ),
-        ),
-        content: Text(
-          context.l10n.spentByHouseholdTooltip,
-          style: TextStyle(
-            fontSize: 14,
-            color: colorScheme.foreground,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              'Got it',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      );
-    },
+    title: context.l10n.spentByHousehold,
+    description: context.l10n.spentByHouseholdTooltip,
+    confirmLabel: 'Got it',
+    showCancelButton: false,
   );
 }

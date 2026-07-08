@@ -8,6 +8,7 @@ import '../utils/household_ui_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Household Members Management Page
@@ -95,34 +96,22 @@ class HouseholdMembersPage extends ConsumerWidget {
     );
   }
 
-  void _confirmRemoveMember(
-      BuildContext context, WidgetRef ref, HouseholdMember member) {
-    showDialog(
+  Future<void> _confirmRemoveMember(
+      BuildContext context, WidgetRef ref, HouseholdMember member) async {
+    final confirmed = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.removeMember),
-        content: Text(
-            '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              await ref
-                  .read(householdMembersProvider(householdId).notifier)
-                  .removeMember(member.id);
-              if (context.mounted) Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.destructive,
-            ),
-            child: Text(context.l10n.remove),
-          ),
-        ],
-      ),
+      title: context.l10n.removeMember,
+      description:
+          '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?',
+      confirmLabel: context.l10n.remove,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
     );
+    if (confirmed?.confirmed == true) {
+      await ref
+          .read(householdMembersProvider(householdId).notifier)
+          .removeMember(member.id);
+    }
   }
 
   Future<void> _updateMemberRole(BuildContext context, WidgetRef ref,

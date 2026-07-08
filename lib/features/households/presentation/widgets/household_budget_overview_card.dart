@@ -6,6 +6,7 @@ import 'package:moneko/features/households/domain/entities/household_summary.dar
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 /// Budget overview card showing total spent, budget progress, and remaining budget
 Widget buildHouseholdBudgetOverviewCard(
@@ -295,46 +296,11 @@ Widget buildHouseholdBudgetOverviewCard(
 
 /// Show total spent info dialog
 void _showTotalSpentInfoDialog(BuildContext context, ColorScheme colorScheme) {
-  showDialog(
+  MonekoAlertDialog.show(
     context: context,
-    barrierDismissible: true,
-    builder: (dialogContext) {
-      return AlertDialog(
-        backgroundColor: colorScheme.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          context.l10n.spentByHousehold,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.foreground,
-          ),
-        ),
-        content: Text(
-          context.l10n.spentByHouseholdTooltip,
-          style: TextStyle(
-            fontSize: 15,
-            color: colorScheme.foreground.withValues(alpha: 0.9),
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: Text(
-              context.l10n.gotIt,
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-            ),
-          ),
-        ],
-      );
-    },
+    title: context.l10n.spentByHousehold,
+    description: context.l10n.spentByHouseholdTooltip,
+    confirmLabel: context.l10n.gotIt,
+    showCancelButton: false,
   );
 }

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class IOSColorPickerController {
   void showIOSCustomColorPicker({
@@ -10,27 +11,17 @@ class IOSColorPickerController {
     required BuildContext context,
   }) {
     // Fallback to flutter_colorpicker on web
-    showDialog(
+    MonekoAlertDialog.show(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(context.l10n.selectColor),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: startingColor,
-              onColorChanged: onColorChanged,
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text(context.l10n.done),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
+      title: context.l10n.selectColor,
+      confirmLabel: context.l10n.done,
+      showCancelButton: false,
+      content: SingleChildScrollView(
+        child: ColorPicker(
+          pickerColor: startingColor,
+          onColorChanged: onColorChanged,
+        ),
+      ),
     );
   }
 }

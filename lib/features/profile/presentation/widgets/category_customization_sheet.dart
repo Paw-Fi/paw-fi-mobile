@@ -7,6 +7,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -115,32 +116,16 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
       required String name,
       required String transactionType,
     }) async {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await MonekoAlertDialog.show(
         context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: Text(context.l10n.delete),
-            content: Text(
-              context.l10n.customCategoryDeleteConfirmation(name),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(context.l10n.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.destructive,
-                ),
-                child: Text(context.l10n.delete),
-              ),
-            ],
-          );
-        },
+        title: context.l10n.delete,
+        description: context.l10n.customCategoryDeleteConfirmation(name),
+        confirmLabel: context.l10n.delete,
+        cancelLabel: context.l10n.cancel,
+        isDestructive: true,
       );
 
-      if (confirmed == true) {
+      if (confirmed?.confirmed == true) {
         await deleteUserCustomCategory(
           ref: ref,
           name: name,

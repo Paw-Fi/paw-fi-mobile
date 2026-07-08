@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
@@ -536,31 +537,17 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   }
 
   Future<void> _confirmDelete() async {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final confirmed = await showDialog<bool>(
+    final confirmed = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.deleteBudget),
-        content: Text(
+      title: context.l10n.deleteBudget,
+      description:
           '${context.l10n.confirmDeleteBudget} "${widget.budget.name}"? ${context.l10n.deleteBudgetCannotBeUndone}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style:
-                TextButton.styleFrom(foregroundColor: colorScheme.destructive),
-            child: Text(context.l10n.delete),
-          ),
-        ],
-      ),
+      confirmLabel: context.l10n.delete,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
     );
 
-    if (confirmed == true) {
+    if (confirmed?.confirmed == true) {
       await _deleteBudget();
     }
   }

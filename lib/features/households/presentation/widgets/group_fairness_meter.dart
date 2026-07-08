@@ -9,6 +9,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
   final HouseholdSummary summary;
@@ -34,28 +35,12 @@ class GroupFairnessMeter extends StatelessWidget {
   });
 
   void _showExplanation(BuildContext context, ColorScheme colorScheme) {
-    showDialog(
+    MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.balance, color: colorScheme.primary, size: 24),
-            const SizedBox(width: 12),
-            Expanded(child: Text(context.l10n.groupFairnessTitle)),
-          ],
-        ),
-        content: Text(
-          context.l10n.groupFairnessExplanation,
-          style: const TextStyle(fontSize: 15, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.gotIt),
-          ),
-        ],
-      ),
+      title: context.l10n.groupFairnessTitle,
+      description: context.l10n.groupFairnessExplanation,
+      confirmLabel: context.l10n.gotIt,
+      showCancelButton: false,
     );
   }
 

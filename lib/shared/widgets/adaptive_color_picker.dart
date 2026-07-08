@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 /// A reusable adaptive color picker that automatically selects the appropriate
 /// color picker based on the platform or configuration.
@@ -42,27 +43,17 @@ class AdaptiveColorPicker {
       );
     } else {
       // Android/Other: Use flutter_colorpicker
-      showDialog(
+      MonekoAlertDialog.show(
         context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(label ?? context.l10n.selectColor),
-            content: SingleChildScrollView(
-              child: ColorPicker(
-                pickerColor: startingColor,
-                onColorChanged: onColorChanged,
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: Text(context.l10n.done),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
+        title: label ?? context.l10n.selectColor,
+        confirmLabel: context.l10n.done,
+        showCancelButton: false,
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: startingColor,
+            onColorChanged: onColorChanged,
+          ),
+        ),
       );
     }
     /*
