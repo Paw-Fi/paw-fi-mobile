@@ -448,18 +448,23 @@ class PocketDetailsPage extends HookConsumerWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (pocket.icon != null || pocket.logoUrl != null) ...[
+                                if (pocket.icon != null ||
+                                    pocket.logoUrl != null) ...[
                                   AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
                                     child: Builder(
-                                      key: ValueKey(pocket.logoUrl ?? pocket.icon),
+                                      key: ValueKey(
+                                          pocket.logoUrl ?? pocket.icon),
                                       builder: (context) {
-                                        final trimmedLogoUrl = pocket.logoUrl?.trim();
+                                        final trimmedLogoUrl =
+                                            pocket.logoUrl?.trim();
                                         final iconData = pocket.icon != null
                                             ? getPocketIconData(pocket.icon)
                                             : null;
-                                        final cacheSize =
-                                            (28 * MediaQuery.of(context).devicePixelRatio).round();
+                                        final cacheSize = (28 *
+                                                MediaQuery.of(context)
+                                                    .devicePixelRatio)
+                                            .round();
 
                                         if (trimmedLogoUrl != null &&
                                             trimmedLogoUrl.isNotEmpty) {
@@ -479,7 +484,8 @@ class PocketDetailsPage extends HookConsumerWidget {
                                                             size: 28,
                                                             color: textColor,
                                                           )
-                                                        : const SizedBox.shrink(),
+                                                        : const SizedBox
+                                                            .shrink(),
                                               ),
                                             ),
                                           );
@@ -813,6 +819,26 @@ String _formatSignedLocalizedCurrencyCents(
   return '$sign${_formatLocalizedCurrency(context, cents.abs() / 100.0, currency)}';
 }
 
+bool shouldShowPocketRolloverActivity(
+  PocketEnvelope pocket,
+  PocketRolloverBreakdown? breakdown,
+) {
+  final rolloverAdjustmentCents =
+      pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
+  final preview = breakdown?.nextMonthPreview;
+
+  return pocket.rolloverEnabled ||
+      rolloverAdjustmentCents != 0 ||
+      breakdown?.hasDetailedContributions == true ||
+      breakdown?.explanationRows.isNotEmpty == true ||
+      breakdown?.warnings.isNotEmpty == true ||
+      breakdown?.totalIncomingRolloverCents != 0 ||
+      breakdown?.openingRolloverCents != 0 ||
+      breakdown?.currentRolloverTotalCents != 0 ||
+      preview?.hasCapAdjustment == true ||
+      preview?.hasDroppedNegative == true;
+}
+
 class _RolloverSummaryButton extends StatelessWidget {
   const _RolloverSummaryButton({
     required this.pocket,
@@ -830,12 +856,15 @@ class _RolloverSummaryButton extends StatelessWidget {
     final rolloverAdjustmentCents =
         pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
 
-    if (rolloverAdjustmentCents == 0 && !pocket.rolloverEnabled) {
+    if (!shouldShowPocketRolloverActivity(
+      pocket,
+      detailsData?.rolloverBreakdown,
+    )) {
       return const SizedBox.shrink();
     }
 
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: () {
@@ -856,7 +885,6 @@ class _RolloverSummaryButton extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-            
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -960,7 +988,10 @@ class _RolloverDetailsSheet extends StatelessWidget {
                         pocket: pocket,
                         currency: currency,
                       ),
-                      if (pocket.hasRolloverBreakdown) ...[
+                      if (shouldShowPocketRolloverActivity(
+                        pocket,
+                        detailsData?.rolloverBreakdown,
+                      )) ...[
                         const SizedBox(height: 16),
                         if (detailsData?.rolloverBreakdown != null)
                           RolloverContributionCard(
@@ -979,7 +1010,8 @@ class _RolloverDetailsSheet extends StatelessWidget {
                         currency: currency,
                         breakdown: detailsData?.rolloverBreakdown,
                       ),
-                      if (detailsData != null && detailsData!.rolloverHistory.length > 1) ...[
+                      if (detailsData != null &&
+                          detailsData!.rolloverHistory.length > 1) ...[
                         const SizedBox(height: 16),
                         _RolloverHistoryCard(
                           history: detailsData!.rolloverHistory,
@@ -1092,7 +1124,8 @@ class _BudgetBreakdownCard extends StatelessWidget {
             children: [
               _StatItem(
                 label: context.l10n.pocketRolloverSpentLabel,
-                value: _formatLocalizedCurrency(context, pocket.spent, currency),
+                value:
+                    _formatLocalizedCurrency(context, pocket.spent, currency),
                 valueColor: colorScheme.foreground,
               ),
               _StatItem(
@@ -1502,9 +1535,8 @@ class _NextRolloverPreviewCard extends StatelessWidget {
               fontSize: 24,
               fontWeight: FontWeight.w700,
               letterSpacing: -1,
-              color: nextCarryCents < 0
-                  ? colorScheme.error
-                  : colorScheme.success,
+              color:
+                  nextCarryCents < 0 ? colorScheme.error : colorScheme.success,
             ),
           ),
           const SizedBox(height: 8),
@@ -1587,12 +1619,15 @@ class _RolloverHistoryChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     if (history.isEmpty) return const SizedBox.shrink();
 
     double maxY = 0;
     for (final month in history) {
-      final available = (month.baseBudgetCents + month.rolloverFromPreviousCents + month.openingRolloverCents) / 100.0;
+      final available = (month.baseBudgetCents +
+              month.rolloverFromPreviousCents +
+              month.openingRolloverCents) /
+          100.0;
       final spent = month.spentCents / 100.0;
       if (available > maxY) maxY = available;
       if (spent > maxY) maxY = spent;
@@ -1623,15 +1658,20 @@ class _RolloverHistoryChart extends StatelessWidget {
               ),
               titlesData: FlTitlesData(
                 show: true,
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
                     getTitlesWidget: (double value, TitleMeta meta) {
                       final index = value.toInt();
-                      if (index < 0 || index >= history.length) return const SizedBox.shrink();
+                      if (index < 0 || index >= history.length) {
+                        return const SizedBox.shrink();
+                      }
                       final date = history[index].periodMonth;
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
@@ -1652,21 +1692,30 @@ class _RolloverHistoryChart extends StatelessWidget {
               barTouchData: BarTouchData(
                 touchTooltipData: BarTouchTooltipData(
                   getTooltipColor: (group) => colorScheme.surface,
-                  tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
+                  tooltipBorder:
+                      BorderSide(color: colorScheme.border, width: 1),
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     final month = history[groupIndex];
-                    final rolloverCents = month.rolloverFromPreviousCents + month.openingRolloverCents;
-                    
-                    final baseFormatted = _formatLocalizedCurrency(context, month.baseBudgetCents / 100.0, currency);
-                    final rolloverFormatted = _formatSignedLocalizedCurrencyCents(context, rolloverCents, currency);
-                    final spentFormatted = _formatLocalizedCurrency(context, month.spentCents / 100.0, currency);
-                    final remainingFormatted = _formatLocalizedCurrency(context, month.remainingCents.abs() / 100.0, currency);
-                    
-                    final summary = context.l10n.pocketRolloverHistorySummary(
-                      baseFormatted,
-                      rolloverFormatted,
-                      spentFormatted,
-                    ).replaceAll(' - ', '\n');
+                    final rolloverCents = month.rolloverFromPreviousCents +
+                        month.openingRolloverCents;
+
+                    final baseFormatted = _formatLocalizedCurrency(
+                        context, month.baseBudgetCents / 100.0, currency);
+                    final rolloverFormatted =
+                        _formatSignedLocalizedCurrencyCents(
+                            context, rolloverCents, currency);
+                    final spentFormatted = _formatLocalizedCurrency(
+                        context, month.spentCents / 100.0, currency);
+                    final remainingFormatted = _formatLocalizedCurrency(
+                        context, month.remainingCents.abs() / 100.0, currency);
+
+                    final summary = context.l10n
+                        .pocketRolloverHistorySummary(
+                          baseFormatted,
+                          rolloverFormatted,
+                          spentFormatted,
+                        )
+                        .replaceAll(' - ', '\n');
 
                     return BarTooltipItem(
                       '${_formatMonthLabel(context, month.periodMonth)}\n',
@@ -1692,9 +1741,13 @@ class _RolloverHistoryChart extends StatelessWidget {
                           style: TextStyle(fontSize: 4),
                         ),
                         TextSpan(
-                          text: month.remainingCents < 0 ? '= -$remainingFormatted' : '= $remainingFormatted',
+                          text: month.remainingCents < 0
+                              ? '= -$remainingFormatted'
+                              : '= $remainingFormatted',
                           style: TextStyle(
-                            color: month.remainingCents < 0 ? colorScheme.error : colorScheme.success,
+                            color: month.remainingCents < 0
+                                ? colorScheme.error
+                                : colorScheme.success,
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
                           ),
@@ -1706,15 +1759,18 @@ class _RolloverHistoryChart extends StatelessWidget {
               ),
               barGroups: List.generate(history.length, (index) {
                 final month = history[index];
-                final available = (month.baseBudgetCents + month.rolloverFromPreviousCents + month.openingRolloverCents) / 100.0;
+                final available = (month.baseBudgetCents +
+                        month.rolloverFromPreviousCents +
+                        month.openingRolloverCents) /
+                    100.0;
                 final spent = month.spentCents / 100.0;
-                
+
                 final safeAvailable = available < 0 ? 0.0 : available;
                 final safeSpent = spent < 0 ? 0.0 : spent;
-                
+
                 final isOverspent = safeSpent > safeAvailable;
                 final toY = isOverspent ? safeSpent : safeAvailable;
-                
+
                 return BarChartGroupData(
                   x: index,
                   barRods: [
@@ -1722,16 +1778,20 @@ class _RolloverHistoryChart extends StatelessWidget {
                       toY: toY,
                       width: 24,
                       borderRadius: BorderRadius.circular(6),
-                      color: Colors.transparent,
+                      color: colorScheme.surface.withValues(alpha: 0.0),
                       rodStackItems: [
                         if (!isOverspent && safeSpent > 0)
-                          BarChartRodStackItem(0, safeSpent, colorScheme.primary),
+                          BarChartRodStackItem(
+                              0, safeSpent, colorScheme.primary),
                         if (!isOverspent && safeAvailable > safeSpent)
-                          BarChartRodStackItem(safeSpent, safeAvailable, colorScheme.border.withValues(alpha: 0.3)),
+                          BarChartRodStackItem(safeSpent, safeAvailable,
+                              colorScheme.border.withValues(alpha: 0.3)),
                         if (isOverspent && safeAvailable > 0)
-                          BarChartRodStackItem(0, safeAvailable, colorScheme.border.withValues(alpha: 0.3)),
+                          BarChartRodStackItem(0, safeAvailable,
+                              colorScheme.border.withValues(alpha: 0.3)),
                         if (isOverspent && safeSpent > safeAvailable)
-                          BarChartRodStackItem(safeAvailable, safeSpent, colorScheme.error),
+                          BarChartRodStackItem(
+                              safeAvailable, safeSpent, colorScheme.error),
                       ],
                     ),
                   ],
@@ -1767,7 +1827,7 @@ class _RolloverHistoryChart extends StatelessWidget {
 
 class _ChartLegendItem extends StatelessWidget {
   const _ChartLegendItem({required this.color, required this.label});
-  
+
   final Color color;
   final String label;
 
@@ -1798,7 +1858,6 @@ class _ChartLegendItem extends StatelessWidget {
     );
   }
 }
-
 
 String _formatMonthLabel(BuildContext context, DateTime date) {
   return MaterialLocalizations.of(context).formatMonthYear(date);

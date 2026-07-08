@@ -56,6 +56,10 @@ Duration? resolveNextMobileOutboxRetryDelay(
   return nextRetryAt.difference(now);
 }
 
+String? pocketEnvelopeReplayConflictTarget(String envelopeId) {
+  return envelopeId.startsWith('optimistic-') ? 'budget_id,name' : null;
+}
+
 void scheduleMobileOutboxDrain(
   ProviderContainer container, {
   int maxMutations = 20,
@@ -891,12 +895,43 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
       .map((id) => id.toString().trim())
       .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
       .toSet();
+  final siblingAllocations = [
+    for (final item in pockets)
+      if (item is Map)
+        {
+          'id': item['id']?.toString(),
+          'amountCents': (item['budgetAmountCents'] as num?)?.toInt() ?? 0,
+        },
+  ].where((item) {
+    final id = item['id']?.toString().trim();
+    return id != null && id.isNotEmpty && !id.startsWith('optimistic-');
+  }).toList(growable: false);
   for (final deletedPocketId in deletedPocketIds) {
-    await supabase
-        .from('budget_envelopes')
-        .delete()
-        .eq('id', deletedPocketId)
-        .eq('budget_id', budgetId);
+    final deleteResult = await supabase.rpc(
+      'delete_pocket_envelope_with_allocations',
+      params: <String, dynamic>{
+        'p_envelope_id': deletedPocketId,
+        'p_budget_id': budgetId,
+        'p_period_month': periodMonth,
+        'p_sibling_allocations': siblingAllocations,
+      },
+    );
+    if (deleteResult is Map && deleteResult['success'] == false) {
+      throw StateError(
+        deleteResult['error']?.toString() ?? 'Failed to delete pocket',
+      );
+    }
+    final deleteData = deleteResult is Map ? deleteResult['data'] : null;
+    final logoStoragePath = deleteData is Map
+        ? deleteData['logoStoragePath']?.toString().trim()
+        : null;
+    if (logoStoragePath != null && logoStoragePath.isNotEmpty) {
+      try {
+        await supabase.storage
+            .from(StorageConfig.publicBucket)
+            .remove([logoStoragePath]);
+      } catch (_) {}
+    }
   }
   final replaceMissingPockets = payload['replaceMissingPockets'] == true &&
       payload['allowReplaceMissingPockets'] == true;
@@ -958,10 +993,11 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
       }
     }
     String envelopeId = id;
-    if (id.startsWith('optimistic-')) {
+    final replayConflictTarget = pocketEnvelopeReplayConflictTarget(id);
+    if (replayConflictTarget != null) {
       final inserted = await supabase
           .from('budget_envelopes')
-          .insert(envelopePayload)
+          .upsert(envelopePayload, onConflict: replayConflictTarget)
           .select('id')
           .maybeSingle();
       envelopeId = inserted?['id']?.toString() ?? id;

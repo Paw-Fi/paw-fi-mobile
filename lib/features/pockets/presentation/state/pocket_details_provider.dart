@@ -101,7 +101,9 @@ final pocketDetailsProvider =
 
   final pocketsState = ref.watch(pocketsProvider(params.scopeParams));
   final pocket = _findPocketEnvelope(pocketsState, params.pocketId);
-  final rolloverBreakdown = pocket?.rolloverEnabled == true
+  final shouldFetchRolloverBreakdown = pocket?.hasRolloverFields == true &&
+      pocket?.rolloverGroupId?.trim().isNotEmpty == true;
+  final rolloverBreakdown = shouldFetchRolloverBreakdown
       ? await _fetchPocketRolloverBreakdown(
           userId: authUser.uid,
           scopeType: params.scopeParams.scope,
@@ -113,7 +115,7 @@ final pocketDetailsProvider =
       : null;
   final rolloverHistory = rolloverBreakdown?.monthlyHistory.isNotEmpty == true
       ? rolloverBreakdown!.monthlyHistory
-      : pocket?.rolloverEnabled == true
+      : shouldFetchRolloverBreakdown
           ? await _fetchPocketRolloverHistory(
               userId: authUser.uid,
               scopeType: params.scopeParams.scope,

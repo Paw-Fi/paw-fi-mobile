@@ -60,6 +60,22 @@ void main() {
       );
     });
   });
+
+  group('pocketEnvelopeReplayConflictTarget', () {
+    test('upserts optimistic pockets by budget and name during replay', () {
+      expect(
+        pocketEnvelopeReplayConflictTarget('optimistic-pocket-123'),
+        'budget_id,name',
+      );
+    });
+
+    test('keeps existing server pockets on direct id updates', () {
+      expect(
+        pocketEnvelopeReplayConflictTarget('server-pocket-123'),
+        isNull,
+      );
+    });
+  });
 }
 
 LocalMutationOutboxData _mutation({

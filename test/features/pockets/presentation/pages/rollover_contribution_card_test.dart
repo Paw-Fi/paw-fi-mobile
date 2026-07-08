@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
+import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/pages/pocket_details_page.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
@@ -90,6 +91,39 @@ void main() {
         find.text('No rollover has been carried into this month yet.'),
         findsOneWidget,
       );
+    });
+
+    test('shows rollover activity for adjustment-only breakdowns', () {
+      final pocket = PocketEnvelope(
+        id: 'pocket-1',
+        name: 'Groceries',
+        budgetAmountCents: 10000,
+        spent: 125,
+        currency: 'USD',
+        rolloverEnabled: true,
+        rolloverNegative: false,
+        rolloverFromPreviousCents: 0,
+        openingRolloverCents: 0,
+        availableBudgetCents: 10000,
+        remainingCents: -2500,
+        lastUpdated: DateTime(2026, 6),
+      );
+      final breakdown = _breakdown({
+        'current_rollover_total_cents': 0,
+        'contributions': [],
+        'adjustments': [
+          _contribution('negative_dropped', '2026-06-01', -2500),
+        ],
+        'next_month_preview': {
+          'period_month': '2026-07-01',
+          'raw_carry_cents': -2500,
+          'carry_cents': 0,
+          'cap_applied_cents': 0,
+          'negative_dropped_cents': 2500,
+        },
+      });
+
+      expect(shouldShowPocketRolloverActivity(pocket, breakdown), isTrue);
     });
   });
 }

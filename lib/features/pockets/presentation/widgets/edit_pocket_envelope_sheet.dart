@@ -32,6 +32,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/rounded_logo_picker.dart';
@@ -103,29 +104,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   final VoidCallback? onDeleteCompleted;
   final ValueChanged<PocketTemplate>? onSaveOffline;
 
-  Future<bool?> _confirmDelete(BuildContext context, AppLocalizations l10n) {
-    return showDialog<bool>(
+  Future<bool?> _confirmDelete(BuildContext context, AppLocalizations l10n) async {
+    final result = await MonekoAlertDialog.show(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(l10n.pocketDeleteTitle),
-          content: Text(l10n.pocketDeleteMessage),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l10n.cancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(dialogContext).colorScheme.error,
-              ),
-              child: Text(l10n.delete),
-            ),
-          ],
-        );
-      },
+      title: l10n.pocketDeleteTitle,
+      description: l10n.pocketDeleteMessage,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      isDestructive: true,
     );
+    return result?.confirmed;
   }
 
   @override
@@ -172,7 +160,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     final selectedLogoUrl = useState<String?>(existingEnvelope?.logoUrl);
     final selectedIcon = useState<String?>(
-      existingEnvelope?.logoUrl != null && existingEnvelope?.logoUrl?.isNotEmpty == true
+      existingEnvelope?.logoUrl != null &&
+              existingEnvelope?.logoUrl?.isNotEmpty == true
           ? null
           : (existingEnvelope?.icon ?? template?.iconName),
     );
@@ -840,6 +829,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final l10n = context.l10n;
       final confirmed = await _confirmDelete(context, l10n);
       if (confirmed != true) return;
+      if (!context.mounted) return;
+
+      if (budgetId == null || budgetId!.trim().isEmpty) {
+        AppToast.error(context, l10n.pleaseSetMonthlyBudgetFirst);
+        return;
+      }
 
       if (context.mounted) {
         isLoading.value = true;
@@ -859,7 +854,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 newTotalBudgetCents: totalBudgetCents,
                 allocationStepCents: allocationStepCents,
               );
-        final nowIso = DateTime.now().toIso8601String();
         final optimisticRemaining = <PocketEnvelope>[
           for (var index = 0; index < remainingPockets.length; index++)
             remainingPockets[index].copyWith(
@@ -879,24 +873,38 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           deletedPocketIds: [existingEnvelope!.id],
         );
 
-        await supabase
-            .from('budget_envelopes')
-            .delete()
-            .eq('id', existingEnvelope!.id);
-
-        for (var index = 0; index < remainingPockets.length; index++) {
-          final pocket = remainingPockets[index];
-          final rebalancedAmount = rebalancedRemainingAmounts[index];
-          if (pocket.budgetAmountCents == rebalancedAmount) {
-            continue;
-          }
-
-          await persistPocketAmount(
-            envelopeId: pocket.id,
-            amountCents: rebalancedAmount,
-            resolvedBudgetId: budgetId!,
-            nowIso: nowIso,
+        final deleteResult = await supabase.rpc(
+          'delete_pocket_envelope_with_allocations',
+          params: <String, dynamic>{
+            'p_envelope_id': existingEnvelope!.id,
+            'p_budget_id': budgetId,
+            'p_period_month': periodMonth,
+            'p_sibling_allocations': [
+              for (var index = 0; index < remainingPockets.length; index++)
+                {
+                  'id': remainingPockets[index].id,
+                  'amountCents': rebalancedRemainingAmounts[index],
+                },
+            ],
+          },
+        );
+        if (deleteResult is Map && deleteResult['success'] == false) {
+          throw Exception(
+            deleteResult['error']?.toString() ?? l10n.failedToDeletePocket,
           );
+        }
+        final deleteData = deleteResult is Map ? deleteResult['data'] : null;
+        final logoStoragePath = deleteData is Map
+            ? deleteData['logoStoragePath']?.toString().trim()
+            : null;
+        if (logoStoragePath != null && logoStoragePath.isNotEmpty) {
+          try {
+            await supabase.storage
+                .from(StorageConfig.publicBucket)
+                .remove([logoStoragePath]);
+          } catch (error) {
+            debugPrint('[Pockets] pocket logo cleanup skipped: $error');
+          }
         }
 
         await ref
@@ -1268,8 +1276,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             final iconName = pocketIconNames[index - 1];
 
                             final iconData = getPocketIconData(iconName);
-                            final isSelected =
-                                selectedLogoUrl.value == null &&
+                            final isSelected = selectedLogoUrl.value == null &&
                                 selectedIcon.value == iconName;
 
                             return GestureDetector(
