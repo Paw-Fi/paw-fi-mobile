@@ -3285,7 +3285,7 @@
   "plusLockedLifetimeDiscountClaim": " pour profiter de votre réduction.",
   "plusLockedIncludedInPlus": "Inclus avec Plus",
   "deleteWalletTitle": "Supprimer ce portefeuille ?",
-  "deleteWalletDescription": "Cette action supprimera définitivement ce portefeuille, ses transactions, ses transferts entre portefeuilles et la synchronisation bancaire associée à ce portefeuille. Cette action est irréversible.",
+  "deleteWalletDescription": "Cette action supprimera définitivement ce portefeuille, toutes ses transactions et le compte bancaire associé. Vous souhaitez conserver vos transactions ? Utilisez plutôt « Archiver ». Cette action est irréversible.",
   "deletingWallet": "Suppression du portefeuille…",
   "walletDeleted": "Portefeuille supprimé",
   "deleteWalletFailed": "Impossible de supprimer ce portefeuille pour le moment."

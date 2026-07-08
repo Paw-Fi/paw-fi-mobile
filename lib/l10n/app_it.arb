@@ -3232,7 +3232,7 @@
   "plusLockedLifetimeDiscountClaim": " per ottenere il tuo sconto.",
   "plusLockedIncludedInPlus": "Incluso in Plus",
   "deleteWalletTitle": "Eliminare questo portafoglio?",
-  "deleteWalletDescription": "Questa operazione eliminerà definitivamente il portafoglio, le sue transazioni, i trasferimenti tra portafogli e la sincronizzazione bancaria collegata a questo portafoglio. L’azione non può essere annullata.",
+  "deleteWalletDescription": "Questa operazione eliminerà definitivamente questo portafoglio, tutte le sue transazioni e il conto bancario collegato. Vuoi conservare le tue transazioni? Usa invece «Archivia». L'azione non può essere annullata.",
   "deletingWallet": "Eliminazione del portafoglio…",
   "walletDeleted": "Portafoglio eliminato",
   "deleteWalletFailed": "Impossibile eliminare questo portafoglio al momento."

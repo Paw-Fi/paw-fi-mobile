@@ -3287,7 +3287,7 @@
   "plusLockedLifetimeDiscountClaim": " para obtener tu descuento.",
   "plusLockedIncludedInPlus": "Incluido en Plus",
   "deleteWalletTitle": "¿Eliminar esta billetera?",
-  "deleteWalletDescription": "Esto eliminará permanentemente la billetera, sus transacciones, las transferencias entre billeteras y la sincronización bancaria vinculada a esta billetera. Esta acción no se puede deshacer.",
+  "deleteWalletDescription": "Esto eliminará permanentemente la billetera, todas sus transacciones y la cuenta bancaria vinculada. ¿Quieres conservar tus transacciones? Usa «Archivar» en su lugar. Esta acción no se puede deshacer.",
   "deletingWallet": "Eliminando billetera…",
   "walletDeleted": "Billetera eliminada",
   "deleteWalletFailed": "No se pudo eliminar esta billetera en este momento."

@@ -3232,7 +3232,7 @@
   "plusLockedLifetimeDiscountClaim": " om je korting te ontvangen.",
   "plusLockedIncludedInPlus": "Inbegrepen bij Plus",
   "deleteWalletTitle": "Deze wallet verwijderen?",
-  "deleteWalletDescription": "Hiermee worden de wallet, alle transacties, walletoverboekingen en de aan deze wallet gekoppelde banksynchronisatie permanent verwijderd. Deze actie kan niet ongedaan worden gemaakt.",
+  "deleteWalletDescription": "Hiermee worden deze wallet, alle transacties en de gekoppelde bankrekening permanent verwijderd. Wil je je transacties behouden? Gebruik dan 'Archiveren'. Deze actie kan niet ongedaan worden gemaakt.",
   "deletingWallet": "Wallet wordt verwijderd…",
   "walletDeleted": "Wallet verwijderd",
   "deleteWalletFailed": "Deze wallet kan momenteel niet worden verwijderd."

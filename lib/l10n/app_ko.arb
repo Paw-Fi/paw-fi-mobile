@@ -3098,7 +3098,7 @@
   "paywallBenefit5": "이메일로 영수증을 전달해 지출을 자동 기록",
   "enableNotificationsForPaymentSummary": "결제가 기록될 때마다 요약을 받으려면 알림을 활성화하세요.",
   "deleteWalletTitle": "이 지갑을 삭제할까요?",
-  "deleteWalletDescription": "이 작업을 수행하면 이 지갑, 거래 내역, 지갑 간 이체 및 이 지갑에 연결된 은행 동기화가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "deleteWalletDescription": "이 지갑과 모든 거래 내역 및 연결된 은행 계정이 영구적으로 삭제됩니다. 거래 내역을 유지하려면 대신 '보관'을 사용하세요. 이 작업은 되돌릴 수 없습니다.",
   "deletingWallet": "지갑 삭제 중…",
   "walletDeleted": "지갑이 삭제되었습니다",
   "deleteWalletFailed": "지금은 이 지갑을 삭제할 수 없습니다."
