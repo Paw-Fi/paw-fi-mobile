@@ -1,24 +1,73 @@
+import 'dart:ui';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
-import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
+import 'package:moneko/features/subscription/data/models/plan_option.dart';
+import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
+import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
+import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
+import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
-import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
+  final monthlyPrice = yearlyPrice / 12;
+  return r'$' + monthlyPrice.toStringAsFixed(2);
+}
+
+const _plusLockedInAppAiExpenseLogging = 'In-app AI expense logging';
+const _plusLockedHealthDetails = 'Health report details';
+const _plusLockedAiScenarios = 'AI scenarios';
+const _plusLockedWallets = 'Wallets';
+
+enum PlusFeature {
+  healthDetails,
+  aiScenarios,
+  messagingAppCapture,
+  emailReceiptImport,
+  sharedBudgets,
+  walletCreation,
+  bankSync,
+  multipleCurrencies,
+  currencyConverter,
+  liveExchangeRates,
+  appLock,
+  customerSupport,
+}
 
 class PlusLockedSheet extends HookConsumerWidget {
-  const PlusLockedSheet({super.key});
+  const PlusLockedSheet({super.key, this.highlightedFeature});
 
-  static Future<void> show(BuildContext context) {
+  final PlusFeature? highlightedFeature;
+
+  static const bool _forceUseStripeCheckout = false;
+
+  static Future<void> show(
+    BuildContext context, {
+    PlusFeature? highlightedFeature,
+  }) {
     return MonekoBottomSheet.show(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.sheetBackground,
-      builder: (context) => const PlusLockedSheet(),
+      builder: (context) => PlusLockedSheet(
+        highlightedFeature: highlightedFeature,
+      ),
     );
   }
 
@@ -26,60 +75,314 @@ class PlusLockedSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
+    final subscriptionDetailsAsync = ref.watch(subscriptionManagementProvider);
+    final productsAsync = ref.watch(subscriptionProductsProvider);
+    final iapStateAsync = ref.watch(iapControllerProvider);
     final content = _LockedSheetContent.resolve(context, subscription);
+    final currentSubscription = subscriptionDetailsAsync.valueOrNull?.subscription;
+    final currentPlanId = currentSubscription?.plan ?? 'free';
+    final currentInterval = currentSubscription?.billingInterval;
+    final currentStatus = currentSubscription?.status?.toLowerCase();
+    final selectedPlanId = useState<String?>(null);
+    final isCheckoutProcessing = useState(false);
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
+    final isBankSyncEligible = isPlaidSupportedTimezone(preferredTimezone);
+
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final useIap = isIos && !_forceUseStripeCheckout;
+    final plans = buildPlusPlanOptions(
+      context: context,
+      useIap: useIap,
+      productsAsync: productsAsync,
+      iapStateAsync: iapStateAsync,
+    );
+    final visiblePlans = sortPlanOptions(plans);
+    final isStoreReady = !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
+
+    useEffect(() {
+      if (visiblePlans.isEmpty) {
+        selectedPlanId.value = null;
+        return null;
+      }
+
+      final nextSelection = selectPaywallPlanId(
+        currentPlanId: currentPlanId,
+        currentInterval: currentInterval,
+        plans: visiblePlans,
+        currentSelection: selectedPlanId.value,
+        preferredPlanId: 'plus',
+        preferredBillingInterval: 'yearly',
+      );
+      if (nextSelection != selectedPlanId.value) {
+        selectedPlanId.value = nextSelection;
+      }
+      return null;
+    }, [
+      currentPlanId,
+      currentInterval,
+      visiblePlans.length,
+    ]);
+
+    PlanOption? activePlanOption;
+    for (final option in visiblePlans) {
+      if (option.id == selectedPlanId.value) {
+        activePlanOption = option;
+        break;
+      }
+    }
+
+    final effectiveActivePlanOption =
+        activePlanOption ?? (visiblePlans.isNotEmpty ? visiblePlans.first : null);
+
+    bool isCurrentPlan(PlanOption option) {
+      final shouldBlockSamePlan =
+          (currentSubscription?.isSubscribed ?? false) && currentStatus == 'active';
+      if (!shouldBlockSamePlan) {
+        return false;
+      }
+      return subscriptionMatchesPlanOption(currentSubscription, option);
+    }
+
+    Future<void> onCheckoutPressed() async {
+      final selectedOption = effectiveActivePlanOption;
+      if (selectedOption == null || isCheckoutProcessing.value) {
+        return;
+      }
+
+      if (isCurrentPlan(selectedOption)) {
+        AppToast.info(context, context.l10n.alreadyOnThisPlan);
+        return;
+      }
+
+      isCheckoutProcessing.value = true;
+      try {
+        if (useIap) {
+          final iapState = iapStateAsync.valueOrNull;
+          if (iapState == null || !iapState.storeAvailable) {
+            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
+          }
+
+          final catalog = selectedOption.catalogProduct;
+          if (catalog == null) {
+            throw Exception(context.l10n.paywallErrorMissingProductMapping);
+          }
+
+          await ref.read(iapControllerProvider.notifier).buy(catalog);
+
+          final isActivated = await waitForMobileStripeSubscriptionActivation(
+            refreshSubscription: () async {
+              await ref.read(subscriptionManagementProvider.notifier).refresh();
+            },
+            hasActiveSubscription: () {
+              final latestSubscription = ref
+                  .read(subscriptionManagementProvider)
+                  .valueOrNull
+                  ?.subscription;
+              return subscriptionMatchesPlanOption(latestSubscription, selectedOption);
+            },
+          );
+
+          if (!context.mounted) return;
+          if (!isActivated) {
+            throw Exception(context.l10n.paywallErrorNotActivated);
+          }
+        } else {
+          await startStripeCheckoutForOption(
+            context: context,
+            option: selectedOption,
+            supabaseClient: supabase,
+            noSessionError: context.l10n.paywallErrorNoSession,
+            startCheckoutError: context.l10n.paywallErrorStartCheckout,
+            noCheckoutUrlError: context.l10n.paywallErrorNoCheckoutUrl,
+            paymentCanceledMessage: context.l10n.paymentCanceled,
+            paymentFailedMessage: context.l10n.paymentFailed,
+            notActivatedMessage: context.l10n.paywallErrorNotActivated,
+            refreshSubscription: () async {
+              await ref.read(subscriptionManagementProvider.notifier).refresh();
+            },
+            hasActiveSubscription: () {
+              final latestSubscription = ref
+                  .read(subscriptionManagementProvider)
+                  .valueOrNull
+                  ?.subscription;
+              return subscriptionMatchesPlanOption(latestSubscription, selectedOption);
+            },
+          );
+        }
+
+        if (!context.mounted) return;
+        AppToast.success(context, context.l10n.paymentSuccessfulCheckingSubscription);
+        Navigator.of(context).pop();
+      } catch (error) {
+        if (!context.mounted) return;
+        final raw = error.toString();
+        final isCanceled = raw.toLowerCase().contains('cancel');
+        if (isCanceled) {
+          AppToast.info(context, context.l10n.paymentCanceled);
+          return;
+        }
+        AppToast.error(context, raw);
+      } finally {
+        isCheckoutProcessing.value = false;
+      }
+    }
+
     final maxHeight = MediaQuery.sizeOf(context).height * 0.92;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       child: Container(
         key: ValueKey(content.mode),
         constraints: BoxConstraints(maxHeight: maxHeight),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            20,
-            0,
-            20,
-            MediaQuery.paddingOf(context).bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _SheetHero(content: content),
-              const SizedBox(height: 20),
-              _PlanComparisonTable(content: content.comparison),
-              const SizedBox(height: 18),
-              if (content.note != null) ...[
-                _SheetNote(text: content.note!),
-                const SizedBox(height: 18),
-              ],
-              PrimaryAdaptiveButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  context.push(
-                    '/plan-selection?mode=resubscribe&plan=plus&interval=yearly',
-                  );
-                },
-                child: Text(content.ctaLabel),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.mutedForeground,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Stack(
+          children: [
+            // Scrollable Content
+            Positioned.fill(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPadding + 240),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SheetHero(content: content),
+                    const SizedBox(height: 32),
+                    _PremiumFeaturesList(
+                      features: content.features,
+                      highlightedFeature: highlightedFeature,
+                    ),
+                  ],
                 ),
-                child: Text(
-                  context.l10n.plusLockedMaybeLaterCta,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+              ),
+            ),
+
+            // Floating Bottom Card (Half cutted card)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: ClipRRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding + 8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetBackground.withValues(alpha: 0.8),
+                      border: Border(
+                        top: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (content.note != null) ...[
+                          _SheetNote(text: content.note!),
+                          const SizedBox(height: 12),
+                        ],
+                        SizedBox(
+                          width: double.infinity,
+                       
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                            
+                              PlanSelectionCardRow(
+                                plans: visiblePlans,
+                                selectedPlanId: selectedPlanId.value ?? '',
+                                onPlanSelected: (id) => selectedPlanId.value = id,
+                                isCurrentPlan: isCurrentPlan,
+                                isNewUser: currentSubscription == null,
+                              ),
+                              if (!isBankSyncEligible) ...[
+                                const SizedBox(height: 10),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.mutedForeground,
+                                        height: 1.4,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: context.l10n
+                                              .plusLockedLifetimeDiscountPromo,
+                                        ),
+                                        WidgetSpan(
+                                          child: GestureDetector(
+                                            onTap: () => launchUrl(
+                                              Uri.parse(
+                                                  'https://moneko.io/support'),
+                                            ),
+                                            child: Text(
+                                              context.l10n.contactUs,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.primary,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                                decorationColor:
+                                                    colorScheme.primary,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: context.l10n
+                                              .plusLockedLifetimeDiscountClaim,
+                                        ),
+                                      ],
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              if (effectiveActivePlanOption != null)
+                                PaywallCheckoutActionButton(
+                                  option: effectiveActivePlanOption,
+                                  isProcessing: isCheckoutProcessing.value,
+                                  isStoreReady: isStoreReady,
+                                  canConfirmAutoRenew: true,
+                                  isCurrentPlan: isCurrentPlan(effectiveActivePlanOption),
+                                  trialMode: false,
+                                  includePrice: true,
+                                  centerText: true,
+                                  onPressed: onCheckoutPressed,
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.mutedForeground,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: Text(
+                            context.l10n.plusLockedMaybeLaterCta,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -97,9 +400,8 @@ class _LockedSheetContent {
     required this.icon,
     required this.iconBackground,
     required this.iconForeground,
-    required this.comparison,
+    required this.features,
     required this.ctaLabel,
-    required this.ctaIcon,
     this.note,
   });
 
@@ -110,9 +412,8 @@ class _LockedSheetContent {
   final IconData icon;
   final Color Function(ColorScheme) iconBackground;
   final Color Function(ColorScheme) iconForeground;
-  final _PlanComparisonContent comparison;
+  final List<_PremiumFeature> features;
   final String ctaLabel;
-  final IconData ctaIcon;
   final String? note;
 
   static _LockedSheetContent resolve(
@@ -132,15 +433,11 @@ class _LockedSheetContent {
       icon: Icons.auto_awesome_rounded,
       iconBackground: (scheme) => scheme.primary.withValues(alpha: 0.12),
       iconForeground: (scheme) => scheme.primary,
-      comparison: _plusOnlyComparison(
-        context,
-        plusBadge: context.l10n.plusLockedRecommendedBadge,
-      ),
+      features: _plusOnlyFeatures(context),
       ctaLabel: context.l10n.subscribeForPricePeriod(
         context.l10n.plusPlan,
         '',
       ),
-      ctaIcon: Icons.auto_awesome_rounded,
     );
   }
 
@@ -153,77 +450,96 @@ class _LockedSheetContent {
       icon: Icons.auto_awesome_rounded,
       iconBackground: (scheme) => scheme.warningSurface,
       iconForeground: (scheme) => scheme.warning,
-      comparison: _plusOnlyComparison(
-        context,
-        featureHeader: context.l10n.plusLockedAfterTrialHeader,
-        plusBadge: context.l10n.plusLockedKeepAccessBadge,
-      ),
+      features: _plusOnlyFeatures(context),
       ctaLabel: context.l10n.subscribeForPricePeriod(
         context.l10n.plusPlan,
         '',
       ),
-      ctaIcon: Icons.check_circle_rounded,
       note: context.l10n.plusLockedTrialReviewPlansNote,
     );
   }
 
-  static _PlanComparisonContent _plusOnlyComparison(
-    BuildContext context, {
-    String? featureHeader,
-    String? plusBadge,
-  }) {
-    return _PlanComparisonContent(
-      featureHeader: featureHeader ?? context.l10n.plusLockedFeatureHeader,
-      columns: [
-        _PlanColumn(title: context.l10n.plus, badge: plusBadge),
-      ],
-      highlightedColumn: 0,
-      rows: [
-        _ComparisonRowData(
-          feature: context.l10n.plusLockedAiExpenseCapture,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.plusLockedMessagingAppCapture,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.plusLockedEmailReceiptImport,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.plusLockedSharedBudgets,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.plusLockedBankSync,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.multipleCurrencies,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.currencyConverter,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.plusLockedLiveExchangeRates,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.appLock,
-          values: [_ComparisonValue.included()],
-        ),
-        _ComparisonRowData(
-          feature: context.l10n.customerSupport,
-          values: [
-            _ComparisonValue.text(context.l10n.plusLockedPrioritySupport),
-          ],
-        ),
-      ],
-    );
+  static List<_PremiumFeature> _plusOnlyFeatures(BuildContext context) {
+    return [
+      _PremiumFeature(
+        icon: Icons.monitor_heart_rounded,
+        title: context.l10n.plusLockedHealthDetails,
+        featureKey: PlusFeature.healthDetails,
+      ),
+      _PremiumFeature(
+        icon: Icons.insights_rounded,
+        title: context.l10n.plusLockedAiScenarios,
+        featureKey: PlusFeature.aiScenarios,
+      ),
+      _PremiumFeature(
+        icon: Icons.chat_bubble_rounded,
+        title: context.l10n.plusLockedMessagingAppCapture,
+        featureKey: PlusFeature.messagingAppCapture,
+      ),
+      _PremiumFeature(
+        icon: Icons.receipt_long_rounded,
+        title: context.l10n.plusLockedEmailReceiptImport,
+        featureKey: PlusFeature.emailReceiptImport,
+      ),
+      _PremiumFeature(
+        icon: Icons.group_rounded,
+        title: "${context.l10n.plusLockedSharedBudgets} ∞",
+        value: context.l10n.unlimited,
+        featureKey: PlusFeature.sharedBudgets,
+      ),
+      _PremiumFeature(
+        icon: Icons.account_balance_wallet_rounded,
+        title: "${context.l10n.walletCreation} ∞",
+        value: context.l10n.unlimited,
+        featureKey: PlusFeature.walletCreation,
+      ),
+      _PremiumFeature(
+        icon: Icons.account_balance_rounded,
+        title: context.l10n.plusLockedBankSync,
+        featureKey: PlusFeature.bankSync,
+      ),
+      _PremiumFeature(
+        icon: Icons.public_rounded,
+        title: context.l10n.multipleCurrencies,
+        featureKey: PlusFeature.multipleCurrencies,
+      ),
+      _PremiumFeature(
+        icon: Icons.currency_exchange_rounded,
+        title: context.l10n.currencyConverter,
+        featureKey: PlusFeature.currencyConverter,
+      ),
+      _PremiumFeature(
+        icon: Icons.trending_up_rounded,
+        title: context.l10n.plusLockedLiveExchangeRates,
+        featureKey: PlusFeature.liveExchangeRates,
+      ),
+      _PremiumFeature(
+        icon: Icons.lock_rounded,
+        title: context.l10n.appLock,
+        featureKey: PlusFeature.appLock,
+      ),
+      _PremiumFeature(
+        icon: Icons.support_agent_rounded,
+        title: context.l10n.customerSupport,
+        value: context.l10n.plusLockedPrioritySupport,
+        featureKey: PlusFeature.customerSupport,
+      ),
+    ];
   }
+}
+
+class _PremiumFeature {
+  const _PremiumFeature({
+    required this.icon,
+    required this.title,
+    this.value,
+    this.featureKey,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? value;
+  final PlusFeature? featureKey;
 }
 
 class _SheetHero extends StatelessWidget {
@@ -236,28 +552,46 @@ class _SheetHero extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-     
+        if (content.mode == _LockedSheetMode.trialToPlus) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.warningSurface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              content.eyebrow.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: colorScheme.warning,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         Text(
           content.title,
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.8,
             color: colorScheme.foreground,
-            height: 1.12,
+            height: 1.1,
           ),
-          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Text(
           content.description,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w400,
             color: colorScheme.mutedForeground,
             height: 1.4,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -302,18 +636,199 @@ class _SheetNote extends StatelessWidget {
   }
 }
 
+class _PremiumFeaturesList extends StatelessWidget {
+  const _PremiumFeaturesList({
+    required this.features,
+    this.highlightedFeature,
+  });
+
+  final List<_PremiumFeature> features;
+  final PlusFeature? highlightedFeature;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final sortedFeatures = List<_PremiumFeature>.from(features);
+    if (highlightedFeature != null) {
+      final index =
+          sortedFeatures.indexWhere((f) => f.featureKey == highlightedFeature);
+      if (index > 0) {
+        final item = sortedFeatures.removeAt(index);
+        sortedFeatures.insert(0, item);
+      }
+    }
+
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black,
+            Colors.black,
+            Colors.transparent,
+          ],
+          stops: [0.0, 0.85, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.sheetElementBackground,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(32),
+            topRight: Radius.circular(32),
+          ),
+          border: Border(
+            top: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
+            left: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
+            right: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
+          ),
+        ),
+        padding: const EdgeInsets.only(top: 0, bottom: 0),
+        child: Column(
+          children: sortedFeatures.map((feature) {
+            final isHighlighted = highlightedFeature != null &&
+                feature.featureKey == highlightedFeature;
+            return Container(
+              decoration: isHighlighted
+                  ? BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.08),
+                      border: Border(
+                        left: BorderSide(
+                          color: colorScheme.primary,
+                          width: 3,
+                        ),
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      )
+                    )
+                  : null,
+              padding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(
+                    feature.icon,
+                    size: 16,
+                    color: isHighlighted
+                        ? colorScheme.primary
+                        : colorScheme.foreground,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          feature.title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isHighlighted
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isHighlighted
+                                ? colorScheme.primary
+                                : colorScheme.foreground,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isHighlighted) ...[
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        context.l10n.plusLockedIncludedInPlus,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.primaryForeground,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  IconButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          insetPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 24),
+                          child: Stack(
+                            children: [
+                              SingleChildScrollView(
+                                child: _PlanComparisonTable(
+                                  content: _freeVsPlusComparison(
+                                    context,
+                                    plusBadge:
+                                        context.l10n.plusLockedRecommendedBadge,
+                                    highlightedFeature: highlightedFeature,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: IconButton(
+                                  icon: Icon(Icons.close,
+                                      color: colorScheme.mutedForeground),
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colorScheme.surface
+                                        .withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      Icons.info_outline_rounded,
+                      size: 22,
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
 class _PlanComparisonContent {
   const _PlanComparisonContent({
     required this.featureHeader,
     required this.columns,
     required this.rows,
     required this.highlightedColumn,
+    this.highlightedRowIndex = -1,
   });
 
   final String featureHeader;
   final List<_PlanColumn> columns;
   final List<_ComparisonRowData> rows;
   final int highlightedColumn;
+  final int highlightedRowIndex;
 }
 
 class _PlanColumn {
@@ -327,10 +842,12 @@ class _ComparisonRowData {
   const _ComparisonRowData({
     required this.feature,
     required this.values,
+    this.featureKey,
   });
 
   final String feature;
   final List<_ComparisonValue> values;
+  final PlusFeature? featureKey;
 }
 
 class _ComparisonValue {
@@ -361,24 +878,28 @@ class _PlanComparisonTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.sheetElementBackground,
-          border: Border.all(color: colorScheme.border),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          children: [
-            _PlanComparisonHeader(content: content),
-            for (var index = 0; index < content.rows.length; index++)
-              _PlanComparisonRow(
-                data: content.rows[index],
-                highlightedColumn: content.highlightedColumn,
-                isLast: index == content.rows.length - 1,
-              ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 54),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.sheetElementBackground,
+            border: Border.all(color: colorScheme.border),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            children: [
+              _PlanComparisonHeader(content: content),
+              for (var index = 0; index < content.rows.length; index++)
+                _PlanComparisonRow(
+                  data: content.rows[index],
+                  highlightedColumn: content.highlightedColumn,
+                  isLast: index == content.rows.length - 1,
+                  isHighlighted: index == content.highlightedRowIndex,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -503,11 +1024,13 @@ class _PlanComparisonRow extends StatelessWidget {
     required this.data,
     required this.highlightedColumn,
     required this.isLast,
+    this.isHighlighted = false,
   });
 
   final _ComparisonRowData data;
   final int highlightedColumn;
   final bool isLast;
+  final bool isHighlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -515,6 +1038,9 @@ class _PlanComparisonRow extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
+        color: isHighlighted
+            ? colorScheme.primary.withValues(alpha: 0.06)
+            : null,
         border: isLast
             ? null
             : Border(
@@ -537,8 +1063,12 @@ class _PlanComparisonRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
+                    fontWeight: isHighlighted
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                    color: isHighlighted
+                        ? colorScheme.primary
+                        : colorScheme.foreground,
                     height: 1.25,
                   ),
                 ),
@@ -579,7 +1109,7 @@ class _ComparisonValueCell extends StatelessWidget {
       true => Icon(
           Icons.check_circle_rounded,
           size: 20,
-          color: highlighted ? colorScheme.primary : colorScheme.success,
+          color: colorScheme.primary,
         ),
       false => Icon(
           Icons.cancel_rounded,
@@ -608,4 +1138,122 @@ class _ComparisonValueCell extends StatelessWidget {
       child: child,
     );
   }
+}
+
+_PlanComparisonContent _freeVsPlusComparison(
+  BuildContext context, {
+  String? featureHeader,
+  String? plusBadge,
+  PlusFeature? highlightedFeature,
+}) {
+  final rows = [
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedAiExpenseCapture,
+      values: [
+        _ComparisonValue.included(),
+        _ComparisonValue.included()
+      ],
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedSharedBudgets,
+      values: [
+        _ComparisonValue.text('2'),
+        _ComparisonValue.text(context.l10n.unlimited),
+      ],
+      featureKey: PlusFeature.sharedBudgets,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.walletCreation,
+      values: [
+        _ComparisonValue.text('2'),
+        _ComparisonValue.text(context.l10n.unlimited),
+      ],
+      featureKey: PlusFeature.walletCreation,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedMessagingAppCapture,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.messagingAppCapture,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedEmailReceiptImport,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.emailReceiptImport,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedBankSync,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.bankSync,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.multipleCurrencies,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.multipleCurrencies,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.currencyConverter,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.currencyConverter,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.plusLockedLiveExchangeRates,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.liveExchangeRates,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.appLock,
+      values: [
+        const _ComparisonValue._(included: false),
+        _ComparisonValue.included()
+      ],
+      featureKey: PlusFeature.appLock,
+    ),
+    _ComparisonRowData(
+      feature: context.l10n.customerSupport,
+      values: [
+        _ComparisonValue.text(context.l10n.plusLockedStandardSupport),
+        _ComparisonValue.text(context.l10n.plusLockedPrioritySupport),
+      ],
+      featureKey: PlusFeature.customerSupport,
+    ),
+  ];
+
+  var highlightedRowIndex = -1;
+  if (highlightedFeature != null) {
+    final index = rows.indexWhere((r) => r.featureKey == highlightedFeature);
+    if (index >= 0) {
+      final row = rows.removeAt(index);
+      rows.insert(0, row);
+      highlightedRowIndex = 0;
+    }
+  }
+
+  return _PlanComparisonContent(
+    featureHeader: featureHeader ?? context.l10n.plusLockedFeatureHeader,
+    columns: [
+      _PlanColumn(title: context.l10n.free),
+      _PlanColumn(title: context.l10n.plus, badge: plusBadge),
+    ],
+    highlightedColumn: 1,
+    rows: rows,
+    highlightedRowIndex: highlightedRowIndex,
+  );
 }

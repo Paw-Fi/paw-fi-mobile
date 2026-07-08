@@ -1031,6 +1031,14 @@ class PreviewMockData {
       color: pocket.color,
       budgetId: pocket.budgetId,
       householdId: pocket.householdId,
+      rolloverGroupId: pocket.rolloverGroupId,
+      rolloverEnabled: pocket.rolloverEnabled,
+      rolloverNegative: pocket.rolloverNegative,
+      rolloverCapCents: pocket.rolloverCapCents,
+      openingRolloverCents: pocket.openingRolloverCents,
+      rolloverFromPreviousCents: pocket.rolloverFromPreviousCents,
+      availableBudgetCents: pocket.availableBudgetCents,
+      remainingCents: pocket.remainingCents,
       lastUpdated: pocket.lastUpdated,
     );
   }

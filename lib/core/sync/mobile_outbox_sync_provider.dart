@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -762,6 +763,11 @@ Future<String> _uploadQueuedReceiptImage(
     imageFile,
     config: ImageCompressConfig.receipt,
   );
+  if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+    throw Exception(
+      'Receipt image too large (${StorageConfig.getFileSizeString(compressedBytes.length)}). Max is ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+    );
+  }
   final safeStorageKey = storageKey
       ?.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')
       .replaceAll(RegExp(r'_+'), '_')
@@ -881,7 +887,19 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
   }
 
   final pockets = (payload['pockets'] as List?) ?? const [];
-  final replaceMissingPockets = payload['replaceMissingPockets'] == true;
+  final deletedPocketIds = ((payload['deletedPocketIds'] as List?) ?? const [])
+      .map((id) => id.toString().trim())
+      .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
+      .toSet();
+  for (final deletedPocketId in deletedPocketIds) {
+    await supabase
+        .from('budget_envelopes')
+        .delete()
+        .eq('id', deletedPocketId)
+        .eq('budget_id', budgetId);
+  }
+  final replaceMissingPockets = payload['replaceMissingPockets'] == true &&
+      payload['allowReplaceMissingPockets'] == true;
   final replaceCategories = payload['replaceCategories'] == true;
   if (replaceMissingPockets) {
     final keptEnvelopeIds = pockets
@@ -916,8 +934,29 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
       if (pocket['name'] != null) 'name': pocket['name'].toString(),
       if (pocket['icon'] != null) 'icon': pocket['icon'].toString(),
       if (pocket['color'] != null) 'color': pocket['color'].toString(),
+      'logo_url': _nullableString(pocket['logoUrl']),
       'user_id': userId,
     };
+    if (pocket.containsKey('rolloverEnabled')) {
+      envelopePayload['rollover_enabled'] = pocket['rolloverEnabled'] == true;
+    }
+    if (pocket.containsKey('rolloverNegative')) {
+      envelopePayload['rollover_negative'] = pocket['rolloverNegative'] == true;
+    }
+    if (pocket.containsKey('rolloverCapCents')) {
+      envelopePayload['rollover_cap_cents'] =
+          (pocket['rolloverCapCents'] as num?)?.toInt();
+    }
+    if (pocket.containsKey('openingRolloverCents')) {
+      envelopePayload['opening_rollover_cents'] =
+          (pocket['openingRolloverCents'] as num?)?.toInt() ?? 0;
+    }
+    if (pocket.containsKey('rolloverGroupId')) {
+      final rolloverGroupId = pocket['rolloverGroupId']?.toString();
+      if (rolloverGroupId != null && rolloverGroupId.isNotEmpty) {
+        envelopePayload['rollover_group_id'] = rolloverGroupId;
+      }
+    }
     String envelopeId = id;
     if (id.startsWith('optimistic-')) {
       final inserted = await supabase
@@ -1043,4 +1082,10 @@ Future<void> _saveSharedBudget(Map<String, dynamic> payload) async {
     'is_active': true,
     ...updates,
   });
+}
+
+String? _nullableString(dynamic value) {
+  if (value == null) return null;
+  final trimmed = value.toString().trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

@@ -9,6 +9,118 @@ import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  group('pocket rollover math', () {
+    test('keeps disabled rollover identical to base budget', () {
+      final breakdown = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: 12500,
+        openingRolloverCents: 0,
+        spentCents: 12000,
+        rolloverEnabled: false,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+      );
+
+      expect(breakdown.availableBudgetCents, 40000);
+      expect(breakdown.rolloverFromPreviousCents, 0);
+      expect(breakdown.remainingCents, 28000);
+      expect(breakdown.carryToNextPeriodCents, 0);
+    });
+
+    test('allows disabled rollover remaining to go negative without carrying',
+        () {
+      final breakdown = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: 12500,
+        openingRolloverCents: 0,
+        spentCents: 45000,
+        rolloverEnabled: false,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+      );
+
+      expect(breakdown.availableBudgetCents, 40000);
+      expect(breakdown.remainingCents, -5000);
+      expect(breakdown.carryToNextPeriodCents, 0);
+    });
+
+    test('chains positive rollover across multiple months', () {
+      final january = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: 0,
+        openingRolloverCents: 0,
+        spentCents: 35000,
+        rolloverEnabled: true,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+      );
+      final february = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: january.carryToNextPeriodCents,
+        openingRolloverCents: 0,
+        spentCents: 30000,
+        rolloverEnabled: true,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+      );
+      final march = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: february.carryToNextPeriodCents,
+        openingRolloverCents: 0,
+        spentCents: 0,
+        rolloverEnabled: true,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+      );
+
+      expect(january.availableBudgetCents, 40000);
+      expect(january.carryToNextPeriodCents, 5000);
+      expect(february.availableBudgetCents, 45000);
+      expect(february.carryToNextPeriodCents, 15000);
+      expect(march.availableBudgetCents, 55000);
+    });
+
+    test('ignores overspending unless negative rollover is enabled', () {
+      final ignored = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: 0,
+        openingRolloverCents: 0,
+        spentCents: 45000,
+        rolloverEnabled: true,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+      );
+      final carried = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: 0,
+        openingRolloverCents: 0,
+        spentCents: 45000,
+        rolloverEnabled: true,
+        rolloverNegative: true,
+        rolloverCapCents: null,
+      );
+
+      expect(ignored.carryToNextPeriodCents, 0);
+      expect(carried.carryToNextPeriodCents, -5000);
+    });
+
+    test('applies cap only to outgoing carry, not current availability', () {
+      final breakdown = calculatePocketRolloverBreakdownCents(
+        baseBudgetCents: 40000,
+        incomingRolloverCents: 70000,
+        openingRolloverCents: 25000,
+        spentCents: 10000,
+        rolloverEnabled: true,
+        rolloverNegative: false,
+        rolloverCapCents: 50000,
+      );
+
+      expect(breakdown.rolloverFromPreviousCents, 70000);
+      expect(breakdown.availableBudgetCents, 135000);
+      expect(breakdown.carryToNextPeriodCents, 50000);
+    });
+  });
+
   group('applySplitPayerToRecurringRows', () {
     test('injects payer_user_id from split group mapping when missing', () {
       final rows = [
@@ -198,9 +310,9 @@ void main() {
         allocationStepCents: pocketBudgetAdjustmentStepCents('EUR'),
       );
 
-      expect(result, const [33000, 33000, 33000]);
-      expect(result.every((amount) => amount % 1000 == 0), isTrue);
-      expect(result.fold<int>(0, (sum, amount) => sum + amount), 99000);
+      expect(result, const [33140, 33130, 33230]);
+      expect(result.every((amount) => amount % 10 == 0), isTrue);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 99500);
       expect(
           result.fold<int>(0, (sum, amount) => sum + amount) <= 99500, isTrue);
     });
@@ -236,7 +348,7 @@ void main() {
     });
 
     test('normalizes restored amounts to the currency adjustment step', () {
-      expect(normalizePocketBudgetAmountCentsForCurrency(1234, 'EUR'), 1000);
+      expect(normalizePocketBudgetAmountCentsForCurrency(1234, 'EUR'), 1230);
 
       final vndStep = pocketBudgetAdjustmentStepCents('VND');
       final normalizedVnd =
@@ -273,8 +385,8 @@ void main() {
 
       final restored = PocketsState.fromCacheJson(state.toCacheJson());
 
-      expect(restored.saved.single.budgetAmountCents, 1000);
-      expect(restored.editing.single.budgetAmountCents, 1000);
+      expect(restored.saved.single.budgetAmountCents, 1230);
+      expect(restored.editing.single.budgetAmountCents, 1230);
     });
 
     test('restores cached envelope category links for pocket details', () {
@@ -304,6 +416,53 @@ void main() {
         restored.envelopeCategories['pocket-food'],
         ['groceries', 'dining'],
       );
+    });
+
+    test('restores cached rollover fields for pockets', () {
+      final now = DateTime(2026, 6, 1);
+      final pocket = PocketEnvelope(
+        id: 'food',
+        name: 'Food',
+        budgetAmountCents: 40000,
+        spent: 120,
+        currency: 'EUR',
+        rolloverGroupId: 'rollover-food',
+        rolloverEnabled: true,
+        rolloverNegative: true,
+        rolloverCapCents: 50000,
+        openingRolloverCents: 12500,
+        rolloverFromPreviousCents: 5000,
+        availableBudgetCents: 57500,
+        remainingCents: 45500,
+        lastUpdated: now,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 400,
+        savedTotalBudget: 400,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final restored = PocketsState.fromCacheJson(state.toCacheJson());
+      final restoredPocket = restored.saved.single;
+
+      expect(restoredPocket.rolloverGroupId, 'rollover-food');
+      expect(restoredPocket.rolloverEnabled, isTrue);
+      expect(restoredPocket.rolloverNegative, isTrue);
+      expect(restoredPocket.rolloverCapCents, 50000);
+      expect(restoredPocket.openingRolloverCents, 12500);
+      expect(restoredPocket.rolloverFromPreviousCents, 5000);
+      expect(restoredPocket.availableBudgetCents, 57500);
+      expect(restoredPocket.remainingCents, 45500);
     });
   });
 
@@ -340,15 +499,15 @@ void main() {
         allocationStepCents: pocketBudgetAdjustmentStepCents('EUR'),
       );
 
-      expect(result, const [25000, 25000, 25000]);
-      expect(result.every((amount) => amount % 1000 == 0), isTrue);
+      expect(result, const [24810, 24810, 24880]);
+      expect(result.every((amount) => amount % 10 == 0), isTrue);
       expect(
           result.fold<int>(0, (sum, amount) => sum + amount) <= 75000, isTrue);
     });
   });
 
   group('buildPocketsMonthMutationPayload', () {
-    test('marks full-month snapshots as authoritative and keeps categories',
+    test('does not delete server pockets missing from a stale local snapshot',
         () {
       final payload = buildPocketsMonthMutationPayload(
         userId: 'user-1',
@@ -376,13 +535,196 @@ void main() {
         },
       );
 
-      expect(payload['replaceMissingPockets'], isTrue);
+      expect(payload['replaceMissingPockets'], isFalse);
+      expect(payload['deletedPocketIds'], isEmpty);
       expect(payload['replaceCategories'], isTrue);
       expect(payload['pockets'], hasLength(1));
       expect(
         (payload['pockets'] as List).single,
         containsPair('categories', ['groceries', 'dining']),
       );
+    });
+
+    test('serializes only explicit deleted pocket ids for delete replays', () {
+      final payload = buildPocketsMonthMutationPayload(
+        userId: 'user-1',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-05-01',
+        currency: 'USD',
+        budgetId: 'budget-1',
+        totalBudgetCents: 100000,
+        pockets: const [],
+        envelopeCategories: const {},
+        deletedPocketIds: const [
+          ' pocket-food ',
+          'optimistic-temp',
+          '',
+          'pocket-food',
+        ],
+      );
+
+      expect(payload['replaceMissingPockets'], isFalse);
+      expect(payload['deletedPocketIds'], ['pocket-food']);
+    });
+
+    test('preserves rollover settings in authoritative snapshots', () {
+      final payload = buildPocketsMonthMutationPayload(
+        userId: 'user-1',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-05-01',
+        currency: 'EUR',
+        budgetId: 'budget-1',
+        totalBudgetCents: 100000,
+        pockets: [
+          PocketEnvelope(
+            id: 'pocket-food',
+            name: 'Food',
+            budgetAmountCents: 40000,
+            spent: 120,
+            currency: 'EUR',
+            budgetId: 'budget-1',
+            rolloverGroupId: 'rollover-food',
+            rolloverEnabled: true,
+            rolloverNegative: true,
+            rolloverCapCents: 50000,
+            openingRolloverCents: 12500,
+            rolloverFromPreviousCents: 5000,
+            availableBudgetCents: 57500,
+            remainingCents: 45500,
+            lastUpdated: DateTime(2026, 5, 1),
+          ),
+        ],
+        envelopeCategories: const {},
+      );
+
+      final pocket = (payload['pockets'] as List).single as Map;
+      expect(pocket['rolloverGroupId'], 'rollover-food');
+      expect(pocket['rolloverEnabled'], isTrue);
+      expect(pocket['rolloverNegative'], isTrue);
+      expect(pocket['rolloverCapCents'], 50000);
+      expect(pocket['openingRolloverCents'], 12500);
+    });
+
+    test('omits rollover fields when restored cache did not include them', () {
+      final legacyPocket = PocketEnvelope.fromJson({
+        'id': 'pocket-food',
+        'name': 'Food',
+        'budget_amount_cents': 40000,
+        'spent_cents': 12000,
+        'currency': 'EUR',
+        'budget_id': 'budget-1',
+        'last_updated': DateTime(2026, 5, 1).toIso8601String(),
+      });
+
+      final payload = buildPocketsMonthMutationPayload(
+        userId: 'user-1',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-05-01',
+        currency: 'EUR',
+        budgetId: 'budget-1',
+        totalBudgetCents: 100000,
+        pockets: [legacyPocket],
+        envelopeCategories: const {},
+      );
+
+      final pocket = (payload['pockets'] as List).single as Map;
+      expect(legacyPocket.hasRolloverFields, isFalse);
+      expect(pocket.containsKey('rolloverGroupId'), isFalse);
+      expect(pocket.containsKey('rolloverEnabled'), isFalse);
+      expect(pocket.containsKey('rolloverNegative'), isFalse);
+      expect(pocket.containsKey('rolloverCapCents'), isFalse);
+      expect(pocket.containsKey('openingRolloverCents'), isFalse);
+    });
+  });
+
+  group('PocketsState.hasChanges', () {
+    test('detects user-editable pocket metadata and rollover changes', () {
+      final now = DateTime(2026, 5, 1);
+      final savedPocket = PocketEnvelope(
+        id: 'env-food',
+        name: 'Food',
+        budgetAmountCents: 40000,
+        spent: 120,
+        currency: 'USD',
+        icon: 'restaurant',
+        color: '#111111',
+        budgetId: 'budget-1',
+        rolloverGroupId: 'rollover-food',
+        rolloverEnabled: false,
+        rolloverNegative: false,
+        rolloverCapCents: null,
+        openingRolloverCents: 0,
+        lastUpdated: now,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [savedPocket],
+        editing: [
+          savedPocket.copyWith(
+            rolloverEnabled: true,
+            rolloverNegative: true,
+            rolloverCapCents: 50000,
+            openingRolloverCents: 12500,
+          ),
+        ],
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 400,
+        savedTotalBudget: 400,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'env-food': ['dining', 'groceries'],
+        },
+      );
+
+      expect(state.hasChanges, isTrue);
+    });
+
+    test('detects category changes independent of ordering and case', () {
+      final now = DateTime(2026, 5, 1);
+      final pocket = PocketEnvelope(
+        id: 'env-food',
+        name: 'Food',
+        budgetAmountCents: 40000,
+        spent: 0,
+        currency: 'USD',
+        budgetId: 'budget-1',
+        lastUpdated: now,
+      );
+      final unchanged = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 400,
+        savedTotalBudget: 400,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'env-food': ['Groceries', ' dining '],
+        },
+      );
+      final changed = unchanged.copyWith(
+        envelopeCategories: const {
+          'env-food': ['groceries', 'utilities'],
+        },
+      );
+
+      expect(unchanged.hasChanges, isFalse);
+      expect(changed.hasChanges, isTrue);
     });
   });
 
@@ -569,8 +911,8 @@ void main() {
       expect(updated.totalBudget, 500);
       final amounts =
           updated.editing.map((pocket) => pocket.budgetAmountCents).toList();
-      expect(amounts, const [33000, 17000]);
-      expect(amounts.every((amount) => amount % 1000 == 0), isTrue);
+      expect(amounts, const [33330, 16670]);
+      expect(amounts.every((amount) => amount % 10 == 0), isTrue);
       expect(amounts.fold<int>(0, (sum, amount) => sum + amount), 50000);
     });
 

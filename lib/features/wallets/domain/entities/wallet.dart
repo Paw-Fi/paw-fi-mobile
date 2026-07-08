@@ -5,6 +5,7 @@ class WalletEntity {
   final String name;
   final String icon;
   final String color;
+  final String? logoUrl;
   final String currency;
   final int openingBalanceCents;
   final int? goalAmountCents;
@@ -21,6 +22,7 @@ class WalletEntity {
     required this.name,
     required this.icon,
     required this.color,
+    this.logoUrl,
     this.currency = 'USD',
     required this.openingBalanceCents,
     required this.goalAmountCents,
@@ -39,6 +41,7 @@ class WalletEntity {
       name: (json['name'] as String?)?.trim() ?? '',
       icon: (json['icon'] as String?)?.trim() ?? 'wallet',
       color: (json['color'] as String?)?.trim() ?? '#6B7280',
+      logoUrl: _nullableTrimmedString(json['logo_url']),
       currency: (json['currency'] as String?)?.trim().toUpperCase() ?? 'USD',
       openingBalanceCents:
           (json['opening_balance_cents'] as num?)?.round() ?? 0,
@@ -62,6 +65,7 @@ class WalletEntity {
       'name': name,
       'icon': icon,
       'color': color,
+      'logo_url': logoUrl,
       'currency': currency,
       'opening_balance_cents': openingBalanceCents,
       'goal_amount_cents': goalAmountCents,
@@ -80,6 +84,8 @@ class WalletEntity {
     String? name,
     String? icon,
     String? color,
+    String? logoUrl,
+    bool clearLogoUrl = false,
     String? currency,
     int? openingBalanceCents,
     int? goalAmountCents,
@@ -96,6 +102,7 @@ class WalletEntity {
       name: name ?? this.name,
       icon: icon ?? this.icon,
       color: color ?? this.color,
+      logoUrl: clearLogoUrl ? null : (logoUrl ?? this.logoUrl),
       currency: currency ?? this.currency,
       openingBalanceCents: openingBalanceCents ?? this.openingBalanceCents,
       goalAmountCents: goalAmountCents ?? this.goalAmountCents,

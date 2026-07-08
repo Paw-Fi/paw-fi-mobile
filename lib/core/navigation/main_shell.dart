@@ -8,6 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -23,6 +24,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart'
+    as home_state;
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
@@ -47,10 +50,12 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
+import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
@@ -362,11 +367,58 @@ class MainShell extends HookConsumerWidget {
     final isAppLockPromptActive = ref.watch(
       appLockControllerProvider.select((state) => state.shouldBlockApp),
     );
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final subscription = subscriptionAsync.valueOrNull;
+    final isSubscriptionResolved = subscriptionAsync.hasValue;
+    final canUseMultiCurrency = hasPremiumFeatureAccess(subscription);
+    final homeFilterState = ref.watch(homeFilterProvider);
+    final selectedCurrencies = homeFilterState.normalizedSelectedCurrencies;
+    final selectedCurrency = homeFilterState.selectedCurrency;
     final warmedWalletsKeyRef = useRef<String?>(null);
     final showNoNetworkBanner = !hasNetworkAccess;
 
     final isSyncing = useState(false);
     final syncKey = useState(UniqueKey());
+
+    useEffect(() {
+      if (!isSubscriptionResolved) return null;
+      if (previewState.isActive || canUseMultiCurrency) return null;
+      if ((selectedCurrencies?.length ?? 0) <= 1) return null;
+
+      final String rawPrimaryCurrency = selectedCurrency ??
+          (selectedCurrencies != null && selectedCurrencies.isNotEmpty
+              ? selectedCurrencies.first
+              : null) ??
+          ref.read(selectedHomeCurrencyCodeProvider);
+      final primaryCurrency = rawPrimaryCurrency.trim().toUpperCase();
+      if (primaryCurrency.isEmpty) return null;
+
+      unawaited(() async {
+        final primaryOnly = <String>[primaryCurrency];
+        final service = ref.read(home_state.currencyPreferenceServiceProvider);
+        await service.setSelectedCurrency(primaryCurrency);
+        await service.setSelectedCurrencies(primaryOnly);
+        ref.read(homeFilterProvider.notifier).setSelectedCurrency(
+              primaryCurrency,
+            );
+        ref.read(homeFilterProvider.notifier).setSelectedCurrencies(
+              primaryOnly,
+            );
+        ref.read(analyticsProvider.notifier).updatePreferredCurrency(
+              primaryCurrency,
+            );
+        await WidgetService().saveSelectedWidgetCurrency(primaryCurrency);
+        await WidgetService().reloadWidgets();
+      }());
+
+      return null;
+    }, [
+      previewState.isActive,
+      isSubscriptionResolved,
+      canUseMultiCurrency,
+      selectedCurrency,
+      selectedCurrencies?.join(','),
+    ]);
 
     useEffect(() {
       if (visitedTabs.value.contains(currentIndex)) {
@@ -630,6 +682,23 @@ class MainShell extends HookConsumerWidget {
       };
     }, const []);
 
+    useEffect(() {
+      if (previewState.isActive || auth.uid.isEmpty) return null;
+
+      final prefs = ref.read(sharedPreferencesProvider);
+      final key = trialWelcomePendingKey(auth.uid);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        final pending = prefs.getBool(key) ?? false;
+        if (!pending) return;
+        prefs.remove(key);
+        unawaited(TrialWelcomeDialog.show(context));
+      });
+
+      return null;
+    }, [previewState.isActive, auth.uid]);
+
     final pageBuilders = [
       () => const HomePage(),
       () => const RecurringTransactionsPage(),
@@ -694,6 +763,7 @@ class MainShell extends HookConsumerWidget {
                       ),
                     ),
                     const TrialReminderBannerGate(),
+                    const ExpiredSubscriptionBannerGate(),
                     if (!isAppLockPromptActive) const HomeHeaderSliver(),
                     Expanded(
                       child: Stack(

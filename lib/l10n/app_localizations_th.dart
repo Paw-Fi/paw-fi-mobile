@@ -8331,9 +8331,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get discord => 'Discord';
 
   @override
-  String get emailLabel => 'Email';
-
-  @override
   String get contactUs => 'ติดต่อเรา';
 
   @override
@@ -8397,6 +8394,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedRecommendedBadge => 'แนะนำ';
 
   @override
+  String get plusLockedIncludedInPlus => 'รวมอยู่ใน Plus';
+
+  @override
   String get plusLockedAiExpenseCapture => 'บันทึกรายจ่ายด้วย AI';
 
   @override
@@ -8406,13 +8406,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedAiCaptureValue => 'เสียง ข้อความ รูปภาพ';
 
   @override
-  String get plusLockedMessagingAppCapture => 'บันทึกจากแอปแชท';
+  String get plusLockedMessagingAppCapture => 'WhatsApp + Telegram';
 
   @override
   String get plusLockedEmailReceiptImport => 'นำเข้าใบเสร็จจากอีเมล';
 
   @override
-  String get plusLockedSharedBudgets => 'แชร์งบประมาณ';
+  String get plusLockedSharedBudgets => 'สร้างพื้นที่';
 
   @override
   String get plusLockedTrialEyebrow => 'ทดลองใช้ฟรี 7 วัน';
@@ -8836,4 +8836,258 @@ class AppLocalizationsTh extends AppLocalizations {
   String youCannotSyncMoreThanOncePerDay(Object duration) {
     return 'คุณไม่สามารถซิงค์ข้อมูลได้มากกว่า 1 ครั้งในทุกๆ 24 ชั่วโมง โปรดลองอีกครั้งใน $duration';
   }
+
+  @override
+  String get pocketRolloverActivityTitle => 'ประวัติการทบยอด';
+
+  @override
+  String get pocketRolloverAvailableBudgetLabel => 'คงเหลือ';
+
+  @override
+  String get pocketRolloverBaseBudgetLabel => 'งบประมาณพื้นฐาน';
+
+  @override
+  String get pocketRolloverBreakdownTitle => 'รายละเอียดงบประมาณ';
+
+  @override
+  String get pocketRolloverCarryOverspendingLabel => 'ทบยอดที่ใช้เกิน';
+
+  @override
+  String get pocketRolloverOpeningLabel => 'ยอดยกมาเริ่มต้น';
+
+  @override
+  String get pocketRolloverSettingsTitle => 'ทบยอดงบประมาณที่เหลือ';
+
+  @override
+  String get pocketRolloverSummaryTitle => 'สรุปการทบยอดงบประมาณ';
+
+  @override
+  String get pocketRolloverHistoryTitle => 'ประวัติการทบยอด';
+
+  @override
+  String get pocketRolloverNextMonthTitle => 'ยอดทบไปเดือนหน้า';
+
+  @override
+  String get pocketRolloverLabel => 'ยอดทบ';
+
+  @override
+  String get pocketRolloverSpentLabel => 'ใช้จ่ายแล้ว';
+
+  @override
+  String get pocketRolloverRemainingLabel => 'คงเหลือ';
+
+  @override
+  String get pocketRolloverSummaryDescription => 'งบประมาณที่ใช้ได้รวมยอดทบมาจากรอบก่อนหน้าแล้ว';
+
+  @override
+  String get pocketRolloverCarryOverFromPreviousMonthLabel => 'ยอดยกมาจากเดือนที่แล้ว';
+
+  @override
+  String get pocketRolloverSettingsDescription => 'เงินที่เหลือจะถูกยกไปใช้ต่อในเดือนหน้า';
+
+  @override
+  String get pocketRolloverOverspendingEnabledDescription => 'ยอดใช้เกินจะถูกหักออกจากงบเดือนหน้า';
+
+  @override
+  String get pocketRolloverOverspendingDisabledDescription => 'ยอดใช้เกินจะไม่กระทบงบประมาณในเดือนหน้า';
+
+  @override
+  String get pocketRolloverOpeningDescription => 'ใช้เพื่อนำยอดคงเหลือของซองเงินเดิมเข้ามาใน Moneko';
+
+  @override
+  String get pocketRolloverMaximumLabel => 'ทบยอดสูงสุด';
+
+  @override
+  String get pocketRolloverUnlimitedPlaceholder => 'ไม่จำกัด';
+
+  @override
+  String get pocketRolloverInvalidCapError => 'โปรดระบุจำนวนทบยอดสูงสุดที่ถูกต้อง หรือเว้นว่างไว้หากไม่ต้องการจำกัด';
+
+  @override
+  String get pocketRolloverInvalidOpeningError => 'โปรดระบุยอดยกมาเริ่มต้นที่ถูกต้อง หรือเว้นว่างไว้หากต้องการให้เป็นศูนย์';
+
+  @override
+  String get pocketRolloverNegativeOpeningRequiresOverspendingError => 'โปรดเปิดการทบยอดที่ใช้เกินก่อนที่จะใช้ยอดยกมาแบบติดลบ';
+
+  @override
+  String get pocketRolloverNegativeNotCarriedDescription => 'ยอดใช้เกินจะไม่ถูกทบไป เดือนหน้าจะเริ่มต้นใหม่ด้วยงบประมาณพื้นฐาน';
+
+  @override
+  String get pocketRolloverCapLimitedDescription => 'ขีดจำกัดการทบยอดจะเป็นตัวกำหนดว่าคุณสามารถทบงบที่เหลือไปได้เท่าไร';
+
+  @override
+  String get pocketRolloverNoCarryExpectedDescription => 'ยังไม่มียอดทบที่คาดการณ์ไว้สำหรับเดือนนี้';
+
+  @override
+  String get pocketRolloverNextMonthDescription => 'เมื่อขึ้นเดือนใหม่ จำนวนเงินนี้จะถูกเพิ่มเข้าไปในงบประมาณพื้นฐาน';
+
+  @override
+  String pocketRolloverSettingsExample(Object currencySymbol) {
+    return 'ตัวอย่าง: หากเดือนมิถุนายนมีงบ ${currencySymbol}400 และใช้ไป ${currencySymbol}350 เดือนกรกฎาคมจะเริ่มต้นด้วยยอดคงเหลือ ${currencySymbol}450 โดย Moneko จะยังคงแสดงงบประมาณพื้นฐาน ${currencySymbol}400 แยกไว้ต่างหาก';
+  }
+
+  @override
+  String pocketRolloverCarryOverBadge(Object amount) {
+    return 'ทบยอด $amount';
+  }
+
+  @override
+  String pocketRolloverMoreCount(Object count) {
+    return 'เพิ่มเติม +$count';
+  }
+
+  @override
+  String pocketRolloverHistorySummary(Object base, Object rollover, Object spent) {
+    return 'พื้นฐาน $base - ยอดทบ $rollover - ใช้จ่าย $spent';
+  }
+
+  @override
+  String get pocketRolloverContributionTitle => 'ที่มาของยอดทบนี้';
+
+  @override
+  String get pocketRolloverContributionDescription => 'Moneko จะติดตามส่วนต่างๆ ของยอดทบที่คุณเหลืออยู่ เพื่อให้เห็นภาพรวมที่ชัดเจนเสมอ';
+
+  @override
+  String get pocketRolloverContributionEmpty => 'ยังไม่มียอดทบเข้ามาในเดือนนี้';
+
+  @override
+  String get pocketRolloverCapAdjustmentLabel => 'ปรับขีดจำกัด';
+
+  @override
+  String get pocketRolloverNegativeDroppedLabel => 'ไม่ทบยอดที่ใช้เกิน';
+
+  @override
+  String get pocketRolloverResetLabel => 'รีเซ็ตยอดทบ';
+
+  @override
+  String get pocketRolloverMissingMonthWarning => 'ประวัติงบประมาณนี้มีบางเดือนที่ขาดหายไป โปรดตรวจสอบไทม์ไลน์ก่อนที่จะนำยอดทบไปใช้';
+
+  @override
+  String pocketRolloverMonthLeftover(Object month) {
+    return 'ยอดเหลือของ $month';
+  }
+
+  @override
+  String pocketRolloverMonthOverspend(Object month) {
+    return 'ยอดใช้เกินของ $month';
+  }
+
+  @override
+  String plusLockedPlusAnnualMonthlyBadge(Object price) {
+    return '$price/เดือน เรียกเก็บรายปี';
+  }
+
+  @override
+  String get plusLockedInAppAiExpenseLogging => 'บันทึกรายจ่ายด้วย AI ในแอป';
+
+  @override
+  String get plusLockedHealthDetails => 'รายละเอียดรายงานสุขภาพการเงิน';
+
+  @override
+  String get plusLockedMainWidgetOnly => 'วิดเจ็ตหลักเท่านั้น';
+
+  @override
+  String get plusLockedAiScenarios => 'การจำลองสถานการณ์ด้วย AI';
+
+  @override
+  String get plusLockedWallets => 'กระเป๋าเงิน';
+
+  @override
+  String get plusLockedOnePrivateOneShared => '1 ส่วนตัว + 1 แชร์';
+
+  @override
+  String get plusLockedTwoWallets => '2 กระเป๋าเงิน';
+
+  @override
+  String get expiredPlusBannerMessage => 'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
+
+  @override
+  String get expiredSubscriptionMessage => 'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
+
+  @override
+  String get trialWelcomeTitle => 'รับไปเลย! ใช้งาน Plus ฟรี 7 วัน';
+
+  @override
+  String get trialWelcomeSubtitle => 'เพลิดเพลินกับทุกฟีเจอร์ของ Plus ได้ฟรีตลอด 7 วันนับจากนี้ นี่คือสิ่งที่คุณสามารถทดลองใช้ได้:';
+
+  @override
+  String get trialWelcomeFeatureMessagingTitle => 'บันทึกรายจ่ายผ่าน Telegram และ WhatsApp';
+
+  @override
+  String get trialWelcomeFeatureMessagingBody => 'แค่ส่งต่อข้อความหรือใบเสร็จจากแอปแชทโปรดของคุณ แล้ว Moneko จะบันทึกให้โดยอัตโนมัติ';
+
+  @override
+  String get trialWelcomeFeatureEmailTitle => 'บันทึกใบเสร็จจากอีเมล';
+
+  @override
+  String get trialWelcomeFeatureEmailBody => 'เพียงส่งต่ออีเมลใบเสร็จ แล้ว Moneko จะช่วยดึงข้อมูลและบันทึกรายการของคุณให้เอง';
+
+  @override
+  String get trialWelcomeFeatureMultiCurrencyTitle => 'แสดงผลหลายสกุลเงิน';
+
+  @override
+  String get trialWelcomeFeatureMultiCurrencyBody => 'ติดตามการใช้จ่ายในหลายสกุลเงิน พร้อมอัตราแลกเปลี่ยนแบบเรียลไทม์';
+
+  @override
+  String get trialWelcomeFeatureInsightsTitle => 'ข้อมูลเชิงลึกขั้นสูง & การจำลอง';
+
+  @override
+  String get trialWelcomeFeatureInsightsBody => 'การวางแผนสถานการณ์จำลอง การคาดการณ์ยอดคงเหลือ และการวิเคราะห์ล่วงหน้า 30 วัน';
+
+  @override
+  String get trialWelcomeFaqHeader => 'สิ่งที่ควรรู้';
+
+  @override
+  String get trialWelcomeFaqNoChargeQuestion => 'ฉันจะถูกเรียกเก็บเงินเมื่อหมดช่วงทดลองใช้หรือไม่?';
+
+  @override
+  String get trialWelcomeFaqNoChargeAnswer => 'ไม่เลย เราจะไม่หักเงินจากคุณ คุณไม่ต้องทำอะไรทั้งสิ้น — สิทธิ์ทดลองใช้จะสิ้นสุดลงเองเมื่อครบกำหนด';
+
+  @override
+  String get trialWelcomeFaqAfterTrialQuestion => 'จะเกิดอะไรขึ้นหากฉันไม่สมัครสมาชิก?';
+
+  @override
+  String get trialWelcomeFaqAfterTrialAnswer => 'ไม่เป็นไรเลย! คุณยังสามารถใช้งาน Moneko ได้ฟรีตามปกติ โดยจะมีแค่บางฟีเจอร์ที่ถูกจำกัด สบายใจได้ ไม่มีข้อผูกมัดหรือค่าใช้จ่ายแอบแฝง';
+
+  @override
+  String get trialWelcomeCta => 'เริ่มต้นใช้งาน';
+
+  @override
+  String get onboardingHeardAboutTitle => 'คุณรู้จัก Moneko จากที่ไหน?';
+
+  @override
+  String get onboardingHeardAboutSubtitle => 'เลือกตัวเลือกที่ตรงที่สุด หากมาจากที่อื่น ให้เลือก \"อื่น ๆ\"';
+
+  @override
+  String get onboardingHeardAboutOtherHint => 'บอกเราหน่อยว่าที่ไหน';
+
+  @override
+  String get onboardingHeardAboutValidation => 'โปรดเลือกว่าคุณรู้จัก Moneko จากที่ไหน';
+
+  @override
+  String get onboardingHeardAboutSaveError => 'ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get walletCreation => 'สร้างกระเป๋าเงิน';
+
+  @override
+  String get plusLockedLifetimeDiscountPromo => 'ข่าวดี! คุณมีสิทธิ์รับส่วนลด 50% สำหรับแผนตลอดชีพของเรา';
+
+  @override
+  String get plusLockedLifetimeDiscountClaim => ' เพื่อรับส่วนลดของคุณ';
+
+  @override
+  String get deleteWalletTitle => 'ลบกระเป๋าเงินนี้หรือไม่?';
+
+  @override
+  String get deleteWalletDescription => 'การดำเนินการนี้จะลบกระเป๋าเงิน รายการธุรกรรมทั้งหมด และบัญชีธนาคารที่เชื่อมโยงอย่างถาวร หากต้องการเก็บรายการธุรกรรมไว้ ให้ใช้ \"เก็บถาวร\" แทน การดำเนินการนี้ไม่สามารถย้อนกลับได้';
+
+  @override
+  String get deletingWallet => 'กำลังลบกระเป๋าเงิน…';
+
+  @override
+  String get walletDeleted => 'ลบกระเป๋าเงินแล้ว';
+
+  @override
+  String get deleteWalletFailed => 'ไม่สามารถลบกระเป๋าเงินนี้ได้ในขณะนี้';
 }

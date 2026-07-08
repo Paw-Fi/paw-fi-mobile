@@ -17,6 +17,8 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_prov
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -284,6 +286,7 @@ bool _walletOverrideMatchesServer(
   return optimistic.name == server.name &&
       optimistic.icon == server.icon &&
       optimistic.color == server.color &&
+      optimistic.logoUrl == server.logoUrl &&
       optimistic.currency == server.currency &&
       optimistic.openingBalanceCents == server.openingBalanceCents &&
       optimistic.goalAmountCents == server.goalAmountCents &&
@@ -663,6 +666,7 @@ class WalletActions {
     required String name,
     required String icon,
     required String color,
+    String? logoUrl,
     int openingBalanceCents = 0,
     int? goalAmountCents,
     required String currency,
@@ -680,6 +684,7 @@ class WalletActions {
       name: name,
       icon: icon,
       color: color,
+      logoUrl: logoUrl,
       currency: currency.trim().toUpperCase(),
       openingBalanceCents: openingBalanceCents,
       goalAmountCents: goalAmountCents,
@@ -693,6 +698,7 @@ class WalletActions {
       'name': name,
       'icon': icon,
       'color': color,
+      'logoUrl': logoUrl,
       'currency': currency.trim().toUpperCase(),
       'openingBalanceCents': openingBalanceCents,
       'goalAmountCents': goalAmountCents,
@@ -747,10 +753,12 @@ class WalletActions {
     String? name,
     String? icon,
     String? color,
+    String? logoUrl,
     int? openingBalanceCents,
     int? goalAmountCents,
     String? currency,
     bool includeGoalAmount = false,
+    bool includeLogoUrl = false,
     bool? isDefault,
     bool invalidate = true,
   }) async {
@@ -782,6 +790,7 @@ class WalletActions {
         name: name ?? existingWallet.name,
         icon: icon ?? existingWallet.icon,
         color: color ?? existingWallet.color,
+        logoUrl: includeLogoUrl ? logoUrl : existingWallet.logoUrl,
         currency: existingWallet.currency,
         openingBalanceCents: nextOpeningBalanceCents,
         goalAmountCents: includeGoalAmount
@@ -794,7 +803,7 @@ class WalletActions {
       ));
     }
     debugPrint(
-      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
+      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color logo=$logoUrl opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount includeLogo=$includeLogoUrl isDefault=$isDefault invalidate=$invalidate',
     );
 
     final requestBody = {
@@ -802,6 +811,7 @@ class WalletActions {
       if (name != null) 'name': name,
       if (icon != null) 'icon': icon,
       if (color != null) 'color': color,
+      if (includeLogoUrl) 'logoUrl': logoUrl,
       if (requestedCurrency != null) 'currency': requestedCurrency,
       if (openingBalanceCents != null)
         'openingBalanceCents': openingBalanceCents,
@@ -902,6 +912,67 @@ class WalletActions {
       clearOptimisticWallet(accountId);
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> deleteAccount(String accountId) async {
+    final authHeaders = _requireAuthHeaders();
+    final existingWallet = ref.read(walletByIdProvider(accountId));
+    final localDatabase = await ref.read(localDatabaseProvider.future);
+    final hasPendingLocalChanges =
+        await localDatabase.hasPendingWalletDeleteBlockers(
+      walletId: accountId,
+      bankAccountId: existingWallet?.linkedBankAccountId,
+    );
+    if (hasPendingLocalChanges) {
+      throw Exception(
+        'This wallet still has local changes waiting to sync. Try again after sync completes.',
+      );
+    }
+    final requestBody = {
+      'accountId': accountId,
+      'confirmDestructiveDelete': true,
+    };
+
+    final response = await supabase.functions.invoke(
+      'delete-wallet',
+      headers: authHeaders,
+      body: requestBody,
+    );
+    _throwIfFailed(response.data, 'Failed to delete wallet');
+
+    final payload = response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final data = payload['data'] is Map<String, dynamic>
+        ? payload['data'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final transactionIds = (data['transactionIds'] as List?)
+            ?.map((id) => id.toString())
+            .where((id) => id.trim().isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    final bank = data['bank'] is Map<String, dynamic>
+        ? data['bank'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final linkedBankAccountId =
+        bank['linkedBankAccountId']?.toString().trim();
+
+    try {
+      await localDatabase.deleteTransactionsByIds(transactionIds);
+      await localDatabase.deleteTransactionsForWallet(
+        walletId: accountId,
+        bankAccountId: linkedBankAccountId != null &&
+                linkedBankAccountId.isNotEmpty
+            ? linkedBankAccountId
+            : existingWallet?.linkedBankAccountId,
+      );
+    } catch (error) {
+      debugPrint('[Accounts][Delete] local cleanup failed: $error');
+    }
+
+    clearOptimisticWallet(accountId);
+    _invalidateAll();
+    return data;
   }
 
   Future<void> createTransfer({
@@ -1277,6 +1348,8 @@ class WalletActions {
     ref.invalidate(walletsMonthSnapshotProvider);
     ref.invalidate(walletsScopeQueryProvider);
     ref.invalidate(walletsPageStateProvider);
+    ref.invalidate(bankAccountsProvider);
+    ref.invalidate(bankConnectionsProvider);
     ref.read(walletsRefreshSignalProvider.notifier).state += 1;
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;

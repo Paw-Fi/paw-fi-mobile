@@ -15,6 +15,7 @@ void main() {
         currency: 'USD',
         icon: 'shopping_bag',
         color: '#FF5733',
+        logoUrl: 'https://example.com/groceries.jpg',
         budgetId: 'budget_1',
         householdId: null,
         lastUpdated: now,
@@ -27,6 +28,7 @@ void main() {
       expect(pocket.currency, 'USD');
       expect(pocket.icon, 'shopping_bag');
       expect(pocket.color, '#FF5733');
+      expect(pocket.logoUrl, 'https://example.com/groceries.jpg');
       expect(pocket.budgetId, 'budget_1');
       expect(pocket.householdId, null);
     });
@@ -58,6 +60,7 @@ void main() {
         'currency': 'USD',
         'icon': 'shopping_bag',
         'color': '#FF5733',
+        'logo_url': 'https://example.com/groceries.jpg',
         'budget_id': 'budget_1',
         'household_id': 'hh_123',
         'last_updated': '2024-01-01T00:00:00.000Z',
@@ -72,6 +75,7 @@ void main() {
       expect(pocket.currency, 'USD');
       expect(pocket.icon, 'shopping_bag');
       expect(pocket.color, '#FF5733');
+      expect(pocket.logoUrl, 'https://example.com/groceries.jpg');
       expect(pocket.budgetId, 'budget_1');
       expect(pocket.householdId, 'hh_123');
     });
@@ -117,6 +121,7 @@ void main() {
         currency: 'USD',
         icon: 'shopping_bag',
         color: '#FF5733',
+        logoUrl: 'https://example.com/groceries.jpg',
         budgetId: 'budget_1',
         householdId: 'hh_123',
         lastUpdated: now,
@@ -131,6 +136,7 @@ void main() {
       expect(json['currency'], 'USD');
       expect(json['icon'], 'shopping_bag');
       expect(json['color'], '#FF5733');
+      expect(json['logo_url'], 'https://example.com/groceries.jpg');
       expect(json['budget_id'], 'budget_1');
       expect(json['household_id'], 'hh_123');
     });

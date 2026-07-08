@@ -45,6 +45,25 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
 const _kReturnToOrbitPageKey = 'onboarding_return_to_orbit_once';
+const _kHeardAboutOtherValue = 'other';
+
+const _heardAboutSourceOptions = [
+  (value: 'tiktok', label: 'TikTok'),
+  (value: 'instagram', label: 'Instagram'),
+  (value: 'youtube', label: 'YouTube'),
+  (value: 'chatgpt', label: 'ChatGPT'),
+  (value: 'google_search', label: 'Google Search'),
+  (value: 'app_store', label: 'App Store'),
+  (value: 'friend_or_family', label: 'Friend or family'),
+  (value: _kHeardAboutOtherValue, label: 'Other'),
+];
+
+String _heardAboutSourceLabel(String value) => _heardAboutSourceOptions
+    .firstWhere(
+      (option) => option.value == value,
+      orElse: () => (value: value, label: value),
+    )
+    .label;
 
 String _importSourceLabel(ImportSourceApp source) {
   switch (source) {
@@ -121,6 +140,10 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
     final pageController = usePageController();
     final carouselIndex = useState(0);
     final showOrbitPage = useState(initialShowOrbit);
+    final showHeardAboutPage = useState(false);
+    final heardAboutSource = useState<String?>(null);
+    final heardAboutOtherText = useState('');
+    final heardAboutError = useState<String?>(null);
 
     useEffect(() {
       if (!shouldReturnToOrbitFromPrefs) return null;
@@ -132,15 +155,55 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       return null;
     }, [carouselIndex.value, showOrbitPage.value]);
 
+    Future<void> enterPreAuthQuestions() async {
+      final store = ref.read(onboardingPreauthDraftStoreProvider);
+      final current = store.load();
+      await store.save(current.copyWith(currentStep: 0));
+      if (!context.mounted) return;
+      context.go('/onboarding?stage=pre');
+    }
+
     Future<void> goToPreAuthQuestions() async {
       if (isBusy.value) return;
       isBusy.value = true;
       try {
-        final store = ref.read(onboardingPreauthDraftStoreProvider);
-        final current = store.load();
-        await store.save(current.copyWith(currentStep: 0));
+        await enterPreAuthQuestions();
+      } finally {
+        if (context.mounted) {
+          isBusy.value = false;
+        }
+      }
+    }
+
+    Future<void> saveHeardAboutAndContinue() async {
+      if (isBusy.value) return;
+      final source = heardAboutSource.value;
+      final otherText = heardAboutOtherText.value.trim();
+      if (source == null ||
+          (source == _kHeardAboutOtherValue && otherText.isEmpty)) {
+        heardAboutError.value = 'Please choose where you heard about Moneko.';
+        return;
+      }
+
+      isBusy.value = true;
+      try {
+        heardAboutError.value = null;
+        await ref
+            .read(supabaseClientProvider)
+            .from(
+              'onboarding_heard_about_responses',
+            )
+            .insert({
+          'source': source,
+          'source_label': _heardAboutSourceLabel(source),
+          'other_text': source == _kHeardAboutOtherValue ? otherText : null,
+          'platform': defaultTargetPlatform.name,
+        });
+        await enterPreAuthQuestions();
+      } catch (_) {
         if (!context.mounted) return;
-        context.go('/onboarding?stage=pre');
+        heardAboutError.value =
+            'We could not save your answer. Please try again.';
       } finally {
         if (context.mounted) {
           isBusy.value = false;
@@ -181,8 +244,12 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
     }
 
     void goNext() {
+      if (showHeardAboutPage.value) {
+        unawaited(saveHeardAboutAndContinue());
+        return;
+      }
       if (showOrbitPage.value) {
-        unawaited(goToPreAuthQuestions());
+        showHeardAboutPage.value = true;
         return;
       }
       if (carouselIndex.value >= introSlides.length - 1) {
@@ -202,6 +269,10 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
     }
 
     void goBack() {
+      if (showHeardAboutPage.value) {
+        showHeardAboutPage.value = false;
+        return;
+      }
       if (showOrbitPage.value) {
         showOrbitPage.value = false;
         if (pageController.hasClients) {
@@ -242,10 +313,11 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                       child: Row(
                         children: [
                           IconButton(
-                            onPressed:
-                                (showOrbitPage.value || carouselIndex.value > 0)
-                                    ? goBack
-                                    : null,
+                            onPressed: (showHeardAboutPage.value ||
+                                    showOrbitPage.value ||
+                                    carouselIndex.value > 0)
+                                ? goBack
+                                : null,
                             icon: const Icon(Icons.arrow_back_rounded),
                             tooltip: 'Debug back',
                           ),
@@ -264,20 +336,36 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                       ),
                     ),
                   Expanded(
-                    child: showOrbitPage.value
-                        ? _GuestOrbitPage(
+                    child: showHeardAboutPage.value
+                        ? _GuestHeardAboutPage(
+                            selected: heardAboutSource.value,
+                            otherText: heardAboutOtherText.value,
+                            errorText: heardAboutError.value,
+                            isBusy: isBusy.value,
+                            onSelected: (value) {
+                              heardAboutSource.value = value;
+                              heardAboutError.value = null;
+                            },
+                            onOtherChanged: (value) {
+                              heardAboutOtherText.value = value;
+                              heardAboutError.value = null;
+                            },
                             onNext: goNext,
-                            onPreview: () => unawaited(goToPreviewMode()),
-                            onSignIn: () => unawaited(goToLogin()),
                           )
-                        : _GuestCarouselPage(
-                            slides: introSlides,
-                            controller: pageController,
-                            currentIndex: carouselIndex.value,
-                            onPageChanged: (index) =>
-                                carouselIndex.value = index,
-                            onNext: goNext,
-                          ),
+                        : showOrbitPage.value
+                            ? _GuestOrbitPage(
+                                onNext: goNext,
+                                onPreview: () => unawaited(goToPreviewMode()),
+                                onSignIn: () => unawaited(goToLogin()),
+                              )
+                            : _GuestCarouselPage(
+                                slides: introSlides,
+                                controller: pageController,
+                                currentIndex: carouselIndex.value,
+                                onPageChanged: (index) =>
+                                    carouselIndex.value = index,
+                                onNext: goNext,
+                              ),
                   ),
                   SizedBox(height: 16 + bottomPadding),
                 ],
@@ -287,6 +375,252 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         ),
       ),
     ));
+  }
+}
+
+class _GuestHeardAboutPage extends HookWidget {
+  const _GuestHeardAboutPage({
+    required this.selected,
+    required this.otherText,
+    required this.errorText,
+    required this.isBusy,
+    required this.onSelected,
+    required this.onOtherChanged,
+    required this.onNext,
+  });
+
+  final String? selected;
+  final String otherText;
+  final String? errorText;
+  final bool isBusy;
+  final ValueChanged<String> onSelected;
+  final ValueChanged<String> onOtherChanged;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final otherController = useTextEditingController(text: otherText);
+    final isOtherSelected = selected == _kHeardAboutOtherValue;
+
+    useEffect(() {
+      void listener() => onOtherChanged(otherController.text);
+      otherController.addListener(listener);
+      return () => otherController.removeListener(listener);
+    }, [otherController]);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          Text(
+            'Where did you hear about us?',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: colorScheme.foreground,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Pick the option that fits best. If it was somewhere else, choose Other.',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: colorScheme.mutedForeground,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (final option in _heardAboutSourceOptions) ...[
+                    _HeardAboutSourceCard(
+                      label: option.label,
+                      selected: selected == option.value,
+                      onTap: () => onSelected(option.value),
+                      trailing: option.value == _kHeardAboutOtherValue &&
+                              isOtherSelected
+                          ? TextField(
+                              controller: otherController,
+                              textInputAction: TextInputAction.done,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Tell us where',
+                                hintStyle: TextStyle(
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
+                                ),
+                                isDense: true,
+                                filled: true,
+                                fillColor: colorScheme.cardSurface,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.border
+                                        .withValues(alpha: 0.16),
+                                    width: 1,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.border
+                                        .withValues(alpha: 0.16),
+                                    width: 1,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: errorText == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      errorText!,
+                      key: ValueKey(errorText),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colorScheme.destructive,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: PrimaryAdaptiveButton(
+              onPressed: isBusy ? null : onNext,
+              child: const Text('Continue'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeardAboutSourceCard extends StatelessWidget {
+  const _HeardAboutSourceCard({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.08)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.border.withValues(alpha: 0.2),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.cardSurface.withValues(alpha: 0.9),
+                ),
+                child: Icon(
+                  selected ? Icons.check_rounded : Icons.circle_outlined,
+                  size: 16,
+                  color: selected
+                      ? colorScheme.onPrimary
+                      : colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (trailing == null)
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              if (trailing != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: trailing!,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
@@ -376,23 +377,31 @@ class _AvatarCustomizerScreenState
       if (byteData == null) throw Exception('Failed to encode image');
       final pngBytes = byteData.buffer.asUint8List();
 
-      // Compress avatar before upload (1200px PNG -> 600px, ~40-60% reduction)
+      // Compress avatar before upload; the rendered preview already has an
+      // opaque background, so JPEG keeps storage small without losing needed UI detail.
       final compressedBytes = await ImageCompressor.compressBytes(
         pngBytes,
-        config: ImageCompressConfig.avatar,
+        config: ImageCompressConfig.profileAvatar,
+        useOriginalWhenSmaller: false,
       );
+      if (!StorageConfig.isValidFileSize(compressedBytes.length)) {
+        throw Exception(
+          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(compressedBytes.length)}). '
+          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        );
+      }
       setState(() {
         _uploadProgress = 50;
       });
 
-      final path = '${user.id}/avatar.png';
+      final path = '${user.id}/avatar.jpg';
       // Upload with upsert
       await client.storage.from('avatars').uploadBinary(
             path,
             compressedBytes,
             fileOptions: const FileOptions(
               upsert: true,
-              contentType: 'image/png',
+              contentType: 'image/jpeg',
               cacheControl: '31536000',
             ),
           );

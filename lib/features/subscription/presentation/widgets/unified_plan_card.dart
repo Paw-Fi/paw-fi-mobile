@@ -39,13 +39,14 @@ class UnifiedPlanCard extends StatelessWidget {
           final trialText = plan.serverPlanId == 'premium'
               ? context.l10n.paywallMonthlyTrial
               : null;
-          final supportingText = plan.serverPlanId == 'lifetime'
-              ? (isDisabled
-                  ? context.l10n.currentPlan
-                  : context.l10n.paywallLifetimeSupport)
-              : context.l10n.paywallFamilySharing;
+          final supportingText = _resolveSupportingText(
+            context,
+            plan,
+            isDisabled,
+          );
+          final mainPriceText = _resolveMainPriceText(plan);
           final periodText = switch (plan.billingInterval) {
-            'yearly' => context.l10n.perYear,
+            'yearly' => context.l10n.perMonth,
             'monthly' => context.l10n.perMonth,
             _ => '',
           };
@@ -182,7 +183,7 @@ class UnifiedPlanCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: RichText(
                         text: TextSpan(
-                          text: plan.priceDisplay,
+                          text: mainPriceText,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -216,4 +217,61 @@ class UnifiedPlanCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _resolveSupportingText(
+  BuildContext context,
+  PlanOption plan,
+  bool isDisabled,
+) {
+  if (plan.serverPlanId == 'lifetime') {
+    return isDisabled
+        ? context.l10n.currentPlan
+        : context.l10n.paywallLifetimeSupport;
+  }
+
+  if (plan.billingInterval == 'yearly') {
+    return '${plan.priceDisplay}${context.l10n.perYear}';
+  }
+
+  return context.l10n.paywallFamilySharing;
+}
+
+String _resolveMainPriceText(PlanOption plan) {
+  if (plan.billingInterval != 'yearly') {
+    return plan.priceDisplay;
+  }
+
+  final yearlyPrice = _tryParsePrice(plan.priceDisplay) ?? plan.displayPriceUsd;
+  if (yearlyPrice == null) {
+    return plan.priceDisplay;
+  }
+
+  final currencySymbol = _extractCurrencySymbol(plan.priceDisplay) ?? r'$';
+  final monthlyPrice = yearlyPrice / 12;
+  return '$currencySymbol${monthlyPrice.toStringAsFixed(2)}';
+}
+
+double? _tryParsePrice(String text) {
+  final cleaned = text.replaceAll(RegExp(r'[^0-9,\.]'), '');
+  if (cleaned.isEmpty) {
+    return null;
+  }
+
+  final hasDot = cleaned.contains('.');
+  final hasComma = cleaned.contains(',');
+
+  String normalized = cleaned;
+  if (hasDot && hasComma) {
+    normalized = cleaned.replaceAll(',', '');
+  } else if (!hasDot && hasComma) {
+    normalized = cleaned.replaceAll(',', '.');
+  }
+
+  return double.tryParse(normalized);
+}
+
+String? _extractCurrencySymbol(String text) {
+  final match = RegExp(r'[^0-9\s,\.]').firstMatch(text);
+  return match?.group(0);
 }

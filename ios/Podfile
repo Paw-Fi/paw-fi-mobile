@@ -57,4 +57,33 @@ post_install do |installer|
       config.build_settings['ENABLE_BITCODE'] = 'NO'
     end
   end
+
+  # Propagate Flutter version info to the share extension so its generated
+  # Info.plist receives valid CFBundleVersion / CFBundleShortVersionString values.
+  # The extension's base config is the Pods xcconfig, which does not include
+  # Flutter/Generated.xcconfig, so $(FLUTTER_BUILD_NUMBER) resolves to empty.
+  flutter_build_name = '1.0.0'
+  flutter_build_number = '1'
+  generated_xcconfig = File.expand_path(File.join('Flutter', 'Generated.xcconfig'), __dir__)
+  if File.exist?(generated_xcconfig)
+    File.foreach(generated_xcconfig) do |line|
+      name_match = line.match(/FLUTTER_BUILD_NAME\=(.*)/)
+      number_match = line.match(/FLUTTER_BUILD_NUMBER\=(.*)/)
+      flutter_build_name = name_match[1].strip if name_match
+      flutter_build_number = number_match[1].strip if number_match
+    end
+  end
+
+  # Open the user project directly and persist the share extension settings.
+  runner_project = Xcodeproj::Project.open(File.expand_path('Runner.xcodeproj', __dir__))
+  share_extension_target = runner_project.targets.find { |t| t.name == 'MonekoShareExtension' }
+  if share_extension_target
+    share_extension_target.build_configurations.each do |config|
+      config.build_settings['FLUTTER_BUILD_NAME'] = flutter_build_name
+      config.build_settings['FLUTTER_BUILD_NUMBER'] = flutter_build_number
+      config.build_settings['CURRENT_PROJECT_VERSION'] = flutter_build_number
+      config.build_settings['MARKETING_VERSION'] = flutter_build_name
+    end
+    runner_project.save
+  end
 end

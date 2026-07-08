@@ -66,18 +66,12 @@ class WalletStackCard extends StatelessWidget {
     final collapsedHeader = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: baseColor.withValues(alpha: 0.22),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            resolveWalletIcon(wallet.icon),
-            color: baseColor,
-            size: 18,
-          ),
+        WalletLogoAvatar(
+          logoUrl: wallet.logoUrl,
+          icon: resolveWalletIcon(wallet.icon),
+          baseColor: baseColor,
+          size: 36,
+          iconSize: 18,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -192,18 +186,12 @@ class WalletStackCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: baseColor.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        resolveWalletIcon(wallet.icon),
-                        color: baseColor,
-                        size: 14,
-                      ),
+                    WalletLogoAvatar(
+                      logoUrl: wallet.logoUrl,
+                      icon: resolveWalletIcon(wallet.icon),
+                      baseColor: baseColor,
+                      size: 28,
+                      iconSize: 14,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -219,18 +207,12 @@ class WalletStackCard extends StatelessWidget {
                 ),
               )
             else
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: baseColor.withValues(alpha: 0.22),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  resolveWalletIcon(wallet.icon),
-                  color: baseColor,
-                  size: 18,
-                ),
+              WalletLogoAvatar(
+                logoUrl: wallet.logoUrl,
+                icon: resolveWalletIcon(wallet.icon),
+                baseColor: baseColor,
+                size: 36,
+                iconSize: 18,
               ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,

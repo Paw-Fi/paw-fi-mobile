@@ -12,7 +12,6 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
-import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
@@ -22,7 +21,6 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
-import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/features/home/presentation/widgets/transaction_export_options_sheet.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
@@ -40,6 +38,7 @@ import 'package:moneko/features/home/presentation/utils/transaction_exporter.dar
 import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 
 Household? _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -921,33 +920,9 @@ class HomeHeaderSliver extends HookConsumerWidget {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.bug_report_outlined, size: 20),
-                      tooltip: 'Reset tours',
-                      onPressed: () async {
-                        await SpotlightTourController.resetAllTours();
-                        final prefs = ref.read(sharedPreferencesProvider);
-                        final userId = ref.read(authProvider).uid;
-                        final trialBannerDismissedPrefix = userId.isEmpty
-                            ? 'trial_reminder_banner_dismissed_milestone:'
-                            : 'trial_reminder_banner_dismissed_milestone:$userId:';
-                        await prefs.remove(
-                          'home_connect_social_dismissed_steps_v1',
-                        );
-                        await prefs.remove(
-                            'accounts_month_swipe_hint_dismissed:$userId');
-                        await prefs.remove(
-                            'pockets_month_swipe_hint_dismissed:$userId');
-                        final trialBannerKeys = prefs
-                            .getKeys()
-                            .where((key) =>
-                                key.startsWith(trialBannerDismissedPrefix))
-                            .toList(growable: false);
-                        for (final key in trialBannerKeys) {
-                          await prefs.remove(key);
-                        }
-                        ref.invalidate(dismissedChecklistStepsProvider);
-                        debugPrint(
-                          '🔁 Spotlight tours + accounts/pockets swipe hints + trial reminder banner state reset for debugging',
-                        );
+                      tooltip: 'Test trial welcome dialog',
+                      onPressed: () {
+                        TrialWelcomeDialog.show(context);
                       },
                     ),
                   ],

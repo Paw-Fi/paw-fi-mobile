@@ -20,6 +20,8 @@ import 'package:moneko/features/pockets/presentation/widgets/pocket_list_tile.da
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/simple_spending_list.dart';
 import 'package:moneko/features/pockets/presentation/widgets/uncategorized_banner.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -210,6 +212,11 @@ class PocketsGridSection extends HookConsumerWidget {
     final pocketsForDisplay = isLoading && sortedPockets.isEmpty
         ? _buildFakePockets(context, effectiveCurrency)
         : sortedPockets;
+    final rolloverSummaryPockets = isMultiCurrencySelection
+        ? const <PocketEnvelope>[]
+        : pocketsForDisplay
+            .where((pocket) => pocket.hasRolloverBreakdown)
+            .toList(growable: false);
 
     final totalAllocated = pocketsForDisplay.fold<double>(
       0.0,
@@ -284,6 +291,24 @@ class PocketsGridSection extends HookConsumerWidget {
             amountSpotlightKey: amountSpotlightKey,
             showSwipeHint: showSwipeHint,
           ),
+          if (!isLoading && rolloverSummaryPockets.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _RolloverSummaryCard(
+              pockets: rolloverSummaryPockets,
+              currency: effectiveCurrency,
+              colorScheme: colorScheme,
+              onPocketTap: (pocket) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => PocketDetailsPage(
+                      pocketId: pocket.id,
+                      scopeParams: scopeParams,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 24),
 
           // Mode-Specific Content
@@ -580,6 +605,272 @@ class PocketsGridSection extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _RolloverSummaryCard extends StatelessWidget {
+  const _RolloverSummaryCard({
+    required this.pockets,
+    required this.currency,
+    required this.colorScheme,
+    required this.onPocketTap,
+  });
+
+  final List<PocketEnvelope> pockets;
+  final String currency;
+  final ColorScheme colorScheme;
+  final ValueChanged<PocketEnvelope> onPocketTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCarryCents = pockets.fold<int>(
+      0,
+      (sum, pocket) =>
+          sum + pocket.rolloverFromPreviousCents + pocket.openingRolloverCents,
+    );
+
+    if (totalCarryCents == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              backgroundColor: colorScheme.surface,
+              builder: (context) => _RolloverSummarySheet(
+                pockets: pockets,
+                currency: currency,
+                colorScheme: colorScheme,
+                onPocketTap: (pocket) {
+                  Navigator.of(context).pop();
+                  onPocketTap(pocket);
+                },
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.pocketRolloverSummaryTitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ),
+                Text(
+                  _formatSignedCurrencyCents(
+                    context,
+                    totalCarryCents,
+                    currency,
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: totalCarryCents < 0
+                        ? colorScheme.error
+                        : colorScheme.success,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: colorScheme.mutedForeground,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RolloverSummarySheet extends StatelessWidget {
+  const _RolloverSummarySheet({
+    required this.pockets,
+    required this.currency,
+    required this.colorScheme,
+    required this.onPocketTap,
+  });
+
+  final List<PocketEnvelope> pockets;
+  final String currency;
+  final ColorScheme colorScheme;
+  final ValueChanged<PocketEnvelope> onPocketTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCarryCents = pockets.fold<int>(
+      0,
+      (sum, pocket) =>
+          sum + pocket.rolloverFromPreviousCents + pocket.openingRolloverCents,
+    );
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.pocketRolloverSummaryTitle,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.pocketRolloverSummaryDescription,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  Text(
+                    _formatSignedCurrencyCents(
+                      context,
+                      totalCarryCents,
+                      currency,
+                    ),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: totalCarryCents < 0
+                          ? colorScheme.error
+                          : colorScheme.success,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(color: colorScheme.border),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: pockets.length,
+                  itemBuilder: (context, index) {
+                    final pocket = pockets[index];
+                    return _RolloverSummaryRow(
+                      pocket: pocket,
+                      currency: currency,
+                      colorScheme: colorScheme,
+                      onTap: () => onPocketTap(pocket),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RolloverSummaryRow extends StatelessWidget {
+  const _RolloverSummaryRow({
+    required this.pocket,
+    required this.currency,
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final carryCents =
+        pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
+
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  pocket.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _formatSignedCurrencyCents(context, carryCents, currency),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color:
+                      carryCents < 0 ? colorScheme.error : colorScheme.success,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: colorScheme.mutedForeground,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatSignedCurrencyCents(
+  BuildContext context,
+  int cents,
+  String currency,
+) {
+  final sign = cents < 0 ? '-' : '+';
+  final amount = double.parse(formatAmount(cents.abs() / 100.0));
+  final localized = formatLocalizedNumber(context, amount);
+  return '$sign${resolveCurrencySymbol(currency)}$localized';
 }
 
 List<PocketEnvelope> _buildFakePockets(BuildContext context, String currency) {

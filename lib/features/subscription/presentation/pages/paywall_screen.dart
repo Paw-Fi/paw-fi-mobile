@@ -456,20 +456,6 @@ class PaywallScreen extends HookConsumerWidget {
           ? catalogProducts
           : <SubscriptionProduct>[
               SubscriptionProduct(
-                id: 'fallback_plus_monthly_ios',
-                platform: 'ios',
-                plan: 'plus',
-                billingInterval: 'monthly',
-                storeProductId: 'monthly',
-                displayName: context.l10n.monthly,
-                tagline: context.l10n.paywallPlanMonthlyTagline,
-                badgeText: null,
-                isPopular: false,
-                displayPriceUsd: Constants.subscriptionMonthlyPrice,
-                originalPriceUsd: Constants.subscriptionMonthlyOriginalPrice,
-                sortOrder: 0,
-              ),
-              SubscriptionProduct(
                 id: 'fallback_plus_yearly_ios',
                 platform: 'ios',
                 plan: 'plus',
@@ -481,6 +467,20 @@ class PaywallScreen extends HookConsumerWidget {
                 isPopular: true,
                 displayPriceUsd: Constants.subscriptionYearlyPrice,
                 originalPriceUsd: Constants.subscriptionYearlyOriginalPrice,
+                sortOrder: 0,
+              ),
+              SubscriptionProduct(
+                id: 'fallback_plus_monthly_ios',
+                platform: 'ios',
+                plan: 'plus',
+                billingInterval: 'monthly',
+                storeProductId: 'monthly',
+                displayName: context.l10n.monthly,
+                tagline: context.l10n.paywallPlanMonthlyTagline,
+                badgeText: null,
+                isPopular: false,
+                displayPriceUsd: Constants.subscriptionMonthlyPrice,
+                originalPriceUsd: Constants.subscriptionMonthlyOriginalPrice,
                 sortOrder: 10,
               ),
               SubscriptionProduct(
@@ -531,15 +531,6 @@ class PaywallScreen extends HookConsumerWidget {
       // Android remains Stripe checkout (web) for now.
       plans = [
         PlanOption(
-          id: 'plus_monthly',
-          serverPlanId: 'plus',
-          billingInterval: 'monthly',
-          name: context.l10n.monthly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionMonthlyPrice,
-          tagline: context.l10n.paywallPlanMonthlyTagline,
-        ),
-        PlanOption(
           id: 'plus_yearly',
           serverPlanId: 'plus',
           billingInterval: 'yearly',
@@ -549,6 +540,15 @@ class PaywallScreen extends HookConsumerWidget {
           tagline: context.l10n.paywallPlanYearlyTagline,
           isPopular: true,
           badgeText: context.l10n.paywallBadgeSave50,
+        ),
+        PlanOption(
+          id: 'plus_monthly',
+          serverPlanId: 'plus',
+          billingInterval: 'monthly',
+          name: context.l10n.monthly,
+          storePrice: null,
+          displayPriceUsd: Constants.subscriptionMonthlyPrice,
+          tagline: context.l10n.paywallPlanMonthlyTagline,
         ),
         PlanOption(
           id: 'lifetime',

@@ -302,7 +302,6 @@ GoRouter router(RouterRef ref) {
       try {
         AuthLogoutDebugTelemetry.rememberRoute(state.matchedLocation);
         final auth = ref.read(authProvider);
-        final subscriptionGateStatus = ref.read(subscriptionGateStatusProvider);
         final subscriptionAsync = ref.read(subscriptionNotifierProvider);
         final prefs = ref.read(sharedPreferencesProvider);
         final previewMode = ref.read(previewModeProvider);
@@ -361,46 +360,17 @@ GoRouter router(RouterRef ref) {
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
-        final isOnPlanSelectionPage =
-            state.matchedLocation == '/plan-selection';
         final isOnErrorPage = state.matchedLocation == '/error';
 
         if (kDebugMode) {
           debugPrint(
-              '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, subGate=$subscriptionGateStatus, path=${state.matchedLocation}');
+              '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, path=${state.matchedLocation}');
         }
 
-        final requiresPaywall = subscriptionGateStatus.requiresPaywall;
-        final isSubscriptionChecking = subscriptionGateStatus.isLoading;
-        final hasExpiredEntitlement = subscriptionAsync.maybeWhen(
-          data: (subscription) {
-            if (subscription == null) return false;
-            final status = (subscription.status ?? '').toLowerCase();
-            if (status != 'trialing' && status != 'active') return false;
-            final endAt = subscription.currentPeriodEnd;
-            if (endAt == null) return false;
-            return !endAt.isAfter(DateTime.now());
-          },
+        final hasActiveSubscription = subscriptionAsync.maybeWhen(
+          data: (subscription) => subscription?.isSubscribed ?? false,
           orElse: () => false,
         );
-        final everSubscribed = isAuthenticated
-            ? (prefs.getBool('ever_subscribed:${auth.uid}') ?? false)
-            : false;
-        final paywallRedirect = everSubscribed || hasExpiredEntitlement
-            ? '/paywall?mode=resubscribe'
-            : '/paywall?mode=trial';
-        final trialRepairRedirect = !everSubscribed && !hasExpiredEntitlement
-            ? '/onboarding?stage=prepare'
-            : paywallRedirect;
-        if (kDebugMode) {
-          debugPrint(
-            '💳 Paywall gate: requiresPaywall=$requiresPaywall '
-            'isSubscriptionChecking=$isSubscriptionChecking '
-            'hasExpiredEntitlement=$hasExpiredEntitlement '
-            'everSubscribed=$everSubscribed redirect=$paywallRedirect '
-            'path=${state.matchedLocation}',
-          );
-        }
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
         if (appInitStateV2.state == AppInitState.failed &&
@@ -429,10 +399,6 @@ GoRouter router(RouterRef ref) {
             // Always check onboarding first
             if (!hasOnboarded) {
               return '/onboarding?stage=post';
-            }
-            if (!isSubscriptionChecking &&
-                (requiresPaywall || hasExpiredEntitlement)) {
-              return trialRepairRedirect;
             }
             return '/dashboard';
           } else {
@@ -489,10 +455,6 @@ GoRouter router(RouterRef ref) {
             );
           }
 
-          if (!isSubscriptionChecking &&
-              (requiresPaywall || hasExpiredEntitlement)) {
-            return trialRepairRedirect;
-          }
           return '/dashboard';
         }
 
@@ -529,29 +491,10 @@ GoRouter router(RouterRef ref) {
         // App lock is enforced as a root overlay in App.builder. Do not route
         // to /app-lock here or imperative child Navigator stacks are replaced.
 
-        // Allow paywall page only while the router-facing subscription gate
-        // still requires it. If a purchase just activated, leave paywall even
-        // if the widget-level navigation did not run.
+        // Leave paywall after access activates. Free/expired users may open it
+        // manually from feature locks or membership settings.
         if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
-          if (!isSubscriptionChecking &&
-              requiresPaywall &&
-              !everSubscribed &&
-              !hasExpiredEntitlement) {
-            return '/onboarding?stage=prepare';
-          }
-          if (!isSubscriptionChecking &&
-              !requiresPaywall &&
-              !hasExpiredEntitlement) {
-            return '/dashboard';
-          }
-          return null;
-        }
-
-        if (!kIsWeb && isOnPlanSelectionPage && isAuthenticated) {
-          if (!isSubscriptionChecking &&
-              (requiresPaywall || hasExpiredEntitlement)) {
-            return trialRepairRedirect;
-          }
+          if (hasActiveSubscription) return '/dashboard';
           return null;
         }
 
@@ -577,25 +520,7 @@ GoRouter router(RouterRef ref) {
           if (!hasOnboarded) {
             return '/onboarding?stage=post';
           }
-          if (!isSubscriptionChecking &&
-              (requiresPaywall || hasExpiredEntitlement)) {
-            return trialRepairRedirect;
-          }
           return '/dashboard';
-        }
-
-        if (!isPreview &&
-            !kIsWeb &&
-            isAuthenticated &&
-            isPreauthSynced &&
-            hasOnboarded &&
-            !isSubscriptionChecking &&
-            (requiresPaywall || hasExpiredEntitlement) &&
-            !isOnPaywallPage &&
-            !isOnPlanSelectionPage &&
-            !isOnboardingPage &&
-            !isOnPrepareOnboardingPage) {
-          return trialRepairRedirect;
         }
 
         // Allow navigation (includes when subscription is loading)

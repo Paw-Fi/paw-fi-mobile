@@ -23,6 +23,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -124,7 +125,12 @@ Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
         .refresh()
         .timeout(_kSubscriptionRefreshTimeout);
 
-    return await _hasSubscriptionRow(userId) == true;
+    final granted = await _hasSubscriptionRow(userId) == true;
+    if (granted) {
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(trialWelcomePendingKey(userId), true);
+    }
+    return granted;
   } catch (error, stackTrace) {
     debugPrint(
       '[OnboardingPostAuth] Free trial activation failed: $error\n$stackTrace',
@@ -149,6 +155,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
     final selectedImportApp = useState<String>('YNAB');
+    final recordedImportApp = useState<String?>(null);
     final selectedExpenseSource = useState(_ExpenseCaptureSource.textAudio);
     final loggedExpensePreview =
         useState<OnboardingLoggedExpensePreview?>(null);
@@ -246,6 +253,22 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
     Future<void> handleImportExpenses() async {
       final notUsingAnApp = context.l10n.notUsingAnApp;
+      final appName = selectedImportApp.value;
+      if (recordedImportApp.value != appName) {
+        try {
+          await supabase.from('onboarding_heard_about_responses').insert({
+            'source': 'budgeting_app_import',
+            'source_label': appName,
+            'other_text': null,
+          });
+          recordedImportApp.value = appName;
+        } catch (error, stackTrace) {
+          debugPrint(
+            '[OnboardingPostAuth] Import app selection tracking failed: $error\n$stackTrace',
+          );
+        }
+      }
+
       if (selectedImportApp.value == notUsingAnApp) {
         next();
         return;

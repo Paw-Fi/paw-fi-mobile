@@ -54,6 +54,7 @@ class BankSyncReviewAccount {
     required this.walletName,
     required this.walletIcon,
     required this.walletColor,
+    required this.walletLogoUrl,
     required this.goalAmountCents,
     required this.openingBalanceCents,
     required this.isDefault,
@@ -70,6 +71,7 @@ class BankSyncReviewAccount {
   final String walletName;
   final String walletIcon;
   final String walletColor;
+  final String? walletLogoUrl;
   final int? goalAmountCents;
   final int openingBalanceCents;
   final bool isDefault;
@@ -80,6 +82,7 @@ class BankSyncReviewAccount {
   }) {
     final linkedWallet = json['linkedWallet'] as Map<String, dynamic>?;
     final defaultName = _normalizeString(json['name']) ?? defaultAccountName;
+    final linkedWalletLogoUrl = _normalizeString(linkedWallet?['logo_url']);
 
     return BankSyncReviewAccount(
       bankAccountId: _normalizeString(json['id']) ?? '',
@@ -97,8 +100,14 @@ class BankSyncReviewAccount {
             type: _normalizeString(json['type']),
             subtype: _normalizeString(json['subtype']),
           ),
-      walletColor:
-          _normalizeString(linkedWallet?['color']) ?? _defaultWalletColor(json),
+      walletColor: _normalizeString(linkedWallet?['color']) ??
+          _normalizeHexColor(json['institutionPrimaryColor']) ??
+          _normalizeHexColor(json['institution_primary_color']) ??
+          _defaultWalletColor(json),
+      walletLogoUrl: linkedWallet != null
+          ? linkedWalletLogoUrl
+          : _normalizeString(json['institutionLogoUrl']) ??
+              _normalizeString(json['institution_logo_url']),
       goalAmountCents: (linkedWallet?['goal_amount_cents'] as num?)?.round(),
       openingBalanceCents:
           (linkedWallet?['opening_balance_cents'] as num?)?.round() ?? 0,
@@ -122,6 +131,8 @@ class BankSyncReviewAccount {
     String? walletName,
     String? walletIcon,
     String? walletColor,
+    String? walletLogoUrl,
+    bool includeWalletLogoUrl = false,
     int? goalAmountCents,
     int? openingBalanceCents,
     bool? isDefault,
@@ -138,6 +149,9 @@ class BankSyncReviewAccount {
       walletName: walletName ?? this.walletName,
       walletIcon: walletIcon ?? this.walletIcon,
       walletColor: walletColor ?? this.walletColor,
+      walletLogoUrl: includeWalletLogoUrl
+          ? walletLogoUrl
+          : (walletLogoUrl ?? this.walletLogoUrl),
       goalAmountCents: goalAmountCents ?? this.goalAmountCents,
       openingBalanceCents: openingBalanceCents ?? this.openingBalanceCents,
       isDefault: isDefault ?? this.isDefault,
@@ -149,6 +163,14 @@ String? _normalizeString(dynamic value) {
   if (value == null) return null;
   final result = value.toString().trim();
   return result.isEmpty ? null : result;
+}
+
+String? _normalizeHexColor(dynamic value) {
+  final normalized = _normalizeString(value);
+  if (normalized == null) return null;
+  final hex = normalized.startsWith('#') ? normalized.substring(1) : normalized;
+  if (!RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(hex)) return null;
+  return '#${hex.toUpperCase()}';
 }
 
 String _defaultWalletIcon({

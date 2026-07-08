@@ -55,12 +55,15 @@ import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_settings_tile.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -218,6 +221,7 @@ class SettingsPage extends HookConsumerWidget {
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final subscription = subscriptionAsync.valueOrNull?.subscription;
+    final canUsePlusFeatures = hasPremiumFeatureAccess(subscription);
     final appLockState = ref.watch(appLockControllerProvider);
     final appLockConfigured = appLockState.isConfigured;
     final biometricAvailability = appLockState.biometricAvailability;
@@ -498,7 +502,38 @@ class SettingsPage extends HookConsumerWidget {
 
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
-    final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
+    final selectedSupportedLocale =
+        _coerceToSupported(selectedLocale, supportedLocales);
+    final localeOptions = <_LocalePickerOption>[
+      _LocalePickerOption(
+        locale: null,
+        label: context.l10n.systemDefault,
+      ),
+      ...supportedLocales.map(
+        (locale) => _LocalePickerOption(
+          locale: locale,
+          label: _displayLocaleName(locale),
+        ),
+      ),
+    ];
+    final selectedLocaleOption = localeOptions.firstWhere(
+      (option) {
+        final locale = option.locale;
+        if (locale == null) {
+          return selectedSupportedLocale == null;
+        }
+        if (selectedSupportedLocale == null) {
+          return false;
+        }
+        return locale.languageCode.toLowerCase() ==
+                selectedSupportedLocale.languageCode.toLowerCase() &&
+            (locale.countryCode ?? '').toUpperCase() ==
+                (selectedSupportedLocale.countryCode ?? '').toUpperCase();
+      },
+      orElse: () => localeOptions.first,
+    );
+    final localeDisplay = selectedLocaleOption.label;
+    final themeDisplay = _themeModeLabel(context, currentTheme);
     final canonicalSelectedTimezone =
         canonicalTimezoneValue(selectedTimezone.value);
     final isLegacyTimezone =
@@ -1231,14 +1266,19 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.lock_rounded,
                         label: context.l10n.appLock,
-                        value: appLockConfigured
-                            ? context.l10n.appLockOnStatus
-                            : context.l10n.appLockOffStatus,
+                        isLocked: !canUsePlusFeatures,
+                        onTap: !canUsePlusFeatures
+                            ? () => PlusLockedSheet.show(
+                                  context,
+                                  highlightedFeature: PlusFeature.appLock,
+                                )
+                            : null,
                         trailing: Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: AdaptiveSwitch(
                             value: appLockSwitchValue.value,
-                            onChanged: isAppLockSetupInProgress.value
+                            onChanged: isAppLockSetupInProgress.value ||
+                                    !canUsePlusFeatures
                                 ? null
                                 : (value) => handleAppLockToggle(value),
                           ),
@@ -1310,71 +1350,52 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.language_rounded,
                         label: context.l10n.language,
-                        valueWidget: DropdownButtonHideUnderline(
-                          child: DropdownButton<Locale?>(
-                            isDense: true,
-                            alignment: Alignment.centerRight,
-                            icon: Row(
-                              children: [
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: Colors.grey.withValues(alpha: 0.6),
-                                ),
-                              ],
-                            ),
-                            dropdownColor: isDarkMode
-                                ? const Color(0xFF2C2C2E)
-                                : Colors.white,
-                            value: dropdownValue,
-                            items: [
-                              DropdownMenuItem<Locale?>(
-                                value: null,
-                                child: Text(
-                                  context.l10n.systemDefault,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                ),
-                              ),
-                              ...supportedLocales.map(
-                                (locale) => DropdownMenuItem<Locale?>(
-                                  value: locale,
-                                  child: Text(
-                                    _displayLocaleName(locale),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) async {
-                              final localeNotifier =
-                                  ref.read(localeProvider.notifier);
-                              if (value == null) {
-                                await localeNotifier.setSystem();
-                              } else {
-                                await localeNotifier.setLocale(value);
-                              }
+                        value: localeDisplay,
+                        onTap: () async {
+                          final pickedOption =
+                              await MonekoListPicker.show<_LocalePickerOption>(
+                            context: context,
+                            items: localeOptions,
+                            initial: selectedLocaleOption,
+                            title: context.l10n.language,
+                            labelBuilder: (option) => option.label,
+                          );
+                          if (pickedOption == null) return;
 
-                              if (authState.uid.isNotEmpty) {
-                                await ref
-                                    .read(preferredLanguageSyncServiceProvider)
-                                    .syncForUserSafely(
-                                      userId: authState.uid,
-                                      locale: value == null
-                                          ? await resolveEffectiveAppLocale()
-                                          : normalizeAppLocale(value),
-                                      force: true,
-                                    );
-                              }
-                            },
-                          ),
-                        ),
+                          final localeNotifier =
+                              ref.read(localeProvider.notifier);
+                          final pickedLocale = pickedOption.locale;
+                          final unchanged = pickedLocale == null
+                              ? selectedSupportedLocale == null
+                              : selectedSupportedLocale != null &&
+                                  pickedLocale.languageCode.toLowerCase() ==
+                                      selectedSupportedLocale.languageCode
+                                          .toLowerCase() &&
+                                  (pickedLocale.countryCode ?? '')
+                                          .toUpperCase() ==
+                                      (selectedSupportedLocale.countryCode ??
+                                              '')
+                                          .toUpperCase();
+                          if (unchanged) return;
+
+                          if (pickedLocale == null) {
+                            await localeNotifier.setSystem();
+                          } else {
+                            await localeNotifier.setLocale(pickedLocale);
+                          }
+
+                          if (authState.uid.isNotEmpty) {
+                            await ref
+                                .read(preferredLanguageSyncServiceProvider)
+                                .syncForUserSafely(
+                                  userId: authState.uid,
+                                  locale: pickedLocale == null
+                                      ? await resolveEffectiveAppLocale()
+                                      : normalizeAppLocale(pickedLocale),
+                                  force: true,
+                                );
+                          }
+                        },
                       ),
                       _SettingsTile(
                         icon: Icons.public_rounded,
@@ -1415,47 +1436,25 @@ class SettingsPage extends HookConsumerWidget {
                             ? Icons.dark_mode_rounded
                             : Icons.light_mode_rounded,
                         label: context.l10n.appearance,
-                        valueWidget: DropdownButtonHideUnderline(
-                          child: DropdownButton<ThemeMode>(
-                            isDense: true,
-                            alignment: Alignment.centerRight,
-                            icon: Row(
-                              children: [
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: colorScheme.mutedForeground
-                                      .withValues(alpha: 0.6),
-                                ),
-                              ],
-                            ),
-                            dropdownColor: colorScheme.sheetBackground,
-                            value: currentTheme,
-                            items: ThemeMode.values
-                                .map(
-                                  (mode) => DropdownMenuItem<ThemeMode>(
-                                    value: mode,
-                                    child: Text(
-                                      _themeModeLabel(context, mode),
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              if (value == null || value == currentTheme) {
-                                return;
-                              }
-                              ref
-                                  .read(themeModeProvider.notifier)
-                                  .setThemeMode(value);
-                            },
-                          ),
-                        ),
+                        value: themeDisplay,
+                        onTap: () async {
+                          final pickedTheme =
+                              await MonekoListPicker.show<ThemeMode>(
+                            context: context,
+                            items: ThemeMode.values,
+                            initial: currentTheme,
+                            title: context.l10n.appearance,
+                            labelBuilder: (mode) =>
+                                _themeModeLabel(context, mode),
+                          );
+                          if (pickedTheme == null ||
+                              pickedTheme == currentTheme) {
+                            return;
+                          }
+                          ref
+                              .read(themeModeProvider.notifier)
+                              .setThemeMode(pickedTheme);
+                        },
                       ),
                       _SettingsTile(
                         icon: Icons.category_rounded,
@@ -1529,37 +1528,55 @@ class SettingsPage extends HookConsumerWidget {
                         context.push('/import');
                       },
                     ),
-                    if (hasPremiumFeatureAccess(subscription))
-                      _SettingsTile(
-                        icon: Icons.currency_exchange_rounded,
-                        label: context.l10n.currencyConverter,
-                        value: "",
-                        onTap: () {
-                          context.push('/currency-rates');
-                        },
-                      ),
+                    _SettingsTile(
+                      icon: Icons.currency_exchange_rounded,
+                      label: context.l10n.currencyConverter,
+                      isLocked: !canUsePlusFeatures,
+                      onTap: () {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.currencyConverter,
+                          );
+                          return;
+                        }
+                        context.push('/currency-rates');
+                      },
+                    ),
                     _SettingsTile(
                       icon: Icons.forward_to_inbox_rounded,
                       label: context.l10n.emailFileImportEnableSwitchTitle,
-                      valueWidget: FutureBuilder<bool>(
-                        future: emailImportEnabledFuture,
-                        builder: (context, snapshot) {
-                          final isEnabled = snapshot.data ?? false;
-                          return Text(
-                            isEnabled
-                                ? context.l10n.activeStatus
-                                : context.l10n.tapToSet,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.mutedForeground,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        },
-                      ),
+                      isLocked: !canUsePlusFeatures,
+                      valueWidget: canUsePlusFeatures
+                          ? FutureBuilder<bool>(
+                              future: emailImportEnabledFuture,
+                              builder: (context, snapshot) {
+                                final isEnabled = snapshot.data ?? false;
+                                return Text(
+                                  isEnabled
+                                      ? context.l10n.activeStatus
+                                      : context.l10n.tapToSet,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                );
+                              },
+                            )
+                          : null,
                       onTap: () {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.emailReceiptImport,
+                          );
+                          return;
+                        }
                         Navigator.of(context)
                             .push(
                               MaterialPageRoute<void>(
@@ -1585,10 +1602,19 @@ class SettingsPage extends HookConsumerWidget {
                           ? context.l10n.telegramConnected
                           : context.l10n.connectTelegram,
                       value: ref.watch(telegramBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.activeStatus
-                          : context.l10n.tapToSet,
+                                  true
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
+                      isLocked: !canUsePlusFeatures,
                       onTap: () async {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.messagingAppCapture,
+                          );
+                          return;
+                        }
                         final isBound =
                             ref.read(telegramBindingProvider).valueOrNull ??
                                 false;
@@ -1620,10 +1646,19 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                       label: context.l10n.whatsAppConnected,
                       value: ref.watch(whatsAppBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.activeStatus
-                          : context.l10n.tapToSet,
+                                  true
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
+                      isLocked: !canUsePlusFeatures,
                       onTap: () async {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.messagingAppCapture,
+                          );
+                          return;
+                        }
                         final tileContext = context;
                         final canProceed = await guardRestrictedRegion();
                         if (!canProceed) {
@@ -1656,26 +1691,36 @@ class SettingsPage extends HookConsumerWidget {
                       label: Platform.isIOS
                           ? context.l10n.applePayIntegration
                           : context.l10n.autoTransactionCapture,
-                      value: null,
-                      valueWidget: FutureBuilder<bool>(
-                        future: walletCaptureEnabledFuture,
-                        builder: (context, snapshot) {
-                          final isEnabled = snapshot.data ?? false;
-                          return Text(
-                            isEnabled
-                                ? context.l10n.activeStatus
-                                : context.l10n.tapToSet,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        },
-                      ),
+                      isLocked: !canUsePlusFeatures,
+                      valueWidget: canUsePlusFeatures
+                          ? FutureBuilder<bool>(
+                              future: walletCaptureEnabledFuture,
+                              builder: (context, snapshot) {
+                                final isEnabled = snapshot.data ?? false;
+                                return Text(
+                                  isEnabled
+                                      ? context.l10n.activeStatus
+                                      : context.l10n.tapToSet,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                );
+                              },
+                            )
+                          : null,
                       onTap: () {
+                        if (!canUsePlusFeatures) {
+                          PlusLockedSheet.show(
+                            context,
+                            highlightedFeature:
+                                PlusFeature.messagingAppCapture,
+                          );
+                          return;
+                        }
                         if (Platform.isIOS) {
                           Navigator.of(context)
                               .push(
@@ -2786,6 +2831,7 @@ CompressFormat _compressFormatForExtension(String path) {
     case 'webp':
       return CompressFormat.webp;
     case 'heic':
+    case 'heif':
       return CompressFormat.heic;
     default:
       return CompressFormat.jpeg;
@@ -2809,6 +2855,7 @@ String _inferMimeType(String fileName) {
     case 'webp':
       return 'image/webp';
     case 'heic':
+    case 'heif':
       return 'image/heic';
     case 'jpeg':
     case 'jpg':
@@ -2836,20 +2883,6 @@ Future<File?> _pickAndCropAvatarImage(
     );
 
     if (image == null) return null;
-
-    final file = File(image.path);
-    final fileSize = await file.length();
-
-    if (!StorageConfig.isValidFileSize(fileSize)) {
-      if (context.mounted) {
-        AppToast.error(
-          context,
-          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
-          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-        );
-      }
-      return null;
-    }
 
     if (!context.mounted) return null;
 
@@ -2894,18 +2927,6 @@ Future<File?> _pickAndCropAvatarImage(
     if (!await outputFile.exists()) {
       if (context.mounted) {
         AppToast.error(context, context.l10n.failedToSaveAvatar);
-      }
-      return null;
-    }
-
-    final outputFileSize = await outputFile.length();
-    if (!StorageConfig.isValidFileSize(outputFileSize)) {
-      if (context.mounted) {
-        AppToast.error(
-          context,
-          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(outputFileSize)}). '
-          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-        );
       }
       return null;
     }
@@ -2960,15 +2981,6 @@ Future<void> _uploadAndSaveAvatar(
       return;
     }
 
-    final fileSize = await imageFile.length();
-
-    if (!StorageConfig.isValidFileSize(fileSize)) {
-      errorToastMessage =
-          '${l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
-          '${l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.';
-      return;
-    }
-
     if (context.mounted) {
       try {
         await Future<void>.delayed(Duration.zero);
@@ -2984,17 +2996,24 @@ Future<void> _uploadAndSaveAvatar(
       }
     }
 
-    final path = '${user.id}/avatar.png';
+    final path = '${user.id}/avatar.jpg';
+    final imageBytes = await ImageCompressor.compressFile(
+      imageFile,
+      config: ImageCompressConfig.profileAvatar,
+    );
+    if (!StorageConfig.isValidFileSize(imageBytes.length)) {
+      errorToastMessage =
+          '${l10n.imageTooLarge} (${StorageConfig.getFileSizeString(imageBytes.length)}). '
+          '${l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.';
+      return;
+    }
 
-    // Read file bytes for deterministic hash computation
-    final imageBytes = await imageFile.readAsBytes();
-
-    await client.storage.from('avatars').upload(
+    await client.storage.from('avatars').uploadBinary(
           path,
-          imageFile,
+          imageBytes,
           fileOptions: const FileOptions(
             upsert: true,
-            contentType: 'image/png',
+            contentType: 'image/jpeg',
             cacheControl: '31536000',
           ),
         );
@@ -3255,6 +3274,7 @@ class _SettingsTile extends StatelessWidget {
     this.iconColor,
     this.onTap,
     this.showChevron = true,
+    this.isLocked = false,
   });
 
   final IconData? icon;
@@ -3267,61 +3287,22 @@ class _SettingsTile extends StatelessWidget {
   final Color? iconColor;
   final VoidCallback? onTap;
   final bool showChevron;
+  final bool isLocked;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.onSurface.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: customIcon ??
-                    Icon(
-                      icon,
-                      size: 20,
-                      color: iconColor ?? colorScheme.onSurface,
-                    ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: label == "Email" ? 1 : 4,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: labelColor ?? colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              if (valueWidget != null) valueWidget!,
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ] else if (showChevron && onTap != null) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: Colors.grey.withValues(alpha: 0.4),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return MonekoSettingsTile(
+      icon: icon,
+      customIcon: customIcon,
+      label: label,
+      labelColor: labelColor,
+      value: value,
+      valueWidget: valueWidget,
+      trailing: trailing,
+      iconColor: iconColor,
+      onTap: onTap,
+      showChevron: showChevron,
+      isLocked: isLocked,
     );
   }
 }
@@ -3332,6 +3313,16 @@ String _formatOffsetMinutes(int offsetMinutes) {
   final hours = (absMinutes ~/ 60).toString().padLeft(2, '0');
   final minutes = (absMinutes % 60).toString().padLeft(2, '0');
   return '$sign$hours:$minutes';
+}
+
+class _LocalePickerOption {
+  const _LocalePickerOption({
+    required this.locale,
+    required this.label,
+  });
+
+  final Locale? locale;
+  final String label;
 }
 
 class _TimezoneOption {

@@ -10,6 +10,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -447,14 +448,53 @@ class PocketDetailsPage extends HookConsumerWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (pocket.icon != null) ...[
+                                if (pocket.icon != null || pocket.logoUrl != null) ...[
                                   AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
-                                    child: Icon(
-                                      getPocketIconData(pocket.icon),
-                                      key: ValueKey(pocket.icon),
-                                      size: 28,
-                                      color: textColor,
+                                    child: Builder(
+                                      key: ValueKey(pocket.logoUrl ?? pocket.icon),
+                                      builder: (context) {
+                                        final trimmedLogoUrl = pocket.logoUrl?.trim();
+                                        final iconData = pocket.icon != null
+                                            ? getPocketIconData(pocket.icon)
+                                            : null;
+                                        final cacheSize =
+                                            (28 * MediaQuery.of(context).devicePixelRatio).round();
+
+                                        if (trimmedLogoUrl != null &&
+                                            trimmedLogoUrl.isNotEmpty) {
+                                          return SizedBox(
+                                            width: 28,
+                                            height: 28,
+                                            child: ClipOval(
+                                              child: Image.network(
+                                                trimmedLogoUrl,
+                                                fit: BoxFit.contain,
+                                                cacheWidth: cacheSize,
+                                                cacheHeight: cacheSize,
+                                                errorBuilder: (_, __, ___) =>
+                                                    iconData != null
+                                                        ? Icon(
+                                                            iconData,
+                                                            size: 28,
+                                                            color: textColor,
+                                                          )
+                                                        : const SizedBox.shrink(),
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        if (iconData != null) {
+                                          return Icon(
+                                            iconData,
+                                            size: 28,
+                                            color: textColor,
+                                          );
+                                        }
+
+                                        return const SizedBox.shrink();
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -474,7 +514,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              context.l10n.monthlyBudget,
+                              context.l10n.pocketRolloverRemainingLabel,
                               style: TextStyle(
                                 fontSize: 14,
                                 color: secondaryTextColor,
@@ -498,7 +538,8 @@ class PocketDetailsPage extends HookConsumerWidget {
                             _AnimatedAmountText(
                               value: limit,
                               currencyCode: effectiveCurrency,
-                              suffix: 'allocated',
+                              suffix: context
+                                  .l10n.pocketRolloverAvailableBudgetLabel,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: secondaryTextColor,
@@ -551,12 +592,20 @@ class PocketDetailsPage extends HookConsumerWidget {
                             children: [
                               Text(
                                 context.l10n.keyInsights,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.mutedForeground,
                                 ),
                               ),
                               const SizedBox(height: 16),
+                              if (pocket.rolloverEnabled) ...[
+                                _RolloverSummaryButton(
+                                  pocket: pocket,
+                                  currency: effectiveCurrency,
+                                  detailsData: detailsData,
+                                ),
+                              ],
                               _StatsGrid(
                                 spent: pocket.spent,
                                 dailyAverage: detailsData.dailyAverage,
@@ -611,9 +660,10 @@ class PocketDetailsPage extends HookConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
                         child: Text(
                           context.l10n.recentTransactions,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.mutedForeground,
                           ),
                         ),
                       ),
@@ -754,6 +804,1116 @@ String _formatLocalizedCurrency(
   return '$symbol$localized';
 }
 
+String _formatSignedLocalizedCurrencyCents(
+  BuildContext context,
+  int cents,
+  String currency,
+) {
+  final sign = cents < 0 ? '-' : '+';
+  return '$sign${_formatLocalizedCurrency(context, cents.abs() / 100.0, currency)}';
+}
+
+class _RolloverSummaryButton extends StatelessWidget {
+  const _RolloverSummaryButton({
+    required this.pocket,
+    required this.currency,
+    required this.detailsData,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+  final PocketDetailsData? detailsData;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rolloverAdjustmentCents =
+        pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
+
+    if (rolloverAdjustmentCents == 0 && !pocket.rolloverEnabled) {
+      return const SizedBox.shrink();
+    }
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            backgroundColor: colorScheme.surface,
+            builder: (context) => _RolloverDetailsSheet(
+              pocket: pocket,
+              currency: currency,
+              detailsData: detailsData,
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+            
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.pocketRolloverBreakdownTitle,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                _formatSignedLocalizedCurrencyCents(
+                  context,
+                  rolloverAdjustmentCents,
+                  currency,
+                ),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: rolloverAdjustmentCents < 0
+                      ? colorScheme.error
+                      : colorScheme.success,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colorScheme.mutedForeground,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RolloverDetailsSheet extends StatelessWidget {
+  const _RolloverDetailsSheet({
+    required this.pocket,
+    required this.currency,
+    required this.detailsData,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+  final PocketDetailsData? detailsData;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.sheetBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 24),
+                  width: 36,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: colorScheme.sheetHandle,
+                    borderRadius: BorderRadius.circular(2.5),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        context.l10n.pocketRolloverBreakdownTitle,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      _BudgetBreakdownCard(
+                        pocket: pocket,
+                        currency: currency,
+                      ),
+                      if (pocket.hasRolloverBreakdown) ...[
+                        const SizedBox(height: 16),
+                        if (detailsData?.rolloverBreakdown != null)
+                          RolloverContributionCard(
+                            breakdown: detailsData!.rolloverBreakdown!,
+                            currency: currency,
+                          )
+                        else
+                          _RolloverActivityCard(
+                            pocket: pocket,
+                            currency: currency,
+                          ),
+                      ],
+                      const SizedBox(height: 16),
+                      _NextRolloverPreviewCard(
+                        pocket: pocket,
+                        currency: currency,
+                        breakdown: detailsData?.rolloverBreakdown,
+                      ),
+                      if (detailsData != null && detailsData!.rolloverHistory.length > 1) ...[
+                        const SizedBox(height: 16),
+                        _RolloverHistoryCard(
+                          history: detailsData!.rolloverHistory,
+                          currency: currency,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BudgetBreakdownCard extends StatelessWidget {
+  const _BudgetBreakdownCard({
+    required this.pocket,
+    required this.currency,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rolloverAdjustmentCents =
+        pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.account_balance_wallet_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.pocketRolloverAvailableBudgetLabel,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _formatLocalizedCurrency(
+              context,
+              pocket.availableBudget,
+              currency,
+            ),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _StatItem(
+                label: context.l10n.pocketRolloverBaseBudgetLabel,
+                value: _formatLocalizedCurrency(
+                  context,
+                  pocket.baseBudget,
+                  currency,
+                ),
+                valueColor: colorScheme.foreground,
+              ),
+              _StatItem(
+                label: context.l10n.pocketRolloverLabel,
+                value: _formatSignedLocalizedCurrencyCents(
+                  context,
+                  rolloverAdjustmentCents,
+                  currency,
+                ),
+                valueColor: rolloverAdjustmentCents < 0
+                    ? colorScheme.error
+                    : colorScheme.success,
+                crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            height: 1,
+            color: colorScheme.border.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _StatItem(
+                label: context.l10n.pocketRolloverSpentLabel,
+                value: _formatLocalizedCurrency(context, pocket.spent, currency),
+                valueColor: colorScheme.foreground,
+              ),
+              _StatItem(
+                label: context.l10n.pocketRolloverRemainingLabel,
+                value: _formatLocalizedCurrency(
+                  context,
+                  pocket.remaining,
+                  currency,
+                ),
+                valueColor: pocket.remainingCents < 0
+                    ? colorScheme.error
+                    : colorScheme.foreground,
+                crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RolloverActivityCard extends StatelessWidget {
+  const _RolloverActivityCard({
+    required this.pocket,
+    required this.currency,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rows = <Widget>[
+      if (pocket.rolloverFromPreviousCents != 0)
+        _ActivityRow(
+          label: context.l10n.pocketRolloverCarryOverFromPreviousMonthLabel,
+          valueCents: pocket.rolloverFromPreviousCents,
+          currency: currency,
+          valueColor: pocket.rolloverFromPreviousCents < 0
+              ? colorScheme.error
+              : colorScheme.success,
+        ),
+      if (pocket.openingRolloverCents != 0)
+        _ActivityRow(
+          label: context.l10n.pocketRolloverOpeningLabel,
+          valueCents: pocket.openingRolloverCents,
+          currency: currency,
+          valueColor: pocket.openingRolloverCents < 0
+              ? colorScheme.error
+              : colorScheme.success,
+        ),
+    ];
+
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.event_repeat_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.pocketRolloverActivityTitle,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          for (int i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i < rows.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Container(
+                  height: 1,
+                  color: colorScheme.border.withValues(alpha: 0.5),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class RolloverContributionCard extends StatelessWidget {
+  const RolloverContributionCard({
+    super.key,
+    required this.breakdown,
+    required this.currency,
+  });
+
+  final PocketRolloverBreakdown breakdown;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rows = breakdown.explanationRows;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: Container(
+        key: ValueKey(rows.length),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: colorScheme.sheetElementBackground,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.account_tree_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  context.l10n.pocketRolloverContributionTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _formatSignedLocalizedCurrencyCents(
+                context,
+                breakdown.currentRolloverTotalCents,
+                currency,
+              ),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -1,
+                color: breakdown.currentRolloverTotalCents < 0
+                    ? colorScheme.error
+                    : colorScheme.success,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.pocketRolloverContributionDescription,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 32),
+            if (rows.isEmpty)
+              Text(
+                context.l10n.pocketRolloverContributionEmpty,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                ),
+              )
+            else
+              for (int i = 0; i < rows.length; i++) ...[
+                _RolloverContributionRow(
+                  contribution: rows[i],
+                  currency: currency,
+                ),
+                if (i < rows.length - 1)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Container(
+                      height: 1,
+                      color: colorScheme.border.withValues(alpha: 0.5),
+                    ),
+                  ),
+              ],
+            if (breakdown.warnings.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              _RolloverWarningBanner(warning: breakdown.warnings.first),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RolloverContributionRow extends StatelessWidget {
+  const _RolloverContributionRow({
+    required this.contribution,
+    required this.currency,
+  });
+
+  final PocketRolloverContribution contribution;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isNegative = contribution.amountCents < 0;
+    final icon = switch (contribution.sourceType) {
+      'opening' => Icons.flag_rounded,
+      'cap_adjustment' => Icons.compress_rounded,
+      'negative_dropped' => Icons.block_rounded,
+      'month_deficit' => Icons.trending_down_rounded,
+      'reset' => Icons.restart_alt_rounded,
+      _ => Icons.add_rounded,
+    };
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: (isNegative ? colorScheme.error : colorScheme.success)
+                .withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: isNegative ? colorScheme.error : colorScheme.success,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _contributionLabel(context, contribution),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              if (contribution.reason?.isNotEmpty == true) ...[
+                const SizedBox(height: 4),
+                Text(
+                  contribution.reason!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.3,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Text(
+          _formatSignedLocalizedCurrencyCents(
+            context,
+            contribution.amountCents,
+            currency,
+          ),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: isNegative ? colorScheme.error : colorScheme.success,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RolloverWarningBanner extends StatelessWidget {
+  const _RolloverWarningBanner({required this.warning});
+
+  final PocketRolloverWarning warning;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.warningSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 20,
+            color: colorScheme.warning,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              warning.message.isEmpty
+                  ? context.l10n.pocketRolloverMissingMonthWarning
+                  : warning.message,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NextRolloverPreviewCard extends StatelessWidget {
+  const _NextRolloverPreviewCard({
+    required this.pocket,
+    required this.currency,
+    this.breakdown,
+  });
+
+  final PocketEnvelope pocket;
+  final String currency;
+  final PocketRolloverBreakdown? breakdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final preview = breakdown?.nextMonthPreview;
+    final rawCarryCents = preview?.rawCarryCents ?? pocket.remainingCents;
+    final nextCarryCents = preview?.carryCents ??
+        (rawCarryCents < 0 && !pocket.rolloverNegative
+            ? 0
+            : (pocket.rolloverCapCents != null && rawCarryCents > 0
+                ? rawCarryCents.clamp(0, pocket.rolloverCapCents!).toInt()
+                : rawCarryCents));
+    final wasCapped = preview?.hasCapAdjustment == true ||
+        (pocket.rolloverCapCents != null &&
+            rawCarryCents > pocket.rolloverCapCents!);
+
+    final description = preview?.hasDroppedNegative == true ||
+            (rawCarryCents < 0 && !pocket.rolloverNegative)
+        ? context.l10n.pocketRolloverNegativeNotCarriedDescription
+        : wasCapped
+            ? context.l10n.pocketRolloverCapLimitedDescription
+            : nextCarryCents == 0
+                ? context.l10n.pocketRolloverNoCarryExpectedDescription
+                : context.l10n.pocketRolloverNextMonthDescription;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.arrow_forward_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.pocketRolloverNextMonthTitle,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _formatSignedLocalizedCurrencyCents(
+              context,
+              nextCarryCents,
+              currency,
+            ),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1,
+              color: nextCarryCents < 0
+                  ? colorScheme.error
+                  : colorScheme.success,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RolloverHistoryCard extends StatelessWidget {
+  const _RolloverHistoryCard({
+    required this.history,
+    required this.currency,
+  });
+
+  final List<PocketRolloverHistoryMonth> history;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final visibleHistory =
+        history.length > 6 ? history.sublist(history.length - 6) : history;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.history_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.pocketRolloverHistoryTitle,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          _RolloverHistoryChart(
+            history: visibleHistory,
+            currency: currency,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RolloverHistoryChart extends StatelessWidget {
+  const _RolloverHistoryChart({
+    required this.history,
+    required this.currency,
+  });
+
+  final List<PocketRolloverHistoryMonth> history;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    if (history.isEmpty) return const SizedBox.shrink();
+
+    double maxY = 0;
+    for (final month in history) {
+      final available = (month.baseBudgetCents + month.rolloverFromPreviousCents + month.openingRolloverCents) / 100.0;
+      final spent = month.spentCents / 100.0;
+      if (available > maxY) maxY = available;
+      if (spent > maxY) maxY = spent;
+    }
+    if (maxY == 0) maxY = 100;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 160,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxY * 1.1,
+              minY: 0,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: maxY / 2,
+                getDrawingHorizontalLine: (value) {
+                  return FlLine(
+                    color: colorScheme.border.withValues(alpha: 0.3),
+                    strokeWidth: 1,
+                    dashArray: [4, 4],
+                  );
+                },
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (double value, TitleMeta meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= history.length) return const SizedBox.shrink();
+                      final date = history[index].periodMonth;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          _formatShortMonthLabel(context, date).substring(0, 3),
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (group) => colorScheme.surface,
+                  tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final month = history[groupIndex];
+                    final rolloverCents = month.rolloverFromPreviousCents + month.openingRolloverCents;
+                    
+                    final baseFormatted = _formatLocalizedCurrency(context, month.baseBudgetCents / 100.0, currency);
+                    final rolloverFormatted = _formatSignedLocalizedCurrencyCents(context, rolloverCents, currency);
+                    final spentFormatted = _formatLocalizedCurrency(context, month.spentCents / 100.0, currency);
+                    final remainingFormatted = _formatLocalizedCurrency(context, month.remainingCents.abs() / 100.0, currency);
+                    
+                    final summary = context.l10n.pocketRolloverHistorySummary(
+                      baseFormatted,
+                      rolloverFormatted,
+                      spentFormatted,
+                    ).replaceAll(' - ', '\n');
+
+                    return BarTooltipItem(
+                      '${_formatMonthLabel(context, month.periodMonth)}\n',
+                      TextStyle(
+                        color: colorScheme.foreground,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.left,
+                      children: [
+                        const TextSpan(text: '\n'),
+                        TextSpan(
+                          text: '$summary\n',
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: '\n',
+                          style: TextStyle(fontSize: 4),
+                        ),
+                        TextSpan(
+                          text: month.remainingCents < 0 ? '= -$remainingFormatted' : '= $remainingFormatted',
+                          style: TextStyle(
+                            color: month.remainingCents < 0 ? colorScheme.error : colorScheme.success,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              barGroups: List.generate(history.length, (index) {
+                final month = history[index];
+                final available = (month.baseBudgetCents + month.rolloverFromPreviousCents + month.openingRolloverCents) / 100.0;
+                final spent = month.spentCents / 100.0;
+                
+                final safeAvailable = available < 0 ? 0.0 : available;
+                final safeSpent = spent < 0 ? 0.0 : spent;
+                
+                final isOverspent = safeSpent > safeAvailable;
+                final toY = isOverspent ? safeSpent : safeAvailable;
+                
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: toY,
+                      width: 24,
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.transparent,
+                      rodStackItems: [
+                        if (!isOverspent && safeSpent > 0)
+                          BarChartRodStackItem(0, safeSpent, colorScheme.primary),
+                        if (!isOverspent && safeAvailable > safeSpent)
+                          BarChartRodStackItem(safeSpent, safeAvailable, colorScheme.border.withValues(alpha: 0.3)),
+                        if (isOverspent && safeAvailable > 0)
+                          BarChartRodStackItem(0, safeAvailable, colorScheme.border.withValues(alpha: 0.3)),
+                        if (isOverspent && safeSpent > safeAvailable)
+                          BarChartRodStackItem(safeAvailable, safeSpent, colorScheme.error),
+                      ],
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _ChartLegendItem(
+              color: colorScheme.border.withValues(alpha: 0.3),
+              label: context.l10n.pocketRolloverAvailableBudgetLabel,
+            ),
+            const SizedBox(width: 16),
+            _ChartLegendItem(
+              color: colorScheme.primary,
+              label: context.l10n.pocketRolloverSpentLabel,
+            ),
+            const SizedBox(width: 16),
+            _ChartLegendItem(
+              color: colorScheme.error,
+              label: context.l10n.pocketRolloverMonthOverspend(''),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ChartLegendItem extends StatelessWidget {
+  const _ChartLegendItem({required this.color, required this.label});
+  
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label.replaceAll(RegExp(r'[()]'), '').trim(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: colorScheme.mutedForeground,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+String _formatMonthLabel(BuildContext context, DateTime date) {
+  return MaterialLocalizations.of(context).formatMonthYear(date);
+}
+
+String _formatShortMonthLabel(BuildContext context, DateTime date) {
+  final label = MaterialLocalizations.of(context).formatMonthYear(date);
+  final parts = label.split(' ');
+  return parts.isEmpty ? label : parts.first;
+}
+
+String _contributionLabel(
+  BuildContext context,
+  PocketRolloverContribution contribution,
+) {
+  final month = contribution.sourcePeriodMonth == null
+      ? ''
+      : _formatShortMonthLabel(context, contribution.sourcePeriodMonth!);
+  return switch (contribution.sourceType) {
+    'opening' => context.l10n.pocketRolloverOpeningLabel,
+    'month_deficit' => context.l10n.pocketRolloverMonthOverspend(month),
+    'cap_adjustment' => context.l10n.pocketRolloverCapAdjustmentLabel,
+    'negative_dropped' => context.l10n.pocketRolloverNegativeDroppedLabel,
+    'reset' => context.l10n.pocketRolloverResetLabel,
+    _ => context.l10n.pocketRolloverMonthLeftover(month),
+  };
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.crossAxisAlignment = CrossAxisAlignment.start,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: colorScheme.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: valueColor ?? colorScheme.foreground,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({
+    required this.label,
+    required this.valueCents,
+    required this.currency,
+    required this.valueColor,
+  });
+
+  final String label;
+  final int valueCents;
+  final String currency;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.foreground,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Text(
+          _formatSignedLocalizedCurrencyCents(
+            context,
+            valueCents,
+            currency,
+          ),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _StatsGrid extends StatelessWidget {
   const _StatsGrid({
     required this.spent,
@@ -816,15 +1976,8 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: colorScheme.pocketCardSurface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         children: [
@@ -832,20 +1985,21 @@ class _StatCard extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: colorScheme.mutedForeground,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: _AnimatedAmountText(
               value: amount,
               currencyCode: currencyCode,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
                 color: colorScheme.foreground,
               ),
             ),
@@ -904,30 +2058,33 @@ class _SpendingBreakdownCard extends StatelessWidget {
     const colors = AppTheme.pocketChartPalette;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: colorScheme.pocketCardSurface,
+        color: colorScheme.sheetElementBackground,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            context.l10n.spendingBreakdown,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
+          Row(
+            children: [
+              Icon(
+                Icons.pie_chart_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.spendingBreakdown,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
@@ -939,23 +2096,23 @@ class _SpendingBreakdownCard extends StatelessWidget {
                     final item = entry.value;
                     final color = colors[index % colors.length];
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
+                      padding: const EdgeInsets.only(bottom: 12.0),
                       child: Row(
                         children: [
                           Container(
-                            width: 8,
-                            height: 8,
+                            width: 10,
+                            height: 10,
                             decoration: BoxDecoration(
                               color: color,
                               shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               getCategoryTranslation(context, item.category),
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 14,
                                 color: colorScheme.foreground,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -966,7 +2123,8 @@ class _SpendingBreakdownCard extends StatelessWidget {
                           Text(
                             '${(item.share * 100).toInt()}%',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: colorScheme.mutedForeground,
                             ),
                           ),
@@ -976,7 +2134,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
                   }).toList(),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 24),
               Expanded(
                 flex: 2,
                 child: SizedBox(
@@ -984,7 +2142,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
                   child: PieChart(
                     PieChartData(
                       sectionsSpace: 0,
-                      centerSpaceRadius: 30,
+                      centerSpaceRadius: 36,
                       sections: categorySpending.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
@@ -993,7 +2151,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
                           color: color,
                           value: item.amount,
                           title: '',
-                          radius: 30,
+                          radius: 16,
                         );
                       }).toList(),
                     ),

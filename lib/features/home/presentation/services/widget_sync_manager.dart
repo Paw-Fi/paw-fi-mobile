@@ -33,6 +33,20 @@ String _colorToHex(Color color) {
   return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
 }
 
+bool _isMissingRolloverColumnError(Object error) {
+  if (error is! PostgrestException) return false;
+  final message =
+      '${error.code} ${error.message} ${error.details} ${error.hint}'
+          .toLowerCase();
+  final mentionsRolloverColumn = message.contains('rollover_group_id') ||
+      message.contains('rollover_enabled') ||
+      message.contains('rollover_negative') ||
+      message.contains('rollover_cap_cents') ||
+      message.contains('opening_rollover_cents');
+  return mentionsRolloverColumn &&
+      (error.code == '42703' || error.code == 'PGRST204');
+}
+
 String normalizeWidgetSyncCurrency(String? currency) {
   final normalized = currency?.trim().toUpperCase();
   if (normalized == null || normalized.isEmpty) {
@@ -404,6 +418,80 @@ class WidgetSyncManager extends HookConsumerWidget {
             });
           }
 
+          Future<_BudgetPocketsSnapshot?> loadBudgetPocketsFromRpc({
+            required String scope,
+            required String? householdId,
+            required String currency,
+            required DateTime monthStart,
+            required double fallbackTotalBudget,
+          }) async {
+            try {
+              final periodMonth = monthStart.toIso8601String().substring(0, 10);
+              final response = await Supabase.instance.client.rpc(
+                'get_pockets_month_v2',
+                params: <String, dynamic>{
+                  'p_user_id': user.uid,
+                  'p_scope': scope,
+                  'p_household_id': householdId,
+                  'p_period_month': periodMonth,
+                  'p_currency': currency,
+                  'p_include_projected_recurring': true,
+                  'p_allow_currency_fallback': false,
+                },
+              );
+              final payload = Map<String, dynamic>.from(response as Map);
+              final budget = payload['budget'] is Map
+                  ? Map<String, dynamic>.from(payload['budget'] as Map)
+                  : const <String, dynamic>{};
+              final envelopeRows =
+                  ((payload['envelopes'] as List?) ?? const <dynamic>[])
+                      .whereType<Map>()
+                      .map((row) => Map<String, dynamic>.from(row))
+                      .toList(growable: false);
+              final totalBudget =
+                  ((budget['total_budget_cents'] as num?)?.toDouble() ??
+                          (fallbackTotalBudget * 100.0)) /
+                      100.0;
+
+              if (totalBudget <= 0) {
+                return null;
+              }
+
+              final pockets = [
+                for (final row in envelopeRows)
+                  WidgetPocketData(
+                    name: row['name'] as String? ?? '',
+                    spent: ((row['spent_cents'] as num?)?.toDouble() ?? 0.0) /
+                        100.0,
+                    budget: ((row['available_budget_cents'] as num?)
+                                ?.toDouble() ??
+                            (row['budget_amount_cents'] as num?)?.toDouble() ??
+                            0.0) /
+                        100.0,
+                    color: row['color'] as String? ?? '#7458FF',
+                    currency: (row['currency'] as String?) ?? currency,
+                    icon: row['icon']?.toString(),
+                  ),
+              ];
+              final availableTotalBudget = pockets.fold<double>(
+                0,
+                (sum, pocket) => sum + pocket.budget,
+              );
+
+              return _BudgetPocketsSnapshot(
+                totalBudget: availableTotalBudget > totalBudget
+                    ? availableTotalBudget
+                    : totalBudget,
+                pockets: pockets,
+              );
+            } catch (e) {
+              debugPrint(
+                'Widget pockets RPC unavailable, using table fallback: $e',
+              );
+              return null;
+            }
+          }
+
           // Helper to build per-envelope budget pockets for the personal scope
           // using the same data model as the Pockets page (budgets + envelopes).
           Future<_BudgetPocketsSnapshot?> loadPersonalBudgetPockets({
@@ -431,22 +519,57 @@ class WidgetSyncManager extends HookConsumerWidget {
 
               final periodMonth = monthStart.toIso8601String().substring(0, 10);
 
-              // Fetch envelopes for this budget/currency
-              final envelopesRes = await client
-                  .from('budget_envelopes')
-                  .select('id,name,budget_amount_cents,color,icon')
-                  .eq('user_id', user.uid)
-                  .eq('currency', currency)
-                  .eq('budget_id', budgetId)
-                  .order('name');
+              final rpcSnapshot = await loadBudgetPocketsFromRpc(
+                scope: 'personal',
+                householdId: null,
+                currency: currency,
+                monthStart: monthStart,
+                fallbackTotalBudget: totalBudget,
+              );
+              if (rpcSnapshot != null) {
+                return rpcSnapshot;
+              }
 
-              final envRows =
-                  (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+              // Fetch envelopes for this budget/currency
+              List<Map<String, dynamic>> envRows;
+              try {
+                final envelopesRes = await client
+                    .from('budget_envelopes')
+                    .select(
+                        'id,name,budget_amount_cents,color,icon,rollover_enabled')
+                    .eq('user_id', user.uid)
+                    .eq('currency', currency)
+                    .eq('budget_id', budgetId)
+                    .order('name');
+
+                envRows =
+                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+              } catch (e) {
+                if (!_isMissingRolloverColumnError(e)) rethrow;
+                debugPrint(
+                  'Widget pockets fallback retrying legacy envelope select because rollover columns are unavailable.',
+                );
+                final envelopesRes = await client
+                    .from('budget_envelopes')
+                    .select('id,name,budget_amount_cents,color,icon')
+                    .eq('user_id', user.uid)
+                    .eq('currency', currency)
+                    .eq('budget_id', budgetId)
+                    .order('name');
+                envRows =
+                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+              }
               if (envRows.isEmpty) {
                 return _BudgetPocketsSnapshot(
                   totalBudget: totalBudget,
                   pockets: const [],
                 );
+              }
+              if (envRows.any((row) => row['rollover_enabled'] == true)) {
+                debugPrint(
+                  'Widget pockets fallback skipped because rollover is enabled and RPC data is unavailable.',
+                );
+                return null;
               }
 
               final envIds = envRows.map((e) => e['id'] as String).toList();
@@ -600,21 +723,56 @@ class WidgetSyncManager extends HookConsumerWidget {
                 );
               }
 
-              final envelopesRes = await client
-                  .from('budget_envelopes')
-                  .select('id,name,budget_amount_cents,color,icon')
-                  .eq('household_id', householdId)
-                  .eq('currency', currency)
-                  .eq('budget_id', budgetId)
-                  .order('name');
+              final rpcSnapshot = await loadBudgetPocketsFromRpc(
+                scope: 'household',
+                householdId: householdId,
+                currency: currency,
+                monthStart: monthStart,
+                fallbackTotalBudget: totalBudget,
+              );
+              if (rpcSnapshot != null) {
+                return rpcSnapshot;
+              }
 
-              final envRows =
-                  (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+              List<Map<String, dynamic>> envRows;
+              try {
+                final envelopesRes = await client
+                    .from('budget_envelopes')
+                    .select(
+                        'id,name,budget_amount_cents,color,icon,rollover_enabled')
+                    .eq('household_id', householdId)
+                    .eq('currency', currency)
+                    .eq('budget_id', budgetId)
+                    .order('name');
+
+                envRows =
+                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+              } catch (e) {
+                if (!_isMissingRolloverColumnError(e)) rethrow;
+                debugPrint(
+                  'Widget household pockets fallback retrying legacy envelope select because rollover columns are unavailable.',
+                );
+                final envelopesRes = await client
+                    .from('budget_envelopes')
+                    .select('id,name,budget_amount_cents,color,icon')
+                    .eq('household_id', householdId)
+                    .eq('currency', currency)
+                    .eq('budget_id', budgetId)
+                    .order('name');
+                envRows =
+                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+              }
               if (envRows.isEmpty) {
                 return _BudgetPocketsSnapshot(
                   totalBudget: totalBudget,
                   pockets: const [],
                 );
+              }
+              if (envRows.any((row) => row['rollover_enabled'] == true)) {
+                debugPrint(
+                  'Widget pockets fallback skipped because rollover is enabled and RPC data is unavailable.',
+                );
+                return null;
               }
 
               final envIds = envRows.map((e) => e['id'] as String).toList();

@@ -308,8 +308,9 @@ class WalletDetailsPage extends HookConsumerWidget {
           );
     final walletColor =
         parseWalletColor(latestWallet.color, colorScheme.primary);
-    final gradientColors =
-        AppTheme.pocketDetailsGradient(walletColor, colorScheme);
+    final gradientColors = AppTheme.pocketDetailsGradient(walletColor, colorScheme);
+
+    // Determine text color based on background luminance
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
     final textColor =
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
@@ -638,7 +639,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       if (!context.mounted) return;
 
       debugPrint(
-        '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
+        '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} logo=${result.logoUrl} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
       );
 
       final retargetedCurrentBalanceCents =
@@ -653,6 +654,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         name: result.name,
         icon: result.icon,
         color: result.color,
+        logoUrl: result.logoUrl,
         currency: latestWallet.currency,
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,
@@ -668,6 +670,8 @@ class WalletDetailsPage extends HookConsumerWidget {
           name: result.name,
           icon: result.icon,
           color: result.color,
+          logoUrl: result.logoUrl,
+          includeLogoUrl: true,
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
@@ -718,6 +722,41 @@ class WalletDetailsPage extends HookConsumerWidget {
         if (!context.mounted) return;
         Navigator.of(context, rootNavigator: true).pop();
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      }
+    }
+
+    Future<void> onDeleteWallet() async {
+      final confirm = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.deleteWalletTitle,
+        description: context.l10n.deleteWalletDescription,
+        confirmLabel: context.l10n.delete,
+        cancelLabel: context.l10n.cancel,
+        isDestructive: true,
+      );
+
+      if (confirm?.confirmed != true || !context.mounted) return;
+
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.deletingWallet,
+      );
+
+      try {
+        await actions.deleteAccount(latestWallet.id);
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        if (!context.mounted) return;
+        AppToast.success(context, context.l10n.walletDeleted);
+        Navigator.of(context).pop(true);
+      } catch (error) {
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.error(
+          context,
+          context.l10n.deleteWalletFailed,
+        );
       }
     }
 
@@ -774,6 +813,14 @@ class WalletDetailsPage extends HookConsumerWidget {
               : Icons.archive_outlined,
           value: 'archive',
         ),
+      if (!latestWallet.isSystem)
+        AdaptivePopupMenuItem<String>(
+          label: context.l10n.delete,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'trash'
+              : Icons.delete_outline_rounded,
+          value: 'delete',
+        ),
       if (scopedPlaidActionConnections.isNotEmpty)
         AdaptivePopupMenuItem<String>(
           label: scopedPlaidActionConnections.every(
@@ -814,6 +861,9 @@ class WalletDetailsPage extends HookConsumerWidget {
           break;
         case 'archive':
           unawaited(onArchive());
+          break;
+        case 'delete':
+          unawaited(onDeleteWallet());
           break;
         case 'review_bank':
           unawaited(onReviewBankAction());
@@ -908,52 +958,40 @@ class WalletDetailsPage extends HookConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const SizedBox(height: 20),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 600),
-                              curve: Curves.easeOutCubic,
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: textColor.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                child: Icon(
-                                  resolveWalletIcon(latestWallet.icon),
-                                  key: ValueKey(latestWallet.icon),
-                                  color: textColor,
-                                  size: 30,
-                                ),
-                              ),
+                            WalletLogoAvatar(
+                              logoUrl: latestWallet.logoUrl,
+                              icon: resolveWalletIcon(latestWallet.icon),
+                              baseColor: walletColor,
+                              size: 56,
+                              iconSize: 26,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
                             Text(
                               latestWallet.name,
                               style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
                                 color: textColor,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             Text(
                               context.l10n.balanceSummary,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 color: secondaryTextColor,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
                             _AnimatedAmountText(
                               value: currentBalanceCents / 100.0,
                               currencyCode: walletCurrencyCode,
                               style: TextStyle(
-                                fontSize: 44,
+                                fontSize: 48,
                                 fontWeight: FontWeight.w800,
                                 color: textColor,
-                                letterSpacing: -1,
+                                letterSpacing: -1.5,
                               ),
                             ),
                             if (latestWallet.goalAmountCents != null) ...[
@@ -1003,9 +1041,10 @@ class WalletDetailsPage extends HookConsumerWidget {
                           children: [
                             Text(
                               context.l10n.keyInsights,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1014,7 +1053,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: colorScheme.mutedForeground,
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -1029,7 +1068,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 currencyCode: walletCurrencyCode,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: _StatCard(
                                 label: context.l10n.totalSpent,
@@ -1037,22 +1076,21 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 currencyCode: walletCurrencyCode,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _StatCard(
-                                label: context.l10n.net,
-                                amount: net,
-                                currencyCode: walletCurrencyCode,
-                              ),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
+                        _StatCard(
+                          label: context.l10n.net,
+                          amount: net,
+                          currencyCode: walletCurrencyCode,
+                        ),
+                        const SizedBox(height: 32),
                         Text(
                           context.l10n.recentTransactions,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -1096,12 +1134,27 @@ class WalletDetailsPage extends HookConsumerWidget {
                       color: colorScheme.sheetBackground,
                       child: Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            context.l10n.noTransactionsYet,
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                            ),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 64, horizontal: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.receipt_long_rounded,
+                                size: 32,
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                context.l10n.noTransactionsYet,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1247,6 +1300,7 @@ WalletEntity _copyAccount(
   String? name,
   String? icon,
   String? color,
+  String? logoUrl,
   String? currency,
   int? openingBalanceCents,
   int? goalAmountCents,
@@ -1260,6 +1314,7 @@ WalletEntity _copyAccount(
     name: name ?? source.name,
     icon: icon ?? source.icon,
     color: color ?? source.color,
+    logoUrl: logoUrl,
     currency: currency ?? source.currency,
     openingBalanceCents: openingBalanceCents ?? source.openingBalanceCents,
     goalAmountCents: goalAmountCents,
@@ -1770,30 +1825,40 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.pocketCardSurface,
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+        ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11,
-              color: colorScheme.mutedForeground,
+              fontSize: 13,
+              color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 6),
-          _AnimatedAmountText(
-            value: amount,
-            currencyCode: currencyCode,
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.foreground,
-              fontWeight: FontWeight.w700,
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: _AnimatedAmountText(
+              value: amount,
+              currencyCode: currencyCode,
+              style: TextStyle(
+                fontSize: 18,
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
         ],
