@@ -3283,5 +3283,10 @@
   "walletCreation": "Wallet erstellen",
   "plusLockedLifetimeDiscountPromo": "Gute Neuigkeiten! Du hast Anspruch auf 50 % Rabatt auf unseren Lifetime-Plan.",
   "plusLockedLifetimeDiscountClaim": ", um deinen Rabatt zu erhalten.",
-  "plusLockedIncludedInPlus": "In Plus enthalten"
+  "plusLockedIncludedInPlus": "In Plus enthalten",
+  "deleteWalletTitle": "Dieses Wallet löschen?",
+  "deleteWalletDescription": "Dadurch werden das Wallet, alle Transaktionen, Wallet-Übertragungen und die verknüpfte Banksynchronisierung dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
+  "deletingWallet": "Wallet wird gelöscht…",
+  "walletDeleted": "Wallet gelöscht",
+  "deleteWalletFailed": "Dieses Wallet kann derzeit nicht gelöscht werden."
 }

@@ -725,6 +725,41 @@ class WalletDetailsPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> onDeleteWallet() async {
+      final confirm = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.deleteWalletTitle,
+        description: context.l10n.deleteWalletDescription,
+        confirmLabel: context.l10n.delete,
+        cancelLabel: context.l10n.cancel,
+        isDestructive: true,
+      );
+
+      if (confirm?.confirmed != true || !context.mounted) return;
+
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.deletingWallet,
+      );
+
+      try {
+        await actions.deleteAccount(latestWallet.id);
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        if (!context.mounted) return;
+        AppToast.success(context, context.l10n.walletDeleted);
+        Navigator.of(context).pop(true);
+      } catch (error) {
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.error(
+          context,
+          context.l10n.deleteWalletFailed,
+        );
+      }
+    }
+
     Future<void> onTransfer() async {
       // Get all wallets for transfer selection
       final scopedAccounts =
@@ -778,6 +813,14 @@ class WalletDetailsPage extends HookConsumerWidget {
               : Icons.archive_outlined,
           value: 'archive',
         ),
+      if (!latestWallet.isSystem)
+        AdaptivePopupMenuItem<String>(
+          label: context.l10n.delete,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'trash'
+              : Icons.delete_outline_rounded,
+          value: 'delete',
+        ),
       if (scopedPlaidActionConnections.isNotEmpty)
         AdaptivePopupMenuItem<String>(
           label: scopedPlaidActionConnections.every(
@@ -818,6 +861,9 @@ class WalletDetailsPage extends HookConsumerWidget {
           break;
         case 'archive':
           unawaited(onArchive());
+          break;
+        case 'delete':
+          unawaited(onDeleteWallet());
           break;
         case 'review_bank':
           unawaited(onReviewBankAction());
@@ -912,24 +958,12 @@ class WalletDetailsPage extends HookConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const SizedBox(height: 20),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 600),
-                              curve: Curves.easeOutCubic,
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: walletColor.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                child: Icon(
-                                  resolveWalletIcon(latestWallet.icon),
-                                  key: ValueKey(latestWallet.icon),
-                                  color: walletColor,
-                                  size: 26,
-                                ),
-                              ),
+                            WalletLogoAvatar(
+                              logoUrl: latestWallet.logoUrl,
+                              icon: resolveWalletIcon(latestWallet.icon),
+                              baseColor: walletColor,
+                              size: 56,
+                              iconSize: 26,
                             ),
                             const SizedBox(height: 16),
                             Text(

@@ -3282,5 +3282,10 @@
   "walletCreation": "Tạo ví",
   "plusLockedLifetimeDiscountPromo": "Tin tốt! Bạn đủ điều kiện nhận giảm giá 50% cho gói trọn đời của chúng tôi.",
   "plusLockedLifetimeDiscountClaim": " để nhận ưu đãi của bạn.",
-  "plusLockedIncludedInPlus": "Bao gồm trong Plus"
+  "plusLockedIncludedInPlus": "Bao gồm trong Plus",
+  "deleteWalletTitle": "Xóa ví này?",
+  "deleteWalletDescription": "Thao tác này sẽ xóa vĩnh viễn ví này, các giao dịch, chuyển khoản giữa các ví và đồng bộ ngân hàng được liên kết với ví này. Không thể hoàn tác.",
+  "deletingWallet": "Đang xóa ví…",
+  "walletDeleted": "Đã xóa ví",
+  "deleteWalletFailed": "Không thể xóa ví này vào lúc này."
 }

@@ -3230,5 +3230,10 @@
   "walletCreation": "Creazione portafogli",
   "plusLockedLifetimeDiscountPromo": "Buone notizie! Hai diritto al 50% di sconto sul nostro piano a vita.",
   "plusLockedLifetimeDiscountClaim": " per ottenere il tuo sconto.",
-  "plusLockedIncludedInPlus": "Incluso in Plus"
+  "plusLockedIncludedInPlus": "Incluso in Plus",
+  "deleteWalletTitle": "Eliminare questo portafoglio?",
+  "deleteWalletDescription": "Questa operazione eliminerà definitivamente il portafoglio, le sue transazioni, i trasferimenti tra portafogli e la sincronizzazione bancaria collegata a questo portafoglio. L’azione non può essere annullata.",
+  "deletingWallet": "Eliminazione del portafoglio…",
+  "walletDeleted": "Portafoglio eliminato",
+  "deleteWalletFailed": "Impossibile eliminare questo portafoglio al momento."
 }

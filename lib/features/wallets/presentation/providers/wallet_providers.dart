@@ -17,6 +17,8 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_prov
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -912,6 +914,67 @@ class WalletActions {
     }
   }
 
+  Future<Map<String, dynamic>> deleteAccount(String accountId) async {
+    final authHeaders = _requireAuthHeaders();
+    final existingWallet = ref.read(walletByIdProvider(accountId));
+    final localDatabase = await ref.read(localDatabaseProvider.future);
+    final hasPendingLocalChanges =
+        await localDatabase.hasPendingWalletDeleteBlockers(
+      walletId: accountId,
+      bankAccountId: existingWallet?.linkedBankAccountId,
+    );
+    if (hasPendingLocalChanges) {
+      throw Exception(
+        'This wallet still has local changes waiting to sync. Try again after sync completes.',
+      );
+    }
+    final requestBody = {
+      'accountId': accountId,
+      'confirmDestructiveDelete': true,
+    };
+
+    final response = await supabase.functions.invoke(
+      'delete-wallet',
+      headers: authHeaders,
+      body: requestBody,
+    );
+    _throwIfFailed(response.data, 'Failed to delete wallet');
+
+    final payload = response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final data = payload['data'] is Map<String, dynamic>
+        ? payload['data'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final transactionIds = (data['transactionIds'] as List?)
+            ?.map((id) => id.toString())
+            .where((id) => id.trim().isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    final bank = data['bank'] is Map<String, dynamic>
+        ? data['bank'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final linkedBankAccountId =
+        bank['linkedBankAccountId']?.toString().trim();
+
+    try {
+      await localDatabase.deleteTransactionsByIds(transactionIds);
+      await localDatabase.deleteTransactionsForWallet(
+        walletId: accountId,
+        bankAccountId: linkedBankAccountId != null &&
+                linkedBankAccountId.isNotEmpty
+            ? linkedBankAccountId
+            : existingWallet?.linkedBankAccountId,
+      );
+    } catch (error) {
+      debugPrint('[Accounts][Delete] local cleanup failed: $error');
+    }
+
+    clearOptimisticWallet(accountId);
+    _invalidateAll();
+    return data;
+  }
+
   Future<void> createTransfer({
     required String fromAccountId,
     required String toAccountId,
@@ -1285,6 +1348,8 @@ class WalletActions {
     ref.invalidate(walletsMonthSnapshotProvider);
     ref.invalidate(walletsScopeQueryProvider);
     ref.invalidate(walletsPageStateProvider);
+    ref.invalidate(bankAccountsProvider);
+    ref.invalidate(bankConnectionsProvider);
     ref.read(walletsRefreshSignalProvider.notifier).state += 1;
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;

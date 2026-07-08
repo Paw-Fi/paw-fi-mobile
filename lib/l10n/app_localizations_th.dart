@@ -9075,4 +9075,19 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get plusLockedLifetimeDiscountClaim => ' เพื่อรับส่วนลดของคุณ';
+
+  @override
+  String get deleteWalletTitle => 'ลบกระเป๋าเงินนี้หรือไม่?';
+
+  @override
+  String get deleteWalletDescription => 'การดำเนินการนี้จะลบกระเป๋าเงินนี้ รายการธุรกรรม การโอนระหว่างกระเป๋าเงิน และการซิงก์ธนาคารที่เชื่อมโยงกับกระเป๋าเงินนี้อย่างถาวร การดำเนินการนี้ไม่สามารถย้อนกลับได้';
+
+  @override
+  String get deletingWallet => 'กำลังลบกระเป๋าเงิน…';
+
+  @override
+  String get walletDeleted => 'ลบกระเป๋าเงินแล้ว';
+
+  @override
+  String get deleteWalletFailed => 'ไม่สามารถลบกระเป๋าเงินนี้ได้ในขณะนี้';
 }

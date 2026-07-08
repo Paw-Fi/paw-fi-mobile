@@ -3283,5 +3283,10 @@
   "walletCreation": "ウォレット作成",
   "plusLockedLifetimeDiscountPromo": "お知らせ！ライフタイムプランが50%オフの対象です。",
   "plusLockedLifetimeDiscountClaim": " から割引をご利用ください。",
-  "plusLockedIncludedInPlus": "Plusに含まれています"
+  "plusLockedIncludedInPlus": "Plusに含まれています",
+  "deleteWalletTitle": "このウォレットを削除しますか？",
+  "deleteWalletDescription": "この操作により、このウォレット、その取引履歴、ウォレット間の送金、およびこのウォレットに関連付けられた銀行同期が完全に削除されます。この操作は元に戻せません。",
+  "deletingWallet": "ウォレットを削除中…",
+  "walletDeleted": "ウォレットを削除しました",
+  "deleteWalletFailed": "現在、このウォレットを削除できません。"
 }

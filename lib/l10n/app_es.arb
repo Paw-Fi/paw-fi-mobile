@@ -3285,5 +3285,10 @@
   "walletCreation": "Crear billeteras",
   "plusLockedLifetimeDiscountPromo": "¡Buenas noticias! Puedes obtener un 50 % de descuento en nuestro plan de por vida.",
   "plusLockedLifetimeDiscountClaim": " para obtener tu descuento.",
-  "plusLockedIncludedInPlus": "Incluido en Plus"
+  "plusLockedIncludedInPlus": "Incluido en Plus",
+  "deleteWalletTitle": "¿Eliminar esta billetera?",
+  "deleteWalletDescription": "Esto eliminará permanentemente la billetera, sus transacciones, las transferencias entre billeteras y la sincronización bancaria vinculada a esta billetera. Esta acción no se puede deshacer.",
+  "deletingWallet": "Eliminando billetera…",
+  "walletDeleted": "Billetera eliminada",
+  "deleteWalletFailed": "No se pudo eliminar esta billetera en este momento."
 }

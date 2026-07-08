@@ -3229,5 +3229,10 @@
   "walletCreation": "والیٹ بنانا",
   "plusLockedLifetimeDiscountPromo": "خبر خوش! آپ ہماری لائف ٹائم پلان پر 50% رعایت کے اہل ہیں۔",
   "plusLockedLifetimeDiscountClaim": " اپنی رعایت حاصل کرنے کے لیے۔",
-  "plusLockedIncludedInPlus": "Plus میں شامل"
+  "plusLockedIncludedInPlus": "Plus میں شامل",
+  "deleteWalletTitle": "اس والیٹ کو حذف کریں؟",
+  "deleteWalletDescription": "اس سے یہ والیٹ، اس کی تمام ٹرانزیکشنز، والیٹ ٹرانسفرز، اور اس والیٹ سے منسلک بینک سنک مستقل طور پر حذف ہو جائیں گے۔ اس عمل کو واپس نہیں کیا جا سکتا۔",
+  "deletingWallet": "والیٹ حذف کیا جا رہا ہے…",
+  "walletDeleted": "والیٹ حذف کر دیا گیا",
+  "deleteWalletFailed": "اس وقت یہ والیٹ حذف نہیں کیا جا سکا۔"
 }

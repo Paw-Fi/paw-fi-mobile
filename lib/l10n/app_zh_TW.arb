@@ -3227,5 +3227,10 @@
   "walletCreation": "建立錢包",
   "plusLockedLifetimeDiscountPromo": "好消息！您可享有終身方案 5 折優惠。",
   "plusLockedLifetimeDiscountClaim": " 以領取您的優惠。",
-  "plusLockedIncludedInPlus": "Plus 已包含"
+  "plusLockedIncludedInPlus": "Plus 已包含",
+  "deleteWalletTitle": "刪除此錢包？",
+  "deleteWalletDescription": "此操作將永久刪除此錢包、其交易紀錄、錢包轉帳紀錄以及與此錢包關聯的銀行同步，且無法復原。",
+  "deletingWallet": "正在刪除錢包…",
+  "walletDeleted": "錢包已刪除",
+  "deleteWalletFailed": "目前無法刪除此錢包。"
 }

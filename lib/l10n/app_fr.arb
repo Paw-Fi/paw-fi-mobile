@@ -3283,5 +3283,10 @@
   "walletCreation": "Créer un portefeuille",
   "plusLockedLifetimeDiscountPromo": "Bonne nouvelle ! Vous pouvez bénéficier de 50 % de réduction sur notre abonnement à vie.",
   "plusLockedLifetimeDiscountClaim": " pour profiter de votre réduction.",
-  "plusLockedIncludedInPlus": "Inclus avec Plus"
+  "plusLockedIncludedInPlus": "Inclus avec Plus",
+  "deleteWalletTitle": "Supprimer ce portefeuille ?",
+  "deleteWalletDescription": "Cette action supprimera définitivement ce portefeuille, ses transactions, ses transferts entre portefeuilles et la synchronisation bancaire associée à ce portefeuille. Cette action est irréversible.",
+  "deletingWallet": "Suppression du portefeuille…",
+  "walletDeleted": "Portefeuille supprimé",
+  "deleteWalletFailed": "Impossible de supprimer ce portefeuille pour le moment."
 }

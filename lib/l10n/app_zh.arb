@@ -3279,5 +3279,10 @@
   "walletCreation": "创建钱包",
   "plusLockedLifetimeDiscountPromo": "好消息！您可享有终身计划 5 折优惠。",
   "plusLockedLifetimeDiscountClaim": " 以领取您的优惠。",
-  "plusLockedIncludedInPlus": "Plus 已包含"
+  "plusLockedIncludedInPlus": "Plus 已包含",
+  "deleteWalletTitle": "删除此钱包？",
+  "deleteWalletDescription": "此操作将永久删除此钱包、其交易记录、钱包转账记录以及与此钱包关联的银行同步，且无法撤销。",
+  "deletingWallet": "正在删除钱包…",
+  "walletDeleted": "钱包已删除",
+  "deleteWalletFailed": "目前无法删除此钱包。"
 }

@@ -3230,5 +3230,10 @@
   "walletCreation": "Wallet aanmaken",
   "plusLockedLifetimeDiscountPromo": "Goed nieuws! Je komt in aanmerking voor 50% korting op ons levenslange abonnement.",
   "plusLockedLifetimeDiscountClaim": " om je korting te ontvangen.",
-  "plusLockedIncludedInPlus": "Inbegrepen bij Plus"
+  "plusLockedIncludedInPlus": "Inbegrepen bij Plus",
+  "deleteWalletTitle": "Deze wallet verwijderen?",
+  "deleteWalletDescription": "Hiermee worden de wallet, alle transacties, walletoverboekingen en de aan deze wallet gekoppelde banksynchronisatie permanent verwijderd. Deze actie kan niet ongedaan worden gemaakt.",
+  "deletingWallet": "Wallet wordt verwijderd…",
+  "walletDeleted": "Wallet verwijderd",
+  "deleteWalletFailed": "Deze wallet kan momenteel niet worden verwijderd."
 }

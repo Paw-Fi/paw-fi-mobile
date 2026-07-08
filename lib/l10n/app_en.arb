@@ -3320,5 +3320,10 @@
   "onboardingHeardAboutSaveError": "We could not save your answer. Please try again.",
   "walletCreation": "Wallet Creation",
   "plusLockedLifetimeDiscountPromo": "Good news! You're eligible for 50% off our Lifetime plan.",
-  "plusLockedLifetimeDiscountClaim": " to claim your discount."
+  "plusLockedLifetimeDiscountClaim": " to claim your discount.",
+  "deleteWalletTitle": "Delete this wallet?",
+  "deleteWalletDescription": "This permanently removes the wallet, its transactions, wallet transfers, and linked bank sync for this wallet. This cannot be undone.",
+  "deletingWallet": "Deleting wallet…",
+  "walletDeleted": "Wallet deleted",
+  "deleteWalletFailed": "Could not delete this wallet right now."
 }

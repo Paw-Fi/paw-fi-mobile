@@ -22,7 +22,7 @@ Future<void> showForceUpdateDialog({
         // storeUrl = 'https://apps.apple.com/app/idYOUR_APP_ID';
       } else if (Platform.isAndroid) {
         storeUrl =
-            'https://play.google.com/store/apps/details?id=com.moneko.app';
+            'https://play.google.com/store/apps/details?id=com.moneko.mobile';
       }
     }
 

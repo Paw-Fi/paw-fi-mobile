@@ -3233,5 +3233,10 @@
   "walletCreation": "Создание кошельков",
   "plusLockedLifetimeDiscountPromo": "Хорошие новости! Вам доступна скидка 50% на наш пожизненный тариф.",
   "plusLockedLifetimeDiscountClaim": ", чтобы получить скидку.",
-  "plusLockedIncludedInPlus": "Входит в Plus"
+  "plusLockedIncludedInPlus": "Входит в Plus",
+  "deleteWalletTitle": "Удалить этот кошелёк?",
+  "deleteWalletDescription": "Это действие навсегда удалит кошелёк, все его транзакции, переводы между кошельками и банковскую синхронизацию, связанную с этим кошельком. Отменить это действие невозможно.",
+  "deletingWallet": "Удаление кошелька…",
+  "walletDeleted": "Кошелёк удалён",
+  "deleteWalletFailed": "Не удалось удалить этот кошелёк в данный момент."
 }

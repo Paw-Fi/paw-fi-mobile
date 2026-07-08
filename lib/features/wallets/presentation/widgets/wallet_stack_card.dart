@@ -66,7 +66,7 @@ class WalletStackCard extends StatelessWidget {
     final collapsedHeader = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _WalletLogoAvatar(
+        WalletLogoAvatar(
           logoUrl: wallet.logoUrl,
           icon: resolveWalletIcon(wallet.icon),
           baseColor: baseColor,
@@ -186,7 +186,7 @@ class WalletStackCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _WalletLogoAvatar(
+                    WalletLogoAvatar(
                       logoUrl: wallet.logoUrl,
                       icon: resolveWalletIcon(wallet.icon),
                       baseColor: baseColor,
@@ -207,7 +207,7 @@ class WalletStackCard extends StatelessWidget {
                 ),
               )
             else
-              _WalletLogoAvatar(
+              WalletLogoAvatar(
                 logoUrl: wallet.logoUrl,
                 icon: resolveWalletIcon(wallet.icon),
                 baseColor: baseColor,
@@ -329,87 +329,6 @@ class WalletStackCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _WalletLogoAvatar extends StatelessWidget {
-  const _WalletLogoAvatar({
-    required this.logoUrl,
-    required this.icon,
-    required this.baseColor,
-    required this.size,
-    required this.iconSize,
-  });
-
-  final String? logoUrl;
-  final IconData icon;
-  final Color baseColor;
-  final double size;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    final trimmedLogoUrl = logoUrl?.trim();
-    final cacheSize = (size * MediaQuery.of(context).devicePixelRatio).round();
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: baseColor.withValues(alpha: 0.22),
-        shape: BoxShape.circle,
-      ),
-      child: ClipOval(
-        child: trimmedLogoUrl == null || trimmedLogoUrl.isEmpty
-            ? _WalletFallbackIcon(
-                icon: icon,
-                baseColor: baseColor,
-                iconSize: iconSize,
-              )
-            : Image.network(
-                trimmedLogoUrl,
-                fit: BoxFit.contain,
-                cacheWidth: cacheSize,
-                cacheHeight: cacheSize,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return _WalletFallbackIcon(
-                    icon: icon,
-                    baseColor: baseColor,
-                    iconSize: iconSize,
-                  );
-                },
-                errorBuilder: (_, __, ___) => _WalletFallbackIcon(
-                  icon: icon,
-                  baseColor: baseColor,
-                  iconSize: iconSize,
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _WalletFallbackIcon extends StatelessWidget {
-  const _WalletFallbackIcon({
-    required this.icon,
-    required this.baseColor,
-    required this.iconSize,
-  });
-
-  final IconData icon;
-  final Color baseColor;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Icon(
-        icon,
-        color: baseColor,
-        size: iconSize,
       ),
     );
   }

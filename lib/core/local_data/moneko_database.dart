@@ -765,6 +765,117 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  Future<void> deleteTransactionsForWallet({
+    required String walletId,
+    String? bankAccountId,
+  }) async {
+    final normalizedWalletId = walletId.trim();
+    final normalizedBankAccountId = bankAccountId?.trim();
+    if (normalizedWalletId.isEmpty &&
+        (normalizedBankAccountId == null || normalizedBankAccountId.isEmpty)) {
+      return;
+    }
+
+    final touched = <_SummaryKey>{};
+    _runInTransaction(() {
+      final rows = _db.select(
+        '''
+        SELECT id
+        FROM local_transactions
+        WHERE sync_status != ?
+          AND (
+            wallet_id = ?
+            OR bank_account_id = ?
+          )
+        ''',
+        [
+          localSyncStatusLocal,
+          normalizedWalletId,
+          normalizedBankAccountId ?? normalizedWalletId,
+        ],
+      );
+
+      for (final row in rows) {
+        final id = row['id']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final key = _summaryKeyForTransactionId(id);
+        if (key != null) touched.add(key);
+      }
+
+      _db.execute(
+        '''
+        DELETE FROM local_transactions
+        WHERE sync_status != ?
+          AND (
+            wallet_id = ?
+            OR bank_account_id = ?
+          )
+        ''',
+        [
+          localSyncStatusLocal,
+          normalizedWalletId,
+          normalizedBankAccountId ?? normalizedWalletId,
+        ],
+      );
+
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+
+    _notifyChanged();
+  }
+
+  Future<bool> hasPendingWalletDeleteBlockers({
+    required String walletId,
+    String? bankAccountId,
+  }) async {
+    final normalizedWalletId = walletId.trim();
+    final normalizedBankAccountId = bankAccountId?.trim();
+    if (normalizedWalletId.isEmpty) return false;
+
+    final pendingWalletMutations = _db.select(
+      '''
+      SELECT 1
+      FROM local_mutation_outbox
+      WHERE entity_type = ?
+        AND entity_id = ?
+        AND status IN (?, ?, ?)
+      LIMIT 1
+      ''',
+      [
+        'wallet',
+        normalizedWalletId,
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+    if (pendingWalletMutations.isNotEmpty) return true;
+
+    final pendingTransactions = _db.select(
+      '''
+      SELECT 1
+      FROM local_transactions
+      WHERE sync_status = ?
+        AND (
+          wallet_id = ?
+          OR bank_account_id = ?
+        )
+      LIMIT 1
+      ''',
+      [
+        localSyncStatusLocal,
+        normalizedWalletId,
+        normalizedBankAccountId != null && normalizedBankAccountId.isNotEmpty
+            ? normalizedBankAccountId
+            : normalizedWalletId,
+      ],
+    );
+
+    return pendingTransactions.isNotEmpty;
+  }
+
   Future<void> reconcileTransactionsFeedPage({
     required LocalTransactionsFeedQuery query,
     required List<ExpenseEntry> authoritativeItems,

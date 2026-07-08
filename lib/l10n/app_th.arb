@@ -3300,5 +3300,10 @@
   "walletCreation": "สร้างกระเป๋าเงิน",
   "plusLockedLifetimeDiscountPromo": "ข่าวดี! คุณมีสิทธิ์รับส่วนลด 50% สำหรับแผนตลอดชีพของเรา",
   "plusLockedLifetimeDiscountClaim": " เพื่อรับส่วนลดของคุณ",
-  "plusLockedIncludedInPlus": "รวมอยู่ใน Plus"
+  "plusLockedIncludedInPlus": "รวมอยู่ใน Plus",
+  "deleteWalletTitle": "ลบกระเป๋าเงินนี้หรือไม่?",
+  "deleteWalletDescription": "การดำเนินการนี้จะลบกระเป๋าเงินนี้ รายการธุรกรรม การโอนระหว่างกระเป๋าเงิน และการซิงก์ธนาคารที่เชื่อมโยงกับกระเป๋าเงินนี้อย่างถาวร การดำเนินการนี้ไม่สามารถย้อนกลับได้",
+  "deletingWallet": "กำลังลบกระเป๋าเงิน…",
+  "walletDeleted": "ลบกระเป๋าเงินแล้ว",
+  "deleteWalletFailed": "ไม่สามารถลบกระเป๋าเงินนี้ได้ในขณะนี้"
 }
