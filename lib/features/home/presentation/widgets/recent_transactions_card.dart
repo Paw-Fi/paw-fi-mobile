@@ -652,7 +652,9 @@ class _RecentTransactionsCardState
           child: buildExpenseTransactionTile(
             context: context,
             category: e.category,
-            rawText: e.rawText,
+            rawText: e.merchant?.trim().isNotEmpty == true
+                ? e.merchant!.trim()
+                : e.rawText,
             date: displayDateTime,
             amount: e.amount,
             currency: e.currency ?? widget.selectedCurrency ?? 'USD',
