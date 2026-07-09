@@ -260,6 +260,7 @@ class PocketsGridSection extends HookConsumerWidget {
             totalAllocated: totalAllocated,
             totalSpent: totalSpent,
             periodMonth: state.periodMonth,
+            financialMonthStartDay: state.financialMonthStartDay,
             previousBudget: state.previousBudget,
             onReusePrevious: state.previousBudget > 0
                 ? () => notifier.reusePreviousBudget(state.previousBudget)

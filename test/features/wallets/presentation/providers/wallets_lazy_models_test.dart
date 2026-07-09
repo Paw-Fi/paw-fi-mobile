@@ -22,6 +22,35 @@ void main() {
       expect(a.hashCode, b.hashCode);
       expect(a.toHistoryRpcParams()['p_current_month_start'], '2026-04-01');
     });
+
+    test('normalizes custom financial cycle anchors and keys by start day', () {
+      final a = WalletsScopeQuery(
+        userId: 'user-1',
+        householdId: 'house-1',
+        selectedCurrency: 'USD',
+        currentMonthStart: DateTime(2026, 8, 10),
+        financialMonthStartDay: 25,
+      );
+      final b = WalletsScopeQuery(
+        userId: 'user-1',
+        householdId: 'house-1',
+        selectedCurrency: 'USD',
+        currentMonthStart: DateTime(2026, 7, 25),
+        financialMonthStartDay: 25,
+      );
+      final calendar = WalletsScopeQuery(
+        userId: 'user-1',
+        householdId: 'house-1',
+        selectedCurrency: 'USD',
+        currentMonthStart: DateTime(2026, 8, 10),
+      );
+
+      expect(a.currentMonthStart, DateTime(2026, 7, 25));
+      expect(a, b);
+      expect(a, isNot(calendar));
+      expect(a.toHistoryRpcParams()['p_current_month_start'], '2026-07-25');
+      expect(a.toHistoryRpcParams()['p_financial_month_start_day'], 25);
+    });
   });
 
   group('WalletsMonthQuery', () {
@@ -44,7 +73,26 @@ void main() {
         'p_currency': 'EUR',
         'p_month_start': '2026-03-01',
         'p_include_archived': false,
+        'p_financial_month_start_day': 1,
       });
+    });
+
+    test('normalizes month query to a custom financial cycle', () {
+      final scope = WalletsScopeQuery(
+        userId: 'user-1',
+        householdId: null,
+        selectedCurrency: 'EUR',
+        currentMonthStart: DateTime(2026, 8, 10),
+        financialMonthStartDay: 25,
+      );
+      final query = WalletsMonthQuery(
+        scope: scope,
+        monthStart: DateTime(2026, 8, 24, 23),
+      );
+
+      expect(query.monthStart, DateTime(2026, 7, 25));
+      expect(query.toRpcParams()['p_month_start'], '2026-07-25');
+      expect(query.toRpcParams()['p_financial_month_start_day'], 25);
     });
   });
 

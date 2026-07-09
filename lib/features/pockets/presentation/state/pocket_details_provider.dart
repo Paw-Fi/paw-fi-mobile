@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -90,13 +91,27 @@ final pocketDetailsProvider =
         rates: CurrencyRates.rates,
         isStale: true,
       );
-  final end = params.scopeParams.periodMonth ??
-      resolvePeriodDateRange(periodSelection).end;
-  final monthStart = DateTime(end.year, end.month, 1);
-  final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
+  final financialMonthStartDay =
+      params.scopeParams.normalizedFinancialMonthStartDay;
+  final monthStart = params.scopeParams.periodMonth != null
+      ? financialCycleStartForDate(
+          params.scopeParams.periodMonth!,
+          startDay: financialMonthStartDay,
+        )
+      : resolvePeriodDateRange(
+          periodSelection,
+          financialMonthStartDay: financialMonthStartDay,
+        ).start;
+  final monthEnd = nextFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  );
 
   // Previous month range
-  final prevMonthStart = DateTime(monthStart.year, monthStart.month - 1, 1);
+  final prevMonthStart = previousFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  );
   final prevMonthEnd = monthStart;
 
   final pocketsState = ref.watch(pocketsProvider(params.scopeParams));
@@ -354,11 +369,18 @@ final pocketDetailsProvider =
     ..sort((a, b) => a.day.compareTo(b.day));
 
   // Projections
-  final daysInMonth = DateTime(monthStart.year, monthStart.month + 1, 0).day;
-  // If viewing a past month, use all days. If current month, use days passed so far.
-  final isCurrentMonth =
-      userNow.year == monthStart.year && userNow.month == monthStart.month;
-  final daysPassed = isCurrentMonth ? userNow.day : daysInMonth;
+  final daysInMonth = monthEnd.difference(monthStart).inDays;
+  final currentCycleStart = financialCycleStartForDate(
+    userNow,
+    startDay: financialMonthStartDay,
+  );
+  final isCurrentMonth = currentCycleStart == monthStart;
+  final daysPassed = isCurrentMonth
+      ? DateTime(userNow.year, userNow.month, userNow.day)
+              .difference(monthStart)
+              .inDays +
+          1
+      : daysInMonth;
 
   final actualSpent = aggregateActualTransactions.fold<double>(
     0,

@@ -34,7 +34,7 @@ String walletsListCacheKey({
 }
 
 String walletsPageStateCacheKey(WalletsScopeQuery query) {
-  return 'wallets:page-state:v4:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
+  return 'wallets:page-state:v5:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:fmsd${query.financialMonthStartDay}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
 }
 
 List<WalletEntity>? readPersistedWalletsList(
@@ -115,6 +115,7 @@ WalletsPageState? readPersistedWalletsPageState(
   try {
     return WalletsPageState.fromCacheJson(
       Map<String, dynamic>.from(jsonDecode(raw) as Map),
+      financialMonthStartDay: query.financialMonthStartDay,
     );
   } catch (_) {
     return null;
@@ -133,7 +134,10 @@ Future<WalletsPageState?> readLocalWalletsPageState(
       cacheKey: walletsPageStateCacheKey(query),
     );
     if (cache == null) return null;
-    return WalletsPageState.fromCacheJson(cache.payload);
+    return WalletsPageState.fromCacheJson(
+      cache.payload,
+      financialMonthStartDay: query.financialMonthStartDay,
+    );
   } catch (_) {
     return null;
   }

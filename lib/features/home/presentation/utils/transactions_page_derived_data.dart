@@ -17,6 +17,7 @@ class TransactionsPageFilterInput {
   final DateTime? customStart;
   final DateTime? customEnd;
   final DateTime now;
+  final int financialMonthStartDay;
   final String? pinnedHouseholdId;
   final ActiveWalletType activeAccountType;
   final String? activeAccountHouseholdId;
@@ -34,6 +35,7 @@ class TransactionsPageFilterInput {
     required this.customStart,
     required this.customEnd,
     required this.now,
+    this.financialMonthStartDay = 1,
     required this.pinnedHouseholdId,
     required this.activeAccountType,
     required this.activeAccountHouseholdId,
@@ -335,6 +337,7 @@ TransactionsPageDerivedData deriveTransactionsPageData(
       input.customStart,
       input.customEnd,
       now: input.now,
+      financialMonthStartDay: input.financialMonthStartDay,
     );
     final from = range['from']!;
     final to = range['to']!;

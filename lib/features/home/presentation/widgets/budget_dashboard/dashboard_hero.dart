@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
@@ -12,6 +13,7 @@ class DashboardHero extends StatefulWidget {
   final List<DailyBudgetEntry> personalBudgets;
   final Map<String, List<SharedBudget>> householdBudgets;
   final String? preferredCurrency;
+  final int financialMonthStartDay;
 
   const DashboardHero({
     super.key,
@@ -19,6 +21,7 @@ class DashboardHero extends StatefulWidget {
     required this.personalBudgets,
     required this.householdBudgets,
     this.preferredCurrency,
+    this.financialMonthStartDay = 1,
   });
 
   @override
@@ -112,6 +115,7 @@ class _DashboardHeroState extends State<DashboardHero> {
                   transactions: widget.transactions,
                   personalBudgets: widget.personalBudgets,
                   householdBudgets: widget.householdBudgets,
+                  financialMonthStartDay: widget.financialMonthStartDay,
                 ),
               );
             },
@@ -134,20 +138,33 @@ class _CurrencyHeroCard extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final List<DailyBudgetEntry> personalBudgets;
   final Map<String, List<SharedBudget>> householdBudgets;
+  final int financialMonthStartDay;
 
   const _CurrencyHeroCard({
     required this.currency,
     required this.transactions,
     required this.personalBudgets,
     required this.householdBudgets,
+    required this.financialMonthStartDay,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    final period = financialCycleForDate(
+      now,
+      startDay: financialMonthStartDay,
+    );
+    final startOfMonth = period.start;
+    final endOfMonth = DateTime(
+      period.end.year,
+      period.end.month,
+      period.end.day,
+      23,
+      59,
+      59,
+    );
 
     // Filter transactions for this month & currency
     final monthTransactions = transactions.where((tx) {

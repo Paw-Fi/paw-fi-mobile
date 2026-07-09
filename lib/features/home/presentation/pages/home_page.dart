@@ -440,11 +440,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                   final netFilterState = ref.watch(
                     cardDateFilterProvider(HomeCardFilterId.netCashflow),
                   );
+                  final financialMonthStartDay =
+                      ref.watch(financialMonthStartDayProvider);
                   final netRange = getDateRangeFromFilter(
                     netFilterState.dateRangeFilter,
                     netFilterState.customStartDate,
                     netFilterState.customEndDate,
                     now: userNow,
+                    financialMonthStartDay: financialMonthStartDay,
                   );
                   final netFrom = netRange['from']!;
                   final netTo = netRange['to']!;

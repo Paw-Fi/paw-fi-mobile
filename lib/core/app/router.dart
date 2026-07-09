@@ -24,6 +24,7 @@ import 'package:moneko/features/households/presentation/pages/settlement_history
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/pages/currency_rates_page.dart';
 import 'package:moneko/features/insights/presentation/pages/monthly_report_page.dart';
+import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
@@ -36,6 +37,12 @@ import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 part 'router.g.dart';
+
+MonthlyReportQuery? _monthlyReportQueryFromUriOrNull(Uri uri) {
+  return uri.queryParameters.containsKey('month')
+      ? monthlyReportQueryFromUri(uri)
+      : null;
+}
 
 /// Global navigator key for accessing navigator from anywhere
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -90,42 +97,42 @@ GoRouter router(RouterRef ref) {
         path: '/insights/monthly-report/balance',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.balance,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/safe-spend',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.safeSpend,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/spending',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.spending,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/budget',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.budget,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/savings',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.savings,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/categories',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.categories,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
           selectedCategoryName: state.uri.queryParameters['name'],
         ),
       ),
@@ -133,13 +140,13 @@ GoRouter router(RouterRef ref) {
         path: '/insights/monthly-report/recurring',
         builder: (context, state) => MonthlyReportDetailPage(
           kind: MonthlyReportDetailKind.recurring,
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
         ),
       ),
       GoRoute(
         path: '/insights/monthly-report/drilldown',
         builder: (context, state) => MonthlyReportDrillDownPage(
-          query: monthlyReportQueryFromUri(state.uri),
+          query: _monthlyReportQueryFromUriOrNull(state.uri),
           title: state.uri.queryParameters['title'],
           subtitle: state.uri.queryParameters['subtitle'],
           sourceTransactionIds: state.uri.queryParameters['ids'],

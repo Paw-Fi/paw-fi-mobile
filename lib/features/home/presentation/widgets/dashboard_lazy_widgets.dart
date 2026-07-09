@@ -8,6 +8,7 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -18,6 +19,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_snapshot_model
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
@@ -114,6 +116,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     final selectedCurrencies = _selectedCurrencies(ref);
     final currency = _displayCurrency(selectedCurrency, contact);
     final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final rateTable = (selectedCurrencies?.length ?? 0) > 1
         ? ref.watch(currencyRateTableProvider).valueOrNull ??
             const CurrencyRateTable(
@@ -127,6 +130,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       config.customStartDate,
       config.customEndDate,
       now: userNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final query = _buildScopedQuery(
       ref: ref,
@@ -256,8 +260,9 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         currencyRates: rateTable,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
+        financialMonthStartDay: financialMonthStartDay,
         animationStorageKey:
-            'spending:${config.id}:${selectedCurrency ?? currency}:${dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
+            'spending:${config.id}:${selectedCurrency ?? currency}:${dateRange.name}:fmsd$financialMonthStartDay:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -298,17 +303,20 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
     final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final currentRange = _getDateRangeForFilter(
       dateRange,
       userNow,
       config.customStartDate,
       config.customEndDate,
+      financialMonthStartDay,
     );
     final previousRange = _getPreviousDateRangeForFilter(
       dateRange,
       userNow,
       config.customStartDate,
       config.customEndDate,
+      financialMonthStartDay,
     );
 
     final currentQuery = _buildScopedQuery(
@@ -644,11 +652,13 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       dashboardUserContactProvider.select((state) => state.valueOrNull),
     );
     final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final range = getDateRangeFromFilter(
       dateRange,
       config.customStartDate,
       config.customEndDate,
       now: userNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final query = _buildScopedQuery(
       ref: ref,
@@ -774,11 +784,13 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
     final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final range = getDateRangeFromFilter(
       dateRange,
       config.customStartDate,
       config.customEndDate,
       now: userNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final query = _buildScopedQuery(
       ref: ref,
@@ -1151,9 +1163,12 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
   DateTime now,
   DateTime? customStart,
   DateTime? customEnd,
+  int financialMonthStartDay,
 ) {
   final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
   final todayStart = DateTime(now.year, now.month, now.day);
+  final normalizedFinancialStartDay =
+      normalizeFinancialMonthStartDay(financialMonthStartDay);
 
   switch (filter) {
     case DateRangeFilter.today:
@@ -1176,15 +1191,35 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
       final start = todayStart.subtract(const Duration(days: 6));
       return (start, todayEnd);
     case DateRangeFilter.thisMonth:
-      final start = DateTime(now.year, now.month, 1);
+      final start = financialCycleStartForDate(
+        todayStart,
+        startDay: normalizedFinancialStartDay,
+      );
       return (start, todayEnd);
     case DateRangeFilter.lastMonth:
-      final start = DateTime(now.year, now.month - 1, 1);
-      final end =
-          DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
+      final period = previousFinancialCycleForDate(
+        todayStart,
+        startDay: normalizedFinancialStartDay,
+      );
+      final start = period.start;
+      final end = DateTime(
+        period.end.year,
+        period.end.month,
+        period.end.day,
+        23,
+        59,
+        59,
+      );
       return (start, end);
     case DateRangeFilter.last3Months:
-      final start = DateTime(now.year, now.month - 2, 1);
+      final start = addFinancialCycles(
+        financialCycleStartForDate(
+          todayStart,
+          startDay: normalizedFinancialStartDay,
+        ),
+        -2,
+        startDay: normalizedFinancialStartDay,
+      );
       return (start, todayEnd);
     case DateRangeFilter.last30Days:
       final start = todayStart.subtract(const Duration(days: 29));
@@ -1213,9 +1248,12 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
   DateTime now,
   DateTime? customStart,
   DateTime? customEnd,
+  int financialMonthStartDay,
 ) {
   final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
   final todayStart = DateTime(now.year, now.month, now.day);
+  final normalizedFinancialStartDay =
+      normalizeFinancialMonthStartDay(financialMonthStartDay);
 
   switch (filter) {
     case DateRangeFilter.today:
@@ -1245,21 +1283,51 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
       final prevStart = prevEnd.subtract(const Duration(days: 6));
       return (prevStart, prevEnd);
     case DateRangeFilter.thisMonth:
-      final prevMonthStart = DateTime(now.year, now.month - 1, 1);
-      final lastDayPrevMonth = DateTime(now.year, now.month, 0).day;
-      final dayToCompare = min(now.day, lastDayPrevMonth);
-      final prevMonthEnd =
-          DateTime(now.year, now.month - 1, dayToCompare, 23, 59, 59);
-      return (prevMonthStart, prevMonthEnd);
+      final previousPeriod = previousFinancialCycleForDate(
+        todayStart,
+        startDay: normalizedFinancialStartDay,
+      );
+      final comparisonEnd = matchingElapsedDateInPreviousFinancialCycle(
+        todayStart,
+        startDay: normalizedFinancialStartDay,
+      );
+      return (
+        previousPeriod.start,
+        DateTime(
+          comparisonEnd.year,
+          comparisonEnd.month,
+          comparisonEnd.day,
+          23,
+          59,
+          59,
+        )
+      );
     case DateRangeFilter.lastMonth:
-      final currentStart = DateTime(now.year, now.month - 1, 1);
-      final prevStart = DateTime(now.year, now.month - 2, 1);
+      final currentStart = previousFinancialCycleForDate(
+        todayStart,
+        startDay: normalizedFinancialStartDay,
+      ).start;
+      final prevStart = previousFinancialCycleStart(
+        currentStart,
+        startDay: normalizedFinancialStartDay,
+      );
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
       return (prevStart, prevEnd);
     case DateRangeFilter.last3Months:
-      final currentStart = DateTime(now.year, now.month - 2, 1);
+      final currentStart = addFinancialCycles(
+        financialCycleStartForDate(
+          todayStart,
+          startDay: normalizedFinancialStartDay,
+        ),
+        -2,
+        startDay: normalizedFinancialStartDay,
+      );
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
-      final prevStart = DateTime(prevEnd.year, prevEnd.month - 2, 1);
+      final prevStart = addFinancialCycles(
+        currentStart,
+        -3,
+        startDay: normalizedFinancialStartDay,
+      );
       return (prevStart, prevEnd);
     case DateRangeFilter.last30Days:
       final currentStart = todayStart.subtract(const Duration(days: 29));

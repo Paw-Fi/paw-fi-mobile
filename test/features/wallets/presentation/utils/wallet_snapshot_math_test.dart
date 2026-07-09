@@ -93,6 +93,61 @@ void main() {
     expect(snapshot.netWorthCents, 13000);
   });
 
+  test('buildWalletSnapshot limits income and spend to selected cycle', () {
+    final wallets = [wallet(id: 'w1', opening: 10000, isDefault: true)];
+    final transactions = [
+      tx(
+        id: 'prior-income',
+        date: DateTime(2026, 7, 10),
+        cents: 5000,
+        type: 'income',
+        walletId: 'w1',
+      ),
+      tx(
+        id: 'in-cycle-expense',
+        date: DateTime(2026, 7, 25),
+        cents: 2000,
+        type: 'expense',
+        walletId: 'w1',
+      ),
+      tx(
+        id: 'after-cycle',
+        date: DateTime(2026, 8, 25),
+        cents: 9999,
+        type: 'expense',
+        walletId: 'w1',
+      ),
+    ];
+
+    final snapshot = buildWalletSnapshot(
+      wallets: wallets,
+      transactions: transactions,
+      periodStart: DateTime(2026, 7, 25),
+      endExclusive: DateTime(2026, 8, 25),
+    );
+
+    expect(snapshot.totalIncomeCents, 0);
+    expect(snapshot.totalSpentCents, 2000);
+    expect(snapshot.walletBalances['w1'], 13000);
+    expect(snapshot.netWorthCents, 13000);
+  });
+
+  test('buildWalletAvailableMonths uses custom financial cycle anchors', () {
+    final months = buildWalletAvailableMonths(
+      now: DateTime(2026, 8, 10),
+      financialMonthStartDay: 25,
+      transactions: [
+        tx(id: 'm1', date: DateTime(2026, 6, 1), cents: 100, type: 'expense'),
+      ],
+    );
+
+    expect(months, [
+      DateTime(2026, 7, 25),
+      DateTime(2026, 6, 25),
+      DateTime(2026, 5, 25),
+    ]);
+  });
+
   test(
       'filterWalletTransactions applies scope, currency and recurring exclusion',
       () {

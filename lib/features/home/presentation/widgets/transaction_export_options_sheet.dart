@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
@@ -14,6 +15,7 @@ Future<TransactionExportRequest?> showTransactionExportOptionsSheet({
   required BuildContext context,
   required List<Household> spaces,
   required String personalLabel,
+  int financialMonthStartDay = 1,
 }) {
   return showModalBottomSheet<TransactionExportRequest>(
     context: context,
@@ -25,6 +27,7 @@ Future<TransactionExportRequest?> showTransactionExportOptionsSheet({
     builder: (context) => TransactionExportOptionsSheet(
       spaces: spaces,
       personalLabel: personalLabel,
+      financialMonthStartDay: financialMonthStartDay,
     ),
   );
 }
@@ -94,10 +97,12 @@ class TransactionExportOptionsSheet extends StatefulWidget {
     super.key,
     required this.spaces,
     required this.personalLabel,
+    this.financialMonthStartDay = 1,
   });
 
   final List<Household> spaces;
   final String personalLabel;
+  final int financialMonthStartDay;
 
   @override
   State<TransactionExportOptionsSheet> createState() =>
@@ -117,7 +122,10 @@ class _TransactionExportOptionsSheetState
     super.initState();
     final today = _dateOnly(DateTime.now());
     _format = TransactionExportFormat.excel;
-    _fromDate = DateTime(today.year, today.month, 1);
+    _fromDate = financialCycleStartForDate(
+      today,
+      startDay: widget.financialMonthStartDay,
+    );
     _toDate = today;
   }
 
@@ -238,7 +246,7 @@ class _TransactionExportOptionsSheetState
                                 ),
                               ],
                             ),
-                          ),                        
+                          ),
                         ],
                       ),
                     ),
@@ -246,7 +254,7 @@ class _TransactionExportOptionsSheetState
                   const SizedBox(height: 12),
                   PrimaryAdaptiveButton(
                     onPressed: _submit,
-                    child:  Text(context.l10n.exportTransactions),
+                    child: Text(context.l10n.exportTransactions),
                   ),
                 ],
               ),
@@ -331,12 +339,16 @@ class _SpaceSelectionTile extends StatelessWidget {
         return AdaptivePopupMenuItem(
           label: option.label,
           icon: option.type == TransactionExportSpaceType.all
-              ? (PlatformInfo.isIOS26OrHigher() ? 'chart.pie.fill' : Icons.pie_chart)
+              ? (PlatformInfo.isIOS26OrHigher()
+                  ? 'chart.pie.fill'
+                  : Icons.pie_chart)
               : option.type == TransactionExportSpaceType.personal
                   ? (PlatformInfo.isIOS26OrHigher()
                       ? 'person.crop.circle.fill'
                       : Icons.account_circle)
-                  : (PlatformInfo.isIOS26OrHigher() ? 'person.2.fill' : Icons.group),
+                  : (PlatformInfo.isIOS26OrHigher()
+                      ? 'person.2.fill'
+                      : Icons.group),
           value: option,
         );
       }).toList(),

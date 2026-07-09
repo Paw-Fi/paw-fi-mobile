@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -39,18 +40,24 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   final data = ref.watch(analyticsProvider);
   final filter = ref.watch(homeFilterProvider);
   final setCurrency = filter.selectedCurrency?.toUpperCase();
+  final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
   // MoM trend is personal-only; always scope recurring to personal data
   final recurringExpensesAV = ref.watch(recurringExpensesProvider(null));
 
-  // Build last 3 month keys: yyyy-MM
+  // Build last 3 financial-cycle keys.
   final now = DateTime.now();
+  final currentCycleStart = financialCycleStartForDate(
+    now,
+    startDay: financialMonthStartDay,
+  );
   final months = List.generate(3, (i) {
-    final d = DateTime(now.year, now.month - i, 1);
-    return DateTime(d.year, d.month); // normalized
+    return addFinancialCycles(
+      currentCycleStart,
+      -i,
+      startDay: financialMonthStartDay,
+    );
   });
-  final keys = months
-      .map((d) => '${d.year}-${d.month.toString().padLeft(2, '0')}')
-      .toList();
+  final keys = months.map(formatFinancialPeriodDate).toList();
   final map = {for (final k in keys) k: 0.0};
   final actualExpensesByKey = <String, List<ExpenseEntry>>{
     for (final key in keys) key: <ExpenseEntry>[],
@@ -62,10 +69,19 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
     if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency)) {
       continue;
     }
-    final key = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}';
-    if (map.containsKey(key)) {
+    final expenseDate = dateOnly(e.date);
+    for (final start in months) {
+      final end = nextFinancialCycleStart(
+        start,
+        startDay: financialMonthStartDay,
+      ).subtract(const Duration(days: 1));
+      if (expenseDate.isBefore(start) || expenseDate.isAfter(end)) {
+        continue;
+      }
+      final key = formatFinancialPeriodDate(start);
       map[key] = (map[key] ?? 0) + e.amount.abs();
       actualExpensesByKey[key]!.add(e);
+      break;
     }
   }
 
@@ -73,9 +89,12 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
     data: (items) {
       final now = DateTime.now();
       for (final month in months) {
-        final start = DateTime(month.year, month.month, 1);
-        final end = DateTime(month.year, month.month + 1, 0);
-        final key = '${start.year}-${start.month.toString().padLeft(2, '0')}';
+        final start = month;
+        final end = nextFinancialCycleStart(
+          start,
+          startDay: financialMonthStartDay,
+        ).subtract(const Duration(days: 1));
+        final key = formatFinancialPeriodDate(start);
         final mergedExpenses = mergeActualExpensesWithProjectedRecurring(
           actualExpenses: actualExpensesByKey[key] ?? const <ExpenseEntry>[],
           recurringTransactions: items,
@@ -115,6 +134,7 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
   final expenses = ref.watch(homeFilteredExpensesProvider);
   final budgets = ref.watch(homeFilteredBudgetsProvider);
   final periodSelection = ref.watch(periodFilterProvider);
+  final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
   if (expenses.isEmpty || budgets.isEmpty) {
     return const RunwayInfo(
@@ -122,7 +142,10 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
   }
 
   // Date range window
-  final range = resolvePeriodDateRange(periodSelection);
+  final range = resolvePeriodDateRange(
+    periodSelection,
+    financialMonthStartDay: financialMonthStartDay,
+  );
   final from = DateTime(range.start.year, range.start.month, range.start.day);
   final to = DateTime(range.end.year, range.end.month, range.end.day);
   final daysInWindow =

@@ -352,6 +352,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
         context: context,
         spaces: households,
         personalLabel: exportPersonalLabel,
+        financialMonthStartDay: ref.read(financialMonthStartDayProvider),
       );
       if (!context.mounted || exportRequest == null) {
         debugPrint('[HomeHeaderSliver.export] export options canceled');
@@ -480,7 +481,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
           ],
         ),
       ),
-      items: [       
+      items: [
         AdaptivePopupMenuItem(
           label: personalLabel,
           icon: PlatformInfo.isIOS26OrHigher()
@@ -617,7 +618,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
         padding: 6,
         borderRadius: 24,
         child: Padding(
-          padding: const EdgeInsets.only(left:8.0),
+          padding: const EdgeInsets.only(left: 8.0),
           child: Container(
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

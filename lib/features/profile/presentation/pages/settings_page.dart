@@ -47,7 +47,9 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
@@ -248,6 +250,8 @@ class SettingsPage extends HookConsumerWidget {
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final selectedTimezone = useState<String?>(contact?.preferredTimezone);
+    final selectedFinancialMonthStartDay =
+        useState<int>(contact?.financialMonthStartDay ?? 1);
     final prefs = ref.read(sharedPreferencesProvider);
     final holdQuickAction =
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
@@ -278,12 +282,15 @@ class SettingsPage extends HookConsumerWidget {
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
       selectedTimezone.value = contact?.preferredTimezone;
+      selectedFinancialMonthStartDay.value =
+          contact?.financialMonthStartDay ?? 1;
       // Sync the switch value with the actual app lock state
       appLockSwitchValue.value = appLockConfigured;
       return null;
     }, [
       contact?.preferredCurrency,
       contact?.preferredTimezone,
+      contact?.financialMonthStartDay,
       appLockConfigured
     ]);
 
@@ -625,6 +632,48 @@ class SettingsPage extends HookConsumerWidget {
           AppToast.error(
             context,
             context.l10n.timezoneUpdateFailed(e.toString()),
+          );
+        }
+      }
+    }
+
+    Future<void> handleFinancialMonthStartDayChange(int day) async {
+      final previous = selectedFinancialMonthStartDay.value;
+      if (day < 1 || day > 31 || day == previous) return;
+      selectedFinancialMonthStartDay.value = day;
+      try {
+        final response = await Supabase.instance.client.functions.invoke(
+          'update-financial-month-start-day',
+          body: {
+            'userId': authState.uid,
+            'financialMonthStartDay': day,
+          },
+        );
+        final data = response.data;
+        final isSuccessful = response.status < 400 &&
+            data is Map<String, dynamic> &&
+            (data['ok'] == true || data['success'] == true);
+        if (!isSuccessful) {
+          throw Exception('Failed to update financial month start day');
+        }
+
+        ref.read(analyticsProvider.notifier).updateFinancialMonthStartDay(day);
+        ref.read(dashboardRefreshSignalProvider.notifier).state++;
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state++;
+        ref.read(walletsRefreshSignalProvider.notifier).state++;
+        ref.read(pocketsPersistedCacheBypassCountProvider.notifier).state++;
+        ref.read(walletsPageStatePersistedCacheBypassProvider.notifier).state++;
+        ref.read(analyticsProvider.notifier).refresh(authState.uid);
+
+        if (context.mounted) {
+          AppToast.success(context, context.l10n.financialMonthStartUpdated);
+        }
+      } catch (e) {
+        selectedFinancialMonthStartDay.value = previous;
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            '${context.l10n.financialMonthStartUpdateFailed}: $e',
           );
         }
       }
@@ -1431,6 +1480,28 @@ class SettingsPage extends HookConsumerWidget {
                         },
                       ),
                       _SettingsTile(
+                        icon: Icons.calendar_month_rounded,
+                        label: context.l10n.financialMonthStart,
+                        value: context.l10n.financialMonthStartDayLabel(
+                          selectedFinancialMonthStartDay.value,
+                        ),
+                        onTap: () async {
+                          final pickedDay = await MonekoListPicker.show<int>(
+                            context: context,
+                            items: List<int>.generate(
+                              31,
+                              (index) => index + 1,
+                            ),
+                            initial: selectedFinancialMonthStartDay.value,
+                            title: context.l10n.financialMonthStart,
+                            labelBuilder:
+                                context.l10n.financialMonthStartDayLabel,
+                          );
+                          if (pickedDay == null) return;
+                          await handleFinancialMonthStartDayChange(pickedDay);
+                        },
+                      ),
+                      _SettingsTile(
                         icon: currentTheme == ThemeMode.dark ||
                                 (currentTheme == ThemeMode.system && isDarkMode)
                             ? Icons.dark_mode_rounded
@@ -1536,8 +1607,7 @@ class SettingsPage extends HookConsumerWidget {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.currencyConverter,
+                            highlightedFeature: PlusFeature.currencyConverter,
                           );
                           return;
                         }
@@ -1572,8 +1642,7 @@ class SettingsPage extends HookConsumerWidget {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.emailReceiptImport,
+                            highlightedFeature: PlusFeature.emailReceiptImport,
                           );
                           return;
                         }
@@ -1602,16 +1671,15 @@ class SettingsPage extends HookConsumerWidget {
                           ? context.l10n.telegramConnected
                           : context.l10n.connectTelegram,
                       value: ref.watch(telegramBindingProvider).asData?.value ==
-                                  true
-                              ? context.l10n.activeStatus
-                              : context.l10n.tapToSet,
+                              true
+                          ? context.l10n.activeStatus
+                          : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.messagingAppCapture,
+                            highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }
@@ -1646,16 +1714,15 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                       label: context.l10n.whatsAppConnected,
                       value: ref.watch(whatsAppBindingProvider).asData?.value ==
-                                  true
-                              ? context.l10n.activeStatus
-                              : context.l10n.tapToSet,
+                              true
+                          ? context.l10n.activeStatus
+                          : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.messagingAppCapture,
+                            highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }
@@ -1716,8 +1783,7 @@ class SettingsPage extends HookConsumerWidget {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.messagingAppCapture,
+                            highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }

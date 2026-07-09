@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
@@ -163,6 +164,7 @@ class PocketDetailsPage extends HookConsumerWidget {
       periodMonth: state.periodMonth,
       currency: effectiveCurrency,
       selectedCurrencies: scopeParams.normalizedSelectedCurrencies,
+      financialMonthStartDay: scopeParams.normalizedFinancialMonthStartDay,
       isBootstrapCurrency: false,
       includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
@@ -176,8 +178,14 @@ class PocketDetailsPage extends HookConsumerWidget {
 
     TransactionsFeedQuery buildFeedQuery(List<String> linkedCategories) {
       final periodMonth = detailScopeParams.periodMonth ?? DateTime.now();
-      final monthStart = DateTime(periodMonth.year, periodMonth.month, 1);
-      final monthEnd = DateTime(periodMonth.year, periodMonth.month + 1, 0);
+      final monthStart = financialCycleStartForDate(
+        periodMonth,
+        startDay: detailScopeParams.normalizedFinancialMonthStartDay,
+      );
+      final monthEnd = nextFinancialCycleStart(
+        monthStart,
+        startDay: detailScopeParams.normalizedFinancialMonthStartDay,
+      ).subtract(const Duration(days: 1));
       final feedHouseholdId =
           detailScopeParams.scope == PocketsScopeType.personal
               ? null

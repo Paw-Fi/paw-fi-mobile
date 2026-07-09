@@ -16,10 +16,11 @@ String pocketsPersistedCacheKey({
   required String periodMonth,
   required String currency,
   String? currenciesKey,
+  required int financialMonthStartDay,
   required bool includeUpcomingRecurring,
   required bool allowCurrencyFallback,
 }) {
-  return 'pockets:month:v1:$userId:$scope:${householdId ?? 'personal'}:$periodMonth:$currency:${currenciesKey ?? currency}:$includeUpcomingRecurring:$allowCurrencyFallback';
+  return 'pockets:month:v2:$userId:$scope:${householdId ?? 'personal'}:$periodMonth:$currency:${currenciesKey ?? currency}:fmsd$financialMonthStartDay:$includeUpcomingRecurring:$allowCurrencyFallback';
 }
 
 Future<Map<String, dynamic>?> readPersistedPocketsCache(

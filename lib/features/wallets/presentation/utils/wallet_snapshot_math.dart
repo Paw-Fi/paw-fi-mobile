@@ -1,4 +1,5 @@
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -31,15 +32,22 @@ int retargetWalletBalanceForOpeningChange({
 List<DateTime> buildWalletAvailableMonths({
   required DateTime now,
   required List<ExpenseEntry> transactions,
+  int financialMonthStartDay = 1,
 }) {
-  final currentMonth = DateTime(now.year, now.month);
+  final currentMonth = financialCycleStartForDate(
+    now,
+    startDay: financialMonthStartDay,
+  );
   if (transactions.isEmpty) {
     return <DateTime>[currentMonth];
   }
 
   var earliest = currentMonth;
   for (final tx in transactions) {
-    final txMonth = DateTime(tx.date.year, tx.date.month);
+    final txMonth = financialCycleStartForDate(
+      tx.date,
+      startDay: financialMonthStartDay,
+    );
     if (txMonth.isBefore(earliest)) {
       earliest = txMonth;
     }
@@ -49,7 +57,10 @@ List<DateTime> buildWalletAvailableMonths({
   var cursor = currentMonth;
   while (!cursor.isBefore(earliest)) {
     months.add(cursor);
-    cursor = DateTime(cursor.year, cursor.month - 1);
+    cursor = previousFinancialCycleStart(
+      cursor,
+      startDay: financialMonthStartDay,
+    );
   }
   return months;
 }
@@ -77,6 +88,8 @@ WalletSnapshot buildWalletSnapshot({
   required List<WalletEntity> wallets,
   required List<ExpenseEntry> transactions,
   required DateTime endExclusive,
+  DateTime? periodStart,
+  DateTime? periodEndExclusive,
   String? targetCurrency,
   CurrencyRateTable? rates,
 }) {
@@ -102,8 +115,16 @@ WalletSnapshot buildWalletSnapshot({
     return (converted * 100).round() * sign;
   }
 
-  final filteredTransactions = transactions.where((expense) {
+  final balanceTransactions = transactions.where((expense) {
     return expense.date.isBefore(endExclusive);
+  }).toList(growable: false);
+  final totalPeriodStart = periodStart;
+  final totalPeriodEndExclusive = periodEndExclusive ?? endExclusive;
+  final periodTransactions = balanceTransactions.where((expense) {
+    if (totalPeriodStart != null && expense.date.isBefore(totalPeriodStart)) {
+      return false;
+    }
+    return expense.date.isBefore(totalPeriodEndExclusive);
   }).toList(growable: false);
   final walletsById = <String, WalletEntity>{
     for (final wallet in wallets) wallet.id: wallet,
@@ -111,7 +132,7 @@ WalletSnapshot buildWalletSnapshot({
 
   var totalIncomeCents = 0;
   var totalSpentCents = 0;
-  for (final expense in filteredTransactions) {
+  for (final expense in periodTransactions) {
     final resolvedWalletId = resolveTransactionWalletId(
       transaction: expense,
       wallets: wallets,
@@ -135,7 +156,7 @@ WalletSnapshot buildWalletSnapshot({
       wallet.id: convertCents(wallet.openingBalanceCents, wallet.currency),
   };
 
-  for (final tx in filteredTransactions) {
+  for (final tx in balanceTransactions) {
     final resolvedWalletId = resolveTransactionWalletId(
       transaction: tx,
       wallets: wallets,

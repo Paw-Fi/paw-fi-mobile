@@ -17,6 +17,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
@@ -104,7 +105,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   final VoidCallback? onDeleteCompleted;
   final ValueChanged<PocketTemplate>? onSaveOffline;
 
-  Future<bool?> _confirmDelete(BuildContext context, AppLocalizations l10n) async {
+  Future<bool?> _confirmDelete(
+      BuildContext context, AppLocalizations l10n) async {
     final result = await MonekoAlertDialog.show(
       context: context,
       title: l10n.pocketDeleteTitle,
@@ -203,7 +205,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     );
     final maxBudgetCents = math.max(0, totalBudgetCents);
     final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
-    final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
+    final monthStart = financialCycleStartForDate(
+      viewedMonth,
+      startDay: scopeParams.normalizedFinancialMonthStartDay,
+    );
     final periodMonth =
         '${monthStart.year}-${monthStart.month.toString().padLeft(2, '0')}-01';
     final previewAmountCents = quantizePocketBudgetAmountCents(

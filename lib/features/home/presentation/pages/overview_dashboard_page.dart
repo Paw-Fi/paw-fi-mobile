@@ -21,6 +21,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -76,9 +77,12 @@ class OverviewDashboardPage extends ConsumerWidget {
                   filterState.normalizedSelectedCurrencies;
               final allTransactions = data.allTransactions;
               final selectedPeriod = ref.watch(overviewPeriodSelectionProvider);
+              final financialMonthStartDay =
+                  ref.watch(financialMonthStartDayProvider);
               final periodDateRange = resolvePeriodDateRange(
                 selectedPeriod,
                 now: now,
+                financialMonthStartDay: financialMonthStartDay,
               );
               final selectedFrom = DateTime(
                 periodDateRange.start.year,
@@ -321,6 +325,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                 households: data.households,
                 transactions: myAllTransactions,
                 amountResolver: resolveCachedAmount,
+                financialMonthStartDay: financialMonthStartDay,
               );
 
               void openDetail(String title, Widget child) {
@@ -770,6 +775,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 transactions: myExpenseTransactions,
                                 amountResolver: resolveCachedExpenseAmount,
                                 currencyCode: displayCurrency,
+                                financialMonthStartDay: financialMonthStartDay,
                               ),
                             ),
                           ),
@@ -803,6 +809,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 transactions: myExpenseTransactions,
                                 amountResolver: resolveCachedExpenseAmount,
                                 currencyCode: displayCurrency,
+                                financialMonthStartDay: financialMonthStartDay,
                               ),
                             ),
                             child: Padding(
@@ -811,6 +818,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 transactions: myExpenseTransactions,
                                 amountResolver: resolveCachedExpenseAmount,
                                 currencyCode: displayCurrency,
+                                financialMonthStartDay: financialMonthStartDay,
                                 isLoading: data.isLoading,
                               ),
                             ),
@@ -1344,6 +1352,7 @@ class _AverageDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String currencyCode;
+  final int financialMonthStartDay;
 
   const _AverageDetail({
     required this.avgDaily,
@@ -1352,6 +1361,7 @@ class _AverageDetail extends StatelessWidget {
     required this.transactions,
     this.amountResolver,
     required this.currencyCode,
+    required this.financialMonthStartDay,
   });
 
   @override
@@ -1383,6 +1393,7 @@ class _AverageDetail extends StatelessWidget {
                 transactions: transactions,
                 amountResolver: amountResolver,
                 currencyCode: currencyCode,
+                financialMonthStartDay: financialMonthStartDay,
               ),
             ),
           ],
@@ -1396,11 +1407,13 @@ class _TrendDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String currencyCode;
+  final int financialMonthStartDay;
 
   const _TrendDetail({
     required this.transactions,
     this.amountResolver,
     required this.currencyCode,
+    required this.financialMonthStartDay,
   });
 
   @override
@@ -1418,6 +1431,7 @@ class _TrendDetail extends StatelessWidget {
                 transactions: transactions,
                 amountResolver: amountResolver,
                 currencyCode: currencyCode,
+                financialMonthStartDay: financialMonthStartDay,
               ),
             ),
           ],
@@ -1655,13 +1669,19 @@ List<AccountChartData> _buildAccountChartData({
   required List<Household> households,
   required List<ConsolidatedTransaction> transactions,
   required double Function(ConsolidatedTransaction tx) amountResolver,
+  required int financialMonthStartDay,
 }) {
   DateTime transactionUserDate(ConsolidatedTransaction tx) {
     return DateTime(tx.entry.date.year, tx.entry.date.month, tx.entry.date.day);
   }
 
   DateTime resolveStartMonth(List<ConsolidatedTransaction> txs) {
-    if (txs.isEmpty) return DateTime(now.year, now.month, 1);
+    if (txs.isEmpty) {
+      return financialCycleStartForDate(
+        now,
+        startDay: financialMonthStartDay,
+      );
+    }
     DateTime minDate = transactionUserDate(txs.first);
     for (final tx in txs) {
       final txDate = transactionUserDate(tx);
@@ -1669,11 +1689,19 @@ List<AccountChartData> _buildAccountChartData({
         minDate = txDate;
       }
     }
-    return DateTime(minDate.year, minDate.month, 1);
+    return financialCycleStartForDate(
+      minDate,
+      startDay: financialMonthStartDay,
+    );
   }
 
   DateTime resolveEndMonth(List<ConsolidatedTransaction> txs) {
-    if (txs.isEmpty) return DateTime(now.year, now.month, 1);
+    if (txs.isEmpty) {
+      return financialCycleStartForDate(
+        now,
+        startDay: financialMonthStartDay,
+      );
+    }
     DateTime maxDate = transactionUserDate(txs.first);
     for (final tx in txs) {
       final txDate = transactionUserDate(tx);
@@ -1681,7 +1709,10 @@ List<AccountChartData> _buildAccountChartData({
         maxDate = txDate;
       }
     }
-    return DateTime(maxDate.year, maxDate.month, 1);
+    return financialCycleStartForDate(
+      maxDate,
+      startDay: financialMonthStartDay,
+    );
   }
 
   const maxChartMonths = 6;
@@ -1692,10 +1723,10 @@ List<AccountChartData> _buildAccountChartData({
       startMonth.month +
       1;
   if (monthsCount > maxChartMonths) {
-    startMonth = DateTime(
-      endMonth.year,
-      endMonth.month - (maxChartMonths - 1),
-      1,
+    startMonth = addFinancialCycles(
+      endMonth,
+      -(maxChartMonths - 1),
+      startDay: financialMonthStartDay,
     );
     monthsCount = maxChartMonths;
   }
@@ -1724,8 +1755,13 @@ List<AccountChartData> _buildAccountChartData({
     final space = spaces[key];
     if (space == null) continue;
     final txDate = transactionUserDate(tx);
-    final monthIndex =
-        (txDate.year - startMonth.year) * 12 + txDate.month - startMonth.month;
+    final txCycleStart = financialCycleStartForDate(
+      txDate,
+      startDay: financialMonthStartDay,
+    );
+    final monthIndex = (txCycleStart.year - startMonth.year) * 12 +
+        txCycleStart.month -
+        startMonth.month;
     if (monthIndex < 0 || monthIndex >= monthsCount) continue;
 
     if (normalizeTransactionType(tx.entry.type) == 'income') {

@@ -731,7 +731,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       try {
         final homeFilter = ref.read(homeFilterProvider);
         final periodSelection = ref.read(periodFilterProvider);
-        final range = resolvePeriodDateRange(periodSelection);
+        final financialMonthStartDay = ref.read(financialMonthStartDayProvider);
+        final range = resolvePeriodDateRange(
+          periodSelection,
+          financialMonthStartDay: financialMonthStartDay,
+        );
         ref.invalidate(householdExpensesProvider(
           HouseholdExpensesParams(
             householdId: widget.householdId,

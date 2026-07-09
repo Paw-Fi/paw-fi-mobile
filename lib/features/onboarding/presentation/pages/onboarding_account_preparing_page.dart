@@ -12,6 +12,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -398,10 +399,12 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         return true;
       }
 
-      final now = DateTime.now();
-      final monthStart = DateTime(now.year, now.month, 1);
-      final periodMonth =
-          '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-01';
+      final financialMonthStartDay = ref.read(financialMonthStartDayProvider);
+      final monthStart = financialCycleStartForDate(
+        DateTime.now(),
+        startDay: financialMonthStartDay,
+      );
+      final periodMonth = formatFinancialPeriodDate(monthStart);
       final selectedCurrency = preparedDraft.selectedCurrency.toUpperCase();
 
       final hasPersonalBudgetPockets = await hasCompleteBudgetSetup(
@@ -825,14 +828,18 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           );
         }
         if (preparedDraft.monthlyBudget > 0) {
-          final now = DateTime.now();
-          final monthStart = DateTime(now.year, now.month, 1);
-          final periodMonth =
-              '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-01';
+          final financialMonthStartDay =
+              ref.read(financialMonthStartDayProvider);
+          final monthStart = financialCycleStartForDate(
+            DateTime.now(),
+            startDay: financialMonthStartDay,
+          );
+          final periodMonth = formatFinancialPeriodDate(monthStart);
 
           final personalParams = PocketsScopeParams(
             scope: PocketsScopeType.personal,
             periodMonth: monthStart,
+            financialMonthStartDay: financialMonthStartDay,
           );
           final selectedCurrency = preparedDraft.selectedCurrency.toUpperCase();
           final hasPersonalBudgetPockets = await hasExistingBudgetPockets(
@@ -873,6 +880,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 scope: PocketsScopeType.household,
                 householdId: createdHouseholdId,
                 periodMonth: monthStart,
+                financialMonthStartDay: financialMonthStartDay,
               );
               await OnboardingBudgetSyncService.createStarterBudget(
                 ref: ref,

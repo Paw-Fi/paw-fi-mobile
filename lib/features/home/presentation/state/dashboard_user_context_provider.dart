@@ -49,7 +49,7 @@ final dashboardUserContactProvider =
   final response = await supabase
       .from('user_contacts')
       .select(
-          'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone')
+          'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone,financial_month_start_day')
       .eq('user_id', userId)
       .order('updated_at', ascending: false)
       .limit(1)

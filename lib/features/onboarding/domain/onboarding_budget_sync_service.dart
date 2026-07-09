@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -17,7 +18,10 @@ class OnboardingBudgetSyncService {
     required Set<String> builtinCategoryNames,
   }) async {
     final month = scopeParams.periodMonth ?? DateTime.now();
-    final monthStart = DateTime(month.year, month.month, 1);
+    final monthStart = financialCycleStartForDate(
+      month,
+      startDay: scopeParams.normalizedFinancialMonthStartDay,
+    );
     final periodMonth = _formatDate(monthStart);
     final householdId = scopeParams.scope == PocketsScopeType.personal
         ? null

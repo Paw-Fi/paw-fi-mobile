@@ -18,6 +18,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
@@ -139,6 +140,7 @@ class AccountsPage extends HookConsumerWidget {
         ? _buildPreviewWalletsPageData(
             selectedCurrencyCode: selectedCurrencyCode,
             effectiveNow: effectiveNowForUser,
+            financialMonthStartDay: scopeQuery.financialMonthStartDay,
           )
         : null;
     final AsyncValue<List<WalletEntity>> walletsAsync = isPreviewMode
@@ -520,8 +522,14 @@ class AccountsPage extends HookConsumerWidget {
           _AccountsSnapshot accountsSnapshotForMonth(
             WalletsMonthSnapshot snapshot,
           ) {
-            final isCurrentMonth = _normalizeWalletMonth(snapshot.monthStart) ==
-                _normalizeWalletMonth(scopeQuery.currentMonthStart);
+            final isCurrentMonth = _normalizeWalletMonth(
+                  snapshot.monthStart,
+                  financialMonthStartDay: scopeQuery.financialMonthStartDay,
+                ) ==
+                _normalizeWalletMonth(
+                  scopeQuery.currentMonthStart,
+                  financialMonthStartDay: scopeQuery.financialMonthStartDay,
+                );
             if (!isPreviewMode && isCurrentMonth && wallets.isNotEmpty) {
               return _accountsSnapshotFromCurrentWalletBalances(
                 snapshot,
@@ -590,9 +598,15 @@ class AccountsPage extends HookConsumerWidget {
                                 ?.cachedSnapshotsByMonth[monthStart];
                         final canUseCurrentWalletBalanceFallback =
                             !isPreviewMode &&
-                                _normalizeWalletMonth(monthStart) ==
+                                _normalizeWalletMonth(
+                                      monthStart,
+                                      financialMonthStartDay:
+                                          scopeQuery.financialMonthStartDay,
+                                    ) ==
                                     _normalizeWalletMonth(
                                       scopeQuery.currentMonthStart,
+                                      financialMonthStartDay:
+                                          scopeQuery.financialMonthStartDay,
                                     ) &&
                                 wallets.isNotEmpty;
                         final isOverviewLoading = !isPreviewMode &&
@@ -1247,6 +1261,7 @@ String _walletsMonthSwipeHintDismissedKey(String userId) {
 _PreviewWalletsPageData _buildPreviewWalletsPageData({
   required String selectedCurrencyCode,
   required DateTime effectiveNow,
+  required int financialMonthStartDay,
 }) {
   final wallets = PreviewMockData.wallets;
   final transactions = _buildPreviewWalletTransactions(
@@ -1256,6 +1271,7 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
   final availableMonths = buildWalletAvailableMonths(
     now: effectiveNow,
     transactions: transactions,
+    financialMonthStartDay: financialMonthStartDay,
   );
   final monthSnapshots = <DateTime, WalletsMonthSnapshot>{};
   const rates = CurrencyRateTable(
@@ -1265,23 +1281,27 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
   );
 
   for (final monthStart in availableMonths) {
-    final normalizedMonthStart = _normalizeWalletMonth(monthStart);
+    final normalizedMonthStart = _normalizeWalletMonth(
+      monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+    );
+    final monthEndExclusive = _previewWalletSnapshotEndExclusive(
+      monthStart: normalizedMonthStart,
+      effectiveNow: effectiveNow,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final snapshot = buildWalletSnapshot(
       wallets: wallets,
       transactions: transactions,
-      endExclusive: _previewWalletSnapshotEndExclusive(
-        monthStart: normalizedMonthStart,
-        effectiveNow: effectiveNow,
-      ),
+      endExclusive: monthEndExclusive,
+      periodStart: normalizedMonthStart,
+      periodEndExclusive: monthEndExclusive,
       targetCurrency: selectedCurrencyCode,
       rates: rates,
     );
     monthSnapshots[normalizedMonthStart] = WalletsMonthSnapshot(
       monthStart: normalizedMonthStart,
-      monthEndExclusive: _previewWalletSnapshotEndExclusive(
-        monthStart: normalizedMonthStart,
-        effectiveNow: effectiveNow,
-      ),
+      monthEndExclusive: monthEndExclusive,
       incomeTotalCents: snapshot.totalIncomeCents,
       spentTotalCents: snapshot.totalSpentCents,
       netWorthCents: snapshot.netWorthCents,
@@ -1292,7 +1312,10 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
   final history = WalletsHistorySummary(
     availableMonths: availableMonths,
     netWorthSeries: availableMonths.reversed.map((monthStart) {
-      final snapshot = monthSnapshots[_normalizeWalletMonth(monthStart)];
+      final snapshot = monthSnapshots[_normalizeWalletMonth(
+        monthStart,
+        financialMonthStartDay: financialMonthStartDay,
+      )];
       return WalletNetWorthPoint(
         monthStart: monthStart,
         netWorthCents: snapshot?.netWorthCents ?? 0,
@@ -1304,6 +1327,7 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
     wallets: wallets,
     history: history,
     monthSnapshots: monthSnapshots,
+    financialMonthStartDay: financialMonthStartDay,
   );
 }
 
@@ -1368,9 +1392,16 @@ String? _resolvePreviewTransactionWalletId({
 DateTime _previewWalletSnapshotEndExclusive({
   required DateTime monthStart,
   required DateTime effectiveNow,
+  required int financialMonthStartDay,
 }) {
-  final normalizedMonthStart = _normalizeWalletMonth(monthStart);
-  final currentMonthStart = _normalizeWalletMonth(effectiveNow);
+  final normalizedMonthStart = _normalizeWalletMonth(
+    monthStart,
+    financialMonthStartDay: financialMonthStartDay,
+  );
+  final currentMonthStart = _normalizeWalletMonth(
+    effectiveNow,
+    financialMonthStartDay: financialMonthStartDay,
+  );
   if (normalizedMonthStart == currentMonthStart) {
     return DateTime(
       effectiveNow.year,
@@ -1379,15 +1410,21 @@ DateTime _previewWalletSnapshotEndExclusive({
     );
   }
 
-  return DateTime(
-    normalizedMonthStart.year,
-    normalizedMonthStart.month + 1,
+  return addFinancialCycles(
+    normalizedMonthStart,
     1,
+    startDay: financialMonthStartDay,
   );
 }
 
-DateTime _normalizeWalletMonth(DateTime date) {
-  return DateTime(date.year, date.month, 1);
+DateTime _normalizeWalletMonth(
+  DateTime date, {
+  int financialMonthStartDay = 1,
+}) {
+  return normalizeWalletMonthStart(
+    date,
+    financialMonthStartDay: financialMonthStartDay,
+  );
 }
 
 _AccountsSnapshot _buildOpeningSnapshot(
@@ -1504,14 +1541,19 @@ class _PreviewWalletsPageData {
     required this.wallets,
     required this.history,
     required this.monthSnapshots,
+    required this.financialMonthStartDay,
   });
 
   final List<WalletEntity> wallets;
   final WalletsHistorySummary history;
   final Map<DateTime, WalletsMonthSnapshot> monthSnapshots;
+  final int financialMonthStartDay;
 
   WalletsMonthSnapshot? snapshotForMonth(DateTime monthStart) {
-    return monthSnapshots[_normalizeWalletMonth(monthStart)];
+    return monthSnapshots[_normalizeWalletMonth(
+      monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+    )];
   }
 }
 

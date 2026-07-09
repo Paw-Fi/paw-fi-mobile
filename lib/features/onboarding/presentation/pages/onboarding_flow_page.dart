@@ -15,6 +15,7 @@ import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
@@ -1925,9 +1926,16 @@ class _BudgetStep extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // Personal current month scope
     final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month, 1);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final monthStart = financialCycleStartForDate(
+      now,
+      startDay: financialMonthStartDay,
+    );
     final scopeParams = PocketsScopeParams(
-        scope: PocketsScopeType.personal, periodMonth: monthStart);
+      scope: PocketsScopeType.personal,
+      periodMonth: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
 
@@ -2324,16 +2332,22 @@ class _PocketsIntroStep extends HookConsumerWidget {
 
     // Watch pockets state for success detection
     final selectedHousehold = ref.watch(selectedHouseholdProvider);
-    final monthStart = DateTime(now.year, now.month, 1);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final monthStart = financialCycleStartForDate(
+      now,
+      startDay: financialMonthStartDay,
+    );
     final scopeParams = didCreateSpace && selectedHousehold.householdId != null
         ? PocketsScopeParams(
             scope: PocketsScopeType.household,
             householdId: selectedHousehold.householdId,
             periodMonth: monthStart,
+            financialMonthStartDay: financialMonthStartDay,
           )
         : PocketsScopeParams(
             scope: PocketsScopeType.personal,
             periodMonth: monthStart,
+            financialMonthStartDay: financialMonthStartDay,
           );
     final pocketsState = ref.watch(pocketsProvider(scopeParams));
 

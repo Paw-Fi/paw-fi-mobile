@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/period_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/period_selection.dart';
 
@@ -19,8 +21,13 @@ class PeriodSelectorBar extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final selection = ref.watch(periodFilterProvider);
     final notifier = ref.read(periodFilterProvider.notifier);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
-    final title = _resolveTitle(context, selection);
+    final title = _resolveTitle(
+      context,
+      selection,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final items = _buildMenuItems(context, selection);
 
     final isMonthSelection = selection.kind == PeriodSelectionKind.month;
@@ -40,8 +47,12 @@ class PeriodSelectorBar extends ConsumerWidget {
           children: [
             IconButton(
               icon: Icon(Icons.chevron_left, color: colorScheme.foreground),
-              onPressed:
-                  isMonthSelection ? () => notifier.shiftMonth(-1) : null,
+              onPressed: isMonthSelection
+                  ? () => notifier.shiftMonth(
+                        -1,
+                        financialMonthStartDay: financialMonthStartDay,
+                      )
+                  : null,
             ),
             Expanded(
               child: Column(
@@ -61,7 +72,12 @@ class PeriodSelectorBar extends ConsumerWidget {
             ),
             IconButton(
               icon: Icon(Icons.chevron_right, color: colorScheme.foreground),
-              onPressed: isMonthSelection ? () => notifier.shiftMonth(1) : null,
+              onPressed: isMonthSelection
+                  ? () => notifier.shiftMonth(
+                        1,
+                        financialMonthStartDay: financialMonthStartDay,
+                      )
+                  : null,
             ),
             AdaptivePopupMenuButton.widget(
               items: items,
@@ -78,11 +94,24 @@ class PeriodSelectorBar extends ConsumerWidget {
                 }
 
                 if (value == 'pick_month') {
+                  final currentCycleStart = financialCycleStartForDate(
+                    DateTime.now(),
+                    startDay: financialMonthStartDay,
+                  );
+                  final lastDate = DateTime(
+                    currentCycleStart.year,
+                    currentCycleStart.month,
+                    currentCycleStart.day,
+                  );
+                  final rawInitialDate = selection.month ?? lastDate;
+                  final initialDate = rawInitialDate.isAfter(lastDate)
+                      ? lastDate
+                      : rawInitialDate;
                   final picked = await showDatePicker(
                     context: context,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                    initialDate: selection.month ?? DateTime.now(),
+                    lastDate: lastDate,
+                    initialDate: initialDate,
                   );
                   if (picked != null) {
                     await notifier.setMonth(picked);
@@ -114,10 +143,23 @@ class PeriodSelectorBar extends ConsumerWidget {
     );
   }
 
-  String _resolveTitle(BuildContext context, PeriodSelection selection) {
+  String _resolveTitle(
+    BuildContext context,
+    PeriodSelection selection, {
+    int financialMonthStartDay = 1,
+  }) {
     switch (selection.kind) {
       case PeriodSelectionKind.month:
         final month = selection.month ?? DateTime.now();
+        if (financialMonthStartDay != 1) {
+          final period = financialCycleForMonth(
+            month,
+            startDay: financialMonthStartDay,
+          );
+          final formatter = DateFormat('MMM d, yyyy');
+          return '${formatter.format(period.start)} – '
+              '${formatter.format(period.end)}';
+        }
         return DateFormat('MMMM yyyy').format(month);
       case PeriodSelectionKind.custom:
         final start = selection.customStart;

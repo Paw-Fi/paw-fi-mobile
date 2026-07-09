@@ -409,6 +409,7 @@ class SpendingBreakdownChart extends StatefulWidget {
   final String? selectedCurrency;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
+  final int financialMonthStartDay;
 
   const SpendingBreakdownChart({
     super.key,
@@ -421,6 +422,7 @@ class SpendingBreakdownChart extends StatefulWidget {
     this.selectedCurrency,
     this.customStartDate,
     this.customEndDate,
+    this.financialMonthStartDay = 1,
   });
 
   @override
@@ -502,7 +504,8 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
         cachedKey.referenceDayKey == referenceDayKey &&
         cachedKey.selectedCurrency == selectedCurrency &&
         cachedKey.customStartDateKey == customStartDateKey &&
-        cachedKey.customEndDateKey == customEndDateKey) {
+        cachedKey.customEndDateKey == customEndDateKey &&
+        cachedKey.financialMonthStartDay == widget.financialMonthStartDay) {
       return cached;
     }
 
@@ -514,6 +517,7 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
       selectedCurrency: selectedCurrency,
       customStartDateKey: customStartDateKey,
       customEndDateKey: customEndDateKey,
+      financialMonthStartDay: widget.financialMonthStartDay,
     );
     if (cached != null && _cachedKey == key) {
       return cached;
@@ -524,6 +528,7 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
       widget.customStartDate,
       widget.customEndDate,
       now: now,
+      financialMonthStartDay: widget.financialMonthStartDay,
     );
     final from = range['from']!;
     final to = range['to']!;
@@ -593,6 +598,7 @@ class _SpendingBreakdownCacheKey {
     required this.selectedCurrency,
     required this.customStartDateKey,
     required this.customEndDateKey,
+    required this.financialMonthStartDay,
   });
 
   final int expensesIdentity;
@@ -602,6 +608,7 @@ class _SpendingBreakdownCacheKey {
   final String? selectedCurrency;
   final int? customStartDateKey;
   final int? customEndDateKey;
+  final int financialMonthStartDay;
 
   @override
   bool operator ==(Object other) {
@@ -611,7 +618,8 @@ class _SpendingBreakdownCacheKey {
         other.referenceDayKey == referenceDayKey &&
         other.selectedCurrency == selectedCurrency &&
         other.customStartDateKey == customStartDateKey &&
-        other.customEndDateKey == customEndDateKey;
+        other.customEndDateKey == customEndDateKey &&
+        other.financialMonthStartDay == financialMonthStartDay;
   }
 
   @override
@@ -622,10 +630,12 @@ class _SpendingBreakdownCacheKey {
         selectedCurrency,
         customStartDateKey,
         customEndDateKey,
+        financialMonthStartDay,
       );
 }
 
-List<CategorySummary> _getCategorySummaries(BuildContext context, List<ExpenseEntry> expenses) {
+List<CategorySummary> _getCategorySummaries(
+    BuildContext context, List<ExpenseEntry> expenses) {
   final Map<String, double> categoryTotals = {};
   final Map<String, int> categoryCounts = {};
 
@@ -679,6 +689,7 @@ Widget buildSpendingBreakdownChart(
   String? selectedCurrency,
   DateTime? customStartDate,
   DateTime? customEndDate,
+  int financialMonthStartDay = 1,
 }) {
   return SpendingBreakdownChart(
     key: key,
@@ -691,5 +702,6 @@ Widget buildSpendingBreakdownChart(
     selectedCurrency: selectedCurrency,
     customStartDate: customStartDate,
     customEndDate: customEndDate,
+    financialMonthStartDay: financialMonthStartDay,
   );
 }

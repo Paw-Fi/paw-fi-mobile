@@ -154,6 +154,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<String>? selectedCurrencies,
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
+    required int financialMonthStartDay,
   }) async {
     if (!mounted) return;
 
@@ -182,6 +183,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         config.customStartDate,
         config.customEndDate,
         now: referenceNow,
+        financialMonthStartDay: financialMonthStartDay,
       );
 
       switch (config.type) {
@@ -216,6 +218,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             selectedCurrency: selectedCurrency,
             config: config,
             referenceNow: referenceNow,
+            financialMonthStartDay: financialMonthStartDay,
           ));
           break;
         case DashboardWidgetType.householdFairness:
@@ -236,6 +239,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             selectedCurrency: selectedCurrency,
             config: config,
             referenceNow: referenceNow,
+            financialMonthStartDay: financialMonthStartDay,
           ));
           break;
         case DashboardWidgetType.householdSettlement:
@@ -244,6 +248,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             selectedCurrency: selectedCurrency,
             config: config,
             referenceNow: referenceNow,
+            financialMonthStartDay: financialMonthStartDay,
           ));
           break;
         case DashboardWidgetType.householdMemberSpending:
@@ -264,6 +269,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             selectedCurrency: selectedCurrency,
             config: config,
             referenceNow: referenceNow,
+            financialMonthStartDay: financialMonthStartDay,
           ));
           break;
         case DashboardWidgetType.householdSpendingBreakdownChart:
@@ -395,6 +401,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<String>? selectedCurrencies,
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
+    required int financialMonthStartDay,
   }) {
     if (_dashboardWarmupKey == warmupKey) return;
 
@@ -410,6 +417,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         selectedCurrencies: selectedCurrencies,
         configs: configs,
         referenceNow: referenceNow,
+        financialMonthStartDay: financialMonthStartDay,
       ));
     });
   }
@@ -533,6 +541,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
               initUserContact?.preferredTimezone);
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+          final financialMonthStartDay =
+              ref.watch(financialMonthStartDayProvider);
 
           // Data providers with date filtering
           // Note: Individual widgets inside DraggableDashboardList will fetch their own data
@@ -602,7 +612,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   final warmupKey = _buildDashboardWarmupKey(
                     householdId: household.id,
                     selectedCurrency:
-                        '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|refresh:$dashboardRefreshSignal',
+                        '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|fmsd:$financialMonthStartDay|refresh:$dashboardRefreshSignal',
                     configs: configs,
                   );
                   _scheduleDashboardWarmup(
@@ -613,6 +623,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     selectedCurrencies: selectedCurrencies,
                     configs: configs,
                     referenceNow: userNow,
+                    financialMonthStartDay: financialMonthStartDay,
                   );
 
                   if (!_didLogFirstUsefulPaint) {

@@ -125,6 +125,7 @@ class WidgetSyncManager extends HookConsumerWidget {
     );
     final selectedWidgetCurrenciesKey = selectedWidgetCurrencies.join(',');
     final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     // Ensure configuration options (spaces) are always saved
     // for the iOS AppIntent, independent of analytics loading state.
@@ -254,7 +255,10 @@ class WidgetSyncManager extends HookConsumerWidget {
             appInitState.data?.user?.preferredTimezone,
           );
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-          final widgetRange = buildWidgetThisMonthRange(userNow);
+          final widgetRange = buildWidgetThisMonthRange(
+            userNow,
+            financialMonthStartDay: financialMonthStartDay,
+          );
           final currentMonth = widgetRange['from']!;
           final currentRangeEnd = widgetRange['to']!;
           final widgetCurrencyRates = await _widgetCurrencyRates(ref);
@@ -941,11 +945,12 @@ class WidgetSyncManager extends HookConsumerWidget {
                       budget.date.month,
                       budget.date.day,
                     );
-                    final isMonthMatch = budgetDate.year == userNow.year &&
-                        budgetDate.month == userNow.month;
+                    final isInCurrentCycle =
+                        !budgetDate.isBefore(currentMonth) &&
+                            !budgetDate.isAfter(currentRangeEnd);
                     final currencyOk =
                         (budget.currency?.toUpperCase() ?? 'USD') == currency;
-                    return isMonthMatch && currencyOk;
+                    return isInCurrentCycle && currencyOk;
                   }).toList();
 
                   if (budgetsInRange.isNotEmpty) {
@@ -954,8 +959,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                   } else {
                     // Find most recent budget before this month
                     DailyBudgetEntry? mostRecentBudget;
-                    final firstOfMonth =
-                        DateTime(userNow.year, userNow.month, 1);
                     for (final budget in allBudgets.reversed) {
                       final budgetDate = DateTime(
                         budget.date.year,
@@ -964,7 +967,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                       );
                       final currencyOk =
                           (budget.currency?.toUpperCase() ?? 'USD') == currency;
-                      if (currencyOk && budgetDate.isBefore(firstOfMonth)) {
+                      if (currencyOk && budgetDate.isBefore(currentMonth)) {
                         mostRecentBudget = budget;
                         break;
                       }
@@ -1164,6 +1167,7 @@ class WidgetSyncManager extends HookConsumerWidget {
       householdsAsync.valueOrNull,
       selectedWidgetCurrency,
       selectedWidgetCurrenciesKey,
+      financialMonthStartDay,
       widgetSyncVersion,
       syncState.isSyncing,
       isAppReady, // Add app ready state as dependency

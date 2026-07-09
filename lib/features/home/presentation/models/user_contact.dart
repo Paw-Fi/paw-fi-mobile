@@ -1,3 +1,5 @@
+import 'package:moneko/core/utils/financial_period.dart';
+
 /// Represents user contact info from user_contacts table
 class UserContact {
   final String id;
@@ -6,6 +8,7 @@ class UserContact {
   final bool verified;
   final String? preferredCurrency;
   final String? preferredTimezone;
+  final int financialMonthStartDay;
 
   UserContact({
     required this.id,
@@ -14,6 +17,7 @@ class UserContact {
     required this.verified,
     this.preferredCurrency,
     this.preferredTimezone,
+    this.financialMonthStartDay = 1,
   });
 
   factory UserContact.fromJson(Map<String, dynamic> json) {
@@ -24,6 +28,9 @@ class UserContact {
       verified: json['verified'] as bool? ?? false, // Default to false if null
       preferredCurrency: json['preferred_currency'] as String?,
       preferredTimezone: json['preferred_timezone'] as String?,
+      financialMonthStartDay: normalizeFinancialMonthStartDay(
+        _parseOptionalInt(json['financial_month_start_day']),
+      ),
     );
   }
 
@@ -35,12 +42,14 @@ class UserContact {
       'verified': verified,
       'preferred_currency': preferredCurrency,
       'preferred_timezone': preferredTimezone,
+      'financial_month_start_day': financialMonthStartDay,
     };
   }
 
   UserContact copyWith({
     String? preferredCurrency,
     String? preferredTimezone,
+    int? financialMonthStartDay,
   }) {
     return UserContact(
       id: id,
@@ -49,6 +58,16 @@ class UserContact {
       verified: verified,
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
       preferredTimezone: preferredTimezone ?? this.preferredTimezone,
+      financialMonthStartDay: normalizeFinancialMonthStartDay(
+        financialMonthStartDay ?? this.financialMonthStartDay,
+      ),
     );
   }
+}
+
+int? _parseOptionalInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }

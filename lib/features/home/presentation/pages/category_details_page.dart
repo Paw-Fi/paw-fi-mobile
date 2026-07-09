@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
@@ -187,6 +188,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       preferredTimezone: ref.watch(analyticsProvider
           .select((state) => state.contact?.preferredTimezone)),
     );
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     DateTime? queryStartDate = _customStart;
     DateTime? queryEndDate = _customEnd;
@@ -198,6 +200,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         null,
         null,
         now: userNow,
+        financialMonthStartDay: financialMonthStartDay,
       );
       queryStartDate = range['from'];
       queryEndDate = range['to'];
