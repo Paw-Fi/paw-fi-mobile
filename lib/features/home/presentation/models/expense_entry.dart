@@ -124,8 +124,11 @@ class ExpenseEntry {
       id: stringOrEmpty(json['id']),
       contactId: json['contact_id'] as String?,
       userId: json['user_id'] as String?,
-      userName: _sanitizeNullable(userData?['full_name'] as String?),
-      userAvatarUrl: userData?['avatar_url'] as String?,
+      userName: _sanitizeNullable(
+        (userData?['full_name'] as String?) ?? (json['user_name'] as String?),
+      ),
+      userAvatarUrl: (userData?['avatar_url'] as String?) ??
+          (json['user_avatar_url'] as String?),
       householdId: json['household_id'] as String?,
       date: parseDateOnly(json['date']),
       amountCents: parseAmountCents(json['amount_cents']),

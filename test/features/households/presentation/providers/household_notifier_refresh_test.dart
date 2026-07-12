@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
@@ -8,6 +9,8 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/domain/repositories/household_repository.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+
+const _householdId = '00000000-0000-0000-0000-000000000001';
 
 class _MockHouseholdRepository extends Mock implements HouseholdRepository {}
 
@@ -17,7 +20,7 @@ HouseholdMember _member(String id) {
   final now = DateTime(2026);
   return HouseholdMember(
     id: id,
-    householdId: 'h1',
+    householdId: _householdId,
     userId: id,
     role: HouseholdRole.member,
     joinedAt: now,
@@ -31,7 +34,7 @@ SharedBudget _budget(String id) {
   final now = DateTime(2026);
   return SharedBudget(
     id: id,
-    householdId: 'h1',
+    householdId: _householdId,
     name: 'Groceries',
     period: BudgetPeriod.monthly,
     currency: 'USD',
@@ -177,16 +180,16 @@ void main() {
     test('members refresh keeps the previous value visible while loading',
         () async {
       final initialMembers = [_member('u2')];
-      when(() => repository.getHouseholdMembers('h1'))
+      when(() => repository.getHouseholdMembers(_householdId))
           .thenAnswer((_) async => initialMembers);
 
-      final notifier = HouseholdMembersNotifier(repository, 'h1');
+      final notifier = HouseholdMembersNotifier(repository, _householdId);
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
       expect(notifier.state.value, initialMembers);
 
       final refreshCompleter = Completer<List<HouseholdMember>>();
-      when(() => repository.getHouseholdMembers('h1'))
+      when(() => repository.getHouseholdMembers(_householdId))
           .thenAnswer((_) => refreshCompleter.future);
 
       final refresh = notifier.load();
@@ -224,6 +227,105 @@ void main() {
       await refresh;
 
       expect(notifier.state.value, refreshedBudgets);
+    });
+
+    test('global household list rejects non-persisted optimistic IDs', () {
+      final container = ProviderContainer(
+        overrides: [
+          householdRepositoryProvider.overrideWithValue(repository),
+          preloadedUserHouseholdsProvider('u1').overrideWith(
+            (ref) => const <Household>[],
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(userHouseholdsProvider('u1').notifier);
+      final now = DateTime(2026, 7, 12);
+
+      notifier.addOrReplaceHousehold(
+        Household(
+          id: 'optimistic-household-1783843926425266',
+          name: 'Pending shared space',
+          ownerId: 'u1',
+          currency: 'EUR',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      expect(
+        container.read(userHouseholdsProvider('u1')).valueOrNull,
+        isEmpty,
+      );
+    });
+
+    test('global household hydration removes previously cached optimistic IDs',
+        () {
+      final container = ProviderContainer(
+        overrides: [
+          householdRepositoryProvider.overrideWithValue(repository),
+          preloadedUserHouseholdsProvider('u1').overrideWith(
+            (ref) => const <Household>[],
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(userHouseholdsProvider('u1').notifier);
+      final now = DateTime(2026, 7, 12);
+      final persisted = Household(
+        id: 'ce1aabf8-90b1-41d1-9fe6-a4188b36a27f',
+        name: 'Private Space',
+        ownerId: 'u1',
+        currency: 'EUR',
+        isPortfolio: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      notifier.hydrate([
+        Household(
+          id: 'optimistic-household-1783843926425266',
+          name: 'Poisoned cache row',
+          ownerId: 'u1',
+          currency: 'EUR',
+          createdAt: now,
+          updatedAt: now,
+        ),
+        persisted,
+      ]);
+
+      expect(container.read(userHouseholdsProvider('u1')).valueOrNull, [
+        persisted,
+      ]);
+    });
+
+    test('global household list still publishes persisted households', () {
+      final container = ProviderContainer(
+        overrides: [
+          householdRepositoryProvider.overrideWithValue(repository),
+          preloadedUserHouseholdsProvider('u1').overrideWith(
+            (ref) => const <Household>[],
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(userHouseholdsProvider('u1').notifier);
+      final now = DateTime(2026, 7, 12);
+      final persisted = Household(
+        id: 'ce1aabf8-90b1-41d1-9fe6-a4188b36a27f',
+        name: 'Shared Space',
+        ownerId: 'u1',
+        currency: 'EUR',
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      notifier.addOrReplaceHousehold(persisted);
+
+      expect(
+        container.read(userHouseholdsProvider('u1')).valueOrNull,
+        [persisted],
+      );
     });
   });
 }

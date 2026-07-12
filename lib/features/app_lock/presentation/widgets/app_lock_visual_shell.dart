@@ -75,9 +75,14 @@ class AppLockBackground extends HookWidget {
 }
 
 class AppLockLoadingOverlay extends StatelessWidget {
-  const AppLockLoadingOverlay({required this.isLoading, super.key});
+  const AppLockLoadingOverlay({
+    required this.isLoading,
+    this.message,
+    super.key,
+  });
 
   final bool isLoading;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -86,11 +91,27 @@ class AppLockLoadingOverlay extends StatelessWidget {
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
           child: isLoading
-              ? const Center(
-                  key: ValueKey('app-lock-loading'),
-                  child: SizedBox.square(
-                    dimension: 56,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 5),
+              ? Center(
+                  key: const ValueKey('app-lock-loading'),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox.square(
+                        dimension: 56,
+                        child:
+                            CircularProgressIndicator.adaptive(strokeWidth: 5),
+                      ),
+                      if (message != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          message!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 )
               : const SizedBox.shrink(

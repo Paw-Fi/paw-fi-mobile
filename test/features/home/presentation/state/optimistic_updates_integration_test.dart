@@ -26,11 +26,14 @@ void main() {
 
     test('optimistic IDs contain timestamp', () {
       final id = makeOptimisticTransactionId();
-      final timestamp = id.replaceFirst('optimistic_', '');
+      final parts = id.replaceFirst('optimistic_', '').split('_');
 
-      // Should be a valid integer (microseconds since epoch)
-      expect(int.tryParse(timestamp), isNotNull);
-      expect(int.parse(timestamp), greaterThan(0));
+      // Should include a valid microseconds-since-epoch timestamp and sequence.
+      expect(parts, hasLength(2));
+      expect(int.tryParse(parts[0]), isNotNull);
+      expect(int.parse(parts[0]), greaterThan(0));
+      expect(int.tryParse(parts[1]), isNotNull);
+      expect(int.parse(parts[1]), greaterThanOrEqualTo(0));
     });
 
     test('rapid ID generation produces mostly unique values', () {

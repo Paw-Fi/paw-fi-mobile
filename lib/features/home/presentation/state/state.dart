@@ -13,6 +13,7 @@ export 'bank_connections_provider.dart';
 export 'home_card_filter_provider.dart';
 export 'derived_selectors.dart';
 export 'currency_transaction_counts_provider.dart';
+export 'currency_preference_service_provider.dart';
 export 'dashboard_user_context_provider.dart';
 export 'financial_month_start_provider.dart';
 export 'transaction_edit_state.dart';
@@ -20,14 +21,8 @@ export 'transaction_edit_notifier.dart';
 export 'view_mode_provider.dart';
 export 'transactions_feed_provider.dart';
 
-// Data services
+// Shared state below intentionally remains in this barrel for compatibility.
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/home/data/services/currency_preference_service.dart';
-
-/// Provider for currency preference service
-final currencyPreferenceServiceProvider = Provider<CurrencyPreferenceService>(
-  (ref) => CurrencyPreferenceService(),
-);
 
 /// Simple counter used to force widget sync when pockets configuration
 /// changes (e.g. budgets or envelope category mappings). Incrementing this

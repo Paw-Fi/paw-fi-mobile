@@ -25,7 +25,11 @@ class HouseholdScope {
 
   String? get selectedHouseholdId {
     final raw = selected.householdId ?? selected.household?.id;
-    return (raw != null && raw.trim().isNotEmpty) ? raw : null;
+    return (raw != null &&
+            raw.trim().isNotEmpty &&
+            !isOptimisticHouseholdId(raw))
+        ? raw
+        : null;
   }
 
   bool get hasSelectedHousehold => selectedHouseholdId != null;
@@ -35,7 +39,9 @@ class HouseholdScope {
     return portfolioHouseholdIds.contains(householdId);
   }
 
-  bool get isPortfolioSelected => isPortfolioId(selectedHouseholdId);
+  bool get isPortfolioSelected =>
+      selected.household?.isPortfolio == true ||
+      isPortfolioId(selectedHouseholdId);
 
   ActiveWalletType get activeAccountType {
     if (viewMode == ViewMode.personal) return ActiveWalletType.personal;
@@ -67,6 +73,34 @@ class HouseholdScope {
   bool get isPersonalView => !isHouseholdView;
 }
 
+SelectedHouseholdState canonicalizeHouseholdSelection(
+  SelectedHouseholdState selected,
+  Iterable<Household> households,
+) {
+  final selectedId = selected.householdId ?? selected.household?.id;
+  Household? canonicalSelected;
+  if (selectedId != null && !isOptimisticHouseholdId(selectedId)) {
+    for (final household in households) {
+      if (household.id == selectedId) {
+        canonicalSelected = household;
+        break;
+      }
+    }
+  }
+  if (canonicalSelected == null) {
+    return SelectedHouseholdState(
+      isLoading: selected.isLoading,
+      error: selected.error,
+    );
+  }
+  return SelectedHouseholdState(
+    householdId: canonicalSelected.id,
+    household: canonicalSelected,
+    isLoading: selected.isLoading,
+    error: selected.error,
+  );
+}
+
 final householdScopeProvider = Provider<HouseholdScope>((ref) {
   final viewMode = ref.watch(viewModeProvider).mode;
   final selected = ref.watch(selectedHouseholdProvider);
@@ -77,10 +111,12 @@ final householdScopeProvider = Provider<HouseholdScope>((ref) {
           const <Household>[];
   final portfolioIds =
       households.where((h) => h.isPortfolio).map((h) => h.id).toSet();
+  final canonicalSelection =
+      canonicalizeHouseholdSelection(selected, households);
 
   return HouseholdScope(
     viewMode: viewMode,
-    selected: selected,
+    selected: canonicalSelection,
     portfolioHouseholdIds: portfolioIds,
   );
 });

@@ -27,7 +27,7 @@ void _debugPrint(String? message, {int? wrapWidth}) {
 }
 
 final RegExp _serverExpenseIdPattern = RegExp(
-  r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
   caseSensitive: false,
 );
 
@@ -72,6 +72,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ExpenseEntry? optimisticExpense;
     ExpenseEntry? originalForRollback;
     MonekoDatabase? localDatabase;
+    var backendCommitted = false;
 
     try {
       // ═══════════════════════════════════════════════════════════════
@@ -180,6 +181,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         final errorCode = responseData['code'] as String? ?? 'UNKNOWN_ERROR';
         throw Exception('$errorCode: $errorMessage');
       }
+      backendCommitted = true;
 
       if (updates.containsKey('category')) {
         final requestedCategory = _normalizeCategoryValue(updates['category']);
@@ -258,7 +260,13 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           confirmedExpense!.householdId!.trim(),
       };
       await Future.wait(
-        affectedHouseholdIds.map(clearHouseholdPersistentCacheForHousehold),
+        affectedHouseholdIds.map((householdId) async {
+          try {
+            await clearHouseholdPersistentCacheForHousehold(householdId);
+          } catch (error) {
+            _debugPrint('⚠️ Failed to clear household cache: $error');
+          }
+        }),
       );
       if (confirmedExpense != null) {
         ref.read(transactionsFeedEditedEntryProvider.notifier).state =
@@ -302,9 +310,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           );
         }
       }
-      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-
       // ⚠️ CRITICAL: Always invalidate household providers after update
       // Even if the expense wasn't in analyticsProvider cache (household expense),
       // we must refresh household data to show the updated expense.
@@ -340,11 +345,30 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       return true;
     } catch (e) {
       // 6. Error: Rollback optimistic update
+      if (backendCommitted) {
+        _debugPrint(
+          '⚠️ Backend update succeeded; keeping the confirmed optimistic state despite refresh failure',
+        );
+        try {
+          if (optimisticExpense != null) {
+            ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+                optimisticExpense;
+          }
+          ref.read(walletActionsProvider).refreshAccountData();
+        } catch (refreshError) {
+          _debugPrint('⚠️ Post-update invalidation failed: $refreshError');
+        }
+        state = state.copyWith(
+          isLoading: false,
+          clearOptimisticUpdate: true,
+          clearError: true,
+        );
+        return true;
+      }
+
       _debugPrint('❌ Update failed: $e');
 
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
-        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
         ref.read(walletActionsProvider).refreshAccountData();
         state = state.copyWith(
           isLoading: false,
@@ -389,6 +413,17 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         }
       } catch (rollbackError) {
         _debugPrint('⚠️ Failed to rollback');
+      }
+
+      try {
+        final rollbackEntry = originalForRollback ?? originalExpense;
+        if (rollbackEntry != null) {
+          ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+              rollbackEntry;
+          await _refreshAfterLocalTransactionMutation(user.uid);
+        }
+      } catch (refreshError) {
+        _debugPrint('⚠️ Failed to refresh rolled-back update: $refreshError');
       }
 
       state = state.copyWith(
@@ -456,6 +491,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       operation: 'delete_transaction',
     );
     MonekoDatabase? localDatabase;
+    var backendCommitted = false;
 
     try {
       _applyOptimisticDeleteToProviders(serverTargets);
@@ -488,6 +524,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         }
         throw Exception(message);
       }
+      backendCommitted = true;
 
       if (localDatabase != null) {
         await localDatabase.markOptimisticTransactionDeleteSynced(
@@ -500,6 +537,19 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       state = state.copyWith(clearError: true);
       return true;
     } catch (e) {
+      if (backendCommitted) {
+        _debugPrint(
+          '⚠️ Backend delete succeeded; preserving the optimistic deletion despite refresh failure',
+        );
+        try {
+          await _refreshAfterLocalTransactionMutation(user.uid);
+        } catch (refreshError) {
+          _debugPrint('⚠️ Post-delete invalidation failed: $refreshError');
+        }
+        state = state.copyWith(clearError: true);
+        return true;
+      }
+
       _debugPrint('❌ Delete failed: $e');
 
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
@@ -542,7 +592,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         error: 'Deleted before sync completed',
       );
     } catch (error) {
-      _debugPrint('⚠️ Local optimistic delete cancellation unavailable: $error');
+      _debugPrint(
+          '⚠️ Local optimistic delete cancellation unavailable: $error');
       return false;
     }
   }
@@ -579,6 +630,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         entries: entries,
         clientMutationId: mutationMetadata.clientMutationId,
         payload: payload,
+        actingUserId: ref.read(authProvider).uid,
       );
       return database;
     } catch (error) {
@@ -591,11 +643,24 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     Object? data, {
     required ExpenseEntry? fallback,
   }) {
+    ExpenseEntry fallbackWith(Map<String, dynamic> updates) {
+      return fallback == null
+          ? ExpenseEntry.fromJson(updates)
+          : _applyUpdates(fallback, updates);
+    }
+
     if (data is Map<String, dynamic>) {
+      if (!data.containsKey('id') || data['id'] == null) {
+        return fallbackWith(data);
+      }
       return ExpenseEntry.fromJson(data);
     }
     if (data is Map) {
-      return ExpenseEntry.fromJson(Map<String, dynamic>.from(data));
+      final updates = Map<String, dynamic>.from(data);
+      if (!updates.containsKey('id') || updates['id'] == null) {
+        return fallbackWith(updates);
+      }
+      return ExpenseEntry.fromJson(updates);
     }
     return fallback;
   }
@@ -608,8 +673,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
   Future<void> _refreshAfterTransactionMutation(String userId) async {
     await ref.read(analyticsProvider.notifier).loadData(userId);
-    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
 
     ref.invalidate(userHouseholdsProvider(userId));
     ref.invalidate(householdExpensesProvider);
@@ -627,9 +690,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   }
 
   Future<void> _refreshAfterLocalTransactionMutation(String userId) async {
-    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-
     ref.invalidate(userHouseholdsProvider(userId));
     ref.invalidate(householdExpensesProvider);
     ref.invalidate(householdSplitsProvider);
@@ -878,18 +938,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 }
 
 bool _shouldKeepQueuedLocalMutation(Object error) {
-  final message = error.toString().toLowerCase();
-  return message.contains('network') ||
-      message.contains('socket') ||
-      message.contains('failed host lookup') ||
-      message.contains('connection') ||
-      message.contains('timed out') ||
-      message.contains('timeout') ||
-      message.contains('status: 502') ||
-      message.contains('status: 503') ||
-      message.contains('status: 504') ||
-      message.contains('service is temporarily unavailable') ||
-      message.contains('supabase_edge_runtime_error');
+  return ErrorHandler.isRetryable(error);
 }
 
 final transactionEditSupabaseClientProvider = Provider<SupabaseClient>((ref) {

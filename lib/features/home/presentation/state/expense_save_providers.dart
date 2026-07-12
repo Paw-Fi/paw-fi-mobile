@@ -101,6 +101,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     String? queuedMutationId;
     String? optimisticId;
     ExpenseEntry? optimisticEntry;
+    ExpenseEntry? committedEntry;
+    var localMutationQueued = false;
+    var backendCommitted = false;
 
     try {
       final user = ref.read(authProvider);
@@ -249,17 +252,24 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       );
       MonekoDatabase? database;
       if (queueLocalMutation) {
-        final localDatabase = await ref.read(localDatabaseProvider.future);
-        await localDatabase.writeOptimisticTransaction(
-          entry: optimisticEntry,
-          clientMutationId: mutationMetadata.clientMutationId,
-          operation: 'create',
-          payload: {
-            'functionName': 'save-expense',
-            'requestBody': requestBody,
-          },
-        );
-        database = localDatabase;
+        try {
+          final localDatabase = await ref.read(localDatabaseProvider.future);
+          await localDatabase.writeOptimisticTransaction(
+            entry: optimisticEntry,
+            clientMutationId: mutationMetadata.clientMutationId,
+            operation: 'create',
+            payload: {
+              'functionName': 'save-expense',
+              'requestBody': requestBody,
+            },
+          );
+          database = localDatabase;
+          localMutationQueued = true;
+          ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        } catch (error) {
+          _debugPrint('⚠️ Local optimistic save unavailable: $error');
+        }
       }
 
       // Call save-expense edge function
@@ -277,22 +287,35 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           ? response.data as Map<String, dynamic>
           : null;
       final saved = responseMap?['data'];
-      final savedEntry =
-          saved is Map<String, dynamic> ? ExpenseEntry.fromJson(saved) : null;
-      final reconciledEntry = savedEntry?.copyWith(
+      final savedEntry = saved is Map<String, dynamic>
+          ? ExpenseEntry.fromJson(saved)
+          : saved is Map
+              ? ExpenseEntry.fromJson(Map<String, dynamic>.from(saved))
+              : null;
+      if (savedEntry == null || savedEntry.id.trim().isEmpty) {
+        throw StateError('Saved expense response did not include an ID');
+      }
+      final reconciledEntry = savedEntry.copyWith(
         receiptImageUrl: savedEntry.receiptImageUrl ?? receiptImageUrl,
         clientRecordId: mutationMetadata.clientRecordId,
         clientMutationId: mutationMetadata.clientMutationId,
         idempotencyKey: mutationMetadata.idempotencyKey,
       );
-      if (reconciledEntry != null && database != null) {
+      committedEntry = reconciledEntry;
+      backendCommitted = true;
+      if (database != null) {
         await database.replaceOptimisticTransaction(
           optimisticId: optimisticId,
           savedEntry: reconciledEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
-      } else if (database != null) {
-        await database.markMutationSynced(mutationMetadata.clientMutationId);
+      } else {
+        try {
+          final localDatabase = await ref.read(localDatabaseProvider.future);
+          await localDatabase.upsertTransactions([reconciledEntry]);
+        } catch (error) {
+          _debugPrint('⚠️ Saved expense local cache update unavailable: $error');
+        }
       }
 
       if (addHouseholdOptimisticData) {
@@ -317,7 +340,21 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return reconciledEntry;
     } catch (error, stackTrace) {
-      if (queuedMutationId != null &&
+      if (backendCommitted && committedEntry != null) {
+        _debugPrint(
+          '⚠️ Expense saved remotely but local reconciliation failed: $error',
+        );
+        try {
+          ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        } catch (refreshError) {
+          _debugPrint('⚠️ Post-save invalidation failed: $refreshError');
+        }
+        state = const AsyncValue.data(null);
+        return committedEntry;
+      }
+      if (localMutationQueued &&
+          queuedMutationId != null &&
           optimisticId != null &&
           optimisticEntry != null &&
           ErrorHandler.isRetryable(error)) {
@@ -330,7 +367,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         state = const AsyncValue.data(null);
         return optimisticEntry;
       }
-      if (queueLocalMutation &&
+      if (localMutationQueued &&
           queuedMutationId != null &&
           optimisticId != null) {
         try {
@@ -343,6 +380,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         } catch (_) {
           // Keep the original save error as the user-facing failure.
         }
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       }
       _debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);

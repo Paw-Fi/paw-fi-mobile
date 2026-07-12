@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -20,6 +21,8 @@ import 'package:moneko/features/import/presentation/widgets/persisted_transactio
 import 'package:moneko/features/import/presentation/widgets/import_shared_widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -528,6 +531,34 @@ class PreviewStep extends ConsumerWidget {
 
   Future<void> _handleCreateAccount(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(importWizardProvider.notifier);
+    final subscriptionAsync = ref.read(subscriptionNotifierProvider);
+    var hasPlusAccess = true;
+    try {
+      final subscription = subscriptionAsync.hasValue
+          ? subscriptionAsync.valueOrNull
+          : await ref.read(subscriptionNotifierProvider.future);
+      hasPlusAccess = hasPremiumFeatureAccess(subscription);
+    } catch (_) {
+      // Unknown entitlement state is not a confirmed free plan. Let the
+      // backend decide and map any authoritative limit response below.
+    }
+
+    final accounts = ref
+            .read(walletsByHouseholdIdProvider(state.targetHouseholdId))
+            .valueOrNull ??
+        const <WalletEntity>[];
+    final activeWalletCount =
+        accounts.where((account) => !account.isArchived).length;
+    if (!hasPlusAccess && activeWalletCount >= 2) {
+      if (!context.mounted) return;
+      await PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.walletCreation,
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
     final result = await showCreateEditWalletSheet(context);
     if (result == null) return;
 
@@ -549,6 +580,13 @@ class PreviewStep extends ConsumerWidget {
       }
     } catch (error) {
       if (context.mounted) {
+        if (ErrorHandler.isPlusFeatureLimitError(error)) {
+          await PlusLockedSheet.show(
+            context,
+            highlightedFeature: PlusFeature.walletCreation,
+          );
+          return;
+        }
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
       }
     }

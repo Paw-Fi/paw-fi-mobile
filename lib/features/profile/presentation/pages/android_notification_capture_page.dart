@@ -15,6 +15,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -301,6 +302,15 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     /// Persists the enabled flag to both Android native (SharedPreferences)
     /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
+      if (enabled) {
+        final hasAccess = await PlusLockedSheet.ensureAccess(
+          context,
+          ref,
+          feature: PlusFeature.messagingAppCapture,
+        );
+        if (!hasAccess || !context.mounted) return;
+      }
+
       final previous = config.value;
       final previousEnabled = previous.enabled;
       config.value = config.value.copyWith(enabled: enabled);

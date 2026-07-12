@@ -23,6 +23,7 @@ import 'package:moneko/features/import/presentation/widgets/import_edit_row_shee
 import 'package:moneko/features/import/presentation/widgets/persisted_transaction_editing_helper.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
@@ -156,6 +157,12 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         _isPreparing = false;
         _errorMessage = ErrorHandler.getUserFriendlyMessage(error);
       });
+      if (ErrorHandler.isPlusFeatureLimitError(error)) {
+        await PlusLockedSheet.show(
+          context,
+          highlightedFeature: PlusFeature.walletCreation,
+        );
+      }
     }
   }
 

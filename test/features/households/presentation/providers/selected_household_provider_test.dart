@@ -61,6 +61,24 @@ void main() {
     expect(state.household, isNull);
   });
 
+  test('does not boot a persisted optimistic household ID', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'selected_household_id:u1',
+      'optimistic-household-1783843926425266',
+    );
+
+    final container = _container(
+      prefs: prefs,
+      user: const AppUser(uid: 'u1', email: 'u1@example.com'),
+    );
+    addTearDown(container.dispose);
+
+    final state = container.read(selectedHouseholdProvider);
+    expect(state.householdId, isNull);
+    expect(state.household, isNull);
+  });
+
   test(
       'initialize resolves saved legacy selection and migrates to per-user key',
       () async {
@@ -127,6 +145,29 @@ void main() {
     final state = container.read(selectedHouseholdProvider);
     expect(state.householdId, 'h2');
     expect(state.household?.id, 'h2');
+  });
+
+  test('initialize refreshes metadata for the same selected household ID',
+      () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_household_id:u1', 'h2');
+    final container = _container(
+      prefs: prefs,
+      user: const AppUser(uid: 'u1', email: 'u1@example.com'),
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(selectedHouseholdProvider.notifier);
+
+    await notifier.initialize(preloadedHouseholds: [_household('h2')]);
+    expect(container.read(selectedHouseholdProvider).household?.isPortfolio,
+        isFalse);
+
+    await notifier.initialize(
+      preloadedHouseholds: [_household('h2').copyWith(isPortfolio: true)],
+    );
+
+    expect(container.read(selectedHouseholdProvider).household?.isPortfolio,
+        isTrue);
   });
 
   test('clearSelection removes persisted keys for current user', () async {

@@ -912,16 +912,13 @@ void _ensureRecurringTransactionsLoaded(
 
   final userId = _dashboardUserId(ref);
   if (userId.isEmpty) return;
+  final notifier = ref.read(
+    recurringTransactionsProvider(scope.activeAccountHouseholdId).notifier,
+  );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    final current = ref.read(
-      recurringTransactionsProvider(scope.activeAccountHouseholdId),
-    );
-    if (current.hasLoadedOnce) return;
-    ref
-        .read(recurringTransactionsProvider(scope.activeAccountHouseholdId)
-            .notifier)
-        .loadRecurringTransactions(userId);
+    if (notifier.state.hasLoadedOnce) return;
+    notifier.loadRecurringTransactions(userId);
   });
 }
 

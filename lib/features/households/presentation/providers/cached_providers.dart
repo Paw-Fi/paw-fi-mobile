@@ -5,6 +5,7 @@ import 'household_providers.dart';
 import 'household_optimistic_providers.dart';
 import '../../../home/presentation/models/expense_entry.dart';
 import '../../domain/entities/expense_split.dart';
+import '../../domain/entities/household.dart';
 import 'package:moneko/core/monitoring/performance_monitor.dart';
 
 /// Request deduplication helper to prevent multiple simultaneous requests
@@ -134,6 +135,9 @@ final _splitsDeduplicator = RequestDeduplicator<List<ExpenseSplitGroup>>(
 final cachedHouseholdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseEntry>[];
+    }
     final key = 'expenses_${params.householdId}_${params.limit}_'
         '${params.startDate?.millisecondsSinceEpoch}_'
         '${params.endDate?.millisecondsSinceEpoch}';
@@ -192,6 +196,9 @@ final cachedHouseholdExpensesProvider =
 final cachedHouseholdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseSplitGroup>[];
+    }
     final key = 'splits_${params.householdId}_${params.dateRange}';
 
     debugPrint('📊 [CACHED_SPLITS] Provider called for key: $key');

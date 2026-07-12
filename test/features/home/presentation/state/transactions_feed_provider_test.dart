@@ -369,22 +369,22 @@ void main() {
 
     expect(page.items.map((entry) => entry.id), ['local_1']);
     expect(summary.transactionCount, 1);
-    expect(summary.expenseTotal, 22);
-    expect(allItems.map((entry) => entry.id), ['local_1']);
+    expect(summary.expenseTotal, 11);
+    expect(allItems.map((entry) => entry.id), ['remote_1']);
     expect(remote.pageCallCount, 0);
-    expect(remote.summaryCallCount, 1);
-    expect(remote.allPagesCallCount, 0);
+    expect(remote.summaryCallCount, 0);
+    expect(remote.allPagesCallCount, 1);
 
     await service.refreshFromRemote(query);
 
     final refreshed = await service.fetchPage(query);
     expect(remote.pageCallCount, 1);
-    expect(remote.summaryCallCount, 2);
+    expect(remote.summaryCallCount, 1);
     expect(refreshed.items.map((entry) => entry.id), ['remote_1']);
   });
 
   test(
-      'local-first service returns pending local rows before remote summary and all pages',
+      'local-first service merges pending rows into remote all-pages history',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
@@ -436,9 +436,9 @@ void main() {
 
     expect(summary.transactionCount, 1);
     expect(summary.expenseTotal, 11);
-    expect(allItems.map((entry) => entry.id), ['pending_1']);
+    expect(allItems.map((entry) => entry.id), ['pending_1', 'remote_1']);
     expect(remote.summaryCallCount, 0);
-    expect(remote.allPagesCallCount, 0);
+    expect(remote.allPagesCallCount, 1);
   });
 
   test('local-first service removes synced local rows missing from remote page',

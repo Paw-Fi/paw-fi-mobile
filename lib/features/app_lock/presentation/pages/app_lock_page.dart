@@ -10,6 +10,7 @@ import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_passcode_prompt.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_visual_shell.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 class AppLockPage extends HookConsumerWidget {
@@ -116,20 +117,63 @@ class AppLockPage extends HookConsumerWidget {
         return;
       }
       isSubmitting.value = true;
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      final router = GoRouter.of(context);
+      final originalLocation =
+          router.routeInformationProvider.value.uri.toString();
+      final appLockController =
+          ref.read(appLockControllerProvider.notifier);
+      final authController = ref.read(authProvider.notifier);
+      var processingDialogOpen = false;
+
+      void closeProcessingDialog() {
+        if (!processingDialogOpen) {
+          return;
+        }
+        if (rootNavigator.canPop()) {
+          rootNavigator.pop();
+        }
+        processingDialogOpen = false;
+      }
 
       try {
-        final appLockRecovery =
-            ref.read(appLockControllerProvider.notifier).clearForRecovery();
-        final signOut = ref.read(authProvider.notifier).signOut();
         if (context.mounted) {
-          context.go('/login');
+          showBlockingProcessingDialog(
+            context: rootNavigator.context,
+            message: context.l10n.signingOut,
+          );
+          processingDialogOpen = true;
         }
-        await Future.wait([appLockRecovery, signOut]);
+
+        try {
+          await appLockController.clearForRecovery();
+        } catch (_) {
+          await appLockController.clearForRecovery();
+        }
+
+        try {
+          await authController.signOut();
+        } catch (error) {
+          // Supabase removes the local session before attempting remote token
+          // revocation. The user is safely signed out on this device even when
+          // that remote revocation request fails.
+          debugPrint('Remote sign-out cleanup failed: $error');
+        }
+
+        closeProcessingDialog();
+        router.go('/login');
       } catch (_) {
-        if (context.mounted) {
-          AppToast.error(context, context.l10n.couldNotSignOutTryAgain);
+        closeProcessingDialog();
+        router.go(originalLocation);
+        final toastContext = rootNavigator.context;
+        if (toastContext.mounted) {
+          AppToast.error(
+            toastContext,
+            toastContext.l10n.couldNotUpdateAppLock,
+          );
         }
       } finally {
+        closeProcessingDialog();
         if (context.mounted) {
           isSubmitting.value = false;
         }

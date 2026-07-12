@@ -11,7 +11,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 
-class TransactionListTile extends ConsumerWidget {
+class TransactionListTile extends StatelessWidget {
   final String category;
   final String title;
   final String? description;
@@ -70,15 +70,26 @@ class TransactionListTile extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final shouldShowCurrencyFlag = showCurrencyFlag ??
-        ((ref.watch(
+  Widget build(BuildContext context) {
+    final explicitCurrencyFlag = showCurrencyFlag;
+    if (explicitCurrencyFlag != null) {
+      return _buildContent(context, explicitCurrencyFlag);
+    }
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final shouldShowCurrencyFlag = ((ref.watch(
                   homeFilterProvider
                       .select((state) => state.normalizedSelectedCurrencies),
                 )?.length ??
                 0) >
             1);
+        return _buildContent(context, shouldShowCurrencyFlag);
+      },
+    );
+  }
 
+  Widget _buildContent(BuildContext context, bool shouldShowCurrencyFlag) {
     return ValueListenableBuilder<Map<String, CustomCategoryStyle>>(
       valueListenable: customCategoryStyleOverridesNotifier,
       builder: (context, _, __) {
@@ -90,7 +101,7 @@ class TransactionListTile extends ConsumerWidget {
         final localizedNumber =
             formatLocalizedNumber(context, normalizedAmount);
         final currencySymbol = resolveCurrencySymbol(currency);
-        final formattedAmount = '$currencySymbol$localizedNumber';
+        final formattedAmount = '$sign$currencySymbol$localizedNumber';
         final trimmedDescription = description?.trim() ?? '';
         final trimmedTitle = title.trim();
         final displayTitle = trimmedDescription.isNotEmpty
@@ -221,30 +232,14 @@ class TransactionListTile extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    sign,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: isIncome
-                          ? colorScheme.success
-                          : colorScheme.foreground,
-                    ),
-                  ),
-                  Text(
-                    formattedAmount,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: isIncome
-                          ? colorScheme.success
-                          : colorScheme.foreground,
-                    ),
-                  ),
-                ],
+              Text(
+                formattedAmount,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color:
+                      isIncome ? colorScheme.success : colorScheme.foreground,
+                ),
               ),
               if (trailingWidget != null) ...[
                 const SizedBox(height: 2),

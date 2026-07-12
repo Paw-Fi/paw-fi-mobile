@@ -11,6 +11,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/profile/data/email_import_settings_service.dart';
 import 'package:moneko/features/profile/domain/email_import_settings.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -111,6 +112,15 @@ class EmailImportSettingsPage extends HookConsumerWidget {
     }
 
     Future<void> toggleEnabled(bool enabled) async {
+      if (enabled) {
+        final hasAccess = await PlusLockedSheet.ensureAccess(
+          context,
+          ref,
+          feature: PlusFeature.emailReceiptImport,
+        );
+        if (!hasAccess || !context.mounted) return;
+      }
+
       final current = settings.value;
       if (current == null) return;
       await persistSettings(

@@ -228,6 +228,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   Future<void> _refreshData() async {
     final query = _buildFeedQuery();
     await ref.read(transactionsFeedProvider(query).notifier).refresh();
+    if (!mounted) return;
+    ref.invalidate(transactionsFeedAllItemsProvider(query));
   }
 
   _CategoryRenderCacheResult _resolveRenderItems({

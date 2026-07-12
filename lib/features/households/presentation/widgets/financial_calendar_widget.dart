@@ -112,6 +112,38 @@ class _FinancialCalendarWidgetState
     return totals;
   }
 
+  Map<DateTime, Map<String, double>> _buildActualDailyTotals({
+    required List<ExpenseEntry> transactions,
+    required CurrencyRateTable rates,
+  }) {
+    final totals = <DateTime, Map<String, double>>{};
+    for (final transaction in transactions) {
+      final day = DateTime(
+        transaction.date.year,
+        transaction.date.month,
+        transaction.date.day,
+      );
+      final entry = totals.putIfAbsent(
+        day,
+        () => <String, double>{'expense': 0, 'income': 0},
+      );
+      final sourceCurrency =
+          (transaction.currency ?? widget.currency).trim().toUpperCase();
+      final amount = convertAmountCentsToCurrency(
+            transaction.amountCents.abs(),
+            fromCurrency:
+                sourceCurrency.isEmpty ? widget.currency : sourceCurrency,
+            targetCurrency: widget.currency,
+            rates: rates,
+          ) /
+          100.0;
+      final type = (transaction.type ?? 'expense').toLowerCase();
+      final key = type == 'income' ? 'income' : 'expense';
+      entry[key] = (entry[key] ?? 0) + amount;
+    }
+    return totals;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -244,44 +276,17 @@ class _FinancialCalendarWidgetState
 
   Map<String, double> _calculateDailyTotals(
     DateTime date, {
-    required List<ExpenseEntry> transactions,
+    required Map<DateTime, Map<String, double>> actualDailyTotals,
     required Map<DateTime, Map<String, double>> recurringDailyTotals,
-    required CurrencyRateTable rates,
   }) {
-    double totalExpense = 0;
-    double totalIncome = 0;
-
-    // 1. Actual Transactions
-    for (final t in transactions) {
-      if (t.date.year == date.year &&
-          t.date.month == date.month &&
-          t.date.day == date.day) {
-        final tCurrency = (t.currency ?? widget.currency).trim().toUpperCase();
-        final amount = convertAmountCentsToCurrency(
-              t.amountCents.abs(),
-              fromCurrency: tCurrency.isEmpty ? widget.currency : tCurrency,
-              targetCurrency: widget.currency,
-              rates: rates,
-            ) /
-            100.0;
-        final type = (t.type ?? 'expense').toLowerCase();
-
-        if (type == 'income') {
-          totalIncome += amount;
-        } else {
-          totalExpense += amount;
-        }
-      }
-    }
-
     final dateOnly = DateTime(date.year, date.month, date.day);
+    final actual = actualDailyTotals[dateOnly];
     final recurring = recurringDailyTotals[dateOnly];
-    if (recurring != null) {
-      totalExpense += recurring['expense'] ?? 0;
-      totalIncome += recurring['income'] ?? 0;
-    }
-
-    return {'expense': totalExpense, 'income': totalIncome};
+    return <String, double>{
+      'expense':
+          (actual?['expense'] ?? 0) + (recurring?['expense'] ?? 0),
+      'income': (actual?['income'] ?? 0) + (recurring?['income'] ?? 0),
+    };
   }
 
   @override
@@ -338,9 +343,15 @@ class _FinancialCalendarWidgetState
       selectedCurrencies: selectedCurrencies,
       rates: rates,
     );
+    final actualDailyTotals = _buildActualDailyTotals(
+      transactions: resolvedTransactions,
+      rates: rates,
+    );
+    final isInitialLoading =
+        transactionsAsync.isLoading && !transactionsAsync.hasValue;
 
     return Skeletonizer(
-      enabled: transactionsAsync.isLoading,
+      enabled: isInitialLoading,
       child: GestureDetector(
         onHorizontalDragEnd: _handleHorizontalSwipe,
         child: Container(
@@ -398,11 +409,21 @@ class _FinancialCalendarWidgetState
               ),
               if (widget.isExpanded) const SizedBox(height: 8),
               if (widget.isExpanded)
-                _buildExpandedView(colorScheme, resolvedTransactions,
-                    recurringDailyTotals, rates, transactionsAsync.isLoading)
+                _buildExpandedView(
+                  colorScheme,
+                  resolvedTransactions,
+                  actualDailyTotals,
+                  recurringDailyTotals,
+                  isInitialLoading,
+                )
               else
-                _buildCollapsedView(colorScheme, resolvedTransactions,
-                    recurringDailyTotals, rates, transactionsAsync.isLoading),
+                _buildCollapsedView(
+                  colorScheme,
+                  resolvedTransactions,
+                  actualDailyTotals,
+                  recurringDailyTotals,
+                  isInitialLoading,
+                ),
             ],
           ),
         ),
@@ -413,8 +434,8 @@ class _FinancialCalendarWidgetState
   Widget _buildExpandedView(
     ColorScheme colorScheme,
     List<ExpenseEntry> transactions,
+    Map<DateTime, Map<String, double>> actualDailyTotals,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
-    CurrencyRateTable rates,
     bool isLoading,
   ) {
     final daysInMonth =
@@ -465,8 +486,13 @@ class _FinancialCalendarWidgetState
             final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
 
             return _buildDayCell(
-                date, colorScheme, transactions, recurringDailyTotals, rates,
-                isLoading: isLoading);
+              date,
+              colorScheme,
+              transactions,
+              actualDailyTotals,
+              recurringDailyTotals,
+              isLoading: isLoading,
+            );
           },
         ),
       ],
@@ -476,8 +502,8 @@ class _FinancialCalendarWidgetState
   Widget _buildCollapsedView(
     ColorScheme colorScheme,
     List<ExpenseEntry> transactions,
+    Map<DateTime, Map<String, double>> actualDailyTotals,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
-    CurrencyRateTable rates,
     bool isLoading,
   ) {
     final last7Days = List.generate(7, (index) {
@@ -501,8 +527,13 @@ class _FinancialCalendarWidgetState
               AspectRatio(
                 aspectRatio: 0.85,
                 child: _buildDayCell(
-                    date, colorScheme, transactions, recurringDailyTotals, rates,
-                    isLoading: isLoading),
+                  date,
+                  colorScheme,
+                  transactions,
+                  actualDailyTotals,
+                  recurringDailyTotals,
+                  isLoading: isLoading,
+                ),
               ),
             ],
           ),
@@ -515,15 +546,15 @@ class _FinancialCalendarWidgetState
     DateTime date,
     ColorScheme colorScheme,
     List<ExpenseEntry> transactions,
+    Map<DateTime, Map<String, double>> actualDailyTotals,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
-    CurrencyRateTable rates, {
+    {
     bool isLoading = false,
   }) {
     final totals = _calculateDailyTotals(
       date,
-      transactions: transactions,
+      actualDailyTotals: actualDailyTotals,
       recurringDailyTotals: recurringDailyTotals,
-      rates: rates,
     );
     final hasExpense = totals['expense']! > 0;
     final hasIncome = totals['income']! > 0;

@@ -66,7 +66,7 @@ class AccountsPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final actions = ref.watch(walletActionsProvider);
-    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final auth = ref.watch(authProvider);
     final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
     final prefs = ref.read(sharedPreferencesProvider);
@@ -373,6 +373,21 @@ class AccountsPage extends HookConsumerWidget {
       [locale],
     );
 
+    Future<bool> canUsePlusFeatures() async {
+      if (subscriptionAsync.hasValue) {
+        return hasPremiumFeatureAccess(subscriptionAsync.valueOrNull);
+      }
+      try {
+        final subscription =
+            await ref.read(subscriptionNotifierProvider.future);
+        return hasPremiumFeatureAccess(subscription);
+      } catch (_) {
+        // Do not downgrade an unknown entitlement state to free. The backend
+        // remains authoritative and limit failures are handled below.
+        return true;
+      }
+    }
+
     // Start wallets spotlight tour when on wallets tab and data is loaded
     if (currentTabIndex == 3 &&
         !walletsAsync.isLoading &&
@@ -392,7 +407,9 @@ class AccountsPage extends HookConsumerWidget {
 
       final activeWalletCount =
           effectiveWallets.where((wallet) => !wallet.isArchived).length;
-      if (!hasPremiumFeatureAccess(subscription) && activeWalletCount >= 2) {
+      final hasPlusAccess = await canUsePlusFeatures();
+      if (!context.mounted) return;
+      if (!hasPlusAccess && activeWalletCount >= 2) {
         await PlusLockedSheet.show(
           context,
           highlightedFeature: PlusFeature.walletCreation,
@@ -418,14 +435,23 @@ class AccountsPage extends HookConsumerWidget {
         }
       } catch (error) {
         if (context.mounted) {
+          if (ErrorHandler.isPlusFeatureLimitError(error)) {
+            await PlusLockedSheet.show(
+              context,
+              highlightedFeature: PlusFeature.walletCreation,
+            );
+            return;
+          }
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
         }
       }
     }
 
     Future<void> onConnectBankAccount() async {
-      if (!hasPremiumFeatureAccess(subscription)) {
-        PlusLockedSheet.show(
+      final hasPlusAccess = await canUsePlusFeatures();
+      if (!context.mounted) return;
+      if (!hasPlusAccess) {
+        await PlusLockedSheet.show(
           context,
           highlightedFeature: PlusFeature.bankSync,
         );

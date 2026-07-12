@@ -46,9 +46,7 @@ class ErrorHandler {
     }
 
     // Network errors
-    if (errorString.contains('socketexception') ||
-        errorString.contains('network') ||
-        errorString.contains('connection')) {
+    if (_looksLikeTransportFailure(errorString)) {
       return 'No internet connection. Please check your network and try again.';
     }
 
@@ -128,6 +126,31 @@ class ErrorHandler {
     return 'Something went wrong. Please try again.';
   }
 
+  /// Returns whether [error] represents a backend-enforced Plus feature limit.
+  ///
+  /// Frontend entitlement checks are intentionally backed by server limits, so
+  /// callers should use this to recover from stale client counts and races by
+  /// opening the relevant Plus sheet instead of displaying a generic error.
+  static bool isPlusFeatureLimitError(dynamic error) {
+    final normalized = _normalizeBackendError(error);
+    final code = normalized.code?.trim().toUpperCase() ?? '';
+    if (code == 'WALLET_LIMIT_REACHED' ||
+        code == 'SPACE_LIMIT_REACHED' ||
+        code == 'SUBSCRIPTION_REQUIRED') {
+      return true;
+    }
+
+    final message = [
+      normalized.message,
+      error?.toString(),
+    ].whereType<String>().join(' ').toLowerCase();
+
+    return message.contains('moneko plus is required') ||
+        message.contains('plus is required') ||
+        message.contains('subscription required') ||
+        message.contains('more than 2 wallets');
+  }
+
   static _NormalizedBackendError _normalizeBackendError(dynamic error) {
     String? code;
     int? status;
@@ -148,6 +171,13 @@ class ErrorHandler {
         }
       } else if (details is String && details.trim().isNotEmpty) {
         message = details.trim();
+      }
+    }
+
+    if (error is PostgrestException) {
+      code ??= error.code;
+      if (error.message.trim().isNotEmpty) {
+        message ??= error.message.trim();
       }
     }
 
@@ -397,10 +427,49 @@ class ErrorHandler {
 
   /// Checks if error is retryable
   static bool isRetryable(dynamic error) {
+    final normalized = _normalizeBackendError(error);
+    final status = normalized.status;
+    final code = normalized.code?.trim().toUpperCase();
+    if (status == 408 ||
+        status == 425 ||
+        status == 429 ||
+        (status != null && status >= 500)) {
+      return true;
+    }
+    if (code == 'RATE_LIMIT' || code == 'SERVER_ERROR') {
+      return true;
+    }
+
     final errorString = error.toString().toLowerCase();
-    return errorString.contains('network') ||
-        errorString.contains('timeout') ||
-        errorString.contains('503') ||
-        errorString.contains('500');
+    return _looksLikeTransportFailure(errorString) ||
+        errorString.contains('status: 502') ||
+        errorString.contains('status: 503') ||
+        errorString.contains('status: 504') ||
+        errorString.contains('service is temporarily unavailable') ||
+        errorString.contains('supabase_edge_runtime_error');
+  }
+
+  static bool _looksLikeTransportFailure(String errorString) {
+    return errorString.contains('socketexception') ||
+        errorString.contains('timeoutexception') ||
+        errorString.contains('networkerror') ||
+        errorString.contains('network request failed') ||
+        errorString.contains('network is unreachable') ||
+        errorString.contains('failed to fetch') ||
+        errorString.contains('xmlhttprequest error') ||
+        errorString.contains('failed host lookup') ||
+        errorString.contains('temporary failure in name resolution') ||
+        errorString.contains('no route to host') ||
+        errorString.contains('host is unreachable') ||
+        errorString.contains('connection refused') ||
+        errorString.contains('connection reset') ||
+        errorString.contains('connection terminated') ||
+        errorString.contains('connection aborted') ||
+        errorString.contains('connection closed') ||
+        errorString.contains('connection timed out') ||
+        errorString.contains('broken pipe') ||
+        errorString.contains('bad file descriptor') ||
+        errorString.contains('timed out') ||
+        errorString.contains('timeout');
   }
 }

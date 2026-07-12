@@ -12,6 +12,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -31,6 +32,7 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
@@ -799,7 +801,14 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .selectHousehold(createdHouseholdId);
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
         }
-      } catch (_) {}
+      } catch (error) {
+        if (ErrorHandler.isPlusFeatureLimitError(error) && context.mounted) {
+          await PlusLockedSheet.show(
+            context,
+            highlightedFeature: PlusFeature.spaceCreation,
+          );
+        }
+      }
       if (!context.mounted) return;
 
       setProgressState(

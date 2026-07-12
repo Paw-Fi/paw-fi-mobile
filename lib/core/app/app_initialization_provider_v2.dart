@@ -12,7 +12,9 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/currency_preference_service_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 
 part 'app_initialization_provider_v2.g.dart';
 
@@ -82,6 +84,7 @@ enum AppInitState {
 /// - timestamp: When data was fetched
 @immutable
 class InitData {
+  static const int householdCacheSchemaVersion = 1;
   final UserContact? user;
   final Subscription? subscription;
   final WhatsAppBinding? whatsappBinding;
@@ -122,12 +125,18 @@ class InitData {
       'subscription': subscription?.toJson(),
       'whatsapp_binding': whatsappBinding?.toJson(),
       'households': households.map((h) => h.toJson()).toList(),
+      'household_cache_schema_version': householdCacheSchemaVersion,
       'is_from_cache': isFromCache,
       'timestamp': timestamp.toIso8601String(),
     };
   }
 
   factory InitData.fromJson(Map<String, dynamic> json) {
+    if (json['household_cache_schema_version'] != householdCacheSchemaVersion) {
+      throw const FormatException(
+        'Cached household metadata schema is stale',
+      );
+    }
     return InitData(
       user: json['user'] != null ? UserContact.fromJson(json['user']) : null,
       subscription: json['subscription'] != null
@@ -617,28 +626,19 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         ref.read(viewModeProvider.notifier).setPersonalMode();
       } else {
         if (households.isNotEmpty) {
-          final selectedState = ref.read(selectedHouseholdProvider);
-          final selectedId =
-              selectedState.householdId ?? selectedState.household?.id;
-          final selectedStillExists = selectedId != null &&
-              households.any((household) => household.id == selectedId);
-          if (!selectedStillExists || selectedState.household == null) {
-            await ref
-                .read(selectedHouseholdProvider.notifier)
-                .initialize(preloadedHouseholds: households);
-            debugPrint(
-                '✅ [InitV2] Selected household initialized during app init');
-          } else {
-            debugPrint(
-                '✅ [InitV2] Selected household already valid, skipping re-init');
-          }
+          // Always replace the selected object from the fresh canonical list.
+          // Matching IDs alone are insufficient because cached metadata may
+          // predate fields such as is_portfolio.
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .initialize(preloadedHouseholds: households);
+          debugPrint(
+              '✅ [InitV2] Selected household reconciled from fresh metadata');
         } else {
           debugPrint(
               '⚠️ [InitV2] Households failed to load; keeping previous scope');
         }
       }
-
-      _warmAnalyticsDataInBackground(userId);
     } on TimeoutException {
       stopwatch.stop();
 
@@ -689,34 +689,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       debugPrint(
           '❌ [InitV2] Critical: Fresh fetch failed with no cache fallback: $e');
     }
-  }
-
-  void _warmAnalyticsDataInBackground(String userId) {
-    unawaited(Future<void>(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-
-      if (ref.read(authProvider).uid != userId) {
-        return;
-      }
-
-      final analyticsState = ref.read(analyticsProvider);
-      if (analyticsState.hasLoadedOnce == true || analyticsState.isLoading) {
-        return;
-      }
-
-      debugPrint('📊 [InitV2] Warming analytics data in background...');
-      final analyticsStopwatch = Stopwatch()..start();
-
-      try {
-        await ref.read(analyticsProvider.notifier).loadData(userId);
-        analyticsStopwatch.stop();
-        debugPrint(
-            '✅ [InitV2] Background analytics warm-up finished in ${analyticsStopwatch.elapsedMilliseconds}ms');
-      } catch (error) {
-        analyticsStopwatch.stop();
-        debugPrint('⚠️ [InitV2] Background analytics warm-up failed: $error');
-      }
-    }));
   }
 
   Future<dynamic> _initializeRpcWithRetry(

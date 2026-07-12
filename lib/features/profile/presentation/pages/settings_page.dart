@@ -223,7 +223,8 @@ class SettingsPage extends HookConsumerWidget {
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final subscription = subscriptionAsync.valueOrNull?.subscription;
-    final canUsePlusFeatures = hasPremiumFeatureAccess(subscription);
+    final canUsePlusFeatures =
+        !subscriptionAsync.hasValue || hasPremiumFeatureAccess(subscription);
     final appLockState = ref.watch(appLockControllerProvider);
     final appLockConfigured = appLockState.isConfigured;
     final biometricAvailability = appLockState.biometricAvailability;
@@ -836,6 +837,8 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     Future<void> handleResetFinancialData() async {
+      final l10n = context.l10n;
+
       if (ref.read(previewModeProvider).isActive) {
         if (context.mounted) {
           AppToast.info(
@@ -911,8 +914,8 @@ class SettingsPage extends HookConsumerWidget {
           final errorMessage = result is Map
               ? (result['message']?.toString() ??
                   result['error']?.toString() ??
-                  context.l10n.failedToResetFinancialData)
-              : context.l10n.failedToResetFinancialData;
+                  l10n.failedToResetFinancialData)
+              : l10n.failedToResetFinancialData;
           if (context.mounted) {
             AppToast.error(context, errorMessage);
           }
@@ -1088,6 +1091,14 @@ class SettingsPage extends HookConsumerWidget {
       if (isAppLockSetupInProgress.value) {
         return;
       }
+      if (enabled) {
+        final hasAccess = await PlusLockedSheet.ensureAccess(
+          context,
+          ref,
+          feature: PlusFeature.appLock,
+        );
+        if (!hasAccess || !context.mounted) return;
+      }
 
       // Store the current state to revert if needed
       final previousState = appLockSwitchValue.value;
@@ -1221,6 +1232,7 @@ class SettingsPage extends HookConsumerWidget {
                     authState: authState,
                     nameReloadKey: nameReloadKey.value,
                     onAvatarTap: () async {
+                      final l10n = context.l10n;
                       try {
                         await _showAvatarSourceSheet(
                           context,
@@ -1234,11 +1246,10 @@ class SettingsPage extends HookConsumerWidget {
                         );
                       } catch (e) {
                         debugPrint(
-                          context.l10n.unexpectedAvatarUpdateError(e),
+                          l10n.unexpectedAvatarUpdateError(e),
                         );
                         if (context.mounted) {
-                          AppToast.error(
-                              context, context.l10n.failedToSaveAvatar);
+                          AppToast.error(context, l10n.failedToSaveAvatar);
                         }
                       }
                     },
@@ -1264,11 +1275,14 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                       FutureBuilder<Map<String, dynamic>?>(
                         key: ValueKey('name-${nameReloadKey.value}'),
-                        future: Supabase.instance.client
-                            .from('users')
-                            .select('full_name')
-                            .eq('id', authState.uid)
-                            .maybeSingle(),
+                        future: () async {
+                          if (authState.uid.isEmpty) return null;
+                          return Supabase.instance.client
+                              .from('users')
+                              .select('full_name')
+                              .eq('id', authState.uid)
+                              .maybeSingle();
+                        }(),
                         builder: (context, snapshot) {
                           final dbName = snapshot.data != null
                               ? snapshot.data!['full_name'] as String?
@@ -3140,11 +3154,14 @@ class _ProfileHeader extends ConsumerWidget {
         Center(
           child: FutureBuilder<Map<String, dynamic>?>(
             key: ValueKey('avatar-$nameReloadKey'),
-            future: Supabase.instance.client
-                .from('users')
-                .select('full_name, avatar_url')
-                .eq('id', authState.uid)
-                .maybeSingle(),
+            future: () async {
+              if (authState.uid.isEmpty) return null;
+              return Supabase.instance.client
+                  .from('users')
+                  .select('full_name, avatar_url')
+                  .eq('id', authState.uid)
+                  .maybeSingle();
+            }(),
             builder: (context, snapshot) {
               final dbName = snapshot.data?['full_name'] as String?;
               final dbAvatarUrl = snapshot.data?['avatar_url'] as String?;
@@ -3508,7 +3525,7 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
     }
   }
 
-  if (_isValidFixedOffsetTimezone(currentTimezone)) {
+  if (_isValidTimezoneValue(currentTimezone)) {
     addIfMissing(currentTimezone);
   }
 
@@ -3535,10 +3552,16 @@ bool _isValidFixedOffsetTimezone(String? timezone) {
   return tryParseTimezoneOffsetMinutes(trimmed) != null;
 }
 
+bool _isValidTimezoneValue(String? timezone) {
+  final trimmed = timezone?.trim();
+  if (trimmed == null || trimmed.isEmpty) return false;
+  return _isValidFixedOffsetTimezone(trimmed) || trimmed.contains('/');
+}
+
 bool _isLegacyTimezoneValue(String timezone) {
   final trimmed = timezone.trim();
   if (trimmed.isEmpty) return false;
-  return !_isValidFixedOffsetTimezone(trimmed);
+  return !_isValidTimezoneValue(trimmed);
 }
 
 Future<void> _showEditNameSheet({

@@ -457,6 +457,7 @@ void main() {
     test(
         'delete removes personal transaction immediately and rolls back on failure',
         () async {
+      const expenseId = '11111111-1111-4111-8111-111111111111';
       final failedResponse = _MockFunctionResponse();
       when(() => failedResponse.data).thenReturn({
         'success': false,
@@ -478,7 +479,7 @@ void main() {
       addTearDown(container.dispose);
 
       final original = ExpenseEntry(
-        id: 'expense-1',
+        id: expenseId,
         userId: 'user-1',
         date: DateTime(2026, 5, 7),
         amountCents: 1200,
@@ -504,7 +505,9 @@ void main() {
       responseCompleter.complete(failedResponse);
       expect(await deleteFuture, isFalse);
       expect(
-          container.read(analyticsProvider).allExpenses.single.id, 'expense-1');
+        container.read(analyticsProvider).allExpenses.single.id,
+        expenseId,
+      );
     });
   });
 }

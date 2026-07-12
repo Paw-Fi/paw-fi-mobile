@@ -39,6 +39,7 @@ class AppLockSetupPage extends HookConsumerWidget {
     final errorText = useState<String?>(null);
     final promptRevision = useState(0);
     final isSubmitting = useState(false);
+    final processingStatus = useState<String?>(null);
     final biometricAvailability = useFuture(
       useMemoized(
         () => ref.read(appLockBiometricServiceProvider).getAvailability(),
@@ -105,6 +106,7 @@ class AppLockSetupPage extends HookConsumerWidget {
       }
 
       isSubmitting.value = true;
+      processingStatus.value = processingMessage;
       try {
         final success = await operation();
 
@@ -126,6 +128,7 @@ class AppLockSetupPage extends HookConsumerWidget {
       } finally {
         if (context.mounted) {
           isSubmitting.value = false;
+          processingStatus.value = null;
         }
       }
     }
@@ -238,7 +241,10 @@ class AppLockSetupPage extends HookConsumerWidget {
                     isSubmitting: isSubmitting.value,
                     onComplete: handlePasscode,
                   ),
-                  AppLockLoadingOverlay(isLoading: isSubmitting.value),
+                  AppLockLoadingOverlay(
+                    isLoading: isSubmitting.value,
+                    message: processingStatus.value,
+                  ),
                 ],
               ),
             ),

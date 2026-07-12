@@ -1,16 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_sqlite_cache.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
@@ -303,7 +308,8 @@ class SupabaseDashboardDataService implements DashboardDataService {
   }
 }
 
-Future<TransactionsFeedService> _dashboardTransactionFeedService(Ref ref) async {
+Future<TransactionsFeedService> _dashboardTransactionFeedService(
+    Ref ref) async {
   final current = ref.watch(transactionsFeedServiceProvider);
   if (current is! EmptyTransactionsFeedService) {
     _homeSpendTrace('dashboard-feed-service source=${current.runtimeType}');
@@ -326,7 +332,8 @@ Future<TransactionsFeedService> _dashboardTransactionFeedService(Ref ref) async 
     );
     return service;
   } catch (error) {
-    _homeSpendTrace('dashboard-feed-service source=remote-fallback error=$error');
+    _homeSpendTrace(
+        'dashboard-feed-service source=remote-fallback error=$error');
     return remote;
   }
 }
@@ -339,23 +346,267 @@ final dashboardDataServiceProvider = Provider<DashboardDataService>((ref) {
   return SupabaseDashboardDataService(supabase);
 });
 
+final dashboardSupabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return supabase;
+});
+
 final dashboardRefreshSignalProvider = StateProvider<int>((ref) => 0);
+
+const Duration _dashboardNetworkFreshness = Duration(minutes: 5);
+const int _dashboardCoordinatorEntryLimit = 256;
+
+class DashboardRefreshMetadata {
+  const DashboardRefreshMetadata({
+    this.isRefreshing = false,
+    this.isFromCache = false,
+    this.lastRefreshedAt,
+    this.error,
+  });
+
+  final bool isRefreshing;
+  final bool isFromCache;
+  final DateTime? lastRefreshedAt;
+  final Object? error;
+}
+
+final dashboardRefreshMetadataProvider =
+    StateProvider.autoDispose.family<DashboardRefreshMetadata, String>(
+  (ref, _) => const DashboardRefreshMetadata(),
+);
+
+class _DashboardFetchResult<T> {
+  const _DashboardFetchResult({
+    required this.value,
+    required this.persisted,
+  });
+
+  final T value;
+  final bool persisted;
+}
+
+class _DashboardTransactionLoad {
+  const _DashboardTransactionLoad({
+    required this.visible,
+    required this.confirmedBase,
+    required this.invalidIdsAtLoad,
+  });
+
+  final List<ExpenseEntry> visible;
+  final List<ExpenseEntry> confirmedBase;
+  final Set<String> invalidIdsAtLoad;
+}
+
+class _DashboardRequestGeneration {
+  const _DashboardRequestGeneration({
+    required this.cacheKey,
+    required this.dashboardRefresh,
+    required this.transactionsRefresh,
+  });
+
+  final String cacheKey;
+  final int dashboardRefresh;
+  final int transactionsRefresh;
+
+  String get token =>
+      '$cacheKey:dashboard=$dashboardRefresh:transactions=$transactionsRefresh';
+
+  bool hasSameRevision(_DashboardRequestGeneration other) =>
+      dashboardRefresh == other.dashboardRefresh &&
+      transactionsRefresh == other.transactionsRefresh;
+
+  bool dominates(_DashboardRequestGeneration other) =>
+      dashboardRefresh >= other.dashboardRefresh &&
+      transactionsRefresh >= other.transactionsRefresh;
+}
+
+class _DashboardRequestCoordinator {
+  _DashboardRequestCoordinator({DateTime Function()? now})
+      : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
+  final Map<String, Future<Object>> _inFlight = {};
+  final Map<String, Future<void>> _persisting = {};
+  final Map<String, _DashboardRequestGeneration> _latestGeneration = {};
+  final Map<String, DateTime> _freshGenerations = {};
+
+  bool isFresh(_DashboardRequestGeneration generation) {
+    _prune();
+    final latest = _latestGeneration[generation.cacheKey];
+    final refreshedAt = _freshGenerations[generation.token];
+    return latest?.token == generation.token &&
+        refreshedAt != null &&
+        _now().difference(refreshedAt) <= _dashboardNetworkFreshness;
+  }
+
+  bool _isCurrent(_DashboardRequestGeneration generation) =>
+      _latestGeneration[generation.cacheKey]?.token == generation.token;
+
+  void _register(_DashboardRequestGeneration generation) {
+    final latest = _latestGeneration[generation.cacheKey];
+    if (latest != null &&
+        !generation.hasSameRevision(latest) &&
+        !generation.dominates(latest)) {
+      return;
+    }
+    _latestGeneration[generation.cacheKey] = generation;
+    _freshGenerations.removeWhere(
+      (token, _) =>
+          token.startsWith('${generation.cacheKey}:') &&
+          token != generation.token,
+    );
+    _prune();
+  }
+
+  Future<_DashboardFetchResult<T>> run<T>({
+    required _DashboardRequestGeneration generation,
+    required bool Function() isActive,
+    required Future<T> Function() load,
+    required Future<void> Function(T value) persist,
+  }) async {
+    if (isActive()) _register(generation);
+    final token = generation.token;
+    final operation = _inFlight[token] ??= _executeLoad<T>(token, load);
+    final value = await operation as T;
+
+    if (isActive() && _isCurrent(generation)) {
+      final existingPersist = _persisting[token];
+      if (existingPersist != null) {
+        await existingPersist;
+      } else {
+        final persistOperation = _executePersist<T>(
+          token: token,
+          generation: generation,
+          isActive: isActive,
+          value: value,
+          persist: persist,
+        );
+        _persisting[token] = persistOperation;
+        await persistOperation;
+      }
+    }
+
+    return _DashboardFetchResult<T>(
+      value: value,
+      persisted: isActive() && _isCurrent(generation),
+    );
+  }
+
+  Future<Object> _executeLoad<T>(
+    String token,
+    Future<T> Function() load,
+  ) async {
+    try {
+      return await load() as Object;
+    } finally {
+      _inFlight.remove(token);
+    }
+  }
+
+  Future<void> _executePersist<T>({
+    required String token,
+    required _DashboardRequestGeneration generation,
+    required bool Function() isActive,
+    required T value,
+    required Future<void> Function(T value) persist,
+  }) async {
+    try {
+      if (isActive() && _isCurrent(generation)) {
+        try {
+          await persist(value);
+        } catch (_) {
+          // A successful network response must remain usable even if a
+          // best-effort SQLite write or prune fails.
+        }
+        if (_isCurrent(generation)) {
+          _freshGenerations[token] = _now();
+        }
+      }
+    } finally {
+      _persisting.remove(token);
+      _prune();
+    }
+  }
+
+  void _prune() {
+    final cutoff = _now().subtract(_dashboardNetworkFreshness);
+    _freshGenerations
+        .removeWhere((_, refreshedAt) => refreshedAt.isBefore(cutoff));
+    if (_latestGeneration.length <= _dashboardCoordinatorEntryLimit) return;
+
+    final removable = _latestGeneration.keys.where((key) {
+      final token = _latestGeneration[key]?.token;
+      return token != null &&
+          !_inFlight.containsKey(token) &&
+          !_persisting.containsKey(token) &&
+          !_freshGenerations.containsKey(token);
+    }).toList(growable: false);
+    for (final key in removable) {
+      if (_latestGeneration.length <= _dashboardCoordinatorEntryLimit) break;
+      _latestGeneration.remove(key);
+    }
+  }
+
+  void clearUser(String userId) {
+    final userComponent = Uri.encodeComponent(userId.trim());
+    final marker = 'u=$userComponent:';
+    bool belongsToUser(String key) =>
+        key.startsWith(marker) || key.contains(':$marker');
+    _latestGeneration.removeWhere((key, _) => belongsToUser(key));
+    _freshGenerations.removeWhere((token, _) => belongsToUser(token));
+  }
+}
+
+final dashboardRequestCoordinatorProvider =
+    Provider<_DashboardRequestCoordinator>((ref) {
+  return _DashboardRequestCoordinator();
+});
+
+void clearDashboardProviderMemoryForUser(Ref ref, String userId) {
+  ref.read(dashboardRequestCoordinatorProvider).clearUser(userId);
+}
+
+bool _dashboardRequestUserIsCurrent(Ref ref, String userId) {
+  return ref.read(authProvider).uid == userId ||
+      ref.read(previewModeProvider).isActive;
+}
+
+_DashboardRequestGeneration _dashboardRequestGeneration({
+  required String cacheKey,
+  required int dashboardRefresh,
+  required int transactionsRefresh,
+}) {
+  return _DashboardRequestGeneration(
+    cacheKey: cacheKey,
+    dashboardRefresh: dashboardRefresh,
+    transactionsRefresh: transactionsRefresh,
+  );
+}
+
+final dashboardPersonalLocalOverlayProvider =
+    Provider<List<ExpenseEntry>>((ref) {
+  final expenses = ref.watch(
+    analyticsProvider.select((state) => state.expenses),
+  );
+  return expenses
+      .where(_isDashboardLocalOverlayCandidate)
+      .toList(growable: false);
+});
 
 final dashboardLocalOverlayTransactionsProvider =
     Provider.family<List<ExpenseEntry>, DashboardScopeQuery>((ref, query) {
   final householdId = query.householdId?.trim();
   if (householdId == null || householdId.isEmpty) {
-    final analyticsData = ref.watch(analyticsProvider);
-    final localOnlyOverlay = analyticsData.expenses.where(
-      _isDashboardLocalOverlayCandidate,
-    );
+    final localOnlyOverlay = ref
+        .watch(dashboardPersonalLocalOverlayProvider)
+        .where((entry) => entry.userId?.trim() == query.userId)
+        .toList(growable: false);
     final overlay = mergeDashboardTransactionsWithLocalOverlay(
       base: const <ExpenseEntry>[],
       localOverlay: localOnlyOverlay,
       query: query,
     );
     _homeSpendTrace(
-      'dashboard-overlay scope=personal analyticsCount=${analyticsData.expenses.length} '
+      'dashboard-overlay scope=personal analyticsCount=${localOnlyOverlay.length} '
       'overlayCount=${overlay.length} overlayTotal=${_traceAmount(_traceExpenseTotal(overlay))}',
     );
     return overlay;
@@ -384,6 +635,9 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
   required Iterable<ExpenseEntry> localOverlay,
   required DashboardScopeQuery query,
   int? limit,
+  bool matchHousehold = true,
+  Set<String> deletedIds = const <String>{},
+  Set<String> hiddenBaseIds = const <String>{},
 }) {
   final merged = <ExpenseEntry>[];
   final seen = <String>{};
@@ -397,7 +651,14 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
 
   void addIfUnique(ExpenseEntry entry) {
     if (entry.id.isEmpty) return;
-    if (!_matchesDashboardQuery(entry, query)) return;
+    if (deletedIds.contains(entry.id)) return;
+    if (!_matchesDashboardQuery(
+      entry,
+      query,
+      matchHousehold: matchHousehold,
+    )) {
+      return;
+    }
     if (!seen.add(entry.id)) return;
 
     for (final key in _dashboardTransactionReconciliationKeys(entry)) {
@@ -422,6 +683,7 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
     addIfUnique(entry);
   }
   for (final entry in base) {
+    if (hiddenBaseIds.contains(entry.id) && !seen.contains(entry.id)) continue;
     addIfUnique(entry);
   }
 
@@ -437,13 +699,20 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
   return merged;
 }
 
-bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
-  final queryHouseholdId = query.householdId?.trim();
-  final entryHouseholdId = entry.householdId?.trim();
-  final matchesHousehold = queryHouseholdId == null || queryHouseholdId.isEmpty
-      ? entryHouseholdId == null || entryHouseholdId.isEmpty
-      : entryHouseholdId == queryHouseholdId;
-  if (!matchesHousehold) return false;
+bool _matchesDashboardQuery(
+  ExpenseEntry entry,
+  DashboardScopeQuery query, {
+  required bool matchHousehold,
+}) {
+  if (matchHousehold) {
+    final queryHouseholdId = query.householdId?.trim();
+    final entryHouseholdId = entry.householdId?.trim();
+    final matchesHousehold =
+        queryHouseholdId == null || queryHouseholdId.isEmpty
+            ? entryHouseholdId == null || entryHouseholdId.isEmpty
+            : entryHouseholdId == queryHouseholdId;
+    if (!matchesHousehold) return false;
+  }
 
   if (!query.allowsCurrency(entry.currency)) {
     return false;
@@ -592,6 +861,66 @@ TransactionsFeedQuery dashboardTransactionsQuery(
   );
 }
 
+LocalTransactionsFeedQuery _dashboardLocalTransactionsQuery(
+  DashboardScopeQuery query, {
+  required int pageSize,
+}) {
+  return LocalTransactionsFeedQuery(
+    userId: query.userId,
+    householdId: query.householdId,
+    currency: query.normalizedCurrency,
+    currencies: query.normalizedCurrencies,
+    type: 'all',
+    searchQuery: '',
+    startDate: query.startDate,
+    endDate: query.endDate,
+    pageSize: pageSize,
+    intervalGranularity: query.normalizedIntervalGranularity ?? 'yearly',
+  );
+}
+
+Future<List<ExpenseEntry>> _dashboardPendingLocalTransactions(
+  MonekoDatabase? database,
+  DashboardScopeQuery query, {
+  required int pageSize,
+  required bool allPages,
+}) async {
+  if (database == null) return const <ExpenseEntry>[];
+  final localQuery = _dashboardLocalTransactionsQuery(
+    query,
+    pageSize: pageSize,
+  );
+  if (allPages) {
+    return database.getTransactionsFeedItems(
+      localQuery,
+      syncStatus: localSyncStatusLocal,
+    );
+  }
+  final page = await database.getTransactionsFeedPage(
+    localQuery,
+    syncStatus: localSyncStatusLocal,
+  );
+  return page.items;
+}
+
+Future<Set<String>> _dashboardLocalTombstoneIds(
+  MonekoDatabase? database,
+  DashboardScopeQuery query, {
+  bool includeAllHouseholds = false,
+}) {
+  if (database == null) return Future<Set<String>>.value(const <String>{});
+  return database.getActiveTransactionTombstoneIds(
+    userId: query.userId,
+    householdId: query.householdId,
+    includeAllHouseholds: includeAllHouseholds,
+  );
+}
+
+Future<Set<String>> _dashboardPendingUpdateIds(MonekoDatabase? database) {
+  if (database == null) return Future<Set<String>>.value(const <String>{});
+  return database.getPendingTransactionUpdateIds();
+}
+
 DashboardSnapshotSummary _dashboardSummaryFromTransactionsFeedSummary(
   TransactionsFeedSummary summary,
 ) {
@@ -629,101 +958,931 @@ Future<CurrencyRateTable> _dashboardCurrencyRates(
   }
 }
 
+Future<DashboardSnapshotSummary> _loadDashboardSummary(
+  Ref ref,
+  DashboardScopeQuery query, {
+  required bool remoteOnly,
+}) async {
+  final preview = ref.read(previewModeProvider);
+  if (preview.isActive) {
+    return ref.read(dashboardDataServiceProvider).fetchSnapshot(query);
+  }
+
+  final feedService = remoteOnly
+      ? ref.read(transactionsRemoteFeedServiceProvider)
+      : await _dashboardTransactionFeedService(ref);
+  final feedQuery = dashboardTransactionsQuery(query);
+  final selectedCurrencies = query.normalizedCurrencies;
+  final hasMultiCurrencySelection =
+      selectedCurrencies != null && selectedCurrencies.length > 1;
+  final ratesFuture = hasMultiCurrencySelection
+      ? ref.read(currencyRateTableProvider.future)
+      : Future<CurrencyRateTable>.value(
+          const CurrencyRateTable(
+            baseCurrency: 'USD',
+            rates: CurrencyRates.rates,
+            isStale: true,
+          ),
+        );
+
+  // Keep the established per-row conversion path for multi-currency totals.
+  // Converting a per-currency aggregate can differ by cents because the app's
+  // current behavior rounds individual converted rows before widgets sum them.
+  return hasMultiCurrencySelection
+      ? _dashboardSummaryFromTransactionsFeedSummary(
+          summarizeTransactionsInCurrency(
+            await feedService.fetchAllPages(feedQuery),
+            targetCurrency: query.normalizedCurrency ?? 'USD',
+            rates: await _dashboardCurrencyRates(ratesFuture),
+            intervalGranularity:
+                query.normalizedIntervalGranularity ?? 'yearly',
+          ),
+        )
+      : _dashboardSummaryFromTransactionsFeedSummary(
+          await feedService.fetchSummary(feedQuery),
+        );
+}
+
+Future<List<ExpenseEntry>> _loadDashboardRecentTransactions(
+  Ref ref,
+  DashboardRecentTransactionsRequest request, {
+  required bool remoteOnly,
+}) async {
+  final preview = ref.read(previewModeProvider);
+  if (preview.isActive) {
+    return ref
+        .read(dashboardDataServiceProvider)
+        .fetchRecentTransactions(request);
+  }
+  final feedService = remoteOnly
+      ? ref.read(transactionsRemoteFeedServiceProvider)
+      : await _dashboardTransactionFeedService(ref);
+  final page = await feedService.fetchPage(
+    dashboardTransactionsQuery(request.query, pageSize: request.limit),
+  );
+  return page.items;
+}
+
+Future<List<ExpenseEntry>> _loadDashboardCalendarTransactions(
+  Ref ref,
+  DashboardScopeQuery query, {
+  required bool remoteOnly,
+}) async {
+  final preview = ref.read(previewModeProvider);
+  if (preview.isActive) {
+    final entries = await ref
+        .read(dashboardDataServiceProvider)
+        .fetchCalendarTransactions(query);
+    _homeSpendTrace(
+      'dashboard-calendar source=preview count=${entries.length} '
+      'total=${_traceAmount(_traceExpenseTotal(entries))}',
+    );
+    return entries;
+  }
+
+  final feedService = remoteOnly
+      ? ref.read(transactionsRemoteFeedServiceProvider)
+      : await _dashboardTransactionFeedService(ref);
+  final entries = await feedService.fetchAllPages(
+    dashboardTransactionsQuery(query, pageSize: 500),
+  );
+  _homeSpendTrace(
+    'dashboard-calendar source=${feedService.runtimeType} '
+    'count=${entries.length} total=${_traceAmount(_traceExpenseTotal(entries))} '
+    'user=${query.userId} household=${query.householdId ?? '<personal>'} '
+    'currency=${query.normalizedCurrency ?? '<none>'} currencies=${query.normalizedCurrencies ?? const <String>[]}',
+  );
+  return entries;
+}
+
+Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
+  Ref ref,
+  DashboardScopeQuery query,
+) async {
+  final preview = ref.read(previewModeProvider);
+  if (preview.isActive) {
+    return PreviewMockData.expenses.where((entry) {
+      return query.allowsCurrency(entry.currency) &&
+          (query.startDate == null || !entry.date.isBefore(query.startDate!)) &&
+          (query.endDate == null || !entry.date.isAfter(query.endDate!));
+    }).toList(growable: false);
+  }
+
+  const pageSize = 1000;
+  final client = ref.read(dashboardSupabaseClientProvider);
+  final rows = <Map<String, dynamic>>[];
+  try {
+    DateTime? beforeDate;
+    DateTime? beforeCreatedAt;
+    String? beforeId;
+    final seenCursors = <String>{};
+    while (true) {
+      final response = await client
+          .rpc('get_home_mom_transactions_v1', params: <String, dynamic>{
+        'p_user_id': query.userId,
+        'p_start_date': query.formattedStartDate,
+        'p_end_date': query.formattedEndDate,
+        'p_before_date': beforeDate == null
+            ? null
+            : '${beforeDate.year.toString().padLeft(4, '0')}-'
+                '${beforeDate.month.toString().padLeft(2, '0')}-'
+                '${beforeDate.day.toString().padLeft(2, '0')}',
+        'p_before_created_at': beforeCreatedAt?.toUtc().toIso8601String(),
+        'p_before_id': beforeId,
+        'p_limit': pageSize,
+      });
+      final pageRows = (response as List? ?? const <dynamic>[])
+          .cast<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
+      rows.addAll(pageRows);
+      if (pageRows.length < pageSize) break;
+
+      final last = pageRows.last;
+      beforeDate = DateTime.tryParse(last['date']?.toString() ?? '');
+      beforeCreatedAt = DateTime.tryParse(last['created_at']?.toString() ?? '');
+      beforeId = last['id']?.toString();
+      if (beforeDate == null || beforeId == null || beforeId!.isEmpty) {
+        throw StateError('Home MoM RPC returned an invalid pagination cursor');
+      }
+      final cursor = '$beforeDate|$beforeCreatedAt|$beforeId';
+      if (!seenCursors.add(cursor)) {
+        throw StateError('Home MoM RPC pagination did not advance');
+      }
+    }
+  } on PostgrestException catch (error) {
+    if (error.code != 'PGRST202' && error.code != '42883') rethrow;
+    rows.clear();
+    final contactIds = <String>[];
+    var contactOffset = 0;
+    while (true) {
+      final contactsResponse = await client
+          .from('user_contacts')
+          .select('id')
+          .eq('user_id', query.userId)
+          .order('id')
+          .range(contactOffset, contactOffset + pageSize - 1);
+      final contactPage = (contactsResponse as List? ?? const <dynamic>[])
+          .cast<Map>()
+          .map((row) => row['id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
+      contactIds.addAll(contactPage);
+      if (contactPage.isEmpty) break;
+      contactOffset += contactPage.length;
+    }
+
+    Future<void> fetchFallbackPageSet({List<String>? contacts}) async {
+      var offset = 0;
+      while (true) {
+        dynamic fallback = client.from('expenses').select(
+            'id,contact_id,user_id,household_id,date,amount_cents,currency,category,'
+            'created_at,updated_at,raw_text,split_group_id,type,is_recurring');
+        if (contacts == null) {
+          fallback = fallback.eq('user_id', query.userId);
+        } else {
+          fallback = fallback.inFilter('contact_id', contacts);
+        }
+        fallback = fallback.isFilter('deleted_at', null);
+        if (query.formattedStartDate != null) {
+          fallback = fallback.gte('date', query.formattedStartDate!);
+        }
+        if (query.formattedEndDate != null) {
+          fallback = fallback.lte('date', query.formattedEndDate!);
+        }
+        final response = await fallback
+            .order('date', ascending: false)
+            .order('created_at', ascending: false)
+            .order('id', ascending: false)
+            .range(offset, offset + pageSize - 1);
+        final pageRows = (response as List? ?? const <dynamic>[])
+            .cast<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList(growable: false);
+        rows.addAll(pageRows);
+        if (pageRows.isEmpty) break;
+        offset += pageRows.length;
+      }
+    }
+
+    await fetchFallbackPageSet();
+    const contactChunkSize = 200;
+    for (var start = 0; start < contactIds.length; start += contactChunkSize) {
+      final end = start + contactChunkSize < contactIds.length
+          ? start + contactChunkSize
+          : contactIds.length;
+      await fetchFallbackPageSet(contacts: contactIds.sublist(start, end));
+    }
+  }
+
+  final entriesById = <String, ExpenseEntry>{};
+  for (final row in rows) {
+    final entry = ExpenseEntry.fromJson(row);
+    if (!query.allowsCurrency(entry.currency)) continue;
+    if (entry.isRecurring || entry.splitGroupId?.trim().isNotEmpty == true) {
+      continue;
+    }
+    entriesById[entry.id] = entry;
+  }
+  final entries = entriesById.values.toList(growable: false)
+    ..sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      if (byDate != 0) return byDate;
+      final byCreated = b.createdAt.compareTo(a.createdAt);
+      if (byCreated != 0) return byCreated;
+      return b.id.compareTo(a.id);
+    });
+  return entries;
+}
+
+Future<_DashboardFetchResult<T>> _loadCurrentDashboardGeneration<T>({
+  required _DashboardRequestCoordinator coordinator,
+  required _DashboardRequestGeneration generation,
+  required bool Function() isActive,
+  required Future<T> Function() load,
+  required Future<void> Function(T value) persist,
+}) {
+  return coordinator.run<T>(
+    generation: generation,
+    isActive: isActive,
+    load: load,
+    persist: persist,
+  );
+}
+
 final dashboardSummaryProvider = FutureProvider.autoDispose
     .family<DashboardSnapshotSummary, DashboardScopeQuery>(
   (ref, query) async {
-    ref.watch(dashboardRefreshSignalProvider);
-    ref.watch(transactionsFeedRefreshSignalProvider);
-    final preview = ref.watch(previewModeProvider);
-    if (preview.isActive) {
-      return ref.watch(dashboardDataServiceProvider).fetchSnapshot(query);
+    final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
+    final transactionsRefresh =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    if (query.userId.isEmpty) {
+      return const DashboardSnapshotSummary.empty();
     }
 
-    final feedService = await _dashboardTransactionFeedService(ref);
-    final feedQuery = dashboardTransactionsQuery(query);
-    final selectedCurrencies = query.normalizedCurrencies;
-    final hasMultiCurrencySelection =
-        selectedCurrencies != null && selectedCurrencies.length > 1;
+    final cacheKey = dashboardSummarySqliteCacheKey(query);
+    final generation = _dashboardRequestGeneration(
+      cacheKey: cacheKey,
+      dashboardRefresh: dashboardRefresh,
+      transactionsRefresh: transactionsRefresh,
+    );
+    final coordinator = ref.read(dashboardRequestCoordinatorProvider);
+    MonekoDatabase? database;
+    DashboardSqliteCache? cache;
+    DashboardCachedValue<DashboardSnapshotSummary>? cached;
+    var hasLocalDatabaseMutation = false;
+    try {
+      final resolvedDatabase = await ref.watch(localDatabaseProvider.future);
+      database = resolvedDatabase;
+      cache = DashboardSqliteCache(resolvedDatabase);
+      cached = await cache.readSummary(query);
+      final cachedSnapshot = cached;
+      if (cachedSnapshot != null) {
+        final reconciled =
+            await resolvedDatabase.getSyncedTransactionsChangedSince(
+          userId: query.userId,
+          householdId: query.householdId,
+          changedAfter: cachedSnapshot.cachedAt,
+        );
+        if (reconciled.isNotEmpty) cached = null;
+      }
+      final pendingFuture = _dashboardPendingLocalTransactions(
+        resolvedDatabase,
+        query,
+        pageSize: 1,
+        allPages: false,
+      );
+      final deletedIdsFuture = _dashboardLocalTombstoneIds(
+        resolvedDatabase,
+        query,
+      );
+      final pendingUpdateIdsFuture =
+          _dashboardPendingUpdateIds(resolvedDatabase);
+      final pending = await pendingFuture;
+      final deletedIds = await deletedIdsFuture;
+      final pendingUpdateIds = await pendingUpdateIdsFuture;
+      hasLocalDatabaseMutation = pending.isNotEmpty ||
+          deletedIds.isNotEmpty ||
+          pendingUpdateIds.isNotEmpty;
+      if (hasLocalDatabaseMutation) cached = null;
+    } catch (_) {
+      database = null;
+      cache = null;
+    }
+    if (disposed || !_dashboardRequestUserIsCurrent(ref, query.userId)) {
+      return const DashboardSnapshotSummary.empty();
+    }
 
-    // Transaction-backed dashboard summaries must be derived from the
-    // local-first transaction feed on every provider evaluation. A second
-    // dashboard-level session/prefs cache can lag behind SQLite after AI saves
-    // and app restarts, briefly rendering stale totals before local hydration.
-    return hasMultiCurrencySelection
-        ? _dashboardSummaryFromTransactionsFeedSummary(
-            summarizeTransactionsInCurrency(
-              await feedService.fetchAllPages(feedQuery),
-              targetCurrency: query.normalizedCurrency ?? 'USD',
-              rates: await _dashboardCurrencyRates(
-                ref.watch(currencyRateTableProvider.future),
-              ),
-              intervalGranularity:
-                  query.normalizedIntervalGranularity ?? 'yearly',
-            ),
-          )
-        : _dashboardSummaryFromTransactionsFeedSummary(
-            await feedService.fetchSummary(feedQuery),
+    final hasPendingOverlay = hasLocalDatabaseMutation ||
+        ref.read(dashboardLocalOverlayTransactionsProvider(query)).isNotEmpty;
+    Future<_DashboardFetchResult<DashboardSnapshotSummary>> loadFresh() {
+      return _loadCurrentDashboardGeneration(
+        coordinator: coordinator,
+        generation: generation,
+        isActive: () =>
+            !disposed && _dashboardRequestUserIsCurrent(ref, query.userId),
+        load: () => _loadDashboardSummary(
+          ref,
+          query,
+          remoteOnly: cached != null,
+        ),
+        persist: (value) async {
+          final localCache = cache;
+          final localDatabase = database;
+          if (localCache == null ||
+              localDatabase == null ||
+              (cached == null && hasPendingOverlay)) {
+            return;
+          }
+          final pending = await _dashboardPendingLocalTransactions(
+            localDatabase,
+            query,
+            pageSize: 1,
+            allPages: false,
           );
+          final deletedIds =
+              await _dashboardLocalTombstoneIds(localDatabase, query);
+          final pendingUpdateIds =
+              await _dashboardPendingUpdateIds(localDatabase);
+          if (pending.isNotEmpty ||
+              deletedIds.isNotEmpty ||
+              pendingUpdateIds.isNotEmpty) {
+            return;
+          }
+          await localCache.writeSummary(query, value);
+        },
+      );
+    }
+
+    if (cached != null) {
+      if (!coordinator.isFresh(generation)) {
+        unawaited(() async {
+          try {
+            final result = await loadFresh();
+            if (!disposed &&
+                _dashboardRequestUserIsCurrent(ref, query.userId) &&
+                result.persisted) {
+              ref.invalidateSelf();
+            }
+          } catch (error) {
+            if (!disposed) {
+              ref
+                  .read(dashboardRefreshMetadataProvider(cacheKey).notifier)
+                  .state = DashboardRefreshMetadata(
+                isFromCache: true,
+                error: error,
+              );
+            }
+          }
+        }());
+      }
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(
+        isRefreshing: !coordinator.isFresh(generation),
+        isFromCache: true,
+        lastRefreshedAt: cached.cachedAt,
+      );
+      return cached.value;
+    }
+
+    final result = await loadFresh();
+    if (disposed || !_dashboardRequestUserIsCurrent(ref, query.userId)) {
+      return const DashboardSnapshotSummary.empty();
+    }
+    if (!disposed) {
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(lastRefreshedAt: DateTime.now());
+    }
+    return result.value;
   },
 );
 
 final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, DashboardRecentTransactionsRequest>(
   (ref, request) async {
-    ref.watch(dashboardRefreshSignalProvider);
-    ref.watch(transactionsFeedRefreshSignalProvider);
-    final preview = ref.watch(previewModeProvider);
-    if (preview.isActive) {
-      return ref
-          .watch(dashboardDataServiceProvider)
-          .fetchRecentTransactions(request);
+    final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
+    final transactionsRefresh =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    if (request.query.userId.isEmpty) return const <ExpenseEntry>[];
+
+    final cacheKey = dashboardRecentSqliteCacheKey(request);
+    final generation = _dashboardRequestGeneration(
+      cacheKey: cacheKey,
+      dashboardRefresh: dashboardRefresh,
+      transactionsRefresh: transactionsRefresh,
+    );
+    final coordinator = ref.read(dashboardRequestCoordinatorProvider);
+    MonekoDatabase? database;
+    DashboardSqliteCache? cache;
+    DashboardCachedValue<List<ExpenseEntry>>? cached;
+    try {
+      final resolvedDatabase = await ref.watch(localDatabaseProvider.future);
+      database = resolvedDatabase;
+      cache = DashboardSqliteCache(resolvedDatabase);
+      cached = await cache.readRecent(request);
+      final cachedSnapshot = cached;
+      if (cachedSnapshot != null) {
+        final reconciledFuture =
+            resolvedDatabase.getSyncedTransactionsChangedSince(
+          userId: request.query.userId,
+          changedAfter: cachedSnapshot.cachedAt,
+          includeAllHouseholds: true,
+        );
+        final pendingFuture = _dashboardPendingLocalTransactions(
+          database,
+          request.query,
+          pageSize: request.limit,
+          allPages: false,
+        );
+        final deletedIdsFuture = _dashboardLocalTombstoneIds(
+          database,
+          request.query,
+        );
+        final pendingUpdateIdsFuture = _dashboardPendingUpdateIds(database);
+        final pending = await pendingFuture;
+        final deletedIds = await deletedIdsFuture;
+        final pendingUpdateIds = await pendingUpdateIdsFuture;
+        final reconciled = await reconciledFuture;
+        cached = DashboardCachedValue<List<ExpenseEntry>>(
+          value: mergeDashboardTransactionsWithLocalOverlay(
+            base: cachedSnapshot.value,
+            localOverlay: <ExpenseEntry>[...pending, ...reconciled],
+            query: request.query,
+            limit: request.limit,
+            deletedIds: deletedIds,
+            hiddenBaseIds: <String>{
+              ...pendingUpdateIds,
+              ...reconciled.map((entry) => entry.id),
+            },
+          ),
+          cachedAt: cachedSnapshot.cachedAt,
+        );
+      }
+    } catch (_) {
+      cache = null;
+    }
+    if (disposed ||
+        !_dashboardRequestUserIsCurrent(ref, request.query.userId)) {
+      return const <ExpenseEntry>[];
     }
 
-    // Recent transaction rows are transaction-backed and must come directly
-    // from the local-first feed. Reusing a separate dashboard cache can replay
-    // stale rows after an optimistic save/reconciliation cycle.
-    final feedService = await _dashboardTransactionFeedService(ref);
-    final page = await feedService.fetchPage(
-      dashboardTransactionsQuery(
-        request.query,
-        pageSize: request.limit,
-      ),
-    );
-    return page.items;
+    Future<_DashboardFetchResult<_DashboardTransactionLoad>> loadFresh() {
+      return _loadCurrentDashboardGeneration(
+        coordinator: coordinator,
+        generation: generation,
+        isActive: () =>
+            !disposed &&
+            _dashboardRequestUserIsCurrent(ref, request.query.userId),
+        load: () async {
+          final pending = await _dashboardPendingLocalTransactions(
+            database,
+            request.query,
+            pageSize: request.limit,
+            allPages: false,
+          );
+          final deletedIds = await _dashboardLocalTombstoneIds(
+            database,
+            request.query,
+          );
+          final pendingUpdateIds = await _dashboardPendingUpdateIds(database);
+          final expandedRequest = DashboardRecentTransactionsRequest(
+            query: request.query,
+            limit: request.limit + pending.length + pendingUpdateIds.length,
+          );
+          final base = await _loadDashboardRecentTransactions(
+            ref,
+            expandedRequest,
+            remoteOnly: cached != null,
+          );
+          return _DashboardTransactionLoad(
+            visible: mergeDashboardTransactionsWithLocalOverlay(
+              base: base,
+              localOverlay: pending,
+              query: request.query,
+              limit: request.limit,
+              deletedIds: deletedIds,
+              hiddenBaseIds: pendingUpdateIds,
+            ),
+            confirmedBase: base,
+            invalidIdsAtLoad: <String>{
+              ...pending.map((entry) => entry.id),
+              ...deletedIds,
+              ...pendingUpdateIds,
+            },
+          );
+        },
+        persist: (value) async {
+          final localCache = cache;
+          if (localCache == null) return;
+          final deletedIds = await _dashboardLocalTombstoneIds(
+            database,
+            request.query,
+          );
+          final pendingUpdateIds = await _dashboardPendingUpdateIds(database);
+          final invalidIds = <String>{
+            ...value.invalidIdsAtLoad,
+            ...deletedIds,
+            ...pendingUpdateIds,
+          };
+          final confirmed = value.confirmedBase
+              .where((entry) => !invalidIds.contains(entry.id))
+              .take(request.limit)
+              .toList(growable: false);
+          await localCache.writeRecent(request, confirmed);
+        },
+      );
+    }
+
+    if (cached != null) {
+      if (!coordinator.isFresh(generation)) {
+        unawaited(() async {
+          try {
+            final result = await loadFresh();
+            if (!disposed &&
+                _dashboardRequestUserIsCurrent(ref, request.query.userId) &&
+                result.persisted) {
+              ref.invalidateSelf();
+            }
+          } catch (error) {
+            if (!disposed) {
+              ref
+                  .read(dashboardRefreshMetadataProvider(cacheKey).notifier)
+                  .state = DashboardRefreshMetadata(
+                isFromCache: true,
+                error: error,
+              );
+            }
+          }
+        }());
+      }
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(
+        isRefreshing: !coordinator.isFresh(generation),
+        isFromCache: true,
+        lastRefreshedAt: cached.cachedAt,
+      );
+      return cached.value;
+    }
+
+    final result = await loadFresh();
+    if (disposed ||
+        !_dashboardRequestUserIsCurrent(ref, request.query.userId)) {
+      return const <ExpenseEntry>[];
+    }
+    if (!disposed) {
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(lastRefreshedAt: DateTime.now());
+    }
+    return result.value.visible;
   },
 );
 
 final dashboardCalendarTransactionsProvider =
     FutureProvider.autoDispose.family<List<ExpenseEntry>, DashboardScopeQuery>(
   (ref, query) async {
-    ref.watch(dashboardRefreshSignalProvider);
-    ref.watch(transactionsFeedRefreshSignalProvider);
-    final preview = ref.watch(previewModeProvider);
-    if (preview.isActive) {
-      final entries = await ref
-          .watch(dashboardDataServiceProvider)
-          .fetchCalendarTransactions(query);
-      _homeSpendTrace(
-        'dashboard-calendar source=preview count=${entries.length} '
-        'total=${_traceAmount(_traceExpenseTotal(entries))}',
-      );
-      return entries;
+    final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
+    final transactionsRefresh =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    if (query.userId.isEmpty) return const <ExpenseEntry>[];
+
+    final cacheKey = dashboardCalendarSqliteCacheKey(query);
+    final generation = _dashboardRequestGeneration(
+      cacheKey: cacheKey,
+      dashboardRefresh: dashboardRefresh,
+      transactionsRefresh: transactionsRefresh,
+    );
+    final coordinator = ref.read(dashboardRequestCoordinatorProvider);
+    MonekoDatabase? database;
+    DashboardSqliteCache? cache;
+    DashboardCachedValue<List<ExpenseEntry>>? cached;
+    try {
+      final resolvedDatabase = await ref.watch(localDatabaseProvider.future);
+      database = resolvedDatabase;
+      cache = DashboardSqliteCache(resolvedDatabase);
+      cached = await cache.readCalendar(query);
+      final cachedSnapshot = cached;
+      if (cachedSnapshot != null) {
+        final reconciledFuture =
+            resolvedDatabase.getSyncedTransactionsChangedSince(
+          userId: query.userId,
+          changedAfter: cachedSnapshot.cachedAt,
+          includeAllHouseholds: true,
+        );
+        final pendingFuture = _dashboardPendingLocalTransactions(
+          database,
+          query,
+          pageSize: 500,
+          allPages: true,
+        );
+        final deletedIdsFuture = _dashboardLocalTombstoneIds(database, query);
+        final pendingUpdateIdsFuture = _dashboardPendingUpdateIds(database);
+        final pending = await pendingFuture;
+        final deletedIds = await deletedIdsFuture;
+        final pendingUpdateIds = await pendingUpdateIdsFuture;
+        final reconciled = await reconciledFuture;
+        cached = DashboardCachedValue<List<ExpenseEntry>>(
+          value: mergeDashboardTransactionsWithLocalOverlay(
+            base: cachedSnapshot.value,
+            localOverlay: <ExpenseEntry>[...pending, ...reconciled],
+            query: query,
+            deletedIds: deletedIds,
+            hiddenBaseIds: <String>{
+              ...pendingUpdateIds,
+              ...reconciled.map((entry) => entry.id),
+            },
+          ),
+          cachedAt: cachedSnapshot.cachedAt,
+        );
+      }
+    } catch (_) {
+      cache = null;
+    }
+    if (disposed || !_dashboardRequestUserIsCurrent(ref, query.userId)) {
+      return const <ExpenseEntry>[];
     }
 
-    // Calendar/range transactions power the Home spending total. They must use
-    // the local-first transaction feed as the single source of truth so a stale
-    // dashboard session/prefs cache cannot show an old total on app restart or
-    // during AI save reconciliation.
-    final feedService = await _dashboardTransactionFeedService(ref);
-    final entries = await feedService.fetchAllPages(
-      dashboardTransactionsQuery(query, pageSize: 500),
+    Future<_DashboardFetchResult<_DashboardTransactionLoad>> loadFresh() {
+      return _loadCurrentDashboardGeneration(
+        coordinator: coordinator,
+        generation: generation,
+        isActive: () =>
+            !disposed && _dashboardRequestUserIsCurrent(ref, query.userId),
+        load: () async {
+          final base = await _loadDashboardCalendarTransactions(
+            ref,
+            query,
+            remoteOnly: cached != null,
+          );
+          final pending = await _dashboardPendingLocalTransactions(
+            database,
+            query,
+            pageSize: 500,
+            allPages: true,
+          );
+          final deletedIds = await _dashboardLocalTombstoneIds(database, query);
+          final pendingUpdateIds = await _dashboardPendingUpdateIds(database);
+          return _DashboardTransactionLoad(
+            visible: mergeDashboardTransactionsWithLocalOverlay(
+              base: base,
+              localOverlay: pending,
+              query: query,
+              deletedIds: deletedIds,
+              hiddenBaseIds: pendingUpdateIds,
+            ),
+            confirmedBase: base,
+            invalidIdsAtLoad: <String>{
+              ...pending.map((entry) => entry.id),
+              ...deletedIds,
+              ...pendingUpdateIds,
+            },
+          );
+        },
+        persist: (value) async {
+          final localCache = cache;
+          if (localCache == null) return;
+          final deletedIds = await _dashboardLocalTombstoneIds(database, query);
+          final pendingUpdateIds = await _dashboardPendingUpdateIds(database);
+          final invalidIds = <String>{
+            ...value.invalidIdsAtLoad,
+            ...deletedIds,
+            ...pendingUpdateIds,
+          };
+          final confirmed = value.confirmedBase
+              .where((entry) => !invalidIds.contains(entry.id))
+              .toList(growable: false);
+          await localCache.writeCalendar(query, confirmed);
+        },
+      );
+    }
+
+    if (cached != null) {
+      if (!coordinator.isFresh(generation)) {
+        unawaited(() async {
+          try {
+            final result = await loadFresh();
+            if (!disposed &&
+                _dashboardRequestUserIsCurrent(ref, query.userId) &&
+                result.persisted) {
+              ref.invalidateSelf();
+            }
+          } catch (error) {
+            if (!disposed) {
+              ref
+                  .read(dashboardRefreshMetadataProvider(cacheKey).notifier)
+                  .state = DashboardRefreshMetadata(
+                isFromCache: true,
+                error: error,
+              );
+            }
+          }
+        }());
+      }
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(
+        isRefreshing: !coordinator.isFresh(generation),
+        isFromCache: true,
+        lastRefreshedAt: cached.cachedAt,
+      );
+      return cached.value;
+    }
+
+    final result = await loadFresh();
+    if (disposed || !_dashboardRequestUserIsCurrent(ref, query.userId)) {
+      return const <ExpenseEntry>[];
+    }
+    if (!disposed) {
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(lastRefreshedAt: DateTime.now());
+    }
+    return result.value.visible;
+  },
+);
+
+final dashboardOwnedRangeTransactionsProvider =
+    FutureProvider.autoDispose.family<List<ExpenseEntry>, DashboardScopeQuery>(
+  (ref, query) async {
+    final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
+    final transactionsRefresh =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    if (query.userId.isEmpty ||
+        query.startDate == null ||
+        query.endDate == null) {
+      return const <ExpenseEntry>[];
+    }
+
+    final cacheKey = dashboardOwnedRangeSqliteCacheKey(query);
+    final generation = _dashboardRequestGeneration(
+      cacheKey: cacheKey,
+      dashboardRefresh: dashboardRefresh,
+      transactionsRefresh: transactionsRefresh,
     );
-    _homeSpendTrace(
-      'dashboard-calendar source=${feedService.runtimeType} '
-      'count=${entries.length} total=${_traceAmount(_traceExpenseTotal(entries))} '
-      'user=${query.userId} household=${query.householdId ?? '<personal>'} '
-      'currency=${query.normalizedCurrency ?? '<none>'} currencies=${query.normalizedCurrencies ?? const <String>[]}',
-    );
-    return entries;
+    final coordinator = ref.read(dashboardRequestCoordinatorProvider);
+    MonekoDatabase? database;
+    DashboardSqliteCache? cache;
+    DashboardCachedValue<List<ExpenseEntry>>? cached;
+    try {
+      final resolvedDatabase = await ref.watch(localDatabaseProvider.future);
+      database = resolvedDatabase;
+      cache = DashboardSqliteCache(resolvedDatabase);
+      cached = await cache.readOwnedRange(query);
+      final cachedSnapshot = cached;
+      if (cachedSnapshot != null) {
+        final reconciledFuture =
+            resolvedDatabase.getSyncedTransactionsChangedSince(
+          userId: query.userId,
+          changedAfter: cachedSnapshot.cachedAt,
+          includeAllHouseholds: true,
+        );
+        final pendingFuture = resolvedDatabase.getPendingOwnedTransactions(
+          userId: query.userId,
+          startDate: query.startDate!,
+          endDate: query.endDate!,
+          currency: query.normalizedCurrency,
+        );
+        final deletedIdsFuture = _dashboardLocalTombstoneIds(
+          resolvedDatabase,
+          query,
+          includeAllHouseholds: true,
+        );
+        final pendingUpdateIdsFuture =
+            _dashboardPendingUpdateIds(resolvedDatabase);
+        final pending = await pendingFuture;
+        final deletedIds = await deletedIdsFuture;
+        final pendingUpdateIds = await pendingUpdateIdsFuture;
+        final reconciled = await reconciledFuture;
+        cached = DashboardCachedValue<List<ExpenseEntry>>(
+          value: mergeDashboardTransactionsWithLocalOverlay(
+            base: cachedSnapshot.value,
+            localOverlay: <ExpenseEntry>[...pending, ...reconciled],
+            query: query,
+            matchHousehold: false,
+            deletedIds: deletedIds,
+            hiddenBaseIds: <String>{
+              ...pendingUpdateIds,
+              ...reconciled.map((entry) => entry.id),
+            },
+          ),
+          cachedAt: cachedSnapshot.cachedAt,
+        );
+      }
+    } catch (_) {
+      cache = null;
+    }
+    if (disposed || !_dashboardRequestUserIsCurrent(ref, query.userId)) {
+      return const <ExpenseEntry>[];
+    }
+
+    Future<_DashboardFetchResult<_DashboardTransactionLoad>> loadFresh() {
+      return _loadCurrentDashboardGeneration(
+        coordinator: coordinator,
+        generation: generation,
+        isActive: () =>
+            !disposed && _dashboardRequestUserIsCurrent(ref, query.userId),
+        load: () async {
+          final base = await _loadDashboardOwnedRangeTransactions(ref, query);
+          final localDatabase = database;
+          final pending = localDatabase == null
+              ? const <ExpenseEntry>[]
+              : await localDatabase.getPendingOwnedTransactions(
+                  userId: query.userId,
+                  startDate: query.startDate!,
+                  endDate: query.endDate!,
+                  currency: query.normalizedCurrency,
+                );
+          final deletedIds = await _dashboardLocalTombstoneIds(
+            localDatabase,
+            query,
+            includeAllHouseholds: true,
+          );
+          final pendingUpdateIds =
+              await _dashboardPendingUpdateIds(localDatabase);
+          return _DashboardTransactionLoad(
+            visible: mergeDashboardTransactionsWithLocalOverlay(
+              base: base,
+              localOverlay: pending,
+              query: query,
+              matchHousehold: false,
+              deletedIds: deletedIds,
+              hiddenBaseIds: pendingUpdateIds,
+            ),
+            confirmedBase: base,
+            invalidIdsAtLoad: <String>{
+              ...pending.map((entry) => entry.id),
+              ...deletedIds,
+              ...pendingUpdateIds,
+            },
+          );
+        },
+        persist: (value) async {
+          final localCache = cache;
+          if (localCache == null) return;
+          final deletedIds = await _dashboardLocalTombstoneIds(
+            database,
+            query,
+            includeAllHouseholds: true,
+          );
+          final pendingUpdateIds = await _dashboardPendingUpdateIds(database);
+          final invalidIds = <String>{
+            ...value.invalidIdsAtLoad,
+            ...deletedIds,
+            ...pendingUpdateIds,
+          };
+          final confirmed = value.confirmedBase
+              .where((entry) => !invalidIds.contains(entry.id))
+              .toList(growable: false);
+          await localCache.writeOwnedRange(query, confirmed);
+        },
+      );
+    }
+
+    if (cached != null) {
+      if (!coordinator.isFresh(generation)) {
+        unawaited(() async {
+          try {
+            final result = await loadFresh();
+            if (!disposed &&
+                _dashboardRequestUserIsCurrent(ref, query.userId) &&
+                result.persisted) {
+              ref.invalidateSelf();
+            }
+          } catch (error) {
+            if (!disposed) {
+              ref
+                  .read(dashboardRefreshMetadataProvider(cacheKey).notifier)
+                  .state = DashboardRefreshMetadata(
+                isFromCache: true,
+                error: error,
+              );
+            }
+          }
+        }());
+      }
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(
+        isRefreshing: !coordinator.isFresh(generation),
+        isFromCache: true,
+        lastRefreshedAt: cached.cachedAt,
+      );
+      return cached.value;
+    }
+
+    final result = await loadFresh();
+    if (disposed || !_dashboardRequestUserIsCurrent(ref, query.userId)) {
+      return const <ExpenseEntry>[];
+    }
+    if (!disposed) {
+      ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
+          DashboardRefreshMetadata(lastRefreshedAt: DateTime.now());
+    }
+    return result.value.visible;
   },
 );

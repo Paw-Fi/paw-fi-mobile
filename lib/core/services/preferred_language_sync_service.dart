@@ -147,7 +147,7 @@ class PreferredLanguageSyncService {
       return;
     }
 
-    final timezone = await resolveCanonicalDeviceTimezone();
+    final timezone = await _resolveTimezoneForInitialSync();
     final response = await Supabase.instance.client.functions.invoke(
       'update-preferred-timezone',
       body: {
@@ -161,6 +161,24 @@ class PreferredLanguageSyncService {
       errorMessage: 'Failed to sync preferred timezone',
     );
     await prefs.setBool(cacheKey, true);
+  }
+
+  Future<String> _resolveTimezoneForInitialSync() async {
+    final resolvedTimezone =
+        canonicalTimezoneValue(await resolveCanonicalDeviceTimezone());
+    if (resolvedTimezone != null && resolvedTimezone.isNotEmpty) {
+      return resolvedTimezone;
+    }
+
+    final offsetTimezone = canonicalTimezoneValue(
+      currentDeviceTimezoneOffsetLabel(),
+    );
+    if (offsetTimezone != null &&
+        tryParseTimezoneOffsetMinutes(offsetTimezone) != null) {
+      return offsetTimezone;
+    }
+
+    return 'UTC';
   }
 
   Future<void> _syncMissingPlatform({

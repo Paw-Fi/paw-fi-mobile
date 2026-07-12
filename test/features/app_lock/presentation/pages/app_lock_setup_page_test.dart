@@ -44,9 +44,10 @@ void main() {
     expect(enableCompleter.isCompleted, isFalse);
 
     enableCompleter.complete();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
   });
 
   testWidgets('prompts for biometric opt-in after confirming passcode',
@@ -78,7 +79,8 @@ void main() {
       await tester.tap(find.text(digit));
       await tester.pump();
     }
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Use Fingerprint?'), findsOneWidget);
     expect(appLockController.lastBiometricEnabled, isNull);
@@ -91,9 +93,9 @@ void main() {
     expect(appLockController.lastBiometricEnabled, isTrue);
 
     enableCompleter.complete();
-    await tester.pumpAndSettle();
+    await tester.pump();
     await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
   });
 }
 

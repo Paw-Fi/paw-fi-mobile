@@ -5,6 +5,8 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -76,6 +78,14 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         walletScopeHouseholdIdProvider.overrideWith((ref) => null),
+        walletsScopeQueryProvider.overrideWith(
+          (ref) => WalletsScopeQuery(
+            userId: 'u1',
+            householdId: null,
+            selectedCurrency: 'USD',
+            currentMonthStart: DateTime(2026, 7),
+          ),
+        ),
         scopedWalletsProvider
             .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
       ],

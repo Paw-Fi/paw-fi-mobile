@@ -72,7 +72,10 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     final legacy = prefs.getString(_kLegacySelectedHouseholdIdKey);
 
     final raw = perUser ?? legacy;
-    final initialId = (raw != null && raw.trim().isNotEmpty) ? raw : null;
+    final initialId =
+        (raw != null && raw.trim().isNotEmpty && !isOptimisticHouseholdId(raw))
+            ? raw
+            : null;
     return SelectedHouseholdState(
       householdId: initialId,
       household: null,
@@ -106,9 +109,12 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     try {
       debugPrint('🔍 Initializing selected household for user: $_userId');
 
-      final households = preview.isActive
+      final loadedHouseholds = preview.isActive
           ? PreviewMockData.households
           : preloadedHouseholds ?? await _waitForHouseholds(_userId);
+      final households = loadedHouseholds
+          ?.where((household) => !isOptimisticHouseholdId(household.id))
+          .toList(growable: false);
 
       if (households == null || households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');
@@ -248,6 +254,11 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       trace.mark('select-skipped', const {'reason': 'empty-space-id'});
       return;
     }
+    if (isOptimisticHouseholdId(householdId)) {
+      await clearSelection();
+      trace.mark('select-skipped', const {'reason': 'optimistic-space-id'});
+      return;
+    }
 
     final operationId = ++_operationId;
     try {
@@ -348,12 +359,16 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     final perUserKey = _selectedHouseholdIdKeyForUser(_userId);
 
     final perUserSaved = prefs.getString(perUserKey);
-    if (perUserSaved != null && households.any((h) => h.id == perUserSaved)) {
+    if (perUserSaved != null &&
+        !isOptimisticHouseholdId(perUserSaved) &&
+        households.any((h) => h.id == perUserSaved)) {
       return perUserSaved;
     }
 
     final legacySaved = prefs.getString(_kLegacySelectedHouseholdIdKey);
-    if (legacySaved != null && households.any((h) => h.id == legacySaved)) {
+    if (legacySaved != null &&
+        !isOptimisticHouseholdId(legacySaved) &&
+        households.any((h) => h.id == legacySaved)) {
       // Migrate legacy → per-user once we confirm it is valid for this account.
       try {
         await prefs.setString(perUserKey, legacySaved);

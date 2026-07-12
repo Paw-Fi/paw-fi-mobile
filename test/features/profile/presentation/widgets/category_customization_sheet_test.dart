@@ -105,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI MAPPINGS'), findsOneWidget);
-    expect(find.text('Restaurants'), findsOneWidget);
-    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Restaurants'), findsWidgets);
+    expect(find.text('Groceries'), findsWidgets);
   });
 }

@@ -81,34 +81,34 @@ Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
   final userId = ref.read(authProvider).uid;
   if (userId.isEmpty) return false;
 
-  await ref
-      .read(subscriptionManagementProvider.notifier)
-      .refresh()
-      .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
-    debugPrint(
-      '[OnboardingPostAuth] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
-    );
-  });
-  await ref
-      .read(subscriptionNotifierProvider.notifier)
-      .refresh()
-      .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
-    debugPrint(
-      '[OnboardingPostAuth] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
-    );
-  });
-
-  final subscriptionDetails =
-      ref.read(subscriptionManagementProvider).valueOrNull;
-  if (subscriptionDetails?.hasActiveSubscription ?? false) {
-    return true;
-  }
-
-  final hasSubscription = await _hasSubscriptionRow(userId);
-  if (hasSubscription == true) return true;
-  if (hasSubscription == null) return false;
-
   try {
+    await ref
+        .read(subscriptionManagementProvider.notifier)
+        .refresh()
+        .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+      debugPrint(
+        '[OnboardingPostAuth] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
+      );
+    });
+    await ref
+        .read(subscriptionNotifierProvider.notifier)
+        .refresh()
+        .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+      debugPrint(
+        '[OnboardingPostAuth] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
+      );
+    });
+
+    final subscriptionDetails =
+        ref.read(subscriptionManagementProvider).valueOrNull;
+    if (subscriptionDetails?.hasActiveSubscription ?? false) {
+      return true;
+    }
+
+    final hasSubscription = await _hasSubscriptionRow(userId);
+    if (hasSubscription == true) return true;
+    if (hasSubscription == null) return false;
+
     debugPrint(
       '[OnboardingPostAuth] No subscription detected; retrying onboarding free trial activation',
     );
@@ -274,6 +274,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
         return;
       }
 
+      if (!context.mounted) return;
       ref.read(importWizardProvider.notifier).resetAfterImport();
       final imported = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
@@ -440,20 +441,34 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   }
 
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
-    if (!fromSettings) {
-      final hasRequiredSubscription = await _ensurePostAuthTrial(ref);
-      if (!hasRequiredSubscription) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n.onboardingPreparingBodyErrorRetry)),
-          );
+    try {
+      if (!fromSettings) {
+        final hasRequiredSubscription = await _ensurePostAuthTrial(ref);
+        if (!hasRequiredSubscription) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content:
+                      Text(context.l10n.onboardingPreparingBodyErrorRetry)),
+            );
+          }
+          return;
         }
-        return;
       }
-    }
 
-    await _markOnboardingCompleted(ref);
+      await _markOnboardingCompleted(ref);
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OnboardingPostAuth] Completion failed: $error\n$stackTrace',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(context.l10n.onboardingPreparingBodyErrorRetry)),
+        );
+      }
+      return;
+    }
     if (!context.mounted) return;
     if (fromSettings) {
       Navigator.of(context).pop();

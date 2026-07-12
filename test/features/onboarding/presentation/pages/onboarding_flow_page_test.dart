@@ -76,6 +76,12 @@ Future<void> _pumpOnboarding(
         ),
         deviceRegistrationServiceProvider
             .overrideWithValue(deviceRegistrationService),
+        onboardingHeardAboutSaveActionProvider.overrideWithValue(({
+          required String source,
+          required String sourceLabel,
+          required String? otherText,
+          required String platform,
+        }) async {}),
       ],
       child: MaterialApp.router(
         routerConfig: router,
@@ -202,6 +208,11 @@ void main() {
     await tester.tap(getMyPlanButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('TikTok'));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(find.text('PreAuthOnboarding'), findsOneWidget);

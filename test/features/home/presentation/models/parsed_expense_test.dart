@@ -329,7 +329,7 @@ void main() {
         date: DateTime(2024, 1, 1),
       );
 
-      expect(expense.formattedAmount, '\$50.00');
+      expect(expense.formattedAmount, '\$50');
     });
 
     test('formattedAmount formats with euro symbol', () {
@@ -344,7 +344,7 @@ void main() {
       expect(expense.formattedAmount, '€123.45');
     });
 
-    test('formattedAmount always shows two decimal places', () {
+    test('formattedAmount omits unnecessary decimal places', () {
       final expense = ParsedExpense(
         amount: 100.0,
         category: 'Food',
@@ -353,7 +353,7 @@ void main() {
         date: DateTime(2024, 1, 1),
       );
 
-      expect(expense.formattedAmount, '\$100.00');
+      expect(expense.formattedAmount, '\$100');
     });
   });
 
@@ -395,7 +395,7 @@ void main() {
 
       expect(expense.amount, -50.0);
       expect(expense.amountCents, -5000);
-      expect(expense.formattedAmount, '\$-50.00');
+      expect(expense.formattedAmount, '\$-50');
     });
 
     test('handles different currency symbols', () {
@@ -411,7 +411,7 @@ void main() {
         );
 
         expect(expense.currencySymbol, symbol);
-        expect(expense.formattedAmount, '$symbol${100.00.toStringAsFixed(2)}');
+        expect(expense.formattedAmount, '${symbol}100');
       }
     });
 

@@ -1,7 +1,11 @@
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -58,7 +62,7 @@ String _householdSettlementPaymentsCacheKey(
 
 Future<SharedPreferences?> _householdPrefsOrNull() async {
   try {
-    return SharedPreferences.getInstance();
+    return await SharedPreferences.getInstance();
   } catch (_) {
     return null;
   }
@@ -299,11 +303,18 @@ class UserHouseholdsNotifier
     }
 
     if (initialHouseholds != null) {
-      return AsyncValue.data(initialHouseholds);
+      return AsyncValue.data(_withoutOptimisticHouseholds(initialHouseholds));
     }
 
     return const AsyncValue.loading();
   }
+
+  static List<Household> _withoutOptimisticHouseholds(
+    Iterable<Household> households,
+  ) =>
+      households
+          .where((household) => !isOptimisticHouseholdId(household.id))
+          .toList(growable: false);
 
   Future<void> _scheduleDeferredInitialLoad() async {
     final cached = await _readHouseholdCachedList<Household>(
@@ -311,7 +322,7 @@ class UserHouseholdsNotifier
       Household.fromJson,
     );
     if (mounted && cached != null && !state.hasValue) {
-      state = AsyncValue.data(cached.items);
+      state = AsyncValue.data(_withoutOptimisticHouseholds(cached.items));
     }
 
     await Future.delayed(const Duration(milliseconds: 700));
@@ -353,7 +364,7 @@ class UserHouseholdsNotifier
       );
       if (!mounted) return;
       if (cached != null && !state.hasValue) {
-        state = AsyncValue.data(cached.items);
+        state = AsyncValue.data(_withoutOptimisticHouseholds(cached.items));
         trace.mark('persisted-cache-hit', {'count': cached.items.length});
       } else if (!state.hasValue) {
         state = const AsyncValue.loading();
@@ -371,7 +382,9 @@ class UserHouseholdsNotifier
       }
 
       final result = await AsyncValue.guard(() async {
-        final households = await _repository.getUserHouseholds(_userId);
+        final households = _withoutOptimisticHouseholds(
+          await _repository.getUserHouseholds(_userId),
+        );
         unawaited(_writeHouseholdCachedList(
           cacheKey,
           households,
@@ -398,11 +411,12 @@ class UserHouseholdsNotifier
 
   void hydrate(List<Household> households) {
     if (!mounted) return;
-    state = AsyncValue.data(households);
+    final sanitized = _withoutOptimisticHouseholds(households);
+    state = AsyncValue.data(sanitized);
     if (_userId.isNotEmpty) {
       unawaited(_writeHouseholdCachedList(
         _userHouseholdsCacheKey(_userId),
-        households,
+        sanitized,
         (household) => household.toJson(),
       ));
     }
@@ -410,6 +424,7 @@ class UserHouseholdsNotifier
 
   void addOrReplaceHousehold(Household household) {
     if (!mounted) return;
+    if (isOptimisticHouseholdId(household.id)) return;
     final current = state.valueOrNull ?? const <Household>[];
     final updated = current
         .map((existing) => existing.id == household.id ? household : existing)
@@ -452,21 +467,6 @@ class UserHouseholdsNotifier
     String? coverImageUrl,
     String? themeColor,
   }) async {
-    final optimisticId =
-        'optimistic-household-${DateTime.now().microsecondsSinceEpoch}';
-    final now = DateTime.now();
-    final optimistic = Household(
-      id: optimisticId,
-      name: name,
-      ownerId: _userId,
-      coverImageUrl: coverImageUrl,
-      themeColor: themeColor,
-      currency: currency.toUpperCase(),
-      createdAt: now,
-      updatedAt: now,
-    );
-    addOrReplaceHousehold(optimistic);
-
     try {
       final created = await _repository.createHousehold(
         name: name,
@@ -474,11 +474,9 @@ class UserHouseholdsNotifier
         coverImageUrl: coverImageUrl,
         themeColor: themeColor,
       );
-      removeHousehold(optimisticId);
       addOrReplaceHousehold(created);
       unawaited(load());
     } catch (_) {
-      removeHousehold(optimisticId);
       rethrow;
     }
   }
@@ -521,6 +519,10 @@ class HouseholdMembersNotifier
 
   Future<void> load() async {
     if (!mounted) return;
+    if (!isBackendHouseholdId(_householdId)) {
+      state = const AsyncValue.data(<HouseholdMember>[]);
+      return;
+    }
     final cacheKey = _householdMembersCacheKey(_householdId);
     final cached = await _readHouseholdCachedList<HouseholdMember>(
       cacheKey,
@@ -914,6 +916,9 @@ class HouseholdSummaryParams {
 final householdSummaryProvider =
     FutureProvider.family<HouseholdSummary?, HouseholdSummaryParams>(
   (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return null;
+    }
     final trace = HomeDebugTrace(
       label: 'HouseholdSummaryProvider',
       enabled: ref.read(homeDebugLoggingEnabledProvider),
@@ -1026,10 +1031,225 @@ class HouseholdSplitsParams {
   int get hashCode => householdId.hashCode ^ (dateRange?.hashCode ?? 0);
 }
 
+class HouseholdHomeSplitGroupsParams {
+  HouseholdHomeSplitGroupsParams({
+    required this.userId,
+    required this.householdId,
+    required Iterable<String> splitGroupIds,
+  }) : splitGroupIds = _normalizeIds(splitGroupIds);
+
+  final String userId;
+  final String householdId;
+  final List<String> splitGroupIds;
+
+  static List<String> _normalizeIds(Iterable<String> values) {
+    final normalized = values
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false)
+      ..sort();
+    return List<String>.unmodifiable(normalized);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! HouseholdHomeSplitGroupsParams ||
+        userId != other.userId ||
+        householdId != other.householdId ||
+        splitGroupIds.length != other.splitGroupIds.length) {
+      return false;
+    }
+    for (var index = 0; index < splitGroupIds.length; index++) {
+      if (splitGroupIds[index] != other.splitGroupIds[index]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        userId,
+        householdId,
+        Object.hashAll(splitGroupIds),
+      );
+}
+
+const _householdHomeSplitCacheNamespace = 'household_home_split_snapshot';
+const _householdHomeSplitCacheSchemaVersion = 1;
+const _householdHomeSplitCacheMaxAge = Duration(days: 2);
+const _householdHomeSplitCacheFreshness = Duration(minutes: 5);
+const _householdHomeSplitCacheMaxEntries = 128;
+
+String _householdHomeSplitCacheKey(HouseholdHomeSplitGroupsParams params) {
+  var idsHash = 0x811c9dc5;
+  for (final codeUnit in params.splitGroupIds.join('|').codeUnits) {
+    idsHash ^= codeUnit;
+    idsHash = (idsHash * 0x01000193) & 0xffffffff;
+  }
+  return 'u=${Uri.encodeComponent(params.userId)}:'
+      'v$_householdHomeSplitCacheSchemaVersion:'
+      'h=${Uri.encodeComponent(params.householdId)}:'
+      'ids=${idsHash.toRadixString(16)}:${params.splitGroupIds.length}';
+}
+
+({
+  List<ExpenseSplitGroup> items,
+  DateTime cachedAt,
+  String generation,
+})? _decodeHouseholdHomeSplitCache(
+  LocalJsonCacheEntry entry,
+  HouseholdHomeSplitGroupsParams params,
+) {
+  if (DateTime.now().difference(entry.cachedAt) >
+      _householdHomeSplitCacheMaxAge) {
+    return null;
+  }
+  final payload = entry.payload;
+  if (payload['schema_version'] != _householdHomeSplitCacheSchemaVersion ||
+      payload['complete'] != true ||
+      payload['user_id'] != params.userId ||
+      payload['household_id'] != params.householdId) {
+    return null;
+  }
+  final cachedIds = ((payload['split_group_ids'] as List?) ?? const <dynamic>[])
+      .map((value) => value.toString())
+      .toList(growable: false);
+  if (cachedIds.length != params.splitGroupIds.length) return null;
+  for (var index = 0; index < cachedIds.length; index++) {
+    if (cachedIds[index] != params.splitGroupIds[index]) return null;
+  }
+  final rawItems = payload['items'];
+  if (rawItems is! List) return null;
+  if (rawItems.any((item) => item is! Map)) return null;
+  try {
+    return (
+      items: rawItems
+          .cast<Map>()
+          .map((row) =>
+              ExpenseSplitGroup.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false),
+      cachedAt: entry.cachedAt,
+      generation: payload['generation']?.toString() ?? '',
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+final householdHomeSplitGroupsProvider = FutureProvider.autoDispose
+    .family<List<ExpenseSplitGroup>, HouseholdHomeSplitGroupsParams>(
+  (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseSplitGroup>[];
+    }
+    final dashboardGeneration = ref.watch(dashboardRefreshSignalProvider);
+    final transactionGeneration =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    final generation = '$dashboardGeneration:$transactionGeneration';
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+
+    if (params.userId.isEmpty ||
+        params.householdId.isEmpty ||
+        params.splitGroupIds.isEmpty) {
+      return const <ExpenseSplitGroup>[];
+    }
+
+    final cacheKey = _householdHomeSplitCacheKey(params);
+    MonekoDatabase? database;
+    LocalJsonCacheEntry? cacheEntry;
+    try {
+      final resolvedDatabase = await ref.watch(localDatabaseProvider.future);
+      database = resolvedDatabase;
+      cacheEntry = await resolvedDatabase.getJsonCache(
+        namespace: _householdHomeSplitCacheNamespace,
+        cacheKey: cacheKey,
+      );
+    } catch (_) {
+      database = null;
+      cacheEntry = null;
+    }
+    if (disposed || ref.read(authProvider).uid != params.userId) {
+      return const <ExpenseSplitGroup>[];
+    }
+    final cached = cacheEntry == null
+        ? null
+        : _decodeHouseholdHomeSplitCache(cacheEntry, params);
+
+    Future<List<ExpenseSplitGroup>> fetchAndPersist() async {
+      final service = ref.read(householdServiceProvider);
+      final rows = await service.getHouseholdSplitsByIds(
+        householdId: params.householdId,
+        splitGroupIds: params.splitGroupIds,
+      );
+      final items =
+          rows.map(ExpenseSplitGroup.fromJson).toList(growable: false);
+      if (disposed || ref.read(authProvider).uid != params.userId) {
+        return const <ExpenseSplitGroup>[];
+      }
+      final localDatabase = database;
+      if (localDatabase != null) {
+        try {
+          await localDatabase.upsertJsonCache(
+            namespace: _householdHomeSplitCacheNamespace,
+            cacheKey: cacheKey,
+            payload: <String, dynamic>{
+              'schema_version': _householdHomeSplitCacheSchemaVersion,
+              'complete': true,
+              'user_id': params.userId,
+              'household_id': params.householdId,
+              'split_group_ids': params.splitGroupIds,
+              'generation': generation,
+              'items':
+                  items.map((item) => item.toJson()).toList(growable: false),
+            },
+          );
+          await localDatabase.pruneJsonCacheNamespace(
+            namespace: _householdHomeSplitCacheNamespace,
+            maxEntries: _householdHomeSplitCacheMaxEntries,
+            olderThan: DateTime.now().toUtc().subtract(
+                  _householdHomeSplitCacheMaxAge,
+                ),
+          );
+        } catch (_) {
+          // A cache write/prune failure must not turn a valid remote result
+          // into a dashboard error.
+        }
+      }
+      return items;
+    }
+
+    if (cached != null) {
+      final shouldRefresh = cached.generation != generation ||
+          DateTime.now().difference(cached.cachedAt) >
+              _householdHomeSplitCacheFreshness;
+      if (shouldRefresh) {
+        unawaited(() async {
+          try {
+            await fetchAndPersist();
+            if (!disposed && ref.read(authProvider).uid == params.userId) {
+              ref.invalidateSelf();
+            }
+          } catch (_) {
+            // A complete cached split snapshot remains valid on refresh failure.
+          }
+        }());
+      }
+      return cached.items;
+    }
+
+    return fetchAndPersist();
+  },
+);
+
 /// Household splits provider
 final householdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseSplitGroup>[];
+    }
     final repository = ref.watch(householdRepositoryProvider);
     final isOffline =
         ref.watch(networkReachabilityProvider).valueOrNull == false;
@@ -1130,6 +1350,9 @@ class HouseholdExpensesParams {
 final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseEntry>[];
+    }
     final supabase = ref.watch(supabaseClientProvider);
     final isOffline =
         ref.watch(networkReachabilityProvider).valueOrNull == false;
@@ -1565,13 +1788,9 @@ class SettlementBreakdownV2Params {
 final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
     .family<List<SettlementPairwiseBalance>, PairwiseSettlementBalancesParams>(
   (ref, params) async {
-    final splitsAsync = ref.watch(
-      cachedHouseholdSplitsProvider(
-        HouseholdSplitsParams(householdId: params.householdId),
-      ),
-    );
-    final paymentsAsync =
-        ref.watch(householdSettlementPaymentsProvider(params.householdId));
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <SettlementPairwiseBalance>[];
+    }
     final optimisticSplits = ref.watch(
       householdOptimisticSplitsProvider.select(
         (state) => state[params.householdId] ?? const <ExpenseSplitGroup>[],
@@ -1579,18 +1798,28 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
     );
 
     if (optimisticSplits.isNotEmpty) {
-      final currentUserId =
-          ref.watch(supabaseClientProvider).auth.currentUser?.id;
-      if (currentUserId == null || currentUserId.isEmpty) {
+      final splitsFuture = ref.watch(
+        cachedHouseholdSplitsProvider(
+          HouseholdSplitsParams(householdId: params.householdId),
+        ).future,
+      );
+      final paymentsFuture = ref.watch(
+        householdSettlementPaymentsProvider(params.householdId).future,
+      );
+      final currentUserId = ref.watch(authProvider.select((user) => user.uid));
+      if (currentUserId.isEmpty) {
         return const <SettlementPairwiseBalance>[];
       }
 
+      // The optimistic calculator must not publish partial financial values.
+      // Both canonical split groups and settlement payments are required; the
+      // two futures have already started and are awaited together here.
+      final canonicalSplits = await splitsFuture;
+      final payments = await paymentsFuture;
       final splits = mergeHouseholdSplits(
-        splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
+        canonicalSplits,
         optimisticSplits,
       );
-      final payments =
-          paymentsAsync.valueOrNull ?? const <SettlementPaymentRecord>[];
       final nets = computeSettlementNets(
         splits: splits,
         currentUserId: currentUserId,
@@ -1629,6 +1858,9 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
 final householdSettlementBreakdownV2Provider = FutureProvider.autoDispose
     .family<List<SettlementBreakdownRowV2>, SettlementBreakdownV2Params>(
   (ref, params) async {
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <SettlementBreakdownRowV2>[];
+    }
     final service = ref.watch(householdServiceProvider);
     final rows = await service.getSettlementBreakdownRowsV2(
       householdId: params.householdId,
@@ -1814,16 +2046,5 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
 });
 
 bool _shouldKeepQueuedLocalMutation(Object error) {
-  final message = error.toString().toLowerCase();
-  return message.contains('network') ||
-      message.contains('socket') ||
-      message.contains('failed host lookup') ||
-      message.contains('connection') ||
-      message.contains('timed out') ||
-      message.contains('timeout') ||
-      message.contains('status: 502') ||
-      message.contains('status: 503') ||
-      message.contains('status: 504') ||
-      message.contains('service is temporarily unavailable') ||
-      message.contains('supabase_edge_runtime_error');
+  return ErrorHandler.isRetryable(error);
 }

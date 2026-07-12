@@ -1322,16 +1322,18 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     }
     return Builder(
       builder: (context) => GestureDetector(
-        onTap: () async {
-          final value = await showCalculatorKeypadSheet(
-            context: context,
-            initialValue: _controllers[index].text,
-          );
-          if (value != null) {
-            _controllers[index].text = value;
-            _handleValueChange(index, value);
-          }
-        },
+        onTap: !enabled
+            ? null
+            : () async {
+                final value = await showCalculatorKeypadSheet(
+                  context: context,
+                  initialValue: _controllers[index].text,
+                );
+                if (value != null) {
+                  _controllers[index].text = value;
+                  _handleValueChange(index, value);
+                }
+              },
         child: AbsorbPointer(
           child: TextField(
             controller: _controllers[index],

@@ -30,11 +30,15 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
             : normalizedTarget;
     currencies.add(sourceCurrency);
 
-    final converted = rates.convert(
-      entry.amount.abs(),
-      sourceCurrency,
-      normalizedTarget,
-    );
+    // Aggregate the same monetary units the UI can display: convert and round
+    // each native row to target-currency cents before adding it to any total.
+    final converted = convertAmountCentsToCurrency(
+          entry.amountCents.abs(),
+          fromCurrency: sourceCurrency,
+          targetCurrency: normalizedTarget,
+          rates: rates,
+        ).abs() /
+        100.0;
     final isIncome = (entry.type ?? 'expense').toLowerCase() == 'income';
     
     final currentTypeTotal = currencyTypeTotalsMap[sourceCurrency] ??

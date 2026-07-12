@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_sqlite_cache.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
 final dashboardPersistedCacheBypassCountProvider =
@@ -198,7 +200,17 @@ final dashboardCacheInvalidationProvider = Provider<void>((ref) {
     if (previous == null || previous == next) return;
     clearDashboardSessionCache();
     if (previous.isNotEmpty) {
+      clearDashboardProviderMemoryForUser(ref, previous);
       unawaited(clearAllDashboardPersistedCachesForUser(ref, userId: previous));
+      unawaited(() async {
+        try {
+          final database = await ref.read(localDatabaseProvider.future);
+          await DashboardSqliteCache(database).clearUser(previous);
+        } catch (_) {
+          // Local cache cleanup is best effort; clearAllLocalData also removes
+          // this namespace during the normal logout lifecycle.
+        }
+      }());
     }
   });
 });

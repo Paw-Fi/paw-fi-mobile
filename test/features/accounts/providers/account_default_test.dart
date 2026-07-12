@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 
 class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
@@ -37,6 +39,14 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         walletScopeHouseholdIdProvider.overrideWith((ref) => null),
+        walletsScopeQueryProvider.overrideWith(
+          (ref) => WalletsScopeQuery(
+            userId: 'u1',
+            householdId: null,
+            selectedCurrency: 'USD',
+            currentMonthStart: DateTime(2026, 7),
+          ),
+        ),
         scopedWalletsProvider
             .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
       ],

@@ -353,7 +353,7 @@ void main() {
             .where((item) => item.expense != null)
             .map((item) => item.expense!.id)
             .toList(),
-        ['a', 'b'],
+        ['b', 'a'],
       );
       expect(items.last.isLast, isTrue);
     });

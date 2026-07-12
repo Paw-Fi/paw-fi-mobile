@@ -204,4 +204,134 @@ void main() {
           params: {'p_household_id': 'hh_123'})).called(1);
     });
   });
+
+  group('HouseholdService.getHouseholdSplitsByIds', () {
+    test('chunks IDs below the PostgREST max_rows response cap', () async {
+      final requestedChunkSizes = <int>[];
+      final ids = List<String>.generate(
+        1201,
+        (index) => '00000000-0000-0000-0000-'
+            '${index.toString().padLeft(12, '0')}',
+      );
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          expect(
+            request.url.path,
+            endsWith('/rest/v1/rpc/get_household_home_split_groups_v1'),
+          );
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          final chunk = (body['p_split_group_ids'] as List).cast<String>();
+          requestedChunkSizes.add(chunk.length);
+          return http.Response(
+            jsonEncode(
+              chunk
+                  .map((id) => {
+                        'id': id,
+                        'created_at': '2026-07-10T12:00:00.000Z',
+                      })
+                  .toList(growable: false),
+            ),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+
+      final rows = await HouseholdService(client).getHouseholdSplitsByIds(
+        householdId: 'household-1',
+        splitGroupIds: ids,
+      );
+
+      expect(requestedChunkSizes, [500, 500, 201]);
+      expect(rows, hasLength(1201));
+      expect(rows.map((row) => row['id']).toSet(), ids.toSet());
+    });
+
+    test('falls back to the previous REST query for any optimized RPC error',
+        () async {
+      final requestedPaths = <String>[];
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          requestedPaths.add(request.url.path);
+          if (request.url.path
+              .endsWith('/rest/v1/rpc/get_household_home_split_groups_v1')) {
+            return http.Response(
+              jsonEncode({
+                'code': '42501',
+                'message': 'optimized path unavailable',
+                'details': null,
+                'hint': null,
+              }),
+              403,
+              headers: {'content-type': 'application/json'},
+              request: request,
+            );
+          }
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+
+      final rows = await HouseholdService(client).getHouseholdSplitsByIds(
+        householdId: '00000000-0000-0000-0000-000000000001',
+        splitGroupIds: const ['00000000-0000-0000-0000-000000000002'],
+      );
+
+      expect(rows, isEmpty);
+      expect(
+        requestedPaths,
+        contains('/rest/v1/expense_split_groups'),
+      );
+    });
+  });
+
+  group('HouseholdService.getHouseholdMembers', () {
+    test('falls back to the previous REST query for any optimized RPC error',
+        () async {
+      final requestedPaths = <String>[];
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          requestedPaths.add(request.url.path);
+          if (request.url.path
+              .endsWith('/rest/v1/rpc/get_household_home_members_v1')) {
+            return http.Response(
+              jsonEncode({
+                'code': '42501',
+                'message': 'optimized path unavailable',
+                'details': null,
+                'hint': null,
+              }),
+              403,
+              headers: {'content-type': 'application/json'},
+              request: request,
+            );
+          }
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+
+      final rows = await HouseholdService(client).getHouseholdMembers(
+        '00000000-0000-0000-0000-000000000001',
+      );
+
+      expect(rows, isEmpty);
+      expect(requestedPaths, contains('/rest/v1/household_members'));
+    });
+  });
 }

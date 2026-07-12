@@ -24,6 +24,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
   _TestRecurringSaveNotifier(Ref ref) : super(ref);
@@ -442,6 +443,7 @@ void main() {
 
   testWidgets('Edit save blocks when split totals do not match amount',
       (tester) async {
+    const householdId = '00000000-0000-0000-0000-000000000001';
     final members = <HouseholdMember>[
       _member('user_1', 'Alice'),
       _member('user_2', 'Bob'),
@@ -450,7 +452,7 @@ void main() {
     final splitGroup = household_split.ExpenseSplitGroup(
       id: 'sg1',
       expenseId: 'exp_1',
-      householdId: 'h1',
+      householdId: householdId,
       payerUserId: 'user_1',
       splitType: household_split.SplitType.amount,
       totalAmountCents: 4000,
@@ -489,7 +491,7 @@ void main() {
 
     _TestRecurringSaveNotifier? saveNotifier;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_household_id:user_1', 'h1');
+    await prefs.setString('selected_household_id:user_1', householdId);
 
     final householdRepository = _FakeHouseholdRepository(
       members: members,
@@ -507,25 +509,28 @@ void main() {
         ..._defaultWalletOverrides(),
         householdRepositoryProvider.overrideWithValue(householdRepository),
         userHouseholdsProvider('user_1').overrideWith(
-          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1', ref)
-            ..state = AsyncValue.data(
-              [
-                Household(
-                  id: 'h1',
-                  name: 'Test Household',
-                  ownerId: 'user_1',
-                  currency: 'USD',
-                  createdAt: DateTime(2026, 1, 1),
-                  updatedAt: DateTime(2026, 1, 1),
-                ),
-              ],
-            ),
+          (ref) => UserHouseholdsNotifier(
+            householdRepository,
+            'user_1',
+            ref,
+            initialHouseholds: [
+              Household(
+                id: householdId,
+                name: 'Test Household',
+                ownerId: 'user_1',
+                currency: 'USD',
+                createdAt: DateTime(2026, 1, 1),
+                updatedAt: DateTime(2026, 1, 1),
+              ),
+            ],
+          ),
         ),
-        householdMembersProvider('h1').overrideWith(
-          (ref) => HouseholdMembersNotifier(householdRepository, 'h1'),
+        householdMembersProvider(householdId).overrideWith(
+          (ref) => HouseholdMembersNotifier(householdRepository, householdId),
         ),
-        householdSplitsProvider(const HouseholdSplitsParams(householdId: 'h1'))
-            .overrideWith(
+        householdSplitsProvider(
+          const HouseholdSplitsParams(householdId: householdId),
+        ).overrideWith(
           (ref) async {
             await Future<void>.delayed(const Duration(milliseconds: 150));
             return [splitGroup];
@@ -566,7 +571,7 @@ void main() {
                 type: 'expense',
                 existingTransaction: _recurringExpense(
                   id: 'exp_1',
-                  householdId: 'h1',
+                  householdId: householdId,
                 ),
               ),
             ),
@@ -591,13 +596,31 @@ void main() {
     );
     expect(splitInputs, findsNWidgets(2));
 
-    await tester.enterText(splitInputs.first, '60');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    final firstSplitInputTapTarget = find
+        .ancestor(
+          of: splitInputs.first,
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    await tester.ensureVisible(firstSplitInputTapTarget);
+    await tester.pumpAndSettle();
+    await tester.tap(firstSplitInputTapTarget);
+    await tester.pumpAndSettle();
+    final keypad = find.byType(CalculatorKeypad);
+    expect(keypad, findsOneWidget);
+    await tester.tap(find.descendant(of: keypad, matching: find.text('6')));
+    await tester.tap(find.descendant(of: keypad, matching: find.text('0')));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CalculatorKeypad),
+        matching: find.byIcon(Icons.check),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.check));
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 8));
 
     expect(saveNotifier, isNotNull);
     expect(saveNotifier!.updateCalled, isFalse);
@@ -857,7 +880,7 @@ void main() {
     expect(recurringNotifier!.deleteCalled, isTrue);
     expect(recurringNotifier!.deletedTransactionId, transaction.id);
     expect(recurringNotifier!.skipCalled, isFalse);
-    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('Delete dialog can skip the next occurrence', (tester) async {
@@ -962,7 +985,7 @@ void main() {
     expect(recurringNotifier!.skippedTransactionId, transaction.id);
     expect(recurringNotifier!.skippedDate, expectedSkippedDate);
     expect(recurringNotifier!.deleteCalled, isFalse);
-    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets(
@@ -1124,6 +1147,6 @@ void main() {
     expect(saveNotifier!.lastUpdateArgs?['hasReminder'], isTrue);
     expect(saveNotifier!.lastUpdateArgs?['reminderValue'], 3);
     expect(saveNotifier!.lastUpdateArgs?['reminderUnit'], 'days');
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 6));
   });
 }

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
 
-import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
@@ -20,7 +19,6 @@ import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
-import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -37,9 +35,8 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
-import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -69,7 +66,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   late final HomeDebugTrace _homeTrace;
   String? _lastHomeDebugSignature;
   String? _lastHomePerfSignature;
-  String? _lastPersonalRepoSignature;
   String? _lastPersonalDashboardSignature;
   bool _didLogFirstUsefulPaint = false;
 
@@ -297,7 +293,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    ref.watch(userCategoryConfigProvider);
     final initUserContact = ref
         .watch(appInitializationV2Provider.select((state) => state.data?.user));
     final selectedCurrencyRaw = ref.watch(
@@ -306,9 +301,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedCurrencies = ref.watch(
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
-    final analyticsData = ref.watch(analyticsProvider);
     final userId = ref.watch(authProvider.select((user) => user.uid));
     final previewMode = ref.watch(previewModeProvider);
+    final previewAnalyticsState = ref.watch(
+      analyticsProvider.select(
+        (state) => (
+          hasExpenses: state.allExpenses.isNotEmpty,
+          isLoading: state.isLoading,
+        ),
+      ),
+    );
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
     final householdScope = ref.watch(householdScopeProvider);
     final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
@@ -345,13 +347,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       selectedCurrency: selectedCurrency,
     );
 
-    const isInitialAnalyticsLoading = false;
-
     _scheduleThaiLanguagePromptCheck(initUserContact);
 
     if (previewMode.isActive &&
-        analyticsData.allExpenses.isEmpty &&
-        !analyticsData.isLoading) {
+        !previewAnalyticsState.hasExpenses &&
+        !previewAnalyticsState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final previewUserId = PreviewMockData.contact.userId ?? 'preview-user';
@@ -360,7 +360,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     if (!_didLogFirstUsefulPaint &&
-        !isInitialAnalyticsLoading &&
         (!householdScope.isHouseholdView || !householdsAsync.isLoading)) {
       _didLogFirstUsefulPaint = true;
       _homeTrace.mark('first-useful-paint', {
@@ -391,204 +390,175 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SliverToBoxAdapter(child: ConnectSocialBanner()),
           Consumer(
             builder: (context, ref, _) {
-              final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
-              final repoSignature = [
-                'loading=${repoAsync.isLoading}',
-                'hasError=${repoAsync.hasError}',
-                'hasValue=${repoAsync.hasValue}',
+              final dashboardContact = ref.watch(
+                dashboardUserContactProvider.select(
+                  (state) => state.valueOrNull,
+                ),
+              );
+              final dashboardBudgets = ref.watch(
+                    dashboardActiveScopeBudgetsProvider.select(
+                      (state) => state.valueOrNull,
+                    ),
+                  ) ??
+                  const <DailyBudgetEntry>[];
+              final selectedCurrencyFilter = selectedCurrency;
+              final selectedCurrencyFilters = selectedCurrencies;
+              final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
+                dashboardContact?.preferredTimezone,
+              );
+              final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+              final netFilterState = ref.watch(
+                cardDateFilterProvider(HomeCardFilterId.netCashflow),
+              );
+              final financialMonthStartDay =
+                  ref.watch(financialMonthStartDayProvider);
+              final netRange = getDateRangeFromFilter(
+                netFilterState.dateRangeFilter,
+                netFilterState.customStartDate,
+                netFilterState.customEndDate,
+                now: userNow,
+                financialMonthStartDay: financialMonthStartDay,
+              );
+              final netFrom = netRange['from']!;
+              final netTo = netRange['to']!;
+              final netBudgets = dashboardBudgets.where((budget) {
+                final d = DateTime(
+                    budget.date.year, budget.date.month, budget.date.day);
+                final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
+                final budgetCurrency = budget.currency?.toUpperCase();
+                final currencyOk = selectedCurrencyFilters == null
+                    ? selectedCurrencyFilter == null ||
+                        budgetCurrency == selectedCurrencyFilter
+                    : selectedCurrencyFilters.contains(budgetCurrency);
+                return dateOk && currencyOk;
+              }).toList();
+              final dashboardAsync =
+                  ref.watch(personalDashboardProvider(userId));
+              final dashboardSignature = [
+                'loading=${dashboardAsync.isLoading}',
+                'hasError=${dashboardAsync.hasError}',
+                'hasValue=${dashboardAsync.hasValue}',
+                'count=${dashboardAsync.valueOrNull?.length ?? 0}',
               ].join('|');
-              if (_lastPersonalRepoSignature != repoSignature) {
-                _lastPersonalRepoSignature = repoSignature;
-                _homeTrace.mark('personal-repository-async-state', {
-                  'loading': repoAsync.isLoading,
-                  'hasError': repoAsync.hasError,
-                  'hasValue': repoAsync.hasValue,
+              if (_lastPersonalDashboardSignature != dashboardSignature) {
+                _lastPersonalDashboardSignature = dashboardSignature;
+                _homeTrace.mark('personal-dashboard-async-state', {
+                  'loading': dashboardAsync.isLoading,
+                  'hasError': dashboardAsync.hasError,
+                  'hasValue': dashboardAsync.hasValue,
+                  'widgetCount': dashboardAsync.valueOrNull?.length,
                 });
               }
 
-              return repoAsync.when(
+              return dashboardAsync.when(
                 loading: () => const SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 200,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ),
+                    child: SizedBox(
+                        height: 200,
+                        child: Center(child: CircularProgressIndicator()))),
                 error: (e, st) => SliverToBoxAdapter(
-                  child:
-                      Text('${context.l10n.errorInitializingRepository}: $e'),
-                ),
-                data: (_) {
-                  final dashboardContact = ref.watch(
-                    dashboardUserContactProvider.select(
-                      (state) => state.valueOrNull,
-                    ),
-                  );
-                  final dashboardBudgets = ref.watch(
-                        dashboardPersonalBudgetsProvider.select(
-                          (state) => state.valueOrNull,
-                        ),
-                      ) ??
-                      const <DailyBudgetEntry>[];
-                  final selectedCurrencyFilter = selectedCurrency;
-                  final selectedCurrencyFilters = selectedCurrencies;
-                  final timezoneOffsetMinutes =
-                      resolveUserTimezoneOffsetMinutes(
-                    dashboardContact?.preferredTimezone,
-                  );
-                  final userNow =
-                      userNowFromOffsetMinutes(timezoneOffsetMinutes);
-                  final netFilterState = ref.watch(
-                    cardDateFilterProvider(HomeCardFilterId.netCashflow),
-                  );
-                  final financialMonthStartDay =
-                      ref.watch(financialMonthStartDayProvider);
-                  final netRange = getDateRangeFromFilter(
-                    netFilterState.dateRangeFilter,
-                    netFilterState.customStartDate,
-                    netFilterState.customEndDate,
-                    now: userNow,
-                    financialMonthStartDay: financialMonthStartDay,
-                  );
-                  final netFrom = netRange['from']!;
-                  final netTo = netRange['to']!;
-                  final netBudgets = dashboardBudgets.where((budget) {
-                    final d = DateTime(
-                        budget.date.year, budget.date.month, budget.date.day);
-                    final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
-                    final budgetCurrency = budget.currency?.toUpperCase();
-                    final currencyOk = selectedCurrencyFilters == null
-                        ? selectedCurrencyFilter == null ||
-                            budgetCurrency == selectedCurrencyFilter
-                        : selectedCurrencyFilters.contains(budgetCurrency);
-                    return dateOk && currencyOk;
-                  }).toList();
-                  final dashboardAsync =
-                      ref.watch(personalDashboardProvider(userId));
-                  final dashboardSignature = [
-                    'loading=${dashboardAsync.isLoading}',
-                    'hasError=${dashboardAsync.hasError}',
-                    'hasValue=${dashboardAsync.hasValue}',
-                    'count=${dashboardAsync.valueOrNull?.length ?? 0}',
-                  ].join('|');
-                  if (_lastPersonalDashboardSignature != dashboardSignature) {
-                    _lastPersonalDashboardSignature = dashboardSignature;
-                    _homeTrace.mark('personal-dashboard-async-state', {
-                      'loading': dashboardAsync.isLoading,
-                      'hasError': dashboardAsync.hasError,
-                      'hasValue': dashboardAsync.hasValue,
-                      'widgetCount': dashboardAsync.valueOrNull?.length,
-                    });
-                  }
-
-                  return dashboardAsync.when(
-                    loading: () => const SliverToBoxAdapter(
-                        child: SizedBox(
-                            height: 200,
-                            child: Center(child: CircularProgressIndicator()))),
-                    error: (e, st) => SliverToBoxAdapter(
-                        child:
-                            Text('${context.l10n.errorLoadingDashboard}: $e')),
-                    data: (configs) {
-                      return DraggableDashboardList(
-                        configs: configs,
-                        onReorder: (oldIndex, newIndex) {
-                          ref
-                              .read(personalDashboardProvider(userId).notifier)
-                              .reorder(oldIndex, newIndex);
-                        },
-                        onToggleVisibility: (id) {
-                          ref
-                              .read(personalDashboardProvider(userId).notifier)
-                              .toggleVisibility(id);
-                        },
-                        onUpdateConfig: (id,
-                            {dateRange, viewMode, start, end}) {
-                          ref
-                              .read(personalDashboardProvider(userId).notifier)
-                              .updateConfig(id,
-                                  dateRange: dateRange,
-                                  viewMode: viewMode,
-                                  start: start,
-                                  end: end);
-                        },
-                        widgetBuilders: {
-                          DashboardWidgetType.spendingSummary:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: LazyDashboardSpendingSummaryCard(
+                    child: Text('${context.l10n.errorLoadingDashboard}: $e')),
+                data: (configs) {
+                  return DraggableDashboardList(
+                    configs: configs,
+                    onReorder: (oldIndex, newIndex) {
+                      ref
+                          .read(personalDashboardProvider(userId).notifier)
+                          .reorder(oldIndex, newIndex);
+                    },
+                    onToggleVisibility: (id) {
+                      ref
+                          .read(personalDashboardProvider(userId).notifier)
+                          .toggleVisibility(id);
+                    },
+                    onUpdateConfig: (id, {dateRange, viewMode, start, end}) {
+                      ref
+                          .read(personalDashboardProvider(userId).notifier)
+                          .updateConfig(id,
+                              dateRange: dateRange,
+                              viewMode: viewMode,
+                              start: start,
+                              end: end);
+                    },
+                    widgetBuilders: {
+                      DashboardWidgetType.spendingSummary: (context, config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: LazyDashboardSpendingSummaryCard(
+                              config: config,
+                              colorScheme: colorScheme,
+                              contact: dashboardContact,
+                              userNow: userNow,
+                            ),
+                          ),
+                      DashboardWidgetType.netCashflow: (context, config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: SizedBox(
+                              height: 180,
+                              child: Row(
+                                children: [
+                                  const Expanded(child: MoMTrendBar()),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: LazyDashboardNetCashflowCard(
                                       config: config,
                                       colorScheme: colorScheme,
                                       contact: dashboardContact,
                                       userNow: userNow,
+                                      budgets: netBudgets,
                                     ),
                                   ),
-                          DashboardWidgetType.netCashflow: (context, config) =>
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0),
-                                child: SizedBox(
-                                  height: 180,
-                                  child: Row(
-                                    children: [
-                                      const Expanded(child: MoMTrendBar()),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: LazyDashboardNetCashflowCard(
-                                          config: config,
-                                          colorScheme: colorScheme,
-                                          contact: dashboardContact,
-                                          userNow: userNow,
-                                          budgets: netBudgets,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                ],
                               ),
-                          DashboardWidgetType.financialCalendar:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: LazyDashboardFinancialCalendarCard(
-                                      config: config,
-                                      colorScheme: colorScheme,
-                                      fallbackCurrency: selectedCurrency ??
-                                          dashboardContact?.preferredCurrency ??
-                                          'USD',
-                                    ),
-                                  ),
-                          DashboardWidgetType.recentTransactions:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: LazyDashboardRecentTransactionsCard(
-                                      colorScheme: colorScheme,
-                                      contact: dashboardContact,
-                                    ),
-                                  ),
-                          DashboardWidgetType.spendingBreakdownChart:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: LazyDashboardSpendingBreakdownCard(
-                                      config: config,
-                                      colorScheme: colorScheme,
-                                      userNow: userNow,
-                                    ),
-                                  ),
-                          DashboardWidgetType.whereTheMoneyWent:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: LazyDashboardWhereTheMoneyWentCard(
-                                      config: config,
-                                      colorScheme: colorScheme,
-                                      userNow: userNow,
-                                    ),
-                                  ),
-                        },
-                      );
+                            ),
+                          ),
+                      DashboardWidgetType.financialCalendar: (context,
+                              config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: LazyDashboardFinancialCalendarCard(
+                              config: config,
+                              colorScheme: colorScheme,
+                              fallbackCurrency: selectedCurrency ??
+                                  dashboardContact?.preferredCurrency ??
+                                  'USD',
+                            ),
+                          ),
+                      DashboardWidgetType.recentTransactions: (context,
+                              config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: LazyDashboardRecentTransactionsCard(
+                              colorScheme: colorScheme,
+                              contact: dashboardContact,
+                            ),
+                          ),
+                      DashboardWidgetType.spendingBreakdownChart: (context,
+                              config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: LazyDashboardSpendingBreakdownCard(
+                              config: config,
+                              colorScheme: colorScheme,
+                              userNow: userNow,
+                            ),
+                          ),
+                      DashboardWidgetType.whereTheMoneyWent: (context,
+                              config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: LazyDashboardWhereTheMoneyWentCard(
+                              config: config,
+                              colorScheme: colorScheme,
+                              userNow: userNow,
+                            ),
+                          ),
                     },
                   );
                 },
@@ -601,17 +571,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       ],
     );
 
-    final scrollContent = householdScope.isPersonalView
-        ? Skeletonizer(
-            enabled: isInitialAnalyticsLoading,
-            effect: ShimmerEffect(
-              baseColor: colorScheme.skeletonBase,
-              highlightColor: colorScheme.skeletonHighlight,
-            ),
-            child: scrollView,
-          )
-        : scrollView;
-
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
       body: Stack(
@@ -621,32 +580,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               final user = ref.read(authProvider);
               if (user.uid.isEmpty) return;
 
-              if (!ref.read(previewModeProvider).isActive) {
-                try {
-                  await ref
-                      .read(transactionsFeedServiceProvider)
-                      .refreshFromRemote(
-                        dashboardTransactionsQuery(
-                          DashboardScopeQuery(
-                            userId: user.uid,
-                            householdId: householdScope.activeAccountType ==
-                                    ActiveWalletType.personal
-                                ? null
-                                : householdScope.activeAccountHouseholdId,
-                            selectedCurrency: selectedCurrency,
-                            selectedCurrencies: selectedCurrencies,
-                            startDate: null,
-                            endDate: null,
-                          ),
-                          pageSize: 120,
-                        ),
-                      );
-                  ref
-                      .read(transactionsFeedRefreshSignalProvider.notifier)
-                      .state += 1;
-                } catch (_) {}
-              }
-
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {
                 final householdId = householdScope.activeAccountHouseholdId;
@@ -655,18 +588,31 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref
                       .read(cacheInvalidatorProvider)
                       .invalidateHouseholdData(householdId);
+                  ref.invalidate(householdMembersProvider(householdId));
+                  ref.invalidate(householdBudgetsProvider(householdId));
+                  ref.invalidate(householdHomeSplitGroupsProvider);
                 }
-              } else {
-                await ref.read(analyticsProvider.notifier).loadData(user.uid);
               }
 
+              await ref
+                  .read(
+                    recurringTransactionsProvider(
+                      householdScope.activeAccountHouseholdId,
+                    ).notifier,
+                  )
+                  .refresh(user.uid);
+
+              // Publish related invalidations together so Home providers see a
+              // single settled refresh generation instead of starting one
+              // request for each signal at different points in the workflow.
+              ref.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+                  1;
               ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
               // Keep other tabs and selectors consistent.
               ref.invalidate(currencyTransactionCountsProvider);
-              await Future.delayed(const Duration(milliseconds: 500));
             },
-            child: scrollContent,
+            child: scrollView,
           ),
         ],
       ),

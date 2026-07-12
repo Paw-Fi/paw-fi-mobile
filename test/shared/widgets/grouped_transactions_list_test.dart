@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
@@ -37,14 +38,16 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: GroupedTransactionsList(
-              transactions: [convertedEntry],
-              currency: 'USD',
-              rowDisplayTransactionsById: {'tx-1': originalEntry},
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: GroupedTransactionsList(
+                transactions: [convertedEntry],
+                currency: 'USD',
+                rowDisplayTransactionsById: {'tx-1': originalEntry},
+              ),
             ),
           ),
         ),

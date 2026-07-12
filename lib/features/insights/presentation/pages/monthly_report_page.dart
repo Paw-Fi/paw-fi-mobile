@@ -181,9 +181,9 @@ class MonthlyReportPage extends HookConsumerWidget {
     ).normalized(financialMonthStartDay: financialMonthStartDay);
     final reportProvider = monthlyFinancialReportProvider(query);
     final reportAsync = ref.watch(reportProvider);
-    final canOpenReportDetails = hasPremiumFeatureAccess(
-      ref.watch(subscriptionNotifierProvider).valueOrNull,
-    );
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final canOpenReportDetails = !subscriptionAsync.hasValue ||
+        hasPremiumFeatureAccess(subscriptionAsync.valueOrNull);
     final loadedSnapshot = reportAsync.valueOrNull;
     final visibleSnapshot = useState<MonthlyFinancialReportSnapshot?>(null);
     final isCompletingInitialLoad = useState(false);
