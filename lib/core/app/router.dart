@@ -33,6 +33,7 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_account
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_save_budget_page.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_page.dart';
+import 'package:moneko/core/util/constants.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -343,6 +344,10 @@ GoRouter router(RouterRef ref) {
         final appLock = ref.read(appLockControllerProvider);
         final hasCompletedPreauth =
             prefs.getBool('onboarding_preauth_completed') ?? false;
+        final requiresSingleOwnerReauthentication = prefs.getBool(
+              Constants.singleOwnerReauthenticationRequiredKey,
+            ) ??
+            false;
         final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
             prefs.getString('onboarding_preauth_draft_v1');
         final hasInProgressPreauthDraft = () {
@@ -437,6 +442,9 @@ GoRouter router(RouterRef ref) {
             }
             return '/dashboard';
           } else {
+            if (requiresSingleOwnerReauthentication) {
+              return '/login';
+            }
             if (hasCompletedPreauth) {
               return '/onboarding?stage=save_budget';
             }
@@ -450,6 +458,10 @@ GoRouter router(RouterRef ref) {
         // Allow auth callback to proceed
         if (state.matchedLocation.startsWith('/auth/callback')) {
           return null;
+        }
+
+        if (!isAuthenticated && requiresSingleOwnerReauthentication) {
+          return isOnAuthPage ? null : '/login';
         }
 
         if (isOnAppLockPage) {

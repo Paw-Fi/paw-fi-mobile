@@ -90,11 +90,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     Future<bool> syncCredentials({bool showError = false}) async {
       final session = Supabase.instance.client.auth.currentSession;
       final accessToken = session?.accessToken ?? '';
-      final refreshToken = session?.refreshToken ?? '';
       final userId = session?.user.id ?? '';
       final expiresAt = session?.expiresAt ?? 0;
 
-      if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+      if (accessToken.isEmpty || userId.isEmpty) {
         if (showError && context.mounted) {
           AppToast.error(
             context,
@@ -110,10 +109,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: accessToken,
-          refreshToken: refreshToken,
           userId: userId,
           expiresAt: expiresAt,
         );
+        await NotificationCaptureService.instance.syncPendingCaptures();
 
         final refreshedConfig =
             await NotificationCaptureService.instance.getConfig();
@@ -257,7 +256,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       final wallet = walletToPersist;
       if (wallet == null) return null;
       final walletCurrency = wallet.currency.trim().toUpperCase();
-      final currentCurrency = config.value.accountCurrency?.trim().toUpperCase();
+      final currentCurrency =
+          config.value.accountCurrency?.trim().toUpperCase();
       final needsPersistence = config.value.accountId != wallet.id ||
           config.value.accountName != wallet.name ||
           currentCurrency != walletCurrency;
@@ -293,8 +293,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       config.value.accountName,
       config.value.accountCurrency,
       walletsAsync.valueOrNull
-              ?.map((wallet) =>
-                  '${wallet.id}:${wallet.name}:${wallet.currency}')
+              ?.map(
+                  (wallet) => '${wallet.id}:${wallet.name}:${wallet.currency}')
               .join('|') ??
           '',
     ]);

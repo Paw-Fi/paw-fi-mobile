@@ -191,10 +191,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
       try {
         final session = Supabase.instance.client.auth.currentSession;
         final accessToken = session?.accessToken ?? '';
-        final refreshToken = session?.refreshToken ?? '';
         final userId = session?.user.id ?? '';
 
-        if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+        if (accessToken.isEmpty || userId.isEmpty) {
           if (context.mounted) {
             AppToast.error(
               context,
@@ -209,7 +208,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: accessToken,
-          refreshToken: refreshToken,
           userId: userId,
           expiresAt: session?.expiresAt,
         );

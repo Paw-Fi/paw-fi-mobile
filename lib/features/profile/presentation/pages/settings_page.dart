@@ -385,7 +385,6 @@ class SettingsPage extends HookConsumerWidget {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: session?.accessToken,
-          refreshToken: session?.refreshToken,
           userId: session?.user.id,
           expiresAt: session?.expiresAt,
         );
@@ -397,7 +396,6 @@ class SettingsPage extends HookConsumerWidget {
               supabaseUrl: Constants.supabaseUrl,
               supabaseAnonKey: Constants.supabaseAnon,
               accessToken: session?.accessToken ?? '',
-              refreshToken: session?.refreshToken ?? '',
               userId: session?.user.id ?? '',
               expiresAt: session?.expiresAt ?? 0,
             );

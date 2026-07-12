@@ -164,19 +164,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        val accessToken = getValidAccessToken(config) ?: run {
-            Log.w(TAG, "No valid access token available — skipping capture")
-            recordCaptureTelemetry(
-                action = "access_token_unavailable",
-                details = mapOf(
-                    "accessTokenExpired" to config.isAccessTokenExpired,
-                    "expiresAt" to config.expiresAt,
-                    "hasCredentials" to config.hasCredentials
-                )
-            )
-            return
-        }
-
         val scopeId = config.scopeId
         val isPortfolio = config.isPortfolio
         val accountId = config.accountId
@@ -236,8 +223,18 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             }
         }
 
+        val accessToken = getValidAccessToken(config) ?: run {
+            queueCapture(config, body, dedupKey, "access_token_unavailable")
+            return
+        }
+
         val url = URL("$supabaseUrl/functions/v1/save-wallet-transaction")
-        val initialResponse = executeCaptureRequest(url, accessToken, anonKey, body)
+        val initialResponse = try {
+            executeCaptureRequest(url, accessToken, anonKey, body)
+        } catch (error: Exception) {
+            queueCapture(config, body, dedupKey, "capture_network_error")
+            return
+        }
 
         when (initialResponse.statusCode) {
             200, 201 -> {
@@ -255,62 +252,21 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                     Log.d(TAG, "Duplicate transaction detected server-side for $packageName")
                 }
             }
-            401 -> {
-                Log.w(TAG, "Auth rejected - attempting token refresh")
-                recordCaptureTelemetry(
-                    action = "capture_unauthorized_refresh_start",
-                    details = mapOf(
-                        "statusCode" to initialResponse.statusCode,
-                        "accessTokenExpired" to config.isAccessTokenExpired,
-                        "expiresAt" to config.expiresAt
-                    )
+            401, 408, 429 -> {
+                queueCapture(
+                    config,
+                    body,
+                    dedupKey,
+                    "capture_http_${initialResponse.statusCode}"
                 )
-                val refreshedToken = refreshAccessToken(config)
-                if (!refreshedToken.isNullOrBlank()) {
-                    val retryResponse = executeCaptureRequest(url, refreshedToken, anonKey, body)
-                    when (retryResponse.statusCode) {
-                        200, 201 -> {
-                            Log.d(TAG, "Transaction captured successfully after token refresh from $packageName")
-                            recordCaptureTelemetry(
-                                action = "capture_success_after_refresh",
-                                details = mapOf("statusCode" to retryResponse.statusCode)
-                            )
-                        }
-                        409 -> {
-                            if (isRequestInProgressResponse(retryResponse.responseBody)) {
-                                Log.w(TAG, "Capture still in progress after token refresh for $packageName - releasing local dedup for retry")
-                                recentHashes.remove(dedupKey)
-                            } else {
-                                Log.d(TAG, "Duplicate transaction detected server-side after token refresh for $packageName")
-                            }
-                        }
-                        401 -> {
-                            Log.w(TAG, "Retry after token refresh still unauthorized - clearing session tokens")
-                            recordCaptureTelemetry(
-                                action = "session_tokens_cleared",
-                                details = mapOf(
-                                    "reason" to "retry_after_refresh_unauthorized",
-                                    "statusCode" to retryResponse.statusCode
-                                )
-                            )
-                            config.clearSessionTokens()
-                        }
-                        else -> {
-                            Log.w(TAG, "Backend error after token refresh ${retryResponse.statusCode}: ${retryResponse.responseBody}")
-                        }
-                    }
-                } else {
-                    Log.w(TAG, "Token refresh unavailable - clearing session tokens")
-                    recordCaptureTelemetry(
-                        action = "session_tokens_cleared",
-                        details = mapOf(
-                            "reason" to "refresh_unavailable",
-                            "accessTokenExpired" to config.isAccessTokenExpired,
-                            "expiresAt" to config.expiresAt
-                        )
-                    )
-                    config.clearSessionTokens()
-                }
+            }
+            in 500..599 -> {
+                queueCapture(
+                    config,
+                    body,
+                    dedupKey,
+                    "capture_http_${initialResponse.statusCode}"
+                )
             }
             else -> {
                 Log.w(TAG, "Backend error ${initialResponse.statusCode}: ${initialResponse.responseBody}")
@@ -363,122 +319,29 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
     // ── Auth helpers ─────────────────────────────────────────────────────
 
-    /**
-     * Returns a valid access token, refreshing if expired.
-     */
+    /** Returns the current access token without rotating the app session. */
     private fun getValidAccessToken(config: NotificationCaptureConfig): String? {
         val token = config.accessToken
         if (token.isBlank()) return null
-
-        if (!config.isAccessTokenExpired) return token
-
-        // Attempt refresh
-        return refreshAccessToken(config)
+        return token.takeUnless { config.isAccessTokenExpired }
     }
 
-    /**
-     * Refreshes the Supabase access token using the stored refresh token.
-     */
-    private fun refreshAccessToken(config: NotificationCaptureConfig): String? {
-        val refreshToken = config.refreshToken
-        if (refreshToken.isBlank()) {
-            recordCaptureTelemetry("refresh_skipped_missing_refresh_token")
-            return null
-        }
-
-        val supabaseUrl = config.supabaseUrl
-        val anonKey = config.supabaseAnonKey
-        if (supabaseUrl.isBlank() || anonKey.isBlank()) {
-            recordCaptureTelemetry("refresh_skipped_missing_config")
-            return null
-        }
-
+    private fun queueCapture(
+        config: NotificationCaptureConfig,
+        body: JSONObject,
+        dedupKey: String,
+        reason: String
+    ) {
+        val queued = config.enqueuePendingCapture(body, body.optString("idempotencyKey", dedupKey))
+        if (!queued) recentHashes.remove(dedupKey)
         recordCaptureTelemetry(
-            action = "refresh_attempted",
+            action = if (queued) "capture_queued" else "capture_queue_full",
             details = mapOf(
-                "expiresAt" to config.expiresAt,
-                "accessTokenExpired" to config.isAccessTokenExpired
+                "reason" to reason,
+                "accessTokenExpired" to config.isAccessTokenExpired,
+                "expiresAt" to config.expiresAt
             )
         )
-
-        val url = URL("$supabaseUrl/auth/v1/token?grant_type=refresh_token")
-        val conn = url.openConnection() as HttpURLConnection
-
-        try {
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("apikey", anonKey)
-            conn.doOutput = true
-            conn.connectTimeout = 10_000
-            conn.readTimeout = 10_000
-
-            val body = JSONObject().apply {
-                put("refresh_token", refreshToken)
-            }
-
-            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(body.toString())
-            }
-
-            if (conn.responseCode == 200) {
-                val responseBody = BufferedReader(
-                    InputStreamReader(conn.inputStream, Charsets.UTF_8)
-                ).use { it.readText() }
-
-                val json = JSONObject(responseBody)
-                val newAccess = json.optString("access_token", "")
-                val newRefresh = json.optString("refresh_token", "")
-                val expiresIn = json.optLong("expires_in", 3600)
-
-                if (newAccess.isNotBlank()) {
-                    val didPersistSession = config.updateRefreshedSession(
-                        accessToken = newAccess,
-                        refreshToken = newRefresh,
-                        expiresAt = (System.currentTimeMillis() / 1000) + expiresIn,
-                    )
-                    if (!didPersistSession) {
-                        Log.w(TAG, "Token refreshed but could not persist secure session state")
-                        recordCaptureTelemetry("refresh_persist_failed")
-                    }
-                    Log.d(TAG, "Token refreshed successfully")
-                    recordCaptureTelemetry(
-                        action = "refresh_success",
-                        details = mapOf(
-                            "statusCode" to conn.responseCode,
-                            "newRefreshTokenPresent" to newRefresh.isNotBlank()
-                        )
-                    )
-                    return newAccess
-                }
-            } else {
-                Log.w(TAG, "Token refresh failed: ${conn.responseCode}")
-                recordCaptureTelemetry(
-                    action = "refresh_failed",
-                    details = mapOf(
-                        "statusCode" to conn.responseCode,
-                        "bodyClass" to classifyAuthBody(
-                            try {
-                                BufferedReader(
-                                    InputStreamReader(conn.errorStream, Charsets.UTF_8)
-                                ).use { it.readText() }
-                            } catch (_: Exception) {
-                                ""
-                            }
-                        )
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Token refresh error: ${e.message}")
-            recordCaptureTelemetry(
-                action = "refresh_exception",
-                details = mapOf("errorType" to e.javaClass.simpleName)
-            )
-        } finally {
-            conn.disconnect()
-        }
-
-        return null
     }
 
     private fun recordCaptureTelemetry(
@@ -506,19 +369,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             }
         } catch (_: Exception) {
             // Telemetry must never block notification capture.
-        }
-    }
-
-    private fun classifyAuthBody(body: String): String {
-        val lower = body.lowercase()
-        return when {
-            lower.contains("refresh_token_already_used") ||
-                lower.contains("already used") -> "refresh_token_reuse"
-            lower.contains("refresh_token_not_found") ||
-                lower.contains("refresh token not found") -> "refresh_token_missing"
-            lower.contains("jwt") || lower.contains("unauthorized") -> "unauthorized"
-            body.isBlank() -> "empty"
-            else -> "other"
         }
     }
 

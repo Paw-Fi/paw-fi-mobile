@@ -26,131 +26,11 @@ private struct SiriAssistantResultPayload {
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
-private func refreshSiriShortcutSession(
-  context: SiriShortcutAuthContext
-) async throws -> SiriShortcutAuthContext {
-  SiriShortcutDiagnostics.record(
-    source: "shortcut",
-    action: "refresh-session-start",
-    message: "Refreshing Siri shortcut session.",
-    details: [
-      "userId": context.userId,
-      "expiresAt": context.expiresAt,
-      "accessTokenExpired": context.isAccessTokenExpired,
-      "hasRefreshToken": !context.refreshToken.isEmpty,
-    ]
-  )
-  guard let url = URL(string: "\(context.supabaseUrl)/auth/v1/token?grant_type=refresh_token") else {
-    throw SiriShortcutIntentError.notConfigured
-  }
-
-  var request = URLRequest(url: url)
-  request.httpMethod = "POST"
-  request.timeoutInterval = 20
-  request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-  request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-  request.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": context.refreshToken])
-
-  let data: Data
-  let response: URLResponse
-  do {
-    (data, response) = try await URLSession.shared.data(for: request)
-  } catch {
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "refresh-session-network-error",
-      message: "Session refresh request failed.",
-      details: [
-        "error": error.localizedDescription,
-      ]
-    )
-    throw SiriShortcutIntentError.networkFailure
-  }
-  guard let httpResponse = response as? HTTPURLResponse else {
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "refresh-session-invalid-response",
-      message: "Session refresh response was not HTTP."
-    )
-    throw SiriShortcutIntentError.networkFailure
-  }
-  guard (200...299).contains(httpResponse.statusCode) else {
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "refresh-session-failed",
-      message: "Session refresh returned a non-success status.",
-      details: [
-        "statusCode": httpResponse.statusCode,
-        "bodyClass": classifySiriAuthBody(String(data: data, encoding: .utf8) ?? ""),
-        "body": truncateDiagnosticsBody(String(data: data, encoding: .utf8) ?? "<non-utf8>"),
-      ]
-    )
-    throw SiriShortcutIntentError.missingSession
-  }
-
-  guard
-    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-    let accessToken = (json["access_token"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-    !accessToken.isEmpty
-  else {
-    throw SiriShortcutIntentError.missingSession
-  }
-
-  let refreshToken = ((json["refresh_token"] as? String) ?? context.refreshToken)
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-  let user = json["user"] as? [String: Any]
-  let userId = ((user?["id"] as? String) ?? context.userId)
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-  let expiresAt = (json["expires_at"] as? Int) ?? context.expiresAt
-
-  guard !refreshToken.isEmpty, !userId.isEmpty else {
-    throw SiriShortcutIntentError.missingSession
-  }
-
-  SiriShortcutDiagnostics.record(
-    source: "shortcut",
-    action: "refresh-session-success",
-    message: "Session refresh succeeded.",
-    details: [
-      "userId": userId,
-      "expiresAt": expiresAt,
-      "newRefreshTokenPresent": !refreshToken.isEmpty,
-    ]
-  )
-
-  return SiriShortcutAuthContext(
-    supabaseUrl: context.supabaseUrl,
-    supabaseAnonKey: context.supabaseAnonKey,
-    accessToken: accessToken,
-    refreshToken: refreshToken,
-    userId: userId,
-    expiresAt: expiresAt
-  )
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
 private func normalizeSiriCurrencyCode(_ rawValue: String?) -> String? {
   guard let rawValue else { return nil }
   let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
   guard normalized.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil else { return nil }
   return normalized
-}
-
-private func classifySiriAuthBody(_ body: String) -> String {
-  let lower = body.lowercased()
-  if lower.contains("refresh_token_already_used") || lower.contains("already used") {
-    return "refresh_token_reuse"
-  }
-  if lower.contains("refresh_token_not_found") || lower.contains("refresh token not found") {
-    return "refresh_token_missing"
-  }
-  if lower.contains("jwt") || lower.contains("unauthorized") {
-    return "unauthorized"
-  }
-  if body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    return "empty"
-  }
-  return "other"
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
@@ -790,8 +670,7 @@ private func performSiriTransactionLogging(
   }
 
   if context.isAccessTokenExpired {
-    context = try await refreshSiriShortcutSession(context: context)
-    context.persist()
+    throw SiriShortcutIntentError.missingSession
   }
 
   let normalizedCurrency = normalizeSiriCurrencyCode(currencyCode)
@@ -848,8 +727,7 @@ private func performSiriAssistantAction(
   }
 
   if context.isAccessTokenExpired {
-    context = try await refreshSiriShortcutSession(context: context)
-    context.persist()
+    throw SiriShortcutIntentError.missingSession
   }
 
   guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/siri-assistant") else {
@@ -1600,25 +1478,11 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
   }
 
   if context.isAccessTokenExpired {
-    do {
-      context = try await refreshSiriShortcutSession(context: context)
-      context.persist()
-    } catch {
-      SiriShortcutDiagnostics.record(
-        source: "native",
-        action: "wallet-pending-sync-refresh-failed",
-        message: "Pending wallet captures could not sync because session refresh failed.",
-        details: [
-          "error": error.localizedDescription,
-          "pendingCount": records.count,
-        ]
-      )
-      return [
-        "attempted": 0,
-        "synced": 0,
-        "remaining": records.count,
-      ]
-    }
+    return [
+      "attempted": 0,
+      "synced": 0,
+      "remaining": records.count,
+    ]
   }
 
   var attempted = 0
@@ -1811,18 +1675,16 @@ private func performWalletPaymentIntegrationCapture(
 
   do {
     if context.isAccessTokenExpired {
-      NSLog("[MonekoCap] Access token expired, refreshing…")
+      NSLog("[MonekoCap] Access token expired, queueing for app sync")
       SiriShortcutDiagnostics.record(
         source: "shortcut",
-        action: "wallet-refresh-needed",
-        message: "Wallet shortcut detected an expired access token.",
+        action: "wallet-queue-auth-expired",
+        message: "Wallet shortcut queued because the app access token expired.",
         details: [
           "expiresAt": context.expiresAt,
         ]
       )
-      context = try await refreshSiriShortcutSession(context: context)
-      context.persist()
-      NSLog("[MonekoCap] Token refreshed successfully, new expiresAt=%d", context.expiresAt)
+      throw SiriShortcutIntentError.networkFailure
     }
 
     let isDuplicate = try await submitWalletCaptureRequestBody(body, context: context)
@@ -1939,6 +1801,7 @@ private enum SiriShortcutKeys {
   static let appGroupId = "group.moneko.mobile"
   static let supabaseUrl = "siri_supabase_url"
   static let supabaseAnonKey = "siri_supabase_anon_key"
+  static let authContextVersion = "siri_auth_context_version"
 
   static let keychainService = "com.moneko.mobile.siri-shortcut-auth"
   // Shared keychain access group — must match the keychain-access-groups entitlement.
@@ -2057,13 +1920,13 @@ private enum SiriShortcutDiagnostics {
     let hasSupabaseUrl = ((defaults?.string(forKey: SiriShortcutKeys.supabaseUrl) ?? "").isEmpty == false)
     let hasSupabaseAnon = ((defaults?.string(forKey: SiriShortcutKeys.supabaseAnonKey) ?? "").isEmpty == false)
     let hasAccessToken = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.accessTokenAccount, logFailure: false) ?? "").isEmpty == false)
-    let hasRefreshToken = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.refreshTokenAccount, logFailure: false) ?? "").isEmpty == false)
     let hasUserId = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.userIdAccount, logFailure: false) ?? "").isEmpty == false)
+    let hasCurrentAuthContext = defaults?.integer(forKey: SiriShortcutKeys.authContextVersion) == 2
 
     return [
       "hasSupabaseConfig": hasSupabaseUrl && hasSupabaseAnon,
-      "hasCredentials": hasAccessToken && hasRefreshToken && hasUserId,
-      "isReady": hasSupabaseUrl && hasSupabaseAnon && hasAccessToken && hasRefreshToken && hasUserId,
+      "hasCredentials": hasAccessToken && hasUserId && hasCurrentAuthContext,
+      "isReady": hasSupabaseUrl && hasSupabaseAnon && hasAccessToken && hasUserId && hasCurrentAuthContext,
       "walletCaptureEnabled": defaults?.bool(forKey: SiriShortcutKeys.walletCaptureEnabled) ?? false,
       "walletScopeId": defaults?.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
       "walletScopeName": defaults?.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
@@ -2216,7 +2079,6 @@ private struct SiriShortcutAuthContext {
   let supabaseUrl: String
   let supabaseAnonKey: String
   let accessToken: String
-  let refreshToken: String
   let userId: String
   let expiresAt: Int
   var isAccessTokenExpired: Bool {
@@ -2244,18 +2106,16 @@ private struct SiriShortcutAuthContext {
 
     let accessToken = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.accessTokenAccount, logFailure: logFailure) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
-    let refreshToken = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.refreshTokenAccount, logFailure: logFailure) ?? "")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
     let userId = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.userIdAccount, logFailure: logFailure) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
     let expiresAtValue = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.expiresAtAccount, logFailure: false) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
     let expiresAt = Int(expiresAtValue) ?? 0
 
-    guard !supabaseUrl.isEmpty,
+    guard defaults.integer(forKey: SiriShortcutKeys.authContextVersion) == 2,
+          !supabaseUrl.isEmpty,
           !supabaseAnonKey.isEmpty,
           !accessToken.isEmpty,
-          !refreshToken.isEmpty,
           !userId.isEmpty else {
       if logFailure {
         SiriShortcutDiagnostics.record(
@@ -2266,7 +2126,6 @@ private struct SiriShortcutAuthContext {
             "hasSupabaseUrl": !supabaseUrl.isEmpty,
             "hasSupabaseAnonKey": !supabaseAnonKey.isEmpty,
             "hasAccessToken": !accessToken.isEmpty,
-            "hasRefreshToken": !refreshToken.isEmpty,
             "hasUserId": !userId.isEmpty,
             "expiresAt": expiresAt,
           ]
@@ -2279,7 +2138,6 @@ private struct SiriShortcutAuthContext {
       supabaseUrl: supabaseUrl,
       supabaseAnonKey: supabaseAnonKey,
       accessToken: accessToken,
-      refreshToken: refreshToken,
       userId: userId,
       expiresAt: expiresAt
     )
@@ -2298,7 +2156,7 @@ private struct SiriShortcutAuthContext {
     defaults.set(supabaseAnonKey, forKey: SiriShortcutKeys.supabaseAnonKey)
 
     SharedKeychainStore.shared.write(value: accessToken, account: SiriShortcutKeys.accessTokenAccount)
-    SharedKeychainStore.shared.write(value: refreshToken, account: SiriShortcutKeys.refreshTokenAccount)
+    SharedKeychainStore.shared.delete(account: SiriShortcutKeys.refreshTokenAccount)
     SharedKeychainStore.shared.write(value: userId, account: SiriShortcutKeys.userIdAccount)
     SharedKeychainStore.shared.write(value: String(expiresAt), account: SiriShortcutKeys.expiresAtAccount)
 
@@ -2455,7 +2313,7 @@ private enum SiriShortcutIntentError: LocalizedError {
     case .notConfigured:
       return "Turn on Apple Pay syncing in your Moneko Settings to continue."
     case .missingSession:
-      return "Your session expired. Please open Moneko and sign in again."
+      return "Open Moneko to refresh your session, then try again."
     case .invalidInput:
       return "I could not understand that expense. Try saying amount and description."
     case .invalidCurrency:
@@ -2503,61 +2361,6 @@ struct LogExpenseWithSiriIntent: AppIntent {
       typeHint: "expense"
     )
     return .result(dialog: IntentDialog(stringLiteral: message))
-  }
-
-  private func refreshSession(context: SiriShortcutAuthContext) async throws -> SiriShortcutAuthContext {
-    guard let url = URL(string: "\(context.supabaseUrl)/auth/v1/token?grant_type=refresh_token") else {
-      throw SiriShortcutIntentError.notConfigured
-    }
-
-    var request = URLRequest(url: url)
-    request.httpMethod = "POST"
-    request.timeoutInterval = 20
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-    request.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": context.refreshToken])
-
-    let data: Data
-    let response: URLResponse
-    do {
-      (data, response) = try await URLSession.shared.data(for: request)
-    } catch {
-      throw SiriShortcutIntentError.networkFailure
-    }
-    guard let httpResponse = response as? HTTPURLResponse else {
-      throw SiriShortcutIntentError.networkFailure
-    }
-    guard (200...299).contains(httpResponse.statusCode) else {
-      throw SiriShortcutIntentError.missingSession
-    }
-
-    guard
-      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let accessToken = (json["access_token"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !accessToken.isEmpty
-    else {
-      throw SiriShortcutIntentError.missingSession
-    }
-
-    let refreshToken = ((json["refresh_token"] as? String) ?? context.refreshToken)
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    let user = json["user"] as? [String: Any]
-    let userId = ((user?["id"] as? String) ?? context.userId)
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    let expiresAt = (json["expires_at"] as? Int) ?? context.expiresAt
-
-    guard !refreshToken.isEmpty, !userId.isEmpty else {
-      throw SiriShortcutIntentError.missingSession
-    }
-
-    return SiriShortcutAuthContext(
-      supabaseUrl: context.supabaseUrl,
-      supabaseAnonKey: context.supabaseAnonKey,
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      userId: userId,
-      expiresAt: expiresAt
-    )
   }
 
   private func analyzeExpense(
@@ -3140,6 +2943,13 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         self.handleGetStatus(result: result)
       case SiriShortcutChannel.clearAuthContext:
         self.handleClearAuthContext(result: result)
+      case "clearLegacyNativeSession":
+        UserDefaults(suiteName: SiriShortcutKeys.appGroupId)?
+          .removeObject(forKey: SiriShortcutKeys.authContextVersion)
+        SharedKeychainStore.shared.delete(account: SiriShortcutKeys.accessTokenAccount)
+        SharedKeychainStore.shared.delete(account: SiriShortcutKeys.refreshTokenAccount)
+        SharedKeychainStore.shared.delete(account: SiriShortcutKeys.expiresAtAccount)
+        result(nil)
       case SiriShortcutChannel.getWalletCaptureDebugReport:
         self.handleGetWalletCaptureDebugReport(result: result)
       case SiriShortcutChannel.clearWalletCaptureDebugReport:
@@ -3178,14 +2988,21 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     if !supabaseAnonKey.isEmpty {
       defaults.set(supabaseAnonKey, forKey: SiriShortcutKeys.supabaseAnonKey)
     }
+    defaults.set(2, forKey: SiriShortcutKeys.authContextVersion)
+    let previousUserId = SharedKeychainStore.shared.read(
+      account: SiriShortcutKeys.userIdAccount,
+      logFailure: false
+    ) ?? ""
+    let nextUserId = (args["userId"] as? String ?? "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if !previousUserId.isEmpty && previousUserId != nextUserId {
+      _ = savePendingWalletCaptureRecords([])
+    }
     SharedKeychainStore.shared.write(
       value: args["accessToken"] as? String,
       account: SiriShortcutKeys.accessTokenAccount
     )
-    SharedKeychainStore.shared.write(
-      value: args["refreshToken"] as? String,
-      account: SiriShortcutKeys.refreshTokenAccount
-    )
+    SharedKeychainStore.shared.delete(account: SiriShortcutKeys.refreshTokenAccount)
     SharedKeychainStore.shared.write(
       value: args["userId"] as? String,
       account: SiriShortcutKeys.userIdAccount
@@ -3222,7 +3039,9 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId)
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseUrl)
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseAnonKey)
+    defaults?.removeObject(forKey: SiriShortcutKeys.authContextVersion)
     SharedKeychainStore.shared.clearAll()
+    _ = savePendingWalletCaptureRecords([])
     SiriShortcutDiagnostics.record(
       source: "flutter",
       action: "clear-auth-context",

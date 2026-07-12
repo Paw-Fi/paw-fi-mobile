@@ -23,7 +23,7 @@ class SiriShortcutAuthService {
     required String supabaseUrl,
     required String supabaseAnonKey,
     required String? accessToken,
-    required String? refreshToken,
+    String? refreshToken,
     required String? userId,
     required int? expiresAt,
   }) async {
@@ -32,7 +32,6 @@ class SiriShortcutAuthService {
       'supabaseUrl': supabaseUrl,
       'supabaseAnonKey': supabaseAnonKey,
       'accessToken': accessToken,
-      'refreshToken': refreshToken,
       'userId': userId,
       'expiresAt': expiresAt,
     });
@@ -42,7 +41,7 @@ class SiriShortcutAuthService {
     required String supabaseUrl,
     required String supabaseAnonKey,
     required String? accessToken,
-    required String? refreshToken,
+    String? refreshToken,
     required String? userId,
     required int? expiresAt,
   }) async {
@@ -54,7 +53,6 @@ class SiriShortcutAuthService {
       supabaseUrl: supabaseUrl,
       supabaseAnonKey: supabaseAnonKey,
       accessToken: accessToken,
-      refreshToken: refreshToken,
       userId: userId,
       expiresAt: expiresAt,
     );
@@ -118,7 +116,6 @@ class SiriShortcutAuthService {
       supabaseUrl: request.supabaseUrl,
       supabaseAnonKey: request.supabaseAnonKey,
       accessToken: request.accessToken,
-      refreshToken: request.refreshToken,
       userId: request.userId,
       expiresAt: request.expiresAt,
     );
@@ -193,7 +190,6 @@ class _SiriShortcutAuthSyncRequest {
     required this.supabaseUrl,
     required this.supabaseAnonKey,
     required this.accessToken,
-    required this.refreshToken,
     required this.userId,
     required this.expiresAt,
   });
@@ -201,7 +197,6 @@ class _SiriShortcutAuthSyncRequest {
   final String supabaseUrl;
   final String supabaseAnonKey;
   final String? accessToken;
-  final String? refreshToken;
   final String? userId;
   final int? expiresAt;
 
@@ -211,7 +206,6 @@ class _SiriShortcutAuthSyncRequest {
         other.supabaseUrl == supabaseUrl &&
         other.supabaseAnonKey == supabaseAnonKey &&
         other.accessToken == accessToken &&
-        other.refreshToken == refreshToken &&
         other.userId == userId &&
         other.expiresAt == expiresAt;
   }
@@ -221,7 +215,6 @@ class _SiriShortcutAuthSyncRequest {
         supabaseUrl,
         supabaseAnonKey,
         accessToken,
-        refreshToken,
         userId,
         expiresAt,
       );
