@@ -281,9 +281,14 @@ class PocketDetailsPage extends HookConsumerWidget {
     );
     final displayVisibleTransactionsSignature =
         groupedTransactionEntriesSignature(displayVisibleTransactions);
+    final financialMonthStartDay =
+        detailScopeParams.normalizedFinancialMonthStartDay;
     final visibleListItems = useMemoized(
-      () => buildGroupedTransactionRenderItems(displayVisibleTransactions),
-      [displayVisibleTransactionsSignature],
+      () => buildGroupedTransactionRenderItems(
+        displayVisibleTransactions,
+        financialMonthStartDay: financialMonthStartDay,
+      ),
+      [displayVisibleTransactionsSignature, financialMonthStartDay],
     );
     final visibleListItemIndexByKey = useMemoized(
       () => buildGroupedTransactionRenderItemIndexByKey(visibleListItems),

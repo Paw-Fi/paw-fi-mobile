@@ -725,7 +725,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ? TransactionsPageDerivedData(
             filteredExpenses: displayFilteredExpenses,
             categories: derivedData.categories,
-            monthGroups: groupTransactionsByMonth(displayFilteredExpenses),
+            monthGroups: groupTransactionsByMonth(
+              displayFilteredExpenses,
+              financialMonthStartDay: financialMonthStartDay,
+            ),
           )
         : derivedData;
     final originalExpenseById = {
@@ -763,7 +766,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   )
                 : completeDerivedData.filteredExpenses;
             return buildCompleteTransactionGroupTotals(
-              groupTransactionsByMonth(completeDisplayExpenses),
+              groupTransactionsByMonth(
+                completeDisplayExpenses,
+                financialMonthStartDay: financialMonthStartDay,
+              ),
             );
           }();
     final groupCompleteness = resolveTransactionGroupCompleteness(

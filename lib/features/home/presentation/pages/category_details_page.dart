@@ -265,6 +265,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final categoryName = getCategoryTranslation(context, widget.categoryKey);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     final query = _buildFeedQuery();
     final feedState = ref.watch(transactionsFeedProvider(query));
@@ -366,7 +367,10 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           )
         : expenses;
 
-    final monthGroups = groupTransactionsByMonth(displayExpenses);
+    final monthGroups = groupTransactionsByMonth(
+      displayExpenses,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final renderResult = _resolveRenderItems(
       displayExpenses: displayExpenses,
       monthGroups: monthGroups,
@@ -421,6 +425,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     }
     final aggregateMonthGroups = groupTransactionsByMonth(
       convertedAggregateExpenses,
+      financialMonthStartDay: financialMonthStartDay,
     );
 
     final sortedMerchants = merchantTally.entries.toList()

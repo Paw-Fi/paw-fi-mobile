@@ -297,8 +297,11 @@ class WalletDetailsPage extends HookConsumerWidget {
       [visibleTransactionsSignature],
     );
     final visibleListItems = useMemoized(
-      () => buildGroupedTransactionRenderItems(displayVisibleTransactions),
-      [visibleTransactionsSignature],
+      () => buildGroupedTransactionRenderItems(
+        displayVisibleTransactions,
+        financialMonthStartDay: financialMonthStartDay,
+      ),
+      [visibleTransactionsSignature, financialMonthStartDay],
     );
     final visibleListItemIndexByKey = useMemoized(
       () => buildGroupedTransactionRenderItemIndexByKey(visibleListItems),

@@ -59,7 +59,10 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     final rawTransactionsById = <String, ExpenseEntry>{
       for (final transaction in transactions) transaction.id: transaction,
     };
-    final renderItems = buildGroupedTransactionRenderItems(memberTransactions);
+    final renderItems = buildGroupedTransactionRenderItems(
+      memberTransactions,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final renderItemIndexByKey =
         buildGroupedTransactionRenderItemIndexByKey(renderItems);
     final totalSpentCentsForRange = memberTransactions.fold<int>(

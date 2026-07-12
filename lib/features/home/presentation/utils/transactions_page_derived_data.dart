@@ -355,7 +355,10 @@ TransactionsPageDerivedData deriveTransactionsPageData(
   return TransactionsPageDerivedData(
     filteredExpenses: expenses,
     categories: ['all', ...categories],
-    monthGroups: groupTransactionsByMonth(expenses),
+    monthGroups: groupTransactionsByMonth(
+      expenses,
+      financialMonthStartDay: input.financialMonthStartDay,
+    ),
   );
 }
 
