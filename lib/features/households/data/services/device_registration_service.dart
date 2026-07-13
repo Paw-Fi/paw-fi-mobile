@@ -16,6 +16,9 @@ import 'package:moneko/core/theme/app_theme.dart';
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
 
+final householdRemoteMutationRefreshSignalProvider =
+    StateProvider.family<int, String>((ref, householdId) => 0);
+
 void _debugPrint(String? message, {int? wrapWidth}) {
   if (foundation.kDebugMode && _enableDebugLogs) {
     foundation.debugPrint(message, wrapWidth: wrapWidth);
@@ -410,6 +413,7 @@ class DeviceRegistrationService {
   /// Handle foreground messages (app is open)
   void _handleForegroundMessage(RemoteMessage message) {
     _debugPrint('📬 Foreground message received');
+    unawaited(_refreshHouseholdMutationData(message.data));
 
     // Android: show local notification when app is in foreground
     // iOS already shows system banner via foreground presentation options
@@ -418,9 +422,44 @@ class DeviceRegistrationService {
     }
   }
 
+  Future<void> _refreshHouseholdMutationData(Map<String, dynamic> data) async {
+    final eventType = data['event_type']?.toString();
+    final householdId = data['household_id']?.toString().trim();
+    if (householdId == null || householdId.isEmpty) return;
+    if (!const {
+      'expense_added',
+      'expense_edited',
+      'expense_deleted',
+      'split_settled',
+      'settlement_completed',
+    }.contains(eventType)) {
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final prefixes = <String>[
+        'households:splits:v1:$householdId:',
+        'households:expenses:v1:$householdId:',
+        'households:summary:v1:$householdId:',
+        'households:settlement-payments:v1:$householdId:',
+      ];
+      final keys = prefs.getKeys().where(
+            (key) => prefixes.any(key.startsWith),
+          );
+      await Future.wait(keys.map(prefs.remove));
+    } catch (_) {}
+
+    _ref
+        .read(
+            householdRemoteMutationRefreshSignalProvider(householdId).notifier)
+        .state += 1;
+  }
+
   /// Handle background message opened (user tapped notification)
   void _handleBackgroundMessage(RemoteMessage message) {
     _debugPrint('🔔 Background message opened');
+    unawaited(_refreshHouseholdMutationData(message.data));
 
     _dispatchDataMap(message.data, source: 'fcm_tap');
   }

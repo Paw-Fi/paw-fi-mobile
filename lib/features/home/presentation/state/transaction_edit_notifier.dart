@@ -525,6 +525,20 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         throw Exception(message);
       }
       backendCommitted = true;
+      final affectedHouseholdIds = serverTargets
+          .map((entry) => entry.householdId?.trim())
+          .whereType<String>()
+          .where((householdId) => householdId.isNotEmpty)
+          .toSet();
+      await Future.wait(
+        affectedHouseholdIds.map((householdId) async {
+          try {
+            await clearHouseholdPersistentCacheForHousehold(householdId);
+          } catch (error) {
+            _debugPrint('⚠️ Failed to clear household cache: $error');
+          }
+        }),
+      );
 
       if (localDatabase != null) {
         await localDatabase.markOptimisticTransactionDeleteSynced(
@@ -681,6 +695,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ref.invalidate(householdMembersProvider);
     ref.invalidate(cachedHouseholdExpensesProvider);
     ref.invalidate(cachedHouseholdSplitsProvider);
+    ref.invalidate(householdSettlementPaymentsProvider);
+    ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
+    ref.invalidate(householdSettlementBreakdownV2Provider);
     ref.read(cacheInvalidatorProvider).invalidateAll();
 
     ref.invalidate(currencyTransactionCountsProvider);
@@ -697,6 +714,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ref.invalidate(householdMembersProvider);
     ref.invalidate(cachedHouseholdExpensesProvider);
     ref.invalidate(cachedHouseholdSplitsProvider);
+    ref.invalidate(householdSettlementPaymentsProvider);
+    ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
+    ref.invalidate(householdSettlementBreakdownV2Provider);
     ref.read(cacheInvalidatorProvider).invalidateAll();
 
     ref.invalidate(currencyTransactionCountsProvider);

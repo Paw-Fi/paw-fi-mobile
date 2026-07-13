@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
@@ -385,12 +386,25 @@ class HomeHeaderSliver extends HookConsumerWidget {
         return;
       }
 
+      var locallyDeletedExpenseIds = const <String>{};
+      try {
+        final database = await ref.read(localDatabaseProvider.future);
+        locallyDeletedExpenseIds =
+            await database.getActiveTransactionTombstoneIds(
+          userId: user.uid,
+          householdId: exportRequest.space.householdId,
+          includeAllHouseholds:
+              exportRequest.space.type == TransactionExportSpaceType.all,
+        );
+      } catch (_) {}
+
       final exportableExpenses = await TransactionExportDataSource(
         ref.read(supabaseClientProvider),
       ).fetchExportExpenses(
         userId: user.uid,
         dateRange: exportRequest.dateRange,
         space: exportRequest.space,
+        excludedExpenseIds: locallyDeletedExpenseIds,
       );
       if (!context.mounted) {
         closeBlockingDialog();

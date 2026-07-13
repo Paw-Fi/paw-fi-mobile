@@ -162,11 +162,22 @@ Future<void> clearHouseholdPersistentCacheForHousehold(
     'households:splits:v1:$householdId:',
     'households:expenses:v1:$householdId:',
     'households:summary:v1:$householdId:',
+    'households:settlement-payments:v1:$householdId:',
   ];
 
   final keys = prefs.getKeys().where(
         (key) => prefixes.any(key.startsWith),
       );
+  await Future.wait(keys.map(prefs.remove));
+}
+
+Future<void> clearHouseholdSettlementPaymentsPersistentCache(
+    String householdId) async {
+  final prefs = await _householdPrefsOrNull();
+  if (prefs == null) return;
+
+  final prefix = 'households:settlement-payments:v1:$householdId:';
+  final keys = prefs.getKeys().where((key) => key.startsWith(prefix));
   await Future.wait(keys.map(prefs.remove));
 }
 
@@ -1247,6 +1258,10 @@ final householdHomeSplitGroupsProvider = FutureProvider.autoDispose
 final householdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
+    ref.watch(
+      householdRemoteMutationRefreshSignalProvider(params.householdId),
+    );
+    ref.watch(transactionsFeedRefreshSignalProvider);
     if (!isBackendHouseholdId(params.householdId)) {
       return const <ExpenseSplitGroup>[];
     }
@@ -1257,13 +1272,18 @@ final householdSplitsProvider =
       householdOptimisticSplitsProvider
           .select((state) => state[params.householdId] ?? const []),
     );
+    final deletedIds = await ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
+    );
     final cacheKey = _householdSplitsCacheKey(params);
     final cached = await _readHouseholdCachedList<ExpenseSplitGroup>(
       cacheKey,
       ExpenseSplitGroup.fromJson,
     );
     if (cached != null) {
-      final cachedMerged = mergeHouseholdSplits(cached.items, optimistic);
+      final cachedMerged = mergeHouseholdSplits(cached.items, optimistic)
+          .where((split) => !deletedIds.contains(split.expenseId))
+          .toList(growable: false);
       if (!_isFresh(cached.cachedAt, _householdEntityCacheTtl)) {
         _runHouseholdBackgroundRefresh(cacheKey, () async {
           try {
@@ -1301,7 +1321,9 @@ final householdSplitsProvider =
           .pruneIfInServer(params.householdId, splits);
     }
 
-    return mergeHouseholdSplits(splits, optimistic);
+    return mergeHouseholdSplits(splits, optimistic)
+        .where((split) => !deletedIds.contains(split.expenseId))
+        .toList(growable: false);
   },
 );
 
@@ -1350,6 +1372,10 @@ class HouseholdExpensesParams {
 final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
+    ref.watch(
+      householdRemoteMutationRefreshSignalProvider(params.householdId),
+    );
+    ref.watch(transactionsFeedRefreshSignalProvider);
     if (!isBackendHouseholdId(params.householdId)) {
       return const <ExpenseEntry>[];
     }
@@ -1360,10 +1386,8 @@ final householdExpensesProvider = FutureProvider.autoDispose
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),
     );
-    final deletedIds = ref.watch(
-      householdOptimisticDeletedExpenseIdsProvider.select(
-        (state) => state[params.householdId] ?? const <String>{},
-      ),
+    final deletedIds = await ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
     );
     final cacheKey = _householdExpensesCacheKey(params);
     final cached = await _readHouseholdCachedList<ExpenseEntry>(
@@ -1628,6 +1652,10 @@ final householdProvider =
 /// Currency filtering is done client-side by the net calculator.
 final householdSettlementPaymentsProvider = FutureProvider.autoDispose
     .family<List<SettlementPaymentRecord>, String>((ref, householdId) async {
+  ref.watch(
+    householdRemoteMutationRefreshSignalProvider(householdId),
+  );
+  ref.watch(transactionsFeedRefreshSignalProvider);
   final supabase = ref.watch(supabaseClientProvider);
   final currentUserId = supabase.auth.currentUser?.id;
   if (currentUserId == null) return const <SettlementPaymentRecord>[];
@@ -1785,9 +1813,38 @@ class SettlementBreakdownV2Params {
       householdId.hashCode ^ memberUserId.hashCode ^ (currency?.hashCode ?? 0);
 }
 
+final householdDeletedExpenseIdsProvider = FutureProvider.autoDispose
+    .family<Set<String>, String>((ref, householdId) async {
+  final optimisticIds = ref.watch(
+    householdOptimisticDeletedExpenseIdsProvider.select(
+      (state) => state[householdId] ?? const <String>{},
+    ),
+  );
+  String userId;
+  try {
+    userId = ref.watch(authProvider.select((user) => user.uid));
+  } catch (_) {
+    return optimisticIds;
+  }
+  if (userId.isEmpty) return optimisticIds;
+
+  try {
+    final database = await ref.watch(localDatabaseProvider.future);
+    final persistedIds = await database.getActiveTransactionTombstoneIds(
+      userId: userId,
+      householdId: householdId,
+    );
+    return {...persistedIds, ...optimisticIds};
+  } catch (_) {
+    return optimisticIds;
+  }
+});
+
 final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
     .family<List<SettlementPairwiseBalance>, PairwiseSettlementBalancesParams>(
   (ref, params) async {
+    ref.watch(householdRemoteMutationRefreshSignalProvider(params.householdId));
+    ref.watch(transactionsFeedRefreshSignalProvider);
     if (!isBackendHouseholdId(params.householdId)) {
       return const <SettlementPairwiseBalance>[];
     }
@@ -1796,8 +1853,11 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
         (state) => state[params.householdId] ?? const <ExpenseSplitGroup>[],
       ),
     );
+    final deletedExpenseIds = await ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
+    );
 
-    if (optimisticSplits.isNotEmpty) {
+    if (optimisticSplits.isNotEmpty || deletedExpenseIds.isNotEmpty) {
       final splitsFuture = ref.watch(
         cachedHouseholdSplitsProvider(
           HouseholdSplitsParams(householdId: params.householdId),
@@ -1819,7 +1879,9 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
       final splits = mergeHouseholdSplits(
         canonicalSplits,
         optimisticSplits,
-      );
+      )
+          .where((split) => !deletedExpenseIds.contains(split.expenseId))
+          .toList(growable: false);
       final nets = computeSettlementNets(
         splits: splits,
         currentUserId: currentUserId,
@@ -1858,6 +1920,8 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
 final householdSettlementBreakdownV2Provider = FutureProvider.autoDispose
     .family<List<SettlementBreakdownRowV2>, SettlementBreakdownV2Params>(
   (ref, params) async {
+    ref.watch(householdRemoteMutationRefreshSignalProvider(params.householdId));
+    ref.watch(transactionsFeedRefreshSignalProvider);
     if (!isBackendHouseholdId(params.householdId)) {
       return const <SettlementBreakdownRowV2>[];
     }
