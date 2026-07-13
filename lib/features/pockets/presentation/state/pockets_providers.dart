@@ -2320,10 +2320,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
-  bool _isMissingRpcFunctionError(Object error) {
+  bool _isMissingRpcFunctionError(Object error, String functionName) {
     if (error is! PostgrestException) return false;
     return error.code == '42883' ||
-        error.message.toLowerCase().contains('get_pockets_month_v2');
+        error.message.toLowerCase().contains(functionName.toLowerCase());
   }
 
   Future<Map<String, dynamic>> _fetchPocketsMonthPayload({
@@ -2335,10 +2335,39 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required bool includeUpcomingRecurring,
     required bool allowCurrencyFallback,
   }) async {
+    final periodStart = DateTime.parse(periodMonth);
+    final budgetMonth = _formatDate(
+      DateTime(periodStart.year, periodStart.month, 1),
+    );
     try {
-      // CRITICAL: call the recurring-aware v2 pockets RPC here.
-      // STRICT REQUIREMENT: switching this back to v1 drops projected recurring
-      // month spend from the backend payload used by the main pockets page.
+      final response = await supabase.rpc(
+        'get_pockets_month_v3',
+        params: <String, dynamic>{
+          'p_user_id': userId,
+          'p_scope': switch (scopeType) {
+            PocketsScopeType.personal => 'personal',
+            PocketsScopeType.portfolio => 'portfolio',
+            PocketsScopeType.household => 'household',
+          },
+          'p_household_id': householdId,
+          'p_budget_month': budgetMonth,
+          'p_currency': selectedCurrency,
+          // CRITICAL: the user's recurring-in-pockets preference must reach the
+          // RPC layer.
+          // STRICT REQUIREMENT: if this flag stops being forwarded, the
+          // backend and mobile calculation paths diverge and pockets regress.
+          'p_include_projected_recurring': includeUpcomingRecurring,
+          'p_allow_currency_fallback': allowCurrencyFallback,
+        },
+      );
+      return Map<String, dynamic>.from(response as Map);
+    } catch (error) {
+      if (!_isMissingRpcFunctionError(error, 'get_pockets_month_v3')) {
+        rethrow;
+      }
+      _debugLog(
+        '[Pockets] RPC get_pockets_month_v3 missing; using v2 during backend-first rollout',
+      );
       final response = await supabase.rpc(
         'get_pockets_month_v2',
         params: <String, dynamic>{
@@ -2351,22 +2380,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           'p_household_id': householdId,
           'p_period_month': periodMonth,
           'p_currency': selectedCurrency,
-          // CRITICAL: the user's recurring-in-pockets preference must reach the
-          // RPC layer.
-          // STRICT REQUIREMENT: if this flag stops being forwarded, the
-          // backend and mobile calculation paths diverge and pockets regress.
           'p_include_projected_recurring': includeUpcomingRecurring,
           'p_allow_currency_fallback': allowCurrencyFallback,
         },
       );
       return Map<String, dynamic>.from(response as Map);
-    } catch (error) {
-      if (_isMissingRpcFunctionError(error)) {
-        _debugLog(
-          '[Pockets] RPC get_pockets_month_v2 missing; deploy migration 20260408170000_add_recurring_aware_wallets_and_pockets_rpcs.sql',
-        );
-      }
-      rethrow;
     }
   }
 
@@ -2709,6 +2727,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           : const <String, double>{};
 
       final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
+          cacheKey.financialMonthStartDay != 1 ||
           projectedRecurringExpenses.isNotEmpty ||
           localOverlayExpenses.isNotEmpty;
       final spentById = <String, double>{};
@@ -3322,14 +3341,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       sourceMonth,
       startDay: params.normalizedFinancialMonthStartDay,
     );
-    final sourcePeriodMonth = _formatDate(sourceMonthStart);
+    final sourcePeriodMonth = _formatBudgetMonth(sourceMonthStart);
 
     final targetMonth = params.periodMonth ?? DateTime.now();
     final targetMonthStart = financialCycleStartForDate(
       targetMonth,
       startDay: params.normalizedFinancialMonthStartDay,
     );
-    final targetPeriodMonth = _formatDate(targetMonthStart);
+    final targetPeriodMonth = _formatBudgetMonth(targetMonthStart);
 
     var currentBudgetId = state.budgetId?.trim();
     if (currentBudgetId == null || currentBudgetId.isEmpty) {
@@ -3340,7 +3359,23 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         userId: authUser.uid,
         currency: effectiveCurrency,
       );
-      currentBudgetId = (existingTargetBudget?['id'] as String?)?.trim();
+      var resolvedTargetBudget = existingTargetBudget;
+      resolvedTargetBudget ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(targetMonthStart),
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: effectiveCurrency,
+      );
+      currentBudgetId = (resolvedTargetBudget?['id'] as String?)?.trim();
+      if (currentBudgetId != null &&
+          currentBudgetId.isNotEmpty &&
+          resolvedTargetBudget?['period_month'] != targetPeriodMonth) {
+        await supabase.from('budgets').update(<String, dynamic>{
+          'period_month': targetPeriodMonth,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', currentBudgetId);
+      }
     }
 
     _debugLog(
@@ -3448,7 +3483,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
       );
 
-      final sourceBudgetRow = await scopedBudgetQuery.maybeSingle();
+      var sourceBudgetRow = await scopedBudgetQuery.maybeSingle();
+      sourceBudgetRow ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(sourceMonthStart),
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: effectiveCurrency,
+      );
       final sourceBudgetId = sourceBudgetRow?['id'] as String?;
       final sourceTotalBudgetCents =
           (sourceBudgetRow?['total_budget_cents'] as num?)?.toInt() ?? 0;
@@ -3813,7 +3855,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }) async {
     var query = supabase
         .from('budgets')
-        .select('id,total_budget_cents,household_id,user_id,currency')
+        .select(
+            'id,total_budget_cents,period_month,household_id,user_id,currency')
         .eq('period_month', periodMonth);
 
     if (currency != null) {
@@ -3885,7 +3928,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         viewedMonth,
         startDay: params.normalizedFinancialMonthStartDay,
       );
-      final periodMonth = _formatDate(monthStart);
+      final financialPeriodMonth = _formatDate(monthStart);
+      final periodMonth = _formatBudgetMonth(monthStart);
       final scopeType = params.scope;
       final isHousehold = scopeType == PocketsScopeType.household;
       final isScopedToHousehold = scopeType != PocketsScopeType.personal;
@@ -3911,14 +3955,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       queuedMutationId = _pocketsMutationId(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       await _enqueuePocketsSaveMutation(
@@ -4177,7 +4221,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
     final selectedCurrency = _resolveWriteCurrency();
     final monthStart = state.periodMonth;
-    final periodMonth = _formatDate(monthStart);
+    final financialPeriodMonth = _formatDate(monthStart);
+    final periodMonth = _formatBudgetMonth(monthStart);
     final scopeType = params.scope;
     final isScopedToHousehold = scopeType != PocketsScopeType.personal;
     final householdId = params.householdId;
@@ -4188,14 +4233,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       userId: authUser.uid,
       scopeType: scopeType,
       householdId: householdId,
-      periodMonth: periodMonth,
+      periodMonth: financialPeriodMonth,
       currency: selectedCurrency,
     );
     final mutationId = _pocketsMutationId(
       userId: authUser.uid,
       scopeType: scopeType,
       householdId: householdId,
-      periodMonth: periodMonth,
+      periodMonth: financialPeriodMonth,
       currency: selectedCurrency,
     );
     await _enqueuePocketsSaveMutation(
@@ -4251,7 +4296,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         viewedMonth,
         startDay: params.normalizedFinancialMonthStartDay,
       );
-      final periodMonth = _formatDate(monthStart);
+      final financialPeriodMonth = _formatDate(monthStart);
+      final periodMonth = _formatBudgetMonth(monthStart);
 
       final scopeType = params.scope;
       final isScopedToHousehold = scopeType != PocketsScopeType.personal;
@@ -4320,14 +4366,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       queuedMutationId = _pocketsMutationId(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       await _enqueuePocketsSaveMutation(
@@ -4486,8 +4532,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required DateTime targetMonthStart,
     required Iterable<String> currencies,
   }) async {
-    final sourcePeriodMonth = _formatDate(sourceMonthStart);
-    final targetPeriodMonth = _formatDate(targetMonthStart);
+    final sourcePeriodMonth = _formatBudgetMonth(sourceMonthStart);
+    final targetPeriodMonth = _formatBudgetMonth(targetMonthStart);
     final isHouseholdScope = scopeType == PocketsScopeType.household;
     final isScopedToHousehold = scopeType != PocketsScopeType.personal;
     final nowIso = DateTime.now().toIso8601String();
@@ -4498,8 +4544,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final currency = rawCurrency.trim().toUpperCase();
       if (currency.isEmpty || !copiedCurrencies.add(currency)) continue;
 
-      final sourceBudgetRow = await _findBudgetRowForPeriod(
+      var sourceBudgetRow = await _findBudgetRowForPeriod(
         periodMonth: sourcePeriodMonth,
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: userId,
+        currency: currency,
+      );
+      sourceBudgetRow ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(sourceMonthStart),
         isHousehold: isHouseholdScope,
         householdId: householdId,
         userId: userId,
@@ -4547,8 +4600,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
       if (envRows.isEmpty) continue;
 
-      final targetBudgetRow = await _findBudgetRowForPeriod(
+      var targetBudgetRow = await _findBudgetRowForPeriod(
         periodMonth: targetPeriodMonth,
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: userId,
+        currency: currency,
+      );
+      targetBudgetRow ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(targetMonthStart),
         isHousehold: isHouseholdScope,
         householdId: householdId,
         userId: userId,
@@ -4565,6 +4625,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'total_budget_cents': sourceTotalBudgetCents,
         'updated_at': nowIso,
       };
+
+      if (targetBudgetId != null &&
+          targetBudgetId.isNotEmpty &&
+          targetBudgetRow?['period_month'] != targetPeriodMonth) {
+        await supabase.from('budgets').update(<String, dynamic>{
+          'period_month': targetPeriodMonth,
+          'updated_at': nowIso,
+        }).eq('id', targetBudgetId);
+      }
 
       if (targetBudgetId == null || targetBudgetId.isEmpty) {
         final insertRes = await supabase
@@ -4928,4 +4997,10 @@ String _formatDate(DateTime date) {
   final m = date.month.toString().padLeft(2, '0');
   final d = date.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+String _formatBudgetMonth(DateTime financialPeriodStart) {
+  return _formatDate(
+    DateTime(financialPeriodStart.year, financialPeriodStart.month, 1),
+  );
 }

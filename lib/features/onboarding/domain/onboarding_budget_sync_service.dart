@@ -22,7 +22,9 @@ class OnboardingBudgetSyncService {
       month,
       startDay: scopeParams.normalizedFinancialMonthStartDay,
     );
-    final periodMonth = _formatDate(monthStart);
+    final periodMonth = _formatDate(
+      DateTime(monthStart.year, monthStart.month, 1),
+    );
     final householdId = scopeParams.scope == PocketsScopeType.personal
         ? null
         : scopeParams.householdId;

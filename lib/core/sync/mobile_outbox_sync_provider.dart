@@ -830,38 +830,47 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
   final userId = payload['userId']?.toString();
   final scope = payload['scope']?.toString() ?? 'personal';
   final householdId = payload['householdId']?.toString();
-  final periodMonth = payload['periodMonth']?.toString();
+  final rawPeriodMonth = payload['periodMonth']?.toString();
   final currency = payload['currency']?.toString();
   final totalBudgetCents = (payload['totalBudgetCents'] as num?)?.toInt() ?? 0;
   if (userId == null || userId.isEmpty) {
     throw ArgumentError('Missing userId for pockets sync');
   }
-  if (periodMonth == null || periodMonth.isEmpty) {
+  if (rawPeriodMonth == null || rawPeriodMonth.isEmpty) {
     throw ArgumentError('Missing periodMonth for pockets sync');
   }
+  final parsedPeriodMonth = DateTime.tryParse(rawPeriodMonth);
+  if (parsedPeriodMonth == null) {
+    throw ArgumentError('Invalid periodMonth for pockets sync');
+  }
+  final periodMonth = DateTime(
+    parsedPeriodMonth.year,
+    parsedPeriodMonth.month,
+    1,
+  ).toIso8601String().substring(0, 10);
   if (currency == null || currency.isEmpty) {
     throw ArgumentError('Missing currency for pockets sync');
   }
 
   String? budgetId = payload['budgetId']?.toString();
-  if (budgetId == null || budgetId.isEmpty) {
-    dynamic query = supabase
-        .from('budgets')
-        .select('id')
-        .eq('period_month', periodMonth)
-        .eq('currency', currency);
-    if (scope == 'personal') {
-      query = query.eq('user_id', userId).isFilter('household_id', null);
-    } else {
-      if (householdId == null || householdId.isEmpty) {
-        throw ArgumentError('Missing householdId for scoped pockets sync');
-      }
-      query = query.eq('household_id', householdId);
-      if (scope == 'portfolio') {
-        query = query.eq('user_id', userId);
-      }
+  dynamic query = supabase
+      .from('budgets')
+      .select('id')
+      .eq('period_month', periodMonth)
+      .eq('currency', currency);
+  if (scope == 'personal') {
+    query = query.eq('user_id', userId).isFilter('household_id', null);
+  } else {
+    if (householdId == null || householdId.isEmpty) {
+      throw ArgumentError('Missing householdId for scoped pockets sync');
     }
-    final row = await query.limit(1).maybeSingle();
+    query = query.eq('household_id', householdId);
+    if (scope == 'portfolio') {
+      query = query.eq('user_id', userId);
+    }
+  }
+  final row = await query.limit(1).maybeSingle();
+  if (row != null) {
     budgetId = row?['id']?.toString();
   }
 

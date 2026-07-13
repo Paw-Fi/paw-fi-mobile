@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PocketTransactionsParams {
   final String pocketId;
@@ -425,24 +426,43 @@ Future<List<PocketRolloverHistoryMonth>> _fetchPocketRolloverHistory({
     return const <PocketRolloverHistoryMonth>[];
   }
 
-  final Object? response;
+  final scope = switch (scopeType) {
+    PocketsScopeType.personal => 'personal',
+    PocketsScopeType.portfolio => 'portfolio',
+    PocketsScopeType.household => 'household',
+  };
+  final budgetMonth = DateTime(periodMonth.year, periodMonth.month, 1)
+      .toIso8601String()
+      .substring(0, 10);
+  Object? response;
   try {
-    response = await supabase.rpc(
-      'get_pocket_rollover_history_v1',
-      params: <String, dynamic>{
-        'p_user_id': userId,
-        'p_scope': switch (scopeType) {
-          PocketsScopeType.personal => 'personal',
-          PocketsScopeType.portfolio => 'portfolio',
-          PocketsScopeType.household => 'household',
-        },
-        'p_household_id': householdId,
-        'p_currency': currency,
-        'p_rollover_group_id': rolloverGroupId,
-        'p_period_month': periodMonth.toIso8601String().substring(0, 10),
-        'p_limit_months': 12,
-      },
-    );
+    final params = <String, dynamic>{
+      'p_user_id': userId,
+      'p_scope': scope,
+      'p_household_id': householdId,
+      'p_currency': currency,
+      'p_rollover_group_id': rolloverGroupId,
+      'p_budget_month': budgetMonth,
+      'p_limit_months': 12,
+    };
+    try {
+      response = await supabase.rpc(
+        'get_pocket_rollover_history_v2',
+        params: params,
+      );
+    } on PostgrestException catch (error) {
+      if (error.code != '42883' &&
+          !error.message.contains('get_pocket_rollover_history_v2')) {
+        rethrow;
+      }
+      response = await supabase.rpc(
+        'get_pocket_rollover_history_v1',
+        params: <String, dynamic>{
+          ...params,
+          'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+        }..remove('p_budget_month'),
+      );
+    }
   } catch (error, stackTrace) {
     if (foundation.kDebugMode) {
       foundation.debugPrint(
@@ -491,21 +511,39 @@ Future<PocketRolloverBreakdown?> _fetchPocketRolloverBreakdown({
   }
 
   try {
-    final response = await supabase.rpc(
-      'get_pocket_rollover_breakdown_v1',
-      params: <String, dynamic>{
-        'p_user_id': userId,
-        'p_scope': switch (scopeType) {
-          PocketsScopeType.personal => 'personal',
-          PocketsScopeType.portfolio => 'portfolio',
-          PocketsScopeType.household => 'household',
-        },
-        'p_household_id': householdId,
-        'p_currency': currency,
-        'p_rollover_group_id': rolloverGroupId,
-        'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+    final params = <String, dynamic>{
+      'p_user_id': userId,
+      'p_scope': switch (scopeType) {
+        PocketsScopeType.personal => 'personal',
+        PocketsScopeType.portfolio => 'portfolio',
+        PocketsScopeType.household => 'household',
       },
-    );
+      'p_household_id': householdId,
+      'p_currency': currency,
+      'p_rollover_group_id': rolloverGroupId,
+      'p_budget_month': DateTime(periodMonth.year, periodMonth.month, 1)
+          .toIso8601String()
+          .substring(0, 10),
+    };
+    Object? response;
+    try {
+      response = await supabase.rpc(
+        'get_pocket_rollover_breakdown_v2',
+        params: params,
+      );
+    } on PostgrestException catch (error) {
+      if (error.code != '42883' &&
+          !error.message.contains('get_pocket_rollover_breakdown_v2')) {
+        rethrow;
+      }
+      response = await supabase.rpc(
+        'get_pocket_rollover_breakdown_v1',
+        params: <String, dynamic>{
+          ...params,
+          'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+        }..remove('p_budget_month'),
+      );
+    }
     if (response is! Map) return null;
     return PocketRolloverBreakdown.fromJson(
       Map<String, dynamic>.from(response),

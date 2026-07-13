@@ -264,8 +264,11 @@ class WidgetSyncManager extends HookConsumerWidget {
           final widgetCurrencyRates = await _widgetCurrencyRates(ref);
 
           // Fetch Monthly Budgets for all scopes
-          final monthStr =
-              currentMonth.toIso8601String().substring(0, 10); // YYYY-MM-DD
+          final budgetMonthStr = DateTime(
+            currentMonth.year,
+            currentMonth.month,
+            1,
+          ).toIso8601String().substring(0, 10);
 
           Future<List<ExpenseEntry>> loadWidgetTransactionsForScope({
             required String scopeId,
@@ -383,7 +386,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                 .select(
                     'id,currency,total_budget_cents,period_month,household_id')
                 .eq('user_id', user.uid)
-                .eq('period_month', monthStr)
+                .eq('period_month', budgetMonthStr)
                 .isFilter('household_id', null);
 
             final rows =
@@ -430,14 +433,18 @@ class WidgetSyncManager extends HookConsumerWidget {
             required double fallbackTotalBudget,
           }) async {
             try {
-              final periodMonth = monthStart.toIso8601String().substring(0, 10);
+              final budgetMonth = DateTime(
+                monthStart.year,
+                monthStart.month,
+                1,
+              ).toIso8601String().substring(0, 10);
               final response = await Supabase.instance.client.rpc(
-                'get_pockets_month_v2',
+                'get_pockets_month_v3',
                 params: <String, dynamic>{
                   'p_user_id': user.uid,
                   'p_scope': scope,
                   'p_household_id': householdId,
-                  'p_period_month': periodMonth,
+                  'p_budget_month': budgetMonth,
                   'p_currency': currency,
                   'p_include_projected_recurring': true,
                   'p_allow_currency_fallback': false,
@@ -521,7 +528,11 @@ class WidgetSyncManager extends HookConsumerWidget {
             try {
               final client = Supabase.instance.client;
 
-              final periodMonth = monthStart.toIso8601String().substring(0, 10);
+              final periodMonth = DateTime(
+                monthStart.year,
+                monthStart.month,
+                1,
+              ).toIso8601String().substring(0, 10);
 
               final rpcSnapshot = await loadBudgetPocketsFromRpc(
                 scope: 'personal',
@@ -681,8 +692,11 @@ class WidgetSyncManager extends HookConsumerWidget {
             try {
               final client = Supabase.instance.client;
 
-              final periodMonth =
-                  monthStart.toIso8601String().substring(0, 10); // YYYY-MM-DD
+              final periodMonth = DateTime(
+                monthStart.year,
+                monthStart.month,
+                1,
+              ).toIso8601String().substring(0, 10);
 
               final budgetRowsRes = await client
                   .from('budgets')

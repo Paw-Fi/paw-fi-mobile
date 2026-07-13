@@ -406,7 +406,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         DateTime.now(),
         startDay: financialMonthStartDay,
       );
-      final periodMonth = formatFinancialPeriodDate(monthStart);
+      final periodMonth = formatFinancialPeriodDate(
+        DateTime(monthStart.year, monthStart.month, 1),
+      );
       final selectedCurrency = preparedDraft.selectedCurrency.toUpperCase();
 
       final hasPersonalBudgetPockets = await hasCompleteBudgetSetup(
@@ -843,7 +845,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             DateTime.now(),
             startDay: financialMonthStartDay,
           );
-          final periodMonth = formatFinancialPeriodDate(monthStart);
+          final periodMonth = formatFinancialPeriodDate(
+            DateTime(monthStart.year, monthStart.month, 1),
+          );
 
           final personalParams = PocketsScopeParams(
             scope: PocketsScopeType.personal,
