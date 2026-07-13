@@ -19,6 +19,40 @@ const bool _enableDebugLogs =
 final householdRemoteMutationRefreshSignalProvider =
     StateProvider.family<int, String>((ref, householdId) => 0);
 
+const _householdMutationRefreshEventTypes = {
+  'expense_added',
+  'expense_edited',
+  'expense_deleted',
+  'split_settled',
+  'settlement_completed',
+};
+
+@foundation.visibleForTesting
+Future<String?> clearHouseholdMutationCaches(
+  Map<String, dynamic> data,
+) async {
+  final eventType = data['event_type']?.toString();
+  final householdId = data['household_id']?.toString().trim();
+  if (householdId == null || householdId.isEmpty) return null;
+  if (!_householdMutationRefreshEventTypes.contains(eventType)) return null;
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final prefixes = <String>[
+      'households:splits:v1:$householdId:',
+      'households:expenses:v1:$householdId:',
+      'households:summary:v1:$householdId:',
+      'households:settlement-payments:v1:$householdId:',
+    ];
+    final keys = prefs.getKeys().where(
+          (key) => prefixes.any(key.startsWith),
+        );
+    await Future.wait(keys.map(prefs.remove));
+  } catch (_) {}
+
+  return householdId;
+}
+
 void _debugPrint(String? message, {int? wrapWidth}) {
   if (foundation.kDebugMode && _enableDebugLogs) {
     foundation.debugPrint(message, wrapWidth: wrapWidth);
@@ -423,32 +457,8 @@ class DeviceRegistrationService {
   }
 
   Future<void> _refreshHouseholdMutationData(Map<String, dynamic> data) async {
-    final eventType = data['event_type']?.toString();
-    final householdId = data['household_id']?.toString().trim();
-    if (householdId == null || householdId.isEmpty) return;
-    if (!const {
-      'expense_added',
-      'expense_edited',
-      'expense_deleted',
-      'split_settled',
-      'settlement_completed',
-    }.contains(eventType)) {
-      return;
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final prefixes = <String>[
-        'households:splits:v1:$householdId:',
-        'households:expenses:v1:$householdId:',
-        'households:summary:v1:$householdId:',
-        'households:settlement-payments:v1:$householdId:',
-      ];
-      final keys = prefs.getKeys().where(
-            (key) => prefixes.any(key.startsWith),
-          );
-      await Future.wait(keys.map(prefs.remove));
-    } catch (_) {}
+    final householdId = await clearHouseholdMutationCaches(data);
+    if (householdId == null) return;
 
     _ref
         .read(

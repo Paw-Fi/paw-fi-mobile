@@ -26,6 +26,22 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 
+@visibleForTesting
+SettlementPaymentRecord buildOptimisticSettlementPayment({
+  required String currentUserId,
+  required String memberUserId,
+  required bool currentUserOwes,
+  required int amountCents,
+  required String currency,
+}) {
+  return SettlementPaymentRecord(
+    payerUserId: currentUserOwes ? memberUserId : currentUserId,
+    participantUserId: currentUserOwes ? currentUserId : memberUserId,
+    amountCents: amountCents,
+    currency: currency,
+  );
+}
+
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
   final String? specificMemberId;
@@ -699,9 +715,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         final currentUserOwes = widget.isExpressNetting
             ? _youOweCents >= _youAreOwedCents
             : !widget.settleTheyOweYou;
-        optimisticPayment = SettlementPaymentRecord(
-          payerUserId: currentUserOwes ? memberId : currentUserId,
-          participantUserId: currentUserOwes ? currentUserId : memberId,
+        optimisticPayment = buildOptimisticSettlementPayment(
+          currentUserId: currentUserId,
+          memberUserId: memberId,
+          currentUserOwes: currentUserOwes,
           amountCents: amountCents,
           currency: _settlementCurrencyCode,
         );
@@ -804,9 +821,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               : !widget.settleTheyOweYou;
           ref.read(optimisticSettlementPaymentsProvider.notifier).removePayment(
                 widget.householdId,
-                SettlementPaymentRecord(
-                  payerUserId: currentUserOwes ? memberId : currentUserId,
-                  participantUserId: currentUserOwes ? currentUserId : memberId,
+                buildOptimisticSettlementPayment(
+                  currentUserId: currentUserId,
+                  memberUserId: memberId,
+                  currentUserOwes: currentUserOwes,
                   amountCents: _clampAmountCents(
                         requestedCents: _parseAmountCents(_pendingAmountText),
                         maxCents: _maxSettleCents,

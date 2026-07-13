@@ -23,12 +23,12 @@ ExpenseEntry _expense(String id) {
   );
 }
 
-ExpenseSplitGroup _splitGroup(String id) {
+ExpenseSplitGroup _splitGroup(String id, {String? expenseId}) {
   final now = DateTime(2024, 1, 1);
   return ExpenseSplitGroup(
     id: id,
     householdId: _householdId,
-    expenseId: 'e$id',
+    expenseId: expenseId ?? 'e$id',
     payerUserId: 'u1',
     splitType: SplitType.equal,
     currency: 'USD',
@@ -137,5 +137,40 @@ void main() {
         await container.read(cachedHouseholdSplitsProvider(params).future);
     expect(result3.map((e) => e.id).toList(), ['new']);
     expect(fetchCount, 2);
+  });
+
+  test('cached providers exclude persisted transaction tombstones', () async {
+    final container = ProviderContainer(
+      overrides: [
+        householdDeletedExpenseIdsProvider.overrideWith(
+          (ref, householdId) async => const {'deleted-expense'},
+        ),
+        householdExpensesProvider.overrideWith(
+          (ref, params) async => [
+            _expense('kept-expense'),
+            _expense('deleted-expense'),
+          ],
+        ),
+        householdSplitsProvider.overrideWith(
+          (ref, params) async => [
+            _splitGroup('kept-expense', expenseId: 'kept-expense'),
+            _splitGroup('deleted-expense', expenseId: 'deleted-expense'),
+          ],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const expenseParams = HouseholdExpensesParams(householdId: _householdId);
+    const splitParams = HouseholdSplitsParams(householdId: _householdId);
+    final expenses = await container.read(
+      cachedHouseholdExpensesProvider(expenseParams).future,
+    );
+    final splits = await container.read(
+      cachedHouseholdSplitsProvider(splitParams).future,
+    );
+
+    expect(expenses.map((expense) => expense.id), ['kept-expense']);
+    expect(splits.map((split) => split.expenseId), ['kept-expense']);
   });
 }
