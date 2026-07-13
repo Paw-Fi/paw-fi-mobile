@@ -59,5 +59,50 @@ void main() {
 
       expect(comparison, DateTime(2026, 7, 11));
     });
+
+    test('every supported start day produces continuous cycle boundaries', () {
+      for (var startDay = 1; startDay <= 31; startDay++) {
+        for (var month = 1; month <= 12; month++) {
+          final cycleStart = financialCycleStartForMonth(
+            DateTime(2024, month),
+            startDay: startDay,
+          );
+          final nextStart = nextFinancialCycleStart(
+            cycleStart,
+            startDay: startDay,
+          );
+          final lastDayInCycle = nextStart.subtract(const Duration(days: 1));
+
+          expect(nextStart.isAfter(cycleStart), isTrue);
+          expect(
+            financialCycleForDate(
+              cycleStart,
+              startDay: startDay,
+            ).start,
+            cycleStart,
+          );
+          expect(
+            financialCycleForDate(
+              lastDayInCycle,
+              startDay: startDay,
+            ).start,
+            cycleStart,
+          );
+          expect(
+            financialCycleForDate(
+              nextStart,
+              startDay: startDay,
+            ).start,
+            nextStart,
+          );
+        }
+      }
+    });
+
+    test('invalid stored start days safely fall back to calendar months', () {
+      expect(normalizeFinancialMonthStartDay(null), 1);
+      expect(normalizeFinancialMonthStartDay(0), 1);
+      expect(normalizeFinancialMonthStartDay(32), 1);
+    });
   });
 }

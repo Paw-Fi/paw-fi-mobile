@@ -495,13 +495,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                           Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: SizedBox(
-                              height: 180,
-                              child: Row(
-                                children: [
-                                  const Expanded(child: MoMTrendBar()),
-                                  const SizedBox(width: 12),
-                                  Expanded(
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: AspectRatio(
+                                    aspectRatio: 1,
+                                    child: MoMTrendBar(),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: AspectRatio(
+                                    aspectRatio: 1,
                                     child: LazyDashboardNetCashflowCard(
                                       config: config,
                                       colorScheme: colorScheme,
@@ -510,8 +515,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       budgets: netBudgets,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                       DashboardWidgetType.financialCalendar: (context,

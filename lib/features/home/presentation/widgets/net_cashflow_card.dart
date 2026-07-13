@@ -37,6 +37,7 @@ Widget buildNetCashflowCard(
 
   return Container(
     key: key,
+    width: double.infinity,
     decoration: BoxDecoration(
       color: colorScheme.homeCardSurface,
       borderRadius: BorderRadius.circular(24),

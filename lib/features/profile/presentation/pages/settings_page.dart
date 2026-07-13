@@ -47,9 +47,7 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
@@ -80,6 +78,7 @@ import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
 import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
+import 'package:moneko/features/profile/presentation/pages/financial_month_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
@@ -631,48 +630,6 @@ class SettingsPage extends HookConsumerWidget {
           AppToast.error(
             context,
             context.l10n.timezoneUpdateFailed(e.toString()),
-          );
-        }
-      }
-    }
-
-    Future<void> handleFinancialMonthStartDayChange(int day) async {
-      final previous = selectedFinancialMonthStartDay.value;
-      if (day < 1 || day > 31 || day == previous) return;
-      selectedFinancialMonthStartDay.value = day;
-      try {
-        final response = await Supabase.instance.client.functions.invoke(
-          'update-financial-month-start-day',
-          body: {
-            'userId': authState.uid,
-            'financialMonthStartDay': day,
-          },
-        );
-        final data = response.data;
-        final isSuccessful = response.status < 400 &&
-            data is Map<String, dynamic> &&
-            (data['ok'] == true || data['success'] == true);
-        if (!isSuccessful) {
-          throw Exception('Failed to update financial month start day');
-        }
-
-        ref.read(analyticsProvider.notifier).updateFinancialMonthStartDay(day);
-        ref.read(dashboardRefreshSignalProvider.notifier).state++;
-        ref.read(transactionsFeedRefreshSignalProvider.notifier).state++;
-        ref.read(walletsRefreshSignalProvider.notifier).state++;
-        ref.read(pocketsPersistedCacheBypassCountProvider.notifier).state++;
-        ref.read(walletsPageStatePersistedCacheBypassProvider.notifier).state++;
-        ref.read(analyticsProvider.notifier).refresh(authState.uid);
-
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.financialMonthStartUpdated);
-        }
-      } catch (e) {
-        selectedFinancialMonthStartDay.value = previous;
-        if (context.mounted) {
-          AppToast.error(
-            context,
-            '${context.l10n.financialMonthStartUpdateFailed}: $e',
           );
         }
       }
@@ -1497,20 +1454,13 @@ class SettingsPage extends HookConsumerWidget {
                         value: context.l10n.financialMonthStartDayLabel(
                           selectedFinancialMonthStartDay.value,
                         ),
-                        onTap: () async {
-                          final pickedDay = await MonekoListPicker.show<int>(
-                            context: context,
-                            items: List<int>.generate(
-                              31,
-                              (index) => index + 1,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) =>
+                                  const FinancialMonthSettingsPage(),
                             ),
-                            initial: selectedFinancialMonthStartDay.value,
-                            title: context.l10n.financialMonthStart,
-                            labelBuilder:
-                                context.l10n.financialMonthStartDayLabel,
                           );
-                          if (pickedDay == null) return;
-                          await handleFinancialMonthStartDayChange(pickedDay);
                         },
                       ),
                       _SettingsTile(

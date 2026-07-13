@@ -54,8 +54,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get sendResetLink => 'ส่งลิงก์ตั้งรหัสผ่านใหม่';
 
   @override
-  String get passwordResetEmailSent =>
-      'ส่งอีเมลตั้งรหัสผ่านใหม่แล้ว โปรดตรวจสอบกล่องจดหมายของคุณ';
+  String get passwordResetEmailSent => 'ส่งอีเมลตั้งรหัสผ่านใหม่แล้ว โปรดตรวจสอบกล่องจดหมายของคุณ';
 
   @override
   String get enterValidEmail => 'โปรดระบุอีเมลที่ถูกต้อง';
@@ -80,16 +79,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get createPassword => 'ตั้งรหัสผ่าน';
 
   @override
-  String get passwordComplexityRequirement =>
-      'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลขอย่างน้อย 1 ตัว';
+  String get passwordComplexityRequirement => 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลขอย่างน้อย 1 ตัว';
 
   @override
-  String get passwordRequirementShort =>
-      'รหัสผ่านต้องยาว 8 ตัวอักษรขึ้นไป และมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข';
+  String get passwordRequirementShort => 'รหัสผ่านต้องยาว 8 ตัวอักษรขึ้นไป และมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข';
 
   @override
-  String get termsAgreement =>
-      'การสร้างบัญชีถือว่าคุณยอมรับข้อตกลงการใช้งานและนโยบายความเป็นส่วนตัวของเรา';
+  String get termsAgreement => 'การสร้างบัญชีถือว่าคุณยอมรับข้อตกลงการใช้งานและนโยบายความเป็นส่วนตัวของเรา';
 
   @override
   String get alreadyHaveAccount => 'มีบัญชีอยู่แล้วใช่ไหม?';
@@ -127,8 +123,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get verifyEmail => 'ยืนยันอีเมล';
 
   @override
-  String get didntReceiveTheCode =>
-      'ไม่ได้รับรหัสใช่ไหม? ลองตรวจสอบในจดหมายขยะ (Junk) หรือ';
+  String get didntReceiveTheCode => 'ไม่ได้รับรหัสใช่ไหม? ลองตรวจสอบในจดหมายขยะ (Junk) หรือ';
 
   @override
   String resendInSeconds(int seconds) {
@@ -174,8 +169,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get goToHome => 'กลับหน้าแรก';
 
   @override
-  String get paymentSuccessfulCheckingSubscription =>
-      'ชำระเงินสำเร็จ! การสมัครสมาชิกของคุณเปิดใช้งานแล้ว';
+  String get paymentSuccessfulCheckingSubscription => 'ชำระเงินสำเร็จ! การสมัครสมาชิกของคุณเปิดใช้งานแล้ว';
 
   @override
   String get paymentFailed => 'ชำระเงินไม่สำเร็จ';
@@ -184,15 +178,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paymentCanceled => 'ℹ️ ยกเลิกการชำระเงินแล้ว';
 
   @override
-  String get whatsappVerifiedSuccessfully =>
-      '✅ ยืนยันเบอร์ WhatsApp สำเร็จแล้ว!';
+  String get whatsappVerifiedSuccessfully => '✅ ยืนยันเบอร์ WhatsApp สำเร็จแล้ว!';
 
   @override
   String get settings => 'การตั้งค่า';
 
   @override
-  String get enableNotificationsInSettings =>
-      'โปรดเปิดการแจ้งเตือนของ Moneko ในการตั้งค่าของอุปกรณ์';
+  String get enableNotificationsInSettings => 'โปรดเปิดการแจ้งเตือนของ Moneko ในการตั้งค่าของอุปกรณ์';
 
   @override
   String get appearance => 'การแสดงผล';
@@ -214,21 +206,6 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get systemDefault => 'ตามระบบ';
-
-  @override
-  String get financialMonthStart => 'วันเริ่มต้นเดือนการเงิน';
-
-  @override
-  String get financialMonthStartUpdated => 'อัปเดตวันเริ่มต้นเดือนการเงินแล้ว';
-
-  @override
-  String get financialMonthStartUpdateFailed =>
-      'ไม่สามารถอัปเดตวันเริ่มต้นเดือนการเงินได้';
-
-  @override
-  String financialMonthStartDayLabel(int day) {
-    return 'วันที่ $day ของทุกเดือน';
-  }
 
   @override
   String get membership => 'แพ็กเกจสมาชิก';
@@ -336,15 +313,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get naturalLanguage => 'ภาษาพูด';
 
   @override
-  String get describeExpenseAutomatically =>
-      'แค่พิมพ์บอกรายจ่ายแบบปกติ เราจะจดให้อัตโนมัติ';
+  String get describeExpenseAutomatically => 'แค่พิมพ์บอกรายจ่ายแบบปกติ เราจะจดให้อัตโนมัติ';
 
   @override
   String get snapReceipt => 'ถ่ายสลิป/ใบเสร็จ';
 
   @override
-  String get snapReceiptDescription =>
-      'ถ่ายรูปใบเสร็จ แล้ว AI จะแกะข้อมูลและบันทึกให้เอง';
+  String get snapReceiptDescription => 'ถ่ายรูปใบเสร็จ แล้ว AI จะแกะข้อมูลและบันทึกให้เอง';
 
   @override
   String get previous => 'ก่อนหน้า';
@@ -392,8 +367,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get runningAndDailyBalances => 'ยอดคงเหลือสะสมและรายวัน';
 
   @override
-  String get budgetVsSpentDescription =>
-      'เทียบงบที่ตั้งไว้กับรายจ่ายแต่ละวัน พร้อมยอดคงเหลือสะสม';
+  String get budgetVsSpentDescription => 'เทียบงบที่ตั้งไว้กับรายจ่ายแต่ละวัน พร้อมยอดคงเหลือสะสม';
 
   @override
   String get runningBalanceLegend => 'ยอดคงเหลือสะสม';
@@ -408,15 +382,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get runningBalanceGuide => 'ทำความเข้าใจยอดคงเหลือสะสม';
 
   @override
-  String get runningBalanceIntro =>
-      'กราฟนี้เปรียบเสมือนโค้ชการเงินส่วนตัว มาดูกันว่าบอกอะไรเราได้บ้าง';
+  String get runningBalanceIntro => 'กราฟนี้เปรียบเสมือนโค้ชการเงินส่วนตัว มาดูกันว่าบอกอะไรเราได้บ้าง';
 
   @override
   String get day30LookAhead => 'แนวโน้ม 30 วันข้างหน้า';
 
   @override
-  String get projectedFromTrailing30Days =>
-      'คาดการณ์จากพฤติกรรมย้อนหลัง 30 วัน';
+  String get projectedFromTrailing30Days => 'คาดการณ์จากพฤติกรรมย้อนหลัง 30 วัน';
 
   @override
   String get projectedSpendingLegend => 'คาดการณ์รายจ่าย';
@@ -425,15 +397,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get peek30DaysAhead => 'แอบดูแนวโน้ม 30 วันข้างหน้า';
 
   @override
-  String get day30ForecastIntro =>
-      'คาดการณ์จากพฤติกรรมเดือนที่แล้ว เพื่อเดาว่าเดือนหน้าจะใช้เงินประมาณเท่าไหร่ คล้ายพยากรณ์อากาศสำหรับกระเป๋าตังค์ของคุณ';
+  String get day30ForecastIntro => 'คาดการณ์จากพฤติกรรมเดือนที่แล้ว เพื่อเดาว่าเดือนหน้าจะใช้เงินประมาณเท่าไหร่ คล้ายพยากรณ์อากาศสำหรับกระเป๋าตังค์ของคุณ';
 
   @override
   String get longTermProjection => 'คาดการณ์ระยะยาว';
 
   @override
-  String get basedOnHistoricalAverages =>
-      'อิงตามค่าเฉลี่ยที่ผ่านมา (อัปเดตอัตโนมัติตามข้อมูลของคุณ)';
+  String get basedOnHistoricalAverages => 'อิงตามค่าเฉลี่ยที่ผ่านมา (อัปเดตอัตโนมัติตามข้อมูลของคุณ)';
 
   @override
   String get month18ProjectionLegend => 'แนวโน้ม 18 เดือน';
@@ -442,15 +412,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get your18MonthHorizon => 'ภาพรวม 18 เดือนของคุณ';
 
   @override
-  String get longTermIntro =>
-      'คาดการณ์จากพฤติกรรมปกติรวมกับแผนการเติบโต เพื่อให้เห็นว่าการตัดสินใจวันนี้จะส่งผลต่ออนาคตยังไง';
+  String get longTermIntro => 'คาดการณ์จากพฤติกรรมปกติรวมกับแผนการเติบโต เพื่อให้เห็นว่าการตัดสินใจวันนี้จะส่งผลต่ออนาคตยังไง';
 
   @override
   String get aiScenarioPlanning => 'จำลองสถานการณ์ด้วย AI';
 
   @override
-  String get askAiFinancialAdvisor =>
-      'ถามที่ปรึกษาการเงิน AI ดูสิว่าคุณจะรับมือกับค่าใช้จ่ายในอนาคตไหวไหม';
+  String get askAiFinancialAdvisor => 'ถามที่ปรึกษาการเงิน AI ดูสิว่าคุณจะรับมือกับค่าใช้จ่ายในอนาคตไหวไหม';
 
   @override
   String get canI => 'ฉันสามารถ';
@@ -483,36 +451,31 @@ class AppLocalizationsTh extends AppLocalizations {
   String get whereTheMoneyWent => 'เงินหายไปไหนหมด';
 
   @override
-  String get categoryTotalsForSelectedRange =>
-      'ยอดรวมแต่ละหมวดหมู่ในช่วงเวลาที่เลือก';
+  String get categoryTotalsForSelectedRange => 'ยอดรวมแต่ละหมวดหมู่ในช่วงเวลาที่เลือก';
 
   @override
   String get scenarioCategoriesGuide => 'ทำความเข้าใจหมวดหมู่';
 
   @override
-  String get categoryGuideIntro =>
-      'มองกราฟนี้เป็นภาพมุมสูงที่บอกว่าเงินแต่ละบาทปลิวไปไหนบ้าง มาดูวิธีอ่านกราฟง่ายๆ กันเลย';
+  String get categoryGuideIntro => 'มองกราฟนี้เป็นภาพมุมสูงที่บอกว่าเงินแต่ละบาทปลิวไปไหนบ้าง มาดูวิธีอ่านกราฟง่ายๆ กันเลย';
 
   @override
   String get readTheBarChartLikeAPro => 'อ่านกราฟแท่งแบบมือโปร';
 
   @override
-  String get categoryChartDesc =>
-      'สัดส่วนค่าใช้จ่ายตามหมวดหมู่ในช่วงเวลาที่เลือก';
+  String get categoryChartDesc => 'สัดส่วนค่าใช้จ่ายตามหมวดหมู่ในช่วงเวลาที่เลือก';
 
   @override
   String get whyThisViewIsHelpful => 'กราฟนี้ช่วยอะไรได้บ้าง?';
 
   @override
-  String get categoryWhyHelpfulDesc =>
-      'ช่วยให้เห็นหมวดที่กินเงินมากที่สุดได้อย่างรวดเร็ว และตามเทรนด์การใช้จ่ายได้ทัน';
+  String get categoryWhyHelpfulDesc => 'ช่วยให้เห็นหมวดที่กินเงินมากที่สุดได้อย่างรวดเร็ว และตามเทรนด์การใช้จ่ายได้ทัน';
 
   @override
   String get whatToDoWithTheInsight => 'เอาข้อมูลไปทำอะไรต่อได้บ้าง';
 
   @override
-  String get categoryWhatToDoDesc =>
-      'ใช้ปรับงบประมาณและพฤติกรรมการใช้เงินของคุณให้ดีขึ้น';
+  String get categoryWhatToDoDesc => 'ใช้ปรับงบประมาณและพฤติกรรมการใช้เงินของคุณให้ดีขึ้น';
 
   @override
   String get scenarioAnalysis => 'วิเคราะห์สถานการณ์';
@@ -551,46 +514,37 @@ class AppLocalizationsTh extends AppLocalizations {
   String get howToRespond => 'ควรรับมือยังไง';
 
   @override
-  String get runningBalanceWhatYouSeeDesc =>
-      'ยอดสะสมจะบอกว่าคุณมีเงินเหลือแค่ไหนหลังใช้จ่ายไปในแต่ละวัน ส่วนกราฟแท่งจะเทียบงบที่ตั้งไว้กับยอดที่จ่ายจริง';
+  String get runningBalanceWhatYouSeeDesc => 'ยอดสะสมจะบอกว่าคุณมีเงินเหลือแค่ไหนหลังใช้จ่ายไปในแต่ละวัน ส่วนกราฟแท่งจะเทียบงบที่ตั้งไว้กับยอดที่จ่ายจริง';
 
   @override
-  String get runningBalanceWhyMattersDesc =>
-      'ถือเป็นการเช็คสุขภาพการเงิน ถ้าใช้จ่ายน้อยกว่างบ ก็มีเงินไปเก็บเพิ่ม ถ้าทะลุงบ ก็จะได้รีบปรับพฤติกรรมทัน';
+  String get runningBalanceWhyMattersDesc => 'ถือเป็นการเช็คสุขภาพการเงิน ถ้าใช้จ่ายน้อยกว่างบ ก็มีเงินไปเก็บเพิ่ม ถ้าทะลุงบ ก็จะได้รีบปรับพฤติกรรมทัน';
 
   @override
-  String get runningBalanceHowToRespondDesc =>
-      'ใช้กราฟนี้เป็นเหมือนโค้ชส่วนตัว ภูมิใจเมื่อทำตามเป้าได้ ปรับแผนเมื่อจำเป็น และไม่ต้องตึงเกินไป—เราเน้นความสม่ำเสมอ ไม่ใช่ความเพอร์เฟกต์';
+  String get runningBalanceHowToRespondDesc => 'ใช้กราฟนี้เป็นเหมือนโค้ชส่วนตัว ภูมิใจเมื่อทำตามเป้าได้ ปรับแผนเมื่อจำเป็น และไม่ต้องตึงเกินไป—เราเน้นความสม่ำเสมอ ไม่ใช่ความเพอร์เฟกต์';
 
   @override
   String get whatTheForecastShows => 'การคาดการณ์บอกอะไร';
 
   @override
-  String get day30WhatShowsDesc =>
-      'เรานำรายรับรายจ่ายจาก 30 วันที่ผ่านมา มาเกลี่ยหาค่าเฉลี่ย เพื่อให้คุณเห็นจังหวะการใช้เงินที่แท้จริงแบบไม่รวมรายจ่ายก้อนโตแบบปุบปับ';
+  String get day30WhatShowsDesc => 'เรานำรายรับรายจ่ายจาก 30 วันที่ผ่านมา มาเกลี่ยหาค่าเฉลี่ย เพื่อให้คุณเห็นจังหวะการใช้เงินที่แท้จริงแบบไม่รวมรายจ่ายก้อนโตแบบปุบปับ';
 
   @override
-  String get day30WhyMattersDesc =>
-      'การเห็นงบล่วงหน้าช่วยให้คุณเตรียมพร้อมรู้ว่าช่วงไหนจะใช้เงินเยอะ จะได้กันเงินไว้ก่อน ดีกว่ามานั่งปวดหัวทีหลัง';
+  String get day30WhyMattersDesc => 'การเห็นงบล่วงหน้าช่วยให้คุณเตรียมพร้อมรู้ว่าช่วงไหนจะใช้เงินเยอะ จะได้กันเงินไว้ก่อน ดีกว่ามานั่งปวดหัวทีหลัง';
 
   @override
-  String get day30HowToPlaySmartDesc =>
-      'มองว่านี่เป็นแค่การสะกิดเตือน ไม่ใช่กฎตายตัว ลองค่อยๆ ปรับการใช้จ่ายทีละนิดให้ทำได้จริง';
+  String get day30HowToPlaySmartDesc => 'มองว่านี่เป็นแค่การสะกิดเตือน ไม่ใช่กฎตายตัว ลองค่อยๆ ปรับการใช้จ่ายทีละนิดให้ทำได้จริง';
 
   @override
   String get howTheProjectionWorks => 'ระบบคาดการณ์ทำงานยังไง';
 
   @override
-  String get longTermHowWorksDesc =>
-      'เราใช้ค่าเฉลี่ยรายรับรายจ่ายของคุณมาประเมินล่วงหน้า เพื่อดูว่าแผนการเงินของคุณยังมั่นคงไปอีกหลายเดือนข้างหน้าหรือไม่';
+  String get longTermHowWorksDesc => 'เราใช้ค่าเฉลี่ยรายรับรายจ่ายของคุณมาประเมินล่วงหน้า เพื่อดูว่าแผนการเงินของคุณยังมั่นคงไปอีกหลายเดือนข้างหน้าหรือไม่';
 
   @override
-  String get longTermWhyMattersDesc =>
-      'การมองภาพระยะยาวจะช่วยให้เป้าหมายใหญ่ๆ เป็นจริงได้ ช่วยเช็คว่าเงินสำรองฉุกเฉิน การลงทุน หรือแผนซื้อของชิ้นใหญ่ ยังเดินหน้าตามเป้าอยู่ไหม';
+  String get longTermWhyMattersDesc => 'การมองภาพระยะยาวจะช่วยให้เป้าหมายใหญ่ๆ เป็นจริงได้ ช่วยเช็คว่าเงินสำรองฉุกเฉิน การลงทุน หรือแผนซื้อของชิ้นใหญ่ ยังเดินหน้าตามเป้าอยู่ไหม';
 
   @override
-  String get longTermMovesToConsiderDesc =>
-      'ใช้กราฟนี้จำลองการตัดสินใจล่วงหน้า การปรับแผนเล็กๆ ในวันนี้ อาจเห็นผลลัพธ์ที่ยิ่งใหญ่ในอนาคต';
+  String get longTermMovesToConsiderDesc => 'ใช้กราฟนี้จำลองการตัดสินใจล่วงหน้า การปรับแผนเล็กๆ ในวันนี้ อาจเห็นผลลัพธ์ที่ยิ่งใหญ่ในอนาคต';
 
   @override
   String get forMe => 'ส่วนตัว';
@@ -632,8 +586,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get save => 'บันทึก';
 
   @override
-  String get enterValidAmountGreaterThan0 =>
-      'โปรดระบุจำนวนเงินที่ถูกต้อง (มากกว่า 0)';
+  String get enterValidAmountGreaterThan0 => 'โปรดระบุจำนวนเงินที่ถูกต้อง (มากกว่า 0)';
 
   @override
   String get updatingBudget => 'กำลังอัปเดตงบ...';
@@ -669,8 +622,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noExpensesYet => 'ยังไม่มีรายจ่าย';
 
   @override
-  String get startLoggingExpensesToSeeCategories =>
-      'จดรายจ่ายเพื่อดูสัดส่วนตามหมวดหมู่ที่นี่';
+  String get startLoggingExpensesToSeeCategories => 'จดรายจ่ายเพื่อดูสัดส่วนตามหมวดหมู่ที่นี่';
 
   @override
   String get selectDateRange => 'เลือกช่วงเวลา';
@@ -679,12 +631,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get addExpense => 'เพิ่มรายจ่าย';
 
   @override
-  String get describeYourExpense =>
-      'พิมพ์บอกรายจ่ายหรือรายรับของคุณ (ทีละรายการ)';
+  String get describeYourExpense => 'พิมพ์บอกรายจ่ายหรือรายรับของคุณ (ทีละรายการ)';
 
   @override
-  String get enterExpenseDetails =>
-      'เช่น \"เบอร์เกอร์ 150 กาแฟ 60\" หรือ \"แม่ให้เงิน 3000\"';
+  String get enterExpenseDetails => 'เช่น \"เบอร์เกอร์ 150 กาแฟ 60\" หรือ \"แม่ให้เงิน 3000\"';
 
   @override
   String get addEntry => 'เพิ่มรายการ';
@@ -848,8 +798,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get welcomeToHouseholds => 'ยินดีต้อนรับสู่สเปซ';
 
   @override
-  String get householdsDescription =>
-      'สร้างสเปซที่แชร์ร่วมกันเพื่อติดตามรายจ่ายและจัดการงบกับครอบครัว แฟน หรือแก๊งเพื่อน';
+  String get householdsDescription => 'สร้างสเปซที่แชร์ร่วมกันเพื่อติดตามรายจ่ายและจัดการงบกับครอบครัว แฟน หรือแก๊งเพื่อน';
 
   @override
   String get createHousehold => 'สร้างสเปซ';
@@ -876,8 +825,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get householdsFeature => 'ฟีเจอร์ของสเปซ';
 
   @override
-  String get householdsFeatureDescription =>
-      'แชร์รายจ่าย ติดตามงบ และจัดการเงินร่วมกับสมาชิกในสเปซของคุณ';
+  String get householdsFeatureDescription => 'แชร์รายจ่าย ติดตามงบ และจัดการเงินร่วมกับสมาชิกในสเปซของคุณ';
 
   @override
   String get gotIt => 'ตกลง';
@@ -919,16 +867,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get loadingHouseholdMembers => 'กำลังโหลดสมาชิก...';
 
   @override
-  String get selectHouseholdToConfigureSplit =>
-      'เลือกสเปซเพื่อตั้งค่าการหารบิล';
+  String get selectHouseholdToConfigureSplit => 'เลือกสเปซเพื่อตั้งค่าการหารบิล';
 
   @override
-  String get currencyManagedByHousehold =>
-      'สกุลเงินถูกจัดการโดยสเปซ ไม่สามารถเปลี่ยนได้';
+  String get currencyManagedByHousehold => 'สกุลเงินถูกจัดการโดยสเปซ ไม่สามารถเปลี่ยนได้';
 
   @override
-  String get currencyCannotBeChanged =>
-      'ไม่สามารถเปลี่ยนสกุลเงินได้เมื่อแชร์กับสเปซ';
+  String get currencyCannotBeChanged => 'ไม่สามารถเปลี่ยนสกุลเงินได้เมื่อแชร์กับสเปซ';
 
   @override
   String get cannotEditOthersExpenses => 'แก้ได้เฉพาะรายจ่ายของคุณเท่านั้น';
@@ -984,8 +929,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String iSpentAmountOnCategory(
-      Object amount, Object category, Object currencySymbol) {
+  String iSpentAmountOnCategory(Object amount, Object category, Object currencySymbol) {
     return 'ฉันจ่าย $currencySymbol$amount สำหรับ $category';
   }
 
@@ -993,8 +937,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get enterNewTotalDailyBudgetDescription => 'กรอกยอดงบรวมรายวันใหม่';
 
   @override
-  String get pleaseSignInToAccessHouseholdFeatures =>
-      'โปรดเข้าสู่ระบบเพื่อใช้งานฟีเจอร์สเปซ';
+  String get pleaseSignInToAccessHouseholdFeatures => 'โปรดเข้าสู่ระบบเพื่อใช้งานฟีเจอร์สเปซ';
 
   @override
   String get quickActions => 'เมนูด่วน';
@@ -1033,33 +976,28 @@ class AppLocalizationsTh extends AppLocalizations {
   String get memberSpending => 'ยอดจ่ายของสมาชิก';
 
   @override
-  String get spentByHouseholdTooltip =>
-      'แสดงยอดเงินรวมที่สมาชิกทุกคนในสเปซจ่ายไปในช่วงเวลาที่เลือก รวมถึงรายจ่ายที่แชร์โดยสมาชิกคนใดคนหนึ่งด้วย';
+  String get spentByHouseholdTooltip => 'แสดงยอดเงินรวมที่สมาชิกทุกคนในสเปซจ่ายไปในช่วงเวลาที่เลือก รวมถึงรายจ่ายที่แชร์โดยสมาชิกคนใดคนหนึ่งด้วย';
 
   @override
-  String get manageMoneyTogether =>
-      'จัดการเงินร่วมกับแฟน ครอบครัว หรือเพื่อนร่วมห้องในสเปซเดียวกัน';
+  String get manageMoneyTogether => 'จัดการเงินร่วมกับแฟน ครอบครัว หรือเพื่อนร่วมห้องในสเปซเดียวกัน';
 
   @override
   String get sharedBudgetsExpenses => 'งบและรายจ่ายกองกลาง';
 
   @override
-  String get sharedBudgetsExpensesDesc =>
-      'ตั้งงบ ติดตามการใช้จ่าย และดูว่าเงินกองกลางปลิวไปไหนบ้างแบบเรียลไทม์';
+  String get sharedBudgetsExpensesDesc => 'ตั้งงบ ติดตามการใช้จ่าย และดูว่าเงินกองกลางปลิวไปไหนบ้างแบบเรียลไทม์';
 
   @override
   String get smartExpenseSplitting => 'หารบิลอัจฉริยะ';
 
   @override
-  String get smartExpenseSplittingDesc =>
-      'คำนวณอัตโนมัติว่าใครต้องจ่ายเท่าไหร่ จะหารเท่าๆ กัน คิดเป็นเปอร์เซ็นต์ หรือระบุยอดเองก็ทำได้';
+  String get smartExpenseSplittingDesc => 'คำนวณอัตโนมัติว่าใครต้องจ่ายเท่าไหร่ จะหารเท่าๆ กัน คิดเป็นเปอร์เซ็นต์ หรือระบุยอดเองก็ทำได้';
 
   @override
   String get stayInSync => 'ซิงค์กันอยู่เสมอ';
 
   @override
-  String get stayInSyncDesc =>
-      'รับการแจ้งเตือนเมื่อมีการเพิ่มรายจ่าย เมื่องบใกล้หมด หรือเมื่อถึงเวลาต้องเคลียร์บิล';
+  String get stayInSyncDesc => 'รับการแจ้งเตือนเมื่อมีการเพิ่มรายจ่าย เมื่องบใกล้หมด หรือเมื่อถึงเวลาต้องเคลียร์บิล';
 
   @override
   String get householdSettings => 'การตั้งค่าสเปซ';
@@ -1179,8 +1117,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get revokeInvitation => 'ยกเลิกคำเชิญ';
 
   @override
-  String get confirmRevokeInvitation =>
-      'คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำเชิญนี้?';
+  String get confirmRevokeInvitation => 'คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำเชิญนี้?';
 
   @override
   String get revoke => 'ยกเลิก';
@@ -1225,8 +1162,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get maxIs => 'ขนาดสูงสุดคือ';
 
   @override
-  String get unsupportedFileFormat =>
-      'ไม่รองรับไฟล์นี้ โปรดใช้ JPG, PNG หรือ WebP';
+  String get unsupportedFileFormat => 'ไม่รองรับไฟล์นี้ โปรดใช้ JPG, PNG หรือ WebP';
 
   @override
   String get cropCoverImage => 'ครอปรูปหน้าปก';
@@ -1253,12 +1189,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get alertThreshold => 'ระดับเตือนวิกฤต (%)';
 
   @override
-  String get warningThresholdHelper =>
-      'แจ้งเตือนเมื่องบถูกใช้ถึงเปอร์เซ็นต์นี้';
+  String get warningThresholdHelper => 'แจ้งเตือนเมื่องบถูกใช้ถึงเปอร์เซ็นต์นี้';
 
   @override
-  String get alertThresholdHelper =>
-      'แจ้งเตือนแบบจริงจังเมื่อถึงเปอร์เซ็นต์นี้';
+  String get alertThresholdHelper => 'แจ้งเตือนแบบจริงจังเมื่อถึงเปอร์เซ็นต์นี้';
 
   @override
   String get budgetStatus => 'สถานะงบ';
@@ -1282,15 +1216,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pleaseEnterValidAmount => 'โปรดระบุจำนวนเงินให้ถูกต้อง';
 
   @override
-  String get warningThresholdRange =>
-      'ระดับเตือนเบาๆ ต้องอยู่ระหว่าง 0 ถึง 100';
+  String get warningThresholdRange => 'ระดับเตือนเบาๆ ต้องอยู่ระหว่าง 0 ถึง 100';
 
   @override
   String get alertThresholdRange => 'ระดับเตือนวิกฤตต้องอยู่ระหว่าง 0 ถึง 100';
 
   @override
-  String get warningThresholdLessThanAlert =>
-      'ระดับเตือนเบาๆ ต้องน้อยกว่าหรือเท่ากับระดับเตือนวิกฤต';
+  String get warningThresholdLessThanAlert => 'ระดับเตือนเบาๆ ต้องน้อยกว่าหรือเท่ากับระดับเตือนวิกฤต';
 
   @override
   String get deleteBudget => 'ลบงบ';
@@ -1809,8 +1741,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get tapToChangeCover => 'แตะเพื่อเปลี่ยนหน้าปก';
 
   @override
-  String get personalMessageHint =>
-      'พูดอะไรสักหน่อยกับคนที่คุณเชิญ (เช่น \"มาจัดการงบด้วยกันเถอะ!\")';
+  String get personalMessageHint => 'พูดอะไรสักหน่อยกับคนที่คุณเชิญ (เช่น \"มาจัดการงบด้วยกันเถอะ!\")';
 
   @override
   String get invitationExpiresIn => 'คำเชิญหมดอายุใน';
@@ -1821,8 +1752,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get createHouseholdDescription =>
-      'สร้างสเปซเพื่อติดตามงบและค่าใช้จ่ายร่วมกับครอบครัวหรือเพื่อน';
+  String get createHouseholdDescription => 'สร้างสเปซเพื่อติดตามงบและค่าใช้จ่ายร่วมกับครอบครัวหรือเพื่อน';
 
   @override
   String get uploadingImage => 'กำลังอัปโหลดรูปภาพ...';
@@ -1967,8 +1897,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noMatchingExpenses => 'ไม่พบรายจ่ายที่ตรงกับตัวกรอง';
 
   @override
-  String get startLoggingExpenses =>
-      'จดรายจ่ายแรกของคุณเพื่อให้แสดงข้อมูลที่นี่';
+  String get startLoggingExpenses => 'จดรายจ่ายแรกของคุณเพื่อให้แสดงข้อมูลที่นี่';
 
   @override
   String get tryAdjustingFilters => 'ลองปรับตัวกรองใหม่ดูสิ';
@@ -1980,8 +1909,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get note => 'โน้ต';
 
   @override
-  String get currencyCannotBeChangedWhenSharing =>
-      'เปลี่ยนสกุลเงินไม่ได้เมื่อแชร์กับสเปซ';
+  String get currencyCannotBeChangedWhenSharing => 'เปลี่ยนสกุลเงินไม่ได้เมื่อแชร์กับสเปซ';
 
   @override
   String get createBudget => 'ตั้งงบ';
@@ -1990,20 +1918,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pleaseEnterABudgetName => 'โปรดตั้งชื่องบ';
 
   @override
-  String get pleaseEnterAValidAmountGreaterThan0 =>
-      'โปรดระบุยอดเงินให้ถูกต้อง (มากกว่า 0)';
+  String get pleaseEnterAValidAmountGreaterThan0 => 'โปรดระบุยอดเงินให้ถูกต้อง (มากกว่า 0)';
 
   @override
-  String get warningThresholdMustBeBetween0And100 =>
-      'ระดับแจ้งเตือนต้องอยู่ระหว่าง 0 ถึง 100%';
+  String get warningThresholdMustBeBetween0And100 => 'ระดับแจ้งเตือนต้องอยู่ระหว่าง 0 ถึง 100%';
 
   @override
-  String get alertThresholdMustBeBetween0And100 =>
-      'ระดับเตือนวิกฤตต้องอยู่ระหว่าง 0 ถึง 100%';
+  String get alertThresholdMustBeBetween0And100 => 'ระดับเตือนวิกฤตต้องอยู่ระหว่าง 0 ถึง 100%';
 
   @override
-  String get warningThresholdMustBeLessThanOrEqualToAlert =>
-      'ระดับเตือนเบาๆ ต้องน้อยกว่าหรือเท่ากับระดับเตือนวิกฤต';
+  String get warningThresholdMustBeLessThanOrEqualToAlert => 'ระดับเตือนเบาๆ ต้องน้อยกว่าหรือเท่ากับระดับเตือนวิกฤต';
 
   @override
   String get budgetCreatedSuccessfully => 'สร้างงบสำเร็จแล้ว!';
@@ -2027,8 +1951,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get countSplitPortionOnly => 'คิดเฉพาะส่วนที่ฉันต้องจ่าย';
 
   @override
-  String get onlyCountYourPortionOfSplitExpenses =>
-      'นับยอดเข้าในงบนี้เฉพาะส่วนแบ่งที่คุณต้องจ่ายเท่านั้น';
+  String get onlyCountYourPortionOfSplitExpenses => 'นับยอดเข้าในงบนี้เฉพาะส่วนแบ่งที่คุณต้องจ่ายเท่านั้น';
 
   @override
   String get joinHousehold => 'เข้าร่วมสเปซ';
@@ -2037,12 +1960,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get joinAHousehold => 'เข้าร่วมสเปซ';
 
   @override
-  String get enterYourInvitationLinkToJoin =>
-      'ใส่ลิงก์คำเชิญเพื่อเข้าสเปซ\nและจัดการเงินร่วมกัน';
+  String get enterYourInvitationLinkToJoin => 'ใส่ลิงก์คำเชิญเพื่อเข้าสเปซ\nและจัดการเงินร่วมกัน';
 
   @override
-  String get pasteTheInvitationLinkYouReceived =>
-      'วางลิงก์คำเชิญที่คุณได้รับมา';
+  String get pasteTheInvitationLinkYouReceived => 'วางลิงก์คำเชิญที่คุณได้รับมา';
 
   @override
   String get pasteInvitationLink => 'วางลิงก์คำเชิญ';
@@ -2066,8 +1987,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get welcomeAboard => 'ยินดีต้อนรับ!';
 
   @override
-  String get youreNowPartOfTheHousehold =>
-      'คุณได้เข้าร่วมสเปซนี้แล้ว\nมาเริ่มจัดการเงินด้วยกันเลย!';
+  String get youreNowPartOfTheHousehold => 'คุณได้เข้าร่วมสเปซนี้แล้ว\nมาเริ่มจัดการเงินด้วยกันเลย!';
 
   @override
   String get thisWillOnlyTakeAMoment => 'รอสักครู่นะ...';
@@ -2114,8 +2034,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noBudgetsYet => 'ยังไม่ได้ตั้งงบ';
 
   @override
-  String get createSharedBudgetDescription =>
-      'สร้างงบกองกลางเพื่อติดตามรายจ่ายร่วมกัน';
+  String get createSharedBudgetDescription => 'สร้างงบกองกลางเพื่อติดตามรายจ่ายร่วมกัน';
 
   @override
   String get errorLoadingBudgets => 'โหลดงบไม่สำเร็จ';
@@ -2153,8 +2072,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get owes => 'ต้องจ่าย';
 
   @override
-  String splitAmountsMustEqual(
-      String currency, String amount, Object currencySymbol) {
+  String splitAmountsMustEqual(String currency, String amount, Object currencySymbol) {
     return 'ยอดที่หารต้องรวมกันได้ $currency$amount';
   }
 
@@ -2162,8 +2080,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get percentagesMustTotal100 => 'เปอร์เซ็นต์รวมกันต้องได้ 100%';
 
   @override
-  String get eachPersonMustHaveAtLeast1Share =>
-      'แต่ละคนต้องมีส่วนแบ่งอย่างน้อย 1 ส่วน';
+  String get eachPersonMustHaveAtLeast1Share => 'แต่ละคนต้องมีส่วนแบ่งอย่างน้อย 1 ส่วน';
 
   @override
   String get whatsappVerified => 'ยืนยัน WhatsApp แล้ว';
@@ -2172,30 +2089,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get whatsappVerification => 'ยืนยันเบอร์ WhatsApp';
 
   @override
-  String get yourWhatsAppNumberIsSuccessfullyLinked =>
-      'เชื่อมต่อเบอร์ WhatsApp ของคุณสำเร็จแล้ว';
+  String get yourWhatsAppNumberIsSuccessfullyLinked => 'เชื่อมต่อเบอร์ WhatsApp ของคุณสำเร็จแล้ว';
 
   @override
-  String get verifyingYourWhatsAppNumber =>
-      'กำลังยืนยันเบอร์ WhatsApp ของคุณ...';
+  String get verifyingYourWhatsAppNumber => 'กำลังยืนยันเบอร์ WhatsApp ของคุณ...';
 
   @override
   String get enterThe6DigitCodeFromWhatsApp => 'กรอกรหัส 6 หลักจาก WhatsApp';
 
   @override
-  String get pleaseEnterThe6DigitVerificationCode =>
-      'โปรดกรอกรหัสยืนยัน 6 หลัก';
+  String get pleaseEnterThe6DigitVerificationCode => 'โปรดกรอกรหัสยืนยัน 6 หลัก';
 
   @override
   String get failedToVerifyCode => 'ยืนยันรหัสไม่สำเร็จ';
 
   @override
-  String get failedToVerifyCodePleaseTryAgain =>
-      'ยืนยันรหัสไม่สำเร็จ โปรดลองอีกครั้ง';
+  String get failedToVerifyCodePleaseTryAgain => 'ยืนยันรหัสไม่สำเร็จ โปรดลองอีกครั้ง';
 
   @override
-  String get codeAutoFilledFromVerificationLink =>
-      'กรอกรหัสอัตโนมัติจากลิงก์ยืนยันแล้ว';
+  String get codeAutoFilledFromVerificationLink => 'กรอกรหัสอัตโนมัติจากลิงก์ยืนยันแล้ว';
 
   @override
   String get verify => 'ยืนยัน';
@@ -2270,8 +2182,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get recurring => 'รายการประจำ';
 
   @override
-  String get manageYourRecurringTransactions =>
-      'จัดการบิลและรายการที่เกิดซ้ำทุกเดือน';
+  String get manageYourRecurringTransactions => 'จัดการบิลและรายการที่เกิดซ้ำทุกเดือน';
 
   @override
   String get errorLoadingData => 'โหลดข้อมูลไม่สำเร็จ';
@@ -2280,8 +2191,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get deleteRecurringTransaction => 'ลบรายการประจำ';
 
   @override
-  String get areYouSureYouWantToDeleteThisRecurringTransaction =>
-      'คุณแน่ใจหรือไม่ว่าต้องการลบรายการประจำนี้?';
+  String get areYouSureYouWantToDeleteThisRecurringTransaction => 'คุณแน่ใจหรือไม่ว่าต้องการลบรายการประจำนี้?';
 
   @override
   String get recurringTransactionDeleted => 'ลบรายการประจำแล้ว';
@@ -2302,15 +2212,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get skipNextOccurrence => 'ข้ามรอบนี้';
 
   @override
-  String get deleteRecurringChoiceDescription =>
-      'คุณต้องการข้ามแค่รอบนี้ หรือลบรายการประจำนี้ทิ้งทั้งหมด?';
+  String get deleteRecurringChoiceDescription => 'คุณต้องการข้ามแค่รอบนี้ หรือลบรายการประจำนี้ทิ้งทั้งหมด?';
 
   @override
   String get occurrenceSkipped => 'ข้ามรอบนี้แล้ว';
 
   @override
-  String get currencyIsManagedByHousehold =>
-      'สกุลเงินถูกจัดการโดยสเปซ เปลี่ยนไม่ได้นะ';
+  String get currencyIsManagedByHousehold => 'สกุลเงินถูกจัดการโดยสเปซ เปลี่ยนไม่ได้นะ';
 
   @override
   String get buyALaptop => 'ซื้อแล็ปท็อปราคา 35,000 บาท';
@@ -2335,39 +2243,31 @@ class AppLocalizationsTh extends AppLocalizations {
   String get leftHandChamps => 'หมวดซ้ายสุดคือตัวดูดเงินหลัก ลองเช็คดูหน่อยไหม';
 
   @override
-  String get smallButFrequent =>
-      'ยอดน้อยแต่จ่ายบ่อย ระวังเงินปลิวแบบไม่รู้ตัวนะ';
+  String get smallButFrequent => 'ยอดน้อยแต่จ่ายบ่อย ระวังเงินปลิวแบบไม่รู้ตัวนะ';
 
   @override
   String get colorMatches => 'สีตรงกับในหน้าแรกเลย จะได้จำง่ายๆ';
 
   @override
-  String get planningNewGoal =>
-      'กำลังตั้งเป้าใหม่? ลองหาหมวดที่พอลดได้โดยไม่ลำบากเกินไปดูสิ';
+  String get planningNewGoal => 'กำลังตั้งเป้าใหม่? ลองหาหมวดที่พอลดได้โดยไม่ลำบากเกินไปดูสิ';
 
   @override
-  String get eyeingTreatYourself =>
-      'เล็งของชิ้นใหญ่ไว้? ลองดูว่าตรงไหนลดได้บ้างเพื่อให้ได้ของไวขึ้น';
+  String get eyeingTreatYourself => 'เล็งของชิ้นใหญ่ไว้? ลองดูว่าตรงไหนลดได้บ้างเพื่อให้ได้ของไวขึ้น';
 
   @override
-  String get doubleCheckTagging =>
-      'เช็คให้ชัวร์ว่าจัดหมวดหมู่ถูก อย่าให้มีรายการลึกลับโผล่มา';
+  String get doubleCheckTagging => 'เช็คให้ชัวร์ว่าจัดหมวดหมู่ถูก อย่าให้มีรายการลึกลับโผล่มา';
 
   @override
-  String get slideHighBar =>
-      'ลองลดกราฟแท่งสูงๆ ลงนิด ด้วยการตั้งลิมิตหรือหาของที่ถูกกว่ามาแทน';
+  String get slideHighBar => 'ลองลดกราฟแท่งสูงๆ ลงนิด ด้วยการตั้งลิมิตหรือหาของที่ถูกกว่ามาแทน';
 
   @override
-  String get nonNegotiable =>
-      'ถ้ายอดไหนลดไม่ได้ (เช่น ค่าเช่า) ก็ปรับตัวอื่นเพื่อชดเชยแทน';
+  String get nonNegotiable => 'ถ้ายอดไหนลดไม่ได้ (เช่น ค่าเช่า) ก็ปรับตัวอื่นเพื่อชดเชยแทน';
 
   @override
-  String get revisitAfterScenario =>
-      'กลับมาเช็คอีกทีหลังจำลองสถานการณ์ เพื่อดูว่าแผนใหม่รอดไหม';
+  String get revisitAfterScenario => 'กลับมาเช็คอีกทีหลังจำลองสถานการณ์ เพื่อดูว่าแผนใหม่รอดไหม';
 
   @override
-  String get purpleLineCushion =>
-      'เส้นสีม่วง: เงินเหลือๆ ในแต่ละวัน ถ้าเส้นชี้ขึ้นแปลว่ามาถูกทางแล้ว';
+  String get purpleLineCushion => 'เส้นสีม่วง: เงินเหลือๆ ในแต่ละวัน ถ้าเส้นชี้ขึ้นแปลว่ามาถูกทางแล้ว';
 
   @override
   String get blueBarsBudget => 'แท่งสีฟ้า: งบที่ตั้งไว้สำหรับวันนั้น';
@@ -2376,104 +2276,79 @@ class AppLocalizationsTh extends AppLocalizations {
   String get redBarsSpent => 'แท่งสีแดง: ยอดที่จ่ายไปจริงๆ';
 
   @override
-  String get lineTrendingUpward =>
-      'เส้นชี้ขึ้น = มีเงินเหลือไปโปะเป้าหมายเก็บเงินได้';
+  String get lineTrendingUpward => 'เส้นชี้ขึ้น = มีเงินเหลือไปโปะเป้าหมายเก็บเงินได้';
 
   @override
-  String get flatDippingLine =>
-      'เส้นราบหรือดิ่งลง = ได้เวลาเบรกและทบทวนการใช้เงินก้อนใหญ่';
+  String get flatDippingLine => 'เส้นราบหรือดิ่งลง = ได้เวลาเบรกและทบทวนการใช้เงินก้อนใหญ่';
 
   @override
-  String get sharpDrops =>
-      'กราฟดิ่งฮวบมักมาจากรายจ่ายที่ไม่ได้แพลนไว้ ลองแตะดูรายละเอียดสิ';
+  String get sharpDrops => 'กราฟดิ่งฮวบมักมาจากรายจ่ายที่ไม่ได้แพลนไว้ ลองแตะดูรายละเอียดสิ';
 
   @override
-  String get lineRisingDays =>
-      'กราฟขึ้นติดกันหลายวัน? ลองแบ่งเงินที่เหลือไปออมหรือโปะหนี้ดูสิ';
+  String get lineRisingDays => 'กราฟขึ้นติดกันหลายวัน? ลองแบ่งเงินที่เหลือไปออมหรือโปะหนี้ดูสิ';
 
   @override
-  String get lineDippingWeekend =>
-      'กราฟร่วงหลังปาร์ตี้วันหยุด? ลองลดของจุกจิกในวันถัดๆ ไปเพื่อดึงยอดกลับมา';
+  String get lineDippingWeekend => 'กราฟร่วงหลังปาร์ตี้วันหยุด? ลองลดของจุกจิกในวันถัดๆ ไปเพื่อดึงยอดกลับมา';
 
   @override
-  String get feelStuckRed =>
-      'ทะลุงบตลอด? ลองกลับไปปรับงบในหน้าแรกดูนิดนึงก็เห็นผลแล้ว';
+  String get feelStuckRed => 'ทะลุงบตลอด? ลองกลับไปปรับงบในหน้าแรกดูนิดนึงก็เห็นผลแล้ว';
 
   @override
-  String get thirtyDayForecastDesc =>
-      'คาดการณ์จากพฤติกรรมเดือนที่แล้ว เพื่อเดาว่าเดือนหน้าจะใช้เงินประมาณเท่าไหร่ เหมือนพยากรณ์อากาศให้กระเป๋าตังค์';
+  String get thirtyDayForecastDesc => 'คาดการณ์จากพฤติกรรมเดือนที่แล้ว เพื่อเดาว่าเดือนหน้าจะใช้เงินประมาณเท่าไหร่ เหมือนพยากรณ์อากาศให้กระเป๋าตังค์';
 
   @override
-  String get greenLineExpected =>
-      'เส้นสีเขียว = รายจ่ายคาดการณ์ ถ้าคุณใช้ชีวิตเหมือนเดือนก่อนเป๊ะ';
+  String get greenLineExpected => 'เส้นสีเขียว = รายจ่ายคาดการณ์ ถ้าคุณใช้ชีวิตเหมือนเดือนก่อนเป๊ะ';
 
   @override
-  String get spikesHighlight =>
-      'กราฟพุ่งปรี๊ดบอกให้รู้ว่าสัปดาห์ไหนจะจ่ายหนัก (เช่น ปาร์ตี้วันศุกร์)';
+  String get spikesHighlight => 'กราฟพุ่งปรี๊ดบอกให้รู้ว่าสัปดาห์ไหนจะจ่ายหนัก (เช่น ปาร์ตี้วันศุกร์)';
 
   @override
-  String get forecastUpdates =>
-      'ทุกครั้งที่จดรายจ่าย กราฟจะอัปเดตอัตโนมัติ ไม่ต้องกดรีเฟรช';
+  String get forecastUpdates => 'ทุกครั้งที่จดรายจ่าย กราฟจะอัปเดตอัตโนมัติ ไม่ต้องกดรีเฟรช';
 
   @override
-  String get spotExpensivePatterns =>
-      'จับทางรายจ่ายก้อนใหญ่ให้ทัน แล้วกันเงินเตรียมไว้ก่อน';
+  String get spotExpensivePatterns => 'จับทางรายจ่ายก้อนใหญ่ให้ทัน แล้วกันเงินเตรียมไว้ก่อน';
 
   @override
-  String get catchQuieterWeeks =>
-      'เล็งสัปดาห์ที่ใช้เงินน้อยๆ เพื่อเอาเงินไปโปะหนี้หรือเก็บเพิ่ม';
+  String get catchQuieterWeeks => 'เล็งสัปดาห์ที่ใช้เงินน้อยๆ เพื่อเอาเงินไปโปะหนี้หรือเก็บเพิ่ม';
 
   @override
-  String get timeRecurringPayments =>
-      'ใช้กราฟช่วยดูจังหวะจ่ายบิลหรือตัดค่าสมาชิกให้เนียนที่สุด';
+  String get timeRecurringPayments => 'ใช้กราฟช่วยดูจังหวะจ่ายบิลหรือตัดค่าสมาชิกให้เนียนที่สุด';
 
   @override
-  String get bigSpikeComing =>
-      'เห็นยอดพุ่งมาแต่ไกล? ลองโยกรายจ่ายอื่นไปไว้วันที่เบากว่าแทน';
+  String get bigSpikeComing => 'เห็นยอดพุ่งมาแต่ไกล? ลองโยกรายจ่ายอื่นไปไว้วันที่เบากว่าแทน';
 
   @override
-  String get forecastDipping =>
-      'กราฟลงสวยๆ? ให้รางวัลตัวเองด้วยการเก็บเงินเพิ่มอีกนิดสิ';
+  String get forecastDipping => 'กราฟลงสวยๆ? ให้รางวัลตัวเองด้วยการเก็บเงินเพิ่มอีกนิดสิ';
 
   @override
-  String get forecastLooksOff =>
-      'ถ้ากราฟดูเพี้ยนๆ ลองเช็คหมวดหมู่ในหน้าแรกว่าลงผิดหรือเปล่า';
+  String get forecastLooksOff => 'ถ้ากราฟดูเพี้ยนๆ ลองเช็คหมวดหมู่ในหน้าแรกว่าลงผิดหรือเปล่า';
 
   @override
-  String get greenLineTrends =>
-      'เส้นสีเขียวบอกอัตราออมเงิน ถ้าชี้ขึ้นแปลว่าใกล้ถึงเป้าหมายแล้ว';
+  String get greenLineTrends => 'เส้นสีเขียวบอกอัตราออมเงิน ถ้าชี้ขึ้นแปลว่าใกล้ถึงเป้าหมายแล้ว';
 
   @override
-  String get lineDipsSignals =>
-      'ถ้าเส้นทิ่มลง แปลว่าอีกไม่กี่เดือนรายจ่ายอาจแซงรายรับ';
+  String get lineDipsSignals => 'ถ้าเส้นทิ่มลง แปลว่าอีกไม่กี่เดือนรายจ่ายอาจแซงรายรับ';
 
   @override
-  String get largeGoalsDebts =>
-      'เป้าหมายใหญ่หรือหนี้ก้อนโตจะรวมอยู่ด้วย (ถ้าติดแท็กไว้)';
+  String get largeGoalsDebts => 'เป้าหมายใหญ่หรือหนี้ก้อนโตจะรวมอยู่ด้วย (ถ้าติดแท็กไว้)';
 
   @override
-  String get upwardSlope =>
-      'กราฟพุ่งขึ้นเหรอ? ฉลองได้เลย! ลองหักเงินไปลงทุนหรือจัดทริปเที่ยวดูไหม';
+  String get upwardSlope => 'กราฟพุ่งขึ้นเหรอ? ฉลองได้เลย! ลองหักเงินไปลงทุนหรือจัดทริปเที่ยวดูไหม';
 
   @override
-  String get flatSlipping =>
-      'เส้นดิ่งลง? ถึงเวลาปรับงบหรือหาทางเพิ่มรายรับแล้วล่ะ';
+  String get flatSlipping => 'เส้นดิ่งลง? ถึงเวลาปรับงบหรือหาทางเพิ่มรายรับแล้วล่ะ';
 
   @override
-  String get watchSeasonalTrends =>
-      'ระวังรายจ่ายตามเทศกาล เปิดเทอม หรือบิลรายปี มันมักจะโผล่มาในนี้ก่อนเพื่อน';
+  String get watchSeasonalTrends => 'ระวังรายจ่ายตามเทศกาล เปิดเทอม หรือบิลรายปี มันมักจะโผล่มาในนี้ก่อนเพื่อน';
 
   @override
-  String get schedulePaymentIncreases =>
-      'วางแผนโปะหนี้เพิ่มเบาๆ ช่วงที่กราฟกำลังชี้ขึ้น';
+  String get schedulePaymentIncreases => 'วางแผนโปะหนี้เพิ่มเบาๆ ช่วงที่กราฟกำลังชี้ขึ้น';
 
   @override
-  String get planAheadDips =>
-      'เตรียมรับมือช่วงกราฟตก ด้วยการกันเงินสำรองหรือลดของฟุ่มเฟือย';
+  String get planAheadDips => 'เตรียมรับมือช่วงกราฟตก ด้วยการกันเงินสำรองหรือลดของฟุ่มเฟือย';
 
   @override
-  String get checkProjectionMonthly =>
-      'เข้ามาเช็คกราฟเดือนละครั้ง เพื่อปรับแผนระยะยาวให้เป๊ะและยืดหยุ่น';
+  String get checkProjectionMonthly => 'เข้ามาเช็คกราฟเดือนละครั้ง เพื่อปรับแผนระยะยาวให้เป๊ะและยืดหยุ่น';
 
   @override
   String get categoryHealthcare => 'สุขภาพและการแพทย์';
@@ -2485,8 +2360,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get deleteExpense => 'ลบรายจ่าย';
 
   @override
-  String get confirmDeleteExpense =>
-      'คุณแน่ใจหรือไม่ว่าต้องการลบรายจ่ายนี้? ลบแล้วกู้คืนไม่ได้นะ';
+  String get confirmDeleteExpense => 'คุณแน่ใจหรือไม่ว่าต้องการลบรายจ่ายนี้? ลบแล้วกู้คืนไม่ได้นะ';
 
   @override
   String get expenseDeletedSuccessfully => 'ลบรายจ่ายสำเร็จ';
@@ -2498,12 +2372,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get expenseNotFoundOrDeleted => 'ไม่พบรายจ่าย หรือรายจ่ายถูกลบไปแล้ว';
 
   @override
-  String get onlyAdminsAndOwnersCanEditHouseholdSettings =>
-      'เฉพาะแอดมินและเจ้าของเท่านั้นที่แก้การตั้งค่าสเปซได้';
+  String get onlyAdminsAndOwnersCanEditHouseholdSettings => 'เฉพาะแอดมินและเจ้าของเท่านั้นที่แก้การตั้งค่าสเปซได้';
 
   @override
-  String get onlyAdminsAndOwnersCanCreateInvitations =>
-      'เฉพาะแอดมินและเจ้าของเท่านั้นที่สร้างคำเชิญได้';
+  String get onlyAdminsAndOwnersCanCreateInvitations => 'เฉพาะแอดมินและเจ้าของเท่านั้นที่สร้างคำเชิญได้';
 
   @override
   String shareInvitationForHousehold(String groupName) {
@@ -2766,8 +2638,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get failedToSendReminderTryAgain =>
-      'ส่งข้อความเตือนไม่สำเร็จ ลองใหม่อีกครั้ง';
+  String get failedToSendReminderTryAgain => 'ส่งข้อความเตือนไม่สำเร็จ ลองใหม่อีกครั้ง';
 
   @override
   String get income => 'รายรับ';
@@ -2788,8 +2659,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noIncome => 'ยังไม่มีรายรับ';
 
   @override
-  String get noIncomeDescription =>
-      'บันทึกรายรับของคุณเพื่อเช็คสุขภาพการเงินของสเปซ';
+  String get noIncomeDescription => 'บันทึกรายรับของคุณเพื่อเช็คสุขภาพการเงินของสเปซ';
 
   @override
   String get totalIncome => 'รวมรายรับ';
@@ -2837,16 +2707,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get privacyPrivate => 'ส่วนตัว';
 
   @override
-  String get privacyFullExplanation =>
-      'พาร์ทเนอร์จะเห็นยอดทั้งหมด แหล่งที่มา และโน้ตที่คุณพิมพ์ไว้';
+  String get privacyFullExplanation => 'พาร์ทเนอร์จะเห็นยอดทั้งหมด แหล่งที่มา และโน้ตที่คุณพิมพ์ไว้';
 
   @override
-  String get privacyBalancesOnlyExplanation =>
-      'พาร์ทเนอร์จะเห็นแค่ยอดรวมเท่านั้น ไม่เห็นว่ามาจากไหนหรือโน้ตอะไร';
+  String get privacyBalancesOnlyExplanation => 'พาร์ทเนอร์จะเห็นแค่ยอดรวมเท่านั้น ไม่เห็นว่ามาจากไหนหรือโน้ตอะไร';
 
   @override
-  String get privacyPrivateExplanation =>
-      'คุณเห็นคนเดียว ยอดจะถูกบวกในกองกลาง แต่พาร์ทเนอร์จะไม่เห็นเลย';
+  String get privacyPrivateExplanation => 'คุณเห็นคนเดียว ยอดจะถูกบวกในกองกลาง แต่พาร์ทเนอร์จะไม่เห็นเลย';
 
   @override
   String get incomeSalary => 'เงินเดือน';
@@ -3079,12 +2946,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noRecurringIncome => 'ไม่มีรายรับประจำ';
 
   @override
-  String get setupAutomaticExpenseTracking =>
-      'ตั้งระบบจดอัตโนมัติสำหรับค่ารายเดือน บิลต่างๆ หรือรายจ่ายประจำ';
+  String get setupAutomaticExpenseTracking => 'ตั้งระบบจดอัตโนมัติสำหรับค่ารายเดือน บิลต่างๆ หรือรายจ่ายประจำ';
 
   @override
-  String get setupAutomaticIncomeTracking =>
-      'ตั้งระบบจดอัตโนมัติสำหรับเงินเดือน ฟรีแลนซ์ และรายได้ประจำ';
+  String get setupAutomaticIncomeTracking => 'ตั้งระบบจดอัตโนมัติสำหรับเงินเดือน ฟรีแลนซ์ และรายได้ประจำ';
 
   @override
   String get confirmIncome => 'ยืนยันรายรับ';
@@ -3102,8 +2967,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get atLeastOneMember => 'ต้องรวมสมาชิกอย่างน้อย 1 คน';
 
   @override
-  String get memberMustHaveShare =>
-      'สมาชิกอย่างน้อย 1 คนต้องมีส่วนแบ่งมากกว่า 0';
+  String get memberMustHaveShare => 'สมาชิกอย่างน้อย 1 คนต้องมีส่วนแบ่งมากกว่า 0';
 
   @override
   String get monthOverMonthSpending => 'เทียบรายจ่ายกับเดือนก่อน';
@@ -3127,8 +2991,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get detailedSettlement => 'เคลียร์ทีละรายการ';
 
   @override
-  String get expressNettingHint =>
-      'กดยืนยันเพื่อเคลียร์ยอดค้างทั้งหมดที่มีกับคนนี้แบบรวดเดียว';
+  String get expressNettingHint => 'กดยืนยันเพื่อเคลียร์ยอดค้างทั้งหมดที่มีกับคนนี้แบบรวดเดียว';
 
   @override
   String get settle => 'เคลียร์บิล';
@@ -3137,8 +3000,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get confirmSettlement => 'ยืนยันเคลียร์บิล';
 
   @override
-  String get confirmSettlementMessage =>
-      'การกดเคลียร์ถือเป็นการล้างยอดค้างทั้งหมดกับคนนี้';
+  String get confirmSettlementMessage => 'การกดเคลียร์ถือเป็นการล้างยอดค้างทั้งหมดกับคนนี้';
 
   @override
   String get pleaseSelectMember => 'โปรดเลือกสมาชิก';
@@ -3177,8 +3039,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get groupFairness => 'สมดุลของสเปซ';
 
   @override
-  String get groupFairnessExplanation =>
-      'แสดงสัดส่วนการออกเงินว่าแฟร์แค่ไหน ถ้า 100% คือทุกคนออกพอๆ กัน';
+  String get groupFairnessExplanation => 'แสดงสัดส่วนการออกเงินว่าแฟร์แค่ไหน ถ้า 100% คือทุกคนออกพอๆ กัน';
 
   @override
   String get noMemberDataYet => 'ยังไม่มีข้อมูลสมาชิก';
@@ -3192,8 +3053,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get viewHousehold => 'ดูสเปซ';
 
   @override
-  String get invalidInvitationMissingInfo =>
-      'คำเชิญไม่ถูกต้อง: ไม่มีข้อมูลสเปซ';
+  String get invalidInvitationMissingInfo => 'คำเชิญไม่ถูกต้อง: ไม่มีข้อมูลสเปซ';
 
   @override
   String joinedHouseholdWithName(String name) {
@@ -3242,8 +3102,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noSplitsYet => 'ยังไม่มีรายการหารบิล';
 
   @override
-  String get startSplittingExpensesWithYourHousehold =>
-      'เริ่มหารบิลกับคนในสเปซของคุณ';
+  String get startSplittingExpensesWithYourHousehold => 'เริ่มหารบิลกับคนในสเปซของคุณ';
 
   @override
   String minutesAgoShort(int count) {
@@ -3290,8 +3149,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get processingInvitation => 'กำลังตรวจสอบคำเชิญ...';
 
   @override
-  String get noHouseholdsAvailableCreateOrJoin =>
-      'ยังไม่มีสเปซ ลองสร้างหรือเข้าร่วมดูก่อนนะ';
+  String get noHouseholdsAvailableCreateOrJoin => 'ยังไม่มีสเปซ ลองสร้างหรือเข้าร่วมดูก่อนนะ';
 
   @override
   String get selectHousehold => 'เลือกสเปซ';
@@ -3354,8 +3212,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketDeleteTitle => 'ลบพ็อกเก็ต?';
 
   @override
-  String get pocketDeleteMessage =>
-      'ลบพ็อกเก็ตนี้รวมถึงหมวดหมู่ที่ผูกไว้ แต่รายจ่ายจะยังอยู่ครบนะ';
+  String get pocketDeleteMessage => 'ลบพ็อกเก็ตนี้รวมถึงหมวดหมู่ที่ผูกไว้ แต่รายจ่ายจะยังอยู่ครบนะ';
 
   @override
   String get pocketDeleted => 'ลบพ็อกเก็ตแล้ว';
@@ -3418,15 +3275,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get unallocatedSpendLabel => 'รายจ่ายที่ไม่ได้เข้าพ็อกเก็ต';
 
   @override
-  String get unallocatedBannerDescription =>
-      'มีบางรายการที่ยังไม่ได้จับใส่พ็อกเก็ตไหนเลย';
+  String get unallocatedBannerDescription => 'มีบางรายการที่ยังไม่ได้จับใส่พ็อกเก็ตไหนเลย';
 
   @override
   String get uncategorizedSpendingTitle => 'รายจ่ายนอกพ็อกเก็ต';
 
   @override
-  String get uncategorizedSpendingDescription =>
-      'หมวดหมู่พวกนี้ยังไม่ผูกกับพ็อกเก็ตไหนเลย ลองจับคู่ดูจะได้ตามงบได้ง่ายๆ';
+  String get uncategorizedSpendingDescription => 'หมวดหมู่พวกนี้ยังไม่ผูกกับพ็อกเก็ตไหนเลย ลองจับคู่ดูจะได้ตามงบได้ง่ายๆ';
 
   @override
   String get noDetailedExpensesFound => 'ไม่มีรายละเอียดรายจ่ายในหมวดนี้';
@@ -3456,26 +3311,22 @@ class AppLocalizationsTh extends AppLocalizations {
   String get allocateYourIncomeTitle => 'แบ่งเงินของคุณ';
 
   @override
-  String get allocateYourIncomeDescription =>
-      'แบ่งงบรายเดือนเป็นซองๆ (พ็อกเก็ต)';
+  String get allocateYourIncomeDescription => 'แบ่งงบรายเดือนเป็นซองๆ (พ็อกเก็ต)';
 
   @override
   String get trackSpendingTitle => 'ตามติดรายจ่าย';
 
   @override
-  String get trackSpendingDescription =>
-      'เช็คได้เลยว่าพ็อกเก็ตไหนเหลือเงินเท่าไหร่';
+  String get trackSpendingDescription => 'เช็คได้เลยว่าพ็อกเก็ตไหนเหลือเงินเท่าไหร่';
 
   @override
   String get avoidOverspendingTitle => 'กันงบบานปลาย';
 
   @override
-  String get avoidOverspendingDescription =>
-      'เตือนทันทีเมื่อเงินในพ็อกเก็ตใกล้หมดหรือทะลุงบ';
+  String get avoidOverspendingDescription => 'เตือนทันทีเมื่อเงินในพ็อกเก็ตใกล้หมดหรือทะลุงบ';
 
   @override
-  String get youveGotPaychecksIncomingAndBillsToPay =>
-      'คุณมีรายรับและบิลที่รอจ่ายอยู่';
+  String get youveGotPaychecksIncomingAndBillsToPay => 'คุณมีรายรับและบิลที่รอจ่ายอยู่';
 
   @override
   String get notifyMeDaysBefore => 'เตือนล่วงหน้า 3 วัน';
@@ -3511,19 +3362,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pleaseEnterAnEmailAddress => 'โปรดระบุอีเมล';
 
   @override
-  String get failedToImpersonateUserPleaseCheckTheEmailAndTryAgain =>
-      'จำลองผู้ใช้ไม่สำเร็จ โปรดตรวจสอบอีเมลแล้วลองใหม่';
+  String get failedToImpersonateUserPleaseCheckTheEmailAndTryAgain => 'จำลองผู้ใช้ไม่สำเร็จ โปรดตรวจสอบอีเมลแล้วลองใหม่';
 
   @override
-  String get enterTheEmailAddressOfTheUserYouWantToImpersonate =>
-      'กรอกอีเมลของผู้ใช้ที่คุณต้องการจำลองการใช้งาน:';
+  String get enterTheEmailAddressOfTheUserYouWantToImpersonate => 'กรอกอีเมลของผู้ใช้ที่คุณต้องการจำลองการใช้งาน:';
 
   @override
   String get userEmail => 'อีเมลผู้ใช้';
 
   @override
-  String get youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem =>
-      'คุณจะเห็นข้อมูลจากมุมมองของผู้ใช้นี้โดยไม่ต้องเข้าสู่ระบบด้วยรหัสผ่านของพวกเขา';
+  String get youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem => 'คุณจะเห็นข้อมูลจากมุมมองของผู้ใช้นี้โดยไม่ต้องเข้าสู่ระบบด้วยรหัสผ่านของพวกเขา';
 
   @override
   String get start => 'เริ่มเลย';
@@ -3538,8 +3386,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get solana => 'Solana';
 
   @override
-  String get usePhantomSolflareBackpackEtc =>
-      'ใช้ Phantom, Solflare, Backpack ฯลฯ';
+  String get usePhantomSolflareBackpackEtc => 'ใช้ Phantom, Solflare, Backpack ฯลฯ';
 
   @override
   String get select => 'เลือก';
@@ -3563,8 +3410,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketNotFound => 'ไม่พบพ็อกเก็ต';
 
   @override
-  String get pocketNotFoundDescription =>
-      'พ็อกเก็ตที่คุณค้นหาไม่มีอยู่หรือถูกลบไปแล้ว';
+  String get pocketNotFoundDescription => 'พ็อกเก็ตที่คุณค้นหาไม่มีอยู่หรือถูกลบไปแล้ว';
 
   @override
   String get monthlyBudget => 'งบรายเดือน';
@@ -4005,8 +3851,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get to => 'ถึง';
 
   @override
-  String get notYetSplitBanner =>
-      'รายจ่ายนี้ยังไม่ได้หาร ตั้งค่าการหารบิลด้านล่างเลย';
+  String get notYetSplitBanner => 'รายจ่ายนี้ยังไม่ได้หาร ตั้งค่าการหารบิลด้านล่างเลย';
 
   @override
   String get chooseSourceForAnalysis => 'เลือกช่องทางรับข้อมูล';
@@ -4024,8 +3869,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get homeFabTourTitle => 'จดรายรับหรือรายจ่าย';
 
   @override
-  String get homeFabTourDescription =>
-      'แตะตรงนี้เพื่อจดรายรับ-รายจ่ายผ่าน AI ได้ตลอดเวลา';
+  String get homeFabTourDescription => 'แตะตรงนี้เพื่อจดรายรับ-รายจ่ายผ่าน AI ได้ตลอดเวลา';
 
   @override
   String get holdLongerToRecord => 'กดค้างไว้เพื่ออัดเสียง';
@@ -4043,8 +3887,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get updateRequiredTitle => 'ต้องอัปเดตแอป';
 
   @override
-  String get updateRequiredMessage =>
-      'Moneko มีเวอร์ชันใหม่แล้ว โปรดอัปเดตเพื่อใช้งานแอปต่อ';
+  String get updateRequiredMessage => 'Moneko มีเวอร์ชันใหม่แล้ว โปรดอัปเดตเพื่อใช้งานแอปต่อ';
 
   @override
   String get configureWidgetTitle => 'ตั้งค่าวิดเจ็ต';
@@ -4071,8 +3914,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get scenarioDeleted => 'ลบแล้ว';
 
   @override
-  String get deleteScenarioConfirmation =>
-      'แน่ใจนะว่าจะลบ? ลบแล้วกู้คืนไม่ได้นะ';
+  String get deleteScenarioConfirmation => 'แน่ใจนะว่าจะลบ? ลบแล้วกู้คืนไม่ได้นะ';
 
   @override
   String get startWithLastMonthsBudget => 'เริ่มจากงบเดือนก่อนเลยไหม?';
@@ -4128,8 +3970,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get signingOut => 'กำลังออกจากระบบ...';
 
   @override
-  String get resetPasswordDiscordMessage =>
-      'ถ้าจะเปลี่ยนรหัสผ่าน ทักทีมซัพพอร์ตใน Discord ได้เลย';
+  String get resetPasswordDiscordMessage => 'ถ้าจะเปลี่ยนรหัสผ่าน ทักทีมซัพพอร์ตใน Discord ได้เลย';
 
   @override
   String get openDiscord => 'เปิด Discord';
@@ -4144,15 +3985,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get completingAuthentication => 'กำลังยืนยันตัวตน...';
 
   @override
-  String get walletSignInStatement =>
-      'ฉันยอมรับข้อตกลงที่ https://moneko.io/terms';
+  String get walletSignInStatement => 'ฉันยอมรับข้อตกลงที่ https://moneko.io/terms';
 
   @override
   String get pocketsBudgetTourTitle => 'ตั้งงบรายเดือนของคุณ';
 
   @override
-  String get pocketsBudgetTourDescription =>
-      'แตะตรงนี้เพื่อแก้งบ หรือลากแถบเพื่อปรับยอด';
+  String get pocketsBudgetTourDescription => 'แตะตรงนี้เพื่อแก้งบ หรือลากแถบเพื่อปรับยอด';
 
   @override
   String switchingToIndex(Object index) {
@@ -4166,8 +4005,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get errorLoadingDashboard => 'โหลดหน้าแดชบอร์ดไม่สำเร็จ';
 
   @override
-  String get selectHouseholdToManageSharedBudgets =>
-      'เลือกสเปซเพื่อจัดการงบกองกลาง';
+  String get selectHouseholdToManageSharedBudgets => 'เลือกสเปซเพื่อจัดการงบกองกลาง';
 
   @override
   String get usd => 'USD';
@@ -4214,8 +4052,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get homeModeTourTitle => 'สลับดูข้อมูลส่วนตัวกับสเปซ';
 
   @override
-  String get homeModeTourDescription =>
-      'แตะตรงนี้เพื่อสลับดูข้อมูลส่วนตัวหรือกองกลาง';
+  String get homeModeTourDescription => 'แตะตรงนี้เพื่อสลับดูข้อมูลส่วนตัวหรือกองกลาง';
 
   @override
   String get topCategory => 'หมวดที่จ่ายเยอะสุด';
@@ -4244,8 +4081,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noSavedScenariosYet => 'ยังไม่มีสถานการณ์จำลองที่เซฟไว้';
 
   @override
-  String get allCaughtUpNoPendingInvites =>
-      'เคลียร์หมดแล้ว! ไม่มีคำเชิญค้างอยู่';
+  String get allCaughtUpNoPendingInvites => 'เคลียร์หมดแล้ว! ไม่มีคำเชิญค้างอยู่';
 
   @override
   String get pastInvitationsWillAppearHere => 'คำเชิญเก่าๆ จะอยู่ตรงนี้';
@@ -4288,8 +4124,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get selectCurrencyForDailySpending => 'เลือกสกุลเงินที่ใช้บ่อยที่สุด';
 
   @override
-  String get createSpendingLimitForCategory =>
-      'ตั้งลิมิตรายจ่ายแล้วรอดูเงินเก็บงอกเงย!';
+  String get createSpendingLimitForCategory => 'ตั้งลิมิตรายจ่ายแล้วรอดูเงินเก็บงอกเงย!';
 
   @override
   String get getNotifiedBeforeSpendingLimit => 'รับแจ้งเตือนก่อนเงินทะลุลิมิต';
@@ -4307,15 +4142,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get clearAppIconBadgeTitle => 'ลบเลขแจ้งเตือนบนไอคอน';
 
   @override
-  String get clearAppIconBadgeSubtitle =>
-      'เคลียร์เลขสีแดงบนไอคอนแอปถ้าระบบค้าง';
+  String get clearAppIconBadgeSubtitle => 'เคลียร์เลขสีแดงบนไอคอนแอปถ้าระบบค้าง';
 
   @override
   String get appIconBadgeCleared => 'เคลียร์เลขบนไอคอนแล้ว';
 
   @override
-  String get appIconBadgeNotSupported =>
-      'เครื่องนี้ไม่รองรับเลขแจ้งเตือนบนไอคอน';
+  String get appIconBadgeNotSupported => 'เครื่องนี้ไม่รองรับเลขแจ้งเตือนบนไอคอน';
 
   @override
   String get appIconBadgeClearFailed => 'เคลียร์เลขบนไอคอนไม่สำเร็จ';
@@ -4332,8 +4165,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get fixNotificationIssuesTitle => 'แก้ปัญหาไม่แจ้งเตือน';
 
   @override
-  String get fixNotificationIssuesSubtitle =>
-      'รีเฟรชเครื่องนี้ใหม่ถ้าแจ้งเตือนไม่เด้ง';
+  String get fixNotificationIssuesSubtitle => 'รีเฟรชเครื่องนี้ใหม่ถ้าแจ้งเตือนไม่เด้ง';
 
   @override
   String get changeAvatar => 'เปลี่ยนอวตาร';
@@ -4351,30 +4183,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get recurringTourFabTitle => 'เพิ่มบิลประจำ';
 
   @override
-  String get recurringTourFabDescription =>
-      'สร้างรายรับรายจ่ายที่เกิดทุกเดือน เช่น ค่าสมาชิก บิล หรือเงินเดือน';
+  String get recurringTourFabDescription => 'สร้างรายรับรายจ่ายที่เกิดทุกเดือน เช่น ค่าสมาชิก บิล หรือเงินเดือน';
 
   @override
   String get recurringTourTabsTitle => 'ดูบิลประจำแต่ละประเภท';
 
   @override
-  String get recurringTourTabsDescription =>
-      'สลับแท็บเพื่อดูรายรับหรือรายจ่ายที่เกิดซ้ำ';
+  String get recurringTourTabsDescription => 'สลับแท็บเพื่อดูรายรับหรือรายจ่ายที่เกิดซ้ำ';
 
   @override
-  String get insightsTourExampleRentGroceries =>
-      'จ่ายค่าเช่าและซื้อของเข้าห้อง';
+  String get insightsTourExampleRentGroceries => 'จ่ายค่าเช่าและซื้อของเข้าห้อง';
 
   @override
-  String get insightsTourExampleEmergencyFund =>
-      'เก็บเงิน 15,000 เป็นกองทุนฉุกเฉิน';
+  String get insightsTourExampleEmergencyFund => 'เก็บเงิน 15,000 เป็นกองทุนฉุกเฉิน';
 
   @override
   String get insightsTourIntro => 'ถาม AI ดูสิว่าอนาคตจะเปย์ไหวไหม';
 
   @override
-  String get insightsTourDataLine =>
-      'คำนวณจากค่าเฉลี่ยที่ผ่านมา (อัปเดตให้อัตโนมัติ)';
+  String get insightsTourDataLine => 'คำนวณจากค่าเฉลี่ยที่ผ่านมา (อัปเดตให้อัตโนมัติ)';
 
   @override
   String get syncBankSectionTitle => 'ผูกบัญชีธนาคาร';
@@ -4383,8 +4210,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get syncBankAccountsTitle => 'ผูกบัญชีธนาคาร';
 
   @override
-  String get syncBankAccountsSubtitle =>
-      'ผูกธนาคารอย่างปลอดภัยเพื่อดึงยอดและรายการแบบอัตโนมัติ';
+  String get syncBankAccountsSubtitle => 'ผูกธนาคารอย่างปลอดภัยเพื่อดึงยอดและรายการแบบอัตโนมัติ';
 
   @override
   String get syncBankAccountsTooltip => 'ดูวิธีผูกบัญชีผ่าน Plaid';
@@ -4417,12 +4243,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get sharedSpace => 'สเปซกองกลาง';
 
   @override
-  String get sharedSpacesDescription =>
-      'สเปซกองกลางช่วยให้คุณจัดการงบและแชร์ค่าใช้จ่ายร่วมกับคนอื่นได้';
+  String get sharedSpacesDescription => 'สเปซกองกลางช่วยให้คุณจัดการงบและแชร์ค่าใช้จ่ายร่วมกับคนอื่นได้';
 
   @override
-  String get privateSpacesDescription =>
-      'สเปซส่วนตัวมีแต่คุณที่เห็น ปลอดภัยสุดๆ เอาไว้จัดการเงินเงียบๆ คนเดียว';
+  String get privateSpacesDescription => 'สเปซส่วนตัวมีแต่คุณที่เห็น ปลอดภัยสุดๆ เอาไว้จัดการเงินเงียบๆ คนเดียว';
 
   @override
   String get howDoSpacesWork => 'สเปซคืออะไร?';
@@ -4455,22 +4279,19 @@ class AppLocalizationsTh extends AppLocalizations {
   String get chooseYourSpace => 'เลือกสเปซ';
 
   @override
-  String get spacesHelpOrganize =>
-      'สเปซช่วยแยกกระเป๋าเงินของคุณให้เป็นสัดส่วน ลองดูสิ:';
+  String get spacesHelpOrganize => 'สเปซช่วยแยกกระเป๋าเงินของคุณให้เป็นสัดส่วน ลองดูสิ:';
 
   @override
   String get yourPersonalVault => 'เซฟส่วนตัว';
 
   @override
-  String get privateSpaceDescription =>
-      'พื้นที่ส่วนตัวสุดๆ ไว้จดรายจ่ายและเป้าหมายเก็บเงินที่คุณเห็นคนเดียว';
+  String get privateSpaceDescription => 'พื้นที่ส่วนตัวสุดๆ ไว้จดรายจ่ายและเป้าหมายเก็บเงินที่คุณเห็นคนเดียว';
 
   @override
   String get betterTogether => 'จัดการด้วยกันมันกว่า';
 
   @override
-  String get sharedSpaceDescription2 =>
-      'ชวนแฟนหรือครอบครัวมาตั้งงบกองกลาง หารบิลรัวๆ แล้วพุ่งชนเป้าหมายไปด้วยกัน';
+  String get sharedSpaceDescription2 => 'ชวนแฟนหรือครอบครัวมาตั้งงบกองกลาง หารบิลรัวๆ แล้วพุ่งชนเป้าหมายไปด้วยกัน';
 
   @override
   String get pleaseEnterValidEmailAddress => 'โปรดใส่อีเมลให้ถูกต้อง';
@@ -4485,8 +4306,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get whoDoYouWantToInvite => 'อยากชวนใครเข้าสเปซ?';
 
   @override
-  String get emailInviteDescription =>
-      'ใส่อีเมลเพื่อนส่งคำเชิญตรงๆ หรือสร้างลิงก์ไปส่งเองก็ได้';
+  String get emailInviteDescription => 'ใส่อีเมลเพื่อนส่งคำเชิญตรงๆ หรือสร้างลิงก์ไปส่งเองก็ได้';
 
   @override
   String get emailAddressOptional => 'อีเมล (ไม่บังคับ)';
@@ -4507,15 +4327,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get linkReady => 'ลิงก์พร้อมใช้งาน!';
 
   @override
-  String get invitationEmailSent =>
-      'ส่งอีเมลชวนแล้วนะ หรือจะเอาลิงก์ด้านล่างไปส่งเองก็ได้';
+  String get invitationEmailSent => 'ส่งอีเมลชวนแล้วนะ หรือจะเอาลิงก์ด้านล่างไปส่งเองก็ได้';
 
   @override
   String get shareLinkDescription => 'ส่งลิงก์นี้ให้คนที่คุณอยากชวนเข้าสเปซเลย';
 
   @override
-  String get invalidInvitationMissingHousehold =>
-      'ลิงก์เชิญพัง: หาข้อมูลสเปซไม่เจอ';
+  String get invalidInvitationMissingHousehold => 'ลิงก์เชิญพัง: หาข้อมูลสเปซไม่เจอ';
 
   @override
   String get failedToDeleteHousehold => 'ลบสเปซไม่สำเร็จ';
@@ -4545,12 +4363,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get joinHouseholdWithInvitationLink => 'เข้าสเปซด้วยลิงก์คำเชิญ';
 
   @override
-  String get pasteInvitationLinkFromHouseholdMember =>
-      'แปะลิงก์ที่เพื่อนส่งมาเลย';
+  String get pasteInvitationLinkFromHouseholdMember => 'แปะลิงก์ที่เพื่อนส่งมาเลย';
 
   @override
-  String get benefitsOfJoiningHousehold =>
-      'ข้อดี: ดูงบกองกลาง เช็คสถานะการเงิน และตัดสินใจเรื่องเงินไปพร้อมกันได้';
+  String get benefitsOfJoiningHousehold => 'ข้อดี: ดูงบกองกลาง เช็คสถานะการเงิน และตัดสินใจเรื่องเงินไปพร้อมกันได้';
 
   @override
   String get joiningHouseholdPleaseWait => 'กำลังเข้าสเปซ รอแป๊บนึงนะ...';
@@ -4583,29 +4399,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingFinishHighlightCaptureTitle => 'จดรายจ่ายอัจฉริยะ';
 
   @override
-  String get onboardingFinishHighlightCaptureBody =>
-      'พิมพ์คุย ถ่ายใบเสร็จ หรืออัดเสียง ก็จดได้หมด';
+  String get onboardingFinishHighlightCaptureBody => 'พิมพ์คุย ถ่ายใบเสร็จ หรืออัดเสียง ก็จดได้หมด';
 
   @override
   String get onboardingFinishHighlightPocketsTitle => 'แบ่งเงินใส่พ็อกเก็ต';
 
   @override
-  String get onboardingFinishHighlightPocketsBody =>
-      'แบ่งงบรายเดือนเป็นซองๆ แล้วคอยเช็คว่าเหลือใช้เท่าไหร่';
+  String get onboardingFinishHighlightPocketsBody => 'แบ่งงบรายเดือนเป็นซองๆ แล้วคอยเช็คว่าเหลือใช้เท่าไหร่';
 
   @override
   String get onboardingFinishHighlightHouseholdTitle => 'แชร์กับครอบครัว';
 
   @override
-  String get onboardingFinishHighlightHouseholdBody =>
-      'จัดการเงินคนเดียวชิลๆ หรือแชร์งบกับคนในบ้านก็ได้';
+  String get onboardingFinishHighlightHouseholdBody => 'จัดการเงินคนเดียวชิลๆ หรือแชร์งบกับคนในบ้านก็ได้';
 
   @override
   String get onboardingFinishHighlightInsightsTitle => 'รู้ลึกเรื่องการใช้เงิน';
 
   @override
-  String get onboardingFinishHighlightInsightsBody =>
-      'ลองถาม AI สิว่า \"เดือนหน้าจะซื้อไอแพดไหวไหม?\"';
+  String get onboardingFinishHighlightInsightsBody => 'ลองถาม AI สิว่า \"เดือนหน้าจะซื้อไอแพดไหวไหม?\"';
 
   @override
   String get claimFreeTrial => 'ทดลองใช้ฟรีเลย';
@@ -4614,8 +4426,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get youreAllSet => 'พร้อมใช้งานแล้ว!';
 
   @override
-  String get claimYourFreeTrialToUnlockAllFeatures =>
-      'รับสิทธิ์ทดลองใช้ฟรีเพื่อปลดล็อกฟีเจอร์ทุกอัน';
+  String get claimYourFreeTrialToUnlockAllFeatures => 'รับสิทธิ์ทดลองใช้ฟรีเพื่อปลดล็อกฟีเจอร์ทุกอัน';
 
   @override
   String get startYourJourneyWithMoneko => 'เริ่มต้นใช้งาน Moneko';
@@ -4646,8 +4457,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get yourSubscriptionHasExpired => 'สมาชิกพรีเมียมของคุณหมดอายุแล้ว';
 
   @override
-  String get resubscribeToContinueEnjoying =>
-      'ต่ออายุเพื่อใช้งานฟีเจอร์พรีเมียมและข้อมูลเชิงลึกได้อย่างต่อเนื่อง';
+  String get resubscribeToContinueEnjoying => 'ต่ออายุเพื่อใช้งานฟีเจอร์พรีเมียมและข้อมูลเชิงลึกได้อย่างต่อเนื่อง';
 
   @override
   String get continuePremiumAccess => 'ใช้งานพรีเมียมต่อ';
@@ -4674,12 +4484,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get justMyself => 'เฉพาะฉันเท่านั้น';
 
   @override
-  String get privateSpaceDescriptionFooter =>
-      'มีเพียงคุณเท่านั้นที่มองเห็นสเปซนี้';
+  String get privateSpaceDescriptionFooter => 'มีเพียงคุณเท่านั้นที่มองเห็นสเปซนี้';
 
   @override
-  String get sharedSpaceDescriptionFooter =>
-      'สมาชิกทุกคนสามารถดูยอดเงินและรายการธุรกรรมได้';
+  String get sharedSpaceDescriptionFooter => 'สมาชิกทุกคนสามารถดูยอดเงินและรายการธุรกรรมได้';
 
   @override
   String get spaceVisibility => 'การมองเห็นสเปซ';
@@ -4688,12 +4496,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get whoCanSeeAndAddExpense => 'ใครดูและเพิ่มรายจ่ายได้บ้าง?';
 
   @override
-  String get everyoneInSpaceCanViewAndAddTransactions =>
-      'ทุกคนในสเปซสามารถดูและเพิ่มรายการได้ คุณสามารถชวนสมาชิกเพิ่มได้ในขั้นตอนถัดไป';
+  String get everyoneInSpaceCanViewAndAddTransactions => 'ทุกคนในสเปซสามารถดูและเพิ่มรายการได้ คุณสามารถชวนสมาชิกเพิ่มได้ในขั้นตอนถัดไป';
 
   @override
-  String get onlyYouCanSeeAndAddTransactionsInThisSpace =>
-      'มีเพียงคุณเท่านั้นที่สามารถดูและเพิ่มรายการในสเปซนี้ได้';
+  String get onlyYouCanSeeAndAddTransactionsInThisSpace => 'มีเพียงคุณเท่านั้นที่สามารถดูและเพิ่มรายการในสเปซนี้ได้';
 
   @override
   String get nameThisSpace => 'ตั้งชื่อสเปซ';
@@ -4711,176 +4517,151 @@ class AppLocalizationsTh extends AppLocalizations {
   String get createFromTemplate => 'สร้างจากเทมเพลต';
 
   @override
-  String get createFromTemplateDesc =>
-      'เลือกเทมเพลตเพื่อตั้งงบประมาณอย่างรวดเร็ว';
+  String get createFromTemplateDesc => 'เลือกเทมเพลตเพื่อตั้งงบประมาณอย่างรวดเร็ว';
 
   @override
   String get templateRentHeavyTitle => 'เน้นค่าเช่าและของใช้จำเป็น';
 
   @override
-  String get templateRentHeavyDesc =>
-      'เน้นการจัดการที่พักอาศัยและของใช้พื้นฐาน';
+  String get templateRentHeavyDesc => 'เน้นการจัดการที่พักอาศัยและของใช้พื้นฐาน';
 
   @override
   String get templateBalancedTitle => 'สายสมดุลเบื้องต้น';
 
   @override
-  String get templateBalancedDesc =>
-      'แบ่งตามสูตร 50/30/20 (จำเป็น/ความสุข/เงินออม)';
+  String get templateBalancedDesc => 'แบ่งตามสูตร 50/30/20 (จำเป็น/ความสุข/เงินออม)';
 
   @override
   String get template_couple_dink_title => 'คู่รักวัยทำงาน (DINKs)';
 
   @override
-  String get template_couple_dink_desc =>
-      'คู่รักที่ทำงานทั้งคู่และยังไม่มีลูก เน้นการแบ่งเงินแบบ 50/30/20';
+  String get template_couple_dink_desc => 'คู่รักที่ทำงานทั้งคู่และยังไม่มีลูก เน้นการแบ่งเงินแบบ 50/30/20';
 
   @override
   String get template_couple_fire_title => 'สายเก็บเงินโหด (FIRE)';
 
   @override
-  String get template_couple_fire_desc =>
-      'เน้นอัตราการออมที่สูงเป็นพิเศษ เพื่อเกษียณเร็วหรือเป้าหมายใหญ่';
+  String get template_couple_fire_desc => 'เน้นอัตราการออมที่สูงเป็นพิเศษ เพื่อเกษียณเร็วหรือเป้าหมายใหญ่';
 
   @override
   String get template_couple_debt_title => 'สายปลดหนี้';
 
   @override
-  String get template_couple_debt_desc =>
-      'เน้นการโปะหนี้ให้หมดก่อนเริ่มใช้จ่ายฟุ่มเฟือย';
+  String get template_couple_debt_desc => 'เน้นการโปะหนี้ให้หมดก่อนเริ่มใช้จ่ายฟุ่มเฟือย';
 
   @override
   String get template_couple_foodies_title => 'สายกินตัวจริง';
 
   @override
-  String get template_couple_foodies_desc =>
-      'สำหรับคู่รักที่รักการทานข้าวนอกบ้านและซื้อวัตถุดิบพรีเมียม';
+  String get template_couple_foodies_desc => 'สำหรับคู่รักที่รักการทานข้าวนอกบ้านและซื้อวัตถุดิบพรีเมียม';
 
   @override
   String get template_couple_home_title => 'คนเพิ่งมีบ้าน';
 
   @override
-  String get template_couple_home_desc =>
-      'เน้นงบไปที่ค่าผ่อนบ้าน การรีโนเวท และของตกแต่ง';
+  String get template_couple_home_desc => 'เน้นงบไปที่ค่าผ่อนบ้าน การรีโนเวท และของตกแต่ง';
 
   @override
   String get template_couple_travel_title => 'สายเที่ยวและผจญภัย';
 
   @override
-  String get template_couple_travel_desc =>
-      'สำหรับทริปใหญ่ หรือคนที่รักการเดินทางเป็นชีวิตจิตใจ';
+  String get template_couple_travel_desc => 'สำหรับทริปใหญ่ หรือคนที่รักการเดินทางเป็นชีวิตจิตใจ';
 
   @override
   String get template_family_bal_title => 'ครอบครัวมาตรฐาน';
 
   @override
-  String get template_family_bal_desc =>
-      'งบประมาณพื้นฐานสำหรับครอบครัวที่มีลูก';
+  String get template_family_bal_desc => 'งบประมาณพื้นฐานสำหรับครอบครัวที่มีลูก';
 
   @override
   String get template_family_single_title => 'ครอบครัวรายได้ทางเดียว';
 
   @override
-  String get template_family_single_desc =>
-      'เน้นการคุมงบอย่างรัดกุมสำหรับครอบครัวที่ทำงานคนเดียว';
+  String get template_family_single_desc => 'เน้นการคุมงบอย่างรัดกุมสำหรับครอบครัวที่ทำงานคนเดียว';
 
   @override
   String get template_family_pets_title => 'ทาสสัตว์เลี้ยง';
 
   @override
-  String get template_family_pets_desc =>
-      'สำหรับบ้านที่เลี้ยงสัตว์และมีค่าใช้จ่ายจุกจิกตามมา';
+  String get template_family_pets_desc => 'สำหรับบ้านที่เลี้ยงสัตว์และมีค่าใช้จ่ายจุกจิกตามมา';
 
   @override
   String get template_family_health_title => 'สายรักษาสุขภาพ';
 
   @override
-  String get template_family_health_desc =>
-      'เน้นงบไปที่ค่ารักษาพยาบาล การดูแลสุขภาพ และบำบัด';
+  String get template_family_health_desc => 'เน้นงบไปที่ค่ารักษาพยาบาล การดูแลสุขภาพ และบำบัด';
 
   @override
   String get template_family_active_title => 'สายกิจกรรม';
 
   @override
-  String get template_family_active_desc =>
-      'เน้นค่าเรียนพิเศษ กีฬา ดนตรี และชมรมต่างๆ';
+  String get template_family_active_desc => 'เน้นค่าเรียนพิเศษ กีฬา ดนตรี และชมรมต่างๆ';
 
   @override
   String get template_family_host_title => 'สายปาร์ตี้/จัดงาน';
 
   @override
-  String get template_family_host_desc =>
-      'สำหรับคนที่ชอบจัดงานสังสรรค์ มีแขกมาบ้าน หรือออกงานสังคมบ่อย';
+  String get template_family_host_desc => 'สำหรับคนที่ชอบจัดงานสังสรรค์ มีแขกมาบ้าน หรือออกงานสังคมบ่อย';
 
   @override
   String get template_mates_split_title => 'แชร์ค่าใช้จ่ายในบ้าน';
 
   @override
-  String get template_mates_split_desc =>
-      'แชร์เฉพาะบิลส่วนกลาง ส่วนของใช้ส่วนตัวแยกกระเป๋ากัน';
+  String get template_mates_split_desc => 'แชร์เฉพาะบิลส่วนกลาง ส่วนของใช้ส่วนตัวแยกกระเป๋ากัน';
 
   @override
   String get template_mates_party_title => 'เพื่อนสายตี้';
 
   @override
-  String get template_mates_party_desc =>
-      'งบส่วนกลางสำหรับงานปาร์ตี้ เครื่องดื่ม และการสังสรรค์';
+  String get template_mates_party_desc => 'งบส่วนกลางสำหรับงานปาร์ตี้ เครื่องดื่ม และการสังสรรค์';
 
   @override
   String get template_mates_nomads_title => 'ชาว Digital Nomads';
 
   @override
-  String get template_mates_nomads_desc =>
-      'กลุ่มคนทำงานทางไกลที่แชร์ที่พักหรือ Co-working space ร่วมกัน';
+  String get template_mates_nomads_desc => 'กลุ่มคนทำงานทางไกลที่แชร์ที่พักหรือ Co-working space ร่วมกัน';
 
   @override
   String get template_mates_student_title => 'เด็กหอ';
 
   @override
-  String get template_mates_student_desc =>
-      'เน้นความประหยัดขั้นสุด สำหรับค่าอาหารและอุปกรณ์การเรียน';
+  String get template_mates_student_desc => 'เน้นความประหยัดขั้นสุด สำหรับค่าอาหารและอุปกรณ์การเรียน';
 
   @override
   String get template_mates_communal_title => 'อยู่แบบคอมมูน';
 
   @override
-  String get template_mates_communal_desc =>
-      'สไตล์สโลว์ไลฟ์ แชร์ค่าอาหารและของใช้ในบ้านร่วมกันทุกอย่าง';
+  String get template_mates_communal_desc => 'สไตล์สโลว์ไลฟ์ แชร์ค่าอาหารและของใช้ในบ้านร่วมกันทุกอย่าง';
 
   @override
   String get template_mates_min_title => 'มินิมอลสายแชร์';
 
   @override
-  String get template_mates_min_desc =>
-      'แชร์แค่ค่าเช่าและค่าน้ำไฟ ที่เหลือจัดการเองส่วนตัว';
+  String get template_mates_min_desc => 'แชร์แค่ค่าเช่าและค่าน้ำไฟ ที่เหลือจัดการเองส่วนตัว';
 
   @override
   String get template_pers_freelancer_title => 'ฟรีแลนซ์';
 
   @override
-  String get template_pers_freelancer_desc =>
-      'จัดการรายได้ที่ไม่แน่นอน พร้อมสำรองเงินไว้จ่ายภาษี';
+  String get template_pers_freelancer_desc => 'จัดการรายได้ที่ไม่แน่นอน พร้อมสำรองเงินไว้จ่ายภาษี';
 
   @override
   String get template_pers_student_title => 'นักศึกษามหาวิทยาลัย';
 
   @override
-  String get template_pers_student_desc =>
-      'บริหารค่าเรียนที่ค่อนข้างสูง พร้อมการใช้ชีวิตแบบประหยัด';
+  String get template_pers_student_desc => 'บริหารค่าเรียนที่ค่อนข้างสูง พร้อมการใช้ชีวิตแบบประหยัด';
 
   @override
   String get template_pers_luxury_title => 'รายได้สูง ไลฟ์สไตล์หรู';
 
   @override
-  String get template_pers_luxury_desc =>
-      'เน้นการใช้จ่ายเพื่อความสุข การกินเที่ยว และการดูแลตัวเองระดับพรีเมียม';
+  String get template_pers_luxury_desc => 'เน้นการใช้จ่ายเพื่อความสุข การกินเที่ยว และการดูแลตัวเองระดับพรีเมียม';
 
   @override
   String get template_pers_car_title => 'สายเดินทาง/คนรักรถ';
 
   @override
-  String get template_pers_car_desc =>
-      'เน้นงบค่าน้ำมัน การซ่อมบำรุง และค่าแต่งรถ';
+  String get template_pers_car_desc => 'เน้นงบค่าน้ำมัน การซ่อมบำรุง และค่าแต่งรถ';
 
   @override
   String get template_pers_bio_title => 'สายฟิตเนส/ไบโอแฮคเกอร์';
@@ -4892,8 +4673,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get template_pers_gamer_title => 'สายเทคและเกมเมอร์';
 
   @override
-  String get template_pers_gamer_desc =>
-      'เน้นอุปกรณ์ไอที เกม และบริการดิจิทัลต่างๆ';
+  String get template_pers_gamer_desc => 'เน้นอุปกรณ์ไอที เกม และบริการดิจิทัลต่างๆ';
 
   @override
   String get categoryHealthInsurance => 'ประกันสุขภาพ';
@@ -5055,8 +4835,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get displayCurrency => 'สกุลเงินที่แสดง';
 
   @override
-  String get displayCurrencyTooltip =>
-      'ยอดเงินทั้งหมดในหน้านี้ถูกแปลงเป็นสกุลเงินหลักของคุณโดยประมาณ';
+  String get displayCurrencyTooltip => 'ยอดเงินทั้งหมดในหน้านี้ถูกแปลงเป็นสกุลเงินหลักของคุณโดยประมาณ';
 
   @override
   String get activeAccounts => 'บัญชีที่ใช้งานอยู่';
@@ -5185,12 +4964,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get importColumnFormat => 'รูปแบบคอลัมน์';
 
   @override
-  String get importSplitDebitCredit =>
-      'แยกคอลัมน์ รายรับ/รายจ่าย (Debit/Credit)';
+  String get importSplitDebitCredit => 'แยกคอลัมน์ รายรับ/รายจ่าย (Debit/Credit)';
 
   @override
-  String get importSplitDebitCreditHint =>
-      'เปิดใช้งานหากยอดเงินเข้าและออกอยู่คนละคอลัมน์กัน';
+  String get importSplitDebitCreditHint => 'เปิดใช้งานหากยอดเงินเข้าและออกอยู่คนละคอลัมน์กัน';
 
   @override
   String get importFieldDebit => 'คอลัมน์รายจ่าย (Debit)';
@@ -5255,8 +5032,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get tryNow => 'ลองเลย';
 
   @override
-  String get tryAiLoggingSubtitle =>
-      'ถ่ายรูป พิมพ์ หรือพูด—การจดรายจ่ายจะง่ายและสนุกกว่าที่เคย!';
+  String get tryAiLoggingSubtitle => 'ถ่ายรูป พิมพ์ หรือพูด—การจดรายจ่ายจะง่ายและสนุกกว่าที่เคย!';
 
   @override
   String get tryAiLoggingFilesHint => 'มีใบเสร็จไหม? ส่งมาให้เราได้เลย!';
@@ -5287,8 +5063,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aiPromptExamplesTitle => 'ลองพูดแบบนี้ดูสิ';
 
   @override
-  String get aiPromptExamplesDescription =>
-      'Moneko สามารถแยกวันที่ หมวดหมู่ ร้านค้า หรือแม้แต่แยกรายการย่อยให้คุณได้!';
+  String get aiPromptExamplesDescription => 'Moneko สามารถแยกวันที่ หมวดหมู่ ร้านค้า หรือแม้แต่แยกรายการย่อยให้คุณได้!';
 
   @override
   String get aiPromptExample1 => 'กินข้าวเที่ยง 150 บาท วันนี้ที่ MK';
@@ -5300,22 +5075,19 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aiPromptExample3 => 'จ่าย Grab 120 บาท แบ่งเป็นค่ารถกับทิป';
 
   @override
-  String get aiCapabilitiesHint =>
-      'เราจะระบุวันที่ หมวดหมู่ และสกุลเงินให้คุณโดยอัตโนมัติ พร้อมแยกรายการย่อยถ้ามี';
+  String get aiCapabilitiesHint => 'เราจะระบุวันที่ หมวดหมู่ และสกุลเงินให้คุณโดยอัตโนมัติ พร้อมแยกรายการย่อยถ้ามี';
 
   @override
   String get pocketsIntroTitle => 'จัดระเบียบเงินของคุณ!';
 
   @override
-  String get pocketsIntroSubtitle =>
-      'แบ่งเงินออกเป็นซอง (พ็อกเก็ต) เช่น ของใช้ในบ้าน, กินเที่ยว เพื่อให้รู้ว่าเงินถูกใช้ไปกับอะไรบ้าง!';
+  String get pocketsIntroSubtitle => 'แบ่งเงินออกเป็นซอง (พ็อกเก็ต) เช่น ของใช้ในบ้าน, กินเที่ยว เพื่อให้รู้ว่าเงินถูกใช้ไปกับอะไรบ้าง!';
 
   @override
   String get pocketsIntroSetBudgetFirst => 'ตั้งงบประมาณก่อน';
 
   @override
-  String get pocketsIntroSetBudgetHint =>
-      'คุณต้องตั้งงบประมาณรายเดือนก่อน จึงจะสามารถแบ่งเงินใส่พ็อกเก็ตได้';
+  String get pocketsIntroSetBudgetHint => 'คุณต้องตั้งงบประมาณรายเดือนก่อน จึงจะสามารถแบ่งเงินใส่พ็อกเก็ตได้';
 
   @override
   String get pocketsIntroCreatePocket => 'สร้างพ็อกเก็ตแรก';
@@ -5357,45 +5129,37 @@ class AppLocalizationsTh extends AppLocalizations {
   String get lastMonth => 'เดือนที่แล้ว';
 
   @override
-  String get onboardingFinishHighlightSharedExpenses =>
-      'แชร์รายจ่ายง่ายๆ ด้วย Moneko';
+  String get onboardingFinishHighlightSharedExpenses => 'แชร์รายจ่ายง่ายๆ ด้วย Moneko';
 
   @override
   String get onboardingFinishHighlightFreeTrial => 'ทดลองใช้ Moneko ฟรี 30 วัน';
 
   @override
-  String get onboardingFinishHighlightLogExpenses =>
-      'จดรายจ่ายด้วยเสียง ข้อความ รูป หรือแชท';
+  String get onboardingFinishHighlightLogExpenses => 'จดรายจ่ายด้วยเสียง ข้อความ รูป หรือแชท';
 
   @override
-  String get onboardingFinishHighlightWhatsApp =>
-      'เพิ่มรายจ่ายได้โดยตรงจาก WhatsApp';
+  String get onboardingFinishHighlightWhatsApp => 'เพิ่มรายจ่ายได้โดยตรงจาก WhatsApp';
 
   @override
-  String get onboardingFinishHighlightSharedBudgets =>
-      'แชร์งบประมาณกับแฟนหรือครอบครัว';
+  String get onboardingFinishHighlightSharedBudgets => 'แชร์งบประมาณกับแฟนหรือครอบครัว';
 
   @override
-  String get onboardingFinishHighlightOnePlan =>
-      'แผนเดียวใช้ได้ครอบคลุมทั้งบ้าน';
+  String get onboardingFinishHighlightOnePlan => 'แผนเดียวใช้ได้ครอบคลุมทั้งบ้าน';
 
   @override
-  String get onboardingFinishHighlightEnvelopeBudgeting =>
-      'แบ่งเงินใส่ซอง (Envelope Budgeting) แบบง่ายๆ';
+  String get onboardingFinishHighlightEnvelopeBudgeting => 'แบ่งเงินใส่ซอง (Envelope Budgeting) แบบง่ายๆ';
 
   @override
   String get settingsDeleteAccountTitle => 'ยืนยันการลบบัญชี?';
 
   @override
-  String get settingsDeleteAccountDescription =>
-      'การดำเนินการนี้จะลบบัญชีและข้อมูลทั้งหมดของคุณอย่างถาวรและไม่สามารถกู้คืนได้ โปรดพิมพ์คำว่า DELETE เพื่อยืนยัน';
+  String get settingsDeleteAccountDescription => 'การดำเนินการนี้จะลบบัญชีและข้อมูลทั้งหมดของคุณอย่างถาวรและไม่สามารถกู้คืนได้ โปรดพิมพ์คำว่า DELETE เพื่อยืนยัน';
 
   @override
   String get settingsDeleteAccountButton => 'ลบบัญชี';
 
   @override
-  String get settingsDeleteAccountConfirmValidation =>
-      'พิมพ์ DELETE เพื่อยืนยัน';
+  String get settingsDeleteAccountConfirmValidation => 'พิมพ์ DELETE เพื่อยืนยัน';
 
   @override
   String get settingsDeleteAccountInProgress => 'กำลังลบบัญชี...';
@@ -5416,15 +5180,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get telegramVerified => 'ยืนยัน Telegram เรียบร้อย';
 
   @override
-  String get yourTelegramIsSuccessfullyLinked =>
-      'เชื่อมต่อบัญชี Telegram ของคุณสำเร็จแล้ว';
+  String get yourTelegramIsSuccessfullyLinked => 'เชื่อมต่อบัญชี Telegram ของคุณสำเร็จแล้ว';
 
   @override
   String get verifyingYourTelegram => 'กำลังตรวจสอบบัญชี Telegram...';
 
   @override
-  String get enterThe6DigitCodeFromTelegram =>
-      'กรอกรหัส 6 หลักที่ได้รับจาก Telegram';
+  String get enterThe6DigitCodeFromTelegram => 'กรอกรหัส 6 หลักที่ได้รับจาก Telegram';
 
   @override
   String get telegramVerifiedSuccessfully => 'ยืนยัน Telegram สำเร็จ';
@@ -5433,8 +5195,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get fasterLoggingTipTitle => 'เคล็ดลับการจดให้ไวขึ้น';
 
   @override
-  String get fasterLoggingTipDescription =>
-      'คุณสามารถตั้งค่าปุ่มกดค้าง (Quick Action) เพื่อจดรายจ่ายได้รวดเร็วยิ่งขึ้น';
+  String get fasterLoggingTipDescription => 'คุณสามารถตั้งค่าปุ่มกดค้าง (Quick Action) เพื่อจดรายจ่ายได้รวดเร็วยิ่งขึ้น';
 
   @override
   String get pressAndHoldQuickAction => 'ตั้งค่าคำสั่งด่วนเมื่อกดค้าง';
@@ -5460,8 +5221,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get microphonePermissionRequiredForQuickAudioLogging =>
-      'โปรดอนุญาตให้เข้าถึงไมโครโฟนเพื่อใช้งานการบันทึกเสียง';
+  String get microphonePermissionRequiredForQuickAudioLogging => 'โปรดอนุญาตให้เข้าถึงไมโครโฟนเพื่อใช้งานการบันทึกเสียง';
 
   @override
   String unableToStartRecording(Object error) {
@@ -5489,8 +5249,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get siriShortcuts => 'คำสั่งลัด Siri';
 
   @override
-  String get siriShortcutsDescription =>
-      'จดรายจ่ายได้โดยไม่ต้องเปิดแอป แค่พูดว่า: “Log expense with Moneko”';
+  String get siriShortcutsDescription => 'จดรายจ่ายได้โดยไม่ต้องเปิดแอป แค่พูดว่า: “Log expense with Moneko”';
 
   @override
   String get siriShortcutsOpenShortcuts => 'เปิดแอปคำสั่งลัด (Shortcuts)';
@@ -5557,20 +5316,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get chooseFromLibrary => 'เลือกจากคลังภาพ';
 
   @override
-  String get pleaseDescribeTheIssueBeforeSubmitting =>
-      'โปรดอธิบายปัญหาของคุณก่อนส่ง';
+  String get pleaseDescribeTheIssueBeforeSubmitting => 'โปรดอธิบายปัญหาของคุณก่อนส่ง';
 
   @override
-  String get pleaseIncludeAtLeast10Characters =>
-      'โปรดระบุรายละเอียดอย่างน้อย 10 ตัวอักษร เพื่อให้เราตรวจสอบได้แม่นยำขึ้น';
+  String get pleaseIncludeAtLeast10Characters => 'โปรดระบุรายละเอียดอย่างน้อย 10 ตัวอักษร เพื่อให้เราตรวจสอบได้แม่นยำขึ้น';
 
   @override
-  String get ticketSubmittedWeWillFollowUpSoon =>
-      'ส่งข้อมูลเรียบร้อยแล้ว เราจะรีบดำเนินการให้เร็วที่สุด';
+  String get ticketSubmittedWeWillFollowUpSoon => 'ส่งข้อมูลเรียบร้อยแล้ว เราจะรีบดำเนินการให้เร็วที่สุด';
 
   @override
-  String get somethingWentWrongWhileSubmittingTicket =>
-      'เกิดข้อผิดพลาดในการส่งข้อมูล โปรดลองอีกครั้ง';
+  String get somethingWentWrongWhileSubmittingTicket => 'เกิดข้อผิดพลาดในการส่งข้อมูล โปรดลองอีกครั้ง';
 
   @override
   String get submit => 'ส่ง';
@@ -5595,36 +5350,28 @@ class AppLocalizationsTh extends AppLocalizations {
   String get deviceInformation => 'ข้อมูลอุปกรณ์';
 
   @override
-  String get includeAnonymizedDiagnostics =>
-      'รวมข้อมูลการวิเคราะห์ (แบบไม่ระบุตัวตน) เพื่อช่วยในการแก้ปัญหา';
+  String get includeAnonymizedDiagnostics => 'รวมข้อมูลการวิเคราะห์ (แบบไม่ระบุตัวตน) เพื่อช่วยในการแก้ปัญหา';
 
   @override
-  String get tellUsWhatWentWrong =>
-      'เกิดปัญหาอะไรขึ้น? บอกเราหน่อยเพื่อให้เราช่วยแก้ไข (แนบรูปภาพจะดีมาก)';
+  String get tellUsWhatWentWrong => 'เกิดปัญหาอะไรขึ้น? บอกเราหน่อยเพื่อให้เราช่วยแก้ไข (แนบรูปภาพจะดีมาก)';
 
   @override
-  String get shareIdeasFeatureRequests =>
-      'แชร์ไอเดีย ขอฟีเจอร์ใหม่ หรือบอกความรู้สึกของคุณที่มีต่อ Moneko';
+  String get shareIdeasFeatureRequests => 'แชร์ไอเดีย ขอฟีเจอร์ใหม่ หรือบอกความรู้สึกของคุณที่มีต่อ Moneko';
 
   @override
-  String get whatHappenedIncludeSteps =>
-      'เกิดอะไรขึ้น? รบกวนแจ้งขั้นตอนก่อนเกิดปัญหา (ถ้าจำได้)';
+  String get whatHappenedIncludeSteps => 'เกิดอะไรขึ้น? รบกวนแจ้งขั้นตอนก่อนเกิดปัญหา (ถ้าจำได้)';
 
   @override
-  String get shareYourThoughtsFeatureIdeas =>
-      'แชร์ความคิดเห็น ไอเดีย หรือฟีเจอร์ที่คุณอยากเห็น';
+  String get shareYourThoughtsFeatureIdeas => 'แชร์ความคิดเห็น ไอเดีย หรือฟีเจอร์ที่คุณอยากเห็น';
 
   @override
-  String get thanksBugReportQueue =>
-      'ขอบคุณ! เราได้รับรายงานบั๊กของคุณแล้ว และจะแจ้งความคืบหน้าทางอีเมล';
+  String get thanksBugReportQueue => 'ขอบคุณ! เราได้รับรายงานบั๊กของคุณแล้ว และจะแจ้งความคืบหน้าทางอีเมล';
 
   @override
-  String get thanksFeedbackTicketLogged =>
-      'ขอบคุณสำหรับข้อเสนอแนะ! เราบันทึกข้อมูลแล้ว และจะติดต่อกลับหากต้องการข้อมูลเพิ่ม';
+  String get thanksFeedbackTicketLogged => 'ขอบคุณสำหรับข้อเสนอแนะ! เราบันทึกข้อมูลแล้ว และจะติดต่อกลับหากต้องการข้อมูลเพิ่ม';
 
   @override
-  String get eachScreenshotMustBeSmallerThan5MB =>
-      'ภาพหน้าจอแต่ละรูปต้องมีขนาดไม่เกิน 5 MB';
+  String get eachScreenshotMustBeSmallerThan5MB => 'ภาพหน้าจอแต่ละรูปต้องมีขนาดไม่เกิน 5 MB';
 
   @override
   String get currentTimezone => 'เขตเวลาปัจจุบัน';
@@ -5642,24 +5389,19 @@ class AppLocalizationsTh extends AppLocalizations {
   String get submitNewFeatureRequestTitle => 'ขอฟีเจอร์ใหม่';
 
   @override
-  String get tellUsWhatWentWrongDescription =>
-      'แจ้งปัญหาที่พบเพื่อให้เราเร่งแก้ไข (แนบรูปภาพประกอบจะช่วยได้มาก)';
+  String get tellUsWhatWentWrongDescription => 'แจ้งปัญหาที่พบเพื่อให้เราเร่งแก้ไข (แนบรูปภาพประกอบจะช่วยได้มาก)';
 
   @override
-  String get shareIdeasFeatureRequestsDescription =>
-      'แชร์ไอเดีย หรือฟีเจอร์ใหม่ๆ ที่คุณอยากให้มีในแอป';
+  String get shareIdeasFeatureRequestsDescription => 'แชร์ไอเดีย หรือฟีเจอร์ใหม่ๆ ที่คุณอยากให้มีในแอป';
 
   @override
-  String get whatHappenedIncludeStepsPlaceholder =>
-      'อธิบายสิ่งที่เกิดขึ้น หรือขั้นตอนก่อนเกิดปัญหา';
+  String get whatHappenedIncludeStepsPlaceholder => 'อธิบายสิ่งที่เกิดขึ้น หรือขั้นตอนก่อนเกิดปัญหา';
 
   @override
-  String get shareYourThoughtsFeatureIdeasPlaceholder =>
-      'แชร์ความต้องการหรือไอเดียเจ๋งๆ ของคุณที่นี่';
+  String get shareYourThoughtsFeatureIdeasPlaceholder => 'แชร์ความต้องการหรือไอเดียเจ๋งๆ ของคุณที่นี่';
 
   @override
-  String get missingCategoryHint =>
-      'หาหมวดหมู่ไม่เจอใช่ไหม? เพิ่มเองได้เลยที่ ';
+  String get missingCategoryHint => 'หาหมวดหมู่ไม่เจอใช่ไหม? เพิ่มเองได้เลยที่ ';
 
   @override
   String get categories => 'หมวดหมู่';
@@ -5671,23 +5413,19 @@ class AppLocalizationsTh extends AppLocalizations {
   String get edit => 'แก้ไข';
 
   @override
-  String get previewMockReceiptNoted =>
-      'โหมดพรีวิว: บันทึกใบเสร็จจำลองแล้ว (ข้อมูลจะไม่ถูกบันทึกจริง)';
+  String get previewMockReceiptNoted => 'โหมดพรีวิว: บันทึกใบเสร็จจำลองแล้ว (ข้อมูลจะไม่ถูกบันทึกจริง)';
 
   @override
-  String get previewMockUpdatesApplied =>
-      'โหมดพรีวิว: อัปเดตข้อมูลจำลองแล้ว (ข้อมูลจะไม่ถูกบันทึกจริง)';
+  String get previewMockUpdatesApplied => 'โหมดพรีวิว: อัปเดตข้อมูลจำลองแล้ว (ข้อมูลจะไม่ถูกบันทึกจริง)';
 
   @override
-  String get previewMockExpenseCreated =>
-      'โหมดพรีวิว: สร้างรายจ่ายจำลองแล้ว (ข้อมูลจะไม่ถูกบันทึกจริง)';
+  String get previewMockExpenseCreated => 'โหมดพรีวิว: สร้างรายจ่ายจำลองแล้ว (ข้อมูลจะไม่ถูกบันทึกจริง)';
 
   @override
   String get noTransactionToSave => 'ไม่มีรายการให้บันทึก';
 
   @override
-  String get updateCategoryPreferenceTitle =>
-      'อัปเดตการตั้งค่าหมวดหมู่หรือไม่?';
+  String get updateCategoryPreferenceTitle => 'อัปเดตการตั้งค่าหมวดหมู่หรือไม่?';
 
   @override
   String updateCategoryPreferenceDescription(Object fromLabel, Object toLabel) {
@@ -5707,39 +5445,31 @@ class AppLocalizationsTh extends AppLocalizations {
   String get preferenceUpdateFailed => 'อัปเดตการตั้งค่าไม่สำเร็จ';
 
   @override
-  String get previewDeletionSkipped =>
-      'โหมดพรีวิว: ข้ามการลบ (ข้อมูลนี้เป็นเพียงชุดข้อมูลทดสอบ)';
+  String get previewDeletionSkipped => 'โหมดพรีวิว: ข้ามการลบ (ข้อมูลนี้เป็นเพียงชุดข้อมูลทดสอบ)';
 
   @override
-  String get previewRecurringUpdatedForDemo =>
-      'โหมดพรีวิว: อัปเดตรายการประจำจำลองแล้ว';
+  String get previewRecurringUpdatedForDemo => 'โหมดพรีวิว: อัปเดตรายการประจำจำลองแล้ว';
 
   @override
-  String get previewRecurringScheduledForDemo =>
-      'โหมดพรีวิว: ตั้งค่ารายการประจำจำลองแล้ว';
+  String get previewRecurringScheduledForDemo => 'โหมดพรีวิว: ตั้งค่ารายการประจำจำลองแล้ว';
 
   @override
-  String get failedToSaveRecurringTransaction =>
-      'ไม่สามารถบันทึกรายการประจำได้';
+  String get failedToSaveRecurringTransaction => 'ไม่สามารถบันทึกรายการประจำได้';
 
   @override
   String get onboardingPreviewTitle => 'สัมผัสประสบการณ์ Moneko';
 
   @override
-  String get onboardingPreviewSubtitle =>
-      'ลองเล่นแอปด้วยข้อมูลจำลอง เพื่อทดสอบฟีเจอร์ต่างๆ โดยไม่ต้องใช้เงินจริง';
+  String get onboardingPreviewSubtitle => 'ลองเล่นแอปด้วยข้อมูลจำลอง เพื่อทดสอบฟีเจอร์ต่างๆ โดยไม่ต้องใช้เงินจริง';
 
   @override
-  String get onboardingPreviewFeatureAiLogging =>
-      'ลองจดรายจ่ายด้วย AI ในพื้นที่ปลอดภัย';
+  String get onboardingPreviewFeatureAiLogging => 'ลองจดรายจ่ายด้วย AI ในพื้นที่ปลอดภัย';
 
   @override
-  String get onboardingPreviewFeatureExplore =>
-      'สำรวจฟีเจอร์พ็อกเก็ต ข้อมูลเชิงลึก และบิลประจำ';
+  String get onboardingPreviewFeatureExplore => 'สำรวจฟีเจอร์พ็อกเก็ต ข้อมูลเชิงลึก และบิลประจำ';
 
   @override
-  String get onboardingPreviewFeatureSaveProgress =>
-      'สร้างบัญชีภายหลังเพื่อบันทึกข้อมูลจริง';
+  String get onboardingPreviewFeatureSaveProgress => 'สร้างบัญชีภายหลังเพื่อบันทึกข้อมูลจริง';
 
   @override
   String get onboardingPreviewTakeTour => 'เริ่มทดลองใช้งาน';
@@ -5794,20 +5524,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get customCategoryNameRequired => 'กรุณาใส่ชื่อหมวดหมู่';
 
   @override
-  String get customCategoryNameTooLong =>
-      'ชื่อหมวดหมู่ต้องยาวไม่เกิน 96 ตัวอักษร';
+  String get customCategoryNameTooLong => 'ชื่อหมวดหมู่ต้องยาวไม่เกิน 96 ตัวอักษร';
 
   @override
-  String get customCategoryNameBackticksNotAllowed =>
-      'ชื่อหมวดหมู่ห้ามมีเครื่องหมาย Backtick (`)';
+  String get customCategoryNameBackticksNotAllowed => 'ชื่อหมวดหมู่ห้ามมีเครื่องหมาย Backtick (`)';
 
   @override
-  String get customCategoryNameControlCharsNotAllowed =>
-      'ชื่อหมวดหมู่ห้ามมีอักขระควบคุม (Control Characters)';
+  String get customCategoryNameControlCharsNotAllowed => 'ชื่อหมวดหมู่ห้ามมีอักขระควบคุม (Control Characters)';
 
   @override
-  String get customCategoryNameReservedOther =>
-      'คำว่า \"other\" ถูกสงวนไว้ ไม่สามารถนำมาใช้เป็นชื่อหมวดหมู่ได้';
+  String get customCategoryNameReservedOther => 'คำว่า \"other\" ถูกสงวนไว้ ไม่สามารถนำมาใช้เป็นชื่อหมวดหมู่ได้';
 
   @override
   String get customCategoryNameLabel => 'ชื่อหมวดหมู่';
@@ -5816,8 +5542,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get customCategoryUpdated => 'อัปเดตหมวดหมู่เรียบร้อย';
 
   @override
-  String get customCategoryUpdateFailed =>
-      'อัปเดตไม่สำเร็จ โปรดตรวจสอบชื่อและข้อจำกัด 96 ตัวอักษร';
+  String get customCategoryUpdateFailed => 'อัปเดตไม่สำเร็จ โปรดตรวจสอบชื่อและข้อจำกัด 96 ตัวอักษร';
 
   @override
   String get customCategoryAddCta => 'เพิ่มหมวดหมู่';
@@ -5826,66 +5551,52 @@ class AppLocalizationsTh extends AppLocalizations {
   String get manualInputQuickActionLabel => 'กรอกข้อมูลเอง';
 
   @override
-  String get onboardingQuestionHelpMost =>
-      'คุณอยากให้เราช่วยเรื่องอะไรมากที่สุด?';
+  String get onboardingQuestionHelpMost => 'คุณอยากให้เราช่วยเรื่องอะไรมากที่สุด?';
 
   @override
-  String get onboardingQuestionWhoBudgetWith =>
-      'ปกติคุณบริหารจัดการเงินร่วมกับใคร?';
+  String get onboardingQuestionWhoBudgetWith => 'ปกติคุณบริหารจัดการเงินร่วมกับใคร?';
 
   @override
-  String get onboardingQuestionSplitBills =>
-      'คุณมีการแชร์ค่าใช้จ่ายกับคนอื่นบ้างไหม?';
+  String get onboardingQuestionSplitBills => 'คุณมีการแชร์ค่าใช้จ่ายกับคนอื่นบ้างไหม?';
 
   @override
-  String get onboardingQuestionMonthlyAmount =>
-      'ในแต่ละเดือน คุณตั้งเป้าบริหารเงินประมาณเท่าไหร่?';
+  String get onboardingQuestionMonthlyAmount => 'ในแต่ละเดือน คุณตั้งเป้าบริหารเงินประมาณเท่าไหร่?';
 
   @override
-  String get onboardingQuestionHousing =>
-      'ค่าที่พัก: คุณจ่ายค่าเช่าหรือผ่อนบ้านเดือนละเท่าไหร่?';
+  String get onboardingQuestionHousing => 'ค่าที่พัก: คุณจ่ายค่าเช่าหรือผ่อนบ้านเดือนละเท่าไหร่?';
 
   @override
-  String get onboardingQuestionUtilities =>
-      'ค่าน้ำ ค่าไฟ อินเทอร์เน็ต ประมาณเดือนละเท่าไหร่?';
+  String get onboardingQuestionUtilities => 'ค่าน้ำ ค่าไฟ อินเทอร์เน็ต ประมาณเดือนละเท่าไหร่?';
 
   @override
-  String get onboardingQuestionDebtMinimums =>
-      'ยอดจ่ายหนี้ขั้นต่ำในแต่ละเดือนคือเท่าไหร่?';
+  String get onboardingQuestionDebtMinimums => 'ยอดจ่ายหนี้ขั้นต่ำในแต่ละเดือนคือเท่าไหร่?';
 
   @override
-  String get onboardingQuestionSetAside =>
-      'คุณต้องการเก็บเงินออมเดือนละเท่าไหร่?';
+  String get onboardingQuestionSetAside => 'คุณต้องการเก็บเงินออมเดือนละเท่าไหร่?';
 
   @override
-  String get onboardingQuestionEatOut =>
-      'ปกติคุณทานข้าวนอกบ้านหรือสั่งเดลิเวอรี่บ่อยแค่ไหน?';
+  String get onboardingQuestionEatOut => 'ปกติคุณทานข้าวนอกบ้านหรือสั่งเดลิเวอรี่บ่อยแค่ไหน?';
 
   @override
-  String get onboardingQuestionSubscriptions =>
-      'ค่าสมาชิกและบริการรายเดือนต่างๆ';
+  String get onboardingQuestionSubscriptions => 'ค่าสมาชิกและบริการรายเดือนต่างๆ';
 
   @override
   String get onboardingQuestionPets => 'คุณมีสัตว์เลี้ยงไหม?';
 
   @override
-  String get onboardingQuestionPetSpend =>
-      'ค่าใช้จ่ายสำหรับสัตว์เลี้ยงประมาณเดือนละเท่าไหร่?';
+  String get onboardingQuestionPetSpend => 'ค่าใช้จ่ายสำหรับสัตว์เลี้ยงประมาณเดือนละเท่าไหร่?';
 
   @override
   String get onboardingQuestionTransport => 'คุณเดินทางด้วยวิธีไหนเป็นหลัก?';
 
   @override
-  String get onboardingQuestionDependents =>
-      'คุณต้องดูแลค่าใช้จ่ายให้คนในครอบครัวหรือลูกไหม?';
+  String get onboardingQuestionDependents => 'คุณต้องดูแลค่าใช้จ่ายให้คนในครอบครัวหรือลูกไหม?';
 
   @override
-  String get onboardingQuestionPlanAhead =>
-      'มีเป้าหมายใหญ่ๆ ที่ต้องการวางแผนล่วงหน้าไหม?';
+  String get onboardingQuestionPlanAhead => 'มีเป้าหมายใหญ่ๆ ที่ต้องการวางแผนล่วงหน้าไหม?';
 
   @override
-  String get onboardingQuestionBreathingRoom =>
-      'ต้องการเหลือเงินสำรองไว้ใช้สบายๆ แค่ไหน?';
+  String get onboardingQuestionBreathingRoom => 'ต้องการเหลือเงินสำรองไว้ใช้สบายๆ แค่ไหน?';
 
   @override
   String get onboardingPreviewTotal => 'งบประมาณรวมทั้งหมด';
@@ -5897,12 +5608,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreviewLeft => 'เหลือใช้รายวัน + เงินออม';
 
   @override
-  String get onboardingPreviewFixedTooHigh =>
-      'รายจ่ายคงที่สูงกว่างบรวม ลองเพิ่มงบรวมหรือลดรายจ่ายบางอย่างลงนะ';
+  String get onboardingPreviewFixedTooHigh => 'รายจ่ายคงที่สูงกว่างบรวม ลองเพิ่มงบรวมหรือลดรายจ่ายบางอย่างลงนะ';
 
   @override
-  String get onboardingPreviewTightRemainder =>
-      'งบที่เหลือดูจะตึงไปสำหรับการใช้ชีวิตประจำวัน ลองปรับเป้าหมายเงินออมหรือเพิ่มงบรวมดูนะ';
+  String get onboardingPreviewTightRemainder => 'งบที่เหลือดูจะตึงไปสำหรับการใช้ชีวิตประจำวัน ลองปรับเป้าหมายเงินออมหรือเพิ่มงบรวมดูนะ';
 
   @override
   String get importAutoMappedBanner => 'ระบบจับคู่คอลัมน์ให้คุณเรียบร้อยแล้ว';
@@ -5993,19 +5702,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get fileTooLarge => 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 15MB)';
 
   @override
-  String get onboardingPreAuthBudgetTitle =>
-      'ตั้งงบประมาณรายเดือนไว้ที่เท่าไหร่ดี?';
+  String get onboardingPreAuthBudgetTitle => 'ตั้งงบประมาณรายเดือนไว้ที่เท่าไหร่ดี?';
 
   @override
-  String get onboardingPreAuthBudgetSubtitle =>
-      'เราจะใช้ข้อมูลนี้สร้างร่างพ็อกเก็ตแรกให้คุณ';
+  String get onboardingPreAuthBudgetSubtitle => 'เราจะใช้ข้อมูลนี้สร้างร่างพ็อกเก็ตแรกให้คุณ';
 
   @override
   String get onboardingPreAuthHousingTitle => 'ค่าที่พักของคุณ';
 
   @override
-  String get onboardingPreAuthHousingSubtitle =>
-      'เราใช้ข้อมูลนี้เพื่อให้แน่ใจว่างบของคุณไม่ตึงจนเกินไป';
+  String get onboardingPreAuthHousingSubtitle => 'เราใช้ข้อมูลนี้เพื่อให้แน่ใจว่างบของคุณไม่ตึงจนเกินไป';
 
   @override
   String get onboardingPreAuthNotSureEstimate => 'ไม่แน่ใจ (ให้เราช่วยประเมิน)';
@@ -6014,19 +5720,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreAuthUtilitiesTitle => 'ค่าสาธารณูปโภคโดยประมาณ';
 
   @override
-  String get onboardingPreAuthUtilitiesKnown =>
-      'ฉันทราบยอดค่าน้ำค่านไฟรายเดือน';
+  String get onboardingPreAuthUtilitiesKnown => 'ฉันทราบยอดค่าน้ำค่านไฟรายเดือน';
 
   @override
-  String get onboardingPreAuthUtilitiesUnknown =>
-      'ไม่แน่ใจ (ใช้การประเมินจากระบบ)';
+  String get onboardingPreAuthUtilitiesUnknown => 'ไม่แน่ใจ (ใช้การประเมินจากระบบ)';
 
   @override
   String get onboardingPreAuthDebtTitle => 'ยอดจ่ายหนี้ขั้นต่ำ';
 
   @override
-  String get onboardingPreAuthDebtSubtitle =>
-      'รวมยอดจ่ายหนี้ขั้นต่ำต่อเดือน (ใส่ 0 หากไม่มีหนี้)';
+  String get onboardingPreAuthDebtSubtitle => 'รวมยอดจ่ายหนี้ขั้นต่ำต่อเดือน (ใส่ 0 หากไม่มีหนี้)';
 
   @override
   String get onboardingPreAuthCurrencyTitle => 'สกุลเงินที่คุณใช้เป็นประจำ?';
@@ -6035,37 +5738,31 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreAuthCurrencySelect => 'เลือกสกุลเงิน';
 
   @override
-  String get onboardingPreAuthCurrencyChangeLater =>
-      'คุณสามารถเปลี่ยนสกุลเงินได้ในภายหลัง';
+  String get onboardingPreAuthCurrencyChangeLater => 'คุณสามารถเปลี่ยนสกุลเงินได้ในภายหลัง';
 
   @override
-  String get onboardingPreAuthCalculatingTitle =>
-      'กำลังจัดสรรงบประมาณที่เหมาะกับคุณ...';
+  String get onboardingPreAuthCalculatingTitle => 'กำลังจัดสรรงบประมาณที่เหมาะกับคุณ...';
 
   @override
   String get onboardingPreAuthStarterTitle => 'แผนงบประมาณของคุณพร้อมแล้ว!';
 
   @override
-  String get onboardingPreAuthStarterSubtitle =>
-      'นี่คือร่างแผนแรกที่คุณปรับเปลี่ยนได้ตลอดเวลาในแอป';
+  String get onboardingPreAuthStarterSubtitle => 'นี่คือร่างแผนแรกที่คุณปรับเปลี่ยนได้ตลอดเวลาในแอป';
 
   @override
-  String get onboardingPreAuthStarterSliderHint =>
-      'เลื่อนแถบหรือแตะจำนวนเงินเพื่อปรับยอด';
+  String get onboardingPreAuthStarterSliderHint => 'เลื่อนแถบหรือแตะจำนวนเงินเพื่อปรับยอด';
 
   @override
   String get onboardingPreAuthAlmostReadyTitle => 'เกือบเสร็จแล้ว';
 
   @override
-  String get onboardingPreAuthAlmostReadySubtitle =>
-      'บันทึกข้อมูลของคุณไว้เพื่อกลับมาดูได้ทุกเมื่อ';
+  String get onboardingPreAuthAlmostReadySubtitle => 'บันทึกข้อมูลของคุณไว้เพื่อกลับมาดูได้ทุกเมื่อ';
 
   @override
   String get onboardingPreAuthSaveBudgetTitle => 'บันทึกงบประมาณของคุณ';
 
   @override
-  String get onboardingPreAuthSaveBudgetSubtitle =>
-      'เข้าสู่ระบบเพื่อจัดเก็บข้อมูลและซิงค์ใช้งานได้ทุกอุปกรณ์';
+  String get onboardingPreAuthSaveBudgetSubtitle => 'เข้าสู่ระบบเพื่อจัดเก็บข้อมูลและซิงค์ใช้งานได้ทุกอุปกรณ์';
 
   @override
   String get onboardingPreAuthSaveBudgetConfirm => 'บันทึกงบของฉัน';
@@ -6077,16 +5774,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreAuthAdjustBudgetTitle => 'ปรับแต่งงบประมาณ';
 
   @override
-  String get onboardingPreAuthAdjustBudgetSubtitle =>
-      'คุณสามารถแก้ไขทุกอย่างได้ในภายหลัง';
+  String get onboardingPreAuthAdjustBudgetSubtitle => 'คุณสามารถแก้ไขทุกอย่างได้ในภายหลัง';
 
   @override
-  String get onboardingPreAuthAdjustBudgetValidation =>
-      'โปรดระบุจำนวนที่ถูกต้อง';
+  String get onboardingPreAuthAdjustBudgetValidation => 'โปรดระบุจำนวนที่ถูกต้อง';
 
   @override
-  String get onboardingQuestionHousingTitle =>
-      'ที่พักปัจจุบันของคุณเป็นแบบไหน?';
+  String get onboardingQuestionHousingTitle => 'ที่พักปัจจุบันของคุณเป็นแบบไหน?';
 
   @override
   String get onboardingQuestionHousingMortgage => 'ผ่อนบ้าน/คอนโด';
@@ -6101,8 +5795,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingQuestionHousingOwn => 'บ้านส่วนตัว (ผ่อนหมดแล้ว)';
 
   @override
-  String get onboardingQuestionSplitTitle =>
-      'ปกติคุณหารค่าใช้จ่ายกับใครบ้างไหม?';
+  String get onboardingQuestionSplitTitle => 'ปกติคุณหารค่าใช้จ่ายกับใครบ้างไหม?';
 
   @override
   String get onboardingQuestionSplitOften => 'เป็นประจำ';
@@ -6117,8 +5810,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingQuestionSplitNever => 'ไม่เคยเลย';
 
   @override
-  String get onboardingQuestionSubscriptionsTitle =>
-      'คุณมีค่าบริการรายเดือน/สมาชิกไหม?';
+  String get onboardingQuestionSubscriptionsTitle => 'คุณมีค่าบริการรายเดือน/สมาชิกไหม?';
 
   @override
   String get onboardingQuestionSubscriptionsMany => 'มีหลายอย่าง';
@@ -6139,8 +5831,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingQuestionStyleStudent => 'งบนักเรียนนักศึกษา';
 
   @override
-  String get onboardingQuestionStyleFreelancer =>
-      'รายได้ไม่แน่นอนสไตล์ฟรีแลนซ์';
+  String get onboardingQuestionStyleFreelancer => 'รายได้ไม่แน่นอนสไตล์ฟรีแลนซ์';
 
   @override
   String get onboardingQuestionStyleCommuter => 'เน้นการเดินทางทุกวัน';
@@ -6179,8 +5870,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPostAuthLogExpenseTitle => 'สัมผัสความล้ำของ\nMoneko AI';
 
   @override
-  String get onboardingPostAuthLogExpenseSubtitle =>
-      'ลองบันทึกรายจ่ายแรกของคุณสิ! พิมพ์เป็นภาษาพูดหรือถ่ายรูปใบเสร็จ แล้ว AI จะจัดการให้เอง';
+  String get onboardingPostAuthLogExpenseSubtitle => 'ลองบันทึกรายจ่ายแรกของคุณสิ! พิมพ์เป็นภาษาพูดหรือถ่ายรูปใบเสร็จ แล้ว AI จะจัดการให้เอง';
 
   @override
   String get onboardingPostAuthSourceAudioText => 'พูด หรือ พิมพ์';
@@ -6192,8 +5882,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPostAuthExpenseCaptured => 'บันทึกรายจ่ายเรียบร้อย!';
 
   @override
-  String get onboardingPostAuthExpenseExtractedSingle =>
-      'Moneko AI ดึงข้อมูลการจ่ายเงินของคุณสำเร็จแล้ว';
+  String get onboardingPostAuthExpenseExtractedSingle => 'Moneko AI ดึงข้อมูลการจ่ายเงินของคุณสำเร็จแล้ว';
 
   @override
   String onboardingPostAuthExpenseExtractedMultiple(Object count) {
@@ -6209,15 +5898,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPostAuthExpenseLoggedInline => 'บันทึกเรียบร้อย!';
 
   @override
-  String get onboardingPostAuthViewExtractionDetails =>
-      'ดูรายละเอียดที่ AI ดึงมาได้';
+  String get onboardingPostAuthViewExtractionDetails => 'ดูรายละเอียดที่ AI ดึงมาได้';
 
   @override
   String get onboardingPostAuthImportTitle => 'นำเข้ารายจ่ายของคุณ\nจากแอปอื่น';
 
   @override
-  String get onboardingPostAuthImportQuestion =>
-      'ปัจจุบันคุณใช้แอปไหนบันทึกรายจ่าย?';
+  String get onboardingPostAuthImportQuestion => 'ปัจจุบันคุณใช้แอปไหนบันทึกรายจ่าย?';
 
   @override
   String onboardingPostAuthImportingFrom(Object app) {
@@ -6225,16 +5912,13 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get onboardingPostAuthNotificationsTitle =>
-      'รับการแจ้งเตือนก่อนที่จะ\nใช้เงินเกินงบ';
+  String get onboardingPostAuthNotificationsTitle => 'รับการแจ้งเตือนก่อนที่จะ\nใช้เงินเกินงบ';
 
   @override
-  String get onboardingPostAuthNotificationExampleTitle =>
-      'แจ้งเตือนจาก Moneko';
+  String get onboardingPostAuthNotificationExampleTitle => 'แจ้งเตือนจาก Moneko';
 
   @override
-  String get onboardingPostAuthNotificationExampleSubtitle =>
-      'คุณใกล้จะใช้เงินถึงวงเงินที่ตั้งไว้แล้วนะ';
+  String get onboardingPostAuthNotificationExampleSubtitle => 'คุณใกล้จะใช้เงินถึงวงเงินที่ตั้งไว้แล้วนะ';
 
   @override
   String onboardingPostAuthImportSuccess(Object app, Object count) {
@@ -6272,62 +5956,52 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingCarouselLogTitle => 'จดรายจ่ายได้จากทุกที่';
 
   @override
-  String get onboardingCarouselLogDesc =>
-      'จะจดผ่าน WhatsApp, Telegram, เสียง หรือรูปถ่าย ก็ทำได้ทันที';
+  String get onboardingCarouselLogDesc => 'จะจดผ่าน WhatsApp, Telegram, เสียง หรือรูปถ่าย ก็ทำได้ทันที';
 
   @override
   String get onboardingCarouselSnapTitle => 'ถ่ายรูปใบเสร็จ';
 
   @override
-  String get onboardingCarouselSnapDesc =>
-      'แค่แชะ! Moneko จะแกะรายการย่อยออกมาให้คุณอัตโนมัติ';
+  String get onboardingCarouselSnapDesc => 'แค่แชะ! Moneko จะแกะรายการย่อยออกมาให้คุณอัตโนมัติ';
 
   @override
   String get onboardingCarouselShareTitle => 'แชร์ค่าใช้จ่ายเป็นเรื่องง่าย';
 
   @override
-  String get onboardingCarouselShareDesc =>
-      'ติดตามรายจ่ายที่แชร์กัน เห็นยอดตรงกัน และเคลียร์บิลได้รวดเร็ว';
+  String get onboardingCarouselShareDesc => 'ติดตามรายจ่ายที่แชร์กัน เห็นยอดตรงกัน และเคลียร์บิลได้รวดเร็ว';
 
   @override
   String get onboardingCarouselEnvelopeTitle => 'จัดงบแบบแบ่งซอง';
 
   @override
-  String get onboardingCarouselEnvelopeDesc =>
-      'ตั้งวงเงินในแต่ละหมวดหมู่ เพื่อการใช้จ่ายที่ไม่หลุดแผน';
+  String get onboardingCarouselEnvelopeDesc => 'ตั้งวงเงินในแต่ละหมวดหมู่ เพื่อการใช้จ่ายที่ไม่หลุดแผน';
 
   @override
   String get paywallErrorPurchaseCancelled => 'ยกเลิกการซื้อเรียบร้อยแล้ว';
 
   @override
-  String get paywallErrorManagedInStore =>
-      'กรุณาจัดการสมาชิกผ่าน App Store / Play Store';
+  String get paywallErrorManagedInStore => 'กรุณาจัดการสมาชิกผ่าน App Store / Play Store';
 
   @override
-  String get paywallErrorSharedSubscription =>
-      'Apple ID นี้ใช้สมาชิกแบบแชร์ครอบครัว โปรดออกจากกลุ่มเพื่อจัดการส่วนตัว';
+  String get paywallErrorSharedSubscription => 'Apple ID นี้ใช้สมาชิกแบบแชร์ครอบครัว โปรดออกจากกลุ่มเพื่อจัดการส่วนตัว';
 
   @override
   String get paywallErrorTimedOut => 'การซื้อหมดเวลา โปรดลองอีกครั้ง';
 
   @override
-  String get paywallErrorStoreUnavailable =>
-      'สโตร์ไม่พร้อมใช้งาน โปรดลองอีกครั้งภายหลัง';
+  String get paywallErrorStoreUnavailable => 'สโตร์ไม่พร้อมใช้งาน โปรดลองอีกครั้งภายหลัง';
 
   @override
-  String get paywallErrorVerificationFailed =>
-      'ยืนยันการซื้อไม่สำเร็จ โปรดลองอีกครั้ง';
+  String get paywallErrorVerificationFailed => 'ยืนยันการซื้อไม่สำเร็จ โปรดลองอีกครั้ง';
 
   @override
   String get paywallErrorGeneric => 'การซื้อล้มเหลว โปรดลองอีกครั้ง';
 
   @override
-  String get paywallErrorNotActivated =>
-      'ซื้อสำเร็จแล้วแต่ระบบยังไม่เปิดใช้งาน โปรดรีสตาร์ทแอป';
+  String get paywallErrorNotActivated => 'ซื้อสำเร็จแล้วแต่ระบบยังไม่เปิดใช้งาน โปรดรีสตาร์ทแอป';
 
   @override
-  String get paywallErrorVerificationFailedRestart =>
-      'ซื้อสำเร็จแต่ยืนยันสถานะไม่ได้ โปรดรีสตาร์ทแอป';
+  String get paywallErrorVerificationFailedRestart => 'ซื้อสำเร็จแต่ยืนยันสถานะไม่ได้ โปรดรีสตาร์ทแอป';
 
   @override
   String get paywallPlanMonthlyTagline => 'ยืดหยุ่น ยกเลิกได้ตลอดเวลา';
@@ -6360,8 +6034,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallErrorStoreUnavailableShort => 'สโตร์ไม่พร้อมใช้งาน';
 
   @override
-  String get paywallErrorMissingProductMapping =>
-      'ไม่พบข้อมูลผลิตภัณฑ์สำหรับ iOS';
+  String get paywallErrorMissingProductMapping => 'ไม่พบข้อมูลผลิตภัณฑ์สำหรับ iOS';
 
   @override
   String get paywallProcessingPurchase => 'กำลังประมวลผลการซื้อ...';
@@ -6381,12 +6054,10 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get paywallManageSubscriptionPlayStore =>
-      'จัดการการสมัครสมาชิกใน Play Store';
+  String get paywallManageSubscriptionPlayStore => 'จัดการการสมัครสมาชิกใน Play Store';
 
   @override
-  String get paywallErrorManagedInPlayStore =>
-      'คุณสมัครสมาชิกผ่าน Play Store โปรดจัดการที่นั่น';
+  String get paywallErrorManagedInPlayStore => 'คุณสมัครสมาชิกผ่าน Play Store โปรดจัดการที่นั่น';
 
   @override
   String get paywallOpenPlayStore => 'เปิด Play Store';
@@ -6398,8 +6069,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallTitleSubscribe => 'สมัครสมาชิกเลย';
 
   @override
-  String get paywallSubtitleResubscribe =>
-      'เลือกแผนเพื่อกลับมาใช้ฟีเจอร์พรีเมียมแบบจัดเต็ม';
+  String get paywallSubtitleResubscribe => 'เลือกแผนเพื่อกลับมาใช้ฟีเจอร์พรีเมียมแบบจัดเต็ม';
 
   @override
   String get paywallPreviewApp => 'ลองใช้งานโหมดพรีวิว';
@@ -6451,15 +6121,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallBenefit1 => 'จดรายจ่ายผ่านเสียง ข้อความ รูปภาพ หรือแชท';
 
   @override
-  String get paywallBenefit2 =>
-      'เพิ่มรายจ่ายได้รวดเร็วผ่าน WhatsApp และ Telegram';
+  String get paywallBenefit2 => 'เพิ่มรายจ่ายได้รวดเร็วผ่าน WhatsApp และ Telegram';
 
   @override
   String get paywallBenefit3 => 'แชร์งบกับคนในบ้าน ข้อมูลอัปเดตเรียลไทม์';
 
   @override
-  String get paywallBenefit4 =>
-      'ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว';
+  String get paywallBenefit4 => 'ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว';
 
   @override
   String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 7,100+ คน';
@@ -6474,8 +6142,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketsCopyDialogTitle => 'คัดลอกพ็อกเก็ตจากเดือนที่แล้ว?';
 
   @override
-  String get pocketsCopyDialogDesc =>
-      'เราจะสร้างพ็อกเก็ตโดยใช้ชื่อ ไอคอน และงบประมาณเดิมจากเดือนที่แล้ว คุณสามารถแก้ไขได้ตลอดเวลา';
+  String get pocketsCopyDialogDesc => 'เราจะสร้างพ็อกเก็ตโดยใช้ชื่อ ไอคอน และงบประมาณเดิมจากเดือนที่แล้ว คุณสามารถแก้ไขได้ตลอดเวลา';
 
   @override
   String get pocketsCopyConfirm => 'คัดลอกพ็อกเก็ต';
@@ -6484,8 +6151,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketsNewMonthBannerTitle => 'เดือนใหม่ เริ่มจัดการงบกัน!';
 
   @override
-  String get pocketsNewMonthBannerSubtitle =>
-      'ยังไม่ได้ตั้งพ็อกเก็ตสำหรับเดือนนี้เลย จะคัดลอกข้อมูลจากเดือนที่แล้วไหม?';
+  String get pocketsNewMonthBannerSubtitle => 'ยังไม่ได้ตั้งพ็อกเก็ตสำหรับเดือนนี้เลย จะคัดลอกข้อมูลจากเดือนที่แล้วไหม?';
 
   @override
   String get pocketsCopyLastMonthAction => 'คัดลอกพ็อกเก็ตเดิม';
@@ -6520,56 +6186,43 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingIntroSlide1Title => 'เรื่องเงินบางที\n**ก็ดูวุ่นวาย**';
 
   @override
-  String get onboardingIntroSlide1Body =>
-      'ทั้งบิล ทั้งค่าเช่า และค่ากิน\nรู้ตัวอีกที\nเงินก็หมดไปโดยไม่ทันตั้งตัว';
+  String get onboardingIntroSlide1Body => 'ทั้งบิล ทั้งค่าเช่า และค่ากิน\nรู้ตัวอีกที\nเงินก็หมดไปโดยไม่ทันตั้งตัว';
 
   @override
-  String get onboardingIntroSlide2Title =>
-      'ถึงจะพยายามจดแล้ว\nแต่เชื่อเถอะว่า\n**มีบางยอดที่คุณเผลอลืม**\nไปอย่างง่ายดาย';
+  String get onboardingIntroSlide2Title => 'ถึงจะพยายามจดแล้ว\nแต่เชื่อเถอะว่า\n**มีบางยอดที่คุณเผลอลืม**\nไปอย่างง่ายดาย';
 
   @override
-  String get onboardingIntroSlide3Title =>
-      'ไม่ใช่ว่าคุณ\nจัดการเงินไม่เก่งหรอก\nแค่**การตามจดทุกอย่าง**\nมันเหนื่อยเกินความจำเป็น';
+  String get onboardingIntroSlide3Title => 'ไม่ใช่ว่าคุณ\nจัดการเงินไม่เก่งหรอก\nแค่**การตามจดทุกอย่าง**\nมันเหนื่อยเกินความจำเป็น';
 
   @override
-  String get onboardingIntroSlide3Body =>
-      'การต้องตามจดทุกสิ่งทุกอย่าง\nเป็นเรื่องที่น่าเบื่อและเหนื่อยเกินไป';
+  String get onboardingIntroSlide3Body => 'การต้องตามจดทุกสิ่งทุกอย่าง\nเป็นเรื่องที่น่าเบื่อและเหนื่อยเกินไป';
 
   @override
-  String get onboardingIntroSlide4Title =>
-      'การบันทึกรายจ่าย\nควรเป็นเรื่อง**ง่าย**';
+  String get onboardingIntroSlide4Title => 'การบันทึกรายจ่าย\nควรเป็นเรื่อง**ง่าย**';
 
   @override
   String get getStarted => 'เริ่มต้นใช้งาน';
 
   @override
-  String get enterAMonthlyAmountToGenerateYourStartingPocketPlan =>
-      'ระบุยอดเงินรายเดือนเพื่อสร้างแผนพ็อกเก็ตแรกของคุณ';
+  String get enterAMonthlyAmountToGenerateYourStartingPocketPlan => 'ระบุยอดเงินรายเดือนเพื่อสร้างแผนพ็อกเก็ตแรกของคุณ';
 
   @override
-  String get addYourMonthlyAmountBeforeWeCanBuildYourPocketPlan =>
-      'กรุณาระบุยอดเงินรายเดือนก่อนเพื่อสร้างแผนพ็อกเก็ต';
+  String get addYourMonthlyAmountBeforeWeCanBuildYourPocketPlan => 'กรุณาระบุยอดเงินรายเดือนก่อนเพื่อสร้างแผนพ็อกเก็ต';
 
   @override
-  String get increaseYourMonthlyTotalOrLowerOneOfTheFixedAmounts =>
-      'ลองเพิ่มยอดงบรวม หรือปรับลดค่าใช้จ่ายคงที่บางอย่างลงนะ';
+  String get increaseYourMonthlyTotalOrLowerOneOfTheFixedAmounts => 'ลองเพิ่มยอดงบรวม หรือปรับลดค่าใช้จ่ายคงที่บางอย่างลงนะ';
 
   @override
-  String
-      get yourFixedCostsAreHigherThanYourTotalIncreaseYourTotalOrLowerAFixedAmountToContinue =>
-          'รายจ่ายคงที่สูงกว่างบรวม ลองปรับยอดรวมหรือรายจ่ายคงที่เพื่อไปต่อ';
+  String get yourFixedCostsAreHigherThanYourTotalIncreaseYourTotalOrLowerAFixedAmountToContinue => 'รายจ่ายคงที่สูงกว่างบรวม ลองปรับยอดรวมหรือรายจ่ายคงที่เพื่อไปต่อ';
 
   @override
-  String get thisIsTightForDayToDaySpendingConsiderReducingSavingsDebtExtrasOrIncreasingYourTotal =>
-      'งบที่เหลือดูจะตึงไปสำหรับการใช้ชีวิต ลองลดเป้าหมายเงินออมหรือเพิ่มงบรวมดูนะ';
+  String get thisIsTightForDayToDaySpendingConsiderReducingSavingsDebtExtrasOrIncreasingYourTotal => 'งบที่เหลือดูจะตึงไปสำหรับการใช้ชีวิต ลองลดเป้าหมายเงินออมหรือเพิ่มงบรวมดูนะ';
 
   @override
-  String get utilitiesIsEstimatedFromYourProfileYouCanFineTuneItAnytime =>
-      'ค่าสาธารณูปโภคนี้เราประเมินจากโปรไฟล์ของคุณ คุณสามารถปรับแต่งได้ตลอดเวลา';
+  String get utilitiesIsEstimatedFromYourProfileYouCanFineTuneItAnytime => 'ค่าสาธารณูปโภคนี้เราประเมินจากโปรไฟล์ของคุณ คุณสามารถปรับแต่งได้ตลอดเวลา';
 
   @override
-  String get housingIsEstimatedFromYourHousingSituationUpdateThisAmountOnceYouKnowIt =>
-      'ค่าที่พักเราประเมินจากสถานะการอยู่อาศัยของคุณ อัปเดตยอดจริงได้เมื่อคุณทราบตัวเลขที่แน่นอน';
+  String get housingIsEstimatedFromYourHousingSituationUpdateThisAmountOnceYouKnowIt => 'ค่าที่พักเราประเมินจากสถานะการอยู่อาศัยของคุณ อัปเดตยอดจริงได้เมื่อคุณทราบตัวเลขที่แน่นอน';
 
   @override
   String get categorySavingsFuture => 'เงินออม / อนาคต';
@@ -6626,15 +6279,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get deleteIncome => 'ลบรายรับ';
 
   @override
-  String get paywallCompetitorPromoText =>
-      'กำลังใช้งานแอปอื่นอยู่ใช่ไหม? ติดต่อเราที่ hello@moneko.io เพื่อรับส่วนลด 50% สำหรับแพ็กเกจตลอดชีพ!';
+  String get paywallCompetitorPromoText => 'กำลังใช้งานแอปอื่นอยู่ใช่ไหม? ติดต่อเราที่ hello@moneko.io เพื่อรับส่วนลด 50% สำหรับแพ็กเกจตลอดชีพ!';
 
   @override
   String get connectSocialBannerTitle => 'เชื่อมต่อ Telegram หรือ WhatsApp';
 
   @override
-  String get connectSocialBannerDescription =>
-      'บันทึกข้อมูลได้ง่ายขึ้น เพียงโต้ตอบกับ AI ของเราผ่านแอปส่งข้อความที่คุณชอบ';
+  String get connectSocialBannerDescription => 'บันทึกข้อมูลได้ง่ายขึ้น เพียงโต้ตอบกับ AI ของเราผ่านแอปส่งข้อความที่คุณชอบ';
 
   @override
   String get connectSocialBannerButton => 'เชื่อมต่อ';
@@ -6643,8 +6294,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get connectSocialBottomSheetTitle => 'เลือกแอปส่งข้อความ';
 
   @override
-  String get connectSocialBottomSheetDescription =>
-      'เลือกแอปเพื่อเชื่อมต่อกับ AI ของเรา';
+  String get connectSocialBottomSheetDescription => 'เลือกแอปเพื่อเชื่อมต่อกับ AI ของเรา';
 
   @override
   String get telegramAppName => 'Telegram';
@@ -6656,8 +6306,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get autoCapture => 'บันทึกอัตโนมัติ';
 
   @override
-  String get autoCaptureDescription =>
-      'บันทึกรายการธุรกรรมจาก Apple Wallet หรือการแจ้งเตือนของแอปธนาคารโดยอัตโนมัติ';
+  String get autoCaptureDescription => 'บันทึกรายการธุรกรรมจาก Apple Wallet หรือการแจ้งเตือนของแอปธนาคารโดยอัตโนมัติ';
 
   @override
   String get grantNotificationAccess => 'อนุญาตการเข้าถึง';
@@ -6669,12 +6318,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get legacySettingDetected => '(ตรวจพบการตั้งค่าแบบเก่า)';
 
   @override
-  String get previewAccountDeletionDisabled =>
-      'ตัวอย่าง: การลบบัญชีถูกปิดใช้งานในโหมดสาธิต';
+  String get previewAccountDeletionDisabled => 'ตัวอย่าง: การลบบัญชีถูกปิดใช้งานในโหมดสาธิต';
 
   @override
-  String get previewSignOutDisabled =>
-      'ตัวอย่าง: การออกจากระบบถูกปิดใช้งานในโหมดสาธิต';
+  String get previewSignOutDisabled => 'ตัวอย่าง: การออกจากระบบถูกปิดใช้งานในโหมดสาธิต';
 
   @override
   String get applePayIntegration => 'การเชื่อมต่อ Apple Pay';
@@ -6683,8 +6330,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get autoTransactionCapture => 'บันทึกธุรกรรมอัตโนมัติ';
 
   @override
-  String get signInAgainToSyncWalletCaptureCredentials =>
-      'กรุณาลงชื่อเข้าใช้อีกครั้งเพื่อซิงค์ข้อมูลประจำตัวสำหรับการบันทึก Wallet';
+  String get signInAgainToSyncWalletCaptureCredentials => 'กรุณาลงชื่อเข้าใช้อีกครั้งเพื่อซิงค์ข้อมูลประจำตัวสำหรับการบันทึก Wallet';
 
   @override
   String get credentialsSyncedSuccessfully => 'ซิงค์ข้อมูลประจำตัวสำเร็จแล้ว';
@@ -6696,8 +6342,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get couldNotOpenShortcutsApp => 'ไม่สามารถเปิดแอปคำสั่งลัดได้';
 
   @override
-  String get chooseWhereAutoCapturedTransactionsWillBeSaved =>
-      'เลือกที่เก็บรายการธุรกรรมที่บันทึกโดยอัตโนมัติ';
+  String get chooseWhereAutoCapturedTransactionsWillBeSaved => 'เลือกที่เก็บรายการธุรกรรมที่บันทึกโดยอัตโนมัติ';
 
   @override
   String get failedToUpdateDestination => 'อัปเดตปลายทางไม่สำเร็จ';
@@ -6712,20 +6357,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get startSetup => 'เริ่มการตั้งค่า';
 
   @override
-  String get transactionDataStoredSecurely =>
-      'ข้อมูลธุรกรรมของคุณถูกเก็บไว้อย่างปลอดภัยในบัญชีของคุณ และจะไม่มีการขายหรือแชร์ให้กับบุคคลที่สาม';
+  String get transactionDataStoredSecurely => 'ข้อมูลธุรกรรมของคุณถูกเก็บไว้อย่างปลอดภัยในบัญชีของคุณ และจะไม่มีการขายหรือแชร์ให้กับบุคคลที่สาม';
 
   @override
-  String get signInAgainToEnableNotificationCapture =>
-      'กรุณาลงชื่อเข้าใช้อีกครั้งเพื่อเปิดใช้งานการบันทึกจากการแจ้งเตือน';
+  String get signInAgainToEnableNotificationCapture => 'กรุณาลงชื่อเข้าใช้อีกครั้งเพื่อเปิดใช้งานการบันทึกจากการแจ้งเตือน';
 
   @override
-  String get couldNotPrepareNotificationCaptureOnThisDevice =>
-      'ไม่สามารถเตรียมการบันทึกจากการแจ้งเตือนบนอุปกรณ์นี้ได้';
+  String get couldNotPrepareNotificationCaptureOnThisDevice => 'ไม่สามารถเตรียมการบันทึกจากการแจ้งเตือนบนอุปกรณ์นี้ได้';
 
   @override
-  String get failedToEnableNotificationCapture =>
-      'เปิดใช้งานการบันทึกจากการแจ้งเตือนไม่สำเร็จ';
+  String get failedToEnableNotificationCapture => 'เปิดใช้งานการบันทึกจากการแจ้งเตือนไม่สำเร็จ';
 
   @override
   String get enableAutoCapture => 'เปิดใช้งานการบันทึกอัตโนมัติ';
@@ -6740,16 +6381,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get grantAccessToSeeAppsHere => 'อนุญาตการเข้าถึงเพื่อดูแอปที่นี่';
 
   @override
-  String get toggleAppsMonekoShouldMonitor =>
-      'เลือกแอปที่ต้องการให้ Moneko ตรวจสอบ แอปใหม่จะปรากฏขึ้นโดยอัตโนมัติเมื่อมีการส่งการแจ้งเตือน';
+  String get toggleAppsMonekoShouldMonitor => 'เลือกแอปที่ต้องการให้ Moneko ตรวจสอบ แอปใหม่จะปรากฏขึ้นโดยอัตโนมัติเมื่อมีการส่งการแจ้งเตือน';
 
   @override
-  String get connectSupportedNotificationApps =>
-      'เชื่อมต่อแอปการแจ้งเตือนที่รองรับกับ Moneko เพื่อให้การแจ้งเตือนธุรกรรมถูกบันทึกลงในพื้นที่ที่คุณเลือกโดยอัตโนมัติ';
+  String get connectSupportedNotificationApps => 'เชื่อมต่อแอปการแจ้งเตือนที่รองรับกับ Moneko เพื่อให้การแจ้งเตือนธุรกรรมถูกบันทึกลงในพื้นที่ที่คุณเลือกโดยอัตโนมัติ';
 
   @override
-  String get enableMonekoInsideAndroidSettings =>
-      'เปิดใช้งาน Moneko ในการตั้งค่า Android';
+  String get enableMonekoInsideAndroidSettings => 'เปิดใช้งาน Moneko ในการตั้งค่า Android';
 
   @override
   String get showSteps => 'แสดงขั้นตอน';
@@ -6761,8 +6399,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get automaticCapture => 'บันทึกอัตโนมัติ';
 
   @override
-  String get couldNotOpenNotificationSettings =>
-      'ไม่สามารถเปิดการตั้งค่าการแจ้งเตือนได้';
+  String get couldNotOpenNotificationSettings => 'ไม่สามารถเปิดการตั้งค่าการแจ้งเตือนได้';
 
   @override
   String get failedToUpdateAppSetting => 'อัปเดตการตั้งค่าแอปไม่สำเร็จ';
@@ -6771,57 +6408,46 @@ class AppLocalizationsTh extends AppLocalizations {
   String get androidSettingsWalkthrough => 'คำแนะนำการตั้งค่า Android';
 
   @override
-  String get notificationAccessIsAlreadyEnabledForMoneko =>
-      'Moneko ได้รับอนุญาตให้เข้าถึงการแจ้งเตือนแล้ว';
+  String get notificationAccessIsAlreadyEnabledForMoneko => 'Moneko ได้รับอนุญาตให้เข้าถึงการแจ้งเตือนแล้ว';
 
   @override
-  String get goToSettingsNotificationsNotificationReadReplyAndControl =>
-      'ไปที่ การตั้งค่า → การแจ้งเตือน → \"การอ่าน การตอบกลับ และการควบคุมการแจ้งเตือน\" เลือก Moneko แล้วเปิด อนุญาตการเข้าถึงการแจ้งเตือน';
+  String get goToSettingsNotificationsNotificationReadReplyAndControl => 'ไปที่ การตั้งค่า → การแจ้งเตือน → \"การอ่าน การตอบกลับ และการควบคุมการแจ้งเตือน\" เลือก Moneko แล้วเปิด อนุญาตการเข้าถึงการแจ้งเตือน';
 
   @override
-  String get afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor =>
-      'หลังจากอนุญาตการเข้าถึงแล้ว ให้เปิดเฉพาะแอปที่คุณต้องการให้ Moneko ตรวจสอบในส่วนแอปที่รองรับ';
+  String get afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor => 'หลังจากอนุญาตการเข้าถึงแล้ว ให้เปิดเฉพาะแอปที่คุณต้องการให้ Moneko ตรวจสอบในส่วนแอปที่รองรับ';
 
   @override
-  String get secureStorageUnavailable =>
-      'พื้นที่จัดเก็บข้อมูลที่ปลอดภัยไม่พร้อมใช้งาน';
+  String get secureStorageUnavailable => 'พื้นที่จัดเก็บข้อมูลที่ปลอดภัยไม่พร้อมใช้งาน';
 
   @override
   String get failedToUpdateSetting => 'อัปเดตการตั้งค่าไม่สำเร็จ';
 
   @override
-  String get monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive =>
-      'Moneko จะดึงชื่อร้านค้า จำนวนเงิน และสกุลเงินเมื่อมีการแจ้งเตือนเข้ามา';
+  String get monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive => 'Moneko จะดึงชื่อร้านค้า จำนวนเงิน และสกุลเงินเมื่อมีการแจ้งเตือนเข้ามา';
 
   @override
   String get configuration => 'การกำหนดค่า';
 
   @override
-  String get notificationCaptureIsUnavailableOnThisDevice =>
-      'การบันทึกการแจ้งเตือนไม่สามารถใช้งานได้บนอุปกรณ์นี้';
+  String get notificationCaptureIsUnavailableOnThisDevice => 'การบันทึกการแจ้งเตือนไม่สามารถใช้งานได้บนอุปกรณ์นี้';
 
   @override
-  String get monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice =>
-      'Moneko ไม่สามารถจัดเก็บข้อมูลประจำตัวสำหรับการซิงค์เบื้องหลังได้อย่างปลอดภัยบนอุปกรณ์นี้';
+  String get monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice => 'Moneko ไม่สามารถจัดเก็บข้อมูลประจำตัวสำหรับการซิงค์เบื้องหลังได้อย่างปลอดภัยบนอุปกรณ์นี้';
 
   @override
-  String get followTheseScreensToTurnOnNotificationAccessForMoneko =>
-      'ทำตามขั้นตอนเหล่านี้เพื่อเปิดใช้งานการเข้าถึงการแจ้งเตือนสำหรับ Moneko';
+  String get followTheseScreensToTurnOnNotificationAccessForMoneko => 'ทำตามขั้นตอนเหล่านี้เพื่อเปิดใช้งานการเข้าถึงการแจ้งเตือนสำหรับ Moneko';
 
   @override
-  String get tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground =>
-      'แตะ \'อนุญาตการเข้าถึง\' หรือเปิดการตั้งค่า Android เพื่อให้ Moneko สามารถอ่านการแจ้งเตือนในเบื้องหลังได้';
+  String get tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground => 'แตะ \'อนุญาตการเข้าถึง\' หรือเปิดการตั้งค่า Android เพื่อให้ Moneko สามารถอ่านการแจ้งเตือนในเบื้องหลังได้';
 
   @override
   String get grantAccess => 'อนุญาตการเข้าถึง';
 
   @override
-  String get onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData =>
-      'มีเพียงคุณเท่านั้นที่เข้าถึงได้ Moneko จะไม่มีการขายหรือแชร์ข้อมูลทางการเงินของคุณ';
+  String get onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData => 'มีเพียงคุณเท่านั้นที่เข้าถึงได้ Moneko จะไม่มีการขายหรือแชร์ข้อมูลทางการเงินของคุณ';
 
   @override
-  String get yourTransactionsAreAddedAutomatically =>
-      'ธุรกรรมของคุณจะถูกบันทึกโดยอัตโนมัติ';
+  String get yourTransactionsAreAddedAutomatically => 'ธุรกรรมของคุณจะถูกบันทึกโดยอัตโนมัติ';
 
   @override
   String get test => 'ทดสอบ';
@@ -6830,8 +6456,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get openTheShortcutsApp => 'เปิดแอปคำสั่งลัด';
 
   @override
-  String get openShortcutsAndTapTheAutomationsTabAtTheBottom =>
-      'เปิดแอปคำสั่งลัดและแตะแถบ **การทำงานอัตโนมัติ** ที่ด้านล่าง';
+  String get openShortcutsAndTapTheAutomationsTabAtTheBottom => 'เปิดแอปคำสั่งลัดและแตะแถบ **การทำงานอัตโนมัติ** ที่ด้านล่าง';
 
   @override
   String get openShortcuts => 'เปิดคำสั่งลัด';
@@ -6840,56 +6465,46 @@ class AppLocalizationsTh extends AppLocalizations {
   String get createAPersonalAutomation => 'สร้างการทำงานอัตโนมัติส่วนบุคคล';
 
   @override
-  String get tapPlusChooseWalletAndTapNextToContinue =>
-      'แตะ **+** เลือก **Wallet** และแตะ **ถัดไป** เพื่อดำเนินการต่อ';
+  String get tapPlusChooseWalletAndTapNextToContinue => 'แตะ **+** เลือก **Wallet** และแตะ **ถัดไป** เพื่อดำเนินการต่อ';
 
   @override
   String get addMonekoAction => 'เพิ่มการดำเนินการของ Moneko';
 
   @override
-  String get tapNewBlankAutomationSearchMonekoAndSelectCaptureWalletTransaction =>
-      'แตะ **การทำงานอัตโนมัติว่างใหม่** ค้นหา **Moneko** และเลือก **\"บันทึกรายการธุรกรรม Wallet\"**';
+  String get tapNewBlankAutomationSearchMonekoAndSelectCaptureWalletTransaction => 'แตะ **การทำงานอัตโนมัติว่างใหม่** ค้นหา **Moneko** และเลือก **\"บันทึกรายการธุรกรรม Wallet\"**';
 
   @override
-  String get mapAmountFromShortcutInput =>
-      'กำหนดค่าจำนวนเงินจากข้อมูลเข้าของคำสั่งลัด';
+  String get mapAmountFromShortcutInput => 'กำหนดค่าจำนวนเงินจากข้อมูลเข้าของคำสั่งลัด';
 
   @override
-  String get tapAmountChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectAmount =>
-      'แตะ **จำนวนเงิน** เลือก **เลือกตัวแปร** และเลือก **ข้อมูลเข้าของคำสั่งลัด** แตะที่โทเค็นอีกครั้งเพื่อเลือก **จำนวนเงิน**';
+  String get tapAmountChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectAmount => 'แตะ **จำนวนเงิน** เลือก **เลือกตัวแปร** และเลือก **ข้อมูลเข้าของคำสั่งลัด** แตะที่โทเค็นอีกครั้งเพื่อเลือก **จำนวนเงิน**';
 
   @override
-  String get mapMerchantFromShortcutInput =>
-      'กำหนดค่าร้านค้าจากข้อมูลเข้าของคำสั่งลัด';
+  String get mapMerchantFromShortcutInput => 'กำหนดค่าร้านค้าจากข้อมูลเข้าของคำสั่งลัด';
 
   @override
-  String get tapMerchantChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectMerchant =>
-      'แตะ **ร้านค้า** เลือก **เลือกตัวแปร** และเลือก **ข้อมูลเข้าของคำสั่งลัด** แแตะที่โทเค็นอีกครั้งเพื่อเลือก **ร้านค้า**';
+  String get tapMerchantChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectMerchant => 'แตะ **ร้านค้า** เลือก **เลือกตัวแปร** และเลือก **ข้อมูลเข้าของคำสั่งลัด** แแตะที่โทเค็นอีกครั้งเพื่อเลือก **ร้านค้า**';
 
   @override
   String get saveAndReopen => 'บันทึกและเปิดใหม่อีกครั้ง';
 
   @override
-  String get tapTheCheckIconTopRightToSaveThenTapTheAutomationYouJustCreatedToEditIt =>
-      'แตะที่ **ไอคอนเครื่องหมายถูก** (มุมขวาบน) เพื่อบันทึก จากนั้นแตะการทำงานอัตโนมัติที่คุณเพิ่งสร้างขึ้นเพื่อแก้ไข';
+  String get tapTheCheckIconTopRightToSaveThenTapTheAutomationYouJustCreatedToEditIt => 'แตะที่ **ไอคอนเครื่องหมายถูก** (มุมขวาบน) เพื่อบันทึก จากนั้นแตะการทำงานอัตโนมัติที่คุณเพิ่งสร้างขึ้นเพื่อแก้ไข';
 
   @override
   String get enableRunImmediately => 'เปิดใช้งาน ทำงานทันที';
 
   @override
-  String get selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation =>
-      'เลือก **ทำงานทันที** เพื่อให้รายการธุรกรรมบันทึกโดยอัตโนมัติโดยไม่ต้องรอการยืนยัน';
+  String get selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation => 'เลือก **ทำงานทันที** เพื่อให้รายการธุรกรรมบันทึกโดยอัตโนมัติโดยไม่ต้องรอการยืนยัน';
 
   @override
   String get setUpApplePayIntegration => 'ตั้งค่าการเชื่อมต่อ Apple Pay';
 
   @override
-  String get followTheseStepsInTheShortcutsApp =>
-      'ทำตามขั้นตอนเหล่านี้ในแอปคำสั่งลัด';
+  String get followTheseStepsInTheShortcutsApp => 'ทำตามขั้นตอนเหล่านี้ในแอปคำสั่งลัด';
 
   @override
-  String get yourCredentialsAreStoredSecurelyInTheIosKeychainAndOnlyUsedToAuthenticateWithYourMonekoAccountMonekoNeverAccessesYourBankCardOrWalletDataDirectly =>
-      'ข้อมูลประจำตัวของคุณถูกจัดเก็บอย่างปลอดภัยใน iOS Keychain และใช้เพื่อยืนยันตัวตนกับบัญชี Moneko ของคุณเท่านั้น Moneko จะไม่เข้าถึงข้อมูลธนาคาร บัตร หรือ Wallet ของคุณโดยตรง';
+  String get yourCredentialsAreStoredSecurelyInTheIosKeychainAndOnlyUsedToAuthenticateWithYourMonekoAccountMonekoNeverAccessesYourBankCardOrWalletDataDirectly => 'ข้อมูลประจำตัวของคุณถูกจัดเก็บอย่างปลอดภัยใน iOS Keychain และใช้เพื่อยืนยันตัวตนกับบัญชี Moneko ของคุณเท่านั้น Moneko จะไม่เข้าถึงข้อมูลธนาคาร บัตร หรือ Wallet ของคุณโดยตรง';
 
   @override
   String get watchTutorialVideo => 'ดูวิดีโอสอนการใช้งาน';
@@ -6904,47 +6519,40 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingIntroSlide5Title => 'ไม่พลาดทุกความเคลื่อนไหวทางการเงิน';
 
   @override
-  String get onboardingIntroSlide5AppleBody =>
-      'ติดตามการซื้อผ่าน Apple Pay ให้คุณโดยอัตโนมัติ';
+  String get onboardingIntroSlide5AppleBody => 'ติดตามการซื้อผ่าน Apple Pay ให้คุณโดยอัตโนมัติ';
 
   @override
-  String get onboardingIntroSlide5AndroidBody =>
-      'บันทึกข้อมูลจากการแจ้งเตือนของแอปธนาคารให้อัตโนมัติ';
+  String get onboardingIntroSlide5AndroidBody => 'บันทึกข้อมูลจากการแจ้งเตือนของแอปธนาคารให้อัตโนมัติ';
 
   @override
   String get onboardingIntroCarouselTitle => 'หมดกังวลเรื่องเงิน';
 
   @override
-  String get onboardingIntroCarouselSubtitle =>
-      'เราช่วยบันทึกทุกอย่างให้คุณ โดยที่คุณไม่ต้องทำเอง';
+  String get onboardingIntroCarouselSubtitle => 'เราช่วยบันทึกทุกอย่างให้คุณ โดยที่คุณไม่ต้องทำเอง';
 
   @override
   String get onboardingIntroCarouselSlide1Title => 'บันทึกรายจ่ายในแบบของคุณ';
 
   @override
-  String get onboardingIntroCarouselSlide1Body =>
-      'พิมพ์ด้วยเสียง แชท หรือรูปภาพ ที่เหลือเราจัดการให้';
+  String get onboardingIntroCarouselSlide1Body => 'พิมพ์ด้วยเสียง แชท หรือรูปภาพ ที่เหลือเราจัดการให้';
 
   @override
   String get onboardingIntroCarouselSlide2Title => 'ถ่ายรูปใบเสร็จ เสร็จเลย';
 
   @override
-  String get onboardingIntroCarouselSlide2Body =>
-      'แค่ถ่ายรูป เราจะบันทึกทุกอย่างให้คุณ';
+  String get onboardingIntroCarouselSlide2Body => 'แค่ถ่ายรูป เราจะบันทึกทุกอย่างให้คุณ';
 
   @override
   String get onboardingIntroCarouselSlide3Title => 'หมดความสับสนเรื่องเงิน';
 
   @override
-  String get onboardingIntroCarouselSlide3Body =>
-      'ไม่ต้องคำนวณเอง ทุกอย่างจัดการให้อัตโนมัติ';
+  String get onboardingIntroCarouselSlide3Body => 'ไม่ต้องคำนวณเอง ทุกอย่างจัดการให้อัตโนมัติ';
 
   @override
   String get onboardingIntroCarouselSlide4Title => 'คุมงบได้โดยไม่ต้องคิดมาก';
 
   @override
-  String get onboardingIntroCarouselSlide4Body =>
-      'เราจัดการค่าใช้จ่ายของคุณเป็นงบง่าย ๆ เพื่อให้คุณควบคุมได้';
+  String get onboardingIntroCarouselSlide4Body => 'เราจัดการค่าใช้จ่ายของคุณเป็นงบง่าย ๆ เพื่อให้คุณควบคุมได้';
 
   @override
   String get onboardingIntroGetMyPlan => 'เริ่มต้น';
@@ -6956,35 +6564,28 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreauthTestimonialTitle => 'เราพร้อมดูแลคุณ';
 
   @override
-  String get onboardingPreauthTestimonialSubtitle =>
-      'เรื่องเงินไม่จำเป็นต้องเครียด';
+  String get onboardingPreauthTestimonialSubtitle => 'เรื่องเงินไม่จำเป็นต้องเครียด';
 
   @override
   String get onboardingPreparingProgressInitial => 'กำลังเตรียมบัญชีของคุณ...';
 
   @override
-  String get onboardingPreparingProgressSavingPreferences =>
-      'กำลังบันทึกการตั้งค่าของคุณ...';
+  String get onboardingPreparingProgressSavingPreferences => 'กำลังบันทึกการตั้งค่าของคุณ...';
 
   @override
-  String get onboardingPreparingProgressApplyingDefaults =>
-      'กำลังตั้งค่าสกุลเงินและค่าเริ่มต้น...';
+  String get onboardingPreparingProgressApplyingDefaults => 'กำลังตั้งค่าสกุลเงินและค่าเริ่มต้น...';
 
   @override
-  String get onboardingPreparingProgressFinalizing =>
-      'กำลังตั้งค่าให้เสร็จสมบูรณ์...';
+  String get onboardingPreparingProgressFinalizing => 'กำลังตั้งค่าให้เสร็จสมบูรณ์...';
 
   @override
-  String get onboardingPreparingProgressEssentialsFallback =>
-      'กำลังสร้างแผนพื้นฐานจากค่าใช้จ่ายประจำของคุณ...';
+  String get onboardingPreparingProgressEssentialsFallback => 'กำลังสร้างแผนพื้นฐานจากค่าใช้จ่ายประจำของคุณ...';
 
   @override
-  String get onboardingPreparingProgressErrorDashboard =>
-      'ไม่สามารถสร้างหมวดเริ่มต้นได้ เปิดแดชบอร์ดเพื่อดำเนินการต่อ';
+  String get onboardingPreparingProgressErrorDashboard => 'ไม่สามารถสร้างหมวดเริ่มต้นได้ เปิดแดชบอร์ดเพื่อดำเนินการต่อ';
 
   @override
-  String get onboardingPreparingProgressErrorRetry =>
-      'เกือบเสร็จแล้ว แต่เกิดข้อผิดพลาดเล็กน้อย ลองอีกครั้ง';
+  String get onboardingPreparingProgressErrorRetry => 'เกือบเสร็จแล้ว แต่เกิดข้อผิดพลาดเล็กน้อย ลองอีกครั้ง';
 
   @override
   String get onboardingPreparingProgressReady => 'บัญชีของคุณพร้อมแล้ว';
@@ -6999,20 +6600,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreparingTitleLoading => 'กำลังเตรียมบัญชี';
 
   @override
-  String get onboardingPreparingBodyErrorDashboard =>
-      'เริ่มต้นได้ดี แผนพื้นฐานของคุณพร้อมให้ปรับเพิ่มเติมแล้ว เปิดแดชบอร์ด แล้วเราจะแนะนำขั้นตอนถัดไป';
+  String get onboardingPreparingBodyErrorDashboard => 'เริ่มต้นได้ดี แผนพื้นฐานของคุณพร้อมให้ปรับเพิ่มเติมแล้ว เปิดแดชบอร์ด แล้วเราจะแนะนำขั้นตอนถัดไป';
 
   @override
-  String get onboardingPreparingBodyErrorRetry =>
-      'ใกล้เสร็จแล้ว แตะ “ลองอีกครั้ง” แล้วเราจะตั้งค่าที่เหลือให้เสร็จ';
+  String get onboardingPreparingBodyErrorRetry => 'ใกล้เสร็จแล้ว แตะ “ลองอีกครั้ง” แล้วเราจะตั้งค่าที่เหลือให้เสร็จ';
 
   @override
-  String get onboardingPreparingBodyDone =>
-      'เราได้ซิงก์ตัวเลือกของคุณและปรับการตั้งค่าให้เหมาะกับคุณเรียบร้อยแล้ว';
+  String get onboardingPreparingBodyDone => 'เราได้ซิงก์ตัวเลือกของคุณและปรับการตั้งค่าให้เหมาะกับคุณเรียบร้อยแล้ว';
 
   @override
-  String get onboardingPreparingBodyLoading =>
-      'กรุณารอสักครู่ เรากำลังซิงก์ตัวเลือกของคุณและปรับการตั้งค่าให้เหมาะกับคุณ';
+  String get onboardingPreparingBodyLoading => 'กรุณารอสักครู่ เรากำลังซิงก์ตัวเลือกของคุณและปรับการตั้งค่าให้เหมาะกับคุณ';
 
   @override
   String get onboardingPreparingCtaOpenDashboard => 'เปิดแดชบอร์ด';
@@ -7021,8 +6618,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingPreparingCtaTryAgain => 'ลองอีกครั้ง';
 
   @override
-  String get paywallErrorPurchaseOwnedByAnotherAccount =>
-      'การซื้อนี้เชื่อมกับบัญชี Moneko อื่นแล้ว';
+  String get paywallErrorPurchaseOwnedByAnotherAccount => 'การซื้อนี้เชื่อมกับบัญชี Moneko อื่นแล้ว';
 
   @override
   String get paywallPeriodMonth => '/เดือน';
@@ -7075,8 +6671,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get setRecurring => 'รายการประจำ';
 
   @override
-  String get setRecurringDescription =>
-      'ตั้งค่ารายรับรายจ่ายและติดตามอัตโนมัติ';
+  String get setRecurringDescription => 'ตั้งค่ารายรับรายจ่ายและติดตามอัตโนมัติ';
 
   @override
   String get setUp => 'ตั้งค่า';
@@ -7091,19 +6686,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get connect => 'เชื่อมต่อ';
 
   @override
-  String get autoCaptureDescriptionIos =>
-      'เปิด Apple Pay และบันทึกรายการอัตโนมัติ';
+  String get autoCaptureDescriptionIos => 'เปิด Apple Pay และบันทึกรายการอัตโนมัติ';
 
   @override
-  String get autoCaptureDescriptionAndroid =>
-      'เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ';
+  String get autoCaptureDescriptionAndroid => 'เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ';
 
   @override
   String get enable => 'เปิดใช้งาน';
 
   @override
-  String get enableNotificationsSummary =>
-      'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
+  String get enableNotificationsSummary => 'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
 
   @override
   String get openSettingsToEnable => 'เปิดการตั้งค่าเพื่อเปิดใช้งาน';
@@ -7121,8 +6713,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get archiveThisWallet => 'ต้องการเก็บถาวรกระเป๋านี้หรือไม่?';
 
   @override
-  String get archiveWalletDescription =>
-      'คุณสามารถเก็บกระเป๋านี้เข้าที่เก็บถาวรได้ทุกเมื่อ เมื่อเก็บถาวรแล้ว กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่ และจะไม่ถูกรวมในมูลค่าสุทธิของคุณ คุณสามารถกู้คืนได้ภายหลังในการตั้งค่า';
+  String get archiveWalletDescription => 'คุณสามารถเก็บกระเป๋านี้เข้าที่เก็บถาวรได้ทุกเมื่อ เมื่อเก็บถาวรแล้ว กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่ และจะไม่ถูกรวมในมูลค่าสุทธิของคุณ คุณสามารถกู้คืนได้ภายหลังในการตั้งค่า';
 
   @override
   String get walletArchived => 'เก็บถาวรกระเป๋าเรียบร้อยแล้ว';
@@ -7160,15 +6751,13 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get noWalletsYetAddFirst =>
-      'ยังไม่มีกระเป๋าเงิน เพิ่มกระเป๋าเงินใบแรกของคุณ';
+  String get noWalletsYetAddFirst => 'ยังไม่มีกระเป๋าเงิน เพิ่มกระเป๋าเงินใบแรกของคุณ';
 
   @override
   String get restoreWallet => 'กู้คืนกระเป๋านี้หรือไม่?';
 
   @override
-  String get restoreWalletDescription =>
-      'กระเป๋านี้จะถูกย้ายกลับไปยังกระเป๋าที่ใช้งานอยู่ และสามารถใช้กับธุรกรรมในอนาคตได้';
+  String get restoreWalletDescription => 'กระเป๋านี้จะถูกย้ายกลับไปยังกระเป๋าที่ใช้งานอยู่ และสามารถใช้กับธุรกรรมในอนาคตได้';
 
   @override
   String get restore => 'กู้คืน';
@@ -7180,8 +6769,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get historicalData => 'ข้อมูลย้อนหลัง';
 
   @override
-  String get unableToOpenSubscriptionSettings =>
-      'ไม่สามารถเปิดการตั้งค่าการสมัครสมาชิกได้';
+  String get unableToOpenSubscriptionSettings => 'ไม่สามารถเปิดการตั้งค่าการสมัครสมาชิกได้';
 
   @override
   String get alreadyOnThisPlan => 'คุณใช้แผนนี้อยู่แล้ว';
@@ -7235,8 +6823,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get archive => 'เก็บถาวร';
 
   @override
-  String get needTwoWalletsForTransfer =>
-      'คุณต้องมีกระเป๋าอย่างน้อย 2 ใบเพื่อโอนเงิน';
+  String get needTwoWalletsForTransfer => 'คุณต้องมีกระเป๋าอย่างน้อย 2 ใบเพื่อโอนเงิน';
 
   @override
   String get transfer => 'โอน';
@@ -7272,8 +6859,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get primaryWallet => 'กระเป๋าหลัก';
 
   @override
-  String get primaryWalletDescription =>
-      'กระเป๋านี้จะถูกเลือกเป็นค่าเริ่มต้นสำหรับรายจ่ายใหม่';
+  String get primaryWalletDescription => 'กระเป๋านี้จะถูกเลือกเป็นค่าเริ่มต้นสำหรับรายจ่ายใหม่';
 
   @override
   String get cannotTransferSameWallet => 'ไม่สามารถโอนไปยังกระเป๋าใบเดิมได้';
@@ -7291,22 +6877,19 @@ class AppLocalizationsTh extends AppLocalizations {
   String get walletsNetWorthTourTitle => 'ติดตามมูลค่าสุทธิของคุณ';
 
   @override
-  String get walletsNetWorthTourDescription =>
-      'ดูมูลค่าสุทธิรวมของคุณจากทุกกระเป๋า พร้อมสรุปรายรับและรายจ่ายของแต่ละเดือน';
+  String get walletsNetWorthTourDescription => 'ดูมูลค่าสุทธิรวมของคุณจากทุกกระเป๋า พร้อมสรุปรายรับและรายจ่ายของแต่ละเดือน';
 
   @override
   String get walletsStackTourTitle => 'กระเป๋าเงินของคุณ';
 
   @override
-  String get walletsStackTourDescription =>
-      'แตะกระเป๋าใดก็ได้เพื่อขยายและดูรายละเอียด แตะอีกครั้งเพื่อเปิดหน้ากระเป๋าและดูรายการธุรกรรมทั้งหมด';
+  String get walletsStackTourDescription => 'แตะกระเป๋าใดก็ได้เพื่อขยายและดูรายละเอียด แตะอีกครั้งเพื่อเปิดหน้ากระเป๋าและดูรายการธุรกรรมทั้งหมด';
 
   @override
   String get walletsNewWalletTourTitle => 'เพิ่มกระเป๋าใหม่';
 
   @override
-  String get walletsNewWalletTourDescription =>
-      'สร้างกระเป๋าแบบกำหนดเองสำหรับเงินสด เงินออม หรือบัญชีใด ๆ ที่คุณต้องการติดตาม ตั้งเป้าหมายและดูความคืบหน้าได้เลย!';
+  String get walletsNewWalletTourDescription => 'สร้างกระเป๋าแบบกำหนดเองสำหรับเงินสด เงินออม หรือบัญชีใด ๆ ที่คุณต้องการติดตาม ตั้งเป้าหมายและดูความคืบหน้าได้เลย!';
 
   @override
   String get initialBalance => 'ยอดคงเหลือเริ่มต้น';
@@ -7346,16 +6929,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get addSource => 'เพิ่มแหล่งที่มา';
 
   @override
-  String get areYouSureYouWantToDeleteThisTransaction =>
-      'คุณแน่ใจหรือไม่ว่าต้องการลบธุรกรรมนี้?';
+  String get areYouSureYouWantToDeleteThisTransaction => 'คุณแน่ใจหรือไม่ว่าต้องการลบธุรกรรมนี้?';
 
   @override
-  String get failedToCreateLinkedWallet =>
-      'ไม่สามารถสร้างกระเป๋าเงินที่เชื่อมโยงได้';
+  String get failedToCreateLinkedWallet => 'ไม่สามารถสร้างกระเป๋าเงินที่เชื่อมโยงได้';
 
   @override
-  String get thisBankNeedsToBeReconnected =>
-      'ต้องเชื่อมต่อธนาคารนี้ใหม่ก่อนจึงจะซิงค์ธุรกรรมต่อได้';
+  String get thisBankNeedsToBeReconnected => 'ต้องเชื่อมต่อธนาคารนี้ใหม่ก่อนจึงจะซิงค์ธุรกรรมต่อได้';
 
   @override
   String get failedToDeleteTransaction => 'ไม่สามารถลบธุรกรรมได้';
@@ -7364,8 +6944,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get applyToAllTransactions => 'ใช้กับทุกธุรกรรมหรือไม่?';
 
   @override
-  String applyCategoryToAllDescription(
-      Object count, Object newCategory, Object originalCategory) {
+  String applyCategoryToAllDescription(Object count, Object newCategory, Object originalCategory) {
     return 'ใช้ \"$newCategory\" กับธุรกรรม $count รายการที่อยู่ในหมวด \"$originalCategory\" หรือไม่?';
   }
 
@@ -7386,32 +6965,25 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get plaidStillSyncingBackground =>
-      'Plaid ยังซิงค์ธุรกรรมเก่าอยู่ในพื้นหลัง';
+  String get plaidStillSyncingBackground => 'Plaid ยังซิงค์ธุรกรรมเก่าอยู่ในพื้นหลัง';
 
   @override
-  String get plaidStillImportingTransactions =>
-      'Plaid ยังคงนำเข้าธุรกรรมแรกของคุณอยู่';
+  String get plaidStillImportingTransactions => 'Plaid ยังคงนำเข้าธุรกรรมแรกของคุณอยู่';
 
   @override
-  String get keepScreenOpenForImport =>
-      'โปรดเปิดหน้าจอนี้ไว้สักครู่ ขณะที่เรากำลังเชื่อมกระเป๋าและดึงข้อมูลธุรกรรมเริ่มต้น';
+  String get keepScreenOpenForImport => 'โปรดเปิดหน้าจอนี้ไว้สักครู่ ขณะที่เรากำลังเชื่อมกระเป๋าและดึงข้อมูลธุรกรรมเริ่มต้น';
 
   @override
-  String get plaidStillPreparingFirstDownload =>
-      'Plaid กำลังเตรียมดาวน์โหลดธุรกรรมครั้งแรกของคุณ';
+  String get plaidStillPreparingFirstDownload => 'Plaid กำลังเตรียมดาวน์โหลดธุรกรรมครั้งแรกของคุณ';
 
   @override
-  String get recentTransactionsReadyHistoricalSyncing =>
-      'ธุรกรรมล่าสุดพร้อมแล้ว ข้อมูลย้อนหลังอาจยังซิงค์อยู่';
+  String get recentTransactionsReadyHistoricalSyncing => 'ธุรกรรมล่าสุดพร้อมแล้ว ข้อมูลย้อนหลังอาจยังซิงค์อยู่';
 
   @override
-  String get keepWalletConnectedForBackgroundImport =>
-      'โปรดเชื่อมต่อกระเป๋านี้ไว้ เราจะนำเข้าประวัติธนาคารของคุณต่อในพื้นหลังขณะที่ Plaid ดำเนินการดึงข้อมูลครั้งแรกให้เสร็จสิ้น';
+  String get keepWalletConnectedForBackgroundImport => 'โปรดเชื่อมต่อกระเป๋านี้ไว้ เราจะนำเข้าประวัติธนาคารของคุณต่อในพื้นหลังขณะที่ Plaid ดำเนินการดึงข้อมูลครั้งแรกให้เสร็จสิ้น';
 
   @override
-  String get newestActivityAvailableOlderBackground =>
-      'ธุรกรรมล่าสุดพร้อมใช้งานแล้ว ข้อมูลเก่าจะยังคงโหลดในพื้นหลังจนกว่า Plaid จะดึงข้อมูลย้อนหลังเสร็จสมบูรณ์';
+  String get newestActivityAvailableOlderBackground => 'ธุรกรรมล่าสุดพร้อมใช้งานแล้ว ข้อมูลเก่าจะยังคงโหลดในพื้นหลังจนกว่า Plaid จะดึงข้อมูลย้อนหลังเสร็จสมบูรณ์';
 
   @override
   String get preparingBankSync => 'กำลังเตรียมการซิงค์ธนาคาร...';
@@ -7422,15 +6994,13 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get creatingWalletLinksAndImportingTransactions =>
-      'เรากำลังสร้างการเชื่อมต่อกระเป๋าและนำเข้าธุรกรรมล่าสุด';
+  String get creatingWalletLinksAndImportingTransactions => 'เรากำลังสร้างการเชื่อมต่อกระเป๋าและนำเข้าธุรกรรมล่าสุด';
 
   @override
   String get emailFileImport => '';
 
   @override
-  String get emailFileImportDescription =>
-      'ส่งต่อใบเสร็จการสั่งซื้อออนไลน์ของคุณ แล้วให้ Moneko บันทึกให้อัตโนมัติ';
+  String get emailFileImportDescription => 'ส่งต่อใบเสร็จการสั่งซื้อออนไลน์ของคุณ แล้วให้ Moneko บันทึกให้อัตโนมัติ';
 
   @override
   String get emailFileImportEnableSwitchTitle => 'รับใบเสร็จทางอีเมล';
@@ -7448,8 +7018,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get emailFileImportAddSenderTitle => 'เพิ่มผู้ส่งที่อนุมัติแล้ว';
 
   @override
-  String get emailFileImportAddSenderDescription =>
-      'Moneko สามารถประมวลผลใบเสร็จที่ส่งต่อมาจากอีเมลนี้ได้';
+  String get emailFileImportAddSenderDescription => 'Moneko สามารถประมวลผลใบเสร็จที่ส่งต่อมาจากอีเมลนี้ได้';
 
   @override
   String get emailFileImportAddSenderPlaceholder => '';
@@ -7461,12 +7030,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get emailFileImportEmailAlreadyAdded => 'อีเมลนี้ถูกเพิ่มแล้ว';
 
   @override
-  String get emailFileImportEmailAdded =>
-      'เพิ่มผู้ส่งที่อนุมัติแล้วเรียบร้อยแล้ว';
+  String get emailFileImportEmailAdded => 'เพิ่มผู้ส่งที่อนุมัติแล้วเรียบร้อยแล้ว';
 
   @override
-  String get emailFileImportEmailRemoved =>
-      'ลบผู้ส่งที่อนุมัติแล้วเรียบร้อยแล้ว';
+  String get emailFileImportEmailRemoved => 'ลบผู้ส่งที่อนุมัติแล้วเรียบร้อยแล้ว';
 
   @override
   String get emailFileImportDefaultSender => '';
@@ -7510,62 +7077,52 @@ class AppLocalizationsTh extends AppLocalizations {
   String get supportedFileTypes => 'PDF, CSV, XLS และ XLSX';
 
   @override
-  String get privacyFooterMessage =>
-      'เพื่อความปลอดภัยของคุณ Moneko จะประมวลผลเฉพาะไฟล์แนบจากผู้ส่งที่อนุมัติแล้วเท่านั้น';
+  String get privacyFooterMessage => 'เพื่อความปลอดภัยของคุณ Moneko จะประมวลผลเฉพาะไฟล์แนบจากผู้ส่งที่อนุมัติแล้วเท่านั้น';
 
   @override
-  String get howItWorksSubtitle =>
-      'ไม่ต้องกรอกเอง เพียงส่งต่อใบเสร็จ แล้ว Moneko จะจัดการที่เหลือให้';
+  String get howItWorksSubtitle => 'ไม่ต้องกรอกเอง เพียงส่งต่อใบเสร็จ แล้ว Moneko จะจัดการที่เหลือให้';
 
   @override
   String get addApprovedSender => 'เพิ่มผู้ส่งที่อนุมัติแล้ว';
 
   @override
-  String get addApprovedSenderDescription =>
-      'เพิ่มอีเมลที่คุณใช้รับใบเสร็จจากการช้อปปิ้งเป็นผู้ส่งที่อนุมัติแล้ว เพื่อให้ Moneko ประมวลผลใบเสร็จที่ส่งต่อมาได้อย่างปลอดภัย';
+  String get addApprovedSenderDescription => 'เพิ่มอีเมลที่คุณใช้รับใบเสร็จจากการช้อปปิ้งเป็นผู้ส่งที่อนุมัติแล้ว เพื่อให้ Moneko ประมวลผลใบเสร็จที่ส่งต่อมาได้อย่างปลอดภัย';
 
   @override
   String get forwardReceiptEmail => 'ส่งต่ออีเมลใบเสร็จของคุณ';
 
   @override
-  String get forwardReceiptEmailDescription =>
-      'ซื้อของออนไลน์หรือมีรายรับเข้ามาใช่ไหม เพียงส่งต่อใบเสร็จมาให้เรา';
+  String get forwardReceiptEmailDescription => 'ซื้อของออนไลน์หรือมีรายรับเข้ามาใช่ไหม เพียงส่งต่อใบเสร็จมาให้เรา';
 
   @override
   String get processAutomatically => 'เราจะประมวลผลให้อัตโนมัติ';
 
   @override
-  String get processAutomaticallyDescription =>
-      'Moneko จะดึงข้อมูลสำคัญและบันทึกให้โดยอัตโนมัติ รองรับไฟล์แนบประเภท PDF, XLSX และ CSV';
+  String get processAutomaticallyDescription => 'Moneko จะดึงข้อมูลสำคัญและบันทึกให้โดยอัตโนมัติ รองรับไฟล์แนบประเภท PDF, XLSX และ CSV';
 
   @override
   String get getNotifiedWhenReady => 'รับการแจ้งเตือนเมื่อพร้อมแล้ว';
 
   @override
-  String get getNotifiedWhenReadyDescription =>
-      'เมื่อประมวลผลเสร็จทั้งหมดและเพิ่มเข้าบัญชี Moneko ของคุณแล้ว เราจะส่งอีเมลยืนยันและการแจ้งเตือนไปยังโทรศัพท์ของคุณ';
+  String get getNotifiedWhenReadyDescription => 'เมื่อประมวลผลเสร็จทั้งหมดและเพิ่มเข้าบัญชี Moneko ของคุณแล้ว เราจะส่งอีเมลยืนยันและการแจ้งเตือนไปยังโทรศัพท์ของคุณ';
 
   @override
   String get add => 'เพิ่ม';
 
   @override
-  String get forwardReceiptDescription =>
-      'ส่งต่อใบเสร็จออนไลน์ของคุณ\nเพื่อบันทึกอัตโนมัติ';
+  String get forwardReceiptDescription => 'ส่งต่อใบเสร็จออนไลน์ของคุณ\nเพื่อบันทึกอัตโนมัติ';
 
   @override
-  String get walletCaptureOfflineTitle =>
-      'ไม่มีอินเทอร์เน็ตขณะชำระเงินด้วย Apple Pay';
+  String get walletCaptureOfflineTitle => 'ไม่มีอินเทอร์เน็ตขณะชำระเงินด้วย Apple Pay';
 
   @override
-  String get walletCaptureOfflineDescription =>
-      'ไม่ต้องกังวล Moneko จะบันทึกรายการธุรกรรมไว้ใน iPhone ของคุณ และจะซิงค์ให้อัตโนมัติเมื่อคุณเปิดแอปอีกครั้งเมื่อมีอินเทอร์เน็ต';
+  String get walletCaptureOfflineDescription => 'ไม่ต้องกังวล Moneko จะบันทึกรายการธุรกรรมไว้ใน iPhone ของคุณ และจะซิงค์ให้อัตโนมัติเมื่อคุณเปิดแอปอีกครั้งเมื่อมีอินเทอร์เน็ต';
 
   @override
   String get currencyNotFound => 'ไม่พบสกุลเงิน';
 
   @override
-  String get currencyNotFoundDescription =>
-      'ติดต่อเราได้เลย และในระหว่างนี้สามารถใช้สกุลเงินอื่นไปก่อน ขณะที่เรากำลังเพิ่มการรองรับ';
+  String get currencyNotFoundDescription => 'ติดต่อเราได้เลย และในระหว่างนี้สามารถใช้สกุลเงินอื่นไปก่อน ขณะที่เรากำลังเพิ่มการรองรับ';
 
   @override
   String get replace => 'แทนที่';
@@ -7595,32 +7152,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get unknownFeature => 'ไม่ทราบฟีเจอร์';
 
   @override
-  String get paywallBenefit5 =>
-      'บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล';
+  String get paywallBenefit5 => 'บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล';
 
   @override
-  String get onboardingPreparingProgressFamilySharingRestored =>
-      'กู้คืนสิทธิ์เข้าถึงผ่านการแชร์กันในครอบครัวแล้ว';
+  String get onboardingPreparingProgressFamilySharingRestored => 'กู้คืนสิทธิ์เข้าถึงผ่านการแชร์กันในครอบครัวแล้ว';
 
   @override
-  String get onboardingPreparingTitleFamilySharingRestored =>
-      'Moneko Plus แชร์ผ่านการแชร์กันในครอบครัว';
+  String get onboardingPreparingTitleFamilySharingRestored => 'Moneko Plus แชร์ผ่านการแชร์กันในครอบครัว';
 
   @override
-  String get onboardingPreparingBodyFamilySharingRestored =>
-      'ข่าวดี! คุณสามารถใช้ Moneko Plus ผ่าน Apple Family Sharing ได้โดยไม่มีค่าใช้จ่ายเพิ่มเติม';
+  String get onboardingPreparingBodyFamilySharingRestored => 'ข่าวดี! คุณสามารถใช้ Moneko Plus ผ่าน Apple Family Sharing ได้โดยไม่มีค่าใช้จ่ายเพิ่มเติม';
 
   @override
-  String get onboardingPreparingProgressAppStoreRestored =>
-      'กู้คืนการสมัครสมาชิก App Store แล้ว';
+  String get onboardingPreparingProgressAppStoreRestored => 'กู้คืนการสมัครสมาชิก App Store แล้ว';
 
   @override
-  String get onboardingPreparingTitleAppStoreRestored =>
-      'กู้คืนการสมัครสมาชิก App Store แล้ว';
+  String get onboardingPreparingTitleAppStoreRestored => 'กู้คืนการสมัครสมาชิก App Store แล้ว';
 
   @override
-  String get onboardingPreparingBodyAppStoreRestored =>
-      'ยินดีต้อนรับกลับ! กู้คืนการสมัครสมาชิก Moneko Plus ผ่าน App Store ให้กับบัญชีนี้แล้ว';
+  String get onboardingPreparingBodyAppStoreRestored => 'ยินดีต้อนรับกลับ! กู้คืนการสมัครสมาชิก Moneko Plus ผ่าน App Store ให้กับบัญชีนี้แล้ว';
 
   @override
   String get paywallBenefit0 => 'สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว';
@@ -7632,27 +7182,22 @@ class AppLocalizationsTh extends AppLocalizations {
   String get autoSplit => 'แบ่งค่าใช้จ่ายอัตโนมัติ';
 
   @override
-  String get autoSplitDescriptionOn =>
-      'ค่าใช้จ่ายจะถูกแบ่งอัตโนมัติระหว่างสมาชิกทุกคน';
+  String get autoSplitDescriptionOn => 'ค่าใช้จ่ายจะถูกแบ่งอัตโนมัติระหว่างสมาชิกทุกคน';
 
   @override
-  String get autoSplitDescriptionOff =>
-      'ค่าใช้จ่ายจะไม่ถูกแบ่งโดยอัตโนมัติ แต่ธุรกรรมที่เพิ่มในพื้นที่นี้จะยังคงมองเห็นได้สำหรับสมาชิกทุกคน';
+  String get autoSplitDescriptionOff => 'ค่าใช้จ่ายจะไม่ถูกแบ่งโดยอัตโนมัติ แต่ธุรกรรมที่เพิ่มในพื้นที่นี้จะยังคงมองเห็นได้สำหรับสมาชิกทุกคน';
 
   @override
   String get offlineGraceAccess => 'คุณออฟไลน์อยู่ แต่ยังใช้งานแอปต่อได้';
 
   @override
-  String get subscriptionCheckTrouble =>
-      'ไม่สามารถตรวจสอบการสมัครสมาชิกของคุณได้';
+  String get subscriptionCheckTrouble => 'ไม่สามารถตรวจสอบการสมัครสมาชิกของคุณได้';
 
   @override
-  String get offlineSyncMessage =>
-      'คุณยังบันทึกรายจ่ายขณะออฟไลน์ได้ และข้อมูลทั้งหมดจะซิงก์เมื่อกลับมาออนไลน์';
+  String get offlineSyncMessage => 'คุณยังบันทึกรายจ่ายขณะออฟไลน์ได้ และข้อมูลทั้งหมดจะซิงก์เมื่อกลับมาออนไลน์';
 
   @override
-  String get fullAccessRetryMessage =>
-      'คุณยังใช้งานได้เต็มรูปแบบ ใช้แอปได้ตามปกติ แล้วเราจะลองใหม่ให้อัตโนมัติในเบื้องหลัง';
+  String get fullAccessRetryMessage => 'คุณยังใช้งานได้เต็มรูปแบบ ใช้แอปได้ตามปกติ แล้วเราจะลองใหม่ให้อัตโนมัติในเบื้องหลัง';
 
   @override
   String get retryNow => 'ลองอีกครั้งตอนนี้';
@@ -7664,8 +7209,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get previewModeTitle => 'เปิดโหมดพรีวิว · ใช้เฉพาะข้อมูลตัวอย่าง';
 
   @override
-  String get previewModeDescription =>
-      'ความคืบหน้าของคุณจะไม่ถูกบันทึก สร้างบัญชีเพื่อเก็บการเปลี่ยนแปลงของคุณไว้';
+  String get previewModeDescription => 'ความคืบหน้าของคุณจะไม่ถูกบันทึก สร้างบัญชีเพื่อเก็บการเปลี่ยนแปลงของคุณไว้';
 
   @override
   String get exitTour => 'ออกจากคำแนะนำ';
@@ -7715,8 +7259,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aboutFinancialHealth => 'เกี่ยวกับสุขภาพทางการเงิน';
 
   @override
-  String get financialHealthBody =>
-      'สุขภาพทางการเงินรวมยอดใช้จ่ายรายวันที่ปลอดภัย ความเร็วในการใช้งบ บิลที่กำลังจะมาถึง และเงินสำรองที่คาดว่าจะเหลือสิ้นเดือน วงที่ต่ำกว่าจะชี้จุดแรกที่ควรปรับก่อนสิ้นเดือน';
+  String get financialHealthBody => 'สุขภาพทางการเงินรวมยอดใช้จ่ายรายวันที่ปลอดภัย ความเร็วในการใช้งบ บิลที่กำลังจะมาถึง และเงินสำรองที่คาดว่าจะเหลือสิ้นเดือน วงที่ต่ำกว่าจะชี้จุดแรกที่ควรปรับก่อนสิ้นเดือน';
 
   @override
   String get monthlyHealth => 'สุขภาพรายเดือน';
@@ -7770,8 +7313,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noMerchantData => 'ไม่มีข้อมูลร้านค้า';
 
   @override
-  String get merchantNamesWillAppearWhenAvailable =>
-      'ชื่อร้านค้าจะแสดงเมื่อพร้อมใช้งาน';
+  String get merchantNamesWillAppearWhenAvailable => 'ชื่อร้านค้าจะแสดงเมื่อพร้อมใช้งาน';
 
   @override
   String get financialHealth => 'สุขภาพทางการเงิน';
@@ -7804,15 +7346,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noUpcomingBills => 'ไม่มีบิลที่กำลังจะมาถึง';
 
   @override
-  String get noScheduledMoneyMovementRemainsThisMonth =>
-      'เดือนนี้ไม่มีรายการเคลื่อนไหวเงินที่กำหนดไว้เหลืออยู่';
+  String get noScheduledMoneyMovementRemainsThisMonth => 'เดือนนี้ไม่มีรายการเคลื่อนไหวเงินที่กำหนดไว้เหลืออยู่';
 
   @override
   String get aboutRecurringCosts => 'เกี่ยวกับค่าใช้จ่ายประจำ';
 
   @override
-  String get recurringCostsBody =>
-      'ค่าใช้จ่ายประจำคือภาระผูกพันแบบคงที่หรือเกิดซ้ำ การตรวจสอบร่วมกับปฏิทินบิลช่วยกันเงินไว้สำหรับสิ่งจำเป็นก่อนใช้จ่ายแบบยืดหยุ่น';
+  String get recurringCostsBody => 'ค่าใช้จ่ายประจำคือภาระผูกพันแบบคงที่หรือเกิดซ้ำ การตรวจสอบร่วมกับปฏิทินบิลช่วยกันเงินไว้สำหรับสิ่งจำเป็นก่อนใช้จ่ายแบบยืดหยุ่น';
 
   @override
   String get ofSpending => 'ของรายจ่าย';
@@ -7824,8 +7364,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get waiting => 'กำลังรอ';
 
   @override
-  String get comparableSpendingWillAppearHere =>
-      'รายจ่ายที่เปรียบเทียบได้จะแสดงที่นี่';
+  String get comparableSpendingWillAppearHere => 'รายจ่ายที่เปรียบเทียบได้จะแสดงที่นี่';
 
   @override
   String get movers => 'รายการที่เปลี่ยนแปลงมาก';
@@ -7837,8 +7376,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aboutCategoryMovement => 'เกี่ยวกับความเคลื่อนไหวของหมวดหมู่';
 
   @override
-  String get categoryMovementBody =>
-      'ความเคลื่อนไหวของหมวดหมู่เปรียบเทียบเดือนนี้กับเดือนก่อนและค่าพื้นฐานในอดีต มีประโยชน์มากในการมองหารายจ่ายยืดหยุ่นที่เปลี่ยนไปก่อนจะกลายเป็นปัญหางบประมาณ';
+  String get categoryMovementBody => 'ความเคลื่อนไหวของหมวดหมู่เปรียบเทียบเดือนนี้กับเดือนก่อนและค่าพื้นฐานในอดีต มีประโยชน์มากในการมองหารายจ่ายยืดหยุ่นที่เปลี่ยนไปก่อนจะกลายเป็นปัญหางบประมาณ';
 
   @override
   String dueSoonCount(Object count) {
@@ -7861,15 +7399,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get subscriptions => 'การสมัครใช้บริการ';
 
   @override
-  String get recurringCommitmentBody =>
-      'ใช้ส่วนนี้เพื่อตรวจสอบบิลคงที่ก่อนตัดสินใจว่ายอดไหนใช้จ่ายได้อย่างปลอดภัย รายการที่ใกล้ครบกำหนดสำคัญที่สุดเมื่อกระแสเงินสดตึงตัว';
+  String get recurringCommitmentBody => 'ใช้ส่วนนี้เพื่อตรวจสอบบิลคงที่ก่อนตัดสินใจว่ายอดไหนใช้จ่ายได้อย่างปลอดภัย รายการที่ใกล้ครบกำหนดสำคัญที่สุดเมื่อกระแสเงินสดตึงตัว';
 
   @override
   String get aboutSavings => 'เกี่ยวกับการออม';
 
   @override
-  String get savingsBody =>
-      'เงินออมคือรายรับลบรายจ่ายของเดือนนั้น หากคุณมีเป้าหมาย แถบความคืบหน้าจะแสดงความคืบหน้าในการเก็บเงิน และแถวรายละเอียดจะแสดงว่ามีเงินออมไปแล้วเท่าไรจากเป้าหมาย';
+  String get savingsBody => 'เงินออมคือรายรับลบรายจ่ายของเดือนนั้น หากคุณมีเป้าหมาย แถบความคืบหน้าจะแสดงความคืบหน้าในการเก็บเงิน และแถวรายละเอียดจะแสดงว่ามีเงินออมไปแล้วเท่าไรจากเป้าหมาย';
 
   @override
   String forecastAmount(Object amount) {
@@ -7882,12 +7418,10 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get previewScenarioBookmarked =>
-      'ตัวอย่าง: บุ๊กมาร์กสถานการณ์ไว้สำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
+  String get previewScenarioBookmarked => 'ตัวอย่าง: บุ๊กมาร์กสถานการณ์ไว้สำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
 
   @override
-  String get previewScenarioRemovalSkipped =>
-      'ตัวอย่าง: ข้ามการลบสถานการณ์แล้ว (สำหรับเดโมเท่านั้น)';
+  String get previewScenarioRemovalSkipped => 'ตัวอย่าง: ข้ามการลบสถานการณ์แล้ว (สำหรับเดโมเท่านั้น)';
 
   @override
   String get budgetUsed => 'งบประมาณที่ใช้ไป';
@@ -7922,8 +7456,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get budgetLeft => 'งบประมาณคงเหลือ';
 
   @override
-  String get availableAfterMonthToDateSpending =>
-      'ใช้ได้หลังหักยอดใช้จ่ายเดือนนี้จนถึงปัจจุบัน';
+  String get availableAfterMonthToDateSpending => 'ใช้ได้หลังหักยอดใช้จ่ายเดือนนี้จนถึงปัจจุบัน';
 
   @override
   String get billsAhead => 'บิลที่กำลังจะถึง';
@@ -7943,8 +7476,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aboutSafeToSpend => 'เกี่ยวกับยอดที่ใช้ได้อย่างปลอดภัย';
 
   @override
-  String get safeToSpendBody =>
-      'ยอดที่ใช้ได้อย่างปลอดภัยคือจำนวนเงินต่อวันที่เหลือหลังกันเงินไว้สำหรับงบประมาณที่เหลือและบิลที่กำลังจะมาถึงแล้ว หากตัวเลขนี้ต่ำหรือติดลบ ควรหยุดค่าใช้จ่ายที่ยืดหยุ่นได้ก่อน';
+  String get safeToSpendBody => 'ยอดที่ใช้ได้อย่างปลอดภัยคือจำนวนเงินต่อวันที่เหลือหลังกันเงินไว้สำหรับงบประมาณที่เหลือและบิลที่กำลังจะมาถึงแล้ว หากตัวเลขนี้ต่ำหรือติดลบ ควรหยุดค่าใช้จ่ายที่ยืดหยุ่นได้ก่อน';
 
   @override
   String get unusualActivity => 'กิจกรรมผิดปกติ';
@@ -7956,12 +7488,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aboutSpendingPace => 'เกี่ยวกับจังหวะการใช้จ่าย';
 
   @override
-  String get spendingPaceBody =>
-      'แถบสีแสดงงบประมาณที่ใช้ไป ส่วนเส้นบาง ๆ แสดงว่าเดือนนี้ผ่านไปแล้วแค่ไหน หากแถบเลยเส้นนั้น แปลว่าหมวดนี้ใช้เงินเร็วกว่าเวลาที่ผ่านไป';
+  String get spendingPaceBody => 'แถบสีแสดงงบประมาณที่ใช้ไป ส่วนเส้นบาง ๆ แสดงว่าเดือนนี้ผ่านไปแล้วแค่ไหน หากแถบเลยเส้นนั้น แปลว่าหมวดนี้ใช้เงินเร็วกว่าเวลาที่ผ่านไป';
 
   @override
-  String get budgetHealthBody =>
-      'ตรวจสอบหมวดที่เกินงบหรือใช้เร็วกว่าเวลาที่ผ่านไปในเดือนนี้ การลดค่าใช้จ่ายที่ยืดหยุ่นได้ในหมวดเหล่านี้จะเห็นผลเร็วที่สุด';
+  String get budgetHealthBody => 'ตรวจสอบหมวดที่เกินงบหรือใช้เร็วกว่าเวลาที่ผ่านไปในเดือนนี้ การลดค่าใช้จ่ายที่ยืดหยุ่นได้ในหมวดเหล่านี้จะเห็นผลเร็วที่สุด';
 
   @override
   String get budgetNotes => 'บันทึกงบประมาณ';
@@ -7970,8 +7500,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get aboutBudgetHealth => 'เกี่ยวกับสุขภาพงบประมาณ';
 
   @override
-  String get budgetHealthNotesBody =>
-      'สุขภาพงบประมาณเปรียบเทียบค่าใช้จ่ายแต่ละหมวดกับทั้งจำนวนงบที่ตั้งไว้และเวลาของเดือนที่ผ่านไป คำเตือนไม่ได้แปลว่าล้มเหลว แต่บอกว่าการปรับเล็กน้อยตรงไหนจะสำคัญที่สุด';
+  String get budgetHealthNotesBody => 'สุขภาพงบประมาณเปรียบเทียบค่าใช้จ่ายแต่ละหมวดกับทั้งจำนวนงบที่ตั้งไว้และเวลาของเดือนที่ผ่านไป คำเตือนไม่ได้แปลว่าล้มเหลว แต่บอกว่าการปรับเล็กน้อยตรงไหนจะสำคัญที่สุด';
 
   @override
   String get savedMoneyThisMonth => 'เดือนนี้คุณออมเงินได้';
@@ -7980,12 +7509,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get usingYourBufferThisMonth => 'เดือนนี้คุณกำลังใช้เงินสำรอง';
 
   @override
-  String get positiveCashFlowAddsRoomForBillsGoalsAndUnexpectedSpending =>
-      'กระแสเงินสดเป็นบวกช่วยเพิ่มพื้นที่สำหรับบิล เป้าหมาย และค่าใช้จ่ายที่ไม่คาดคิด';
+  String get positiveCashFlowAddsRoomForBillsGoalsAndUnexpectedSpending => 'กระแสเงินสดเป็นบวกช่วยเพิ่มพื้นที่สำหรับบิล เป้าหมาย และค่าใช้จ่ายที่ไม่คาดคิด';
 
   @override
-  String get negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst =>
-      'เงินออมติดลบหมายความว่าตอนนี้รายจ่ายสูงกว่ารายได้ ให้ดูหมวดค่าใช้จ่ายที่ยืดหยุ่นได้และบิลที่กำลังจะถึงก่อน';
+  String get negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst => 'เงินออมติดลบหมายความว่าตอนนี้รายจ่ายสูงกว่ารายได้ ให้ดูหมวดค่าใช้จ่ายที่ยืดหยุ่นได้และบิลที่กำลังจะถึงก่อน';
 
   @override
   String get incomeMinusSpending => 'รายรับลบรายจ่าย';
@@ -8171,8 +7698,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get buildingMonthlyReport => 'กำลังสร้างรายงานรายเดือน';
 
   @override
-  String get checkingBudgetsTrends =>
-      'กำลังตรวจสอบงบประมาณ แนวโน้ม และภาระผูกพันที่กำลังจะมาถึง';
+  String get checkingBudgetsTrends => 'กำลังตรวจสอบงบประมาณ แนวโน้ม และภาระผูกพันที่กำลังจะมาถึง';
 
   @override
   String get reportReady => 'รายงานพร้อมแล้ว';
@@ -8222,8 +7748,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String spentUsedVsMonth(
-      Object amount, Object spentPercent, Object timePercent) {
+  String spentUsedVsMonth(Object amount, Object spentPercent, Object timePercent) {
     return 'ใช้ไป $amount · ใช้ไป $spentPercent% เทียบกับเดือนที่ผ่านไป $timePercent%';
   }
 
@@ -8231,8 +7756,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get yourMonthMostlyOnTrack => 'เดือนนี้ของคุณโดยรวมยังเป็นไปตามแผน';
 
   @override
-  String get spendingMovingLittleFast =>
-      'การใช้จ่ายของคุณค่อนข้างเร็วไปเล็กน้อย';
+  String get spendingMovingLittleFast => 'การใช้จ่ายของคุณค่อนข้างเร็วไปเล็กน้อย';
 
   @override
   String get monthNeedsSmallAdjustment => 'เดือนนี้ของคุณต้องปรับเล็กน้อย';
@@ -8271,8 +7795,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get lower => 'ต่ำกว่า';
 
   @override
-  String categoryIsPercentDirection(
-      Object direction, Object name, Object percent) {
+  String categoryIsPercentDirection(Object direction, Object name, Object percent) {
     return '$name อยู่ที่ $percent $direction';
   }
 
@@ -8344,36 +7867,27 @@ class AppLocalizationsTh extends AppLocalizations {
   String get samePointLastMonth => 'ช่วงเดียวกันของเดือนที่แล้ว';
 
   @override
-  String categoryChangeThanComparator(
-      Object category, Object change, Object comparator, Object direction) {
+  String categoryChangeThanComparator(Object category, Object change, Object comparator, Object direction) {
     return '$category $directionกว่า$comparator $change';
   }
 
   @override
-  String categoryPercentChangeThanComparator(
-      Object category, Object comparator, Object direction, Object percent) {
+  String categoryPercentChangeThanComparator(Object category, Object comparator, Object direction, Object percent) {
     return '$category $directionกว่า$comparator $percent%';
   }
 
   @override
-  String monthlyReportSummaryWatch(
-      Object currencyCode,
-      Object forecastedBalance,
-      Object safeToSpend,
-      Object status,
-      Object watchItems) {
+  String monthlyReportSummaryWatch(Object currencyCode, Object forecastedBalance, Object safeToSpend, Object status, Object watchItems) {
     return 'เดือนนี้คุณอยู่ในสถานะ $status ยอดที่ใช้ได้อย่างปลอดภัยคือ $safeToSpend $currencyCode/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ $forecastedBalance $currencyCode ควรติดตาม $watchItems เพราะกำลังเพิ่มเร็วกว่าที่คาดไว้';
   }
 
   @override
-  String monthlyReportSummaryReview(Object currencyCode,
-      Object forecastedBalance, Object safeToSpend, Object status) {
+  String monthlyReportSummaryReview(Object currencyCode, Object forecastedBalance, Object safeToSpend, Object status) {
     return 'เดือนนี้คุณอยู่ในสถานะ $status ยอดที่ใช้ได้อย่างปลอดภัยคือ $safeToSpend $currencyCode/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ $forecastedBalance $currencyCode ตรวจสอบการแจ้งเตือนค่าใช้จ่ายผิดปกติก่อนเพิ่มภาระผูกพันใหม่';
   }
 
   @override
-  String monthlyReportSummaryKeep(Object currencyCode, Object forecastedBalance,
-      Object safeToSpend, Object status) {
+  String monthlyReportSummaryKeep(Object currencyCode, Object forecastedBalance, Object safeToSpend, Object status) {
     return 'เดือนนี้คุณอยู่ในสถานะ $status ยอดที่ใช้ได้อย่างปลอดภัยคือ $safeToSpend $currencyCode/วัน และคาดว่ายอดคงเหลือปลายเดือนจะอยู่ที่ $forecastedBalance $currencyCode รักษาจังหวะการใช้จ่ายปัจจุบันและบิลที่กำหนดไว้โดยไม่ต้องเปลี่ยนแปลง';
   }
 
@@ -8398,8 +7912,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get createSpaceToShareExpenses =>
-      'สร้างพื้นที่สำหรับแชร์ค่าใช้จ่ายกับผู้อื่น';
+  String get createSpaceToShareExpenses => 'สร้างพื้นที่สำหรับแชร์ค่าใช้จ่ายกับผู้อื่น';
 
   @override
   String get homeScreenWidgets => 'วิดเจ็ตหน้าจอโฮม';
@@ -8408,31 +7921,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get balancedMode => 'โหมดสมดุล';
 
   @override
-  String get autoAdjustSubtitle =>
-      'กระเป๋าอื่น ๆ จะปรับอัตโนมัติ เพื่อให้ยอดรวมยังอยู่ในงบประมาณ';
+  String get autoAdjustSubtitle => 'กระเป๋าอื่น ๆ จะปรับอัตโนมัติ เพื่อให้ยอดรวมยังอยู่ในงบประมาณ';
 
   @override
-  String get manualAdjustSubtitle =>
-      'กระเป๋าอื่น ๆ จะคงเดิม งบประมาณที่ไม่ได้ใช้จะยังไม่ถูกจัดสรร';
+  String get manualAdjustSubtitle => 'กระเป๋าอื่น ๆ จะคงเดิม งบประมาณที่ไม่ได้ใช้จะยังไม่ถูกจัดสรร';
 
   @override
-  String get previewPocketUpdated =>
-      'ตัวอย่าง: อัปเดตกระเป๋าสำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
+  String get previewPocketUpdated => 'ตัวอย่าง: อัปเดตกระเป๋าสำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
 
   @override
-  String get previewPocketCreated =>
-      'ตัวอย่าง: สร้างกระเป๋าสำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
+  String get previewPocketCreated => 'ตัวอย่าง: สร้างกระเป๋าสำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
 
   @override
   String get failedToCreateEnvelope => 'สร้างซองงบประมาณไม่สำเร็จ';
 
   @override
-  String get previewPocketRemovalSkipped =>
-      'ตัวอย่าง: ข้ามการลบกระเป๋าแล้ว (ข้อมูลเดโมเท่านั้น)';
+  String get previewPocketRemovalSkipped => 'ตัวอย่าง: ข้ามการลบกระเป๋าแล้ว (ข้อมูลเดโมเท่านั้น)';
 
   @override
-  String get balancedManualModeTooltip =>
-      'โหมดสมดุลจะกระจายงบประมาณที่เหลือไปยังกระเป๋าอื่น ๆ ส่วนโหมดกำหนดเองจะคงกระเป๋าอื่นไว้เหมือนเดิม และแสดงงบที่เหลือเป็นงบที่ยังไม่ได้จัดสรร';
+  String get balancedManualModeTooltip => 'โหมดสมดุลจะกระจายงบประมาณที่เหลือไปยังกระเป๋าอื่น ๆ ส่วนโหมดกำหนดเองจะคงกระเป๋าอื่นไว้เหมือนเดิม และแสดงงบที่เหลือเป็นงบที่ยังไม่ได้จัดสรร';
 
   @override
   String get unassigned => 'ยังไม่ได้จัดสรร';
@@ -8441,19 +7948,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get manualMode => 'โหมดกำหนดเอง';
 
   @override
-  String get previewSignOutDisabledInDemoMode =>
-      'ตัวอย่าง: ไม่สามารถออกจากระบบได้ในโหมดสาธิต';
+  String get previewSignOutDisabledInDemoMode => 'ตัวอย่าง: ไม่สามารถออกจากระบบได้ในโหมดสาธิต';
 
   @override
-  String get previewResetFinancialDataDisabledInDemoMode =>
-      'ตัวอย่าง: ไม่สามารถรีเซ็ตข้อมูลการเงินได้ในโหมดสาธิต';
+  String get previewResetFinancialDataDisabledInDemoMode => 'ตัวอย่าง: ไม่สามารถรีเซ็ตข้อมูลการเงินได้ในโหมดสาธิต';
 
   @override
   String get resetDataCannotBeUndone => 'รีเซ็ตข้อมูล (ไม่สามารถย้อนกลับได้)';
 
   @override
-  String get resetDataConfirmationMessage =>
-      'การดำเนินการนี้จะลบธุรกรรม งบประมาณ และประวัติข้อมูลเชิงลึกทั้งหมดของคุณอย่างถาวร นอกจากนี้ กระเป๋าเงินทั้งหมดจะถูกลบออก ยกเว้นกระเป๋าหลัก และยอดคงเหลือของกระเป๋าหลักจะถูกรีเซ็ตเป็น 0 พิมพ์ RESET เพื่อดำเนินการต่อ';
+  String get resetDataConfirmationMessage => 'การดำเนินการนี้จะลบธุรกรรม งบประมาณ และประวัติข้อมูลเชิงลึกทั้งหมดของคุณอย่างถาวร นอกจากนี้ กระเป๋าเงินทั้งหมดจะถูกลบออก ยกเว้นกระเป๋าหลัก และยอดคงเหลือของกระเป๋าหลักจะถูกรีเซ็ตเป็น 0 พิมพ์ RESET เพื่อดำเนินการต่อ';
 
   @override
   String get resetData => 'รีเซ็ตข้อมูล';
@@ -8476,8 +7980,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get resetSuccessful => 'รีเซ็ตสำเร็จ';
 
   @override
-  String get yourDataHasBeenClearedPleaseRestart =>
-      'ข้อมูลของคุณถูกล้างแล้ว โปรดรีสตาร์ทแอปเพื่อดำเนินการต่อ';
+  String get yourDataHasBeenClearedPleaseRestart => 'ข้อมูลของคุณถูกล้างแล้ว โปรดรีสตาร์ทแอปเพื่อดำเนินการต่อ';
 
   @override
   String get restartNow => 'รีสตาร์ทตอนนี้';
@@ -8544,8 +8047,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get setAnotherCurrencyAsPrimary => 'กรุณาเลือกสกุลเงินหลักอื่นก่อน';
 
   @override
-  String get baseCurrencyTooltip =>
-      'ยอดรวมและงบประมาณทั้งหมดจะแสดงเป็นสกุลเงินหลักของคุณโดยค่าเริ่มต้น';
+  String get baseCurrencyTooltip => 'ยอดรวมและงบประมาณทั้งหมดจะแสดงเป็นสกุลเงินหลักของคุณโดยค่าเริ่มต้น';
 
   @override
   String get base => 'หลัก';
@@ -8563,8 +8065,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get noCurrenciesMatchSearch => 'ไม่พบสกุลเงิน';
 
   @override
-  String get atLeastOneCurrencyVisible =>
-      'ต้องแสดงอย่างน้อยหนึ่งสกุลเงินไว้เสมอ';
+  String get atLeastOneCurrencyVisible => 'ต้องแสดงอย่างน้อยหนึ่งสกุลเงินไว้เสมอ';
 
   @override
   String get saveVisibleCurrencies => 'บันทึกสกุลเงินที่แสดง';
@@ -8573,8 +8074,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get compareWithChatGPT => 'เปรียบเทียบด้วย ChatGPT';
 
   @override
-  String get couldNotOpenChatGPTComparison =>
-      'ไม่สามารถเปิดการเปรียบเทียบด้วย ChatGPT ได้';
+  String get couldNotOpenChatGPTComparison => 'ไม่สามารถเปิดการเปรียบเทียบด้วย ChatGPT ได้';
 
   @override
   String get security => 'ความปลอดภัย';
@@ -8625,8 +8125,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get useFaceIdOrFingerprintTitle => 'ใช้ Face ID หรือลายนิ้วมือไหม';
 
   @override
-  String get useFaceIdOrFingerprintDescription =>
-      'ปลดล็อก Moneko ได้เร็วขึ้นด้วยข้อมูลชีวมิติของอุปกรณ์ คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
+  String get useFaceIdOrFingerprintDescription => 'ปลดล็อก Moneko ได้เร็วขึ้นด้วยข้อมูลชีวมิติของอุปกรณ์ คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
 
   @override
   String get useBiometricsAction => 'ใช้ข้อมูลชีวมิติ';
@@ -8644,22 +8143,19 @@ class AppLocalizationsTh extends AppLocalizations {
   String get biometricUnlockNotEnabled => 'ยังไม่ได้เปิดการปลดล็อกด้วยชีวมิติ';
 
   @override
-  String get biometricUnlockNotEnabledPasscodeSaved =>
-      'ยังไม่ได้เปิดการปลดล็อกด้วยชีวมิติ รหัสผ่านของคุณยังถูกบันทึกไว้';
+  String get biometricUnlockNotEnabledPasscodeSaved => 'ยังไม่ได้เปิดการปลดล็อกด้วยชีวมิติ รหัสผ่านของคุณยังถูกบันทึกไว้';
 
   @override
   String get enterYourPasscode => 'ป้อนรหัสผ่านของคุณ';
 
   @override
-  String get tooManyAttemptsTryAgainShortly =>
-      'ลองหลายครั้งเกินไป โปรดลองอีกครั้งในอีกสักครู่';
+  String get tooManyAttemptsTryAgainShortly => 'ลองหลายครั้งเกินไป โปรดลองอีกครั้งในอีกสักครู่';
 
   @override
   String get forgotPasscodeSignOut => 'ลืมรหัสผ่านใช่ไหม ออกจากระบบ';
 
   @override
-  String get couldNotSignOutTryAgain =>
-      'ไม่สามารถออกจากระบบได้ โปรดลองอีกครั้ง';
+  String get couldNotSignOutTryAgain => 'ไม่สามารถออกจากระบบได้ โปรดลองอีกครั้ง';
 
   @override
   String get turnOffAppLock => 'ปิดล็อกแอป';
@@ -8689,15 +8185,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get appLockIsOff => 'ปิดล็อกแอปแล้ว';
 
   @override
-  String get enterSixDigitsToProtectMoneko =>
-      'ป้อนตัวเลข 6 หลักเพื่อปกป้อง Moneko บนอุปกรณ์นี้';
+  String get enterSixDigitsToProtectMoneko => 'ป้อนตัวเลข 6 หลักเพื่อปกป้อง Moneko บนอุปกรณ์นี้';
 
   @override
   String get enterSameSixDigitsAgain => 'ป้อนตัวเลข 6 หลักเดิมอีกครั้ง';
 
   @override
-  String get verifyCurrentSixDigitPasscodeFirst =>
-      'ยืนยันรหัสผ่าน 6 หลักปัจจุบันของคุณก่อน';
+  String get verifyCurrentSixDigitPasscodeFirst => 'ยืนยันรหัสผ่าน 6 หลักปัจจุบันของคุณก่อน';
 
   @override
   String get enterNewSixDigitPasscode => 'ป้อนรหัสผ่าน 6 หลักใหม่';
@@ -8706,8 +8200,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get enterSameNewPasscodeAgain => 'ป้อนรหัสผ่านใหม่เดิมอีกครั้ง';
 
   @override
-  String get appLockDisableRequiresPasscode =>
-      'สามารถปิดล็อกแอปได้หลังจากยืนยันรหัสผ่านแล้วเท่านั้น';
+  String get appLockDisableRequiresPasscode => 'สามารถปิดล็อกแอปได้หลังจากยืนยันรหัสผ่านแล้วเท่านั้น';
 
   @override
   String get enterSixDigitsToContinue => 'ป้อนตัวเลข 6 หลักเพื่อดำเนินการต่อ';
@@ -8793,8 +8286,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get unlockMonekoFasterWith => 'ปลดล็อก Moneko ได้เร็วขึ้นด้วย';
 
   @override
-  String get youCanStillUseYourPasscodeAnytime =>
-      'คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
+  String get youCanStillUseYourPasscodeAnytime => 'คุณยังใช้รหัสผ่านได้ทุกเมื่อ';
 
   @override
   String get unlockMonekoWith => 'ปลดล็อก Moneko ด้วย';
@@ -8806,12 +8298,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedTrialTitle => 'พรีเมียมปลดล็อกฟีเจอร์นี้';
 
   @override
-  String get plusLockedDescription =>
-      'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์ Plus สุดพิเศษ';
+  String get plusLockedDescription => 'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์ Plus สุดพิเศษ';
 
   @override
-  String get plusLockedTrialDescription =>
-      'ช่วงทดลองใช้งานใกล้สิ้นสุดแล้ว ต่ออายุแพ็กเกจเพื่อใช้งานฟีเจอร์เหล่านี้ต่อไป';
+  String get plusLockedTrialDescription => 'ช่วงทดลองใช้งานใกล้สิ้นสุดแล้ว ต่ออายุแพ็กเกจเพื่อใช้งานฟีเจอร์เหล่านี้ต่อไป';
 
   @override
   String get plusLockedViewPlansCta => 'เริ่มทดลองใช้ฟรี 7 วัน';
@@ -8823,8 +8313,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedCurrentBadge => 'ปัจจุบัน';
 
   @override
-  String get plusLockedBankSync =>
-      'ซิงก์ธนาคารผ่าน Plaid (รองรับธนาคารในสหรัฐฯ และแคนาดา)';
+  String get plusLockedBankSync => 'ซิงก์ธนาคารผ่าน Plaid (รองรับธนาคารในสหรัฐฯ และแคนาดา)';
 
   @override
   String get plusLockedFreeCurrencies => '1';
@@ -8845,8 +8334,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get contactUs => 'ติดต่อเรา';
 
   @override
-  String get contactUsDescription =>
-      'คุณต้องการติดต่อเราผ่านช่องทางใด? หากต้องการรับการตอบกลับเร็วขึ้น เราแนะนำให้ใช้ Discord';
+  String get contactUsDescription => 'คุณต้องการติดต่อเราผ่านช่องทางใด? หากต้องการรับการตอบกลับเร็วขึ้น เราแนะนำให้ใช้ Discord';
 
   @override
   String get couldNotOpenEmail => 'ไม่สามารถเปิดแอปอีเมลได้';
@@ -8861,36 +8349,31 @@ class AppLocalizationsTh extends AppLocalizations {
   String get premiumLockedTitle => 'ปลดล็อก Premium';
 
   @override
-  String get premiumLockedDescription =>
-      'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์พรีเมียมสุดพิเศษ';
+  String get premiumLockedDescription => 'ยกระดับการติดตามการเงินของคุณไปอีกขั้นด้วยฟีเจอร์พรีเมียมสุดพิเศษ';
 
   @override
   String get premiumFeatureBankSync => 'เชื่อมต่อธนาคาร';
 
   @override
-  String get premiumFeatureBankSyncDesc =>
-      'เชื่อมต่อหลายบัญชีธนาคารอย่างปลอดภัย';
+  String get premiumFeatureBankSyncDesc => 'เชื่อมต่อหลายบัญชีธนาคารอย่างปลอดภัย';
 
   @override
   String get premiumFeatureMultiCurrency => 'รองรับหลายสกุลเงิน';
 
   @override
-  String get premiumFeatureMultiCurrencyDesc =>
-      'ติดตามสกุลเงินต่างๆ ได้อย่างราบรื่น';
+  String get premiumFeatureMultiCurrencyDesc => 'ติดตามสกุลเงินต่างๆ ได้อย่างราบรื่น';
 
   @override
   String get premiumFeatureCurrencyConverter => 'ตัวแปลงสกุลเงิน';
 
   @override
-  String get premiumFeatureCurrencyConverterDesc =>
-      'อัตราแลกเปลี่ยนแบบเรียลไทม์ในหน้าหลัก';
+  String get premiumFeatureCurrencyConverterDesc => 'อัตราแลกเปลี่ยนแบบเรียลไทม์ในหน้าหลัก';
 
   @override
   String get premiumFeatureSupport => 'บริการช่วยเหลือระดับพรีเมียม';
 
   @override
-  String get premiumFeatureSupportDesc =>
-      'รับความช่วยเหลือเบื้องต้นทันทีที่คุณต้องการ';
+  String get premiumFeatureSupportDesc => 'รับความช่วยเหลือเบื้องต้นทันทีที่คุณต้องการ';
 
   @override
   String get premiumViewPlansCta => 'ดูแพ็กเกจ Premium';
@@ -8902,8 +8385,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedUpgradeToPlusEyebrow => 'ฟีเจอร์พรีเมียม';
 
   @override
-  String get plusLockedFreeDescription =>
-      'ฟีเจอร์นี้ใช้งานได้เฉพาะในพรีเมียมเท่านั้น อัปเกรดตอนนี้เพื่อปลดล็อก พร้อมรับอัตราแลกเปลี่ยนแบบเรียลไทม์ การซิงก์ธนาคาร เครื่องมือจัดการสกุลเงินขั้นสูง และการสนับสนุนแบบพิเศษ';
+  String get plusLockedFreeDescription => 'ฟีเจอร์นี้ใช้งานได้เฉพาะในพรีเมียมเท่านั้น อัปเกรดตอนนี้เพื่อปลดล็อก พร้อมรับอัตราแลกเปลี่ยนแบบเรียลไทม์ การซิงก์ธนาคาร เครื่องมือจัดการสกุลเงินขั้นสูง และการสนับสนุนแบบพิเศษ';
 
   @override
   String get plusLockedFeatureHeader => 'ฟีเจอร์';
@@ -8936,8 +8418,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedTrialEyebrow => 'ทดลองใช้ฟรี 7 วัน';
 
   @override
-  String get plusLockedTrialRetentionDescription =>
-      'ช่วงทดลองใช้ฟรีช่วยให้คุณได้ลองใช้ Moneko แต่ฟีเจอร์นี้สงวนไว้สำหรับพรีเมียม อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร และการสนับสนุนที่รวดเร็วยิ่งขึ้น';
+  String get plusLockedTrialRetentionDescription => 'ช่วงทดลองใช้ฟรีช่วยให้คุณได้ลองใช้ Moneko แต่ฟีเจอร์นี้สงวนไว้สำหรับพรีเมียม อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร และการสนับสนุนที่รวดเร็วยิ่งขึ้น';
 
   @override
   String get plusLockedAfterTrialHeader => 'หลังหมดช่วงทดลอง';
@@ -8949,19 +8430,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedKeepPlusAfterTrialCta => 'เริ่มทดลองใช้ฟรี 7 วัน';
 
   @override
-  String get plusLockedTrialReviewPlansNote =>
-      'คุณสามารถดูแพ็กเกจได้โดยที่ช่วงทดลองใช้ 7 วันยังคงมีผลอยู่';
+  String get plusLockedTrialReviewPlansNote => 'คุณสามารถดูแพ็กเกจได้โดยที่ช่วงทดลองใช้ 7 วันยังคงมีผลอยู่';
 
   @override
   String get plusLockedPremiumFeatureEyebrow => 'ฟีเจอร์ Premium';
 
   @override
-  String get plusLockedPremiumUpgradeTitle =>
-      'อัปเกรดเป็นพรีเมียมเพื่อปลดล็อกฟีเจอร์นี้';
+  String get plusLockedPremiumUpgradeTitle => 'อัปเกรดเป็นพรีเมียมเพื่อปลดล็อกฟีเจอร์นี้';
 
   @override
-  String get plusLockedPremiumUpgradeDescription =>
-      'ฟีเจอร์นี้ใช้งานได้เฉพาะในพรีเมียมเท่านั้น อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร อัตราแลกเปลี่ยนแบบเรียลไทม์ และการสนับสนุนแบบพิเศษ';
+  String get plusLockedPremiumUpgradeDescription => 'ฟีเจอร์นี้ใช้งานได้เฉพาะในพรีเมียมเท่านั้น อัปเกรดตอนนี้เพื่อปลดล็อกการจัดการสกุลเงินขั้นสูง การซิงก์ธนาคาร อัตราแลกเปลี่ยนแบบเรียลไทม์ และการสนับสนุนแบบพิเศษ';
 
   @override
   String get plusLockedCurrentPlanBadge => 'แพ็กเกจปัจจุบันของคุณ';
@@ -8979,16 +8457,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedViewPremiumPlansCta => 'เริ่มทดลองใช้ฟรี 7 วัน';
 
   @override
-  String get plusLockedPremiumSupportWithin12HoursNote =>
-      'การสนับสนุนระดับพรีเมียมมักจะตอบกลับภายใน 12 ชั่วโมง';
+  String get plusLockedPremiumSupportWithin12HoursNote => 'การสนับสนุนระดับพรีเมียมมักจะตอบกลับภายใน 12 ชั่วโมง';
 
   @override
-  String get enableNotificationsForPaymentSummary =>
-      'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
+  String get enableNotificationsForPaymentSummary => 'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
 
   @override
-  String get archivedWalletsWillAppearHere =>
-      'กระเป๋าเงินที่เก็บถาวรจะแสดงที่นี่';
+  String get archivedWalletsWillAppearHere => 'กระเป๋าเงินที่เก็บถาวรจะแสดงที่นี่';
 
   @override
   String get currentPlan => 'แผนปัจจุบัน';
@@ -9008,12 +8483,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get start7DayPremiumFreeTrial => 'เริ่มทดลองใช้ฟรีพรีเมียม 7 วัน';
 
   @override
-  String get premiumWebDashboardDataExport =>
-      'แดชบอร์ดเว็บพรีเมียมสำหรับจัดการและส่งออกข้อมูลทั้งหมด';
+  String get premiumWebDashboardDataExport => 'แดชบอร์ดเว็บพรีเมียมสำหรับจัดการและส่งออกข้อมูลทั้งหมด';
 
   @override
-  String get encryptedReceiptPdfStorage =>
-      'พื้นที่จัดเก็บแบบเข้ารหัสเฉพาะสำหรับใบเสร็จที่ส่งผ่านอีเมล พร้อมดาวน์โหลดได้จากแดชบอร์ดบนเว็บ';
+  String get encryptedReceiptPdfStorage => 'พื้นที่จัดเก็บแบบเข้ารหัสเฉพาะสำหรับใบเสร็จที่ส่งผ่านอีเมล พร้อมดาวน์โหลดได้จากแดชบอร์ดบนเว็บ';
 
   @override
   String get customerSupport => 'ฝ่ายช่วยเหลือ';
@@ -9036,12 +8509,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get bankAlreadyConnected => 'เชื่อมต่อธนาคารแล้ว';
 
   @override
-  String get bankAlreadyQueuedForPlaidRemoval =>
-      'ธนาคารนี้อยู่ในคิวลบออกจาก Plaid แล้ว ปกติการลบจะเกิดขึ้นทันที หากยังรอดำเนินการ Moneko จะลองใหม่ทุกๆ 15 นาที การซิงค์จะถูกปิดใช้งานระหว่างรอการลบ';
+  String get bankAlreadyQueuedForPlaidRemoval => 'ธนาคารนี้อยู่ในคิวลบออกจาก Plaid แล้ว ปกติการลบจะเกิดขึ้นทันที หากยังรอดำเนินการ Moneko จะลองใหม่ทุกๆ 15 นาที การซิงค์จะถูกปิดใช้งานระหว่างรอการลบ';
 
   @override
-  String get bankConnectedInitialSyncPending =>
-      'เชื่อมต่อธนาคารแล้ว รอการซิงค์ข้อมูลครั้งแรก';
+  String get bankConnectedInitialSyncPending => 'เชื่อมต่อธนาคารแล้ว รอการซิงค์ข้อมูลครั้งแรก';
 
   @override
   String get bankConnection => 'การเชื่อมต่อธนาคาร';
@@ -9055,42 +8526,34 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get bankConnectionFailedMissingSecurityState =>
-      'เชื่อมต่อธนาคารไม่สำเร็จ: ขาดสถานะความปลอดภัย';
+  String get bankConnectionFailedMissingSecurityState => 'เชื่อมต่อธนาคารไม่สำเร็จ: ขาดสถานะความปลอดภัย';
 
   @override
-  String get bankConnectionsInYourCountryComingSoon =>
-      'การเชื่อมต่อธนาคารในประเทศของคุณกำลังจะมาเร็วๆ นี้!';
+  String get bankConnectionsInYourCountryComingSoon => 'การเชื่อมต่อธนาคารในประเทศของคุณกำลังจะมาเร็วๆ นี้!';
 
   @override
   String get bankDisconnectPending => 'รอการยกเลิกการเชื่อมต่อธนาคาร';
 
   @override
-  String get bankDisconnectQueuedDescription =>
-      'อยู่ในคิวยกเลิกการเชื่อมต่อธนาคาร ปกติการลบออกจาก Plaid จะเกิดขึ้นทันที หากยังรอดำเนินการ Moneko จะลองใหม่ทุกๆ 15 นาที';
+  String get bankDisconnectQueuedDescription => 'อยู่ในคิวยกเลิกการเชื่อมต่อธนาคาร ปกติการลบออกจาก Plaid จะเกิดขึ้นทันที หากยังรอดำเนินการ Moneko จะลองใหม่ทุกๆ 15 นาที';
 
   @override
-  String get bankDisconnectedSyncsDisabled =>
-      'ยกเลิกการเชื่อมต่อธนาคารแล้ว การซิงค์ในอนาคตจะถูกปิดใช้งานสำหรับการเชื่อมต่อนี้';
+  String get bankDisconnectedSyncsDisabled => 'ยกเลิกการเชื่อมต่อธนาคารแล้ว การซิงค์ในอนาคตจะถูกปิดใช้งานสำหรับการเชื่อมต่อนี้';
 
   @override
   String get bankNeedsAttention => 'ธนาคารต้องการความสนใจ';
 
   @override
-  String get bankNeedsAttentionBeforeSync =>
-      'ธนาคารนี้ต้องได้รับการจัดการก่อนจึงจะซิงค์ได้ โปรดเชื่อมต่อธนาคารใหม่อีกครั้งแล้วลองใหม่';
+  String get bankNeedsAttentionBeforeSync => 'ธนาคารนี้ต้องได้รับการจัดการก่อนจึงจะซิงค์ได้ โปรดเชื่อมต่อธนาคารใหม่อีกครั้งแล้วลองใหม่';
 
   @override
-  String get bankNeedsRepairBeforeSyncing =>
-      'ต้องแก้ไขการเชื่อมต่อธนาคารนี้ก่อนจึงจะซิงค์ต่อได้';
+  String get bankNeedsRepairBeforeSyncing => 'ต้องแก้ไขการเชื่อมต่อธนาคารนี้ก่อนจึงจะซิงค์ต่อได้';
 
   @override
-  String get bankReconnectNotCompletedTryAgain =>
-      'เชื่อมต่อธนาคารใหม่ไม่สำเร็จ โปรดลองอีกครั้ง';
+  String get bankReconnectNotCompletedTryAgain => 'เชื่อมต่อธนาคารใหม่ไม่สำเร็จ โปรดลองอีกครั้ง';
 
   @override
-  String get bankStillFinishingDisconnect =>
-      'ธนาคารนี้ยังอยู่ระหว่างยกเลิกการเชื่อมต่อ โปรดรอให้การลบเสร็จสมบูรณ์ก่อนเชื่อมต่อใหม่อีกครั้ง';
+  String get bankStillFinishingDisconnect => 'ธนาคารนี้ยังอยู่ระหว่างยกเลิกการเชื่อมต่อ โปรดรอให้การลบเสร็จสมบูรณ์ก่อนเชื่อมต่อใหม่อีกครั้ง';
 
   @override
   String get bankSyncStatusUnavailable => 'ไม่สามารถดูสถานะการซิงค์ธนาคารได้';
@@ -9102,12 +8565,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get canada => 'แคนาดา';
 
   @override
-  String get cannotRequestAnotherPlaidRefreshYet =>
-      'คุณยังไม่สามารถขอรีเฟรช Plaid ได้ในขณะนี้ โปรดลองอีกครั้งในภายหลัง';
+  String get cannotRequestAnotherPlaidRefreshYet => 'คุณยังไม่สามารถขอรีเฟรช Plaid ได้ในขณะนี้ โปรดลองอีกครั้งในภายหลัง';
 
   @override
-  String get checkingBankConnectionStatusTryAgain =>
-      'กำลังตรวจสอบสถานะการเชื่อมต่อธนาคาร โปรดลองอีกครั้งในสักครู่';
+  String get checkingBankConnectionStatusTryAgain => 'กำลังตรวจสอบสถานะการเชื่อมต่อธนาคาร โปรดลองอีกครั้งในสักครู่';
 
   @override
   String get checkingBankSync => 'กำลังตรวจสอบการซิงค์ธนาคาร...';
@@ -9122,42 +8583,34 @@ class AppLocalizationsTh extends AppLocalizations {
   String get chooseBankToSync => 'เลือกธนาคารที่จะซิงค์';
 
   @override
-  String get chooseBankingRegionAvailableSyncing =>
-      'เลือกภูมิภาคของธนาคารเพื่อดูสถาบันที่พร้อมสำหรับการซิงค์ข้อมูล';
+  String get chooseBankingRegionAvailableSyncing => 'เลือกภูมิภาคของธนาคารเพื่อดูสถาบันที่พร้อมสำหรับการซิงค์ข้อมูล';
 
   @override
-  String get chooseHowYouWantToAddThisWallet =>
-      'เลือกวิธีที่คุณต้องการเพิ่มกระเป๋าเงินนี้';
+  String get chooseHowYouWantToAddThisWallet => 'เลือกวิธีที่คุณต้องการเพิ่มกระเป๋าเงินนี้';
 
   @override
-  String get connectBankAccountAutomaticSyncing =>
-      'เชื่อมต่อบัญชีธนาคารเพื่อซิงค์ข้อมูลอัตโนมัติ';
+  String get connectBankAccountAutomaticSyncing => 'เชื่อมต่อบัญชีธนาคารเพื่อซิงค์ข้อมูลอัตโนมัติ';
 
   @override
   String get consentSecurity => 'ความยินยอมและ\nความปลอดภัย';
 
   @override
-  String get consentSecurityDescription =>
-      'คุณอาจต้องป้อนข้อมูลรับรองอีกครั้งหรือต่ออายุความยินยอม ทั้งนี้ขึ้นอยู่กับธนาคารของคุณ การเข้าสู่ระบบธนาคารของคุณจัดการโดย Plaid ไม่ใช่ Moneko';
+  String get consentSecurityDescription => 'คุณอาจต้องป้อนข้อมูลรับรองอีกครั้งหรือต่ออายุความยินยอม ทั้งนี้ขึ้นอยู่กับธนาคารของคุณ การเข้าสู่ระบบธนาคารของคุณจัดการโดย Plaid ไม่ใช่ Moneko';
 
   @override
-  String get couldNotConnectThisBankRightNow =>
-      'ไม่สามารถเชื่อมต่อธนาคารนี้ได้ในขณะนี้';
+  String get couldNotConnectThisBankRightNow => 'ไม่สามารถเชื่อมต่อธนาคารนี้ได้ในขณะนี้';
 
   @override
-  String get couldNotDisconnectThisBankRightNow =>
-      'ไม่สามารถยกเลิกการเชื่อมต่อธนาคารนี้ได้ในขณะนี้';
+  String get couldNotDisconnectThisBankRightNow => 'ไม่สามารถยกเลิกการเชื่อมต่อธนาคารนี้ได้ในขณะนี้';
 
   @override
   String get couldNotOpenTinkLink => 'ไม่สามารถเปิด Tink Link ได้';
 
   @override
-  String get couldNotSyncThisBankRightNow =>
-      'ไม่สามารถซิงค์ธนาคารนี้ได้ในขณะนี้';
+  String get couldNotSyncThisBankRightNow => 'ไม่สามารถซิงค์ธนาคารนี้ได้ในขณะนี้';
 
   @override
-  String get createWalletUpdateBalanceYourself =>
-      'สร้างกระเป๋าเงินและอัปเดตยอดคงเหลือด้วยตัวคุณเอง';
+  String get createWalletUpdateBalanceYourself => 'สร้างกระเป๋าเงินและอัปเดตยอดคงเหลือด้วยตัวคุณเอง';
 
   @override
   String daysShort(Object count) {
@@ -9171,8 +8624,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get disconnectBank => 'ยกเลิกการเชื่อมต่อธนาคาร';
 
   @override
-  String get disconnectBankDescription =>
-      'การทำเช่นนี้จะเป็นการลบการเข้าถึงของ Plaid หยุดการซิงค์ในอนาคต และล้างข้อมูลธนาคารที่จัดเก็บไว้สำหรับการเชื่อมต่อนี้';
+  String get disconnectBankDescription => 'การทำเช่นนี้จะเป็นการลบการเข้าถึงของ Plaid หยุดการซิงค์ในอนาคต และล้างข้อมูลธนาคารที่จัดเก็บไว้สำหรับการเชื่อมต่อนี้';
 
   @override
   String get disconnectBankQuestion => 'ยกเลิกการเชื่อมต่อธนาคารไหม?';
@@ -9187,19 +8639,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String get disconnectingBank => 'กำลังยกเลิกการเชื่อมต่อธนาคาร...';
 
   @override
-  String get disconnectingRemovesPlaidAccess =>
-      'การยกเลิกการเชื่อมต่อจะเป็นการลบการเข้าถึง Plaid สำหรับการเชื่อมต่อธนาคารหนึ่งบัญชี และป้องกันการซิงค์ข้อมูลในอนาคต';
+  String get disconnectingRemovesPlaidAccess => 'การยกเลิกการเชื่อมต่อจะเป็นการลบการเข้าถึง Plaid สำหรับการเชื่อมต่อธนาคารหนึ่งบัญชี และป้องกันการซิงค์ข้อมูลในอนาคต';
 
   @override
-  String get duplicateBankConnectionDescription =>
-      'บัญชีธนาคารเหล่านั้นเชื่อมโยงใน Moneko แล้ว เราจะนำคุณกลับไปเพื่อให้คุณสามารถจัดการการเชื่อมต่อธนาคารที่มีอยู่แทนการสร้างรายการซ้ำ';
+  String get duplicateBankConnectionDescription => 'บัญชีธนาคารเหล่านั้นเชื่อมโยงใน Moneko แล้ว เราจะนำคุณกลับไปเพื่อให้คุณสามารถจัดการการเชื่อมต่อธนาคารที่มีอยู่แทนการสร้างรายการซ้ำ';
 
   @override
   String get effortlessTracking => 'ติดตาม\nอย่างง่ายดาย';
 
   @override
-  String get effortlessTrackingDescription =>
-      'เชื่อมต่อธนาคารเพื่อนำเข้ารายการธุรกรรมไปยังกระเป๋าเงินโดยอัตโนมัติ แทนที่จะต้องป้อนข้อมูลทั้งหมดด้วยตนเอง';
+  String get effortlessTrackingDescription => 'เชื่อมต่อธนาคารเพื่อนำเข้ารายการธุรกรรมไปยังกระเป๋าเงินโดยอัตโนมัติ แทนที่จะต้องป้อนข้อมูลทั้งหมดด้วยตนเอง';
 
   @override
   String get failedToCreateLinkToken => 'สร้างลิงก์โทเค็นไม่สำเร็จ';
@@ -9216,8 +8665,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get failedToExchangeToken => 'แลกเปลี่ยนโทเค็นไม่สำเร็จ';
 
   @override
-  String get failedToPrepareTinkBankConnection =>
-      'เตรียมการเชื่อมต่อธนาคาร Tink ไม่สำเร็จ';
+  String get failedToPrepareTinkBankConnection => 'เตรียมการเชื่อมต่อธนาคาร Tink ไม่สำเร็จ';
 
   @override
   String hoursMinutesShort(Object hours, Object minutes) {
@@ -9233,8 +8681,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get keepYourExistingWallets => 'เก็บกระเป๋าเงิน\nที่มีอยู่ไว้';
 
   @override
-  String get keepYourExistingWalletsDescription =>
-      'เราจะแก้ไขการเชื่อมต่อธนาคารปัจจุบัน เพื่อให้กระเป๋าเงินที่เชื่อมโยงและประวัติการทำธุรกรรมของคุณมีบันทึกการเชื่อมต่อเดียวกัน';
+  String get keepYourExistingWalletsDescription => 'เราจะแก้ไขการเชื่อมต่อธนาคารปัจจุบัน เพื่อให้กระเป๋าเงินที่เชื่อมโยงและประวัติการทำธุรกรรมของคุณมีบันทึกการเชื่อมต่อเดียวกัน';
 
   @override
   String lastSyncAgo(Object duration) {
@@ -9248,12 +8695,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get lessThanOneMinuteShort => 'น้อยกว่า 1 นาที';
 
   @override
-  String get manualPlaidRefreshPaidUsersOnly =>
-      'การรีเฟรช Plaid ด้วยตนเองมีให้เฉพาะผู้ใช้แบบชำระเงินที่มีสิทธิ์เท่านั้น';
+  String get manualPlaidRefreshPaidUsersOnly => 'การรีเฟรช Plaid ด้วยตนเองมีให้เฉพาะผู้ใช้แบบชำระเงินที่มีสิทธิ์เท่านั้น';
 
   @override
-  String get manualSyncPullsLatestTransactions =>
-      'การซิงค์ด้วยตนเองจะดึงข้อมูลธุรกรรมล่าสุดที่พร้อมใช้งานสำหรับธนาคารที่เชื่อมต่อหนึ่งแห่ง';
+  String get manualSyncPullsLatestTransactions => 'การซิงค์ด้วยตนเองจะดึงข้อมูลธุรกรรมล่าสุดที่พร้อมใช้งานสำหรับธนาคารที่เชื่อมต่อหนึ่งแห่ง';
 
   @override
   String get manualTrackingAccount => 'บัญชีติดตามด้วยตนเอง';
@@ -9279,12 +8724,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get missingTinkConnectionPayload => 'ไม่มีข้อมูลการเชื่อมต่อ Tink';
 
   @override
-  String get newBankAccountsAvailableToReview =>
-      'มีบัญชีธนาคารใหม่พร้อมให้ตรวจสอบแล้ว';
+  String get newBankAccountsAvailableToReview => 'มีบัญชีธนาคารใหม่พร้อมให้ตรวจสอบแล้ว';
 
   @override
-  String get noConnectedBankAvailableForManualSync =>
-      'ขณะนี้ไม่มีธนาคารที่เชื่อมต่อพร้อมสำหรับการซิงค์ด้วยตนเอง';
+  String get noConnectedBankAvailableForManualSync => 'ขณะนี้ไม่มีธนาคารที่เชื่อมต่อพร้อมสำหรับการซิงค์ด้วยตนเอง';
 
   @override
   String get noSupportedBankAccountsReturned => 'ไม่พบบัญชีธนาคารที่รองรับ';
@@ -9293,30 +8736,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onlyTheAccountsYouPick => 'เฉพาะบัญชี\nที่คุณเลือกเท่านั้น';
 
   @override
-  String get onlyTheAccountsYouPickDescription =>
-      'คุณจะเลือกบัญชีใหม่ที่พร้อมใช้งานใน Plaid ก่อน Moneko จะนำเข้าเฉพาะบัญชีที่คุณแชร์อย่างชัดเจนเท่านั้น';
+  String get onlyTheAccountsYouPickDescription => 'คุณจะเลือกบัญชีใหม่ที่พร้อมใช้งานใน Plaid ก่อน Moneko จะนำเข้าเฉพาะบัญชีที่คุณแชร์อย่างชัดเจนเท่านั้น';
 
   @override
-  String get openBankConnectionNeedsAttention =>
-      'เปิดการเชื่อมต่อธนาคารที่ต้องการความสนใจเพื่อให้คุณสามารถแก้ไขการเข้าถึงหรือตรวจสอบบัญชีใหม่ที่พร้อมใช้งาน';
+  String get openBankConnectionNeedsAttention => 'เปิดการเชื่อมต่อธนาคารที่ต้องการความสนใจเพื่อให้คุณสามารถแก้ไขการเข้าถึงหรือตรวจสอบบัญชีใหม่ที่พร้อมใช้งาน';
 
   @override
-  String get preparingYourBankConnection =>
-      'กำลังเตรียมการเชื่อมต่อธนาคารของคุณ...';
+  String get preparingYourBankConnection => 'กำลังเตรียมการเชื่อมต่อธนาคารของคุณ...';
 
   @override
   String get privateSecure => 'ส่วนตัวและ\nปลอดภัย';
 
   @override
-  String get privateSecureDescription =>
-      'ข้อมูลของคุณได้รับการเข้ารหัสด้วยความปลอดภัยระดับธนาคาร เราจะไม่เห็นข้อมูลรับรองของคุณ และเข้าถึงได้แบบอ่านอย่างเดียวเท่านั้น';
+  String get privateSecureDescription => 'ข้อมูลของคุณได้รับการเข้ารหัสด้วยความปลอดภัยระดับธนาคาร เราจะไม่เห็นข้อมูลรับรองของคุณ และเข้าถึงได้แบบอ่านอย่างเดียวเท่านั้น';
 
   @override
   String get reconnectBank => 'เชื่อมต่อธนาคารใหม่';
 
   @override
-  String get refreshRequestedPlaidWillNotify =>
-      'ขอรีเฟรชแล้ว Plaid จะแจ้ง Moneko เมื่อรายการธุรกรรมใหม่พร้อมใช้งาน';
+  String get refreshRequestedPlaidWillNotify => 'ขอรีเฟรชแล้ว Plaid จะแจ้ง Moneko เมื่อรายการธุรกรรมใหม่พร้อมใช้งาน';
 
   @override
   String get refreshUnavailable => 'ไม่สามารถรีเฟรชได้';
@@ -9328,8 +8766,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get repairYourBankConnection => 'แก้ไขการเชื่อมต่อ\nธนาคารของคุณ';
 
   @override
-  String get repairYourBankConnectionDescription =>
-      'ธนาคารนี้ต้องการความสนใจจากคุณก่อนจึงจะซิงค์ธุรกรรมต่อไปได้ Plaid จะแนะนำคุณตลอดขั้นตอนการแก้ไขที่ธนาคารของคุณต้องการ';
+  String get repairYourBankConnectionDescription => 'ธนาคารนี้ต้องการความสนใจจากคุณก่อนจึงจะซิงค์ธุรกรรมต่อไปได้ Plaid จะแนะนำคุณตลอดขั้นตอนการแก้ไขที่ธนาคารของคุณต้องการ';
 
   @override
   String get requestingBankRefresh => 'กำลังขอรีเฟรชธนาคาร...';
@@ -9344,8 +8781,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get reviewNewBankAccounts => 'ตรวจสอบบัญชี\nธนาคารใหม่';
 
   @override
-  String get reviewNewBankAccountsDescription =>
-      'ธนาคารของคุณมีบัญชีใหม่ที่พร้อมใช้งาน เปิด Plaid เพื่อเลือกบัญชีที่คุณต้องการให้ Moneko เข้าถึง';
+  String get reviewNewBankAccountsDescription => 'ธนาคารของคุณมีบัญชีใหม่ที่พร้อมใช้งาน เปิด Plaid เพื่อเลือกบัญชีที่คุณต้องการให้ Moneko เข้าถึง';
 
   @override
   String get searchCountry => 'ค้นหาประเทศ';
@@ -9359,8 +8795,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get secureReadOnly => 'ปลอดภัยและ\nอ่านได้อย่างเดียว';
 
   @override
-  String get secureReadOnlyExistingConnectionDescription =>
-      'การเชื่อมต่อธนาคารของคุณจะยังคงเข้ารหัสและเข้าถึงได้แบบอ่านอย่างเดียว เราใช้รายการ Plaid ที่มีอยู่เดียวกันแทนการสร้างการเชื่อมต่อธนาคารแห่งที่สอง';
+  String get secureReadOnlyExistingConnectionDescription => 'การเชื่อมต่อธนาคารของคุณจะยังคงเข้ารหัสและเข้าถึงได้แบบอ่านอย่างเดียว เราใช้รายการ Plaid ที่มีอยู่เดียวกันแทนการสร้างการเชื่อมต่อธนาคารแห่งที่สอง';
 
   @override
   String get selectCountry => 'เลือกประเทศ';
@@ -9389,15 +8824,13 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get walletNotLinkedToActiveBankConnection =>
-      'กระเป๋าเงินนี้ไม่ได้เชื่อมโยงกับการเชื่อมต่อธนาคารที่ใช้งานอยู่';
+  String get walletNotLinkedToActiveBankConnection => 'กระเป๋าเงินนี้ไม่ได้เชื่อมโยงกับการเชื่อมต่อธนาคารที่ใช้งานอยู่';
 
   @override
   String get walletsForEachAccount => 'กระเป๋าเงินสำหรับ\nแต่ละบัญชี';
 
   @override
-  String get walletsForEachAccountDescription =>
-      'บัญชีธนาคารที่เชื่อมโยงแต่ละบัญชีจะมีกระเป๋าเงินของตัวเอง ดังนั้นยอดคงเหลือและประวัติการทำธุรกรรมจะถูกจัดระเบียบในที่ที่เหมาะสม';
+  String get walletsForEachAccountDescription => 'บัญชีธนาคารที่เชื่อมโยงแต่ละบัญชีจะมีกระเป๋าเงินของตัวเอง ดังนั้นยอดคงเหลือและประวัติการทำธุรกรรมจะถูกจัดระเบียบในที่ที่เหมาะสม';
 
   @override
   String youCannotSyncMoreThanOncePerDay(Object duration) {
@@ -9444,28 +8877,22 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketRolloverRemainingLabel => 'คงเหลือ';
 
   @override
-  String get pocketRolloverSummaryDescription =>
-      'งบประมาณที่ใช้ได้รวมยอดทบมาจากรอบก่อนหน้าแล้ว';
+  String get pocketRolloverSummaryDescription => 'งบประมาณที่ใช้ได้รวมยอดทบมาจากรอบก่อนหน้าแล้ว';
 
   @override
-  String get pocketRolloverCarryOverFromPreviousMonthLabel =>
-      'ยอดยกมาจากเดือนที่แล้ว';
+  String get pocketRolloverCarryOverFromPreviousMonthLabel => 'ยอดยกมาจากเดือนที่แล้ว';
 
   @override
-  String get pocketRolloverSettingsDescription =>
-      'เงินที่เหลือจะถูกยกไปใช้ต่อในเดือนหน้า';
+  String get pocketRolloverSettingsDescription => 'เงินที่เหลือจะถูกยกไปใช้ต่อในเดือนหน้า';
 
   @override
-  String get pocketRolloverOverspendingEnabledDescription =>
-      'ยอดใช้เกินจะถูกหักออกจากงบเดือนหน้า';
+  String get pocketRolloverOverspendingEnabledDescription => 'ยอดใช้เกินจะถูกหักออกจากงบเดือนหน้า';
 
   @override
-  String get pocketRolloverOverspendingDisabledDescription =>
-      'ยอดใช้เกินจะไม่กระทบงบประมาณในเดือนหน้า';
+  String get pocketRolloverOverspendingDisabledDescription => 'ยอดใช้เกินจะไม่กระทบงบประมาณในเดือนหน้า';
 
   @override
-  String get pocketRolloverOpeningDescription =>
-      'ใช้เพื่อนำยอดคงเหลือของซองเงินเดิมเข้ามาใน Moneko';
+  String get pocketRolloverOpeningDescription => 'ใช้เพื่อนำยอดคงเหลือของซองเงินเดิมเข้ามาใน Moneko';
 
   @override
   String get pocketRolloverMaximumLabel => 'ทบยอดสูงสุด';
@@ -9474,32 +8901,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketRolloverUnlimitedPlaceholder => 'ไม่จำกัด';
 
   @override
-  String get pocketRolloverInvalidCapError =>
-      'โปรดระบุจำนวนทบยอดสูงสุดที่ถูกต้อง หรือเว้นว่างไว้หากไม่ต้องการจำกัด';
+  String get pocketRolloverInvalidCapError => 'โปรดระบุจำนวนทบยอดสูงสุดที่ถูกต้อง หรือเว้นว่างไว้หากไม่ต้องการจำกัด';
 
   @override
-  String get pocketRolloverInvalidOpeningError =>
-      'โปรดระบุยอดยกมาเริ่มต้นที่ถูกต้อง หรือเว้นว่างไว้หากต้องการให้เป็นศูนย์';
+  String get pocketRolloverInvalidOpeningError => 'โปรดระบุยอดยกมาเริ่มต้นที่ถูกต้อง หรือเว้นว่างไว้หากต้องการให้เป็นศูนย์';
 
   @override
-  String get pocketRolloverNegativeOpeningRequiresOverspendingError =>
-      'โปรดเปิดการทบยอดที่ใช้เกินก่อนที่จะใช้ยอดยกมาแบบติดลบ';
+  String get pocketRolloverNegativeOpeningRequiresOverspendingError => 'โปรดเปิดการทบยอดที่ใช้เกินก่อนที่จะใช้ยอดยกมาแบบติดลบ';
 
   @override
-  String get pocketRolloverNegativeNotCarriedDescription =>
-      'ยอดใช้เกินจะไม่ถูกทบไป เดือนหน้าจะเริ่มต้นใหม่ด้วยงบประมาณพื้นฐาน';
+  String get pocketRolloverNegativeNotCarriedDescription => 'ยอดใช้เกินจะไม่ถูกทบไป เดือนหน้าจะเริ่มต้นใหม่ด้วยงบประมาณพื้นฐาน';
 
   @override
-  String get pocketRolloverCapLimitedDescription =>
-      'ขีดจำกัดการทบยอดจะเป็นตัวกำหนดว่าคุณสามารถทบงบที่เหลือไปได้เท่าไร';
+  String get pocketRolloverCapLimitedDescription => 'ขีดจำกัดการทบยอดจะเป็นตัวกำหนดว่าคุณสามารถทบงบที่เหลือไปได้เท่าไร';
 
   @override
-  String get pocketRolloverNoCarryExpectedDescription =>
-      'ยังไม่มียอดทบที่คาดการณ์ไว้สำหรับเดือนนี้';
+  String get pocketRolloverNoCarryExpectedDescription => 'ยังไม่มียอดทบที่คาดการณ์ไว้สำหรับเดือนนี้';
 
   @override
-  String get pocketRolloverNextMonthDescription =>
-      'เมื่อขึ้นเดือนใหม่ จำนวนเงินนี้จะถูกเพิ่มเข้าไปในงบประมาณพื้นฐาน';
+  String get pocketRolloverNextMonthDescription => 'เมื่อขึ้นเดือนใหม่ จำนวนเงินนี้จะถูกเพิ่มเข้าไปในงบประมาณพื้นฐาน';
 
   @override
   String pocketRolloverSettingsExample(Object currencySymbol) {
@@ -9517,8 +8937,7 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String pocketRolloverHistorySummary(
-      Object base, Object rollover, Object spent) {
+  String pocketRolloverHistorySummary(Object base, Object rollover, Object spent) {
     return 'พื้นฐาน $base - ยอดทบ $rollover - ใช้จ่าย $spent';
   }
 
@@ -9526,8 +8945,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketRolloverContributionTitle => 'ที่มาของยอดทบนี้';
 
   @override
-  String get pocketRolloverContributionDescription =>
-      'Moneko จะติดตามส่วนต่างๆ ของยอดทบที่คุณเหลืออยู่ เพื่อให้เห็นภาพรวมที่ชัดเจนเสมอ';
+  String get pocketRolloverContributionDescription => 'Moneko จะติดตามส่วนต่างๆ ของยอดทบที่คุณเหลืออยู่ เพื่อให้เห็นภาพรวมที่ชัดเจนเสมอ';
 
   @override
   String get pocketRolloverContributionEmpty => 'ยังไม่มียอดทบเข้ามาในเดือนนี้';
@@ -9542,8 +8960,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pocketRolloverResetLabel => 'รีเซ็ตยอดทบ';
 
   @override
-  String get pocketRolloverMissingMonthWarning =>
-      'ประวัติงบประมาณนี้มีบางเดือนที่ขาดหายไป โปรดตรวจสอบไทม์ไลน์ก่อนที่จะนำยอดทบไปใช้';
+  String get pocketRolloverMissingMonthWarning => 'ประวัติงบประมาณนี้มีบางเดือนที่ขาดหายไป โปรดตรวจสอบไทม์ไลน์ก่อนที่จะนำยอดทบไปใช้';
 
   @override
   String pocketRolloverMonthLeftover(Object month) {
@@ -9582,68 +8999,55 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedTwoWallets => '2 กระเป๋าเงิน';
 
   @override
-  String get expiredPlusBannerMessage =>
-      'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
+  String get expiredPlusBannerMessage => 'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
 
   @override
-  String get expiredSubscriptionMessage =>
-      'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
+  String get expiredSubscriptionMessage => 'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
 
   @override
   String get trialWelcomeTitle => 'รับไปเลย! ใช้งาน Plus ฟรี 7 วัน';
 
   @override
-  String get trialWelcomeSubtitle =>
-      'เพลิดเพลินกับทุกฟีเจอร์ของ Plus ได้ฟรีตลอด 7 วันนับจากนี้ นี่คือสิ่งที่คุณสามารถทดลองใช้ได้:';
+  String get trialWelcomeSubtitle => 'เพลิดเพลินกับทุกฟีเจอร์ของ Plus ได้ฟรีตลอด 7 วันนับจากนี้ นี่คือสิ่งที่คุณสามารถทดลองใช้ได้:';
 
   @override
-  String get trialWelcomeFeatureMessagingTitle =>
-      'บันทึกรายจ่ายผ่าน Telegram และ WhatsApp';
+  String get trialWelcomeFeatureMessagingTitle => 'บันทึกรายจ่ายผ่าน Telegram และ WhatsApp';
 
   @override
-  String get trialWelcomeFeatureMessagingBody =>
-      'แค่ส่งต่อข้อความหรือใบเสร็จจากแอปแชทโปรดของคุณ แล้ว Moneko จะบันทึกให้โดยอัตโนมัติ';
+  String get trialWelcomeFeatureMessagingBody => 'แค่ส่งต่อข้อความหรือใบเสร็จจากแอปแชทโปรดของคุณ แล้ว Moneko จะบันทึกให้โดยอัตโนมัติ';
 
   @override
   String get trialWelcomeFeatureEmailTitle => 'บันทึกใบเสร็จจากอีเมล';
 
   @override
-  String get trialWelcomeFeatureEmailBody =>
-      'เพียงส่งต่ออีเมลใบเสร็จ แล้ว Moneko จะช่วยดึงข้อมูลและบันทึกรายการของคุณให้เอง';
+  String get trialWelcomeFeatureEmailBody => 'เพียงส่งต่ออีเมลใบเสร็จ แล้ว Moneko จะช่วยดึงข้อมูลและบันทึกรายการของคุณให้เอง';
 
   @override
   String get trialWelcomeFeatureMultiCurrencyTitle => 'แสดงผลหลายสกุลเงิน';
 
   @override
-  String get trialWelcomeFeatureMultiCurrencyBody =>
-      'ติดตามการใช้จ่ายในหลายสกุลเงิน พร้อมอัตราแลกเปลี่ยนแบบเรียลไทม์';
+  String get trialWelcomeFeatureMultiCurrencyBody => 'ติดตามการใช้จ่ายในหลายสกุลเงิน พร้อมอัตราแลกเปลี่ยนแบบเรียลไทม์';
 
   @override
-  String get trialWelcomeFeatureInsightsTitle =>
-      'ข้อมูลเชิงลึกขั้นสูง & การจำลอง';
+  String get trialWelcomeFeatureInsightsTitle => 'ข้อมูลเชิงลึกขั้นสูง & การจำลอง';
 
   @override
-  String get trialWelcomeFeatureInsightsBody =>
-      'การวางแผนสถานการณ์จำลอง การคาดการณ์ยอดคงเหลือ และการวิเคราะห์ล่วงหน้า 30 วัน';
+  String get trialWelcomeFeatureInsightsBody => 'การวางแผนสถานการณ์จำลอง การคาดการณ์ยอดคงเหลือ และการวิเคราะห์ล่วงหน้า 30 วัน';
 
   @override
   String get trialWelcomeFaqHeader => 'สิ่งที่ควรรู้';
 
   @override
-  String get trialWelcomeFaqNoChargeQuestion =>
-      'ฉันจะถูกเรียกเก็บเงินเมื่อหมดช่วงทดลองใช้หรือไม่?';
+  String get trialWelcomeFaqNoChargeQuestion => 'ฉันจะถูกเรียกเก็บเงินเมื่อหมดช่วงทดลองใช้หรือไม่?';
 
   @override
-  String get trialWelcomeFaqNoChargeAnswer =>
-      'ไม่เลย เราจะไม่หักเงินจากคุณ คุณไม่ต้องทำอะไรทั้งสิ้น — สิทธิ์ทดลองใช้จะสิ้นสุดลงเองเมื่อครบกำหนด';
+  String get trialWelcomeFaqNoChargeAnswer => 'ไม่เลย เราจะไม่หักเงินจากคุณ คุณไม่ต้องทำอะไรทั้งสิ้น — สิทธิ์ทดลองใช้จะสิ้นสุดลงเองเมื่อครบกำหนด';
 
   @override
-  String get trialWelcomeFaqAfterTrialQuestion =>
-      'จะเกิดอะไรขึ้นหากฉันไม่สมัครสมาชิก?';
+  String get trialWelcomeFaqAfterTrialQuestion => 'จะเกิดอะไรขึ้นหากฉันไม่สมัครสมาชิก?';
 
   @override
-  String get trialWelcomeFaqAfterTrialAnswer =>
-      'ไม่เป็นไรเลย! คุณยังสามารถใช้งาน Moneko ได้ฟรีตามปกติ โดยจะมีแค่บางฟีเจอร์ที่ถูกจำกัด สบายใจได้ ไม่มีข้อผูกมัดหรือค่าใช้จ่ายแอบแฝง';
+  String get trialWelcomeFaqAfterTrialAnswer => 'ไม่เป็นไรเลย! คุณยังสามารถใช้งาน Moneko ได้ฟรีตามปกติ โดยจะมีแค่บางฟีเจอร์ที่ถูกจำกัด สบายใจได้ ไม่มีข้อผูกมัดหรือค่าใช้จ่ายแอบแฝง';
 
   @override
   String get trialWelcomeCta => 'เริ่มต้นใช้งาน';
@@ -9652,26 +9056,22 @@ class AppLocalizationsTh extends AppLocalizations {
   String get onboardingHeardAboutTitle => 'คุณรู้จัก Moneko จากที่ไหน?';
 
   @override
-  String get onboardingHeardAboutSubtitle =>
-      'เลือกตัวเลือกที่ตรงที่สุด หากมาจากที่อื่น ให้เลือก \"อื่น ๆ\"';
+  String get onboardingHeardAboutSubtitle => 'เลือกตัวเลือกที่ตรงที่สุด หากมาจากที่อื่น ให้เลือก \"อื่น ๆ\"';
 
   @override
   String get onboardingHeardAboutOtherHint => 'บอกเราหน่อยว่าที่ไหน';
 
   @override
-  String get onboardingHeardAboutValidation =>
-      'โปรดเลือกว่าคุณรู้จัก Moneko จากที่ไหน';
+  String get onboardingHeardAboutValidation => 'โปรดเลือกว่าคุณรู้จัก Moneko จากที่ไหน';
 
   @override
-  String get onboardingHeardAboutSaveError =>
-      'ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง';
+  String get onboardingHeardAboutSaveError => 'ไม่สามารถบันทึกคำตอบของคุณได้ โปรดลองอีกครั้ง';
 
   @override
   String get walletCreation => 'สร้างกระเป๋าเงิน';
 
   @override
-  String get plusLockedLifetimeDiscountPromo =>
-      'ข่าวดี! คุณมีสิทธิ์รับส่วนลด 50% สำหรับแผนตลอดชีพของเรา';
+  String get plusLockedLifetimeDiscountPromo => 'ข่าวดี! คุณมีสิทธิ์รับส่วนลด 50% สำหรับแผนตลอดชีพของเรา';
 
   @override
   String get plusLockedLifetimeDiscountClaim => ' เพื่อรับส่วนลดของคุณ';
@@ -9680,8 +9080,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get deleteWalletTitle => 'ลบกระเป๋าเงินนี้หรือไม่?';
 
   @override
-  String get deleteWalletDescription =>
-      'การดำเนินการนี้จะลบกระเป๋าเงิน รายการธุรกรรมทั้งหมด และบัญชีธนาคารที่เชื่อมโยงอย่างถาวร หากต้องการเก็บรายการธุรกรรมไว้ ให้ใช้ \"เก็บถาวร\" แทน การดำเนินการนี้ไม่สามารถย้อนกลับได้';
+  String get deleteWalletDescription => 'การดำเนินการนี้จะลบกระเป๋าเงิน รายการธุรกรรมทั้งหมด และบัญชีธนาคารที่เชื่อมโยงอย่างถาวร หากต้องการเก็บรายการธุรกรรมไว้ ให้ใช้ \"เก็บถาวร\" แทน การดำเนินการนี้ไม่สามารถย้อนกลับได้';
 
   @override
   String get deletingWallet => 'กำลังลบกระเป๋าเงิน…';
@@ -9691,4 +9090,68 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get deleteWalletFailed => 'ไม่สามารถลบกระเป๋าเงินนี้ได้ในขณะนี้';
+
+  @override
+  String get financialMonth => 'เดือนการเงิน';
+
+  @override
+  String get makeMonthMatchMoney => 'กำหนดเดือนให้ตรงกับรอบการเงินของคุณ';
+
+  @override
+  String get financialMonthIntroDescription => 'หากคุณเริ่มวางงบประมาณจากวันเงินเดือนออกแทนวันที่ 1 ของเดือน ให้เลือกวันที่ต้องการให้เดือนการเงินเริ่มต้น';
+
+  @override
+  String get yourCurrentFinancialMonth => 'เดือนการเงินปัจจุบันของคุณ';
+
+  @override
+  String get editFinancialMonthStartDay => 'เปลี่ยนวันเริ่มต้นเดือนการเงิน';
+
+  @override
+  String get treatDatesAsOneMonth => 'Moneko จะถือว่าช่วงเวลานี้เป็นหนึ่งเดือน';
+
+  @override
+  String get startFinancialMonthOn => 'วันเริ่มต้นเดือนการเงิน';
+
+  @override
+  String get choiceSavesOnSelectDay => 'ระบบจะบันทึกตัวเลือกทันทีเมื่อคุณเลือกวัน';
+
+  @override
+  String get whatThisChanges => 'สิ่งที่จะเปลี่ยนแปลง';
+
+  @override
+  String get monthlyBudgetsAndPockets => 'งบประมาณรายเดือนและกระเป๋างบประมาณ';
+
+  @override
+  String get dashboardTotalsAndMonthlyCharts => 'ยอดรวมบนแดชบอร์ดและกราฟรายเดือน';
+
+  @override
+  String get walletSummariesInsightsAndReports => 'สรุปกระเป๋าเงิน ข้อมูลเชิงลึก และรายงาน';
+
+  @override
+  String get savedTransactionsUnchangedNote => 'ธุรกรรมที่บันทึกไว้และวันที่ชำระเงินแบบประจำจะไม่เปลี่ยนแปลง Moneko จะเปลี่ยนเฉพาะวิธีจัดกลุ่มรายการตามเดือนเท่านั้น';
+
+  @override
+  String shortMonthNote(Object day) {
+    return 'บางเดือนไม่มีวันที่ $day ในกรณีนั้น เดือนการเงินของคุณจะเริ่มในวันสุดท้ายของเดือนแทน';
+  }
+
+  @override
+  String get serverRejectedFinancialMonthUpdate => 'เซิร์ฟเวอร์ปฏิเสธการอัปเดตเดือนการเงิน';
+
+  @override
+  String get couldNotUpdateFinancialMonth => 'ไม่สามารถอัปเดตเดือนการเงินได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get financialMonthStart => 'วันเริ่มต้นเดือนการเงิน';
+
+  @override
+  String get financialMonthStartUpdated => 'อัปเดตวันเริ่มต้นเดือนการเงินแล้ว';
+
+  @override
+  String get financialMonthStartUpdateFailed => 'ไม่สามารถอัปเดตวันเริ่มต้นเดือนการเงินได้';
+
+  @override
+  String financialMonthStartDayLabel(Object day) {
+    return 'วันที่ $day ของทุกเดือน';
+  }
 }
