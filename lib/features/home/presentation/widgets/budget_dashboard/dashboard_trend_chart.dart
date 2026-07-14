@@ -4,18 +4,21 @@ import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 
 class DashboardTrendChart extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String? currencyCode;
+  final int financialMonthStartDay;
   final bool isLoading;
   const DashboardTrendChart({
     super.key,
     required this.transactions,
     this.amountResolver,
     this.currencyCode,
+    this.financialMonthStartDay = 1,
     this.isLoading = false,
   });
 
@@ -27,10 +30,13 @@ class DashboardTrendChart extends StatelessWidget {
     final amountFormatter =
         NumberFormat.compactSimpleCurrency(name: displayCurrency);
 
-    DateTime resolveStartMonth(List<ConsolidatedTransaction> txs) {
+    DateTime resolveStartCycle(List<ConsolidatedTransaction> txs) {
       if (txs.isEmpty) {
         final now = DateTime.now();
-        return DateTime(now.year, now.month, 1);
+        return financialCycleStartForDate(
+          now,
+          startDay: financialMonthStartDay,
+        );
       }
       DateTime minDate = txs.first.entry.date;
       for (final tx in txs) {
@@ -38,13 +44,19 @@ class DashboardTrendChart extends StatelessWidget {
           minDate = tx.entry.date;
         }
       }
-      return DateTime(minDate.year, minDate.month, 1);
+      return financialCycleStartForDate(
+        minDate,
+        startDay: financialMonthStartDay,
+      );
     }
 
-    DateTime resolveEndMonth(List<ConsolidatedTransaction> txs) {
+    DateTime resolveEndCycle(List<ConsolidatedTransaction> txs) {
       if (txs.isEmpty) {
         final now = DateTime.now();
-        return DateTime(now.year, now.month, 1);
+        return financialCycleStartForDate(
+          now,
+          startDay: financialMonthStartDay,
+        );
       }
       DateTime maxDate = txs.first.entry.date;
       for (final tx in txs) {
@@ -52,7 +64,10 @@ class DashboardTrendChart extends StatelessWidget {
           maxDate = tx.entry.date;
         }
       }
-      return DateTime(maxDate.year, maxDate.month, 1);
+      return financialCycleStartForDate(
+        maxDate,
+        startDay: financialMonthStartDay,
+      );
     }
 
     final expenses = transactions.where((tx) {
@@ -60,11 +75,15 @@ class DashboardTrendChart extends StatelessWidget {
     }).toList();
 
     const maxChartMonths = 6;
-    var startMonth = resolveStartMonth(expenses);
-    final endMonth = resolveEndMonth(expenses);
+    var startMonth = resolveStartCycle(expenses);
+    final endMonth = resolveEndCycle(expenses);
 
     if (isLoading && expenses.isEmpty) {
-      startMonth = DateTime(endMonth.year, endMonth.month - 5, 1);
+      startMonth = addFinancialCycles(
+        endMonth,
+        -5,
+        startDay: financialMonthStartDay,
+      );
     }
 
     var monthsCount = (endMonth.year - startMonth.year) * 12 +
@@ -73,18 +92,22 @@ class DashboardTrendChart extends StatelessWidget {
         1;
     final isCapped = monthsCount > maxChartMonths;
     if (isCapped) {
-      startMonth = DateTime(
-        endMonth.year,
-        endMonth.month - (maxChartMonths - 1),
-        1,
+      startMonth = addFinancialCycles(
+        endMonth,
+        -(maxChartMonths - 1),
+        startDay: financialMonthStartDay,
       );
       monthsCount = maxChartMonths;
     }
     final monthlyTotals = List.filled(monthsCount, 0.0);
 
     for (final tx in expenses) {
-      final monthIndex = (tx.entry.date.year - startMonth.year) * 12 +
-          tx.entry.date.month -
+      final txCycleStart = financialCycleStartForDate(
+        tx.entry.date,
+        startDay: financialMonthStartDay,
+      );
+      final monthIndex = (txCycleStart.year - startMonth.year) * 12 +
+          txCycleStart.month -
           startMonth.month;
       if (monthIndex < 0 || monthIndex >= monthsCount) continue;
       final baseAmount = tx.entry.amountCents / 100.0;
@@ -149,10 +172,10 @@ class DashboardTrendChart extends StatelessWidget {
                         if (index % interval != 0 && index != monthsCount - 1) {
                           return const SizedBox();
                         }
-                        final monthDate = DateTime(
-                          startMonth.year,
-                          startMonth.month + index,
-                          1,
+                        final monthDate = addFinancialCycles(
+                          startMonth,
+                          index,
+                          startDay: financialMonthStartDay,
                         );
                         return Text(
                           DateFormat('MMM yy').format(monthDate),

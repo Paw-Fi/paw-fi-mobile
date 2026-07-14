@@ -78,6 +78,7 @@ import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
 import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
+import 'package:moneko/features/profile/presentation/pages/financial_month_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
@@ -221,7 +222,8 @@ class SettingsPage extends HookConsumerWidget {
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final subscription = subscriptionAsync.valueOrNull?.subscription;
-    final canUsePlusFeatures = hasPremiumFeatureAccess(subscription);
+    final canUsePlusFeatures =
+        !subscriptionAsync.hasValue || hasPremiumFeatureAccess(subscription);
     final appLockState = ref.watch(appLockControllerProvider);
     final appLockConfigured = appLockState.isConfigured;
     final biometricAvailability = appLockState.biometricAvailability;
@@ -248,6 +250,8 @@ class SettingsPage extends HookConsumerWidget {
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final selectedTimezone = useState<String?>(contact?.preferredTimezone);
+    final selectedFinancialMonthStartDay =
+        useState<int>(contact?.financialMonthStartDay ?? 1);
     final prefs = ref.read(sharedPreferencesProvider);
     final holdQuickAction =
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
@@ -278,12 +282,15 @@ class SettingsPage extends HookConsumerWidget {
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
       selectedTimezone.value = contact?.preferredTimezone;
+      selectedFinancialMonthStartDay.value =
+          contact?.financialMonthStartDay ?? 1;
       // Sync the switch value with the actual app lock state
       appLockSwitchValue.value = appLockConfigured;
       return null;
     }, [
       contact?.preferredCurrency,
       contact?.preferredTimezone,
+      contact?.financialMonthStartDay,
       appLockConfigured
     ]);
 
@@ -377,7 +384,6 @@ class SettingsPage extends HookConsumerWidget {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: session?.accessToken,
-          refreshToken: session?.refreshToken,
           userId: session?.user.id,
           expiresAt: session?.expiresAt,
         );
@@ -389,7 +395,6 @@ class SettingsPage extends HookConsumerWidget {
               supabaseUrl: Constants.supabaseUrl,
               supabaseAnonKey: Constants.supabaseAnon,
               accessToken: session?.accessToken ?? '',
-              refreshToken: session?.refreshToken ?? '',
               userId: session?.user.id ?? '',
               expiresAt: session?.expiresAt ?? 0,
             );
@@ -787,6 +792,8 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     Future<void> handleResetFinancialData() async {
+      final l10n = context.l10n;
+
       if (ref.read(previewModeProvider).isActive) {
         if (context.mounted) {
           AppToast.info(
@@ -862,8 +869,8 @@ class SettingsPage extends HookConsumerWidget {
           final errorMessage = result is Map
               ? (result['message']?.toString() ??
                   result['error']?.toString() ??
-                  context.l10n.failedToResetFinancialData)
-              : context.l10n.failedToResetFinancialData;
+                  l10n.failedToResetFinancialData)
+              : l10n.failedToResetFinancialData;
           if (context.mounted) {
             AppToast.error(context, errorMessage);
           }
@@ -1039,6 +1046,14 @@ class SettingsPage extends HookConsumerWidget {
       if (isAppLockSetupInProgress.value) {
         return;
       }
+      if (enabled) {
+        final hasAccess = await PlusLockedSheet.ensureAccess(
+          context,
+          ref,
+          feature: PlusFeature.appLock,
+        );
+        if (!hasAccess || !context.mounted) return;
+      }
 
       // Store the current state to revert if needed
       final previousState = appLockSwitchValue.value;
@@ -1172,6 +1187,7 @@ class SettingsPage extends HookConsumerWidget {
                     authState: authState,
                     nameReloadKey: nameReloadKey.value,
                     onAvatarTap: () async {
+                      final l10n = context.l10n;
                       try {
                         await _showAvatarSourceSheet(
                           context,
@@ -1185,11 +1201,10 @@ class SettingsPage extends HookConsumerWidget {
                         );
                       } catch (e) {
                         debugPrint(
-                          context.l10n.unexpectedAvatarUpdateError(e),
+                          l10n.unexpectedAvatarUpdateError(e),
                         );
                         if (context.mounted) {
-                          AppToast.error(
-                              context, context.l10n.failedToSaveAvatar);
+                          AppToast.error(context, l10n.failedToSaveAvatar);
                         }
                       }
                     },
@@ -1215,11 +1230,14 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                       FutureBuilder<Map<String, dynamic>?>(
                         key: ValueKey('name-${nameReloadKey.value}'),
-                        future: Supabase.instance.client
-                            .from('users')
-                            .select('full_name')
-                            .eq('id', authState.uid)
-                            .maybeSingle(),
+                        future: () async {
+                          if (authState.uid.isEmpty) return null;
+                          return Supabase.instance.client
+                              .from('users')
+                              .select('full_name')
+                              .eq('id', authState.uid)
+                              .maybeSingle();
+                        }(),
                         builder: (context, snapshot) {
                           final dbName = snapshot.data != null
                               ? snapshot.data!['full_name'] as String?
@@ -1431,6 +1449,21 @@ class SettingsPage extends HookConsumerWidget {
                         },
                       ),
                       _SettingsTile(
+                        icon: Icons.calendar_month_rounded,
+                        label: context.l10n.financialMonthStart,
+                        value: context.l10n.financialMonthStartDayLabel(
+                          selectedFinancialMonthStartDay.value,
+                        ),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) =>
+                                  const FinancialMonthSettingsPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _SettingsTile(
                         icon: currentTheme == ThemeMode.dark ||
                                 (currentTheme == ThemeMode.system && isDarkMode)
                             ? Icons.dark_mode_rounded
@@ -1536,8 +1569,7 @@ class SettingsPage extends HookConsumerWidget {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.currencyConverter,
+                            highlightedFeature: PlusFeature.currencyConverter,
                           );
                           return;
                         }
@@ -1572,8 +1604,7 @@ class SettingsPage extends HookConsumerWidget {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.emailReceiptImport,
+                            highlightedFeature: PlusFeature.emailReceiptImport,
                           );
                           return;
                         }
@@ -1602,16 +1633,15 @@ class SettingsPage extends HookConsumerWidget {
                           ? context.l10n.telegramConnected
                           : context.l10n.connectTelegram,
                       value: ref.watch(telegramBindingProvider).asData?.value ==
-                                  true
-                              ? context.l10n.activeStatus
-                              : context.l10n.tapToSet,
+                              true
+                          ? context.l10n.activeStatus
+                          : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.messagingAppCapture,
+                            highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }
@@ -1646,16 +1676,15 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                       label: context.l10n.whatsAppConnected,
                       value: ref.watch(whatsAppBindingProvider).asData?.value ==
-                                  true
-                              ? context.l10n.activeStatus
-                              : context.l10n.tapToSet,
+                              true
+                          ? context.l10n.activeStatus
+                          : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.messagingAppCapture,
+                            highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }
@@ -1716,8 +1745,7 @@ class SettingsPage extends HookConsumerWidget {
                         if (!canUsePlusFeatures) {
                           PlusLockedSheet.show(
                             context,
-                            highlightedFeature:
-                                PlusFeature.messagingAppCapture,
+                            highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }
@@ -3074,11 +3102,14 @@ class _ProfileHeader extends ConsumerWidget {
         Center(
           child: FutureBuilder<Map<String, dynamic>?>(
             key: ValueKey('avatar-$nameReloadKey'),
-            future: Supabase.instance.client
-                .from('users')
-                .select('full_name, avatar_url')
-                .eq('id', authState.uid)
-                .maybeSingle(),
+            future: () async {
+              if (authState.uid.isEmpty) return null;
+              return Supabase.instance.client
+                  .from('users')
+                  .select('full_name, avatar_url')
+                  .eq('id', authState.uid)
+                  .maybeSingle();
+            }(),
             builder: (context, snapshot) {
               final dbName = snapshot.data?['full_name'] as String?;
               final dbAvatarUrl = snapshot.data?['avatar_url'] as String?;
@@ -3442,7 +3473,7 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
     }
   }
 
-  if (_isValidFixedOffsetTimezone(currentTimezone)) {
+  if (_isValidTimezoneValue(currentTimezone)) {
     addIfMissing(currentTimezone);
   }
 
@@ -3469,10 +3500,16 @@ bool _isValidFixedOffsetTimezone(String? timezone) {
   return tryParseTimezoneOffsetMinutes(trimmed) != null;
 }
 
+bool _isValidTimezoneValue(String? timezone) {
+  final trimmed = timezone?.trim();
+  if (trimmed == null || trimmed.isEmpty) return false;
+  return _isValidFixedOffsetTimezone(trimmed) || trimmed.contains('/');
+}
+
 bool _isLegacyTimezoneValue(String timezone) {
   final trimmed = timezone.trim();
   if (trimmed.isEmpty) return false;
-  return !_isValidFixedOffsetTimezone(trimmed);
+  return !_isValidTimezoneValue(trimmed);
 }
 
 Future<void> _showEditNameSheet({

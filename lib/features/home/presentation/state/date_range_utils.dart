@@ -1,3 +1,4 @@
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 /// Helper function to calculate date range from filter
@@ -6,9 +7,12 @@ Map<String, DateTime> getDateRangeFromFilter(
   DateTime? customStart,
   DateTime? customEnd, {
   DateTime? now,
+  int financialMonthStartDay = 1,
 }) {
   final current = now ?? DateTime.now();
   final today = DateTime(current.year, current.month, current.day);
+  final normalizedFinancialStartDay =
+      normalizeFinancialMonthStartDay(financialMonthStartDay);
 
   switch (filter) {
     case DateRangeFilter.today:
@@ -32,24 +36,30 @@ Map<String, DateTime> getDateRangeFromFilter(
       return {'from': from, 'to': today};
 
     case DateRangeFilter.thisMonth:
-      final monthStart = DateTime(current.year, current.month, 1);
-      return {'from': monthStart, 'to': today};
+      final period = financialCycleForDate(
+        today,
+        startDay: normalizedFinancialStartDay,
+      );
+      return {'from': period.start, 'to': today};
 
     case DateRangeFilter.lastMonth:
-      final firstOfThisMonth = DateTime(current.year, current.month, 1);
-      final lastOfLastMonth =
-          firstOfThisMonth.subtract(const Duration(days: 1));
-      final firstOfLastMonth =
-          DateTime(lastOfLastMonth.year, lastOfLastMonth.month, 1);
-      return {'from': firstOfLastMonth, 'to': lastOfLastMonth};
+      final period = previousFinancialCycleForDate(
+        today,
+        startDay: normalizedFinancialStartDay,
+      );
+      return {'from': period.start, 'to': period.end};
 
     case DateRangeFilter.last3Months:
-      final firstOfThreeMonths = DateTime(
-        current.year,
-        current.month - 2,
-        1,
+      final currentPeriodStart = financialCycleStartForDate(
+        today,
+        startDay: normalizedFinancialStartDay,
       );
-      return {'from': firstOfThreeMonths, 'to': today};
+      final firstOfThreeCycles = addFinancialCycles(
+        currentPeriodStart,
+        -2,
+        startDay: normalizedFinancialStartDay,
+      );
+      return {'from': firstOfThreeCycles, 'to': today};
 
     case DateRangeFilter.thisYear:
       final firstOfYear = DateTime(current.year, 1, 1);

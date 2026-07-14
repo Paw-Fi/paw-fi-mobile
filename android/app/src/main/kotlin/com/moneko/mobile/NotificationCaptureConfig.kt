@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 data class RecentNotificationApp(
     val packageName: String,
@@ -34,6 +35,9 @@ class NotificationCaptureConfig(context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_EXPIRES_AT = "expires_at"
+        private const val KEY_AUTH_CONTEXT_VERSION = "auth_context_version"
+        private const val KEY_PENDING_CAPTURES = "pending_captures"
+        private const val MAX_PENDING_CAPTURES = 100
     }
 
     private val prefs: SharedPreferences =
@@ -80,9 +84,6 @@ class NotificationCaptureConfig(context: Context) {
     val accessToken: String
         get() = authPrefs?.getString(KEY_ACCESS_TOKEN, "") ?: ""
 
-    val refreshToken: String
-        get() = authPrefs?.getString(KEY_REFRESH_TOKEN, "") ?: ""
-
     val userId: String
         get() = authPrefs?.getString(KEY_USER_ID, "") ?: ""
 
@@ -101,8 +102,8 @@ class NotificationCaptureConfig(context: Context) {
         get() = supabaseUrl.isNotBlank() &&
             supabaseAnonKey.isNotBlank() &&
             accessToken.isNotBlank() &&
-            refreshToken.isNotBlank() &&
-            userId.isNotBlank()
+            userId.isNotBlank() &&
+            authPrefs?.getInt(KEY_AUTH_CONTEXT_VERSION, 0) == 2
 
     val isReady: Boolean
         get() = isAuthStorageAvailable && hasCredentials
@@ -219,37 +220,94 @@ class NotificationCaptureConfig(context: Context) {
         supabaseUrl: String,
         supabaseAnonKey: String,
         accessToken: String,
-        refreshToken: String,
         userId: String,
         expiresAt: Long
     ) {
         val prefs = requireAuthPrefs()
+        val previousUserId = userId
         prefs.edit().apply {
             putString(KEY_SUPABASE_URL, supabaseUrl)
             putString(KEY_SUPABASE_ANON_KEY, supabaseAnonKey)
             putString(KEY_ACCESS_TOKEN, accessToken)
-            putString(KEY_REFRESH_TOKEN, refreshToken)
+            remove(KEY_REFRESH_TOKEN)
             putString(KEY_USER_ID, userId)
             putLong(KEY_EXPIRES_AT, expiresAt)
+            putInt(KEY_AUTH_CONTEXT_VERSION, 2)
+            if (previousUserId.isNotBlank() && previousUserId != userId) {
+                remove(KEY_PENDING_CAPTURES)
+            }
             apply()
         }
     }
 
-    fun updateRefreshedSession(
-        accessToken: String,
-        refreshToken: String?,
-        expiresAt: Long
-    ): Boolean {
-        val prefs = authPrefs ?: return false
-        prefs.edit().apply {
-            putString(KEY_ACCESS_TOKEN, accessToken)
-            if (!refreshToken.isNullOrBlank()) {
-                putString(KEY_REFRESH_TOKEN, refreshToken)
-            }
-            putLong(KEY_EXPIRES_AT, expiresAt)
+    fun clearLegacyNativeSession() {
+        authPrefs?.edit()?.apply {
+            remove(KEY_ACCESS_TOKEN)
+            remove(KEY_REFRESH_TOKEN)
+            remove(KEY_EXPIRES_AT)
+            remove(KEY_AUTH_CONTEXT_VERSION)
             apply()
         }
+    }
+
+    @Synchronized
+    fun enqueuePendingCapture(body: JSONObject, idempotencyKey: String): Boolean {
+        val prefs = authPrefs ?: return false
+        val records = readPendingCaptures()
+        if ((0 until records.length()).any {
+                records.optJSONObject(it)?.optString("idempotencyKey") == idempotencyKey
+            }) {
+            return true
+        }
+        if (records.length() >= MAX_PENDING_CAPTURES) return false
+
+        records.put(JSONObject().apply {
+            put("id", UUID.randomUUID().toString())
+            put("idempotencyKey", idempotencyKey)
+            put("userId", userId)
+            put("queuedAt", System.currentTimeMillis())
+            put("body", body)
+        })
+        prefs.edit().putString(KEY_PENDING_CAPTURES, records.toString()).commit()
         return true
+    }
+
+    @Synchronized
+    fun getPendingCaptures(): List<Map<String, Any?>> {
+        val records = readPendingCaptures()
+        return (0 until records.length()).mapNotNull { index ->
+            val record = records.optJSONObject(index) ?: return@mapNotNull null
+            val body = record.optJSONObject("body") ?: return@mapNotNull null
+            mapOf(
+                "id" to record.optString("id"),
+                "idempotencyKey" to record.optString("idempotencyKey"),
+                "userId" to record.optString("userId"),
+                "queuedAt" to record.optLong("queuedAt"),
+                "body" to body.toString()
+            )
+        }
+    }
+
+    @Synchronized
+    fun removePendingCaptures(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        val prefs = authPrefs ?: return
+        val records = readPendingCaptures()
+        val remaining = JSONArray()
+        for (index in 0 until records.length()) {
+            val record = records.optJSONObject(index) ?: continue
+            if (!ids.contains(record.optString("id"))) remaining.put(record)
+        }
+        prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
+    }
+
+    private fun readPendingCaptures(): JSONArray {
+        val json = authPrefs?.getString(KEY_PENDING_CAPTURES, "[]") ?: "[]"
+        return try {
+            JSONArray(json)
+        } catch (_: Exception) {
+            JSONArray()
+        }
     }
 
     fun clearSessionTokens() {
@@ -257,6 +315,7 @@ class NotificationCaptureConfig(context: Context) {
             remove(KEY_ACCESS_TOKEN)
             remove(KEY_REFRESH_TOKEN)
             remove(KEY_EXPIRES_AT)
+            remove(KEY_AUTH_CONTEXT_VERSION)
             apply()
         }
     }
@@ -270,6 +329,8 @@ class NotificationCaptureConfig(context: Context) {
             remove(KEY_REFRESH_TOKEN)
             remove(KEY_USER_ID)
             remove(KEY_EXPIRES_AT)
+            remove(KEY_AUTH_CONTEXT_VERSION)
+            remove(KEY_PENDING_CAPTURES)
             apply()
         }
         return true

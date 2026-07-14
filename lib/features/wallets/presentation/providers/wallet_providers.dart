@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -18,7 +19,6 @@ import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
-import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -954,17 +954,16 @@ class WalletActions {
     final bank = data['bank'] is Map<String, dynamic>
         ? data['bank'] as Map<String, dynamic>
         : const <String, dynamic>{};
-    final linkedBankAccountId =
-        bank['linkedBankAccountId']?.toString().trim();
+    final linkedBankAccountId = bank['linkedBankAccountId']?.toString().trim();
 
     try {
       await localDatabase.deleteTransactionsByIds(transactionIds);
       await localDatabase.deleteTransactionsForWallet(
         walletId: accountId,
-        bankAccountId: linkedBankAccountId != null &&
-                linkedBankAccountId.isNotEmpty
-            ? linkedBankAccountId
-            : existingWallet?.linkedBankAccountId,
+        bankAccountId:
+            linkedBankAccountId != null && linkedBankAccountId.isNotEmpty
+                ? linkedBankAccountId
+                : existingWallet?.linkedBankAccountId,
       );
     } catch (error) {
       debugPrint('[Accounts][Delete] local cleanup failed: $error');
@@ -1381,16 +1380,5 @@ final walletActionsProvider = Provider<WalletActions>((ref) {
 });
 
 bool _shouldKeepQueuedLocalMutation(Object error) {
-  final message = error.toString().toLowerCase();
-  return message.contains('network') ||
-      message.contains('socket') ||
-      message.contains('failed host lookup') ||
-      message.contains('connection') ||
-      message.contains('timed out') ||
-      message.contains('timeout') ||
-      message.contains('status: 502') ||
-      message.contains('status: 503') ||
-      message.contains('status: 504') ||
-      message.contains('service is temporarily unavailable') ||
-      message.contains('supabase_edge_runtime_error');
+  return ErrorHandler.isRetryable(error);
 }

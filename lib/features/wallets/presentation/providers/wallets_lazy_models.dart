@@ -1,3 +1,5 @@
+import 'package:moneko/core/utils/financial_period.dart';
+
 class WalletsScopeQuery {
   WalletsScopeQuery({
     required this.userId,
@@ -5,9 +7,12 @@ class WalletsScopeQuery {
     required this.selectedCurrency,
     this.selectedCurrencies,
     required DateTime currentMonthStart,
-  }) : currentMonthStart = DateTime(
-          currentMonthStart.year,
-          currentMonthStart.month,
+    int financialMonthStartDay = 1,
+  })  : financialMonthStartDay =
+            normalizeFinancialMonthStartDay(financialMonthStartDay),
+        currentMonthStart = normalizeWalletMonthStart(
+          currentMonthStart,
+          financialMonthStartDay: financialMonthStartDay,
         );
 
   final String userId;
@@ -15,6 +20,7 @@ class WalletsScopeQuery {
   final String selectedCurrency;
   final List<String>? selectedCurrencies;
   final DateTime currentMonthStart;
+  final int financialMonthStartDay;
 
   List<String>? get normalizedSelectedCurrencies {
     final values = (selectedCurrencies ?? const <String>[])
@@ -35,6 +41,7 @@ class WalletsScopeQuery {
       'p_household_id': householdId,
       'p_currency': selectedCurrency,
       'p_current_month_start': _formatDate(currentMonthStart),
+      'p_financial_month_start_day': financialMonthStartDay,
     };
   }
 
@@ -47,7 +54,8 @@ class WalletsScopeQuery {
             other.selectedCurrency == selectedCurrency &&
             _listEquals(other.normalizedSelectedCurrencies,
                 normalizedSelectedCurrencies) &&
-            other.currentMonthStart == currentMonthStart);
+            other.currentMonthStart == currentMonthStart &&
+            other.financialMonthStartDay == financialMonthStartDay);
   }
 
   @override
@@ -57,6 +65,7 @@ class WalletsScopeQuery {
         selectedCurrency,
         Object.hashAll(normalizedSelectedCurrencies ?? const <String>[]),
         currentMonthStart,
+        financialMonthStartDay,
       );
 }
 
@@ -73,7 +82,10 @@ class WalletsMonthQuery {
   WalletsMonthQuery({
     required this.scope,
     required DateTime monthStart,
-  }) : monthStart = DateTime(monthStart.year, monthStart.month);
+  }) : monthStart = normalizeWalletMonthStart(
+          monthStart,
+          financialMonthStartDay: scope.financialMonthStartDay,
+        );
 
   final WalletsScopeQuery scope;
   final DateTime monthStart;
@@ -85,6 +97,7 @@ class WalletsMonthQuery {
       'p_currency': scope.selectedCurrency,
       'p_month_start': _formatDate(monthStart),
       'p_include_archived': false,
+      'p_financial_month_start_day': scope.financialMonthStartDay,
     };
   }
 
@@ -240,22 +253,48 @@ class WalletsPageState {
     required Set<DateTime> loadingMonths,
     required Map<DateTime, Object> monthErrorsByMonth,
     required DateTime lastResolvedSelectedMonthStart,
+    int financialMonthStartDay = 1,
     this.isRefreshing = false,
-  })  : visibleMonths = visibleMonths
-            .map(normalizeWalletMonthStart)
+  })  : financialMonthStartDay =
+            normalizeFinancialMonthStartDay(financialMonthStartDay),
+        visibleMonths = visibleMonths
+            .map(
+              (month) => normalizeWalletMonthStart(
+                month,
+                financialMonthStartDay: financialMonthStartDay,
+              ),
+            )
             .toList(growable: false),
-        selectedMonthStart = normalizeWalletMonthStart(selectedMonthStart),
+        selectedMonthStart = normalizeWalletMonthStart(
+          selectedMonthStart,
+          financialMonthStartDay: financialMonthStartDay,
+        ),
         cachedSnapshotsByMonth = <DateTime, WalletsMonthSnapshot>{
           for (final entry in cachedSnapshotsByMonth.entries)
-            normalizeWalletMonthStart(entry.key): entry.value,
+            normalizeWalletMonthStart(
+              entry.key,
+              financialMonthStartDay: financialMonthStartDay,
+            ): entry.value,
         },
-        loadingMonths = loadingMonths.map(normalizeWalletMonthStart).toSet(),
+        loadingMonths = loadingMonths
+            .map(
+              (month) => normalizeWalletMonthStart(
+                month,
+                financialMonthStartDay: financialMonthStartDay,
+              ),
+            )
+            .toSet(),
         monthErrorsByMonth = <DateTime, Object>{
           for (final entry in monthErrorsByMonth.entries)
-            normalizeWalletMonthStart(entry.key): entry.value,
+            normalizeWalletMonthStart(
+              entry.key,
+              financialMonthStartDay: financialMonthStartDay,
+            ): entry.value,
         },
-        lastResolvedSelectedMonthStart =
-            normalizeWalletMonthStart(lastResolvedSelectedMonthStart);
+        lastResolvedSelectedMonthStart = normalizeWalletMonthStart(
+          lastResolvedSelectedMonthStart,
+          financialMonthStartDay: financialMonthStartDay,
+        );
 
   final WalletsHistorySummary history;
   final List<DateTime> visibleMonths;
@@ -264,6 +303,7 @@ class WalletsPageState {
   final Set<DateTime> loadingMonths;
   final Map<DateTime, Object> monthErrorsByMonth;
   final DateTime lastResolvedSelectedMonthStart;
+  final int financialMonthStartDay;
   final bool isRefreshing;
 
   WalletsMonthSnapshot? get selectedSnapshot =>
@@ -299,6 +339,7 @@ class WalletsPageState {
       monthErrorsByMonth: monthErrorsByMonth ?? this.monthErrorsByMonth,
       lastResolvedSelectedMonthStart:
           lastResolvedSelectedMonthStart ?? this.lastResolvedSelectedMonthStart,
+      financialMonthStartDay: financialMonthStartDay,
       isRefreshing: isRefreshing ?? this.isRefreshing,
     );
   }
@@ -314,10 +355,19 @@ class WalletsPageState {
       },
       'last_resolved_selected_month_start':
           _formatDate(lastResolvedSelectedMonthStart),
+      'financial_month_start_day': financialMonthStartDay,
     };
   }
 
-  factory WalletsPageState.fromCacheJson(Map<String, dynamic> json) {
+  factory WalletsPageState.fromCacheJson(
+    Map<String, dynamic> json, {
+    int financialMonthStartDay = 1,
+  }) {
+    final resolvedFinancialMonthStartDay = normalizeFinancialMonthStartDay(
+      _toInt(json['financial_month_start_day']) != 0
+          ? _toInt(json['financial_month_start_day'])
+          : financialMonthStartDay,
+    );
     final visibleMonths =
         (json['visible_months'] as List<dynamic>? ?? const <dynamic>[])
             .map(_toMonthDate)
@@ -344,25 +394,36 @@ class WalletsPageState {
       monthErrorsByMonth: const <DateTime, Object>{},
       lastResolvedSelectedMonthStart:
           _toMonthDate(json['last_resolved_selected_month_start']),
+      financialMonthStartDay: resolvedFinancialMonthStartDay,
     );
   }
 }
 
-DateTime normalizeWalletMonthStart(DateTime date) {
-  return DateTime(date.year, date.month, 1);
+DateTime normalizeWalletMonthStart(
+  DateTime date, {
+  int financialMonthStartDay = 1,
+}) {
+  return financialCycleStartForDate(
+    date,
+    startDay: financialMonthStartDay,
+  );
 }
 
 List<DateTime> buildWalletMonthWindow({
   required DateTime anchorMonth,
   required int count,
+  int financialMonthStartDay = 1,
 }) {
-  final normalizedAnchor = normalizeWalletMonthStart(anchorMonth);
+  final normalizedAnchor = normalizeWalletMonthStart(
+    anchorMonth,
+    financialMonthStartDay: financialMonthStartDay,
+  );
   return List<DateTime>.generate(
     count,
-    (index) => DateTime(
-      normalizedAnchor.year,
-      normalizedAnchor.month - index,
-      1,
+    (index) => addFinancialCycles(
+      normalizedAnchor,
+      -index,
+      startDay: financialMonthStartDay,
     ),
     growable: false,
   );
@@ -371,18 +432,22 @@ List<DateTime> buildWalletMonthWindow({
 List<DateTime> appendOlderWalletMonthBatch({
   required List<DateTime> visibleMonths,
   required int batchSize,
+  int financialMonthStartDay = 1,
 }) {
   if (visibleMonths.isEmpty) {
     return const <DateTime>[];
   }
 
-  final oldestVisibleMonth = normalizeWalletMonthStart(visibleMonths.last);
+  final oldestVisibleMonth = normalizeWalletMonthStart(
+    visibleMonths.last,
+    financialMonthStartDay: financialMonthStartDay,
+  );
   return List<DateTime>.generate(
     batchSize,
-    (index) => DateTime(
-      oldestVisibleMonth.year,
-      oldestVisibleMonth.month - index - 1,
-      1,
+    (index) => addFinancialCycles(
+      oldestVisibleMonth,
+      -index - 1,
+      startDay: financialMonthStartDay,
     ),
     growable: false,
   );

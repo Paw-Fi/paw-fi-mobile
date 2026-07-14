@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/core/services/wallet_capture_debug_service.dart';
@@ -49,6 +50,14 @@ class Auth extends _$Auth {
 
       final event = data.event;
       final session = data.session;
+
+      if (session != null) {
+        unawaited(
+          ref.read(sharedPreferencesProvider).remove(
+                Constants.singleOwnerReauthenticationRequiredKey,
+              ),
+        );
+      }
 
       unawaited(_logAuthStateEvent(
         previousUserId: previousUserId,
@@ -100,10 +109,9 @@ class Auth extends _$Auth {
       unawaited(_recordAuthStreamError(error, stackTrace));
       appLog('Auth state change error: $error', name: 'Auth', error: error);
       if (_isRefreshTokenNotFound(error)) {
-        appLog('Auth session expired, clearing local session', name: 'Auth');
-        unawaited(SiriShortcutAuthService.instance.clearAuthContext());
-        unawaited(NotificationCaptureService.instance.clearAuthContext());
-        unawaited(supabase.auth.signOut().catchError((Object _) {}));
+        // GoTrue owns session invalidation. Do not turn a stream error into an
+        // application-initiated logout; a real invalidation emits signedOut.
+        appLog('Auth refresh token rejected by Supabase', name: 'Auth');
         return;
       }
       if (_isFlowStateNotFound(error)) {
@@ -269,7 +277,6 @@ class Auth extends _$Auth {
         supabaseUrl: Constants.supabaseUrl,
         supabaseAnonKey: Constants.supabaseAnon,
         accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
         userId: session.user.id,
         expiresAt: session.expiresAt,
       );
@@ -280,10 +287,10 @@ class Auth extends _$Auth {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: session.accessToken,
-          refreshToken: session.refreshToken ?? '',
           userId: session.user.id,
           expiresAt: session.expiresAt ?? 0,
         );
+        await NotificationCaptureService.instance.syncPendingCaptures();
       }
     } on MissingPluginException {
       return;

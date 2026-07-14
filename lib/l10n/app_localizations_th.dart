@@ -9090,4 +9090,68 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get deleteWalletFailed => 'ไม่สามารถลบกระเป๋าเงินนี้ได้ในขณะนี้';
+
+  @override
+  String get financialMonth => 'เดือนการเงิน';
+
+  @override
+  String get makeMonthMatchMoney => 'กำหนดเดือนให้ตรงกับรอบการเงินของคุณ';
+
+  @override
+  String get financialMonthIntroDescription => 'หากคุณเริ่มวางงบประมาณจากวันเงินเดือนออกแทนวันที่ 1 ของเดือน ให้เลือกวันที่ต้องการให้เดือนการเงินเริ่มต้น';
+
+  @override
+  String get yourCurrentFinancialMonth => 'เดือนการเงินปัจจุบันของคุณ';
+
+  @override
+  String get editFinancialMonthStartDay => 'เปลี่ยนวันเริ่มต้นเดือนการเงิน';
+
+  @override
+  String get treatDatesAsOneMonth => 'Moneko จะถือว่าช่วงเวลานี้เป็นหนึ่งเดือน';
+
+  @override
+  String get startFinancialMonthOn => 'วันเริ่มต้นเดือนการเงิน';
+
+  @override
+  String get choiceSavesOnSelectDay => 'ระบบจะบันทึกตัวเลือกทันทีเมื่อคุณเลือกวัน';
+
+  @override
+  String get whatThisChanges => 'สิ่งที่จะเปลี่ยนแปลง';
+
+  @override
+  String get monthlyBudgetsAndPockets => 'งบประมาณรายเดือนและกระเป๋างบประมาณ';
+
+  @override
+  String get dashboardTotalsAndMonthlyCharts => 'ยอดรวมบนแดชบอร์ดและกราฟรายเดือน';
+
+  @override
+  String get walletSummariesInsightsAndReports => 'สรุปกระเป๋าเงิน ข้อมูลเชิงลึก และรายงาน';
+
+  @override
+  String get savedTransactionsUnchangedNote => 'ธุรกรรมที่บันทึกไว้และวันที่ชำระเงินแบบประจำจะไม่เปลี่ยนแปลง Moneko จะเปลี่ยนเฉพาะวิธีจัดกลุ่มรายการตามเดือนเท่านั้น';
+
+  @override
+  String shortMonthNote(Object day) {
+    return 'บางเดือนไม่มีวันที่ $day ในกรณีนั้น เดือนการเงินของคุณจะเริ่มในวันสุดท้ายของเดือนแทน';
+  }
+
+  @override
+  String get serverRejectedFinancialMonthUpdate => 'เซิร์ฟเวอร์ปฏิเสธการอัปเดตเดือนการเงิน';
+
+  @override
+  String get couldNotUpdateFinancialMonth => 'ไม่สามารถอัปเดตเดือนการเงินได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get financialMonthStart => 'วันเริ่มต้นเดือนการเงิน';
+
+  @override
+  String get financialMonthStartUpdated => 'อัปเดตวันเริ่มต้นเดือนการเงินแล้ว';
+
+  @override
+  String get financialMonthStartUpdateFailed => 'ไม่สามารถอัปเดตวันเริ่มต้นเดือนการเงินได้';
+
+  @override
+  String financialMonthStartDayLabel(Object day) {
+    return 'วันที่ $day ของทุกเดือน';
+  }
 }

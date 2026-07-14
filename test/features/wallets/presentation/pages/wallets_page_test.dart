@@ -363,9 +363,13 @@ void main() {
     expect(find.text(r'$-6.00'), findsNothing);
   });
 
-  testWidgets(
-      'connect bank button remains on wallets page in supported timezone',
+  testWidgets('connect bank option remains available from new wallet sheet',
       (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final prefs = await SharedPreferences.getInstance();
     const wallets = [
       WalletEntity(
@@ -416,11 +420,11 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.dragUntilVisible(
-      find.text('Connect Bank'),
-      find.byType(ListView).first,
-      const Offset(0, -300),
-    );
+    await tester.ensureVisible(find.text('New Wallet'));
+    await tester.tap(find.text('New Wallet'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
     expect(find.text('Connect Bank'), findsOneWidget);
     expect(find.byType(AccountsPage), findsOneWidget);
   });
@@ -794,7 +798,7 @@ void main() {
     await tester.pump();
 
     expect(
-        find.byKey(const ValueKey('wallets-overview-loading')), findsOneWidget);
+        find.byKey(const ValueKey('wallets-overview-loading')), findsNothing);
     expect(find.text('Spending'), findsWidgets);
     expect(find.text('New Wallet'), findsOneWidget);
 

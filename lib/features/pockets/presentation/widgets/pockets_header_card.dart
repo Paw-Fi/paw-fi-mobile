@@ -4,6 +4,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
@@ -19,6 +20,7 @@ class PocketsHeaderCard extends StatelessWidget {
     required this.totalAllocated,
     required this.totalSpent,
     required this.periodMonth,
+    this.financialMonthStartDay = 1,
     required this.previousBudget,
     required this.onReusePrevious,
     required this.colorScheme,
@@ -35,6 +37,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final double totalAllocated;
   final double totalSpent;
   final DateTime periodMonth;
+  final int financialMonthStartDay;
   final double previousBudget;
   final VoidCallback? onReusePrevious;
   final ColorScheme colorScheme;
@@ -67,9 +70,17 @@ class PocketsHeaderCard extends StatelessWidget {
         (sliderMax - sliderMin) / sliderDivisions; // Actual step with divisions
     final sliderValue = effectiveBudget.clamp(sliderMin, sliderMax).toDouble();
     final isCurrentYear = periodMonth.year == DateTime.now().year;
-    final monthLabel = isCurrentYear
-        ? formatLocalizedMonth(context, periodMonth, abbreviated: false)
-        : '${formatLocalizedMonth(context, periodMonth, abbreviated: false)} ${periodMonth.year}';
+    final normalizedFinancialStartDay =
+        normalizeFinancialMonthStartDay(financialMonthStartDay);
+    final monthLabel = normalizedFinancialStartDay == 1
+        ? (isCurrentYear
+            ? formatLocalizedMonth(context, periodMonth, abbreviated: false)
+            : '${formatLocalizedMonth(context, periodMonth, abbreviated: false)} ${periodMonth.year}')
+        : _formatFinancialCycleLabel(
+            context,
+            periodMonth,
+            normalizedFinancialStartDay,
+          );
 
     // Theme-aware colors
     final baseCardColor = colorScheme.cardSurface;
@@ -319,9 +330,19 @@ class PocketsHeaderCard extends StatelessWidget {
 
     final now = DateTime.now();
     final minDate = DateTime(2020);
-    final maxDate =
-        DateTime(now.year, now.month + 1, 0); // End of current month
-    DateTime tempDate = periodMonth;
+    final normalizedFinancialStartDay =
+        normalizeFinancialMonthStartDay(financialMonthStartDay);
+    final maxDate = financialCycleStartForDate(
+      now,
+      startDay: normalizedFinancialStartDay,
+    );
+    DateTime tempDate = financialCycleStartForMonth(
+      periodMonth,
+      startDay: normalizedFinancialStartDay,
+    );
+    if (tempDate.isAfter(maxDate)) {
+      tempDate = maxDate;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -353,8 +374,10 @@ class PocketsHeaderCard extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      final normalized =
-                          DateTime(tempDate.year, tempDate.month, 1);
+                      final normalized = financialCycleStartForMonth(
+                        tempDate,
+                        startDay: normalizedFinancialStartDay,
+                      );
                       onDateSelected!(normalized);
                       Navigator.pop(context);
                     },
@@ -367,7 +390,7 @@ class PocketsHeaderCard extends StatelessWidget {
               height: 200,
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.monthYear,
-                initialDateTime: periodMonth,
+                initialDateTime: tempDate,
                 minimumDate: minDate,
                 maximumDate: maxDate,
                 onDateTimeChanged: (val) {
@@ -380,4 +403,21 @@ class PocketsHeaderCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatFinancialCycleLabel(
+  BuildContext context,
+  DateTime periodMonth,
+  int financialMonthStartDay,
+) {
+  final period = financialCycleForMonth(
+    periodMonth,
+    startDay: financialMonthStartDay,
+  );
+  final now = DateTime.now();
+  final includeStartYear = period.start.year != now.year;
+  final includeEndYear =
+      period.end.year != now.year || period.end.year != period.start.year;
+  return '${formatLocalizedDate(context, period.start, includeYear: includeStartYear)} - '
+      '${formatLocalizedDate(context, period.end, includeYear: includeEndYear)}';
 }

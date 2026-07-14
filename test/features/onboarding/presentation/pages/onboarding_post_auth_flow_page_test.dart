@@ -9,6 +9,48 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_actions.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_page.dart';
+import 'package:moneko/features/subscription/data/models/subscription.dart';
+import 'package:moneko/features/subscription/data/models/subscription_details.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+
+final _activeSubscription = Subscription(
+  id: 'subscription-1',
+  userId: 'u1',
+  plan: 'plus',
+  status: 'active',
+  currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
+  createdAt: DateTime.now(),
+);
+
+class _TestSubscriptionManagementNotifier
+    extends SubscriptionManagementNotifier {
+  @override
+  Future<SubscriptionDetails?> build() async => SubscriptionDetails(
+        subscription: _activeSubscription,
+        invoices: const [],
+      );
+
+  @override
+  Future<void> refresh() async {
+    state = AsyncData(
+      SubscriptionDetails(
+        subscription: _activeSubscription,
+        invoices: const [],
+      ),
+    );
+  }
+}
+
+class _TestSubscriptionNotifier extends SubscriptionNotifier {
+  @override
+  Future<Subscription?> build() async => _activeSubscription;
+
+  @override
+  Future<void> refresh() async {
+    state = AsyncData(_activeSubscription);
+  }
+}
 
 class _TestAuth extends Auth {
   _TestAuth(this._user);
@@ -51,6 +93,12 @@ Future<void> _pumpPage(
         authProvider.overrideWith(
           () => _TestAuth(const AppUser(uid: 'u1', email: 'u1@example.com')),
         ),
+        subscriptionManagementProvider.overrideWith(
+          _TestSubscriptionManagementNotifier.new,
+        ),
+        subscriptionNotifierProvider.overrideWith(
+          _TestSubscriptionNotifier.new,
+        ),
         ...overrides,
       ],
       child: MaterialApp.router(
@@ -68,7 +116,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('skip completes post-auth onboarding and redirects to paywall',
+  testWidgets('skip completes post-auth onboarding and redirects to dashboard',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 HouseholdMember _member(String userId, String name) {
   final now = DateTime(2025, 1, 1);
@@ -117,8 +118,17 @@ void main() {
     expect(latestType, SplitType.percentage);
     expect(latestSplits, isNotNull);
 
-    await tester.enterText(find.byType(TextField).first, '40');
-    await tester.pump();
+    await tester.tapAt(tester.getCenter(find.byType(TextField).first));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('4'));
+    await tester.tap(find.text('0'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CalculatorKeypad),
+        matching: find.byIcon(Icons.check),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     expect(latestType, SplitType.percentage);
     expect(latestSplits!.map((split) => split.percentage), [40.0, 60.0]);

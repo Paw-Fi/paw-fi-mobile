@@ -332,6 +332,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required List<ExpenseEntry> projectedRecurringExpenses,
   }) {
     final dayAnchor = DateTime(userNow.year, userNow.month, userNow.day);
+    final financialMonthStartDay = ref.read(financialMonthStartDayProvider);
     final filterCacheKey = _TransactionsFilterCacheKey(
       searchQuery: _debouncedSearchQuery,
       selectedCategory: selectedCategory,
@@ -346,6 +347,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
       selectedHouseholdId: householdScope.selectedHouseholdId,
       dayAnchor: dayAnchor,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final derivedCacheKey = _TransactionsDerivedCacheKey(
       baseExpensesSignature: _expenseEntriesSignature(_baseExpenses),
@@ -371,6 +373,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         customStart: _customStart,
         customEnd: _customEnd,
         now: userNow,
+        financialMonthStartDay: financialMonthStartDay,
         pinnedHouseholdId: widget.householdId,
         activeAccountType: householdScope.activeAccountType,
         activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
@@ -623,6 +626,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       for (final account in scopedAccounts)
         if (account.id.isNotEmpty) account.id: account.name,
     };
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     final effectiveHouseholdId = widget.householdId ??
         (householdScope.activeAccountType == ActiveWalletType.personal
@@ -635,6 +639,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             _customStart,
             _customEnd,
             now: userNow,
+            financialMonthStartDay: financialMonthStartDay,
           );
     final feedQuery = TransactionsFeedQuery(
       userId: currentUserId,
@@ -694,6 +699,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         customStart: _customStart,
         customEnd: _customEnd,
         now: userNow,
+        financialMonthStartDay: financialMonthStartDay,
         pinnedHouseholdId: widget.householdId,
         activeAccountType: householdScope.activeAccountType,
         activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
@@ -719,7 +725,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ? TransactionsPageDerivedData(
             filteredExpenses: displayFilteredExpenses,
             categories: derivedData.categories,
-            monthGroups: groupTransactionsByMonth(displayFilteredExpenses),
+            monthGroups: groupTransactionsByMonth(
+              displayFilteredExpenses,
+              financialMonthStartDay: financialMonthStartDay,
+            ),
           )
         : derivedData;
     final originalExpenseById = {
@@ -741,6 +750,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 customStart: _customStart,
                 customEnd: _customEnd,
                 now: userNow,
+                financialMonthStartDay: financialMonthStartDay,
                 pinnedHouseholdId: widget.householdId,
                 activeAccountType: householdScope.activeAccountType,
                 activeAccountHouseholdId:
@@ -756,7 +766,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   )
                 : completeDerivedData.filteredExpenses;
             return buildCompleteTransactionGroupTotals(
-              groupTransactionsByMonth(completeDisplayExpenses),
+              groupTransactionsByMonth(
+                completeDisplayExpenses,
+                financialMonthStartDay: financialMonthStartDay,
+              ),
             );
           }();
     final groupCompleteness = resolveTransactionGroupCompleteness(
@@ -780,6 +793,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               customStart: _customStart,
               customEnd: _customEnd,
               now: userNow,
+              financialMonthStartDay: financialMonthStartDay,
               pinnedHouseholdId: widget.householdId,
               activeAccountType: householdScope.activeAccountType,
               activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
@@ -2369,6 +2383,7 @@ class _TransactionsFilterCacheKey {
   final String? activeAccountHouseholdId;
   final String? selectedHouseholdId;
   final DateTime dayAnchor;
+  final int financialMonthStartDay;
 
   const _TransactionsFilterCacheKey({
     required this.searchQuery,
@@ -2384,6 +2399,7 @@ class _TransactionsFilterCacheKey {
     required this.activeAccountHouseholdId,
     required this.selectedHouseholdId,
     required this.dayAnchor,
+    required this.financialMonthStartDay,
   });
 
   @override
@@ -2405,7 +2421,8 @@ class _TransactionsFilterCacheKey {
         activeAccountType == other.activeAccountType &&
         activeAccountHouseholdId == other.activeAccountHouseholdId &&
         selectedHouseholdId == other.selectedHouseholdId &&
-        dayAnchor == other.dayAnchor;
+        dayAnchor == other.dayAnchor &&
+        financialMonthStartDay == other.financialMonthStartDay;
   }
 
   @override
@@ -2423,6 +2440,7 @@ class _TransactionsFilterCacheKey {
         activeAccountHouseholdId,
         selectedHouseholdId,
         dayAnchor,
+        financialMonthStartDay,
       );
 }
 

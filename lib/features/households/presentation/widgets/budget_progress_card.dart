@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../../../../core/l10n/l10n.dart';
@@ -20,6 +22,7 @@ class BudgetProgressCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     // Calculate date range based on budget period
     final now = DateTime.now();
@@ -39,8 +42,19 @@ class BudgetProgressCard extends ConsumerWidget {
             .add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
         break;
       case BudgetPeriod.monthly:
-        startDate = DateTime(now.year, now.month, 1);
-        endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+        final period = financialCycleForDate(
+          now,
+          startDay: financialMonthStartDay,
+        );
+        startDate = period.start;
+        endDate = DateTime(
+          period.end.year,
+          period.end.month,
+          period.end.day,
+          23,
+          59,
+          59,
+        );
         break;
       case BudgetPeriod.yearly:
         startDate = DateTime(now.year, 1, 1);

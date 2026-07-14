@@ -126,6 +126,23 @@ class HouseholdService {
 
   Future<List<Map<String, dynamic>>> getHouseholdMembers(
       String householdId) async {
+    try {
+      final response = await _supabase.rpc(
+        'get_household_home_members_v1',
+        params: <String, dynamic>{'p_household_id': householdId},
+      );
+      return (response as List? ?? const <dynamic>[])
+          .cast<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
+    } on PostgrestException catch (error, stackTrace) {
+      _log(
+        'Optimized household members RPC failed; using legacy REST path',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     // Fetch household members rows
     final members = await _supabase
         .from('household_members')
@@ -383,6 +400,71 @@ class HouseholdService {
         .timeout(const Duration(seconds: 30));
 
     return (response as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> getHouseholdSplitsByIds({
+    required String householdId,
+    required List<String> splitGroupIds,
+  }) async {
+    if (splitGroupIds.isEmpty) return const <Map<String, dynamic>>[];
+
+    // PostgREST caps set-returning RPC responses at max_rows (1,000 in this
+    // project). Chunking also keeps the UUID array and fallback IN predicate
+    // bounded, so every referenced split group is returned without truncation.
+    const chunkSize = 500;
+    final rows = <Map<String, dynamic>>[];
+    var rpcAvailable = true;
+    for (var offset = 0; offset < splitGroupIds.length; offset += chunkSize) {
+      final end = (offset + chunkSize < splitGroupIds.length)
+          ? offset + chunkSize
+          : splitGroupIds.length;
+      final ids = splitGroupIds.sublist(offset, end);
+      dynamic response;
+
+      if (rpcAvailable) {
+        try {
+          response = await _supabase.rpc(
+            'get_household_home_split_groups_v1',
+            params: <String, dynamic>{
+              'p_household_id': householdId,
+              'p_split_group_ids': ids,
+            },
+          );
+        } on PostgrestException catch (error, stackTrace) {
+          _log(
+            'Optimized household split RPC failed; using legacy REST path',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          rpcAvailable = false;
+        }
+      }
+
+      response ??= await _supabase
+          .from('expense_split_groups')
+          .select('*, expense_split_lines(*)')
+          .eq('household_id', householdId)
+          .inFilter('id', ids)
+          .order('created_at', ascending: false);
+      rows.addAll(
+        (response as List? ?? const <dynamic>[])
+            .cast<Map>()
+            .map((row) => Map<String, dynamic>.from(row)),
+      );
+    }
+
+    rows.sort((left, right) {
+      final leftCreated =
+          DateTime.tryParse(left['created_at']?.toString() ?? '');
+      final rightCreated =
+          DateTime.tryParse(right['created_at']?.toString() ?? '');
+      final byCreated = (rightCreated ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(leftCreated ?? DateTime.fromMillisecondsSinceEpoch(0));
+      if (byCreated != 0) return byCreated;
+      return (right['id']?.toString() ?? '')
+          .compareTo(left['id']?.toString() ?? '');
+    });
+    return rows;
   }
 
   Future<Map<String, dynamic>> computeSplit(

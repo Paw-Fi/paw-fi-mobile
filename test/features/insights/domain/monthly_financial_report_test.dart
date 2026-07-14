@@ -52,7 +52,7 @@ void main() {
         'Today',
         'Utilities',
         'Payday',
-        'End of month',
+        'Month-end buffer',
       ]);
     });
 
@@ -115,7 +115,7 @@ void main() {
       );
 
       expect(report.anomalies, hasLength(1));
-      expect(report.anomalies.single.title, 'Transport spending is higher');
+      expect(report.anomalies.single.title, 'Transport');
       expect(report.anomalies.single.description, contains('133% higher'));
     });
 

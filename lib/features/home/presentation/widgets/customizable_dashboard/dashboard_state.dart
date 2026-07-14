@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'dashboard_config.dart';
 import 'dashboard_repository.dart';
@@ -12,21 +13,16 @@ import 'dashboard_repository.dart';
 // ============================================================================
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
-  // We assume SharedPreferences is initialized in main.dart and available via a provider or we get instance here.
-  // Since we don't have a direct provider for SharedPreferences instance in the context I saw,
-  // I'll assume we can get it or I should create a FutureProvider for it.
-  // For now, I'll use a hack to throw if not ready, but usually apps have a 'sharedPreferencesProvider'.
-  // Let's assume we can get it. If not, I'll change this to FutureProvider.
-  // Actually, standard practice in this codebase seems to be passing it or using a service.
-  // I'll check if there is a sharedPreferencesProvider.
-  // Checking pubspec, it has shared_preferences.
-  // I will use `throw UnimplementedError` if I can't find it, but better to use `ref.watch` if it exists.
-  // I'll just create the instance inside the notifier or use a FutureProvider.
-  throw UnimplementedError(
-      'DashboardRepository needs SharedPreferences instance');
+  return DashboardRepository(
+    ref.watch(sharedPreferencesProvider),
+    ref.watch(supabaseClientProvider),
+  );
 });
 
-// Better approach: Async provider for repository
+// Backward-compatible bridge for consumers that have not migrated to the
+// synchronous provider yet. SharedPreferences and Supabase are already
+// initialized above the app ProviderScope, so repository construction itself
+// must not gate the first Home render on another asynchronous lookup.
 final dashboardRepositoryFutureProvider =
     FutureProvider<DashboardRepository>((ref) async {
   final trace = HomeDebugTrace(
@@ -35,10 +31,9 @@ final dashboardRepositoryFutureProvider =
     logSink: ref.read(homeDebugLogSinkProvider),
   );
   trace.mark('init-start');
-  final prefs = await SharedPreferences.getInstance();
-  final supabase = Supabase.instance.client;
+  final repository = ref.watch(dashboardRepositoryProvider);
   trace.mark('init-success');
-  return DashboardRepository(prefs, supabase);
+  return repository;
 });
 
 void _dashboardConfigTrace(
@@ -230,8 +225,7 @@ final personalDashboardProvider = StateNotifierProvider.family<
     PersonalDashboardController,
     AsyncValue<List<DashboardWidgetConfig>>,
     String>((ref, userId) {
-  final repo = ref.watch(dashboardRepositoryFutureProvider).value;
-  if (repo == null) throw Exception('Repository not initialized');
+  final repo = ref.watch(dashboardRepositoryProvider);
   return PersonalDashboardController(repo, userId);
 });
 
@@ -415,7 +409,6 @@ final householdDashboardProvider = StateNotifierProvider.family<
     HouseholdDashboardController,
     AsyncValue<List<DashboardWidgetConfig>>,
     String>((ref, householdId) {
-  final repo = ref.watch(dashboardRepositoryFutureProvider).value;
-  if (repo == null) throw Exception('Repository not initialized');
+  final repo = ref.watch(dashboardRepositoryProvider);
   return HouseholdDashboardController(repo, householdId);
 });

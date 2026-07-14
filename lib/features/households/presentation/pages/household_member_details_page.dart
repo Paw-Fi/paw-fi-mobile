@@ -9,6 +9,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
@@ -40,13 +41,15 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef _) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     final range = getDateRangeFromFilter(
       DateRangeFilter.thisMonth,
       null,
       null,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final rangeFrom = range['from']!;
     final rangeTo = range['to']!;
@@ -56,7 +59,10 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     final rawTransactionsById = <String, ExpenseEntry>{
       for (final transaction in transactions) transaction.id: transaction,
     };
-    final renderItems = buildGroupedTransactionRenderItems(memberTransactions);
+    final renderItems = buildGroupedTransactionRenderItems(
+      memberTransactions,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final renderItemIndexByKey =
         buildGroupedTransactionRenderItemIndexByKey(renderItems);
     final totalSpentCentsForRange = memberTransactions.fold<int>(
@@ -1020,9 +1026,8 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        itemCount: sortedTransactions.isEmpty
-            ? 5
-            : 4 + sortedTransactions.length,
+        itemCount:
+            sortedTransactions.isEmpty ? 5 : 4 + sortedTransactions.length,
         itemBuilder: (context, index) {
           if (index == 0) {
             return Container(
@@ -1049,7 +1054,8 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: getCategoryColor(category, context).withValues(alpha: 0.15),
+                      color: getCategoryColor(category, context)
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(

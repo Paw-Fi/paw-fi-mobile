@@ -14,6 +14,7 @@ import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -74,6 +75,7 @@ typedef _CacheKey = ({
   String periodMonth,
   String currency,
   String currenciesKey,
+  int financialMonthStartDay,
   bool includeUpcomingRecurring,
   bool allowCurrencyFallback,
 });
@@ -231,7 +233,10 @@ class _PocketsMonthCache {
 
   Duration _ttlFor(_CacheKey key, DateTime monthStart) {
     final now = DateTime.now();
-    final currentMonthStart = DateTime(now.year, now.month, 1);
+    final currentMonthStart = financialCycleStartForDate(
+      now,
+      startDay: key.financialMonthStartDay,
+    );
 
     if (monthStart.isAfter(currentMonthStart)) {
       return const Duration(seconds: 20);
@@ -266,7 +271,10 @@ Duration _pocketsCacheTtl(
   DateTime monthStart,
 ) {
   final now = DateTime.now();
-  final currentMonthStart = DateTime(now.year, now.month, 1);
+  final currentMonthStart = financialCycleStartForDate(
+    now,
+    startDay: key.financialMonthStartDay,
+  );
 
   if (monthStart.isAfter(currentMonthStart)) {
     return const Duration(seconds: 20);
@@ -800,6 +808,7 @@ class PocketsScopeParams {
     this.periodMonth,
     this.currency,
     this.selectedCurrencies,
+    this.financialMonthStartDay = 1,
     this.isBootstrapCurrency = false,
     this.includeUpcomingRecurring = defaultIncludeUpcomingRecurringInPockets,
   });
@@ -809,6 +818,7 @@ class PocketsScopeParams {
   final DateTime? periodMonth;
   final String? currency;
   final List<String>? selectedCurrencies;
+  final int financialMonthStartDay;
   final bool isBootstrapCurrency;
   // CRITICAL: carry this flag through every derived pocket scope.
   // STRICT REQUIREMENT: if a page/provider forgets to forward it, that viewed
@@ -817,6 +827,9 @@ class PocketsScopeParams {
 
   List<String>? get normalizedSelectedCurrencies =>
       normalizePocketSelectedCurrencies(selectedCurrencies);
+
+  int get normalizedFinancialMonthStartDay =>
+      normalizeFinancialMonthStartDay(financialMonthStartDay);
 
   @override
   bool operator ==(Object other) {
@@ -829,6 +842,8 @@ class PocketsScopeParams {
           other.normalizedSelectedCurrencies,
           normalizedSelectedCurrencies,
         ) &&
+        other.normalizedFinancialMonthStartDay ==
+            normalizedFinancialMonthStartDay &&
         other.isBootstrapCurrency == isBootstrapCurrency &&
         other.includeUpcomingRecurring == includeUpcomingRecurring;
   }
@@ -840,6 +855,7 @@ class PocketsScopeParams {
         periodMonth,
         currency,
         Object.hashAll(normalizedSelectedCurrencies ?? const <String>[]),
+        normalizedFinancialMonthStartDay,
         isBootstrapCurrency,
         includeUpcomingRecurring,
       );
@@ -981,6 +997,7 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
   required PocketsScopeType scope,
   required String? householdId,
   required DateTime monthStart,
+  int financialMonthStartDay = 1,
   required String selectedCurrency,
   List<String>? selectedCurrencies,
   required bool includeUpcomingRecurring,
@@ -1007,6 +1024,10 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
   final normalizedSelectedCurrencies = normalizePocketSelectedCurrencies(
     selectedCurrencies,
   );
+  final periodEnd = nextFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
   final projectedExpenses = projectRecurringTransactionsAsExpenseEntries(
     recurringTransactions: recurringTransactions
         .where((transaction) => transaction.type.toLowerCase() == 'expense')
@@ -1016,7 +1037,7 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     // appearing in April even when the recurring rule is created or edited on
     // April 3.
     rangeStart: monthStart,
-    rangeEnd: DateTime(monthStart.year, monthStart.month + 1, 0),
+    rangeEnd: periodEnd,
     selectedCurrency:
         normalizedSelectedCurrencies == null ? selectedCurrency : null,
     selectedCurrencies: normalizedSelectedCurrencies,
@@ -1056,6 +1077,7 @@ List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
   required PocketsScopeType scopeType,
   required String? householdId,
   required DateTime monthStart,
+  int financialMonthStartDay = 1,
   required String selectedCurrency,
   List<String>? selectedCurrencies,
   required Iterable<ExpenseEntry> personalExpenses,
@@ -1070,10 +1092,14 @@ List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
           : householdExpensesByHouseholdId[householdId] ??
               const <ExpenseEntry>[],
   };
+  final periodEndExclusive = nextFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  );
   return filterPocketActualExpenses(source).where((expense) {
     if (!expense.id.startsWith('optimistic_')) return false;
-    if (expense.date.year != monthStart.year ||
-        expense.date.month != monthStart.month) {
+    if (expense.date.isBefore(monthStart) ||
+        !expense.date.isBefore(periodEndExclusive)) {
       return false;
     }
     return _allowsPocketExpenseCurrency(
@@ -1165,15 +1191,19 @@ PocketsState applyLocalPocketExpenseOverlay({
   );
   if (dedupedExpenses.isEmpty) return state;
 
-  final monthStart = DateTime(state.periodMonth.year, state.periodMonth.month);
+  final monthStart = state.periodMonth;
+  final periodEndExclusive = nextFinancialCycleStart(
+    monthStart,
+    startDay: state.financialMonthStartDay,
+  );
   final selectedCurrency = state.currency.trim().toUpperCase();
   final existingOverlayIds = state.localOverlayExpenseIds;
   final overlay = filterPocketActualExpenses(dedupedExpenses).where((expense) {
     if (expense.id.isEmpty || existingOverlayIds.contains(expense.id)) {
       return false;
     }
-    if (expense.date.year != monthStart.year ||
-        expense.date.month != monthStart.month) {
+    if (expense.date.isBefore(monthStart) ||
+        !expense.date.isBefore(periodEndExclusive)) {
       return false;
     }
     return _allowsPocketExpenseCurrency(
@@ -1359,6 +1389,7 @@ class PocketsState {
     required this.editing,
     this.budgetId,
     required this.periodMonth,
+    this.financialMonthStartDay = 1,
     required this.previousBudget,
     required this.hasPreviousMonthPockets,
     required this.currency,
@@ -1380,6 +1411,7 @@ class PocketsState {
   final List<PocketEnvelope> editing;
   final String? budgetId;
   final DateTime periodMonth;
+  final int financialMonthStartDay;
   final double previousBudget;
   final bool hasPreviousMonthPockets;
   final String currency;
@@ -1446,6 +1478,7 @@ class PocketsState {
     List<PocketEnvelope>? editing,
     String? budgetId,
     DateTime? periodMonth,
+    int? financialMonthStartDay,
     double? previousBudget,
     bool? hasPreviousMonthPockets,
     String? currency,
@@ -1468,6 +1501,9 @@ class PocketsState {
       editing: editing ?? this.editing,
       budgetId: budgetId ?? this.budgetId,
       periodMonth: periodMonth ?? this.periodMonth,
+      financialMonthStartDay: normalizeFinancialMonthStartDay(
+        financialMonthStartDay ?? this.financialMonthStartDay,
+      ),
       previousBudget: previousBudget ?? this.previousBudget,
       hasPreviousMonthPockets:
           hasPreviousMonthPockets ?? this.hasPreviousMonthPockets,
@@ -1498,6 +1534,7 @@ class PocketsState {
         editing: [],
         budgetId: null,
         periodMonth: DateTime(1970, 1, 1),
+        financialMonthStartDay: 1,
         previousBudget: 0,
         hasPreviousMonthPockets: false,
         currency: 'USD',
@@ -1522,6 +1559,7 @@ class PocketsState {
           editing.map((pocket) => pocket.toJson()).toList(growable: false),
       'budget_id': budgetId,
       'period_month': periodMonth.toIso8601String(),
+      'financial_month_start_day': financialMonthStartDay,
       'previous_budget': previousBudget,
       'has_previous_month_pockets': hasPreviousMonthPockets,
       'currency': currency,
@@ -1572,6 +1610,9 @@ class PocketsState {
         json['period_month'] as String? ??
             DateTime(1970, 1, 1).toIso8601String(),
       ),
+      financialMonthStartDay: normalizeFinancialMonthStartDay(
+        _parseOptionalInt(json['financial_month_start_day']),
+      ),
       previousBudget: (json['previous_budget'] as num?)?.toDouble() ?? 0,
       hasPreviousMonthPockets: json['has_previous_month_pockets'] == true,
       currency: currency,
@@ -1612,6 +1653,13 @@ class PocketsState {
               .toSet(),
     );
   }
+}
+
+int? _parseOptionalInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 bool _pocketHasUserEditableChanges(
@@ -1784,11 +1832,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final authUser = ref.read(authProvider);
     if (authUser.uid.trim().isEmpty) return;
 
-    final monthStart = DateTime(
-      state.periodMonth.year,
-      state.periodMonth.month,
-      1,
-    );
+    final monthStart = state.periodMonth;
     final overlay = _loadInMemoryPocketOverlayExpenses(
       monthStart: monthStart,
       selectedCurrency: state.currency,
@@ -1824,16 +1868,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final authUser = ref.read(authProvider);
     if (authUser.uid.trim().isEmpty) return;
 
-    final monthStart = DateTime(
-      state.periodMonth.year,
-      state.periodMonth.month,
-      1,
-    );
+    final monthStart = state.periodMonth;
     final localExpenses = await _loadLocalPocketExpensesForStatuses(
       userId: authUser.uid,
       scopeType: params.scope,
       householdId: params.householdId,
       monthStart: monthStart,
+      financialMonthStartDay: state.financialMonthStartDay,
       selectedCurrency: state.currency,
       selectedCurrencies: params.normalizedSelectedCurrencies,
       syncStatuses: const [localSyncStatusLocal],
@@ -1859,6 +1900,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       scopeType: params.scope,
       householdId: params.householdId,
       monthStart: monthStart,
+      financialMonthStartDay: params.normalizedFinancialMonthStartDay,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: params.normalizedSelectedCurrencies,
       personalExpenses: ref.read(analyticsProvider).expenses,
@@ -1981,18 +2023,23 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final authUser = ref.read(authProvider);
       final periodSelection = ref.read(periodFilterProvider);
+      final financialMonthStartDay = params.normalizedFinancialMonthStartDay;
 
-      final DateTime targetDate;
+      final DateTime monthStart;
       if (params.periodMonth != null) {
-        targetDate = params.periodMonth!;
+        monthStart = financialCycleStartForDate(
+          params.periodMonth!,
+          startDay: financialMonthStartDay,
+        );
       } else {
-        final range = resolvePeriodDateRange(periodSelection);
-        targetDate = range.end;
+        final range = resolvePeriodDateRange(
+          periodSelection,
+          financialMonthStartDay: financialMonthStartDay,
+        );
+        monthStart = range.start;
       }
 
-      final monthStart = DateTime(targetDate.year, targetDate.month, 1);
       final periodMonth = _formatDate(monthStart);
-      // monthEnd previously used for local expenses queries; kept monthStart only now.
 
       final scopeType = params.scope;
       final isHousehold = scopeType == PocketsScopeType.household;
@@ -2010,6 +2057,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           editing: const [],
           budgetId: null,
           periodMonth: monthStart,
+          financialMonthStartDay: financialMonthStartDay,
           previousBudget: 0,
           hasPreviousMonthPockets: false,
           currency: params.currency ?? 'USD',
@@ -2032,6 +2080,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           editing: const [],
           budgetId: null,
           periodMonth: monthStart,
+          financialMonthStartDay: financialMonthStartDay,
           previousBudget: 0,
           hasPreviousMonthPockets: false,
           currency: params.currency ?? 'USD',
@@ -2068,6 +2117,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         periodMonth: periodMonth,
         currency: selectedCurrency,
         currenciesKey: currenciesKey,
+        financialMonthStartDay: financialMonthStartDay,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         allowCurrencyFallback: allowCurrencyFallback,
       );
@@ -2079,6 +2129,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         periodMonth: periodMonth,
         currency: selectedCurrency,
         currenciesKey: currenciesKey,
+        financialMonthStartDay: financialMonthStartDay,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         allowCurrencyFallback: allowCurrencyFallback,
       );
@@ -2207,6 +2258,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             editing: const [],
             budgetId: null,
             periodMonth: monthStart,
+            financialMonthStartDay: financialMonthStartDay,
             previousBudget: 0,
             hasPreviousMonthPockets: false,
             currency: selectedCurrency,
@@ -2268,10 +2320,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
-  bool _isMissingRpcFunctionError(Object error) {
+  bool _isMissingRpcFunctionError(Object error, String functionName) {
     if (error is! PostgrestException) return false;
     return error.code == '42883' ||
-        error.message.toLowerCase().contains('get_pockets_month_v2');
+        error.message.toLowerCase().contains(functionName.toLowerCase());
   }
 
   Future<Map<String, dynamic>> _fetchPocketsMonthPayload({
@@ -2283,10 +2335,39 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required bool includeUpcomingRecurring,
     required bool allowCurrencyFallback,
   }) async {
+    final periodStart = DateTime.parse(periodMonth);
+    final budgetMonth = _formatDate(
+      DateTime(periodStart.year, periodStart.month, 1),
+    );
     try {
-      // CRITICAL: call the recurring-aware v2 pockets RPC here.
-      // STRICT REQUIREMENT: switching this back to v1 drops projected recurring
-      // month spend from the backend payload used by the main pockets page.
+      final response = await supabase.rpc(
+        'get_pockets_month_v3',
+        params: <String, dynamic>{
+          'p_user_id': userId,
+          'p_scope': switch (scopeType) {
+            PocketsScopeType.personal => 'personal',
+            PocketsScopeType.portfolio => 'portfolio',
+            PocketsScopeType.household => 'household',
+          },
+          'p_household_id': householdId,
+          'p_budget_month': budgetMonth,
+          'p_currency': selectedCurrency,
+          // CRITICAL: the user's recurring-in-pockets preference must reach the
+          // RPC layer.
+          // STRICT REQUIREMENT: if this flag stops being forwarded, the
+          // backend and mobile calculation paths diverge and pockets regress.
+          'p_include_projected_recurring': includeUpcomingRecurring,
+          'p_allow_currency_fallback': allowCurrencyFallback,
+        },
+      );
+      return Map<String, dynamic>.from(response as Map);
+    } catch (error) {
+      if (!_isMissingRpcFunctionError(error, 'get_pockets_month_v3')) {
+        rethrow;
+      }
+      _debugLog(
+        '[Pockets] RPC get_pockets_month_v3 missing; using v2 during backend-first rollout',
+      );
       final response = await supabase.rpc(
         'get_pockets_month_v2',
         params: <String, dynamic>{
@@ -2299,22 +2380,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           'p_household_id': householdId,
           'p_period_month': periodMonth,
           'p_currency': selectedCurrency,
-          // CRITICAL: the user's recurring-in-pockets preference must reach the
-          // RPC layer.
-          // STRICT REQUIREMENT: if this flag stops being forwarded, the
-          // backend and mobile calculation paths diverge and pockets regress.
           'p_include_projected_recurring': includeUpcomingRecurring,
           'p_allow_currency_fallback': allowCurrencyFallback,
         },
       );
       return Map<String, dynamic>.from(response as Map);
-    } catch (error) {
-      if (_isMissingRpcFunctionError(error)) {
-        _debugLog(
-          '[Pockets] RPC get_pockets_month_v2 missing; deploy migration 20260408170000_add_recurring_aware_wallets_and_pockets_rpcs.sql',
-        );
-      }
-      rethrow;
     }
   }
 
@@ -2443,6 +2513,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           editing: const [],
           budgetId: budgetId,
           periodMonth: monthStart,
+          financialMonthStartDay: cacheKey.financialMonthStartDay,
           previousBudget: previousBudget / 100.0,
           hasPreviousMonthPockets: hasPreviousMonthPockets,
           currency: selectedCurrency,
@@ -2514,18 +2585,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // STRICT REQUIREMENT: the recurring month projection is merged below on
       // purpose. Do not mix recurring template rows into actual_expenses or the
       // monthly pocket totals will double count.
-      final actualExpenses = hasMultiCurrencySelection
-          ? await _loadPocketMonthTransactions(
-              userId: authUser.uid,
-              scopeType: scopeType,
-              householdId: householdId,
-              monthStart: monthStart,
-              selectedCurrency: selectedCurrency,
-              selectedCurrencies: selectedCurrencies,
-            )
-          : actualExpenseRows.map(ExpenseEntry.fromJson).toList(
-                growable: false,
-              );
+      final actualExpenses = await _loadPocketMonthTransactions(
+        userId: authUser.uid,
+        scopeType: scopeType,
+        householdId: householdId,
+        monthStart: monthStart,
+        financialMonthStartDay: cacheKey.financialMonthStartDay,
+        selectedCurrency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
+      );
       final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
       final pendingLocalOnlyExpenses =
           await _loadLocalPocketExpensesForStatuses(
@@ -2533,6 +2601,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         scopeType: scopeType,
         householdId: householdId,
         monthStart: monthStart,
+        financialMonthStartDay: cacheKey.financialMonthStartDay,
         selectedCurrency: selectedCurrency,
         selectedCurrencies: selectedCurrencies,
         syncStatuses: const [localSyncStatusLocal],
@@ -2542,6 +2611,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         scopeType: scopeType,
         householdId: householdId,
         monthStart: monthStart,
+        financialMonthStartDay: cacheKey.financialMonthStartDay,
         selectedCurrency: selectedCurrency,
         selectedCurrencies: selectedCurrencies,
         syncStatuses: const [localSyncStatusSynced],
@@ -2580,6 +2650,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         scope: scopeType,
         householdId: householdId,
         monthStart: monthStart,
+        financialMonthStartDay: cacheKey.financialMonthStartDay,
         selectedCurrency: selectedCurrency,
         selectedCurrencies: selectedCurrencies,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
@@ -2656,6 +2727,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           : const <String, double>{};
 
       final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
+          cacheKey.financialMonthStartDay != 1 ||
           projectedRecurringExpenses.isNotEmpty ||
           localOverlayExpenses.isNotEmpty;
       final spentById = <String, double>{};
@@ -2864,6 +2936,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         editing: normalizedPockets.map((p) => p.copyWith()).toList(),
         budgetId: budgetId,
         periodMonth: monthStart,
+        financialMonthStartDay: cacheKey.financialMonthStartDay,
         previousBudget: previousBudget / 100.0,
         hasPreviousMonthPockets: hasPreviousMonthPockets,
         currency: selectedCurrency,
@@ -2912,6 +2985,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           periodMonth: cacheKey.periodMonth,
           currency: loaded.currency.toUpperCase(),
           currenciesKey: cacheKey.currenciesKey,
+          financialMonthStartDay: cacheKey.financialMonthStartDay,
           includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
           allowCurrencyFallback: cacheKey.allowCurrencyFallback,
         );
@@ -2926,6 +3000,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               periodMonth: cacheKey.periodMonth,
               currency: loaded.currency.toUpperCase(),
               currenciesKey: cacheKey.currenciesKey,
+              financialMonthStartDay: cacheKey.financialMonthStartDay,
               includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
               allowCurrencyFallback: cacheKey.allowCurrencyFallback,
             ),
@@ -2946,6 +3021,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             periodMonth: cacheKey.periodMonth,
             currency: cacheKey.currency,
             currenciesKey: cacheKey.currenciesKey,
+            financialMonthStartDay: cacheKey.financialMonthStartDay,
             includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
             allowCurrencyFallback: cacheKey.allowCurrencyFallback,
           ),
@@ -2971,6 +3047,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required PocketsScopeType scopeType,
     required String? householdId,
     required DateTime monthStart,
+    required int financialMonthStartDay,
     required String selectedCurrency,
     required List<String>? selectedCurrencies,
   }) async {
@@ -2980,7 +3057,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return const <ExpenseEntry>[];
     }
 
-    final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
+    final monthEnd = nextFinancialCycleStart(
+      monthStart,
+      startDay: financialMonthStartDay,
+    ).subtract(const Duration(days: 1));
     final query = TransactionsFeedQuery(
       userId: userId,
       householdId: scopeType == PocketsScopeType.personal ? null : householdId,
@@ -3001,6 +3081,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required PocketsScopeType scopeType,
     required String? householdId,
     required DateTime monthStart,
+    required int financialMonthStartDay,
     required String selectedCurrency,
     List<String>? selectedCurrencies,
     required List<String> syncStatuses,
@@ -3014,7 +3095,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     try {
       final database = await ref.read(localDatabaseProvider.future);
-      final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
+      final monthEnd = nextFinancialCycleStart(
+        monthStart,
+        startDay: financialMonthStartDay,
+      ).subtract(const Duration(days: 1));
       final query = LocalTransactionsFeedQuery(
         userId: userId,
         householdId:
@@ -3086,6 +3170,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final totalSpent =
         savedPockets.fold<double>(0, (sum, pocket) => sum + pocket.spent);
     final now = DateTime.now();
+    final financialMonthStartDay =
+        PreviewMockData.contact.financialMonthStartDay;
 
     state = PocketsState(
       isLoading: false,
@@ -3093,7 +3179,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       saved: savedPockets,
       editing: editingPockets,
       budgetId: 'preview-budget-main',
-      periodMonth: DateTime(now.year, now.month, 1),
+      periodMonth: financialCycleStartForDate(
+        now,
+        startDay: financialMonthStartDay,
+      ),
+      financialMonthStartDay: financialMonthStartDay,
       previousBudget: totalBudget,
       hasPreviousMonthPockets: true,
       currency:
@@ -3247,12 +3337,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
 
-    final sourceMonthStart = DateTime(sourceMonth.year, sourceMonth.month, 1);
-    final sourcePeriodMonth = _formatDate(sourceMonthStart);
+    final sourceMonthStart = financialCycleStartForDate(
+      sourceMonth,
+      startDay: params.normalizedFinancialMonthStartDay,
+    );
+    final sourcePeriodMonth = _formatBudgetMonth(sourceMonthStart);
 
     final targetMonth = params.periodMonth ?? DateTime.now();
-    final targetMonthStart = DateTime(targetMonth.year, targetMonth.month, 1);
-    final targetPeriodMonth = _formatDate(targetMonthStart);
+    final targetMonthStart = financialCycleStartForDate(
+      targetMonth,
+      startDay: params.normalizedFinancialMonthStartDay,
+    );
+    final targetPeriodMonth = _formatBudgetMonth(targetMonthStart);
 
     var currentBudgetId = state.budgetId?.trim();
     if (currentBudgetId == null || currentBudgetId.isEmpty) {
@@ -3263,7 +3359,23 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         userId: authUser.uid,
         currency: effectiveCurrency,
       );
-      currentBudgetId = (existingTargetBudget?['id'] as String?)?.trim();
+      var resolvedTargetBudget = existingTargetBudget;
+      resolvedTargetBudget ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(targetMonthStart),
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: effectiveCurrency,
+      );
+      currentBudgetId = (resolvedTargetBudget?['id'] as String?)?.trim();
+      if (currentBudgetId != null &&
+          currentBudgetId.isNotEmpty &&
+          resolvedTargetBudget?['period_month'] != targetPeriodMonth) {
+        await supabase.from('budgets').update(<String, dynamic>{
+          'period_month': targetPeriodMonth,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', currentBudgetId);
+      }
     }
 
     _debugLog(
@@ -3371,7 +3483,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
       );
 
-      final sourceBudgetRow = await scopedBudgetQuery.maybeSingle();
+      var sourceBudgetRow = await scopedBudgetQuery.maybeSingle();
+      sourceBudgetRow ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(sourceMonthStart),
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: effectiveCurrency,
+      );
       final sourceBudgetId = sourceBudgetRow?['id'] as String?;
       final sourceTotalBudgetCents =
           (sourceBudgetRow?['total_budget_cents'] as num?)?.toInt() ?? 0;
@@ -3736,7 +3855,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }) async {
     var query = supabase
         .from('budgets')
-        .select('id,total_budget_cents,household_id,user_id,currency')
+        .select(
+            'id,total_budget_cents,period_month,household_id,user_id,currency')
         .eq('period_month', periodMonth);
 
     if (currency != null) {
@@ -3804,8 +3924,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
       // Persist against the month being viewed, not the global filter window
       final viewedMonth = params.periodMonth ?? DateTime.now();
-      final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
-      final periodMonth = _formatDate(monthStart);
+      final monthStart = financialCycleStartForDate(
+        viewedMonth,
+        startDay: params.normalizedFinancialMonthStartDay,
+      );
+      final financialPeriodMonth = _formatDate(monthStart);
+      final periodMonth = _formatBudgetMonth(monthStart);
       final scopeType = params.scope;
       final isHousehold = scopeType == PocketsScopeType.household;
       final isScopedToHousehold = scopeType != PocketsScopeType.personal;
@@ -3831,14 +3955,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       queuedMutationId = _pocketsMutationId(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       await _enqueuePocketsSaveMutation(
@@ -4096,9 +4220,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       throw StateError('Not authenticated');
     }
     final selectedCurrency = _resolveWriteCurrency();
-    final monthStart =
-        DateTime(state.periodMonth.year, state.periodMonth.month);
-    final periodMonth = _formatDate(monthStart);
+    final monthStart = state.periodMonth;
+    final financialPeriodMonth = _formatDate(monthStart);
+    final periodMonth = _formatBudgetMonth(monthStart);
     final scopeType = params.scope;
     final isScopedToHousehold = scopeType != PocketsScopeType.personal;
     final householdId = params.householdId;
@@ -4109,14 +4233,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       userId: authUser.uid,
       scopeType: scopeType,
       householdId: householdId,
-      periodMonth: periodMonth,
+      periodMonth: financialPeriodMonth,
       currency: selectedCurrency,
     );
     final mutationId = _pocketsMutationId(
       userId: authUser.uid,
       scopeType: scopeType,
       householdId: householdId,
-      periodMonth: periodMonth,
+      periodMonth: financialPeriodMonth,
       currency: selectedCurrency,
     );
     await _enqueuePocketsSaveMutation(
@@ -4168,8 +4292,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final selectedCurrency = _resolveWriteCurrency();
 
       final viewedMonth = params.periodMonth ?? DateTime.now();
-      final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
-      final periodMonth = _formatDate(monthStart);
+      final monthStart = financialCycleStartForDate(
+        viewedMonth,
+        startDay: params.normalizedFinancialMonthStartDay,
+      );
+      final financialPeriodMonth = _formatDate(monthStart);
+      final periodMonth = _formatBudgetMonth(monthStart);
 
       final scopeType = params.scope;
       final isScopedToHousehold = scopeType != PocketsScopeType.personal;
@@ -4238,14 +4366,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       queuedMutationId = _pocketsMutationId(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
-        periodMonth: periodMonth,
+        periodMonth: financialPeriodMonth,
         currency: selectedCurrency,
       );
       await _enqueuePocketsSaveMutation(
@@ -4404,8 +4532,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required DateTime targetMonthStart,
     required Iterable<String> currencies,
   }) async {
-    final sourcePeriodMonth = _formatDate(sourceMonthStart);
-    final targetPeriodMonth = _formatDate(targetMonthStart);
+    final sourcePeriodMonth = _formatBudgetMonth(sourceMonthStart);
+    final targetPeriodMonth = _formatBudgetMonth(targetMonthStart);
     final isHouseholdScope = scopeType == PocketsScopeType.household;
     final isScopedToHousehold = scopeType != PocketsScopeType.personal;
     final nowIso = DateTime.now().toIso8601String();
@@ -4416,8 +4544,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final currency = rawCurrency.trim().toUpperCase();
       if (currency.isEmpty || !copiedCurrencies.add(currency)) continue;
 
-      final sourceBudgetRow = await _findBudgetRowForPeriod(
+      var sourceBudgetRow = await _findBudgetRowForPeriod(
         periodMonth: sourcePeriodMonth,
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: userId,
+        currency: currency,
+      );
+      sourceBudgetRow ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(sourceMonthStart),
         isHousehold: isHouseholdScope,
         householdId: householdId,
         userId: userId,
@@ -4465,8 +4600,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
       if (envRows.isEmpty) continue;
 
-      final targetBudgetRow = await _findBudgetRowForPeriod(
+      var targetBudgetRow = await _findBudgetRowForPeriod(
         periodMonth: targetPeriodMonth,
+        isHousehold: isHouseholdScope,
+        householdId: householdId,
+        userId: userId,
+        currency: currency,
+      );
+      targetBudgetRow ??= await _findBudgetRowForPeriod(
+        periodMonth: _formatDate(targetMonthStart),
         isHousehold: isHouseholdScope,
         householdId: householdId,
         userId: userId,
@@ -4483,6 +4625,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'total_budget_cents': sourceTotalBudgetCents,
         'updated_at': nowIso,
       };
+
+      if (targetBudgetId != null &&
+          targetBudgetId.isNotEmpty &&
+          targetBudgetRow?['period_month'] != targetPeriodMonth) {
+        await supabase.from('budgets').update(<String, dynamic>{
+          'period_month': targetPeriodMonth,
+          'updated_at': nowIso,
+        }).eq('id', targetBudgetId);
+      }
 
       if (targetBudgetId == null || targetBudgetId.isEmpty) {
         final insertRes = await supabase
@@ -4703,6 +4854,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency,
         params.normalizedSelectedCurrencies,
       ),
+      financialMonthStartDay: params.normalizedFinancialMonthStartDay,
       includeUpcomingRecurring: params.includeUpcomingRecurring,
       allowCurrencyFallback: params.isBootstrapCurrency,
     );
@@ -4721,6 +4873,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency,
         params.normalizedSelectedCurrencies,
       ),
+      financialMonthStartDay: params.normalizedFinancialMonthStartDay,
       includeUpcomingRecurring: params.includeUpcomingRecurring,
       allowCurrencyFallback: params.isBootstrapCurrency,
     );
@@ -4798,6 +4951,7 @@ final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
         periodMonth: params.periodMonth,
         currency: params.currency,
         selectedCurrencies: params.selectedCurrencies,
+        financialMonthStartDay: params.normalizedFinancialMonthStartDay,
         isBootstrapCurrency: params.isBootstrapCurrency,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
       ),
@@ -4820,18 +4974,7 @@ PocketsDebugTrace _createPocketsTrace(
 }
 
 bool _shouldKeepQueuedLocalMutation(Object error) {
-  final message = error.toString().toLowerCase();
-  return message.contains('network') ||
-      message.contains('socket') ||
-      message.contains('failed host lookup') ||
-      message.contains('connection') ||
-      message.contains('timed out') ||
-      message.contains('timeout') ||
-      message.contains('status: 502') ||
-      message.contains('status: 503') ||
-      message.contains('status: 504') ||
-      message.contains('service is temporarily unavailable') ||
-      message.contains('supabase_edge_runtime_error');
+  return ErrorHandler.isRetryable(error);
 }
 
 bool shouldKeepQueuedPocketsMutation(Object error) =>
@@ -4854,4 +4997,10 @@ String _formatDate(DateTime date) {
   final m = date.month.toString().padLeft(2, '0');
   final d = date.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+String _formatBudgetMonth(DateTime financialPeriodStart) {
+  return _formatDate(
+    DateTime(financialPeriodStart.year, financialPeriodStart.month, 1),
+  );
 }

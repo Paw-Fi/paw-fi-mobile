@@ -1,5 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/data/services/period_preference_service.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/period_selection.dart';
@@ -44,12 +45,23 @@ class PeriodFilterNotifier extends StateNotifier<PeriodSelection> {
     await _service.setSelection(selection);
   }
 
-  Future<void> shiftMonth(int delta) async {
+  Future<void> shiftMonth(
+    int delta, {
+    int financialMonthStartDay = 1,
+  }) async {
     if (state.kind != PeriodSelectionKind.month) return;
     final base = state.month ?? DateTime.now();
     final target = DateTime(base.year, base.month + delta, 1);
     final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month, 1);
+    final currentCycleStart = financialCycleStartForDate(
+      now,
+      startDay: financialMonthStartDay,
+    );
+    final currentMonth = DateTime(
+      currentCycleStart.year,
+      currentCycleStart.month,
+      1,
+    );
     final clamped = target.isAfter(currentMonth) ? currentMonth : target;
     await setMonth(clamped);
   }

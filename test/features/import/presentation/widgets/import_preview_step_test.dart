@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/widgets/import_preview_step.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -21,21 +22,23 @@ void main() {
     );
 
     await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('fr'),
-        localizationsDelegates: [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: TransactionPreviewTile(
-            row: row,
-            isFirst: true,
-            isLast: true,
-            onTap: null,
+      const ProviderScope(
+        child: MaterialApp(
+          locale: Locale('fr'),
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TransactionPreviewTile(
+              row: row,
+              isFirst: true,
+              isLast: true,
+              onTap: null,
+            ),
           ),
         ),
       ),

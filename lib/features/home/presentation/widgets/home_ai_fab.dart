@@ -1887,21 +1887,7 @@ bool shouldFallbackForBatchError(Object error) {
 }
 
 bool _shouldKeepQueuedLocalMutation(Object error) {
-  if (error is SocketException || error is TimeoutException) return true;
-
-  final message = error.toString().toLowerCase();
-  return message.contains('network') ||
-      message.contains('socket') ||
-      message.contains('failed host lookup') ||
-      message.contains('connection') ||
-      message.contains('timed out') ||
-      message.contains('timeout') ||
-      message.contains('status: 502') ||
-      message.contains('status: 503') ||
-      message.contains('status: 504') ||
-      message.contains('service is temporarily unavailable') ||
-      message.contains('supabase_edge_runtime_error') ||
-      message.contains('bad file descriptor');
+  return ErrorHandler.isRetryable(error);
 }
 
 bool shouldQueueAiInputForRetry(Object error) =>

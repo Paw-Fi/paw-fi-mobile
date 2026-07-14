@@ -5,7 +5,6 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
@@ -87,6 +86,102 @@ void main() {
     expect(_flagImageFinder('lib/assets/images/flags/us.png'), findsNothing);
   });
 
+  testWidgets('single-currency path does not load the full settlement overview',
+      (tester) async {
+    var pairwiseReads = 0;
+    var overviewReads = 0;
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD'],
+      onPairwiseRead: () => pairwiseReads += 1,
+      onOverviewRead: () => overviewReads += 1,
+      balances: const [
+        SettlementPairwiseBalance(
+          otherUserId: 'alex',
+          currency: 'USD',
+          splitToCents: 1000,
+          splitFromCents: 0,
+          paidToCents: 0,
+          paidFromCents: 0,
+          netCents: 1000,
+        ),
+      ],
+      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+    );
+
+    expect(pairwiseReads, 1);
+    expect(overviewReads, 0);
+  });
+
+  testWidgets(
+      'single-currency RPC failure falls back to the legacy exact calculation',
+      (tester) async {
+    var overviewReads = 0;
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD'],
+      pairwiseError: Exception('optimized RPC unavailable'),
+      onOverviewRead: () => overviewReads += 1,
+      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+    );
+
+    await tester.pump();
+
+    expect(overviewReads, 1);
+    expect(find.text('\$10'), findsWidgets);
+    expect(find.textContaining('Error loading dashboard'), findsNothing);
+  });
+
+  testWidgets('new empty shared space does not show an error when RPC fails',
+      (tester) async {
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD'],
+      pairwiseError: Exception('optimized RPC unavailable'),
+      splits: const <ExpenseSplitGroup>[],
+    );
+
+    await tester.pump();
+
+    expect(find.textContaining('Error loading dashboard'), findsNothing);
+  });
+
+  testWidgets('optimistic household ID never starts settlement providers',
+      (tester) async {
+    var pairwiseReads = 0;
+    var overviewReads = 0;
+    await _pumpSettlementCard(
+      tester,
+      householdId: 'optimistic-household-1783843926425266',
+      selectedCurrencies: const ['USD'],
+      onPairwiseRead: () => pairwiseReads += 1,
+      onOverviewRead: () => overviewReads += 1,
+      splits: const <ExpenseSplitGroup>[],
+    );
+
+    expect(pairwiseReads, 0);
+    expect(overviewReads, 0);
+    expect(find.byType(SettlementSuggestionsCard), findsOneWidget);
+  });
+
+  testWidgets('multi-currency path does not issue the unused pairwise RPC',
+      (tester) async {
+    var pairwiseReads = 0;
+    var overviewReads = 0;
+    await _pumpSettlementCard(
+      tester,
+      onPairwiseRead: () => pairwiseReads += 1,
+      onOverviewRead: () => overviewReads += 1,
+      splits: [
+        _splitGroup(currency: 'USD', amountCents: 1000),
+        _splitGroup(currency: 'EUR', amountCents: 1000),
+      ],
+    );
+
+    expect(pairwiseReads, 0);
+    expect(overviewReads, 1);
+  });
+
   testWidgets('multi-currency settlement rows avoid narrow layout overflow',
       (tester) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -125,11 +220,15 @@ Finder _flagImageFinder(String assetName) {
 Future<void> _pumpSettlementCard(
   WidgetTester tester, {
   required List<ExpenseSplitGroup> splits,
+  String householdId = '00000000-0000-0000-0000-000000000001',
   List<HouseholdMember>? members,
   List<String> selectedCurrencies = const ['USD', 'EUR', 'MYR'],
   List<SettlementPairwiseBalance> balances =
       const <SettlementPairwiseBalance>[],
   Map<String, double> rates = const {'USD': 1, 'EUR': 1, 'MYR': 1},
+  VoidCallback? onPairwiseRead,
+  VoidCallback? onOverviewRead,
+  Object? pairwiseError,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -142,15 +241,22 @@ Future<void> _pumpSettlementCard(
           ),
         ),
         householdPairwiseSettlementBalancesV2Provider.overrideWith(
-          (ref, params) async => balances,
+          (ref, params) async {
+            onPairwiseRead?.call();
+            if (pairwiseError != null) throw pairwiseError;
+            return balances;
+          },
         ),
         settlementOverviewProvider.overrideWith(
-          (ref, householdId) => AsyncValue.data(
-            SettlementOverviewData(
-              splits: splits,
-              payments: const <SettlementPaymentRecord>[],
-            ),
-          ),
+          (ref, householdId) {
+            onOverviewRead?.call();
+            return AsyncValue.data(
+              SettlementOverviewData(
+                splits: splits,
+                payments: const <SettlementPaymentRecord>[],
+              ),
+            );
+          },
         ),
       ],
       child: MaterialApp(
@@ -158,7 +264,7 @@ Future<void> _pumpSettlementCard(
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SettlementSuggestionsCard(
-            summary: _summary(),
+            householdId: householdId,
             currency: 'USD',
             selectedCurrencies: selectedCurrencies,
             members:
@@ -171,30 +277,11 @@ Future<void> _pumpSettlementCard(
   );
 }
 
-HouseholdSummary _summary() {
-  return const HouseholdSummary(
-    householdId: 'household-1',
-    currency: 'USD',
-    period: DatePeriod(startDate: '2026-01-01', endDate: '2026-01-31'),
-    totals: Totals(
-      totalExpensesCents: 0,
-      totalIncomeCents: 0,
-      netCents: 0,
-      transactionCount: 0,
-      splitCount: 0,
-    ),
-    memberContributions: [],
-    categoryBreakdown: [],
-    budgets: [],
-    balances: {},
-  );
-}
-
 HouseholdMember _member({required String userId, String? userName}) {
   final now = DateTime(2026, 1, 1);
   return HouseholdMember(
     id: '$userId-member',
-    householdId: 'household-1',
+    householdId: '00000000-0000-0000-0000-000000000001',
     userId: userId,
     role: HouseholdRole.member,
     joinedAt: now,
@@ -212,7 +299,7 @@ ExpenseSplitGroup _splitGroup({
   final normalizedCurrency = currency.toUpperCase();
   return ExpenseSplitGroup(
     id: 'group-$normalizedCurrency',
-    householdId: 'household-1',
+    householdId: '00000000-0000-0000-0000-000000000001',
     expenseId: 'expense-$normalizedCurrency',
     payerUserId: 'alex',
     splitType: SplitType.equal,

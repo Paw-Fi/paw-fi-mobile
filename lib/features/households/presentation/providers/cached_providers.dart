@@ -4,7 +4,10 @@ import 'dart:async';
 import 'household_providers.dart';
 import 'household_optimistic_providers.dart';
 import '../../../home/presentation/models/expense_entry.dart';
+import '../../../home/presentation/state/transactions_feed_provider.dart';
 import '../../domain/entities/expense_split.dart';
+import '../../domain/entities/household.dart';
+import '../../data/services/device_registration_service.dart';
 import 'package:moneko/core/monitoring/performance_monitor.dart';
 
 /// Request deduplication helper to prevent multiple simultaneous requests
@@ -19,6 +22,11 @@ class RequestDeduplicator<T> {
     String key,
     Future<T> Function() fetch,
   ) async {
+    final now = DateTime.now();
+    _cache.removeWhere(
+      (_, entry) => now.difference(entry.$2) >= cacheDuration,
+    );
+
     // Check cache first
     final cached = _cache[key];
     if (cached != null) {
@@ -134,20 +142,22 @@ final _splitsDeduplicator = RequestDeduplicator<List<ExpenseSplitGroup>>(
 final cachedHouseholdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
+    final remoteGeneration = ref.watch(
+        householdRemoteMutationRefreshSignalProvider(params.householdId));
+    final feedGeneration = ref.watch(transactionsFeedRefreshSignalProvider);
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseEntry>[];
+    }
     final key = 'expenses_${params.householdId}_${params.limit}_'
         '${params.startDate?.millisecondsSinceEpoch}_'
-        '${params.endDate?.millisecondsSinceEpoch}';
+        '${params.endDate?.millisecondsSinceEpoch}_'
+        '${remoteGeneration}_$feedGeneration';
 
     debugPrint('📊 [CACHED_EXPENSES] Provider called for key: $key');
 
     final optimistic = ref.watch(
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),
-    );
-    final deletedIds = ref.watch(
-      householdOptimisticDeletedExpenseIdsProvider.select(
-        (state) => state[params.householdId] ?? const <String>{},
-      ),
     );
 
     final result = await _expensesDeduplicator.deduplicate(
@@ -160,6 +170,9 @@ final cachedHouseholdExpensesProvider =
             .trackPerformance('household_expenses',
                 details: 'household=${params.householdId}');
       },
+    );
+    final deletedIds = await ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
     );
 
     if (optimistic.isNotEmpty) {
@@ -192,7 +205,14 @@ final cachedHouseholdExpensesProvider =
 final cachedHouseholdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
-    final key = 'splits_${params.householdId}_${params.dateRange}';
+    final remoteGeneration = ref.watch(
+        householdRemoteMutationRefreshSignalProvider(params.householdId));
+    final feedGeneration = ref.watch(transactionsFeedRefreshSignalProvider);
+    if (!isBackendHouseholdId(params.householdId)) {
+      return const <ExpenseSplitGroup>[];
+    }
+    final key = 'splits_${params.householdId}_${params.dateRange}_'
+        '${remoteGeneration}_$feedGeneration';
 
     debugPrint('📊 [CACHED_SPLITS] Provider called for key: $key');
 
@@ -211,6 +231,9 @@ final cachedHouseholdSplitsProvider =
                 details: 'household=${params.householdId}');
       },
     );
+    final deletedIds = await ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
+    );
 
     if (optimistic.isNotEmpty) {
       ref
@@ -218,7 +241,9 @@ final cachedHouseholdSplitsProvider =
           .pruneIfInServer(params.householdId, result);
     }
 
-    final merged = mergeHouseholdSplits(result, optimistic);
+    final merged = mergeHouseholdSplits(result, optimistic)
+        .where((split) => !deletedIds.contains(split.expenseId))
+        .toList(growable: false);
 
     debugPrint(
         '✅ [CACHED_SPLITS] Returning ${merged.length} splits for key: $key');

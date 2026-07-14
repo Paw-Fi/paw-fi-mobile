@@ -14,6 +14,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockSupabaseClient extends Mock implements SupabaseClient {}
@@ -457,6 +458,7 @@ void main() {
     test(
         'delete removes personal transaction immediately and rolls back on failure',
         () async {
+      const expenseId = '11111111-1111-4111-8111-111111111111';
       final failedResponse = _MockFunctionResponse();
       when(() => failedResponse.data).thenReturn({
         'success': false,
@@ -478,7 +480,7 @@ void main() {
       addTearDown(container.dispose);
 
       final original = ExpenseEntry(
-        id: 'expense-1',
+        id: expenseId,
         userId: 'user-1',
         date: DateTime(2026, 5, 7),
         amountCents: 1200,
@@ -504,7 +506,71 @@ void main() {
       responseCompleter.complete(failedResponse);
       expect(await deleteFuture, isFalse);
       expect(
-          container.read(analyticsProvider).allExpenses.single.id, 'expense-1');
+        container.read(analyticsProvider).allExpenses.single.id,
+        expenseId,
+      );
+    });
+
+    test('successful household delete persists tombstone and clears caches',
+        () async {
+      const expenseId = '22222222-2222-4222-8222-222222222222';
+      const householdId = '33333333-3333-4333-8333-333333333333';
+      SharedPreferences.setMockInitialValues({
+        'households:expenses:v1:$householdId:1000': 'cached-expenses',
+        'households:splits:v1:$householdId:all': 'cached-splits',
+        'households:settlement-payments:v1:$householdId:user-1':
+            'cached-payments',
+        'unrelated': 'keep',
+      });
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final response = _MockFunctionResponse();
+      when(() => response.data).thenReturn({'success': true});
+      when(
+        () => functionsClient.invoke(
+          'delete-expense',
+          body: any(named: 'body'),
+        ),
+      ).thenAnswer((_) async => response);
+      final original = ExpenseEntry(
+        id: expenseId,
+        userId: 'user-1',
+        householdId: householdId,
+        date: DateTime(2026, 7, 13),
+        amountCents: 10000,
+        currency: 'USD',
+        createdAt: DateTime(2026, 7, 13),
+        type: 'expense',
+      );
+      await database.upsertTransactions([original]);
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+      container.read(analyticsProvider);
+      analyticsNotifier!.state = AnalyticsData(
+        expenses: [original],
+        allExpenses: [original],
+      );
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically([original]);
+      final deletedIds = await database.getActiveTransactionTombstoneIds(
+        userId: 'user-1',
+        householdId: householdId,
+      );
+      final preferences = await SharedPreferences.getInstance();
+
+      expect(result, isTrue);
+      expect(deletedIds, contains(expenseId));
+      expect(
+        preferences.getKeys().where((key) => key.contains(householdId)),
+        isEmpty,
+      );
+      expect(preferences.getString('unrelated'), 'keep');
     });
   });
 }

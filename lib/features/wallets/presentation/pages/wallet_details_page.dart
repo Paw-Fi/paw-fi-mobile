@@ -1,16 +1,17 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
+import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_account.dart';
@@ -90,10 +91,11 @@ class WalletDetailsPage extends HookConsumerWidget {
     final walletCurrencyCode = latestWallet.currency;
     final householdScope = ref.watch(householdScopeProvider);
     final walletsScopeQuery = ref.watch(walletsScopeQueryProvider);
+    final financialMonthStartDay = walletsScopeQuery.financialMonthStartDay;
     final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
     final bankConnectionsAsync = ref.watch(bankConnectionsProvider);
     final bankAccountsAsync = ref.watch(bankAccountsProvider);
-    final shouldShowBankSyncStatus = _isPlaidSupportedTimezone(
+    final shouldShowBankSyncStatus = isPlaidSupportedTimezone(
       preferredTimezone,
     );
     final isManualSyncingState = useState<bool>(false);
@@ -166,7 +168,10 @@ class WalletDetailsPage extends HookConsumerWidget {
             )))
             .valueOrNull ??
         const <WalletEntity>[];
-    final currentMonthStart = DateTime(userNow.year, userNow.month);
+    final currentMonthStart = financialCycleStartForDate(
+      userNow,
+      startDay: financialMonthStartDay,
+    );
     final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
@@ -185,8 +190,11 @@ class WalletDetailsPage extends HookConsumerWidget {
     final walletFeedState =
         ref.watch(transactionsFeedProvider(walletFeedQuery));
 
-    final monthStart = DateTime(userNow.year, userNow.month, 1);
-    final monthEnd = DateTime(userNow.year, userNow.month + 1, 0);
+    final monthStart = currentMonthStart;
+    final monthEnd = nextFinancialCycleStart(
+      monthStart,
+      startDay: financialMonthStartDay,
+    ).subtract(const Duration(days: 1));
     final monthFeedQuery = walletFeedQuery.copyWith(
       startDate: monthStart,
       endDate: monthEnd,
@@ -256,6 +264,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       feedTransactions: scopedExpenses,
       recurringTransactions: walletRecurringTransactions,
       fallbackMonthStart: currentMonthStart,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final projectedRecurringExpenses = walletRecurringTransactions.isEmpty
         ? const <ExpenseEntry>[]
@@ -288,8 +297,11 @@ class WalletDetailsPage extends HookConsumerWidget {
       [visibleTransactionsSignature],
     );
     final visibleListItems = useMemoized(
-      () => buildGroupedTransactionRenderItems(displayVisibleTransactions),
-      [visibleTransactionsSignature],
+      () => buildGroupedTransactionRenderItems(
+        displayVisibleTransactions,
+        financialMonthStartDay: financialMonthStartDay,
+      ),
+      [visibleTransactionsSignature, financialMonthStartDay],
     );
     final visibleListItemIndexByKey = useMemoized(
       () => buildGroupedTransactionRenderItemIndexByKey(visibleListItems),
@@ -308,7 +320,8 @@ class WalletDetailsPage extends HookConsumerWidget {
           );
     final walletColor =
         parseWalletColor(latestWallet.color, colorScheme.primary);
-    final gradientColors = AppTheme.pocketDetailsGradient(walletColor, colorScheme);
+    final gradientColors =
+        AppTheme.pocketDetailsGradient(walletColor, colorScheme);
 
     // Determine text color based on background luminance
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
@@ -755,7 +768,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         Navigator.of(context, rootNavigator: true).pop();
         AppToast.error(
           context,
-          context.l10n.deleteWalletFailed,
+          ErrorHandler.getUserFriendlyMessage(error),
         );
       }
     }
@@ -1217,25 +1230,31 @@ DateTime _resolveWalletProjectedRangeStart({
   required List<ExpenseEntry> feedTransactions,
   required List<RecurringTransaction> recurringTransactions,
   required DateTime fallbackMonthStart,
+  required int financialMonthStartDay,
 }) {
-  var earliest = DateTime(
-    fallbackMonthStart.year,
-    fallbackMonthStart.month,
-    1,
+  var earliest = financialCycleStartForDate(
+    fallbackMonthStart,
+    startDay: financialMonthStartDay,
   );
 
   for (final transaction in feedTransactions) {
-    final txMonth = DateTime(transaction.date.year, transaction.date.month, 1);
-    if (txMonth.isBefore(earliest)) {
-      earliest = txMonth;
+    final txCycleStart = financialCycleStartForDate(
+      transaction.date,
+      startDay: financialMonthStartDay,
+    );
+    if (txCycleStart.isBefore(earliest)) {
+      earliest = txCycleStart;
     }
   }
 
   for (final recurring in recurringTransactions) {
     final anchor = recurring.recurrenceRule?.anchorDate ?? recurring.date;
-    final anchorMonth = DateTime(anchor.year, anchor.month, 1);
-    if (anchorMonth.isBefore(earliest)) {
-      earliest = anchorMonth;
+    final anchorCycleStart = financialCycleStartForDate(
+      anchor,
+      startDay: financialMonthStartDay,
+    );
+    if (anchorCycleStart.isBefore(earliest)) {
+      earliest = anchorCycleStart;
     }
   }
 
@@ -1355,76 +1374,6 @@ String? _resolveScopedHouseholdId(HouseholdScope scope) {
       }
       return householdId;
   }
-}
-
-bool _isPlaidSupportedTimezone(String? preferredTimezone) {
-  if (kDebugMode) {
-    return true;
-  }
-  final normalized =
-      canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
-  if (normalized == null || normalized.isEmpty) {
-    return false;
-  }
-
-  if (normalized.startsWith('us/')) {
-    return true;
-  }
-
-  const supportedPlaidIanaTimezones = <String>{
-    'america/new_york',
-    'america/detroit',
-    'america/kentucky/louisville',
-    'america/kentucky/monticello',
-    'america/indiana/indianapolis',
-    'america/indiana/vincennes',
-    'america/indiana/winamac',
-    'america/indiana/marengo',
-    'america/indiana/petersburg',
-    'america/indiana/vevay',
-    'america/chicago',
-    'america/indiana/tell_city',
-    'america/indiana/knox',
-    'america/menominee',
-    'america/north_dakota/center',
-    'america/north_dakota/new_salem',
-    'america/north_dakota/beulah',
-    'america/denver',
-    'america/boise',
-    'america/phoenix',
-    'america/los_angeles',
-    'america/anchorage',
-    'america/juneau',
-    'america/sitka',
-    'america/metlakatla',
-    'america/yakutat',
-    'america/nome',
-    'america/adak',
-    'pacific/honolulu',
-    'america/st_johns',
-    'america/halifax',
-    'america/glace_bay',
-    'america/moncton',
-    'america/goose_bay',
-    'america/toronto',
-    'america/iqaluit',
-    'america/winnipeg',
-    'america/rankin_inlet',
-    'america/resolute',
-    'america/regina',
-    'america/swift_current',
-    'america/edmonton',
-    'america/cambridge_bay',
-    'america/inuvik',
-    'america/creston',
-    'america/dawson_creek',
-    'america/fort_nelson',
-    'america/vancouver',
-    'america/whitehorse',
-    'america/dawson',
-  };
-
-  return supportedPlaidIanaTimezones.contains(normalized);
 }
 
 bool _isConnectionInWalletsScope(

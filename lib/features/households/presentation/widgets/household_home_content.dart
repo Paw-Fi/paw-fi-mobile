@@ -43,7 +43,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   late final HomeDebugTrace _householdTrace;
   String? _lastHouseholdTraceSignature;
   String? _lastSelectedHouseholdTraceSignature;
-  String? _lastRepositoryTraceSignature;
   String? _lastDashboardConfigTraceSignature;
   bool _didLogFirstUsefulPaint = false;
 
@@ -154,6 +153,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<String>? selectedCurrencies,
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
+    required int financialMonthStartDay,
   }) async {
     if (!mounted) return;
 
@@ -171,10 +171,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     });
     final visibleConfigs = configs.where((config) => config.isVisible).toList();
 
-    final summaryParams = <HouseholdSummaryParams>{};
     final calendarQueries = <DashboardScopeQuery>{};
     var needsRecurring = false;
-    var needsSplits = false;
+    var needsMembers = false;
+    var needsBudgets = false;
 
     for (final config in visibleConfigs) {
       final range = getDateRangeFromFilter(
@@ -182,12 +182,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         config.customStartDate,
         config.customEndDate,
         now: referenceNow,
+        financialMonthStartDay: financialMonthStartDay,
       );
 
       switch (config.type) {
         case DashboardWidgetType.householdSpentByYou:
           needsRecurring = true;
-          needsSplits = true;
           calendarQueries.add(
             DashboardScopeQuery(
               userId: userId,
@@ -201,6 +201,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           break;
         case DashboardWidgetType.householdBudgetOverview:
           needsRecurring = true;
+          needsMembers = true;
+          needsBudgets = true;
           calendarQueries.add(
             DashboardScopeQuery(
               userId: userId,
@@ -211,16 +213,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               endDate: range['to'],
             ),
           );
-          summaryParams.add(buildHouseholdSummaryParams(
-            household: household,
-            selectedCurrency: selectedCurrency,
-            config: config,
-            referenceNow: referenceNow,
-          ));
           break;
         case DashboardWidgetType.householdFairness:
           needsRecurring = true;
-          needsSplits = true;
+          needsMembers = true;
           calendarQueries.add(
             DashboardScopeQuery(
               userId: userId,
@@ -231,24 +227,13 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               endDate: range['to'],
             ),
           );
-          summaryParams.add(buildHouseholdSummaryParams(
-            household: household,
-            selectedCurrency: selectedCurrency,
-            config: config,
-            referenceNow: referenceNow,
-          ));
           break;
         case DashboardWidgetType.householdSettlement:
-          summaryParams.add(buildHouseholdSummaryParams(
-            household: household,
-            selectedCurrency: selectedCurrency,
-            config: config,
-            referenceNow: referenceNow,
-          ));
+          needsMembers = true;
           break;
         case DashboardWidgetType.householdMemberSpending:
           needsRecurring = true;
-          needsSplits = true;
+          needsMembers = true;
           calendarQueries.add(
             DashboardScopeQuery(
               userId: userId,
@@ -259,12 +244,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               endDate: range['to'],
             ),
           );
-          summaryParams.add(buildHouseholdSummaryParams(
-            household: household,
-            selectedCurrency: selectedCurrency,
-            config: config,
-            referenceNow: referenceNow,
-          ));
           break;
         case DashboardWidgetType.householdSpendingBreakdownChart:
         case DashboardWidgetType.householdWhereTheMoneyWent:
@@ -288,41 +267,33 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       }
     }
 
+    final warmupTasks = <Future<void>>[];
     if (needsRecurring) {
       final recurringProvider = recurringTransactionsProvider(household.id);
       final recurringState = ref.read(recurringProvider);
-      if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
-        warmupTrace.mark('warmup-recurring-start');
-        await ref
-            .read(recurringProvider.notifier)
-            .loadRecurringTransactions(userId);
-        if (!mounted) return;
-        warmupTrace.mark('warmup-recurring-success');
+      if (!recurringState.hasLoadedOnce) {
+        warmupTasks.add(() async {
+          try {
+            warmupTrace.mark('warmup-recurring-start');
+            await ref
+                .read(recurringProvider.notifier)
+                .loadRecurringTransactions(userId);
+            if (!mounted) return;
+            warmupTrace.mark('warmup-recurring-success');
+          } catch (error) {
+            warmupTrace.mark('warmup-recurring-error', {'error': error});
+          }
+        }());
       }
     }
 
-    if (!mounted) return;
-    ref.read(householdMembersProvider(household.id));
-    warmupTrace.mark('warmup-members-read');
-
-    final warmupTasks = <Future<void>>[];
-
-    if (needsSplits) {
-      warmupTasks.add(() async {
-        try {
-          warmupTrace.mark('warmup-splits-start');
-          if (!mounted) return;
-          await ref.read(
-            householdSplitsProvider(HouseholdSplitsParams(
-              householdId: household.id,
-            )).future,
-          );
-          if (!mounted) return;
-          warmupTrace.mark('warmup-splits-success');
-        } catch (error) {
-          warmupTrace.mark('warmup-splits-error', {'error': error});
-        }
-      }());
+    if (needsMembers) {
+      ref.read(householdMembersProvider(household.id));
+      warmupTrace.mark('warmup-members-read');
+    }
+    if (needsBudgets) {
+      ref.read(householdBudgetsProvider(household.id));
+      warmupTrace.mark('warmup-budgets-read');
     }
 
     for (final query in calendarQueries) {
@@ -342,33 +313,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       }());
     }
 
-    for (final params in summaryParams) {
-      warmupTasks.add(() async {
-        try {
-          warmupTrace.mark('warmup-summary-start', {
-            'rangeStart': params.startDate,
-            'rangeEnd': params.endDate,
-          });
-          if (!mounted) return;
-          await ref.read(householdSummaryProvider(params).future);
-          if (!mounted) return;
-          warmupTrace.mark('warmup-summary-success');
-        } catch (error) {
-          warmupTrace.mark('warmup-summary-error', {'error': error});
-        }
-      }());
-    }
-
     await Future.wait(warmupTasks);
 
     warmupTrace.mark('warmup-complete', {
-      'summaryCount': summaryParams.length,
+      'calendarQueryCount': calendarQueries.length,
     });
   }
 
   String _buildDashboardWarmupKey({
     required String householdId,
     required String selectedCurrency,
+    required DateTime referenceNow,
     required List<DashboardWidgetConfig> configs,
   }) {
     final visibleConfigs = configs
@@ -384,7 +339,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         .toList()
       ..sort();
 
-    return '$householdId|$selectedCurrency|${visibleConfigs.join('|')}';
+    final referenceDay =
+        '${referenceNow.year}-${referenceNow.month}-${referenceNow.day}';
+    return '$householdId|$selectedCurrency|day:$referenceDay|${visibleConfigs.join('|')}';
   }
 
   void _scheduleDashboardWarmup({
@@ -395,6 +352,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<String>? selectedCurrencies,
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
+    required int financialMonthStartDay,
   }) {
     if (_dashboardWarmupKey == warmupKey) return;
 
@@ -410,6 +368,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         selectedCurrencies: selectedCurrencies,
         configs: configs,
         referenceNow: referenceNow,
+        financialMonthStartDay: financialMonthStartDay,
       ));
     });
   }
@@ -490,15 +449,26 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           // Determine which household to show
           final selectedId =
               selectedState.householdId ?? selectedState.household?.id;
-          final household = selectedId != null
-              ? households.firstWhere(
-                  (h) => h.id == selectedId,
-                  orElse: () => households.first,
-                )
-              : households.first;
+          Household? household;
+          if (selectedId != null && !isOptimisticHouseholdId(selectedId)) {
+            for (final candidate in households) {
+              if (candidate.id == selectedId) {
+                household = candidate;
+                break;
+              }
+            }
+          }
+          if (household == null) {
+            _householdTrace.mark(
+              'content-blocked',
+              {'reason': 'selection-not-canonical', 'selectedId': selectedId},
+            );
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          }
+          final resolvedHousehold = household;
 
           final selectedHouseholdTraceSignature = [
-            'household=${household.id}',
+            'household=${resolvedHousehold.id}',
             'selectedId=${selectedId ?? '<none>'}',
           ].join('|');
           if (_lastSelectedHouseholdTraceSignature !=
@@ -506,7 +476,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             _lastSelectedHouseholdTraceSignature =
                 selectedHouseholdTraceSignature;
             _householdTrace.mark('selected-household', {
-              'household': household.id,
+              'household': resolvedHousehold.id,
               'selectedId': selectedId,
             });
           }
@@ -527,234 +497,203 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   : (initUserContact?.preferredCurrency?.trim().isNotEmpty ==
                           true
                       ? initUserContact!.preferredCurrency!.trim()
-                      : household.currency))
+                      : resolvedHousehold.currency))
               .toUpperCase();
           final selectedCurrency = rawCurrency;
           final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
               initUserContact?.preferredTimezone);
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+          final financialMonthStartDay =
+              ref.watch(financialMonthStartDayProvider);
 
           // Data providers with date filtering
           // Note: Individual widgets inside DraggableDashboardList will fetch their own data
           // based on their specific date range configuration.
 
-          final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
+          final dashboardAsync =
+              ref.watch(householdDashboardProvider(resolvedHousehold.id));
 
-          final repositoryTraceSignature = [
-            'loading=${repoAsync.isLoading}',
-            'hasError=${repoAsync.hasError}',
-            'hasValue=${repoAsync.hasValue}',
+          final dashboardConfigTraceSignature = [
+            'household=${resolvedHousehold.id}',
+            'loading=${dashboardAsync.isLoading}',
+            'hasError=${dashboardAsync.hasError}',
+            'hasValue=${dashboardAsync.hasValue}',
+            'widgetCount=${dashboardAsync.valueOrNull?.length ?? 0}',
           ].join('|');
-          if (_lastRepositoryTraceSignature != repositoryTraceSignature) {
-            _lastRepositoryTraceSignature = repositoryTraceSignature;
-            _householdTrace.mark('repository-async-state', {
-              'loading': repoAsync.isLoading,
-              'hasError': repoAsync.hasError,
-              'hasValue': repoAsync.hasValue,
+          if (_lastDashboardConfigTraceSignature !=
+              dashboardConfigTraceSignature) {
+            _lastDashboardConfigTraceSignature = dashboardConfigTraceSignature;
+            _householdTrace.mark('dashboard-config-async-state', {
+              'household': resolvedHousehold.id,
+              'loading': dashboardAsync.isLoading,
+              'hasError': dashboardAsync.hasError,
+              'hasValue': dashboardAsync.hasValue,
+              'widgetCount': dashboardAsync.valueOrNull?.length,
             });
           }
 
-          return repoAsync.when(
+          return dashboardAsync.when(
             loading: () =>
                 SliverToBoxAdapter(child: _buildLoadingState(colorScheme)),
             error: (e, st) => SliverToBoxAdapter(
               child: _buildErrorState(
                 colorScheme,
                 context.l10n.errorLoadingHouseholds,
-                'Repository Error: $e',
+                e.toString(),
               ),
             ),
-            data: (_) {
-              final dashboardAsync =
-                  ref.watch(householdDashboardProvider(household.id));
+            data: (configs) {
+              final hasVisibleBudgetOverview = configs.any(
+                (config) =>
+                    config.isVisible &&
+                    config.type == DashboardWidgetType.householdBudgetOverview,
+              );
+              final warmupKey = _buildDashboardWarmupKey(
+                householdId: resolvedHousehold.id,
+                selectedCurrency:
+                    '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|fmsd:$financialMonthStartDay|refresh:$dashboardRefreshSignal',
+                referenceNow: userNow,
+                configs: configs,
+              );
+              _scheduleDashboardWarmup(
+                warmupKey: warmupKey,
+                userId: userId,
+                household: resolvedHousehold,
+                selectedCurrency: selectedCurrency,
+                selectedCurrencies: selectedCurrencies,
+                configs: configs,
+                referenceNow: userNow,
+                financialMonthStartDay: financialMonthStartDay,
+              );
 
-              final dashboardConfigTraceSignature = [
-                'household=${household.id}',
-                'loading=${dashboardAsync.isLoading}',
-                'hasError=${dashboardAsync.hasError}',
-                'hasValue=${dashboardAsync.hasValue}',
-                'widgetCount=${dashboardAsync.valueOrNull?.length ?? 0}',
-              ].join('|');
-              if (_lastDashboardConfigTraceSignature !=
-                  dashboardConfigTraceSignature) {
-                _lastDashboardConfigTraceSignature =
-                    dashboardConfigTraceSignature;
-                _householdTrace.mark('dashboard-config-async-state', {
-                  'household': household.id,
-                  'loading': dashboardAsync.isLoading,
-                  'hasError': dashboardAsync.hasError,
-                  'hasValue': dashboardAsync.hasValue,
-                  'widgetCount': dashboardAsync.valueOrNull?.length,
+              if (!_didLogFirstUsefulPaint) {
+                _didLogFirstUsefulPaint = true;
+                _householdTrace.mark('first-useful-paint', {
+                  'household': resolvedHousehold.id,
+                  'widgetCount': configs.length,
+                  'selectedCurrency': selectedCurrency,
                 });
               }
 
-              return dashboardAsync.when(
-                loading: () =>
-                    SliverToBoxAdapter(child: _buildLoadingState(colorScheme)),
-                error: (e, st) => SliverToBoxAdapter(
-                  child: _buildErrorState(
-                    colorScheme,
-                    context.l10n.errorLoadingHouseholds,
-                    e.toString(),
-                  ),
-                ),
-                data: (configs) {
-                  final warmupKey = _buildDashboardWarmupKey(
-                    householdId: household.id,
-                    selectedCurrency:
-                        '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|refresh:$dashboardRefreshSignal',
-                    configs: configs,
-                  );
-                  _scheduleDashboardWarmup(
-                    warmupKey: warmupKey,
-                    userId: userId,
-                    household: household,
-                    selectedCurrency: selectedCurrency,
-                    selectedCurrencies: selectedCurrencies,
-                    configs: configs,
-                    referenceNow: userNow,
-                  );
-
-                  if (!_didLogFirstUsefulPaint) {
-                    _didLogFirstUsefulPaint = true;
-                    _householdTrace.mark('first-useful-paint', {
-                      'household': household.id,
-                      'widgetCount': configs.length,
-                      'selectedCurrency': selectedCurrency,
-                    });
-                  }
-
-                  return DraggableDashboardList(
-                    configs: configs,
-                    onReorder: (oldIndex, newIndex) {
-                      ref
-                          .read(
-                              householdDashboardProvider(household.id).notifier)
-                          .reorder(oldIndex, newIndex);
-                    },
-                    onToggleVisibility: (id) {
-                      ref
-                          .read(
-                              householdDashboardProvider(household.id).notifier)
-                          .toggleVisibility(id);
-                    },
-                    onUpdateConfig: (id, {dateRange, viewMode, start, end}) {
-                      ref
-                          .read(
-                              householdDashboardProvider(household.id).notifier)
-                          .updateConfig(id,
-                              dateRange: dateRange,
-                              viewMode: viewMode,
-                              start: start,
-                              end: end);
-                    },
-                    widgetBuilders: {
-                      DashboardWidgetType.householdSpentByYou: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdSpentByYouCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                              referenceNow: userNow,
-                            ),
-                          ),
-                      DashboardWidgetType.householdFinancialCalendar: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdFinancialCalendarCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                            ),
-                          ),
-                      DashboardWidgetType.householdBudgetOverview: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdBudgetOverviewCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                              referenceNow: userNow,
-                            ),
-                          ),
-                      DashboardWidgetType.householdFairness: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdFairnessCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                              referenceNow: userNow,
-                            ),
-                          ),
-                      DashboardWidgetType.householdSettlement: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdSettlementCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                              referenceNow: userNow,
-                            ),
-                          ),
-                      DashboardWidgetType.householdMemberSpending: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdMemberSpendingCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                              referenceNow: userNow,
-                            ),
-                          ),
-                      DashboardWidgetType.householdRecentTransactions: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdRecentTransactionsCard(
-                              household: household,
-                              selectedCurrency: selectedCurrency,
-                            ),
-                          ),
-                      DashboardWidgetType.householdSpendingBreakdownChart:
-                          (context, config) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0),
-                                child: LazyHouseholdSpendingBreakdownChartCard(
-                                  household: household,
-                                  config: config,
-                                  selectedCurrency: selectedCurrency,
-                                  referenceNow: userNow,
-                                ),
-                              ),
-                      DashboardWidgetType.householdWhereTheMoneyWent: (context,
-                              config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyHouseholdWhereTheMoneyWentCard(
-                              household: household,
-                              config: config,
-                              selectedCurrency: selectedCurrency,
-                              referenceNow: userNow,
-                            ),
-                          ),
-                    },
-                  );
+              return DraggableDashboardList(
+                configs: configs,
+                onReorder: (oldIndex, newIndex) {
+                  ref
+                      .read(householdDashboardProvider(resolvedHousehold.id)
+                          .notifier)
+                      .reorder(oldIndex, newIndex);
+                },
+                onToggleVisibility: (id) {
+                  ref
+                      .read(householdDashboardProvider(resolvedHousehold.id)
+                          .notifier)
+                      .toggleVisibility(id);
+                },
+                onUpdateConfig: (id, {dateRange, viewMode, start, end}) {
+                  ref
+                      .read(householdDashboardProvider(resolvedHousehold.id)
+                          .notifier)
+                      .updateConfig(id,
+                          dateRange: dateRange,
+                          viewMode: viewMode,
+                          start: start,
+                          end: end);
+                },
+                widgetBuilders: {
+                  DashboardWidgetType.householdSpentByYou: (context, config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdSpentByYouCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                          referenceNow: userNow,
+                        ),
+                      ),
+                  DashboardWidgetType.householdFinancialCalendar: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdFinancialCalendarCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                        ),
+                      ),
+                  DashboardWidgetType.householdBudgetOverview: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdBudgetOverviewCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                          referenceNow: userNow,
+                        ),
+                      ),
+                  DashboardWidgetType.householdFairness: (context, config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdFairnessCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                          referenceNow: userNow,
+                          includeBudgetsInSummary: hasVisibleBudgetOverview,
+                        ),
+                      ),
+                  DashboardWidgetType.householdSettlement: (context, config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdSettlementCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                        ),
+                      ),
+                  DashboardWidgetType.householdMemberSpending: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdMemberSpendingCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                          referenceNow: userNow,
+                          includeBudgetsInSummary: hasVisibleBudgetOverview,
+                        ),
+                      ),
+                  DashboardWidgetType.householdRecentTransactions: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdRecentTransactionsCard(
+                          household: resolvedHousehold,
+                          selectedCurrency: selectedCurrency,
+                        ),
+                      ),
+                  DashboardWidgetType.householdSpendingBreakdownChart: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdSpendingBreakdownChartCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                          referenceNow: userNow,
+                        ),
+                      ),
+                  DashboardWidgetType.householdWhereTheMoneyWent: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdWhereTheMoneyWentCard(
+                          household: resolvedHousehold,
+                          config: config,
+                          selectedCurrency: selectedCurrency,
+                          referenceNow: userNow,
+                        ),
+                      ),
                 },
               );
             },

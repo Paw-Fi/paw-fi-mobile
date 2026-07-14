@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PocketTransactionsParams {
   final String pocketId;
@@ -90,13 +92,27 @@ final pocketDetailsProvider =
         rates: CurrencyRates.rates,
         isStale: true,
       );
-  final end = params.scopeParams.periodMonth ??
-      resolvePeriodDateRange(periodSelection).end;
-  final monthStart = DateTime(end.year, end.month, 1);
-  final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
+  final financialMonthStartDay =
+      params.scopeParams.normalizedFinancialMonthStartDay;
+  final monthStart = params.scopeParams.periodMonth != null
+      ? financialCycleStartForDate(
+          params.scopeParams.periodMonth!,
+          startDay: financialMonthStartDay,
+        )
+      : resolvePeriodDateRange(
+          periodSelection,
+          financialMonthStartDay: financialMonthStartDay,
+        ).start;
+  final monthEnd = nextFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  );
 
   // Previous month range
-  final prevMonthStart = DateTime(monthStart.year, monthStart.month - 1, 1);
+  final prevMonthStart = previousFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  );
   final prevMonthEnd = monthStart;
 
   final pocketsState = ref.watch(pocketsProvider(params.scopeParams));
@@ -354,11 +370,18 @@ final pocketDetailsProvider =
     ..sort((a, b) => a.day.compareTo(b.day));
 
   // Projections
-  final daysInMonth = DateTime(monthStart.year, monthStart.month + 1, 0).day;
-  // If viewing a past month, use all days. If current month, use days passed so far.
-  final isCurrentMonth =
-      userNow.year == monthStart.year && userNow.month == monthStart.month;
-  final daysPassed = isCurrentMonth ? userNow.day : daysInMonth;
+  final daysInMonth = monthEnd.difference(monthStart).inDays;
+  final currentCycleStart = financialCycleStartForDate(
+    userNow,
+    startDay: financialMonthStartDay,
+  );
+  final isCurrentMonth = currentCycleStart == monthStart;
+  final daysPassed = isCurrentMonth
+      ? DateTime(userNow.year, userNow.month, userNow.day)
+              .difference(monthStart)
+              .inDays +
+          1
+      : daysInMonth;
 
   final actualSpent = aggregateActualTransactions.fold<double>(
     0,
@@ -403,24 +426,43 @@ Future<List<PocketRolloverHistoryMonth>> _fetchPocketRolloverHistory({
     return const <PocketRolloverHistoryMonth>[];
   }
 
-  final Object? response;
+  final scope = switch (scopeType) {
+    PocketsScopeType.personal => 'personal',
+    PocketsScopeType.portfolio => 'portfolio',
+    PocketsScopeType.household => 'household',
+  };
+  final budgetMonth = DateTime(periodMonth.year, periodMonth.month, 1)
+      .toIso8601String()
+      .substring(0, 10);
+  Object? response;
   try {
-    response = await supabase.rpc(
-      'get_pocket_rollover_history_v1',
-      params: <String, dynamic>{
-        'p_user_id': userId,
-        'p_scope': switch (scopeType) {
-          PocketsScopeType.personal => 'personal',
-          PocketsScopeType.portfolio => 'portfolio',
-          PocketsScopeType.household => 'household',
-        },
-        'p_household_id': householdId,
-        'p_currency': currency,
-        'p_rollover_group_id': rolloverGroupId,
-        'p_period_month': periodMonth.toIso8601String().substring(0, 10),
-        'p_limit_months': 12,
-      },
-    );
+    final params = <String, dynamic>{
+      'p_user_id': userId,
+      'p_scope': scope,
+      'p_household_id': householdId,
+      'p_currency': currency,
+      'p_rollover_group_id': rolloverGroupId,
+      'p_budget_month': budgetMonth,
+      'p_limit_months': 12,
+    };
+    try {
+      response = await supabase.rpc(
+        'get_pocket_rollover_history_v2',
+        params: params,
+      );
+    } on PostgrestException catch (error) {
+      if (error.code != '42883' &&
+          !error.message.contains('get_pocket_rollover_history_v2')) {
+        rethrow;
+      }
+      response = await supabase.rpc(
+        'get_pocket_rollover_history_v1',
+        params: <String, dynamic>{
+          ...params,
+          'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+        }..remove('p_budget_month'),
+      );
+    }
   } catch (error, stackTrace) {
     if (foundation.kDebugMode) {
       foundation.debugPrint(
@@ -469,21 +511,39 @@ Future<PocketRolloverBreakdown?> _fetchPocketRolloverBreakdown({
   }
 
   try {
-    final response = await supabase.rpc(
-      'get_pocket_rollover_breakdown_v1',
-      params: <String, dynamic>{
-        'p_user_id': userId,
-        'p_scope': switch (scopeType) {
-          PocketsScopeType.personal => 'personal',
-          PocketsScopeType.portfolio => 'portfolio',
-          PocketsScopeType.household => 'household',
-        },
-        'p_household_id': householdId,
-        'p_currency': currency,
-        'p_rollover_group_id': rolloverGroupId,
-        'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+    final params = <String, dynamic>{
+      'p_user_id': userId,
+      'p_scope': switch (scopeType) {
+        PocketsScopeType.personal => 'personal',
+        PocketsScopeType.portfolio => 'portfolio',
+        PocketsScopeType.household => 'household',
       },
-    );
+      'p_household_id': householdId,
+      'p_currency': currency,
+      'p_rollover_group_id': rolloverGroupId,
+      'p_budget_month': DateTime(periodMonth.year, periodMonth.month, 1)
+          .toIso8601String()
+          .substring(0, 10),
+    };
+    Object? response;
+    try {
+      response = await supabase.rpc(
+        'get_pocket_rollover_breakdown_v2',
+        params: params,
+      );
+    } on PostgrestException catch (error) {
+      if (error.code != '42883' &&
+          !error.message.contains('get_pocket_rollover_breakdown_v2')) {
+        rethrow;
+      }
+      response = await supabase.rpc(
+        'get_pocket_rollover_breakdown_v1',
+        params: <String, dynamic>{
+          ...params,
+          'p_period_month': periodMonth.toIso8601String().substring(0, 10),
+        }..remove('p_budget_month'),
+      );
+    }
     if (response is! Map) return null;
     return PocketRolloverBreakdown.fromJson(
       Map<String, dynamic>.from(response),

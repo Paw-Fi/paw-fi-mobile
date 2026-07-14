@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -278,19 +279,29 @@ List<ExpenseEntry> projectUpcomingRecurringTransactionsAsExpenseEntries({
   required List<RecurringTransaction> recurringTransactions,
   required DateTime monthStart,
   required DateTime now,
+  int financialMonthStartDay = 1,
   String? selectedCurrency,
   List<String>? selectedCurrencies,
 }) {
-  final currentDay = _dateOnly(now);
-  final targetMonthStart = _dateOnly(monthStart);
+  final normalizedStartDay =
+      normalizeFinancialMonthStartDay(financialMonthStartDay);
+  final currentCycleStart = financialCycleStartForDate(
+    now,
+    startDay: normalizedStartDay,
+  );
+  final targetMonthStart = financialCycleStartForMonth(
+    monthStart,
+    startDay: normalizedStartDay,
+  );
 
-  if (currentDay.year != targetMonthStart.year ||
-      currentDay.month != targetMonthStart.month) {
+  if (currentCycleStart != targetMonthStart) {
     return const <ExpenseEntry>[];
   }
 
-  final monthEnd =
-      DateTime(targetMonthStart.year, targetMonthStart.month + 1, 0);
+  final monthEnd = nextFinancialCycleStart(
+    targetMonthStart,
+    startDay: normalizedStartDay,
+  ).subtract(const Duration(days: 1));
   final rangeStart = targetMonthStart;
 
   return projectRecurringTransactionsAsExpenseEntries(

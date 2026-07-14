@@ -109,11 +109,30 @@ Future<void> _syncThenRefreshMainShellData(
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
   await _syncMobileTransactions(ref, userId, guard);
   if (!guard.isActive) return;
+  await _refreshActiveHouseholdSettlementData(ref, guard);
+  if (!guard.isActive) return;
   await _syncCurrencyRates(ref, guard);
   if (!guard.isActive) return;
   await _refreshActiveMainShellTab(ref, userId, currentIndex, guard);
   if (!guard.isActive) return;
   await _refreshDeferredMainShellData(ref, userId, currentIndex, guard);
+}
+
+Future<void> _refreshActiveHouseholdSettlementData(
+  WidgetRef ref,
+  _MainShellAsyncGuard guard,
+) async {
+  final householdId = _activeMainShellHouseholdId(ref);
+  if (householdId == null || householdId.isEmpty) return;
+
+  try {
+    await clearHouseholdSettlementPaymentsPersistentCache(householdId);
+  } catch (_) {}
+  if (!guard.isActive) return;
+
+  ref.invalidate(householdSettlementPaymentsProvider(householdId));
+  ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
+  ref.invalidate(householdSettlementBreakdownV2Provider);
 }
 
 String? _activeMainShellHouseholdId(WidgetRef ref) {

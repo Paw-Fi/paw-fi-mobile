@@ -1,3 +1,18 @@
+final RegExp _databaseHouseholdIdPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+bool isOptimisticHouseholdId(String? householdId) {
+  final normalized = householdId?.trim() ?? '';
+  return normalized.startsWith('optimistic-household-');
+}
+
+bool isBackendHouseholdId(String? householdId) {
+  final normalized = householdId?.trim() ?? '';
+  return _databaseHouseholdIdPattern.hasMatch(normalized) ||
+      normalized.startsWith('preview-');
+}
+
 /// Household entity representing a shared financial space
 class Household {
   final String id;

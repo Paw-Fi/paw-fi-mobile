@@ -27,8 +27,18 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
-
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
+Future<void> activateCreatedSpaceBeforeClosing({
+  required String householdId,
+  required Future<void> Function(String householdId) selectHousehold,
+  required VoidCallback setHouseholdMode,
+  required VoidCallback closeCreationPage,
+}) async {
+  await selectHousehold(householdId);
+  setHouseholdMode();
+  closeCreationPage();
+}
 
 /// Single unified page to create either a Private Space or a Group Space (Household).
 /// Refactored for a premium, Apple iOS 26-like feel with card-based layout.
@@ -64,6 +74,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   File? _selectedImageFile;
   bool _isCreating = false;
   bool _isUploadingImage = false;
+  bool _isCheckingSpaceLimit = false;
 
   @override
   void initState() {
@@ -132,7 +143,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isLoading = _isCreating || _isUploadingImage;
+    final isLoading = _isCreating || _isUploadingImage || _isCheckingSpaceLimit;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId != null) {
       ref.watch(userHouseholdsProvider(currentUserId));
@@ -185,7 +196,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                           const SizedBox(height: 36),
 
                           // Shared/Members Card
-                          _buildMembersCard(),
+                          _buildMembersCard(isLoading),
 
                           if (_isSharedSpace) ...[
                             const SizedBox(height: 20),
@@ -205,20 +216,11 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     ));
   }
 
-  Widget _buildMembersCard() {
+  Widget _buildMembersCard(bool isLoading) {
     return SpaceVisibilitySelectorCard(
       isSharedSpace: _isSharedSpace,
-      onChanged: (value) {
-        if (_isFreeSpaceLimitReached(value)) {
-          PlusLockedSheet.show(
-            context,
-            highlightedFeature: PlusFeature.sharedBudgets,
-          );
-          return;
-        }
-        if (!mounted) return;
-        setState(() => _isSharedSpace = value);
-      },
+      enabled: !isLoading,
+      onChanged: _handleSpaceVisibilityChanged,
       onInfoTap: _showSpacesInfo,
     );
   }
@@ -294,10 +296,16 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   }
 
   Future<void> _handleCreation() async {
-    if (_isFreeSpaceLimitReached(_isSharedSpace)) {
+    if (_isCheckingSpaceLimit) return;
+    setState(() => _isCheckingSpaceLimit = true);
+    final limitReached = await _isFreeSpaceLimitReached(_isSharedSpace);
+    if (!mounted) return;
+    setState(() => _isCheckingSpaceLimit = false);
+
+    if (limitReached) {
       await PlusLockedSheet.show(
         context,
-        highlightedFeature: PlusFeature.sharedBudgets,
+        highlightedFeature: PlusFeature.spaceCreation,
       );
       return;
     }
@@ -332,24 +340,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         setState(() => _isUploadingImage = false);
       }
 
-      final optimisticId =
-          'optimistic-household-${DateTime.now().microsecondsSinceEpoch}';
-      final now = DateTime.now();
       final householdsNotifier =
           ref.read(userHouseholdsProvider(userId).notifier);
-      householdsNotifier.addOrReplaceHousehold(
-        Household(
-          id: optimisticId,
-          name: name,
-          ownerId: userId,
-          coverImageUrl: imageUrl,
-          currency: _selectedCurrency!,
-          isPortfolio: !_isSharedSpace,
-          autoSplitEnabled: _isSharedSpace ? _autoSplitEnabled : true,
-          createdAt: now,
-          updatedAt: now,
-        ),
-      );
 
       late final Household createdHousehold;
       try {
@@ -361,26 +353,30 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                   isPortfolio: !_isSharedSpace,
                   autoSplitEnabled: _isSharedSpace ? _autoSplitEnabled : null,
                 );
-        householdsNotifier.removeHousehold(optimisticId);
         householdsNotifier.addOrReplaceHousehold(createdHousehold);
       } catch (_) {
-        householdsNotifier.removeHousehold(optimisticId);
         rethrow;
       }
 
       if (!_isSharedSpace) {
         // --- Private Space Flow ---
-        if (!mounted) return;
-        setState(() => _isCreating = false);
-        if (widget.fromOnboarding) {
-          Navigator.of(context).pop(true); // Return to onboarding finish step
-        } else {
-          Navigator.of(context).pop(); // Close create page
-        }
-        await ref
-            .read(selectedHouseholdProvider.notifier)
-            .selectHousehold(createdHousehold.id);
-        ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+        await activateCreatedSpaceBeforeClosing(
+          householdId: createdHousehold.id,
+          selectHousehold:
+              ref.read(selectedHouseholdProvider.notifier).selectHousehold,
+          setHouseholdMode: () =>
+              ref.read(viewModeProvider.notifier).setMode(ViewMode.household),
+          closeCreationPage: () {
+            if (!mounted) return;
+            setState(() => _isCreating = false);
+            if (widget.fromOnboarding) {
+              Navigator.of(context)
+                  .pop(true); // Return to onboarding finish step
+            } else {
+              Navigator.of(context).pop(); // Close create page
+            }
+          },
+        );
       } else {
         // --- Group Space Flow ---
         // Switch context first
@@ -402,8 +398,34 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         _isCreating = false;
         _isUploadingImage = false;
       });
+      if (ErrorHandler.isPlusFeatureLimitError(e)) {
+        await PlusLockedSheet.show(
+          context,
+          highlightedFeature: PlusFeature.spaceCreation,
+        );
+        return;
+      }
       AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
     }
+  }
+
+  Future<void> _handleSpaceVisibilityChanged(bool value) async {
+    if (_isCheckingSpaceLimit || value == _isSharedSpace) return;
+    setState(() => _isCheckingSpaceLimit = true);
+    final limitReached = await _isFreeSpaceLimitReached(value);
+    if (!mounted) return;
+    setState(() => _isCheckingSpaceLimit = false);
+
+    if (limitReached) {
+      await PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.spaceCreation,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isSharedSpace = value);
   }
 
   void _handleAutoSplitToggle(bool value) {
@@ -411,15 +433,31 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     setState(() => _autoSplitEnabled = value);
   }
 
-  bool _isFreeSpaceLimitReached(bool sharedSpace) {
-    final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
+  Future<bool> _isFreeSpaceLimitReached(bool sharedSpace) async {
+    final subscriptionAsync = ref.read(subscriptionNotifierProvider);
+    var subscription = subscriptionAsync.valueOrNull;
+    if (!subscriptionAsync.hasValue) {
+      try {
+        subscription = await ref.read(subscriptionNotifierProvider.future);
+      } catch (_) {
+        // Unknown entitlement state must not be treated as a confirmed free
+        // plan. The backend remains the final authority and its limit error is
+        // mapped to the same Plus sheet in _handleCreation.
+        return false;
+      }
+    }
     if (hasPremiumFeatureAccess(subscription)) return false;
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return false;
 
-    final households = ref.read(userHouseholdsProvider(userId)).valueOrNull ??
-        const <Household>[];
+    var householdsAsync = ref.read(userHouseholdsProvider(userId));
+    if (!householdsAsync.hasValue) {
+      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      if (!mounted) return false;
+      householdsAsync = ref.read(userHouseholdsProvider(userId));
+    }
+    final households = householdsAsync.valueOrNull ?? const <Household>[];
     final ownedHouseholds =
         households.where((household) => household.ownerId == userId);
     final ownedPrivateSpaces =

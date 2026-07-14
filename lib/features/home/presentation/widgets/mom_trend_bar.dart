@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/core/core.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class MoMTrendBar extends ConsumerWidget {
   const MoMTrendBar({super.key});
@@ -14,15 +14,32 @@ class MoMTrendBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // This widget is only shown in personal mode; always scope to personal data
-    const String? householdId = null;
+    final mapAsync = ref.watch(momTrendProvider);
+    final map = mapAsync.valueOrNull;
 
-    // NOTE: Recurring transactions are loaded by app_initialization_provider
-    // Just watch the data here - no need to trigger load
-    // ignore: unused_local_variable
-    final recState = ref.watch(recurringTransactionsProvider(householdId));
-    final map = ref.watch(momTrendProvider);
-    appLog('widget_viewed: mom_trend_bar');
+    if (map == null) {
+      if (mapAsync.hasError) {
+        return _wrap(
+          context,
+          colorScheme,
+          Center(child: Text(context.l10n.noSpendingData)),
+        );
+      }
+      return _wrap(
+        context,
+        colorScheme,
+        Skeletonizer(
+          enabled: true,
+          effect: ShimmerEffect(
+            baseColor: colorScheme.skeletonBase,
+            highlightColor: colorScheme.skeletonHighlight,
+          ),
+          child: Center(child: Text(context.l10n.noSpendingData)),
+        ),
+        title: context.l10n.monthOverMonthSpending,
+        subtitle: context.l10n.last3Months,
+      );
+    }
 
     if (map.isEmpty) {
       return _wrap(context, colorScheme,

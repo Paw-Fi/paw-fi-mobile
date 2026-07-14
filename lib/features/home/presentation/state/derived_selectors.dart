@@ -1,6 +1,15 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/period_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/period_selection.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -34,67 +43,156 @@ final savingsRateProvider = Provider<double>((ref) {
   return ((income - spend) / income).clamp(-1.0, 1.0);
 });
 
-/// Month-over-month expense totals for the last 3 months
-final momTrendProvider = Provider<Map<String, double>>((ref) {
-  final data = ref.watch(analyticsProvider);
-  final filter = ref.watch(homeFilterProvider);
-  final setCurrency = filter.selectedCurrency?.toUpperCase();
-  // MoM trend is personal-only; always scope recurring to personal data
-  final recurringExpensesAV = ref.watch(recurringExpensesProvider(null));
-
-  // Build last 3 month keys: yyyy-MM
-  final now = DateTime.now();
-  final months = List.generate(3, (i) {
-    final d = DateTime(now.year, now.month - i, 1);
-    return DateTime(d.year, d.month); // normalized
+List<DateTime> _momTrendCycleStarts(
+  DateTime now, {
+  required int financialMonthStartDay,
+}) {
+  final currentCycleStart = financialCycleStartForDate(
+    now,
+    startDay: financialMonthStartDay,
+  );
+  return List<DateTime>.generate(3, (index) {
+    return addFinancialCycles(
+      currentCycleStart,
+      -index,
+      startDay: financialMonthStartDay,
+    );
   });
-  final keys = months
-      .map((d) => '${d.year}-${d.month.toString().padLeft(2, '0')}')
-      .toList();
-  final map = {for (final k in keys) k: 0.0};
+}
+
+Map<String, double> calculateMomTrend({
+  required List<ExpenseEntry> actualTransactions,
+  required List<RecurringTransaction> recurringTransactions,
+  required DateTime now,
+  required int financialMonthStartDay,
+  String? selectedCurrency,
+}) {
+  final normalizedCurrency = selectedCurrency?.trim().toUpperCase();
+  final months = _momTrendCycleStarts(
+    now,
+    financialMonthStartDay: financialMonthStartDay,
+  );
+  final keys = months.map(formatFinancialPeriodDate).toList(growable: false);
+  final totals = <String, double>{for (final key in keys) key: 0};
   final actualExpensesByKey = <String, List<ExpenseEntry>>{
     for (final key in keys) key: <ExpenseEntry>[],
   };
 
-  for (final e in data.allExpenses) {
-    // Expense-only
-    if ((e.type ?? 'expense').toLowerCase() == 'income') continue;
-    if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency)) {
+  for (final expense in actualTransactions) {
+    if ((expense.type ?? 'expense').toLowerCase() == 'income') continue;
+    // Recurring rows are schedule templates, not posted transactions. Their
+    // actual/projected occurrences are supplied by recurringTransactions.
+    if (expense.isRecurring) continue;
+    // Personal Home's historical MoM contract excludes split transactions;
+    // household split analytics are rendered by the household dashboard.
+    if (expense.splitGroupId?.trim().isNotEmpty == true) continue;
+    if (normalizedCurrency != null &&
+        expense.currency?.toUpperCase() != normalizedCurrency) {
       continue;
     }
-    final key = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}';
-    if (map.containsKey(key)) {
-      map[key] = (map[key] ?? 0) + e.amount.abs();
-      actualExpensesByKey[key]!.add(e);
+    final expenseDate = dateOnly(expense.date);
+    for (final start in months) {
+      final end = nextFinancialCycleStart(
+        start,
+        startDay: financialMonthStartDay,
+      ).subtract(const Duration(days: 1));
+      if (expenseDate.isBefore(start) || expenseDate.isAfter(end)) continue;
+      actualExpensesByKey[formatFinancialPeriodDate(start)]!.add(expense);
+      break;
     }
   }
 
-  recurringExpensesAV.when(
-    data: (items) {
-      final now = DateTime.now();
-      for (final month in months) {
-        final start = DateTime(month.year, month.month, 1);
-        final end = DateTime(month.year, month.month + 1, 0);
-        final key = '${start.year}-${start.month.toString().padLeft(2, '0')}';
-        final mergedExpenses = mergeActualExpensesWithProjectedRecurring(
-          actualExpenses: actualExpensesByKey[key] ?? const <ExpenseEntry>[],
-          recurringTransactions: items,
-          rangeStart: start,
-          rangeEnd: end,
-          selectedCurrency: setCurrency,
-          includeFutureOccurrences: false,
-          now: now,
-        );
-        map[key] = mergedExpenses.fold<double>(
-          0,
-          (sum, expense) => sum + expense.amount.abs(),
-        );
-      }
-    },
-    loading: () {},
-    error: (_, __) {},
+  for (final start in months) {
+    final end = nextFinancialCycleStart(
+      start,
+      startDay: financialMonthStartDay,
+    ).subtract(const Duration(days: 1));
+    final key = formatFinancialPeriodDate(start);
+    final mergedExpenses = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: actualExpensesByKey[key] ?? const <ExpenseEntry>[],
+      recurringTransactions: recurringTransactions,
+      rangeStart: start,
+      rangeEnd: end,
+      selectedCurrency: normalizedCurrency,
+      includeFutureOccurrences: false,
+      now: now,
+    );
+    totals[key] = mergedExpenses.fold<double>(
+      0,
+      (sum, expense) => sum + expense.amount.abs(),
+    );
+  }
+  return totals;
+}
+
+/// Month-over-month expense totals for the last 3 months
+final momTrendProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
+  final userId = ref.watch(authProvider.select((user) => user.uid));
+  if (userId.isEmpty) {
+    return const AsyncValue.data(<String, double>{});
+  }
+  final filter = ref.watch(homeFilterProvider);
+  final setCurrency = filter.selectedCurrency?.toUpperCase();
+  final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+  final scope = ref.watch(householdScopeProvider);
+  final householdId = scope.activeAccountType == ActiveWalletType.personal
+      ? null
+      : scope.activeAccountHouseholdId;
+  final recurringExpensesAV = ref.watch(recurringExpensesProvider(householdId));
+
+  // Build last 3 financial-cycle keys.
+  final now = DateTime.now();
+  final months = _momTrendCycleStarts(
+    now,
+    financialMonthStartDay: financialMonthStartDay,
   );
-  return map;
+  final currentCycleStart = months.first;
+  final rangeStart = months.last;
+  final rangeEnd = nextFinancialCycleStart(
+    currentCycleStart,
+    startDay: financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
+  final transactionsAsync = ref.watch(
+    dashboardOwnedRangeTransactionsProvider(
+      DashboardScopeQuery(
+        userId: userId,
+        householdId: householdId,
+        selectedCurrency: setCurrency,
+        selectedCurrencies: setCurrency == null ? null : <String>[setCurrency],
+        startDate: rangeStart,
+        endDate: rangeEnd,
+      ),
+    ),
+  );
+  final actualTransactions = transactionsAsync.valueOrNull;
+  if (actualTransactions == null) {
+    if (transactionsAsync.hasError) {
+      return AsyncValue.error(
+        transactionsAsync.error!,
+        transactionsAsync.stackTrace ?? StackTrace.current,
+      );
+    }
+    return const AsyncValue.loading();
+  }
+  final recurringExpenses = recurringExpensesAV.valueOrNull;
+  if (recurringExpenses == null) {
+    if (recurringExpensesAV.hasError) {
+      return AsyncValue.error(
+        recurringExpensesAV.error!,
+        recurringExpensesAV.stackTrace ?? StackTrace.current,
+      );
+    }
+    return const AsyncValue.loading();
+  }
+  return AsyncValue.data(
+    calculateMomTrend(
+      actualTransactions: actualTransactions,
+      recurringTransactions: recurringExpenses,
+      now: now,
+      financialMonthStartDay: financialMonthStartDay,
+      selectedCurrency: setCurrency,
+    ),
+  );
 });
 
 /// Budget runway gauge inputs (estimated days until budget consumed)
@@ -115,14 +213,17 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
   final expenses = ref.watch(homeFilteredExpensesProvider);
   final budgets = ref.watch(homeFilteredBudgetsProvider);
   final periodSelection = ref.watch(periodFilterProvider);
+  final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
   if (expenses.isEmpty || budgets.isEmpty) {
     return const RunwayInfo(
         daysRemaining: 0, budgetRemaining: 0, avgDailySpend: 0, gauge: 0);
   }
-
   // Date range window
-  final range = resolvePeriodDateRange(periodSelection);
+  final range = resolvePeriodDateRange(
+    periodSelection,
+    financialMonthStartDay: financialMonthStartDay,
+  );
   final from = DateTime(range.start.year, range.start.month, range.start.day);
   final to = DateTime(range.end.year, range.end.month, range.end.day);
   final daysInWindow =

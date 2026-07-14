@@ -91,6 +91,57 @@ void main() {
     expect(projected.single.amountCents, 95000);
   });
 
+  test(
+      'projects upcoming recurring expenses inside the current financial cycle',
+      () {
+    final inCycleExpense = RecurringTransaction(
+      id: 'rent',
+      date: DateTime(2026, 8, 10),
+      category: 'housing',
+      description: 'Flat rent',
+      amount: 950.0,
+      currency: 'GBP',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 8, 10),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final nextCycleExpense = RecurringTransaction(
+      id: 'loan',
+      date: DateTime(2026, 8, 25),
+      category: 'debt',
+      description: 'Loan payment',
+      amount: 200.0,
+      currency: 'GBP',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 8, 25),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    final projected = projectUpcomingRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: [inCycleExpense, nextCycleExpense],
+      monthStart: DateTime(2026, 7, 1),
+      now: DateTime(2026, 8, 10),
+      financialMonthStartDay: 25,
+      selectedCurrency: 'GBP',
+    );
+
+    expect(projected, hasLength(1));
+    expect(projected.single.id,
+        buildProjectedRecurringExpenseId('rent', DateTime(2026, 8, 10)));
+  });
+
   test('does not project future recurring spending for past months', () {
     final transaction = RecurringTransaction(
       id: 'rent',

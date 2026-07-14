@@ -125,6 +125,7 @@ class WidgetSyncManager extends HookConsumerWidget {
     );
     final selectedWidgetCurrenciesKey = selectedWidgetCurrencies.join(',');
     final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     // Ensure configuration options (spaces) are always saved
     // for the iOS AppIntent, independent of analytics loading state.
@@ -254,14 +255,20 @@ class WidgetSyncManager extends HookConsumerWidget {
             appInitState.data?.user?.preferredTimezone,
           );
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-          final widgetRange = buildWidgetThisMonthRange(userNow);
+          final widgetRange = buildWidgetThisMonthRange(
+            userNow,
+            financialMonthStartDay: financialMonthStartDay,
+          );
           final currentMonth = widgetRange['from']!;
           final currentRangeEnd = widgetRange['to']!;
           final widgetCurrencyRates = await _widgetCurrencyRates(ref);
 
           // Fetch Monthly Budgets for all scopes
-          final monthStr =
-              currentMonth.toIso8601String().substring(0, 10); // YYYY-MM-DD
+          final budgetMonthStr = DateTime(
+            currentMonth.year,
+            currentMonth.month,
+            1,
+          ).toIso8601String().substring(0, 10);
 
           Future<List<ExpenseEntry>> loadWidgetTransactionsForScope({
             required String scopeId,
@@ -379,7 +386,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                 .select(
                     'id,currency,total_budget_cents,period_month,household_id')
                 .eq('user_id', user.uid)
-                .eq('period_month', monthStr)
+                .eq('period_month', budgetMonthStr)
                 .isFilter('household_id', null);
 
             final rows =
@@ -426,14 +433,18 @@ class WidgetSyncManager extends HookConsumerWidget {
             required double fallbackTotalBudget,
           }) async {
             try {
-              final periodMonth = monthStart.toIso8601String().substring(0, 10);
+              final budgetMonth = DateTime(
+                monthStart.year,
+                monthStart.month,
+                1,
+              ).toIso8601String().substring(0, 10);
               final response = await Supabase.instance.client.rpc(
-                'get_pockets_month_v2',
+                'get_pockets_month_v3',
                 params: <String, dynamic>{
                   'p_user_id': user.uid,
                   'p_scope': scope,
                   'p_household_id': householdId,
-                  'p_period_month': periodMonth,
+                  'p_budget_month': budgetMonth,
                   'p_currency': currency,
                   'p_include_projected_recurring': true,
                   'p_allow_currency_fallback': false,
@@ -517,7 +528,11 @@ class WidgetSyncManager extends HookConsumerWidget {
             try {
               final client = Supabase.instance.client;
 
-              final periodMonth = monthStart.toIso8601String().substring(0, 10);
+              final periodMonth = DateTime(
+                monthStart.year,
+                monthStart.month,
+                1,
+              ).toIso8601String().substring(0, 10);
 
               final rpcSnapshot = await loadBudgetPocketsFromRpc(
                 scope: 'personal',
@@ -677,8 +692,11 @@ class WidgetSyncManager extends HookConsumerWidget {
             try {
               final client = Supabase.instance.client;
 
-              final periodMonth =
-                  monthStart.toIso8601String().substring(0, 10); // YYYY-MM-DD
+              final periodMonth = DateTime(
+                monthStart.year,
+                monthStart.month,
+                1,
+              ).toIso8601String().substring(0, 10);
 
               final budgetRowsRes = await client
                   .from('budgets')
@@ -941,11 +959,12 @@ class WidgetSyncManager extends HookConsumerWidget {
                       budget.date.month,
                       budget.date.day,
                     );
-                    final isMonthMatch = budgetDate.year == userNow.year &&
-                        budgetDate.month == userNow.month;
+                    final isInCurrentCycle =
+                        !budgetDate.isBefore(currentMonth) &&
+                            !budgetDate.isAfter(currentRangeEnd);
                     final currencyOk =
                         (budget.currency?.toUpperCase() ?? 'USD') == currency;
-                    return isMonthMatch && currencyOk;
+                    return isInCurrentCycle && currencyOk;
                   }).toList();
 
                   if (budgetsInRange.isNotEmpty) {
@@ -954,8 +973,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                   } else {
                     // Find most recent budget before this month
                     DailyBudgetEntry? mostRecentBudget;
-                    final firstOfMonth =
-                        DateTime(userNow.year, userNow.month, 1);
                     for (final budget in allBudgets.reversed) {
                       final budgetDate = DateTime(
                         budget.date.year,
@@ -964,7 +981,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                       );
                       final currencyOk =
                           (budget.currency?.toUpperCase() ?? 'USD') == currency;
-                      if (currencyOk && budgetDate.isBefore(firstOfMonth)) {
+                      if (currencyOk && budgetDate.isBefore(currentMonth)) {
                         mostRecentBudget = budget;
                         break;
                       }
@@ -1164,6 +1181,7 @@ class WidgetSyncManager extends HookConsumerWidget {
       householdsAsync.valueOrNull,
       selectedWidgetCurrency,
       selectedWidgetCurrenciesKey,
+      financialMonthStartDay,
       widgetSyncVersion,
       syncState.isSyncing,
       isAppReady, // Add app ready state as dependency

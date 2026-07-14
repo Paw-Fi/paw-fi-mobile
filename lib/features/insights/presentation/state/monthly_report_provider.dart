@@ -9,11 +9,13 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -63,31 +65,41 @@ enum MonthlyReportRange {
 class MonthlyReportQuery {
   const MonthlyReportQuery({
     required this.monthStart,
+    this.financialMonthStartDay = 1,
     this.range = MonthlyReportRange.month,
   });
 
   final DateTime monthStart;
+  final int financialMonthStartDay;
   final MonthlyReportRange range;
 
-  MonthlyReportQuery normalized() => MonthlyReportQuery(
-        monthStart: DateTime(monthStart.year, monthStart.month),
-        range: range,
-      );
+  MonthlyReportQuery normalized({int? financialMonthStartDay}) {
+    final startDay = normalizeFinancialMonthStartDay(
+      financialMonthStartDay ?? this.financialMonthStartDay,
+    );
+    return MonthlyReportQuery(
+      monthStart: financialCycleStartForMonth(
+        monthStart,
+        startDay: startDay,
+      ),
+      financialMonthStartDay: startDay,
+      range: range,
+    );
+  }
 
-  String get monthKey =>
-      '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}';
+  String get monthKey => formatFinancialPeriodDate(monthStart);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is MonthlyReportQuery &&
             other.range == range &&
-            other.monthStart.year == monthStart.year &&
-            other.monthStart.month == monthStart.month;
+            other.monthStart == monthStart &&
+            other.financialMonthStartDay == financialMonthStartDay;
   }
 
   @override
-  int get hashCode => Object.hash(monthStart.year, monthStart.month, range);
+  int get hashCode => Object.hash(monthStart, financialMonthStartDay, range);
 }
 
 class MonthlyReportPeriod {
@@ -142,7 +154,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
 
   @override
   Future<MonthlyFinancialReportSnapshot> build(MonthlyReportQuery arg) async {
-    _query = arg.normalized();
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    _query = arg.normalized(financialMonthStartDay: financialMonthStartDay);
     final user = ref.watch(authProvider);
     final preview = ref.watch(previewModeProvider);
     final userId = user.uid;
@@ -165,6 +178,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       scope: householdScope.activeAccountType.name,
       householdId: householdId,
       monthStart: monthStart,
+      financialMonthStartDay: _query.financialMonthStartDay,
       range: _query.range,
       periodStart: period.start,
       periodEnd: period.end,
@@ -192,6 +206,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
             monthStart: monthStart,
             periodStart: period.start,
             periodEnd: period.end,
+            financialMonthStartDay: _query.financialMonthStartDay,
             compareMonthToDate: period.compareMonthToDate,
             now: now,
             currencyCode: currencyCode,
@@ -316,6 +331,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         scope: householdScope.activeAccountType.name,
         householdId: householdId,
         monthStart: monthStart,
+        financialMonthStartDay: _query.financialMonthStartDay,
         range: _query.range,
         periodStart: period.start,
         periodEnd: period.end,
@@ -340,6 +356,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     required bool publish,
     required bool watchDependencies,
   }) async {
+    final financialMonthStartDay = _query.financialMonthStartDay;
     final selectedCurrencies = watchDependencies
         ? ref.watch(
             homeFilterProvider
@@ -466,6 +483,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       periodMonth: monthStart,
       currency: currencyCode,
       selectedCurrencies: selectedCurrencies,
+      financialMonthStartDay: financialMonthStartDay,
       includeUpcomingRecurring: true,
     );
     final pocketsState = watchDependencies
@@ -487,6 +505,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       currencyCode: currencyCode,
       selectedCurrencies: selectedCurrencies,
       monthStart: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
       watchDependencies: watchDependencies,
     );
     final previousNetWorth = await _readPreviousNetWorth(
@@ -496,6 +515,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       currencyCode: currencyCode,
       selectedCurrencies: selectedCurrencies,
       monthStart: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
       watchDependencies: watchDependencies,
     );
     final goalInputsResult = await _loadGoalInputsForReport(
@@ -509,6 +529,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         monthStart: monthStart,
         periodStart: period.start,
         periodEnd: period.end,
+        financialMonthStartDay: financialMonthStartDay,
         compareMonthToDate: period.compareMonthToDate,
         now: now,
         currencyCode: currencyCode,
@@ -634,6 +655,7 @@ String _monthlyReportCacheKey({
   required String scope,
   required String? householdId,
   required DateTime monthStart,
+  required int financialMonthStartDay,
   required MonthlyReportRange range,
   required DateTime periodStart,
   required DateTime periodEnd,
@@ -641,13 +663,10 @@ String _monthlyReportCacheKey({
   List<String>? selectedCurrencies,
   required String localeTag,
 }) {
-  final month =
-      '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}';
-  final start =
-      '${periodStart.year.toString().padLeft(4, '0')}-${periodStart.month.toString().padLeft(2, '0')}-${periodStart.day.toString().padLeft(2, '0')}';
-  final end =
-      '${periodEnd.year.toString().padLeft(4, '0')}-${periodEnd.month.toString().padLeft(2, '0')}-${periodEnd.day.toString().padLeft(2, '0')}';
-  return 'monthly-report:v3:$userId:$scope:${householdId ?? 'personal'}:$month:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
+  final month = formatFinancialPeriodDate(monthStart);
+  final start = formatFinancialPeriodDate(periodStart);
+  final end = formatFinancialPeriodDate(periodEnd);
+  return 'monthly-report:v4:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
 }
 
 String _currencySelectionCacheSegment(List<String>? currencies) {
@@ -664,8 +683,15 @@ MonthlyReportPeriod _monthlyReportPeriod(
   MonthlyReportQuery query, {
   required DateTime now,
 }) {
-  final monthStart = DateTime(query.monthStart.year, query.monthStart.month);
-  final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
+  final financialMonthStartDay = query.financialMonthStartDay;
+  final monthStart = financialCycleStartForDate(
+    query.monthStart,
+    startDay: financialMonthStartDay,
+  );
+  final monthEnd = nextFinancialCycleStart(
+    monthStart,
+    startDay: financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
   final today = DateTime(now.year, now.month, now.day);
 
   switch (query.range) {
@@ -692,33 +718,64 @@ MonthlyReportPeriod _monthlyReportPeriod(
       return MonthlyReportPeriod(
         start: monthStart,
         end: monthEnd,
-        previousStart: DateTime(monthStart.year, monthStart.month - 1),
-        previousEnd: DateTime(monthStart.year, monthStart.month, 0),
-        historicalStart: DateTime(monthStart.year, monthStart.month - 6),
+        previousStart: previousFinancialCycleStart(
+          monthStart,
+          startDay: financialMonthStartDay,
+        ),
+        previousEnd: monthStart.subtract(const Duration(days: 1)),
+        historicalStart: addFinancialCycles(
+          monthStart,
+          -6,
+          startDay: financialMonthStartDay,
+        ),
         compareMonthToDate: true,
       );
     case MonthlyReportRange.sixMonths:
-      final start = DateTime(monthStart.year, monthStart.month - 5);
-      final previousStart = DateTime(start.year, start.month - 6);
+      final start = addFinancialCycles(
+        monthStart,
+        -5,
+        startDay: financialMonthStartDay,
+      );
+      final previousStart = addFinancialCycles(
+        start,
+        -6,
+        startDay: financialMonthStartDay,
+      );
       final previousEnd = start.subtract(const Duration(days: 1));
       return MonthlyReportPeriod(
         start: start,
         end: monthEnd,
         previousStart: previousStart,
         previousEnd: previousEnd,
-        historicalStart: DateTime(start.year, start.month - 6),
+        historicalStart: addFinancialCycles(
+          start,
+          -6,
+          startDay: financialMonthStartDay,
+        ),
         compareMonthToDate: false,
       );
     case MonthlyReportRange.year:
-      final start = DateTime(monthStart.year, monthStart.month - 11);
-      final previousStart = DateTime(start.year, start.month - 12);
+      final start = addFinancialCycles(
+        monthStart,
+        -11,
+        startDay: financialMonthStartDay,
+      );
+      final previousStart = addFinancialCycles(
+        start,
+        -12,
+        startDay: financialMonthStartDay,
+      );
       final previousEnd = start.subtract(const Duration(days: 1));
       return MonthlyReportPeriod(
         start: start,
         end: monthEnd,
         previousStart: previousStart,
         previousEnd: previousEnd,
-        historicalStart: DateTime(start.year, start.month - 12),
+        historicalStart: addFinancialCycles(
+          start,
+          -12,
+          startDay: financialMonthStartDay,
+        ),
         compareMonthToDate: false,
       );
   }
@@ -789,6 +846,7 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
       monthStart: query.monthStart,
       periodStart: period.start,
       periodEnd: period.end,
+      financialMonthStartDay: query.financialMonthStartDay,
       compareMonthToDate: period.compareMonthToDate,
       now: now,
       currencyCode: currencyCode,
@@ -1603,6 +1661,7 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
   required String currencyCode,
   List<String>? selectedCurrencies,
   required DateTime monthStart,
+  required int financialMonthStartDay,
   required bool watchDependencies,
 }) async {
   final provider = walletsMonthSnapshotProvider(
@@ -1613,6 +1672,7 @@ Future<WalletsMonthSnapshot> _readWalletSnapshot(
         selectedCurrency: currencyCode,
         selectedCurrencies: selectedCurrencies,
         currentMonthStart: monthStart,
+        financialMonthStartDay: financialMonthStartDay,
       ),
       monthStart: monthStart,
     ),
@@ -1629,6 +1689,7 @@ Future<double?> _readPreviousNetWorth(
   required String currencyCode,
   List<String>? selectedCurrencies,
   required DateTime monthStart,
+  required int financialMonthStartDay,
   required bool watchDependencies,
 }) async {
   final provider = walletsHistoryProvider(
@@ -1638,6 +1699,7 @@ Future<double?> _readPreviousNetWorth(
       selectedCurrency: currencyCode,
       selectedCurrencies: selectedCurrencies,
       currentMonthStart: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
     ),
   );
   final history = await ref.read(provider.future);

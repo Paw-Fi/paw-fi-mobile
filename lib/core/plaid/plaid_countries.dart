@@ -126,13 +126,42 @@ bool isPlaidSupportedTimezone(String? preferredTimezone) {
   if (kDebugMode) {
     return true;
   }
-  final normalized =
-      canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
-  if (normalized == null || normalized.isEmpty) {
+  final rawTimezone = preferredTimezone?.trim();
+  if (rawTimezone == null || rawTimezone.isEmpty) {
     return false;
   }
+  final canonicalTimezone = canonicalTimezoneValue(rawTimezone)?.trim();
+  final timezoneCandidates = <String>{
+    rawTimezone,
+    if (canonicalTimezone != null && canonicalTimezone.isNotEmpty)
+      canonicalTimezone,
+  };
+  final normalizedCandidates = timezoneCandidates
+      .map((timezone) => timezone.trim().toLowerCase())
+      .where((timezone) => timezone.isNotEmpty)
+      .toSet();
 
-  if (normalized.startsWith('us/')) {
+  if (normalizedCandidates.any(
+    (timezone) => timezone.startsWith('us/') || timezone.startsWith('canada/'),
+  )) {
+    return true;
+  }
+
+  const supportedLegacyOffsetMinutes = <int>{
+    -600,
+    -540,
+    -480,
+    -420,
+    -360,
+    -300,
+    -240,
+    -210,
+    -180,
+    -150,
+  };
+  if (timezoneCandidates
+      .map(_tryParseFlexibleTimezoneOffsetMinutes)
+      .any(supportedLegacyOffsetMinutes.contains)) {
     return true;
   }
 
@@ -171,8 +200,10 @@ bool isPlaidSupportedTimezone(String? preferredTimezone) {
     'america/glace_bay',
     'america/moncton',
     'america/goose_bay',
+    'america/blanc-sablon',
     'america/toronto',
     'america/iqaluit',
+    'america/atikokan',
     'america/winnipeg',
     'america/rankin_inlet',
     'america/resolute',
@@ -189,5 +220,54 @@ bool isPlaidSupportedTimezone(String? preferredTimezone) {
     'america/dawson',
   };
 
-  return supportedPlaidIanaTimezones.contains(normalized);
+  return normalizedCandidates.any(supportedPlaidIanaTimezones.contains);
+}
+
+int? _tryParseFlexibleTimezoneOffsetMinutes(String timezone) {
+  final trimmed = timezone.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+
+  final strictOffset = tryParseTimezoneOffsetMinutes(trimmed);
+  if (strictOffset != null) {
+    return strictOffset;
+  }
+
+  final compact = trimmed.toUpperCase().replaceAll(RegExp(r'\s+'), '');
+  if (compact == 'Z' || compact == 'UTC' || compact == 'GMT') {
+    return 0;
+  }
+
+  final etcGmtMatch = RegExp(r'^ETC/GMT([+-])(\d{1,2})$').firstMatch(compact);
+  if (etcGmtMatch != null) {
+    final hours = int.tryParse(etcGmtMatch.group(2)!);
+    if (hours == null || hours > 14) {
+      return null;
+    }
+    final direction = etcGmtMatch.group(1) == '+' ? -1 : 1;
+    return direction * hours * 60;
+  }
+
+  final flexibleOffsetMatch =
+      RegExp(r'^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$')
+          .firstMatch(compact);
+  if (flexibleOffsetMatch == null) {
+    return null;
+  }
+
+  final hours = int.tryParse(flexibleOffsetMatch.group(2)!);
+  final minutes = int.tryParse(flexibleOffsetMatch.group(3) ?? '0');
+  if (hours == null || minutes == null) {
+    return null;
+  }
+  if (hours > 14 || minutes < 0 || minutes >= 60) {
+    return null;
+  }
+  if (hours == 14 && minutes > 0) {
+    return null;
+  }
+
+  final direction = flexibleOffsetMatch.group(1) == '-' ? -1 : 1;
+  return direction * ((hours * 60) + minutes);
 }

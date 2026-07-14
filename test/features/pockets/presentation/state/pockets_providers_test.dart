@@ -1552,6 +1552,30 @@ void main() {
       expect(multiCurrency, sameMultiCurrency);
       expect(multiCurrency.hashCode, sameMultiCurrency.hashCode);
     });
+
+    test('financial month start day participates in equality', () {
+      final calendar = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 7, 25),
+        currency: 'USD',
+      );
+      final financial = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 7, 25),
+        currency: 'USD',
+        financialMonthStartDay: 25,
+      );
+      final sameFinancial = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 7, 25),
+        currency: 'USD',
+        financialMonthStartDay: 25,
+      );
+
+      expect(calendar, isNot(financial));
+      expect(financial, sameFinancial);
+      expect(financial.hashCode, sameFinancial.hashCode);
+    });
   });
 
   group('includeUpcomingRecurringInPocketsProvider', () {

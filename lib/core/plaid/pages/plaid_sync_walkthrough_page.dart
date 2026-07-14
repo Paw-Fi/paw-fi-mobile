@@ -18,8 +18,6 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
-import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -77,14 +75,12 @@ class _PlaidSyncWalkthroughPageState
       return;
     }
 
-    final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
-    if (!hasPremiumFeatureAccess(subscription)) {
-      PlusLockedSheet.show(
-        context,
-        highlightedFeature: PlusFeature.bankSync,
-      );
-      return;
-    }
+    final hasAccess = await PlusLockedSheet.ensureAccess(
+      context,
+      ref,
+      feature: PlusFeature.bankSync,
+    );
+    if (!hasAccess || !mounted) return;
 
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
     final provider = getProviderForCountry(selectedCountryCode);

@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
@@ -187,6 +188,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       preferredTimezone: ref.watch(analyticsProvider
           .select((state) => state.contact?.preferredTimezone)),
     );
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     DateTime? queryStartDate = _customStart;
     DateTime? queryEndDate = _customEnd;
@@ -198,6 +200,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         null,
         null,
         now: userNow,
+        financialMonthStartDay: financialMonthStartDay,
       );
       queryStartDate = range['from'];
       queryEndDate = range['to'];
@@ -225,6 +228,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   Future<void> _refreshData() async {
     final query = _buildFeedQuery();
     await ref.read(transactionsFeedProvider(query).notifier).refresh();
+    if (!mounted) return;
+    ref.invalidate(transactionsFeedAllItemsProvider(query));
   }
 
   _CategoryRenderCacheResult _resolveRenderItems({
@@ -260,6 +265,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final categoryName = getCategoryTranslation(context, widget.categoryKey);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
     final query = _buildFeedQuery();
     final feedState = ref.watch(transactionsFeedProvider(query));
@@ -361,7 +367,10 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           )
         : expenses;
 
-    final monthGroups = groupTransactionsByMonth(displayExpenses);
+    final monthGroups = groupTransactionsByMonth(
+      displayExpenses,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final renderResult = _resolveRenderItems(
       displayExpenses: displayExpenses,
       monthGroups: monthGroups,
@@ -416,6 +425,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     }
     final aggregateMonthGroups = groupTransactionsByMonth(
       convertedAggregateExpenses,
+      financialMonthStartDay: financialMonthStartDay,
     );
 
     final sortedMerchants = merchantTally.entries.toList()

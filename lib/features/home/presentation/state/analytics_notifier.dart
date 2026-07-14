@@ -336,7 +336,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     final contactsResponse = await supabase
         .from('user_contacts')
         .select(
-            'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone,created_at,updated_at')
+            'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone,financial_month_start_day,created_at,updated_at')
         .eq('user_id', userId)
         .order('updated_at', ascending: false)
         .order('created_at', ascending: false)
@@ -561,14 +561,16 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     if (contact == null) return;
 
     state = state.copyWith(
-      contact: UserContact(
-        id: contact.id,
-        userId: contact.userId,
-        phoneE164: contact.phoneE164,
-        verified: contact.verified,
-        preferredCurrency: contact.preferredCurrency,
-        preferredTimezone: timezone,
-      ),
+      contact: contact.copyWith(preferredTimezone: timezone),
+    );
+  }
+
+  void updateFinancialMonthStartDay(int day) {
+    final contact = state.contact;
+    if (contact == null) return;
+
+    state = state.copyWith(
+      contact: contact.copyWith(financialMonthStartDay: day),
     );
   }
 

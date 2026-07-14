@@ -44,6 +44,7 @@ class SpendingCard extends StatefulWidget {
   final CurrencyRateTable? currencyRates;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
+  final int financialMonthStartDay;
   final String? animationStorageKey;
   final VoidCallback? onTap;
 
@@ -59,6 +60,7 @@ class SpendingCard extends StatefulWidget {
     this.currencyRates,
     this.customStartDate,
     this.customEndDate,
+    this.financialMonthStartDay = 1,
     this.animationStorageKey,
     this.onTap,
   });
@@ -553,6 +555,7 @@ class _SpendingCardState extends State<SpendingCard> {
       widget.customStartDate,
       widget.customEndDate,
       now: now,
+      financialMonthStartDay: widget.financialMonthStartDay,
     );
     final from = range['from']!;
     final to = range['to']!;
@@ -633,6 +636,7 @@ class _SpendingCardState extends State<SpendingCard> {
       widget.customStartDate,
       widget.customEndDate,
       now: now,
+      financialMonthStartDay: widget.financialMonthStartDay,
     );
     final from = range['from']!;
     final to = range['to']!;
@@ -776,6 +780,7 @@ class _SpendingCardCacheConfig {
     required this.currencyRatesKey,
     required this.customStartDateKey,
     required this.customEndDateKey,
+    required this.financialMonthStartDay,
   });
 
   factory _SpendingCardCacheConfig.fromWidget(
@@ -795,6 +800,7 @@ class _SpendingCardCacheConfig {
       currencyRatesKey: _currencyRatesIdentityKey(widget.currencyRates),
       customStartDateKey: _dateMicrosKey(widget.customStartDate),
       customEndDateKey: _dateMicrosKey(widget.customEndDate),
+      financialMonthStartDay: widget.financialMonthStartDay,
     );
   }
 
@@ -807,6 +813,7 @@ class _SpendingCardCacheConfig {
   final int currencyRatesKey;
   final int? customStartDateKey;
   final int? customEndDateKey;
+  final int financialMonthStartDay;
 
   @override
   bool operator ==(Object other) {
@@ -819,7 +826,8 @@ class _SpendingCardCacheConfig {
         other.selectedCurrenciesKey == selectedCurrenciesKey &&
         other.currencyRatesKey == currencyRatesKey &&
         other.customStartDateKey == customStartDateKey &&
-        other.customEndDateKey == customEndDateKey;
+        other.customEndDateKey == customEndDateKey &&
+        other.financialMonthStartDay == financialMonthStartDay;
   }
 
   @override
@@ -833,6 +841,7 @@ class _SpendingCardCacheConfig {
         currencyRatesKey,
         customStartDateKey,
         customEndDateKey,
+        financialMonthStartDay,
       );
 }
 
@@ -879,6 +888,7 @@ Widget buildSpendingCard(
   CurrencyRateTable? currencyRates,
   DateTime? customStartDate,
   DateTime? customEndDate,
+  int financialMonthStartDay = 1,
   String? animationStorageKey,
   VoidCallback? onTap,
 }) {
@@ -894,6 +904,7 @@ Widget buildSpendingCard(
     currencyRates: currencyRates,
     customStartDate: customStartDate,
     customEndDate: customEndDate,
+    financialMonthStartDay: financialMonthStartDay,
     animationStorageKey: animationStorageKey,
     onTap: onTap,
   );

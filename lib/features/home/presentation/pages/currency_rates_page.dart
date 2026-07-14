@@ -13,6 +13,7 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/manage_currencies_sheet.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_display_names.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
@@ -28,6 +29,8 @@ class CurrencyRatesPage extends ConsumerStatefulWidget {
 }
 
 class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
+  bool _isCheckingPlusAccess = true;
+  bool _isPlusAccessDenied = false;
   String? _baseCurrency;
   double _baseAmount = 1.0;
   List<String>? _shownCurrencies;
@@ -43,11 +46,37 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
   @override
   void initState() {
     super.initState();
-    _loadShownCurrencies();
-    unawaited(_markLocalLastUpdatedAt());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_refreshRatesOnOpen());
+      unawaited(_initializePage());
     });
+  }
+
+  Future<void> _initializePage() async {
+    if (mounted && !_isCheckingPlusAccess) {
+      setState(() {
+        _isCheckingPlusAccess = true;
+        _isPlusAccessDenied = false;
+      });
+    }
+    final hasAccess = await PlusLockedSheet.ensureAccess(
+      context,
+      ref,
+      feature: PlusFeature.liveExchangeRates,
+    );
+    if (!mounted) return;
+    if (!hasAccess) {
+      setState(() {
+        _isCheckingPlusAccess = false;
+        _isPlusAccessDenied = true;
+      });
+      await Navigator.of(context).maybePop();
+      return;
+    }
+
+    setState(() => _isCheckingPlusAccess = false);
+    await _loadShownCurrencies();
+    unawaited(_markLocalLastUpdatedAt());
+    unawaited(_refreshRatesOnOpen());
   }
 
   Future<void> _markLocalLastUpdatedAt() async {
@@ -86,6 +115,24 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    if (_isCheckingPlusAccess) {
+      return AdaptiveScaffold(
+        appBar: AdaptiveAppBar(title: context.l10n.currency),
+        body: const Center(child: CircularProgressIndicator.adaptive()),
+      );
+    }
+    if (_isPlusAccessDenied) {
+      return AdaptiveScaffold(
+        appBar: AdaptiveAppBar(title: context.l10n.currency),
+        body: Center(
+          child: AdaptiveButton(
+            onPressed: _initializePage,
+            label: context.l10n.viewPlans,
+          ),
+        ),
+      );
+    }
+
     final ratesAsync = ref.watch(currencyRateTableProvider);
     final preferredCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
     final homeSelectedCurrencies =

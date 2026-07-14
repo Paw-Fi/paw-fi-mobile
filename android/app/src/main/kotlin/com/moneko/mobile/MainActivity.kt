@@ -49,7 +49,6 @@ class MainActivity : FlutterFragmentActivity() {
                             supabaseUrl = args["supabaseUrl"] as? String ?: "",
                             supabaseAnonKey = args["supabaseAnonKey"] as? String ?: "",
                             accessToken = args["accessToken"] as? String ?: "",
-                            refreshToken = args["refreshToken"] as? String ?: "",
                             userId = args["userId"] as? String ?: "",
                             expiresAt = expiresAtValue,
                         )
@@ -71,6 +70,25 @@ class MainActivity : FlutterFragmentActivity() {
 
                 "clearAuthContext" -> {
                     config.clearAuthContext()
+                    result.success(true)
+                }
+
+                "clearLegacyNativeSession" -> {
+                    config.clearLegacyNativeSession()
+                    result.success(true)
+                }
+
+                "getPendingCaptures" -> {
+                    result.success(config.getPendingCaptures())
+                }
+
+                "removePendingCaptures" -> {
+                    val args = call.arguments as? Map<*, *>
+                    val ids = (args?.get("ids") as? List<*>)
+                        ?.mapNotNull { it as? String }
+                        ?.toSet()
+                        ?: emptySet()
+                    config.removePendingCaptures(ids)
                     result.success(true)
                 }
 

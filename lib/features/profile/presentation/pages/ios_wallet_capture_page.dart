@@ -24,6 +24,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/profile/presentation/widgets/wallet_sync_setup_sheet.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -190,10 +191,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
       try {
         final session = Supabase.instance.client.auth.currentSession;
         final accessToken = session?.accessToken ?? '';
-        final refreshToken = session?.refreshToken ?? '';
         final userId = session?.user.id ?? '';
 
-        if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+        if (accessToken.isEmpty || userId.isEmpty) {
           if (context.mounted) {
             AppToast.error(
               context,
@@ -208,7 +208,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: accessToken,
-          refreshToken: refreshToken,
           userId: userId,
           expiresAt: session?.expiresAt,
         );
@@ -268,6 +267,15 @@ class IosWalletCapturePage extends HookConsumerWidget {
     /// Persists the enabled flag to both iOS native (UserDefaults/Keychain)
     /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
+      if (enabled) {
+        final hasAccess = await PlusLockedSheet.ensureAccess(
+          context,
+          ref,
+          feature: PlusFeature.messagingAppCapture,
+        );
+        if (!hasAccess || !context.mounted) return;
+      }
+
       final previous = config.value;
       final updated = previous.copyWith(enabled: enabled);
       config.value = updated;

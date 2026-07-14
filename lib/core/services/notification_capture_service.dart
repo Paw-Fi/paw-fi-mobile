@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Data class representing a recently-seen notification source app.
 class RecentNotificationApp {
@@ -167,6 +169,7 @@ class NotificationCaptureService {
 
   static const MethodChannel _channel =
       MethodChannel('moneko/notification_capture');
+  Future<void>? _pendingCaptureSync;
 
   /// Sync Supabase auth credentials to the native Android layer so the
   /// background NotificationListenerService can call save-wallet-transaction.
@@ -174,7 +177,6 @@ class NotificationCaptureService {
     required String supabaseUrl,
     required String supabaseAnonKey,
     required String accessToken,
-    required String refreshToken,
     required String userId,
     required int expiresAt,
   }) async {
@@ -183,7 +185,6 @@ class NotificationCaptureService {
       'supabaseUrl': supabaseUrl,
       'supabaseAnonKey': supabaseAnonKey,
       'accessToken': accessToken,
-      'refreshToken': refreshToken,
       'userId': userId,
       'expiresAt': expiresAt,
     });
@@ -192,6 +193,71 @@ class NotificationCaptureService {
   Future<void> clearAuthContext() async {
     if (!Platform.isAndroid) return;
     await _channel.invokeMethod<void>('clearAuthContext');
+  }
+
+  Future<void> syncPendingCaptures() {
+    if (!Platform.isAndroid) return Future.value();
+    final inFlight = _pendingCaptureSync;
+    if (inFlight != null) return inFlight;
+
+    final sync = _syncPendingCaptures();
+    _pendingCaptureSync = sync;
+    return sync.whenComplete(() {
+      if (identical(_pendingCaptureSync, sync)) {
+        _pendingCaptureSync = null;
+      }
+    });
+  }
+
+  Future<void> _syncPendingCaptures() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null || session.isExpired) return;
+
+    final records = await _channel
+            .invokeListMethod<Map<dynamic, dynamic>>('getPendingCaptures') ??
+        const [];
+    final completedIds = <String>[];
+
+    for (final rawRecord in records) {
+      final record = Map<String, dynamic>.from(rawRecord);
+      final id = record['id']?.toString() ?? '';
+      final userId = record['userId']?.toString() ?? '';
+      final rawBody = record['body']?.toString() ?? '';
+      if (id.isEmpty || userId != session.user.id || rawBody.isEmpty) continue;
+
+      try {
+        final decoded = jsonDecode(rawBody);
+        if (decoded is! Map<String, dynamic>) {
+          completedIds.add(id);
+          continue;
+        }
+        final response = await Supabase.instance.client.functions.invoke(
+          'save-wallet-transaction',
+          body: decoded,
+        );
+        if (response.status == 200 ||
+            response.status == 201 ||
+            response.status == 409 ||
+            response.status == 400 ||
+            response.status == 422) {
+          completedIds.add(id);
+        }
+      } on FunctionException catch (error) {
+        if (error.status == 400 || error.status == 409 || error.status == 422) {
+          completedIds.add(id);
+        } else {
+          break;
+        }
+      } catch (_) {
+        break;
+      }
+    }
+
+    if (completedIds.isNotEmpty) {
+      await _channel.invokeMethod<void>('removePendingCaptures', {
+        'ids': completedIds,
+      });
+    }
   }
 
   /// Retrieve the full notification capture configuration from native.

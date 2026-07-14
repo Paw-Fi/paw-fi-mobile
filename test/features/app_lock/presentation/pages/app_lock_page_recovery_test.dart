@@ -12,11 +12,12 @@ import 'package:moneko/features/app_lock/presentation/pages/app_lock_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 
 void main() {
-  testWidgets('forgot passcode routes to login while sign out is still pending',
+  testWidgets('forgot passcode waits for recovery and sign out before login',
       (tester) async {
     final signOutCompleter = Completer<void>();
     final recoveryCompleter = Completer<void>();
     final appLockController = _RecoveryAppLockController(recoveryCompleter);
+    final auth = _DelayedSignOutAuth(signOutCompleter);
 
     final router = GoRouter(
       initialLocation: '/app-lock',
@@ -38,8 +39,7 @@ void main() {
       ProviderScope(
         overrides: [
           appLockControllerProvider.overrideWith((ref) => appLockController),
-          authProvider
-              .overrideWith(() => _DelayedSignOutAuth(signOutCompleter)),
+          authProvider.overrideWith(() => auth),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
@@ -49,12 +49,20 @@ void main() {
     await tester.pump();
 
     expect(find.text('Signing out...'), findsOneWidget);
-    expect(find.text('Login page'), findsOneWidget);
+    expect(find.text('Login page'), findsNothing);
+    expect(auth.signOutCalled, isFalse);
     expect(signOutCompleter.isCompleted, isFalse);
 
     recoveryCompleter.complete();
+    await tester.pump();
+
+    expect(auth.signOutCalled, isTrue);
+    expect(find.text('Login page'), findsNothing);
+
     signOutCompleter.complete();
     await tester.pumpAndSettle();
+
+    expect(find.text('Login page'), findsOneWidget);
   });
 }
 
@@ -62,12 +70,16 @@ class _DelayedSignOutAuth extends Auth {
   _DelayedSignOutAuth(this.signOutCompleter);
 
   final Completer<void> signOutCompleter;
+  bool signOutCalled = false;
 
   @override
   AppUser build() => const AppUser(uid: 'user-1', email: 'test@example.com');
 
   @override
-  Future<void> signOut() => signOutCompleter.future;
+  Future<void> signOut() {
+    signOutCalled = true;
+    return signOutCompleter.future;
+  }
 }
 
 class _RecoveryAppLockController extends AppLockController {

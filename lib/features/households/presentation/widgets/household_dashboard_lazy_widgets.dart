@@ -10,6 +10,7 @@ import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/dashboard_synthetic_entries.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
@@ -22,8 +23,6 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
@@ -40,18 +39,34 @@ HouseholdSummaryParams buildHouseholdSummaryParams({
   required String selectedCurrency,
   required DashboardWidgetConfig config,
   DateTime? referenceNow,
+  int financialMonthStartDay = 1,
 }) {
   final range = getDateRangeFromFilter(
     config.dateRange,
     config.customStartDate,
     config.customEndDate,
     now: referenceNow,
+    financialMonthStartDay: financialMonthStartDay,
   );
   return HouseholdSummaryParams(
     householdId: household.id,
     currency: selectedCurrency,
     startDate: range['from']!.toIso8601String(),
     endDate: range['to']!.toIso8601String(),
+  );
+}
+
+Map<String, DateTime> _dashboardConfigDateRange({
+  required DashboardWidgetConfig config,
+  required DateTime referenceNow,
+  required int financialMonthStartDay,
+}) {
+  return getDateRangeFromFilter(
+    config.dateRange,
+    config.customStartDate,
+    config.customEndDate,
+    now: referenceNow,
+    financialMonthStartDay: financialMonthStartDay,
   );
 }
 
@@ -123,16 +138,19 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!isBackendHouseholdId(household.id)) {
+      return const SizedBox.shrink();
+    }
     final userId = ref.watch(currentUserIdProvider);
     if (userId == null || userId.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: referenceNow,
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final range = _dashboardConfigDateRange(
+      config: config,
+      referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
@@ -150,24 +168,20 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
       query: query,
     );
-    final splitsParams = HouseholdSplitsParams(householdId: household.id);
-    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
-    final optimisticSplits = ref.watch(
-      householdOptimisticSplitsProvider.select(
-        (state) => state[household.id] ?? const <ExpenseSplitGroup>[],
-      ),
-    );
-    final splits = mergeHouseholdSplits(
-      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
-      optimisticSplits,
-    );
+    final splitsAsync = ref.watch(householdDashboardSplitsProvider(query));
+    final splits = splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
+    final dependencyState = householdDashboardDependencyState(
+      <AsyncValue<Object?>>[
+        transactionsAsync,
+        splitsAsync,
+        recurringState.data,
+      ],
+    );
     Widget child;
 
-    if (transactionsAsync.isLoading &&
-        !transactionsAsync.hasValue &&
-        transactions.isEmpty) {
+    if (!dependencyState.hasValue && !dependencyState.hasError) {
       child = _buildSpentByYouSkeleton(
         context,
         selectedCurrency,
@@ -175,19 +189,24 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
         referenceNow,
         key: const ValueKey('spent_by_you_skeleton'),
       );
-    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+    } else if (dependencyState.hasError) {
       child = _buildDashboardErrorCard(
         context,
         Theme.of(context).colorScheme,
         context.l10n.errorLoadingDashboard,
-        onRetry: () =>
-            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        onRetry: () {
+          ref.invalidate(dashboardCalendarTransactionsProvider(query));
+          ref.invalidate(householdHomeSplitGroupsProvider);
+          ref
+              .read(recurringTransactionsProvider(household.id).notifier)
+              .refresh(userId);
+        },
         key: const ValueKey('spent_by_you_error_1'),
       );
     } else {
       final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
         actualExpenses: transactions,
-        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        recurringTransactions: recurringState.data.valueOrNull!,
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
@@ -263,8 +282,49 @@ class LazyHouseholdFinancialCalendarCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserIdProvider) ?? '';
-    final recurringAsync =
+    final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
+    if (userId.isNotEmpty && !recurringState.hasLoadedOnce) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
+      Future.microtask(() {
+        recurringNotifier.loadRecurringTransactions(userId);
+      });
+    }
+
+    if (recurringState.data.hasError && !recurringState.data.hasValue) {
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
+          context,
+          Theme.of(context).colorScheme,
+          context.l10n.errorLoadingDashboard,
+          onRetry: () => ref
+              .read(recurringTransactionsProvider(household.id).notifier)
+              .refresh(userId),
+          key: const ValueKey('household_calendar_recurring_error'),
+        ),
+      );
+    }
+
+    if (!recurringState.hasLoadedOnce || !recurringState.data.hasValue) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return _buildDashboardSwitcher(
+        Skeletonizer(
+          key: const ValueKey('household_calendar_recurring_skeleton'),
+          effect: ShimmerEffect(
+            baseColor: colorScheme.skeletonBase,
+            highlightColor: colorScheme.skeletonHighlight,
+          ),
+          child: FinancialCalendarWidget(
+            userId: userId,
+            householdId: household.id,
+            recurringTransactions: const [],
+            currency: selectedCurrency,
+            isExpanded: config.viewMode == DashboardWidgetViewMode.full,
+          ),
+        ),
+      );
+    }
 
     return _buildDashboardSwitcher(
       FinancialCalendarWidget(
@@ -272,7 +332,7 @@ class LazyHouseholdFinancialCalendarCard extends ConsumerWidget {
             'household_fin_cal_${household.id}_${config.id}_$selectedCurrency'),
         userId: userId,
         householdId: household.id,
-        recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
+        recurringTransactions: recurringState.data.valueOrNull!,
         currency: selectedCurrency,
         isExpanded: config.viewMode == DashboardWidgetViewMode.full,
       ),
@@ -287,22 +347,24 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
     required this.config,
     required this.selectedCurrency,
     required this.referenceNow,
+    required this.includeBudgetsInSummary,
   });
 
   final Household household;
   final DashboardWidgetConfig config;
   final String selectedCurrency;
   final DateTime referenceNow;
+  final bool includeBudgetsInSummary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserIdProvider);
     final membersAsync = ref.watch(householdMembersProvider(household.id));
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: referenceNow,
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final range = _dashboardConfigDateRange(
+      config: config,
+      referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
@@ -320,17 +382,8 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
       localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
       query: query,
     );
-    final splitsParams = HouseholdSplitsParams(householdId: household.id);
-    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
-    final optimisticSplits = ref.watch(
-      householdOptimisticSplitsProvider.select(
-        (state) => state[household.id] ?? const <ExpenseSplitGroup>[],
-      ),
-    );
-    final splits = mergeHouseholdSplits(
-      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
-      optimisticSplits,
-    );
+    final splitsAsync = ref.watch(householdDashboardSplitsProvider(query));
+    final splits = splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     final params = buildHouseholdSummaryParams(
@@ -338,8 +391,12 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
       selectedCurrency: selectedCurrency,
       config: config,
       referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
-    final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
+    final summaryProvider = includeBudgetsInSummary
+        ? householdDerivedSummaryProvider(params)
+        : householdDerivedSummaryWithoutBudgetsProvider(params);
+    final summaryAsync = ref.watch(summaryProvider);
     final summary = summaryAsync.valueOrNull;
 
     Widget child;
@@ -349,7 +406,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         context,
         Theme.of(context).colorScheme,
         context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
+        onRetry: () => ref.invalidate(summaryProvider),
         key: const ValueKey('member_spending_error_1'),
       );
     } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
@@ -528,11 +585,11 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: referenceNow,
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final range = _dashboardConfigDateRange(
+      config: config,
+      referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final userId = ref.watch(currentUserIdProvider) ?? '';
     final selectedCurrencyFilters = _selectedCurrencies(ref);
@@ -553,28 +610,36 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
     );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
+    final dependencyState = householdDashboardDependencyState(
+      <AsyncValue<Object?>>[
+        transactionsAsync,
+        recurringState.data,
+      ],
+    );
     Widget child;
 
-    if (transactionsAsync.isLoading &&
-        !transactionsAsync.hasValue &&
-        transactions.isEmpty) {
+    if (!dependencyState.hasValue && !dependencyState.hasError) {
       child = _buildBreakdownSkeleton(
         context,
         key: const ValueKey('household_breakdown_skeleton'),
       );
-    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+    } else if (dependencyState.hasError) {
       child = _buildDashboardErrorCard(
         context,
         Theme.of(context).colorScheme,
         context.l10n.errorLoadingDashboard,
-        onRetry: () =>
-            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        onRetry: () {
+          ref.invalidate(dashboardCalendarTransactionsProvider(query));
+          ref
+              .read(recurringTransactionsProvider(household.id).notifier)
+              .refresh(userId);
+        },
         key: const ValueKey('household_breakdown_error'),
       );
     } else {
       final expenses = mergeActualExpensesWithProjectedRecurring(
         actualExpenses: transactions,
-        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        recurringTransactions: recurringState.data.valueOrNull!,
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
@@ -625,11 +690,11 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: referenceNow,
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final range = _dashboardConfigDateRange(
+      config: config,
+      referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final userId = ref.watch(currentUserIdProvider) ?? '';
     final selectedCurrencyFilters = _selectedCurrencies(ref);
@@ -650,28 +715,36 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
     );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
+    final dependencyState = householdDashboardDependencyState(
+      <AsyncValue<Object?>>[
+        transactionsAsync,
+        recurringState.data,
+      ],
+    );
     Widget child;
 
-    if (transactionsAsync.isLoading &&
-        !transactionsAsync.hasValue &&
-        transactions.isEmpty) {
+    if (!dependencyState.hasValue && !dependencyState.hasError) {
       child = _buildWhereMoneyWentSkeleton(
         context,
         key: const ValueKey('household_where_money_went_skeleton'),
       );
-    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+    } else if (dependencyState.hasError) {
       child = _buildDashboardErrorCard(
         context,
         Theme.of(context).colorScheme,
         context.l10n.errorLoadingDashboard,
-        onRetry: () =>
-            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        onRetry: () {
+          ref.invalidate(dashboardCalendarTransactionsProvider(query));
+          ref
+              .read(recurringTransactionsProvider(household.id).notifier)
+              .refresh(userId);
+        },
         key: const ValueKey('household_where_money_went_error'),
       );
     } else {
       final expenses = mergeActualExpensesWithProjectedRecurring(
         actualExpenses: transactions,
-        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        recurringTransactions: recurringState.data.valueOrNull!,
         rangeStart: range['from']!,
         rangeEnd: range['to']!,
         selectedCurrency: selectedCurrency,
@@ -854,11 +927,11 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: referenceNow,
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final range = _dashboardConfigDateRange(
+      config: config,
+      referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final fromDate =
         DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
@@ -869,6 +942,7 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
       selectedCurrency: selectedCurrency,
       config: config,
       referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
@@ -978,29 +1052,35 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
     required this.config,
     required this.selectedCurrency,
     required this.referenceNow,
+    required this.includeBudgetsInSummary,
   });
 
   final Household household;
   final DashboardWidgetConfig config;
   final String selectedCurrency;
   final DateTime referenceNow;
+  final bool includeBudgetsInSummary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final params = buildHouseholdSummaryParams(
       household: household,
       selectedCurrency: selectedCurrency,
       config: config,
       referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
-    final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
+    final summaryProvider = includeBudgetsInSummary
+        ? householdDerivedSummaryProvider(params)
+        : householdDerivedSummaryWithoutBudgetsProvider(params);
+    final summaryAsync = ref.watch(summaryProvider);
     final summary = summaryAsync.valueOrNull;
     final userId = ref.watch(currentUserIdProvider) ?? '';
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: referenceNow,
+    final range = _dashboardConfigDateRange(
+      config: config,
+      referenceNow: referenceNow,
+      financialMonthStartDay: financialMonthStartDay,
     );
     final selectedCurrencyFilters = _selectedCurrencies(ref);
     final query = DashboardScopeQuery(
@@ -1018,17 +1098,8 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
       localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
       query: query,
     );
-    final splitsParams = HouseholdSplitsParams(householdId: household.id);
-    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
-    final optimisticSplits = ref.watch(
-      householdOptimisticSplitsProvider.select(
-        (state) => state[household.id] ?? const <ExpenseSplitGroup>[],
-      ),
-    );
-    final splits = mergeHouseholdSplits(
-      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
-      optimisticSplits,
-    );
+    final splitsAsync = ref.watch(householdDashboardSplitsProvider(query));
+    final splits = splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     Widget child;
@@ -1038,7 +1109,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         context,
         Theme.of(context).colorScheme,
         context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
+        onRetry: () => ref.invalidate(summaryProvider),
         key: const ValueKey('fairness_error_1'),
       );
     } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
@@ -1089,44 +1160,47 @@ class LazyHouseholdSettlementCard extends ConsumerWidget {
     required this.household,
     required this.config,
     required this.selectedCurrency,
-    required this.referenceNow,
   });
 
   final Household household;
   final DashboardWidgetConfig config;
   final String selectedCurrency;
-  final DateTime referenceNow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!isBackendHouseholdId(household.id)) {
+      return const SizedBox.shrink();
+    }
     final userId = ref.watch(currentUserIdProvider);
     final membersAsync = ref.watch(householdMembersProvider(household.id));
-    final params = buildHouseholdSummaryParams(
-      household: household,
-      selectedCurrency: selectedCurrency,
-      config: config,
-      referenceNow: referenceNow,
-    );
-    final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
-    final summary = summaryAsync.valueOrNull;
+    final members = membersAsync.valueOrNull;
 
     Widget child;
 
-    if (summary == null || userId == null) {
-      child = summaryAsync.isLoading
-          ? _buildBreakdownSkeleton(
+    if (userId == null) {
+      child = const SizedBox.shrink(key: ValueKey('settlement_empty'));
+    } else if (members == null) {
+      child = membersAsync.hasError
+          ? _buildDashboardErrorCard(
+              context,
+              Theme.of(context).colorScheme,
+              context.l10n.errorLoadingDashboard,
+              key: const ValueKey('settlement_error'),
+              onRetry: () =>
+                  ref.invalidate(householdMembersProvider(household.id)),
+            )
+          : _buildBreakdownSkeleton(
               context,
               key: const ValueKey('settlement_skeleton'),
-            )
-          : const SizedBox.shrink(key: ValueKey('settlement_empty'));
+            );
     } else {
       child = SettlementSuggestionsCard(
         key: ValueKey(
             'settlement_data_${household.id}_${config.id}_$selectedCurrency'),
-        summary: summary,
+        householdId: household.id,
         currency: selectedCurrency,
         selectedCurrencies: _selectedCurrencies(ref),
-        members: membersAsync.valueOrNull,
+        members: members,
         currentUserId: userId,
       );
     }

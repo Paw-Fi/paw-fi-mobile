@@ -664,6 +664,7 @@ class RecurringTransactionsNotifier
         await database.writeOptimisticTransactionDelete(
           entries: deletedEntries,
           clientMutationId: mutationMetadata.clientMutationId,
+          actingUserId: userId,
           payload: {
             ...mutationMetadata.toRequestJson(),
             'userId': userId,
@@ -1101,6 +1102,8 @@ class RecurringTransactionSaveNotifier
     RecurringTransaction? optimisticTransaction;
     TransactionMutationMetadata? mutationMetadata;
     MonekoDatabase? localDatabase;
+    RecurringTransaction? committedTransaction;
+    var backendCommitted = false;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -1227,6 +1230,8 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final expense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        committedTransaction = expense;
+        backendCommitted = true;
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(optimisticTransaction.id, expense);
@@ -1263,6 +1268,23 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      if (backendCommitted && committedTransaction != null) {
+        try {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .replaceRecurring(
+                optimisticTransaction?.id ?? committedTransaction.id,
+                committedTransaction,
+              );
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+        } catch (refreshError) {
+          _debugPrint(
+              '⚠️ [SaveRecurring] Post-save reconciliation failed: $refreshError');
+        }
+        state = AsyncValue.data(committedTransaction);
+        return committedTransaction;
+      }
       try {
         final optimistic = optimisticTransaction;
         final metadata = mutationMetadata;
@@ -1320,6 +1342,8 @@ class RecurringTransactionSaveNotifier
     RecurringTransaction? optimisticTransaction;
     TransactionMutationMetadata? mutationMetadata;
     MonekoDatabase? localDatabase;
+    RecurringTransaction? committedTransaction;
+    var backendCommitted = false;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -1409,6 +1433,8 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final income = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        committedTransaction = income;
+        backendCommitted = true;
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(optimisticTransaction.id, income);
@@ -1445,6 +1471,23 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      if (backendCommitted && committedTransaction != null) {
+        try {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .replaceRecurring(
+                optimisticTransaction?.id ?? committedTransaction.id,
+                committedTransaction,
+              );
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+        } catch (refreshError) {
+          _debugPrint(
+              '⚠️ [SaveRecurring] Post-save reconciliation failed: $refreshError');
+        }
+        state = AsyncValue.data(committedTransaction);
+        return committedTransaction;
+      }
       try {
         final optimistic = optimisticTransaction;
         final metadata = mutationMetadata;
@@ -1726,6 +1769,8 @@ class RecurringTransactionSaveNotifier
         .firstOrNull;
     MonekoDatabase? localDatabase;
     TransactionMutationMetadata? mutationMetadata;
+    RecurringTransaction? committedTransaction;
+    var backendCommitted = false;
 
     void rollbackOptimisticExpense() {
       try {
@@ -1939,6 +1984,8 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final updatedExpense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        committedTransaction = updatedExpense;
+        backendCommitted = true;
         await localDatabase?.markOptimisticTransactionUpdateSynced(
           entry: _expenseEntryFromRecurringTransaction(updatedExpense, userId),
           clientMutationId: mutationMetadata.clientMutationId,
@@ -1986,6 +2033,22 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      if (backendCommitted && committedTransaction != null) {
+        try {
+          ref
+              .read(recurringTransactionsProvider(
+                      committedTransaction.householdId)
+                  .notifier)
+              .updateRecurring(committedTransaction);
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+        } catch (refreshError) {
+          _debugPrint(
+              '⚠️ [UpdateRecurring] Post-update reconciliation failed: $refreshError');
+        }
+        state = AsyncValue.data(committedTransaction);
+        return committedTransaction;
+      }
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
         final queued = ref
             .read(recurringTransactionsProvider(householdId))
@@ -2051,6 +2114,8 @@ class RecurringTransactionSaveNotifier
         .firstOrNull;
     MonekoDatabase? localDatabase;
     TransactionMutationMetadata? mutationMetadata;
+    RecurringTransaction? committedTransaction;
+    var backendCommitted = false;
 
     void rollbackOptimisticIncome() {
       try {
@@ -2178,6 +2243,8 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final updatedIncome = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        committedTransaction = updatedIncome;
+        backendCommitted = true;
         await localDatabase?.markOptimisticTransactionUpdateSynced(
           entry: _expenseEntryFromRecurringTransaction(updatedIncome, userId),
           clientMutationId: mutationMetadata.clientMutationId,
@@ -2203,6 +2270,20 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      if (backendCommitted && committedTransaction != null) {
+        try {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .updateRecurring(committedTransaction);
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+        } catch (refreshError) {
+          _debugPrint(
+              '⚠️ [UpdateRecurring] Post-update reconciliation failed: $refreshError');
+        }
+        state = AsyncValue.data(committedTransaction);
+        return committedTransaction;
+      }
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
         final queued = ref
             .read(recurringTransactionsProvider(householdId))
@@ -2366,18 +2447,7 @@ class RecurringTransactionSaveNotifier
 }
 
 bool _shouldKeepQueuedLocalMutation(Object error) {
-  final message = error.toString().toLowerCase();
-  return message.contains('network') ||
-      message.contains('socket') ||
-      message.contains('failed host lookup') ||
-      message.contains('connection') ||
-      message.contains('timed out') ||
-      message.contains('timeout') ||
-      message.contains('status: 502') ||
-      message.contains('status: 503') ||
-      message.contains('status: 504') ||
-      message.contains('service is temporarily unavailable') ||
-      message.contains('supabase_edge_runtime_error');
+  return ErrorHandler.isRetryable(error);
 }
 
 // ============================================================================

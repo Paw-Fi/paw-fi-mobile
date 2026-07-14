@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 int compareTransactionsNewestFirst(ExpenseEntry left, ExpenseEntry right) {
@@ -14,11 +15,13 @@ int compareTransactionsNewestFirst(ExpenseEntry left, ExpenseEntry right) {
 
 class MonthTransactionGroup {
   final DateTime monthStart;
+  final int financialMonthStartDay;
   final List<ExpenseEntry> expenses;
   final double total;
 
   const MonthTransactionGroup({
     required this.monthStart,
+    this.financialMonthStartDay = 1,
     required this.expenses,
     required this.total,
   });
@@ -28,8 +31,8 @@ double resolveDayTransactionHeaderTotal(DayTransactionGroup group) =>
     group.total;
 
 List<MonthTransactionGroup> groupTransactionsByMonth(
-  List<ExpenseEntry> expenses,
-) {
+    List<ExpenseEntry> expenses,
+    {int financialMonthStartDay = 1}) {
   final Map<DateTime, List<ExpenseEntry>> grouped = {};
 
   DateTime normalize(ExpenseEntry expense) {
@@ -38,7 +41,10 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
 
   for (final expense in expenses) {
     final localDate = normalize(expense);
-    final monthKey = DateTime(localDate.year, localDate.month, 1);
+    final monthKey = financialCycleStartForDate(
+      localDate,
+      startDay: financialMonthStartDay,
+    );
     grouped.putIfAbsent(monthKey, () => []).add(expense);
   }
 
@@ -54,6 +60,8 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
     }
     return MonthTransactionGroup(
       monthStart: monthStart,
+      financialMonthStartDay:
+          normalizeFinancialMonthStartDay(financialMonthStartDay),
       expenses: List<ExpenseEntry>.from(items),
       total: total,
     );

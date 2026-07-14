@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -57,8 +58,7 @@ class GroupedTransactionRenderItem {
   GroupedTransactionRenderItem.dayHeader(DayTransactionGroup group)
       : this._(
           type: GroupedTransactionRenderItemType.dayHeader,
-          key:
-              'day:${group.date.year}-${group.date.month}-${group.date.day}',
+          key: 'day:${group.date.year}-${group.date.month}-${group.date.day}',
           dayGroup: group,
         );
 
@@ -80,14 +80,17 @@ class GroupedTransactionRenderItem {
 }
 
 List<GroupedTransactionRenderItem> buildGroupedTransactionRenderItems(
-  List<ExpenseEntry> transactions,
-) {
+    List<ExpenseEntry> transactions,
+    {int financialMonthStartDay = 1}) {
   if (transactions.isEmpty) {
     return const <GroupedTransactionRenderItem>[];
   }
 
   final items = <GroupedTransactionRenderItem>[];
-  final monthGroups = groupTransactionsByMonth(transactions);
+  final monthGroups = groupTransactionsByMonth(
+    transactions,
+    financialMonthStartDay: financialMonthStartDay,
+  );
 
   for (final month in monthGroups) {
     items.add(GroupedTransactionRenderItem.monthHeader(month));
@@ -189,6 +192,7 @@ class GroupedTransactionsList extends StatelessWidget {
   final TransactionItemBuilder? itemBuilder;
 
   final bool? showCurrencyFlag;
+  final int financialMonthStartDay;
 
   const GroupedTransactionsList({
     super.key,
@@ -206,6 +210,7 @@ class GroupedTransactionsList extends StatelessWidget {
     this.useHorizontalPadding = true,
     this.itemBuilder,
     this.showCurrencyFlag,
+    this.financialMonthStartDay = 1,
   });
 
   @override
@@ -227,7 +232,10 @@ class GroupedTransactionsList extends StatelessWidget {
     }
 
     // Group transactions by month and day
-    final monthGroups = groupTransactionsByMonth(transactions);
+    final monthGroups = groupTransactionsByMonth(
+      transactions,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final listItems = <_TransactionListItem>[];
 
     for (final month in monthGroups) {
@@ -293,7 +301,7 @@ class GroupedTransactionsList extends StatelessWidget {
     ColorScheme colorScheme,
   ) {
     final locale = Localizations.localeOf(context).toString();
-    final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
+    final dateLabel = _formatPeriodHeader(group, locale);
 
     final totalFormatted = formatLocalizedNumber(context, group.total.abs());
     final symbol = resolveCurrencySymbol(currency);
@@ -638,7 +646,7 @@ class SliverGroupedTransactionsList extends StatelessWidget {
     Key? key,
   }) {
     final locale = Localizations.localeOf(context).toString();
-    final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
+    final dateLabel = _formatPeriodHeader(group, locale);
 
     final totalFormatted = formatLocalizedNumber(context, group.total.abs());
     final symbol = resolveCurrencySymbol(currency);
@@ -849,6 +857,18 @@ class SliverGroupedTransactionsList extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatPeriodHeader(MonthTransactionGroup group, String locale) {
+  if (group.financialMonthStartDay == 1) {
+    return formatMonthHeader(group.monthStart, locale: locale);
+  }
+  final end = nextFinancialCycleStart(
+    group.monthStart,
+    startDay: group.financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
+  final formatter = DateFormat.yMMMd(locale);
+  return '${formatter.format(group.monthStart)} - ${formatter.format(end)}';
 }
 
 /// Internal helper class to represent different item types in the list

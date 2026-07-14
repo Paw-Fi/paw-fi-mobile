@@ -8,9 +8,11 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
@@ -75,6 +77,7 @@ final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
   );
   final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
   final householdScope = ref.watch(householdScopeProvider);
+  final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
   final effectiveNowForUser =
       effectiveNow(preferredTimezone: preferredTimezone);
 
@@ -85,6 +88,7 @@ final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
     selectedCurrencies: selectedCurrencies,
     currentMonthStart:
         DateTime(effectiveNowForUser.year, effectiveNowForUser.month),
+    financialMonthStartDay: financialMonthStartDay,
   );
 });
 
@@ -137,6 +141,7 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
     final availableMonths = buildWalletAvailableMonths(
       now: now,
       transactions: recurringAwareData.transactions,
+      financialMonthStartDay: query.financialMonthStartDay,
     );
     final netWorthSeries = availableMonths.reversed.map((monthStart) {
       final snapshot = buildWalletSnapshot(
@@ -145,6 +150,7 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
         endExclusive: _walletSnapshotEndExclusive(
           monthStart: monthStart,
           now: now,
+          financialMonthStartDay: query.financialMonthStartDay,
         ),
         targetCurrency: query.selectedCurrency,
         rates: rates,
@@ -168,6 +174,7 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
     final endExclusive = _walletSnapshotEndExclusive(
       monthStart: query.monthStart,
       now: now,
+      financialMonthStartDay: query.scope.financialMonthStartDay,
     );
     final rates = await _walletCurrencyRates(ref);
     final recurringAwareData = await _loadWalletRecurringAwareData(
@@ -179,6 +186,8 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       wallets: recurringAwareData.wallets,
       transactions: recurringAwareData.transactions,
       endExclusive: endExclusive,
+      periodStart: query.monthStart,
+      periodEndExclusive: endExclusive,
       targetCurrency: query.scope.selectedCurrency,
       rates: rates,
     );
@@ -330,10 +339,9 @@ final walletsMonthSnapshotProvider =
     if (query.scope.userId.trim().isEmpty || authHeaders == null) {
       return WalletsMonthSnapshot(
         monthStart: query.monthStart,
-        monthEndExclusive: DateTime(
-          query.monthStart.year,
-          query.monthStart.month + 1,
-          1,
+        monthEndExclusive: nextFinancialCycleStart(
+          query.monthStart,
+          startDay: query.scope.financialMonthStartDay,
         ),
         incomeTotalCents: 0,
         spentTotalCents: 0,
@@ -350,8 +358,10 @@ final walletsMonthSnapshotProvider =
         rethrow;
       }
       final cached = readPersistedWalletsPageState(ref, query.scope);
-      final snapshot = cached
-          ?.cachedSnapshotsByMonth[normalizeWalletMonthStart(query.monthStart)];
+      final snapshot = cached?.cachedSnapshotsByMonth[normalizeWalletMonthStart(
+        query.monthStart,
+        financialMonthStartDay: query.scope.financialMonthStartDay,
+      )];
       if (snapshot != null) {
         return _overlayPendingLocalWalletMonthSnapshot(ref, query, snapshot);
       }
@@ -515,8 +525,10 @@ class WalletsPageStateNotifier
 
     try {
       trace.mark('refresh-start');
-      final selectedMonth =
-          normalizeWalletMonthStart(previousBase.selectedMonthStart);
+      final selectedMonth = normalizeWalletMonthStart(
+        previousBase.selectedMonthStart,
+        financialMonthStartDay: _query.financialMonthStartDay,
+      );
       final results = await Future.wait<dynamic>([
         _service.fetchHistory(_query),
         _service.fetchMonthSnapshot(
@@ -577,7 +589,10 @@ class WalletsPageStateNotifier
       return;
     }
 
-    final normalizedMonth = normalizeWalletMonthStart(monthStart);
+    final normalizedMonth = normalizeWalletMonthStart(
+      monthStart,
+      financialMonthStartDay: _query.financialMonthStartDay,
+    );
     var nextVisibleMonths = current.visibleMonths;
     final shouldAppendOlderMonths = current.visibleMonths.isNotEmpty &&
         normalizedMonth == current.visibleMonths.last;
@@ -585,6 +600,7 @@ class WalletsPageStateNotifier
         ? appendOlderWalletMonthBatch(
             visibleMonths: current.visibleMonths,
             batchSize: _appendMonthBatchSize,
+            financialMonthStartDay: _query.financialMonthStartDay,
           )
         : const <DateTime>[];
 
@@ -633,10 +649,14 @@ class WalletsPageStateNotifier
     required WalletsDebugTrace trace,
   }) async {
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
-    final selectedMonth = normalizeWalletMonthStart(_query.currentMonthStart);
+    final selectedMonth = normalizeWalletMonthStart(
+      _query.currentMonthStart,
+      financialMonthStartDay: _query.financialMonthStartDay,
+    );
     final visibleMonths = buildWalletMonthWindow(
       anchorMonth: _query.currentMonthStart,
       count: _initialVisibleMonthCount,
+      financialMonthStartDay: _query.financialMonthStartDay,
     );
     final results = await Future.wait<dynamic>([
       _service.fetchHistory(_query),
@@ -657,6 +677,7 @@ class WalletsPageStateNotifier
             loadingMonths: const <DateTime>{},
             monthErrorsByMonth: const <DateTime, Object>{},
             lastResolvedSelectedMonthStart: selectedMonth,
+            financialMonthStartDay: _query.financialMonthStartDay,
           );
     }
     final history = results[0] as WalletsHistorySummary;
@@ -680,6 +701,7 @@ class WalletsPageStateNotifier
       loadingMonths: const <DateTime>{},
       monthErrorsByMonth: const <DateTime, Object>{},
       lastResolvedSelectedMonthStart: selectedMonth,
+      financialMonthStartDay: _query.financialMonthStartDay,
     );
     final overlaidInitialState =
         await _overlayPendingLocalWalletPageState(initialState);
@@ -698,8 +720,14 @@ class WalletsPageStateNotifier
 
   Future<void> _prefetchMonths(Iterable<DateTime> months) async {
     if (_isDisposed || _isOffline) return;
-    final monthsList =
-        months.map(normalizeWalletMonthStart).toList(growable: false);
+    final monthsList = months
+        .map(
+          (month) => normalizeWalletMonthStart(
+            month,
+            financialMonthStartDay: _query.financialMonthStartDay,
+          ),
+        )
+        .toList(growable: false);
     final refreshGeneration = ref.read(walletsRefreshSignalProvider);
     final trace = _createWalletsTrace(
       ref,
@@ -717,7 +745,10 @@ class WalletsPageStateNotifier
         trace.mark('prefetch-aborted', const {'reason': 'state-unavailable'});
         return;
       }
-      final normalizedMonth = normalizeWalletMonthStart(month);
+      final normalizedMonth = normalizeWalletMonthStart(
+        month,
+        financialMonthStartDay: _query.financialMonthStartDay,
+      );
       if (current.cachedSnapshotsByMonth.containsKey(normalizedMonth) ||
           current.loadingMonths.contains(normalizedMonth)) {
         continue;
@@ -990,7 +1021,10 @@ class WalletsPageStateNotifier
   }
 
   WalletsPageState _emptyPageState() {
-    final selectedMonth = normalizeWalletMonthStart(_query.currentMonthStart);
+    final selectedMonth = normalizeWalletMonthStart(
+      _query.currentMonthStart,
+      financialMonthStartDay: _query.financialMonthStartDay,
+    );
     return WalletsPageState(
       history: const WalletsHistorySummary(
         availableMonths: <DateTime>[],
@@ -999,12 +1033,14 @@ class WalletsPageStateNotifier
       visibleMonths: buildWalletMonthWindow(
         anchorMonth: _query.currentMonthStart,
         count: _initialVisibleMonthCount,
+        financialMonthStartDay: _query.financialMonthStartDay,
       ),
       selectedMonthStart: selectedMonth,
       cachedSnapshotsByMonth: const <DateTime, WalletsMonthSnapshot>{},
       loadingMonths: const <DateTime>{},
       monthErrorsByMonth: const <DateTime, Object>{},
       lastResolvedSelectedMonthStart: selectedMonth,
+      financialMonthStartDay: _query.financialMonthStartDay,
     );
   }
 
@@ -1014,7 +1050,10 @@ class WalletsPageStateNotifier
     if (current == null) {
       return;
     }
-    final normalizedMonth = normalizeWalletMonthStart(monthStart);
+    final normalizedMonth = normalizeWalletMonthStart(
+      monthStart,
+      financialMonthStartDay: _query.financialMonthStartDay,
+    );
     if (!current.loadingMonths.contains(normalizedMonth)) {
       return;
     }
@@ -1111,16 +1150,22 @@ String _formatWalletsRpcDate(DateTime date) {
 DateTime _walletSnapshotEndExclusive({
   required DateTime monthStart,
   required DateTime now,
+  required int financialMonthStartDay,
 }) {
-  final normalizedMonthStart = DateTime(monthStart.year, monthStart.month, 1);
-  final currentMonthStart = DateTime(now.year, now.month, 1);
+  final normalizedMonthStart = normalizeWalletMonthStart(
+    monthStart,
+    financialMonthStartDay: financialMonthStartDay,
+  );
+  final currentMonthStart = financialCycleStartForDate(
+    now,
+    startDay: financialMonthStartDay,
+  );
   if (normalizedMonthStart == currentMonthStart) {
-    return now.add(const Duration(days: 1));
+    return DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
   }
-  return DateTime(
-    normalizedMonthStart.year,
-    normalizedMonthStart.month + 1,
-    1,
+  return nextFinancialCycleStart(
+    normalizedMonthStart,
+    startDay: financialMonthStartDay,
   );
 }
 
@@ -1157,7 +1202,11 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
   final projectionRangeStart = _resolveWalletProjectionRangeStart(
     actualTransactions: actualTransactions,
     recurringTransactions: recurringTransactions,
-    fallbackMonthStart: DateTime(endInclusive.year, endInclusive.month, 1),
+    fallbackMonthStart: financialCycleStartForDate(
+      endInclusive,
+      startDay: query.financialMonthStartDay,
+    ),
+    financialMonthStartDay: query.financialMonthStartDay,
   );
   final projectedTransactions = _buildProjectedWalletRecurringTransactions(
     recurringTransactions: recurringTransactions,
@@ -1463,6 +1512,7 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
       final endExclusive = _walletSnapshotEndExclusive(
         monthStart: point.monthStart,
         now: now,
+        financialMonthStartDay: query.financialMonthStartDay,
       );
       final localDeltaCents = pendingTransactions.fold<int>(0, (sum, tx) {
         if (!tx.date.isBefore(endExclusive)) return sum;
@@ -1509,8 +1559,8 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   final walletsById = <String, WalletEntity>{
     for (final wallet in wallets) wallet.id: wallet,
   };
-  final monthStart =
-      DateTime(snapshot.monthStart.year, snapshot.monthStart.month);
+  final periodStart = snapshot.monthStart;
+  final periodEndExclusive = snapshot.monthEndExclusive;
 
   for (final tx in pendingTransactions) {
     if (!tx.date.isBefore(snapshot.monthEndExclusive)) continue;
@@ -1535,8 +1585,8 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
           (walletBalances[walletId] ?? 0) + localDeltaCents;
     }
 
-    final transactionMonth = DateTime(tx.date.year, tx.date.month);
-    if (transactionMonth == monthStart) {
+    if (!tx.date.isBefore(periodStart) &&
+        tx.date.isBefore(periodEndExclusive)) {
       if (isIncome) {
         incomeTotalCents += amountCents;
       } else {
@@ -1659,25 +1709,31 @@ DateTime _resolveWalletProjectionRangeStart({
   required List<ExpenseEntry> actualTransactions,
   required List<RecurringTransaction> recurringTransactions,
   required DateTime fallbackMonthStart,
+  required int financialMonthStartDay,
 }) {
-  var earliest = DateTime(
-    fallbackMonthStart.year,
-    fallbackMonthStart.month,
-    1,
+  var earliest = financialCycleStartForDate(
+    fallbackMonthStart,
+    startDay: financialMonthStartDay,
   );
 
   for (final transaction in actualTransactions) {
-    final monthStart = DateTime(transaction.date.year, transaction.date.month);
-    if (monthStart.isBefore(earliest)) {
-      earliest = monthStart;
+    final cycleStart = financialCycleStartForDate(
+      transaction.date,
+      startDay: financialMonthStartDay,
+    );
+    if (cycleStart.isBefore(earliest)) {
+      earliest = cycleStart;
     }
   }
 
   for (final recurring in recurringTransactions) {
     final anchor = recurring.recurrenceRule?.anchorDate ?? recurring.date;
-    final monthStart = DateTime(anchor.year, anchor.month);
-    if (monthStart.isBefore(earliest)) {
-      earliest = monthStart;
+    final cycleStart = financialCycleStartForDate(
+      anchor,
+      startDay: financialMonthStartDay,
+    );
+    if (cycleStart.isBefore(earliest)) {
+      earliest = cycleStart;
     }
   }
 

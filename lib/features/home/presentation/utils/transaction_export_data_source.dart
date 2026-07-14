@@ -19,6 +19,7 @@ class TransactionExportDataSource {
     required String userId,
     required DateTimeRange dateRange,
     required TransactionExportSpaceOption space,
+    Set<String> excludedExpenseIds = const <String>{},
   }) async {
     final contactIds = space.type == TransactionExportSpaceType.personal
         ? await _fetchContactIds(userId)
@@ -61,7 +62,10 @@ class TransactionExportDataSource {
       );
     }
 
-    return rows.map(ExpenseEntry.fromJson).toList(growable: false);
+    return rows
+        .where((row) => !excludedExpenseIds.contains(row['id']))
+        .map(ExpenseEntry.fromJson)
+        .toList(growable: false);
   }
 
   Future<List<String>> _fetchContactIds(String userId) async {

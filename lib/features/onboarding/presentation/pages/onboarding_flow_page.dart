@@ -15,6 +15,7 @@ import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
@@ -64,6 +65,31 @@ String _heardAboutSourceLabel(String value) => _heardAboutSourceOptions
       orElse: () => (value: value, label: value),
     )
     .label;
+
+typedef OnboardingHeardAboutSaveAction = Future<void> Function({
+  required String source,
+  required String sourceLabel,
+  required String? otherText,
+  required String platform,
+});
+
+final onboardingHeardAboutSaveActionProvider =
+    Provider<OnboardingHeardAboutSaveAction>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return ({
+    required String source,
+    required String sourceLabel,
+    required String? otherText,
+    required String platform,
+  }) async {
+    await client.from('onboarding_heard_about_responses').insert({
+      'source': source,
+      'source_label': sourceLabel,
+      'other_text': otherText,
+      'platform': platform,
+    });
+  };
+});
 
 String _importSourceLabel(ImportSourceApp source) {
   switch (source) {
@@ -144,6 +170,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
     final heardAboutSource = useState<String?>(null);
     final heardAboutOtherText = useState('');
     final heardAboutError = useState<String?>(null);
+    final heardAboutSavedPayload = useState<String?>(null);
 
     useEffect(() {
       if (!shouldReturnToOrbitFromPrefs) return null;
@@ -163,47 +190,41 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       context.go('/onboarding?stage=pre');
     }
 
-    Future<void> goToPreAuthQuestions() async {
-      if (isBusy.value) return;
-      isBusy.value = true;
-      try {
-        await enterPreAuthQuestions();
-      } finally {
-        if (context.mounted) {
-          isBusy.value = false;
-        }
-      }
-    }
-
     Future<void> saveHeardAboutAndContinue() async {
       if (isBusy.value) return;
       final source = heardAboutSource.value;
       final otherText = heardAboutOtherText.value.trim();
-      if (source == null ||
-          (source == _kHeardAboutOtherValue && otherText.isEmpty)) {
-        heardAboutError.value = 'Please choose where you heard about Moneko.';
+      if (source == null) {
+        heardAboutError.value = context.l10n.onboardingHeardAboutValidation;
+        return;
+      }
+      if (source == _kHeardAboutOtherValue && otherText.isEmpty) {
+        heardAboutError.value = context.l10n.onboardingHeardAboutValidation;
         return;
       }
 
       isBusy.value = true;
       try {
         heardAboutError.value = null;
-        await ref
-            .read(supabaseClientProvider)
-            .from(
-              'onboarding_heard_about_responses',
-            )
-            .insert({
-          'source': source,
-          'source_label': _heardAboutSourceLabel(source),
-          'other_text': source == _kHeardAboutOtherValue ? otherText : null,
-          'platform': defaultTargetPlatform.name,
-        });
+        final payloadKey = '$source\u0000$otherText';
+        if (heardAboutSavedPayload.value != payloadKey) {
+          await ref.read(onboardingHeardAboutSaveActionProvider)(
+                source: source,
+                sourceLabel: _heardAboutSourceLabel(source),
+                otherText:
+                    source == _kHeardAboutOtherValue ? otherText : null,
+                platform: defaultTargetPlatform.name,
+              );
+          if (!context.mounted) return;
+          heardAboutSavedPayload.value = payloadKey;
+        }
         await enterPreAuthQuestions();
-      } catch (_) {
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[Onboarding] Heard-about response save failed: $error\n$stackTrace',
+        );
         if (!context.mounted) return;
-        heardAboutError.value =
-            'We could not save your answer. Please try again.';
+        heardAboutError.value = context.l10n.onboardingHeardAboutSaveError;
       } finally {
         if (context.mounted) {
           isBusy.value = false;
@@ -1925,9 +1946,16 @@ class _BudgetStep extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // Personal current month scope
     final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month, 1);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final monthStart = financialCycleStartForDate(
+      now,
+      startDay: financialMonthStartDay,
+    );
     final scopeParams = PocketsScopeParams(
-        scope: PocketsScopeType.personal, periodMonth: monthStart);
+      scope: PocketsScopeType.personal,
+      periodMonth: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+    );
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
 
@@ -2324,16 +2352,22 @@ class _PocketsIntroStep extends HookConsumerWidget {
 
     // Watch pockets state for success detection
     final selectedHousehold = ref.watch(selectedHouseholdProvider);
-    final monthStart = DateTime(now.year, now.month, 1);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final monthStart = financialCycleStartForDate(
+      now,
+      startDay: financialMonthStartDay,
+    );
     final scopeParams = didCreateSpace && selectedHousehold.householdId != null
         ? PocketsScopeParams(
             scope: PocketsScopeType.household,
             householdId: selectedHousehold.householdId,
             periodMonth: monthStart,
+            financialMonthStartDay: financialMonthStartDay,
           )
         : PocketsScopeParams(
             scope: PocketsScopeType.personal,
             periodMonth: monthStart,
+            financialMonthStartDay: financialMonthStartDay,
           );
     final pocketsState = ref.watch(pocketsProvider(scopeParams));
 

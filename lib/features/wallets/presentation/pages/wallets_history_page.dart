@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -69,6 +71,12 @@ class WalletsHistoryPage extends HookConsumerWidget {
 
     // Stats
     final now = DateTime.now();
+    final today = dateOnly(now);
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final currentFinancialPeriod = financialCycleForDate(
+      today,
+      startDay: financialMonthStartDay,
+    );
     final thisMonthIncomeByCurrency = <String, double>{};
     final thisMonthExpenseByCurrency = <String, double>{};
 
@@ -88,7 +96,9 @@ class WalletsHistoryPage extends HookConsumerWidget {
       }
 
       // Current month isolated stats
-      if (tx.date.year == now.year && tx.date.month == now.month) {
+      final transactionDate = dateOnly(tx.date);
+      if (!transactionDate.isBefore(currentFinancialPeriod.start) &&
+          !transactionDate.isAfter(today)) {
         if (isIncome) {
           thisMonthIncomeByCurrency[transactionCurrency] =
               (thisMonthIncomeByCurrency[transactionCurrency] ?? 0) + amt;
@@ -111,7 +121,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
         wallets: accounts,
       );
       if (accId != null && accountBalances.containsKey(accId)) {
-        final account = accounts.firstWhereOrNull((wallet) => wallet.id == accId);
+        final account =
+            accounts.firstWhereOrNull((wallet) => wallet.id == accId);
         if (account == null ||
             account.currency.trim().toUpperCase() != transactionCurrency) {
           continue;
@@ -125,8 +136,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
     for (final account in accounts) {
       final currency = account.currency.trim().toUpperCase();
       final cents = accountBalances[account.id] ?? account.openingBalanceCents;
-      netWorthByCurrency[currency] = (netWorthByCurrency[currency] ?? 0) +
-          cents / 100.0;
+      netWorthByCurrency[currency] =
+          (netWorthByCurrency[currency] ?? 0) + cents / 100.0;
     }
     final netCashFlowByCurrency = <String, double>{};
     for (final currency in selectedCurrencies) {
@@ -148,7 +159,9 @@ class WalletsHistoryPage extends HookConsumerWidget {
           .where((entry) => entry.value != 0)
           .toList(growable: false);
       final displayAmounts = visibleAmounts.isEmpty
-          ? selectedCurrencies.take(1).map((currency) => MapEntry(currency, 0.0))
+          ? selectedCurrencies
+              .take(1)
+              .map((currency) => MapEntry(currency, 0.0))
           : visibleAmounts;
       final firstAmount = displayAmounts.first.value;
       final isPositive = firstAmount >= 0;

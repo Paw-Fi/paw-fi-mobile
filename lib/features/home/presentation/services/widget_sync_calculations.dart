@@ -1,3 +1,4 @@
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
@@ -102,14 +103,21 @@ double convertWidgetAggregateAmount({
 
 double widgetCentsToAmount(int cents) => cents / 100.0;
 
-Map<String, DateTime> buildWidgetThisMonthRange(DateTime referenceNow) {
+Map<String, DateTime> buildWidgetThisMonthRange(
+  DateTime referenceNow, {
+  int financialMonthStartDay = 1,
+}) {
   final today = DateTime(
     referenceNow.year,
     referenceNow.month,
     referenceNow.day,
   );
+  final cycle = financialCycleForDate(
+    today,
+    startDay: financialMonthStartDay,
+  );
   return {
-    'from': DateTime(referenceNow.year, referenceNow.month, 1),
+    'from': cycle.start,
     'to': today,
   };
 }

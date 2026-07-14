@@ -64,6 +64,34 @@ void main() {
       -5000,
     );
   });
+
+  test('rounds every converted row to target cents before summing', () {
+    final summary = summarizeTransactionsInCurrency(
+      [
+        _entry(
+          id: 'eur-cent-1',
+          amountCents: 1,
+          currency: 'EUR',
+          category: 'Food',
+          date: DateTime(2026, 4, 10),
+        ),
+        _entry(
+          id: 'eur-cent-2',
+          amountCents: 1,
+          currency: 'EUR',
+          category: 'Food',
+          date: DateTime(2026, 4, 11),
+        ),
+      ],
+      targetCurrency: 'USD',
+      rates: rates,
+      intervalGranularity: 'monthly',
+    );
+
+    expect(summary.expenseTotal, 0.02);
+    expect(summary.categorySummaries.single.amount, 0.02);
+    expect(summary.periodTotals, {DateTime(2026, 4): 0.02});
+  });
 }
 
 ExpenseEntry _entry({

@@ -29,6 +29,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
@@ -48,6 +49,7 @@ class PocketsPage extends HookConsumerWidget {
         ref.watch(selectedHomeCurrencyCodeProvider);
     final selectedCurrencies = filterState.normalizedSelectedCurrencies;
     final selectedCurrenciesKey = selectedCurrencies?.join(',') ?? '';
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
@@ -142,7 +144,10 @@ class PocketsPage extends HookConsumerWidget {
     // the active month and make recurring transactions appear missing.
     // Always start at the current month
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-    final initialMonth = DateTime(userNow.year, userNow.month, 1);
+    final initialMonth = financialCycleStartForDate(
+      userNow,
+      startDay: financialMonthStartDay,
+    );
 
     // Use a large initial page index to allow swiping into the past
     const initialPage = 1000;
@@ -164,7 +169,12 @@ class PocketsPage extends HookConsumerWidget {
       currentMonthState.value = initialMonth;
       prefetchUnlockedState.value = false;
       return null;
-    }, [initialMonth, resolvedSelectedCurrency, selectedCurrenciesKey]);
+    }, [
+      initialMonth,
+      resolvedSelectedCurrency,
+      selectedCurrenciesKey,
+      financialMonthStartDay,
+    ]);
 
     // Track the currently visible page during manual swipes so we can start
     // loading as the user drags. During programmatic jumps, we suppress this
@@ -203,8 +213,11 @@ class PocketsPage extends HookConsumerWidget {
         pendingJumpTargetIndexState.value = null;
 
         final offset = settledIndex - initialPage;
-        currentMonthState.value =
-            DateTime(initialMonth.year, initialMonth.month + offset, 1);
+        currentMonthState.value = addFinancialCycles(
+          initialMonth,
+          offset,
+          startDay: financialMonthStartDay,
+        );
 
         if (hasDismissedSwipeHintState.value) {
           return;
@@ -299,8 +312,11 @@ class PocketsPage extends HookConsumerWidget {
 
         for (final index in indices) {
           final offset = index - initialPage;
-          final month =
-              DateTime(initialMonth.year, initialMonth.month + offset, 1);
+          final month = addFinancialCycles(
+            initialMonth,
+            offset,
+            startDay: financialMonthStartDay,
+          );
 
           final scopeParams = switch (householdScope.activeAccountType) {
             ActiveWalletType.personal => PocketsScopeParams(
@@ -308,6 +324,7 @@ class PocketsPage extends HookConsumerWidget {
                 periodMonth: month,
                 currency: resolvedSelectedCurrency,
                 selectedCurrencies: selectedCurrencies,
+                financialMonthStartDay: financialMonthStartDay,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
@@ -318,6 +335,7 @@ class PocketsPage extends HookConsumerWidget {
                       periodMonth: month,
                       currency: resolvedSelectedCurrency,
                       selectedCurrencies: selectedCurrencies,
+                      financialMonthStartDay: financialMonthStartDay,
                       isBootstrapCurrency: isBootstrapCurrency,
                       includeUpcomingRecurring: includeUpcomingRecurring,
                     )
@@ -327,6 +345,7 @@ class PocketsPage extends HookConsumerWidget {
                       periodMonth: month,
                       currency: resolvedSelectedCurrency,
                       selectedCurrencies: selectedCurrencies,
+                      financialMonthStartDay: financialMonthStartDay,
                       isBootstrapCurrency: isBootstrapCurrency,
                       includeUpcomingRecurring: includeUpcomingRecurring,
                     ),
@@ -336,6 +355,7 @@ class PocketsPage extends HookConsumerWidget {
                 periodMonth: month,
                 currency: resolvedSelectedCurrency,
                 selectedCurrencies: selectedCurrencies,
+                financialMonthStartDay: financialMonthStartDay,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
@@ -555,6 +575,7 @@ class PocketsPage extends HookConsumerWidget {
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
           selectedCurrencies: selectedCurrencies,
+          financialMonthStartDay: financialMonthStartDay,
           isBootstrapCurrency: isBootstrapCurrency,
           includeUpcomingRecurring: includeUpcomingRecurring,
         ),
@@ -565,6 +586,7 @@ class PocketsPage extends HookConsumerWidget {
                 periodMonth: currentMonthState.value,
                 currency: resolvedSelectedCurrency,
                 selectedCurrencies: selectedCurrencies,
+                financialMonthStartDay: financialMonthStartDay,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               )
@@ -574,6 +596,7 @@ class PocketsPage extends HookConsumerWidget {
                 periodMonth: currentMonthState.value,
                 currency: resolvedSelectedCurrency,
                 selectedCurrencies: selectedCurrencies,
+                financialMonthStartDay: financialMonthStartDay,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
@@ -583,6 +606,7 @@ class PocketsPage extends HookConsumerWidget {
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
           selectedCurrencies: selectedCurrencies,
+          financialMonthStartDay: financialMonthStartDay,
           isBootstrapCurrency: isBootstrapCurrency,
           includeUpcomingRecurring: includeUpcomingRecurring,
         ),
@@ -675,8 +699,11 @@ class PocketsPage extends HookConsumerWidget {
             },
             itemBuilder: (context, index) {
               final offset = index - initialPage;
-              final month =
-                  DateTime(initialMonth.year, initialMonth.month + offset, 1);
+              final month = addFinancialCycles(
+                initialMonth,
+                offset,
+                startDay: financialMonthStartDay,
+              );
 
               final settledIndex = settledPageIndexState.value;
               final currentPageIndex = currentPageIndexState.value;
@@ -703,6 +730,7 @@ class PocketsPage extends HookConsumerWidget {
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
                     selectedCurrencies: selectedCurrencies,
+                    financialMonthStartDay: financialMonthStartDay,
                     isBootstrapCurrency: isBootstrapCurrency,
                     includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
@@ -713,6 +741,7 @@ class PocketsPage extends HookConsumerWidget {
                           periodMonth: month,
                           currency: resolvedSelectedCurrency,
                           selectedCurrencies: selectedCurrencies,
+                          financialMonthStartDay: financialMonthStartDay,
                           isBootstrapCurrency: isBootstrapCurrency,
                           includeUpcomingRecurring: includeUpcomingRecurring,
                         )
@@ -722,6 +751,7 @@ class PocketsPage extends HookConsumerWidget {
                           periodMonth: month,
                           currency: resolvedSelectedCurrency,
                           selectedCurrencies: selectedCurrencies,
+                          financialMonthStartDay: financialMonthStartDay,
                           isBootstrapCurrency: isBootstrapCurrency,
                           includeUpcomingRecurring: includeUpcomingRecurring,
                         ),
@@ -731,6 +761,7 @@ class PocketsPage extends HookConsumerWidget {
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
                     selectedCurrencies: selectedCurrencies,
+                    financialMonthStartDay: financialMonthStartDay,
                     isBootstrapCurrency: isBootstrapCurrency,
                     includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
@@ -1058,8 +1089,11 @@ class _PocketsMonthView extends HookConsumerWidget {
                             try {
                               final now =
                                   scopeParams.periodMonth ?? DateTime.now();
-                              final previousMonth =
-                                  DateTime(now.year, now.month - 1, 1);
+                              final previousMonth = previousFinancialCycleStart(
+                                now,
+                                startDay: scopeParams
+                                    .normalizedFinancialMonthStartDay,
+                              );
                               await pocketsNotifier
                                   .copyPocketsFromMonth(previousMonth);
                               if (context.mounted) {

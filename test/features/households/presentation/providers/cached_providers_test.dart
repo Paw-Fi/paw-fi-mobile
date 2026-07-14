@@ -9,11 +9,13 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
+const _householdId = '00000000-0000-0000-0000-000000000001';
+
 ExpenseEntry _expense(String id) {
   final now = DateTime(2024, 1, 1);
   return ExpenseEntry(
     id: id,
-    householdId: 'h1',
+    householdId: _householdId,
     date: now,
     amountCents: 100,
     currency: 'USD',
@@ -21,12 +23,12 @@ ExpenseEntry _expense(String id) {
   );
 }
 
-ExpenseSplitGroup _splitGroup(String id) {
+ExpenseSplitGroup _splitGroup(String id, {String? expenseId}) {
   final now = DateTime(2024, 1, 1);
   return ExpenseSplitGroup(
     id: id,
-    householdId: 'h1',
-    expenseId: 'e$id',
+    householdId: _householdId,
+    expenseId: expenseId ?? 'e$id',
     payerUserId: 'u1',
     splitType: SplitType.equal,
     currency: 'USD',
@@ -62,14 +64,16 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    const params = HouseholdExpensesParams(householdId: 'h1');
+    const params = HouseholdExpensesParams(householdId: _householdId);
     // Start in-flight request. Suppress its error — disposing the underlying
     // provider mid-load is expected to throw.
     final future1 = container
         .read(cachedHouseholdExpensesProvider(params).future)
         .catchError((_) => <ExpenseEntry>[]);
 
-    container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
+    container
+        .read(cacheInvalidatorProvider)
+        .invalidateHouseholdData(_householdId);
     container.invalidate(householdExpensesProvider);
     container.invalidate(cachedHouseholdExpensesProvider);
     await Future<void>.delayed(Duration.zero);
@@ -107,14 +111,16 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    const params = HouseholdSplitsParams(householdId: 'h1');
+    const params = HouseholdSplitsParams(householdId: _householdId);
     // Start in-flight request. Suppress its error — disposing the underlying
     // provider mid-load is expected to throw.
     final future1 = container
         .read(cachedHouseholdSplitsProvider(params).future)
         .catchError((_) => <ExpenseSplitGroup>[]);
 
-    container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
+    container
+        .read(cacheInvalidatorProvider)
+        .invalidateHouseholdData(_householdId);
     container.invalidate(householdSplitsProvider);
     container.invalidate(cachedHouseholdSplitsProvider);
     await Future<void>.delayed(Duration.zero);
@@ -131,5 +137,40 @@ void main() {
         await container.read(cachedHouseholdSplitsProvider(params).future);
     expect(result3.map((e) => e.id).toList(), ['new']);
     expect(fetchCount, 2);
+  });
+
+  test('cached providers exclude persisted transaction tombstones', () async {
+    final container = ProviderContainer(
+      overrides: [
+        householdDeletedExpenseIdsProvider.overrideWith(
+          (ref, householdId) async => const {'deleted-expense'},
+        ),
+        householdExpensesProvider.overrideWith(
+          (ref, params) async => [
+            _expense('kept-expense'),
+            _expense('deleted-expense'),
+          ],
+        ),
+        householdSplitsProvider.overrideWith(
+          (ref, params) async => [
+            _splitGroup('kept-expense', expenseId: 'kept-expense'),
+            _splitGroup('deleted-expense', expenseId: 'deleted-expense'),
+          ],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const expenseParams = HouseholdExpensesParams(householdId: _householdId);
+    const splitParams = HouseholdSplitsParams(householdId: _householdId);
+    final expenses = await container.read(
+      cachedHouseholdExpensesProvider(expenseParams).future,
+    );
+    final splits = await container.read(
+      cachedHouseholdSplitsProvider(splitParams).future,
+    );
+
+    expect(expenses.map((expense) => expense.id), ['kept-expense']);
+    expect(splits.map((split) => split.expenseId), ['kept-expense']);
   });
 }

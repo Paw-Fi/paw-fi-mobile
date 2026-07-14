@@ -20,8 +20,9 @@ class ConnectSocialBottomSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
-    final canUsePlusFeatures = hasPremiumFeatureAccess(subscription);
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final canUsePlusFeatures = !subscriptionAsync.hasValue ||
+        hasPremiumFeatureAccess(subscriptionAsync.valueOrNull);
 
     return Container(
       decoration: BoxDecoration(

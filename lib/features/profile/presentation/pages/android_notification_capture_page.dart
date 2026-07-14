@@ -15,6 +15,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -89,11 +90,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     Future<bool> syncCredentials({bool showError = false}) async {
       final session = Supabase.instance.client.auth.currentSession;
       final accessToken = session?.accessToken ?? '';
-      final refreshToken = session?.refreshToken ?? '';
       final userId = session?.user.id ?? '';
       final expiresAt = session?.expiresAt ?? 0;
 
-      if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+      if (accessToken.isEmpty || userId.isEmpty) {
         if (showError && context.mounted) {
           AppToast.error(
             context,
@@ -109,10 +109,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: accessToken,
-          refreshToken: refreshToken,
           userId: userId,
           expiresAt: expiresAt,
         );
+        await NotificationCaptureService.instance.syncPendingCaptures();
 
         final refreshedConfig =
             await NotificationCaptureService.instance.getConfig();
@@ -256,7 +256,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       final wallet = walletToPersist;
       if (wallet == null) return null;
       final walletCurrency = wallet.currency.trim().toUpperCase();
-      final currentCurrency = config.value.accountCurrency?.trim().toUpperCase();
+      final currentCurrency =
+          config.value.accountCurrency?.trim().toUpperCase();
       final needsPersistence = config.value.accountId != wallet.id ||
           config.value.accountName != wallet.name ||
           currentCurrency != walletCurrency;
@@ -292,8 +293,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       config.value.accountName,
       config.value.accountCurrency,
       walletsAsync.valueOrNull
-              ?.map((wallet) =>
-                  '${wallet.id}:${wallet.name}:${wallet.currency}')
+              ?.map(
+                  (wallet) => '${wallet.id}:${wallet.name}:${wallet.currency}')
               .join('|') ??
           '',
     ]);
@@ -301,6 +302,15 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     /// Persists the enabled flag to both Android native (SharedPreferences)
     /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
+      if (enabled) {
+        final hasAccess = await PlusLockedSheet.ensureAccess(
+          context,
+          ref,
+          feature: PlusFeature.messagingAppCapture,
+        );
+        if (!hasAccess || !context.mounted) return;
+      }
+
       final previous = config.value;
       final previousEnabled = previous.enabled;
       config.value = config.value.copyWith(enabled: enabled);

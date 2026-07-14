@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
@@ -86,17 +87,148 @@ final settlementOverviewProvider =
   },
 );
 
+final _databaseUuidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+final householdDashboardSplitsProvider = Provider.autoDispose
+    .family<AsyncValue<List<ExpenseSplitGroup>>, DashboardScopeQuery>(
+  (ref, query) {
+    final householdId = query.householdId?.trim();
+    if (query.userId.isEmpty || householdId == null || householdId.isEmpty) {
+      return const AsyncValue.data(<ExpenseSplitGroup>[]);
+    }
+
+    final transactionsAsync =
+        ref.watch(dashboardCalendarTransactionsProvider(query));
+    final baseTransactions = transactionsAsync.valueOrNull;
+    if (baseTransactions == null) {
+      if (transactionsAsync.hasError) {
+        return AsyncValue.error(
+          transactionsAsync.error!,
+          transactionsAsync.stackTrace ?? StackTrace.current,
+        );
+      }
+      return const AsyncValue.loading();
+    }
+
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: baseTransactions,
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
+    final optimisticExpenses = ref.watch(
+      householdOptimisticExpensesProvider.select(
+        (state) => state[householdId] ?? const <ExpenseEntry>[],
+      ),
+    );
+    final deletedIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => state[householdId] ?? const <String>{},
+      ),
+    );
+    final mergedExpenses = mergeHouseholdExpenses(
+      transactions,
+      optimisticExpenses,
+      deletedIds: deletedIds,
+    );
+    final referencedIds = mergedExpenses
+        .map((entry) => entry.splitGroupId?.trim())
+        .whereType<String>()
+        .where(_databaseUuidPattern.hasMatch)
+        .toSet();
+    final optimisticSplits = ref.watch(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[householdId] ?? const <ExpenseSplitGroup>[],
+      ),
+    );
+    if (referencedIds.isEmpty) {
+      return AsyncValue.data(optimisticSplits);
+    }
+
+    final serverSplitsAsync = ref.watch(
+      householdHomeSplitGroupsProvider(
+        HouseholdHomeSplitGroupsParams(
+          userId: query.userId,
+          householdId: householdId,
+          splitGroupIds: referencedIds,
+        ),
+      ),
+    );
+    final serverSplits = serverSplitsAsync.valueOrNull;
+    if (serverSplits == null) {
+      if (serverSplitsAsync.hasError) {
+        return AsyncValue.error(
+          serverSplitsAsync.error!,
+          serverSplitsAsync.stackTrace ?? StackTrace.current,
+        );
+      }
+      return const AsyncValue.loading();
+    }
+
+    return AsyncValue.data(
+      mergeHouseholdSplits(serverSplits, optimisticSplits),
+    );
+  },
+);
+
+AsyncValue<bool> householdDashboardDependencyState(
+  Iterable<AsyncValue<Object?>> dependencies,
+) {
+  for (final dependency in dependencies) {
+    if (dependency.valueOrNull == null && dependency.hasError) {
+      return AsyncValue.error(
+        dependency.error!,
+        dependency.stackTrace ?? StackTrace.current,
+      );
+    }
+  }
+
+  for (final dependency in dependencies) {
+    if (dependency.valueOrNull == null) {
+      return const AsyncValue.loading();
+    }
+  }
+
+  return const AsyncValue.data(true);
+}
+
 final householdDerivedSummaryProvider =
-    Provider.family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
-  (ref, params) {
-    final currentUserId = supabase.auth.currentUser?.id;
+    Provider.autoDispose
+        .family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
+  (ref, params) => _buildHouseholdDerivedSummary(
+    ref,
+    params,
+    includeBudgets: true,
+  ),
+);
+
+final householdDerivedSummaryWithoutBudgetsProvider =
+    Provider.autoDispose
+        .family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
+  (ref, params) => _buildHouseholdDerivedSummary(
+    ref,
+    params,
+    includeBudgets: false,
+  ),
+);
+
+AsyncValue<HouseholdSummary?> _buildHouseholdDerivedSummary(
+  Ref ref,
+  HouseholdSummaryParams params, {
+  required bool includeBudgets,
+}) {
+    final currentUserId = ref.watch(currentUserIdProvider);
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return const AsyncValue.data(null);
+    }
     final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
     final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
     final selectedCurrencies = ref.watch(
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
     final query = DashboardScopeQuery(
-      userId: currentUserId ?? '',
+      userId: currentUserId,
       householdId: params.householdId,
       selectedCurrency: params.currency,
       selectedCurrencies: selectedCurrencies,
@@ -106,15 +238,12 @@ final householdDerivedSummaryProvider =
     final expensesAsync = ref.watch(
       dashboardCalendarTransactionsProvider(query),
     );
-    final splitsAsync = ref.watch(
-      cachedHouseholdSplitsProvider(
-        HouseholdSplitsParams(householdId: params.householdId),
-      ),
-    );
+    final splitsAsync = ref.watch(householdDashboardSplitsProvider(query));
     final membersAsync =
         ref.watch(householdMembersProvider(params.householdId));
-    final budgetsAsync =
-        ref.watch(householdBudgetsProvider(params.householdId));
+    final budgetsAsync = includeBudgets
+        ? ref.watch(householdBudgetsProvider(params.householdId))
+        : const AsyncValue<List<SharedBudget>>.data(<SharedBudget>[]);
 
     // Recurring: used to project synthetic occurrences into analytics.
     // This provider is a StateNotifier that may not have loaded yet.
@@ -122,10 +251,7 @@ final householdDerivedSummaryProvider =
       params.householdId,
     ));
 
-    if (currentUserId != null &&
-        currentUserId.isNotEmpty &&
-        !recurringState.hasLoadedOnce &&
-        !recurringState.data.isLoading) {
+    if (!recurringState.hasLoadedOnce) {
       final recurringNotifier = ref.read(
         recurringTransactionsProvider(params.householdId).notifier,
       );
@@ -134,16 +260,26 @@ final householdDerivedSummaryProvider =
       });
     }
 
-    final baseExpenses = expensesAsync.valueOrNull;
-    if (baseExpenses == null) {
-      if (expensesAsync.hasError) {
-        return AsyncValue.error(
-          expensesAsync.error!,
-          expensesAsync.stackTrace!,
-        );
-      }
+    final dependencyState = householdDashboardDependencyState(
+      <AsyncValue<Object?>>[
+        expensesAsync,
+        splitsAsync,
+        membersAsync,
+        budgetsAsync,
+        recurringState.data,
+      ],
+    );
+    if (dependencyState.hasError) {
+      return AsyncValue.error(
+        dependencyState.error!,
+        dependencyState.stackTrace ?? StackTrace.current,
+      );
+    }
+    if (!dependencyState.hasValue) {
       return const AsyncValue.loading();
     }
+
+    final baseExpenses = expensesAsync.valueOrNull!;
 
     final expenses = mergeDashboardTransactionsWithLocalOverlay(
       base: baseExpenses,
@@ -166,21 +302,13 @@ final householdDerivedSummaryProvider =
       optimisticExpenses,
       deletedIds: deletedIds,
     );
-    final optimisticSplits = ref.watch(
-      householdOptimisticSplitsProvider.select(
-        (state) => state[params.householdId] ?? const <ExpenseSplitGroup>[],
-      ),
-    );
-    final splits = mergeHouseholdSplits(
-      splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[],
-      optimisticSplits,
-    );
-    final members = membersAsync.valueOrNull ?? const <HouseholdMember>[];
-    final budgets = budgetsAsync.valueOrNull ?? const <SharedBudget>[];
+    final splits = splitsAsync.valueOrNull!;
+    final members = membersAsync.valueOrNull!;
+    final budgets = budgetsAsync.valueOrNull!;
 
     final expensesWithRecurring = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: mergedExpenses,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
+      recurringTransactions: recurringState.data.valueOrNull!,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: params.currency,
@@ -219,8 +347,7 @@ final householdDerivedSummaryProvider =
     );
 
     return AsyncValue.data(summary);
-  },
-);
+}
 
 List<ExpenseSplitGroup> _convertSplitGroupsToCurrency(
   List<ExpenseSplitGroup> groups, {

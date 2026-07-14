@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
-import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
@@ -24,8 +22,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 
 /// Settlement suggestions card with toggle for express netting mode
 class SettlementSuggestionsCard extends ConsumerStatefulWidget {
-  final HouseholdSummary summary;
-  final List<ExpenseEntry>? transactions;
+  final String householdId;
   final List<ExpenseSplitGroup>? splits;
   final String? currency;
   final List<String>? selectedCurrencies;
@@ -34,8 +31,7 @@ class SettlementSuggestionsCard extends ConsumerStatefulWidget {
 
   const SettlementSuggestionsCard({
     super.key,
-    required this.summary,
-    this.transactions,
+    required this.householdId,
     this.splits,
     this.currency,
     this.selectedCurrencies,
@@ -78,48 +74,83 @@ class _SettlementSuggestionsCardState
     if (currentUserId == null || currentUserId.isEmpty) {
       return const SizedBox.shrink();
     }
+    if (!isBackendHouseholdId(widget.householdId)) {
+      return const SizedBox.shrink();
+    }
 
-    final balancesAsync = ref.watch(
-      householdPairwiseSettlementBalancesV2Provider(
-        PairwiseSettlementBalancesParams(
-          householdId: widget.summary.householdId,
-          currency: hasMultiCurrencySelection ? null : selectedCurrency,
-        ),
-      ),
-    );
-    final overviewAsync = ref.watch(
-      settlementOverviewProvider(widget.summary.householdId),
-    );
     final optimisticPayments = ref.watch(
       optimisticSettlementPaymentsProvider.select(
         (state) =>
-            state[widget.summary.householdId] ??
-            const <SettlementPaymentRecord>[],
+            state[widget.householdId] ?? const <SettlementPaymentRecord>[],
       ),
     );
     final optimisticSplits = ref.watch(
       householdOptimisticSplitsProvider.select(
-        (state) =>
-            state[widget.summary.householdId] ?? const <ExpenseSplitGroup>[],
+        (state) => state[widget.householdId] ?? const <ExpenseSplitGroup>[],
       ),
     );
+    final needsLegacyOverview = hasMultiCurrencySelection ||
+        optimisticPayments.isNotEmpty ||
+        optimisticSplits.isNotEmpty;
+    final balancesAsync = needsLegacyOverview
+        ? const AsyncValue<List<SettlementPairwiseBalance>>.data(
+            <SettlementPairwiseBalance>[],
+          )
+        : ref.watch(
+            householdPairwiseSettlementBalancesV2Provider(
+              PairwiseSettlementBalancesParams(
+                householdId: widget.householdId,
+                currency: selectedCurrency,
+              ),
+            ),
+          );
+    final useLegacyOverview = needsLegacyOverview ||
+        (balancesAsync.hasError && !balancesAsync.hasValue);
+    final overviewAsync = useLegacyOverview
+        ? ref.watch(settlementOverviewProvider(widget.householdId))
+        : null;
 
-    if (optimisticSplits.isEmpty &&
-        balancesAsync.isLoading &&
-        overviewAsync.isLoading) {
-      return _buildLoadingCard(context, colorScheme);
-    }
-
-    if (optimisticSplits.isEmpty &&
-        balancesAsync.hasError &&
-        !overviewAsync.hasValue) {
-      return _buildLoadingCard(context, colorScheme);
+    // Never render a partial settlement amount. The common single-currency
+    // path needs only the pairwise RPC; multi-currency and optimistic paths
+    // need the complete legacy overview. Cached values remain usable while
+    // their provider refreshes in the background.
+    if (useLegacyOverview) {
+      if ((overviewAsync?.hasError ?? false) &&
+          !(overviewAsync?.hasValue ?? false)) {
+        return _buildErrorCard(
+          context,
+          colorScheme,
+          onRetry: () =>
+              ref.invalidate(settlementOverviewProvider(widget.householdId)),
+        );
+      }
+      if (!(overviewAsync?.hasValue ?? false)) {
+        return _buildLoadingCard(context, colorScheme);
+      }
+    } else {
+      if (balancesAsync.hasError && !balancesAsync.hasValue) {
+        return _buildErrorCard(
+          context,
+          colorScheme,
+          onRetry: () => ref.invalidate(
+            householdPairwiseSettlementBalancesV2Provider(
+              PairwiseSettlementBalancesParams(
+                householdId: widget.householdId,
+                currency: selectedCurrency,
+              ),
+            ),
+          ),
+        );
+      }
+      if (!balancesAsync.hasValue) {
+        return _buildLoadingCard(context, colorScheme);
+      }
     }
 
     final balances = balancesAsync.valueOrNull;
-    final overview = overviewAsync.valueOrNull;
+    final overview = overviewAsync?.valueOrNull;
 
-    if (optimisticSplits.isEmpty && balances == null && overview == null) {
+    if (balances == null && overview == null) {
       return _buildLoadingCard(context, colorScheme);
     }
 
@@ -144,18 +175,7 @@ class _SettlementSuggestionsCardState
               fromMembers!.userName!.isNotEmpty) {
             return fromMembers.userName!;
           }
-          final fromSummary = widget.summary.memberContributions.firstWhere(
-            (mc) => mc.userId == userId,
-            orElse: () => const MemberContribution(
-                userId: '',
-                totalSpentCents: 0,
-                transactionCount: 0,
-                splitCount: 0,
-                balanceCents: 0),
-          );
-          return fromSummary.userName ??
-              fromMembers?.userEmail ??
-              context.l10n.member;
+          return fromMembers?.userEmail ?? context.l10n.member;
         }
 
         final overviewSplits = optimisticSplits.isNotEmpty
@@ -209,7 +229,7 @@ class _SettlementSuggestionsCardState
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => SettlementHistoryPage(
-                    householdId: widget.summary.householdId,
+                    householdId: widget.householdId,
                   ),
                 ),
               );
@@ -252,7 +272,7 @@ class _SettlementSuggestionsCardState
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => SettlementHistoryPage(
-                                      householdId: widget.summary.householdId,
+                                      householdId: widget.householdId,
                                     ),
                                   ),
                                 );
@@ -278,18 +298,18 @@ class _SettlementSuggestionsCardState
                               amountCents: youOweTotal,
                               color: colorScheme.destructive,
                               currency: selectedCurrency,
-                              onTap: youOweTotal > 0 &&
-                                      !hasMultiCurrencySelection
-                                  ? () => _openSettleUpSheet(
-                                        context,
-                                        householdId: widget.summary.householdId,
-                                        isExpress: true,
-                                        amountHintCents: youOweTotal,
-                                        splits: widget.splits,
-                                        targetUserId: null,
-                                        currency: selectedCurrency,
-                                      )
-                                  : null,
+                              onTap:
+                                  youOweTotal > 0 && !hasMultiCurrencySelection
+                                      ? () => _openSettleUpSheet(
+                                            context,
+                                            householdId: widget.householdId,
+                                            isExpress: true,
+                                            amountHintCents: youOweTotal,
+                                            splits: widget.splits,
+                                            targetUserId: null,
+                                            currency: selectedCurrency,
+                                          )
+                                      : null,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -346,7 +366,7 @@ class _SettlementSuggestionsCardState
                             showCurrencyFlag: hasMultiCurrencySelection,
                             onTap: () => _openSettleUpSheet(
                               context,
-                              householdId: widget.summary.householdId,
+                              householdId: widget.householdId,
                               isExpress: true,
                               amountHintCents: s.amountCents,
                               splits: widget.splits,
@@ -384,6 +404,45 @@ class _SettlementSuggestionsCardState
       ),
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildErrorCard(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    required VoidCallback onRetry,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: colorScheme.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.l10n.errorLoadingDashboard,
+              style: TextStyle(color: colorScheme.foreground),
+            ),
+          ),
+          IconButton(
+            onPressed: onRetry,
+            tooltip: context.l10n.errorLoadingDashboard,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
     );
   }
 

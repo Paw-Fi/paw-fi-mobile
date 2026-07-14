@@ -7,7 +7,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -23,7 +22,6 @@ import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -393,15 +391,13 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     );
   }
 
-  void _openCaptureFlow(BuildContext context, WidgetRef ref) {
-    final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
-    if (!hasPremiumFeatureAccess(subscription)) {
-      PlusLockedSheet.show(
-        context,
-        highlightedFeature: PlusFeature.messagingAppCapture,
-      );
-      return;
-    }
+  Future<void> _openCaptureFlow(BuildContext context, WidgetRef ref) async {
+    final hasAccess = await PlusLockedSheet.ensureAccess(
+      context,
+      ref,
+      feature: PlusFeature.messagingAppCapture,
+    );
+    if (!hasAccess || !context.mounted) return;
 
     final target = defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS
@@ -417,15 +413,14 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     });
   }
 
-  void _openEmailImportSettings(BuildContext context, WidgetRef ref) {
-    final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
-    if (!hasPremiumFeatureAccess(subscription)) {
-      PlusLockedSheet.show(
-        context,
-        highlightedFeature: PlusFeature.emailReceiptImport,
-      );
-      return;
-    }
+  Future<void> _openEmailImportSettings(
+      BuildContext context, WidgetRef ref) async {
+    final hasAccess = await PlusLockedSheet.ensureAccess(
+      context,
+      ref,
+      feature: PlusFeature.emailReceiptImport,
+    );
+    if (!hasAccess || !context.mounted) return;
 
     Navigator.of(context)
         .push(

@@ -16,7 +16,7 @@ const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
 
-const int _localDatabaseSchemaVersion = 4;
+const int _localDatabaseSchemaVersion = 5;
 
 String localScopeKey({
   required String userId,
@@ -440,6 +440,7 @@ class MonekoDatabase {
     required List<ExpenseEntry> entries,
     required String clientMutationId,
     required Map<String, dynamic> payload,
+    String? actingUserId,
   }) async {
     if (entries.isEmpty) return;
 
@@ -450,6 +451,7 @@ class MonekoDatabase {
           entry: entry,
           clientMutationId: clientMutationId,
           status: localMutationStatusQueued,
+          fallbackUserId: actingUserId,
         );
         _db.execute(
           'DELETE FROM local_transactions WHERE id = ?',
@@ -893,24 +895,17 @@ class MonekoDatabase {
     }
 
     final filter = _localFeedFilter(query, includeCursor: false);
-    final deleteConditions = <String>[
+    final candidateConditions = <String>[
       filter.whereSql,
       'sync_status = ?',
     ];
-    final deleteArgs = <Object?>[
+    final candidateArgs = <Object?>[
       ...filter.args,
       localSyncStatusSynced,
     ];
 
-    if (authoritativeIds.isNotEmpty) {
-      deleteConditions.add(
-        'id NOT IN (${List.filled(authoritativeIds.length, '?').join(', ')})',
-      );
-      deleteArgs.addAll(authoritativeIds);
-    }
-
     if (remoteHasMore) {
-      deleteConditions.add('''
+      candidateConditions.add('''
         (
           date > ?
           OR (
@@ -922,7 +917,7 @@ class MonekoDatabase {
           )
         )
       ''');
-      deleteArgs.addAll([
+      candidateArgs.addAll([
         _dateOnly(boundary!.date),
         _dateOnly(boundary.date),
         _instant(boundary.createdAt),
@@ -931,19 +926,22 @@ class MonekoDatabase {
       ]);
     }
 
-    final whereSql = deleteConditions.join(' AND ');
+    final whereSql = candidateConditions.join(' AND ');
     final touched = <_SummaryKey>{};
 
     _runInTransaction(() {
-      final rows = _db.select(
+      final candidateRows = _db.select(
         '''
-        SELECT user_id, household_id, date, currency
+        SELECT id, user_id, household_id, date, currency
         FROM local_transactions
         WHERE $whereSql
         ''',
-        deleteArgs,
+        candidateArgs,
       );
-      for (final row in rows) {
+      final staleRows = candidateRows
+          .where((row) => !authoritativeIds.contains(row['id'] as String))
+          .toList(growable: false);
+      for (final row in staleRows) {
         touched.add(_SummaryKey(
           scopeKey: localScopeKey(
             userId: row['user_id'] as String,
@@ -954,17 +952,30 @@ class MonekoDatabase {
         ));
       }
 
-      if (rows.isEmpty) {
+      if (staleRows.isEmpty) {
         return;
       }
 
-      _db.execute(
-        '''
-        DELETE FROM local_transactions
-        WHERE $whereSql
-        ''',
-        deleteArgs,
-      );
+      const deleteBatchSize = 400;
+      for (var offset = 0;
+          offset < staleRows.length;
+          offset += deleteBatchSize) {
+        final end = offset + deleteBatchSize < staleRows.length
+            ? offset + deleteBatchSize
+            : staleRows.length;
+        final staleIds = staleRows
+            .sublist(offset, end)
+            .map((row) => row['id'] as String)
+            .toList(growable: false);
+        _db.execute(
+          '''
+          DELETE FROM local_transactions
+          WHERE sync_status = ?
+            AND id IN (${List.filled(staleIds.length, '?').join(', ')})
+          ''',
+          [localSyncStatusSynced, ...staleIds],
+        );
+      }
 
       for (final key in touched) {
         _rebuildSummary(key);
@@ -1155,6 +1166,150 @@ class MonekoDatabase {
       if (page.items.isEmpty) break;
     }
     return items;
+  }
+
+  Future<List<ExpenseEntry>> getPendingOwnedTransactions({
+    required String userId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? currency,
+  }) async {
+    final conditions = <String>[
+      'user_id = ?',
+      'deleted_at IS NULL',
+      'sync_status = ?',
+      'date >= ?',
+      'date <= ?',
+    ];
+    final args = <Object?>[
+      userId,
+      localSyncStatusLocal,
+      _dateOnly(startDate),
+      _dateOnly(endDate),
+    ];
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    if (normalizedCurrency != null && normalizedCurrency.isNotEmpty) {
+      conditions.add('UPPER(COALESCE(currency, \'\')) = ?');
+      args.add(normalizedCurrency);
+    }
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY date DESC, created_at DESC, id DESC
+      ''',
+      args,
+    );
+    return rows.map(_entryFromTransactionRow).toList(growable: false);
+  }
+
+  Future<Set<String>> getActiveTransactionTombstoneIds({
+    required String userId,
+    String? householdId,
+    bool includeAllHouseholds = false,
+  }) async {
+    final normalizedHouseholdId = householdId?.trim();
+    final rows = includeAllHouseholds
+        ? _db.select(
+            '''
+            SELECT transaction_id
+            FROM local_transaction_tombstones
+            WHERE user_id = ?
+            ''',
+            [userId],
+          )
+        : normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty
+            ? _db.select(
+                '''
+                SELECT transaction_id
+                FROM local_transaction_tombstones
+                WHERE scope_key = ?
+                ''',
+                [
+                  localScopeKey(
+                    userId: userId,
+                    householdId: normalizedHouseholdId,
+                  ),
+                ],
+              )
+            : _db.select(
+                '''
+                SELECT transaction_id
+                FROM local_transaction_tombstones
+                WHERE user_id = ?
+                  AND (household_id IS NULL OR TRIM(household_id) = '')
+                ''',
+                [userId],
+              );
+    return rows
+        .map((row) => row['transaction_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
+  Future<List<ExpenseEntry>> getSyncedTransactionsChangedSince({
+    required String userId,
+    required DateTime changedAfter,
+    String? householdId,
+    bool includeAllHouseholds = false,
+  }) async {
+    final conditions = <String>[
+      'user_id = ?',
+      'sync_status = ?',
+      'deleted_at IS NULL',
+      "COALESCE(local_updated_at, '') > ?",
+    ];
+    final args = <Object?>[
+      userId,
+      localSyncStatusSynced,
+      _instant(changedAfter.toUtc()),
+    ];
+    final normalizedHouseholdId = householdId?.trim();
+    if (!includeAllHouseholds) {
+      if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty) {
+        conditions.add('household_id = ?');
+        args.add(normalizedHouseholdId);
+      } else {
+        conditions.add("(household_id IS NULL OR TRIM(household_id) = '')");
+      }
+    }
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY date DESC, created_at DESC, id DESC
+      ''',
+      args,
+    );
+    return rows.map(_entryFromTransactionRow).toList(growable: false);
+  }
+
+  Future<Set<String>> getPendingTransactionUpdateIds() async {
+    final rows = _db.select(
+      '''
+      SELECT entity_id
+      FROM local_mutation_outbox
+      WHERE entity_type = 'transaction'
+        AND operation = 'update_transaction'
+        AND status IN (?, ?, ?)
+      ''',
+      [
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+    return rows
+        .expand(
+          (row) => (row['entity_id']?.toString() ?? '')
+              .split(',')
+              .map((id) => id.trim()),
+        )
+        .where((id) => id.isNotEmpty)
+        .toSet();
   }
 
   Future<LocalTransactionsFeedSummary> getTransactionsFeedSummary(
@@ -1445,6 +1600,43 @@ class MonekoDatabase {
       WHERE namespace = ? AND cache_key LIKE ?
       ''',
       [namespace, '$cacheKeyPrefix%'],
+    );
+  }
+
+  Future<void> pruneJsonCacheNamespace({
+    required String namespace,
+    required int maxEntries,
+    DateTime? olderThan,
+  }) async {
+    if (olderThan != null) {
+      _db.execute(
+        '''
+        DELETE FROM local_json_cache
+        WHERE namespace = ? AND updated_at < ?
+        ''',
+        [namespace, _instant(olderThan.toUtc())],
+      );
+    }
+    if (maxEntries <= 0) {
+      _db.execute(
+        'DELETE FROM local_json_cache WHERE namespace = ?',
+        [namespace],
+      );
+      return;
+    }
+    _db.execute(
+      '''
+      DELETE FROM local_json_cache
+      WHERE namespace = ?
+        AND cache_key NOT IN (
+          SELECT cache_key
+          FROM local_json_cache
+          WHERE namespace = ?
+          ORDER BY updated_at DESC, rowid DESC
+          LIMIT ?
+        )
+      ''',
+      [namespace, namespace, maxEntries],
     );
   }
 
@@ -2139,6 +2331,7 @@ class MonekoDatabase {
         category TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT,
+        local_updated_at TEXT NOT NULL DEFAULT '',
         raw_text TEXT,
         merchant TEXT,
         breakdown_json TEXT,
@@ -2265,6 +2458,15 @@ class MonekoDatabase {
       'CREATE INDEX IF NOT EXISTS idx_local_transaction_tombstones_scope '
       'ON local_transaction_tombstones(scope_key, updated_at DESC);',
     );
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_local_transaction_tombstones_user '
+      'ON local_transaction_tombstones(user_id, updated_at DESC);',
+    );
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_local_transaction_tombstones_household '
+      'ON local_transaction_tombstones(household_id, updated_at DESC) '
+      'WHERE household_id IS NOT NULL;',
+    );
     _db.execute('''
       CREATE TABLE IF NOT EXISTS local_transaction_feed_cache (
         query_key TEXT PRIMARY KEY,
@@ -2344,6 +2546,8 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'last_error', 'TEXT');
       _ensureColumn('local_transactions', 'created_device_id', 'TEXT');
       _ensureColumn('local_transactions', 'deleted_at', 'TEXT');
+      _ensureColumn('local_transactions', 'local_updated_at',
+          "TEXT NOT NULL DEFAULT ''");
 
       _ensureColumn('local_mutation_outbox', 'attempt_count',
           'INTEGER NOT NULL DEFAULT 0');
@@ -2447,13 +2651,13 @@ class MonekoDatabase {
       '''
       INSERT INTO local_transactions (
         id, user_id, contact_id, household_id, scope_key, date, amount_cents,
-        currency, category, created_at, updated_at, raw_text, merchant,
+        currency, category, created_at, updated_at, local_updated_at, raw_text, merchant,
         breakdown_json, receipt_image_url, local_receipt_image_path,
         shared_member_ids_json, split_group_id, bank_account_id, wallet_id,
         account_name, account_icon, account_color, type, is_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -2465,6 +2669,7 @@ class MonekoDatabase {
         category = excluded.category,
         created_at = excluded.created_at,
         updated_at = excluded.updated_at,
+        local_updated_at = excluded.local_updated_at,
         raw_text = excluded.raw_text,
         merchant = excluded.merchant,
         breakdown_json = excluded.breakdown_json,
@@ -2512,6 +2717,7 @@ class MonekoDatabase {
         entry.category,
         _instant(entry.createdAt),
         entry.updatedAt == null ? null : _instant(entry.updatedAt!),
+        _instant(DateTime.now().toUtc()),
         entry.rawText,
         entry.merchant,
         _encodeStringList(entry.breakdown),
@@ -2572,8 +2778,13 @@ class MonekoDatabase {
     required ExpenseEntry entry,
     required String clientMutationId,
     required String status,
+    String? fallbackUserId,
   }) {
-    final userId = entry.userId?.trim();
+    final actingUserId = fallbackUserId?.trim();
+    final entryUserId = entry.userId?.trim();
+    // Tombstones belong to the signed-in actor's local scope, including when
+    // a household admin deletes another member's transaction.
+    final userId = actingUserId?.isNotEmpty == true ? actingUserId : entryUserId;
     if (userId == null || userId.isEmpty) return;
     final now = _instant(DateTime.now().toUtc());
     _db.execute(
@@ -2604,13 +2815,26 @@ class MonekoDatabase {
   }
 
   void _markTransactionTombstonesSynced(String clientMutationId) {
+    final now = DateTime.now().toUtc();
     _db.execute(
       '''
       UPDATE local_transaction_tombstones
       SET status = ?, updated_at = ?
       WHERE client_mutation_id = ?
       ''',
-      [localMutationStatusSynced, _instant(DateTime.now()), clientMutationId],
+      [localMutationStatusSynced, _instant(now), clientMutationId],
+    );
+    // Dashboard snapshots expire after two days. Keeping confirmed deletes
+    // for a third day prevents stale-cache resurrection while bounding growth.
+    _db.execute(
+      '''
+      DELETE FROM local_transaction_tombstones
+      WHERE status = ? AND updated_at < ?
+      ''',
+      [
+        localMutationStatusSynced,
+        _instant(now.subtract(const Duration(days: 3))),
+      ],
     );
   }
 

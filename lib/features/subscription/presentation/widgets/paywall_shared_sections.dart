@@ -76,49 +76,35 @@ class PaywallAutoRenewCheckbox extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: isProcessing ? null : () => onChanged(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 24,
-              width: 24,
-              child: Checkbox(
-                value: value,
-                onChanged: isProcessing
-                    ? null
-                    : (nextValue) => onChanged(nextValue ?? false),
-                activeColor: colorScheme.primary,
-                checkColor: colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                side: BorderSide(
-                  color: colorScheme.outlineVariant,
-                  width: 1.5,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                paywallAutoRenewTerms(
-                  context,
-                  option: option,
-                  trialMode: trialMode,
-                ),
-                style: TextStyle(
-                  color: colorScheme.mutedForeground,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: CheckboxListTile(
+        value: value,
+        onChanged:
+            isProcessing ? null : (nextValue) => onChanged(nextValue ?? false),
+        activeColor: colorScheme.primary,
+        checkColor: colorScheme.onPrimary,
+        checkboxShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+        ),
+        side: BorderSide(
+          color: colorScheme.outlineVariant,
+          width: 1.5,
+        ),
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: Text(
+          paywallAutoRenewTerms(
+            context,
+            option: option,
+            trialMode: trialMode,
+          ),
+          style: TextStyle(
+            color: colorScheme.mutedForeground,
+            fontSize: 12,
+            height: 1.4,
+          ),
         ),
       ),
     );

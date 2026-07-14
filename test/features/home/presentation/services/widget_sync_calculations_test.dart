@@ -30,6 +30,16 @@ void main() {
     expect(range['to'], DateTime(2026, 4, 29));
   });
 
+  test('widget this-month range uses configured financial cycle start', () {
+    final range = buildWidgetThisMonthRange(
+      DateTime(2026, 7, 9, 18, 45),
+      financialMonthStartDay: 25,
+    );
+
+    expect(range['from'], DateTime(2026, 6, 25));
+    expect(range['to'], DateTime(2026, 7, 9));
+  });
+
   test('widget spending total matches dashboard cards', () {
     final entries = [
       _entry(

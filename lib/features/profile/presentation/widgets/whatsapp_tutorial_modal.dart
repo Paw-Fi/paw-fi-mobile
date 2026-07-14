@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
-class WhatsAppTutorialModal extends HookWidget {
+class WhatsAppTutorialModal extends HookConsumerWidget {
   const WhatsAppTutorialModal({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentPage = useState(0);
     final pageController = usePageController();
@@ -43,6 +45,13 @@ class WhatsAppTutorialModal extends HookWidget {
     }, [pageController]);
 
     Future<void> handleBindWhatsApp() async {
+      final hasAccess = await PlusLockedSheet.ensureAccess(
+        context,
+        ref,
+        feature: PlusFeature.messagingAppCapture,
+      );
+      if (!hasAccess || !context.mounted) return;
+
       // This wa link contains a "start" welcome message
       final Uri url = Uri.parse('https://wa.link/67a9gl');
       try {

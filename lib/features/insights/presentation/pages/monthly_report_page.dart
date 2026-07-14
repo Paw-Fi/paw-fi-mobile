@@ -7,9 +7,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
@@ -57,18 +59,32 @@ enum MonthlyReportDetailKind {
   recurring,
 }
 
-MonthlyReportQuery _defaultMonthlyReportQuery() {
+MonthlyReportQuery _defaultMonthlyReportQuery({
+  int financialMonthStartDay = 1,
+}) {
   final now = DateTime.now();
-  return MonthlyReportQuery(monthStart: DateTime(now.year, now.month));
+  return MonthlyReportQuery(
+    monthStart: financialCycleStartForDate(
+      now,
+      startDay: financialMonthStartDay,
+    ),
+    financialMonthStartDay: financialMonthStartDay,
+  );
 }
 
-MonthlyReportQuery monthlyReportQueryFromUri(Uri uri) {
+MonthlyReportQuery monthlyReportQueryFromUri(
+  Uri uri, {
+  int financialMonthStartDay = 1,
+}) {
   final query = uri.queryParameters;
   return MonthlyReportQuery(
     monthStart: _parseMonthlyReportMonth(query['month']) ??
-        _defaultMonthlyReportQuery().monthStart,
+        _defaultMonthlyReportQuery(
+          financialMonthStartDay: financialMonthStartDay,
+        ).monthStart,
     range: MonthlyReportRange.fromKey(query['range']),
-  ).normalized();
+    financialMonthStartDay: financialMonthStartDay,
+  ).normalized(financialMonthStartDay: financialMonthStartDay);
 }
 
 DateTime? _parseMonthlyReportMonth(String? value) {
@@ -78,7 +94,29 @@ DateTime? _parseMonthlyReportMonth(String? value) {
   final year = int.tryParse(parts[0]);
   final month = int.tryParse(parts[1]);
   if (year == null || month == null || month < 1 || month > 12) return null;
-  return DateTime(year, month);
+  final day = parts.length >= 3 ? int.tryParse(parts[2]) : 1;
+  if (day == null || day < 1 || day > 31) return null;
+  final parsed = DateTime(year, month, day);
+  if (parsed.year != year || parsed.month != month || parsed.day != day) {
+    return null;
+  }
+  return parsed;
+}
+
+String _monthlyReportTitle(
+  BuildContext context,
+  MonthlyReportQuery query,
+) {
+  if (query.financialMonthStartDay == 1) {
+    return MaterialLocalizations.of(context).formatMonthYear(query.monthStart);
+  }
+  final end = nextFinancialCycleStart(
+    query.monthStart,
+    startDay: query.financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
+  final localizations = MaterialLocalizations.of(context);
+  return '${localizations.formatShortDate(query.monthStart)} - '
+      '${localizations.formatShortDate(end)}';
 }
 
 String _monthlyReportRoute(
@@ -131,15 +169,21 @@ class MonthlyReportPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final initialMonthStart =
-        initialQuery?.monthStart ?? _defaultMonthlyReportQuery().monthStart;
-    final query =
-        MonthlyReportQuery(monthStart: initialMonthStart).normalized();
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final initialMonthStart = initialQuery?.monthStart ??
+        _defaultMonthlyReportQuery(
+          financialMonthStartDay: financialMonthStartDay,
+        ).monthStart;
+    final query = MonthlyReportQuery(
+      monthStart: initialMonthStart,
+      range: initialQuery?.range ?? MonthlyReportRange.month,
+      financialMonthStartDay: financialMonthStartDay,
+    ).normalized(financialMonthStartDay: financialMonthStartDay);
     final reportProvider = monthlyFinancialReportProvider(query);
     final reportAsync = ref.watch(reportProvider);
-    final canOpenReportDetails = hasPremiumFeatureAccess(
-      ref.watch(subscriptionNotifierProvider).valueOrNull,
-    );
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final canOpenReportDetails = !subscriptionAsync.hasValue ||
+        hasPremiumFeatureAccess(subscriptionAsync.valueOrNull);
     final loadedSnapshot = reportAsync.valueOrNull;
     final visibleSnapshot = useState<MonthlyFinancialReportSnapshot?>(null);
     final isCompletingInitialLoad = useState(false);
@@ -206,9 +250,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     bool canOpenReportDetails,
   ) {
     final report = snapshot.report;
-    final month = MaterialLocalizations.of(context).formatMonthYear(
-      report.monthStart,
-    );
+    final month = _monthlyReportTitle(context, query);
 
     return RefreshIndicator(
       onRefresh: () => ref
@@ -1122,7 +1164,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final effectiveQuery = (query ?? _defaultMonthlyReportQuery()).normalized();
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final effectiveQuery = (query ??
+            _defaultMonthlyReportQuery(
+              financialMonthStartDay: financialMonthStartDay,
+            ))
+        .normalized(financialMonthStartDay: financialMonthStartDay);
     final reportAsync =
         ref.watch(monthlyFinancialReportProvider(effectiveQuery));
     final snapshot = reportAsync.valueOrNull;
@@ -2490,7 +2537,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
 class MonthlyReportDrillDownPage extends HookConsumerWidget {
   const MonthlyReportDrillDownPage({
     super.key,
-    required this.query,
+    this.query,
     this.title,
     this.subtitle,
     this.sourceTransactionIds,
@@ -2498,7 +2545,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
     this.goalId,
   });
 
-  final MonthlyReportQuery query;
+  final MonthlyReportQuery? query;
   final String? title;
   final String? subtitle;
   final String? sourceTransactionIds;
@@ -2508,7 +2555,14 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final reportAsync = ref.watch(monthlyFinancialReportProvider(query));
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final effectiveQuery = (query ??
+            _defaultMonthlyReportQuery(
+              financialMonthStartDay: financialMonthStartDay,
+            ))
+        .normalized(financialMonthStartDay: financialMonthStartDay);
+    final reportAsync =
+        ref.watch(monthlyFinancialReportProvider(effectiveQuery));
     final snapshot = reportAsync.valueOrNull;
     final ids = _decodeSourceTransactionIds(sourceTransactionIds).toSet();
     final householdScope = ref.watch(householdScopeProvider);
@@ -2683,7 +2737,8 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                               );
                               if (context.mounted) {
                                 await ref
-                                    .read(monthlyFinancialReportProvider(query)
+                                    .read(monthlyFinancialReportProvider(
+                                            effectiveQuery)
                                         .notifier)
                                     .refreshReport();
                               }
@@ -2805,9 +2860,9 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                                 );
                                 if (context.mounted) {
                                   await ref
-                                      .read(
-                                          monthlyFinancialReportProvider(query)
-                                              .notifier)
+                                      .read(monthlyFinancialReportProvider(
+                                              effectiveQuery)
+                                          .notifier)
                                       .refreshReport();
                                 }
                               },

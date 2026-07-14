@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:intl/intl.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/l10n/app_localizations_en.dart';
 
@@ -34,6 +35,7 @@ class MonthlyReportInput {
     required this.goals,
     this.periodStart,
     this.periodEnd,
+    this.financialMonthStartDay = 1,
     this.compareMonthToDate = true,
     this.historicalTransactions = const [],
     this.previousNetWorth,
@@ -43,6 +45,7 @@ class MonthlyReportInput {
   final DateTime monthStart;
   final DateTime? periodStart;
   final DateTime? periodEnd;
+  final int financialMonthStartDay;
   final bool compareMonthToDate;
   final DateTime now;
   final String currencyCode;
@@ -489,7 +492,10 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
   final localizations = l10n ?? AppLocalizationsEn();
   final monthStart = _dateOnly(input.monthStart);
   final periodStart = _dateOnly(input.periodStart ?? monthStart);
-  final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
+  final monthEnd = financialCycleForDate(
+    monthStart,
+    startDay: input.financialMonthStartDay,
+  ).end;
   final periodEnd = _dateOnly(input.periodEnd ?? monthEnd);
   final today = _dateOnly(input.now);
   final timeProgress = _periodProgress(today, periodStart, periodEnd);
@@ -500,12 +506,15 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
       ? _previousMonthToDateTransactions(
           input.previousMonthTransactions,
           today: today,
+          currentPeriodStart: periodStart,
+          financialMonthStartDay: input.financialMonthStartDay,
         )
       : input.previousMonthTransactions;
   final historicalComparableTransactions = input.compareMonthToDate
       ? _historicalMonthToDateTransactions(
           input.historicalTransactions,
-          comparableDay: today.day,
+          elapsedDays: math.max(today.difference(periodStart).inDays, 0),
+          financialMonthStartDay: input.financialMonthStartDay,
         )
       : input.historicalTransactions;
   final income = _sumByType(currentTransactions, income: true);
@@ -543,6 +552,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
     currentTransactions: currentTransactions,
     previousComparableTransactions: previousComparableTransactions,
     historicalComparableTransactions: historicalComparableTransactions,
+    financialMonthStartDay: input.financialMonthStartDay,
     l10n: localizations,
   );
   final merchantConcentration =
@@ -972,13 +982,16 @@ List<MonthlyCategoryTrendItem> _buildCategoryTrends({
   required List<MonthlyReportTransactionInput> currentTransactions,
   required List<MonthlyReportTransactionInput> previousComparableTransactions,
   required List<MonthlyReportTransactionInput> historicalComparableTransactions,
+  required int financialMonthStartDay,
   required AppLocalizations l10n,
 }) {
   final currentByCategory = _expenseTotalsByCategory(currentTransactions);
   final previousByCategory =
       _expenseTotalsByCategory(previousComparableTransactions);
-  final historicalAverages =
-      _expenseMonthlyAveragesByCategory(historicalComparableTransactions);
+  final historicalAverages = _expenseMonthlyAveragesByCategory(
+    historicalComparableTransactions,
+    financialMonthStartDay: financialMonthStartDay,
+  );
   final items = <MonthlyCategoryTrendItem>[];
 
   for (final entry in currentByCategory.entries) {
@@ -1167,30 +1180,51 @@ MonthlyNetWorthTrend? _buildNetWorthTrend({
 List<MonthlyReportTransactionInput> _previousMonthToDateTransactions(
   List<MonthlyReportTransactionInput> transactions, {
   required DateTime today,
+  required DateTime currentPeriodStart,
+  required int financialMonthStartDay,
 }) {
-  final previousMonthEnd = DateTime(today.year, today.month, 0);
-  final comparableDay = math.min(today.day, previousMonthEnd.day);
+  final previousPeriodStart = previousFinancialCycleStart(
+    currentPeriodStart,
+    startDay: financialMonthStartDay,
+  );
+  final previousPeriodEnd =
+      currentPeriodStart.subtract(const Duration(days: 1));
+  final elapsedDays = math.max(today.difference(currentPeriodStart).inDays, 0);
+  final comparableEnd = previousPeriodStart.add(Duration(days: elapsedDays));
+  final clampedEnd = comparableEnd.isAfter(previousPeriodEnd)
+      ? previousPeriodEnd
+      : comparableEnd;
   return transactions
-      .where((tx) => _dateOnly(tx.date).day <= comparableDay)
+      .where((tx) => !_dateOnly(tx.date).isAfter(clampedEnd))
       .toList(growable: false);
 }
 
 List<MonthlyReportTransactionInput> _historicalMonthToDateTransactions(
   List<MonthlyReportTransactionInput> transactions, {
-  required int comparableDay,
+  required int elapsedDays,
+  required int financialMonthStartDay,
 }) {
-  return transactions
-      .where((tx) => _dateOnly(tx.date).day <= comparableDay)
-      .toList(growable: false);
+  return transactions.where((tx) {
+    final date = _dateOnly(tx.date);
+    final cycleStart = financialCycleStartForDate(
+      date,
+      startDay: financialMonthStartDay,
+    );
+    return date.difference(cycleStart).inDays <= elapsedDays;
+  }).toList(growable: false);
 }
 
 Map<String, double> _expenseMonthlyAveragesByCategory(
-  List<MonthlyReportTransactionInput> transactions,
-) {
+    List<MonthlyReportTransactionInput> transactions,
+    {required int financialMonthStartDay}) {
   final totalsByMonthAndCategory = <String, Map<String, double>>{};
   for (final tx in transactions) {
     if (!_isExpenseTransaction(tx)) continue;
-    final monthKey = '${tx.date.year}-${tx.date.month}';
+    final cycleStart = financialCycleStartForDate(
+      tx.date,
+      startDay: financialMonthStartDay,
+    );
+    final monthKey = formatFinancialPeriodDate(cycleStart);
     final category = _normalizedName(
       tx.category.isEmpty ? 'Uncategorized' : tx.category,
     );

@@ -29,6 +29,8 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
+const _householdId = '00000000-0000-0000-0000-000000000001';
+
 class MockAnalyticsNotifier extends AnalyticsNotifier {
   MockAnalyticsNotifier(Ref ref, AnalyticsData data) : super(ref) {
     state = data;
@@ -54,7 +56,7 @@ class MockUserHouseholdsNotifier extends UserHouseholdsNotifier {
   Future<List<Household>> build() async {
     return [
       Household(
-        id: 'h1',
+        id: _householdId,
         name: 'Test Household',
         ownerId: 'u1',
         currency: 'USD',
@@ -74,7 +76,19 @@ class MockHouseholdMembersNotifier extends HouseholdMembersNotifier {
 }
 
 class MockSelectedHouseholdNotifier extends SelectedHouseholdNotifier {
-  MockSelectedHouseholdNotifier(super.ref, super.prefs, super.userId);
+  MockSelectedHouseholdNotifier(super.ref, super.prefs, super.userId) {
+    state = SelectedHouseholdState(
+      householdId: _householdId,
+      household: Household(
+        id: _householdId,
+        name: 'Test Household',
+        ownerId: 'u1',
+        currency: 'USD',
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      ),
+    );
+  }
 
   @override
   Future<void> selectHousehold(String householdId) async {
@@ -146,7 +160,7 @@ ExpenseEntry _expense({
   return ExpenseEntry(
     id: id,
     userId: userId ?? 'u1',
-    householdId: householdId ?? 'h1',
+    householdId: householdId ?? _householdId,
     date: date ?? DateTime.now(),
     amountCents: amountCents ?? 1000,
     currency: 'USD',
@@ -191,7 +205,10 @@ void main() {
           order: 0,
         ).toJson(),
       ]);
-      await prefs.setString('household_dashboard_layout_h1', seededLayout);
+      await prefs.setString(
+        'household_dashboard_layout_$_householdId',
+        seededLayout,
+      );
 
       final dashboardRepo = DashboardRepository(
         prefs,
@@ -199,7 +216,7 @@ void main() {
       );
 
       final household = Household(
-        id: 'h1',
+        id: _householdId,
         name: 'Test Household',
         ownerId: 'u1',
         currency: 'USD',
@@ -210,12 +227,13 @@ void main() {
       final householdRepository = _MockHouseholdRepository();
       when(() => householdRepository.getUserHouseholds('u1'))
           .thenAnswer((_) async => [household]);
-      when(() => householdRepository.getHouseholdMembers('h1'))
+      when(() => householdRepository.getHouseholdMembers(_householdId))
           .thenAnswer((_) async => const <HouseholdMember>[]);
-      when(() => householdRepository.getHouseholdBudgets('h1'))
+      when(() => householdRepository.getHouseholdBudgets(_householdId))
           .thenAnswer((_) async => const <SharedBudget>[]);
-      when(() => householdRepository.getHouseholdSplits(householdId: 'h1'))
-          .thenAnswer((_) async => const <ExpenseSplitGroup>[]);
+      when(() => householdRepository.getHouseholdSplits(
+            householdId: _householdId,
+          )).thenAnswer((_) async => const <ExpenseSplitGroup>[]);
 
       container = ProviderContainer(
         overrides: [
@@ -239,28 +257,28 @@ void main() {
             (ref) => MockAnalyticsNotifier(ref, AnalyticsData()),
           ),
           cachedHouseholdExpensesProvider(
-            const HouseholdExpensesParams(householdId: 'h1'),
+            const HouseholdExpensesParams(householdId: _householdId),
           ).overrideWith(
             (ref) async => [_expense(id: 'e1')],
           ),
           selectedHouseholdProvider.overrideWith(
             (ref) => MockSelectedHouseholdNotifier(ref, prefs, 'u1'),
           ),
-          recurringTransactionsProvider('h1').overrideWith(
-            (ref) => MockRecurringTransactionsNotifier(ref, 'h1'),
+          recurringTransactionsProvider(_householdId).overrideWith(
+            (ref) => MockRecurringTransactionsNotifier(ref, _householdId),
           ),
           householdExpensesProvider(
-            const HouseholdExpensesParams(householdId: 'h1'),
+            const HouseholdExpensesParams(householdId: _householdId),
           ).overrideWith(
             (ref) async => [_expense(id: 'e1')],
           ),
           householdSplitsProvider(
-            const HouseholdSplitsParams(householdId: 'h1'),
+            const HouseholdSplitsParams(householdId: _householdId),
           ).overrideWith(
             (ref) async => const <ExpenseSplitGroup>[],
           ),
           cachedHouseholdSplitsProvider(
-            const HouseholdSplitsParams(householdId: 'h1'),
+            const HouseholdSplitsParams(householdId: _householdId),
           ).overrideWith(
             (ref) async => [],
           ),
@@ -299,19 +317,23 @@ void main() {
           ),
         );
 
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
 
         // Verify initial content is loaded
         expect(find.byType(CustomScrollView), findsOneWidget);
         expect(find.byType(HouseholdHomeContent), findsOneWidget);
 
         // Simulate cache invalidation as happens when expense is saved
-        container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
+        container
+            .read(cacheInvalidatorProvider)
+            .invalidateHouseholdData(_householdId);
         container.invalidate(cachedHouseholdExpensesProvider);
         container.invalidate(cachedHouseholdSplitsProvider);
-        container.invalidate(householdDashboardProvider('h1'));
+        container.invalidate(householdDashboardProvider(_householdId));
 
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
 
         // The widget should still be present and functional
         expect(find.byType(CustomScrollView), findsOneWidget);
@@ -346,21 +368,29 @@ void main() {
           ),
         );
 
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
 
         // Simulate the exact invalidation sequence from expense_save_providers.dart
-        container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
+        container
+            .read(cacheInvalidatorProvider)
+            .invalidateHouseholdData(_householdId);
         container.invalidate(householdExpensesProvider);
         container.invalidate(cachedHouseholdExpensesProvider);
         container.invalidate(householdSplitsProvider);
         container.invalidate(cachedHouseholdSplitsProvider);
         container.invalidate(householdBudgetsProvider);
         container.invalidate(householdMembersProvider);
-        container.invalidate(pocketsProvider(const PocketsScopeParams(
-            scope: PocketsScopeType.household, householdId: 'h1')));
+        container.invalidate(pocketsProvider(
+          const PocketsScopeParams(
+            scope: PocketsScopeType.household,
+            householdId: _householdId,
+          ),
+        ));
         container.invalidate(currencyTransactionCountsProvider);
 
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
 
         // Verify the UI remains stable after invalidation
         expect(find.byType(CustomScrollView), findsOneWidget);

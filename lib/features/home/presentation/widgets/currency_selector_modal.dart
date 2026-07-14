@@ -598,14 +598,14 @@ class _CurrencySelectorScreenState
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
-                      onPressed: () {
-                        if (!canUsePremiumCurrencyFeatures) {
-                          PlusLockedSheet.show(
-                            context,
-                            highlightedFeature: PlusFeature.currencyConverter,
-                          );
-                          return;
-                        }
+                      onPressed: () async {
+                        final hasAccess =
+                            await PlusLockedSheet.ensureAccess(
+                          context,
+                          ref,
+                          feature: PlusFeature.currencyConverter,
+                        );
+                        if (!hasAccess || !context.mounted) return;
                         context.push('/currency-rates');
                       },
                       icon: const Icon(
@@ -687,16 +687,15 @@ class _CurrencySelectorScreenState
                               isPrimary:
                                   primaryCurrency == summary.currencyCode,
                               showSelectionCheckbox: true,
-                              onCheckboxTap: () {
+                              onCheckboxTap: () async {
                                 HapticFeedback.selectionClick();
-                                if (!canUsePremiumCurrencyFeatures) {
-                                  PlusLockedSheet.show(
-                                    context,
-                                    highlightedFeature:
-                                        PlusFeature.multipleCurrencies,
-                                  );
-                                  return;
-                                }
+                                final hasAccess =
+                                    await PlusLockedSheet.ensureAccess(
+                                  context,
+                                  ref,
+                                  feature: PlusFeature.multipleCurrencies,
+                                );
+                                if (!hasAccess || !context.mounted) return;
                                 final next = selectedCurrencySet.toSet();
                                 if (primaryCurrency.isEmpty) {
                                   next.add(summary.currencyCode);

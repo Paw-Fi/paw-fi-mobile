@@ -208,7 +208,7 @@ void main() {
       expect(find.text('Family sharing included'), findsWidgets);
       expect(find.textContaining('Plus plan'), findsOneWidget);
 
-      await tester.tap(find.text('Got it!'));
+      await tester.tap(find.text('Got it'));
       await tester.pumpAndSettle();
       expect(find.text('Dashboard'), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;

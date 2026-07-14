@@ -24,10 +24,6 @@ class DashboardScopeQuery {
     return (currency == null || currency.isEmpty) ? null : currency;
   }
 
-  String? get _identityCurrency {
-    return normalizedCurrencies == null ? normalizedCurrency : null;
-  }
-
   List<String>? get normalizedCurrencies {
     final source = selectedCurrencies ??
         (selectedCurrency == null ? null : <String>[selectedCurrency!]);
@@ -95,7 +91,7 @@ class DashboardScopeQuery {
         other is DashboardScopeQuery &&
             userId == other.userId &&
             householdId == other.householdId &&
-            _identityCurrency == other._identityCurrency &&
+            normalizedCurrency == other.normalizedCurrency &&
             _listEquals(normalizedCurrencies, other.normalizedCurrencies) &&
             formattedStartDate == other.formattedStartDate &&
             formattedEndDate == other.formattedEndDate &&
@@ -107,7 +103,7 @@ class DashboardScopeQuery {
   int get hashCode => Object.hash(
         userId,
         householdId,
-        _identityCurrency,
+        normalizedCurrency,
         Object.hashAll(normalizedCurrencies ?? const <String>[]),
         formattedStartDate,
         formattedEndDate,

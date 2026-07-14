@@ -29,17 +29,12 @@ String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
   return r'$' + monthlyPrice.toStringAsFixed(2);
 }
 
-const _plusLockedInAppAiExpenseLogging = 'In-app AI expense logging';
-const _plusLockedHealthDetails = 'Health report details';
-const _plusLockedAiScenarios = 'AI scenarios';
-const _plusLockedWallets = 'Wallets';
-
 enum PlusFeature {
   healthDetails,
   aiScenarios,
   messagingAppCapture,
   emailReceiptImport,
-  sharedBudgets,
+  spaceCreation,
   walletCreation,
   bankSync,
   multipleCurrencies,
@@ -69,6 +64,37 @@ class PlusLockedSheet extends HookConsumerWidget {
         highlightedFeature: highlightedFeature,
       ),
     );
+  }
+
+  static Future<bool> ensureAccess(
+    BuildContext context,
+    WidgetRef ref, {
+    required PlusFeature feature,
+  }) async {
+    final subscriptionAsync = ref.read(subscriptionNotifierProvider);
+    try {
+      final subscription = subscriptionAsync.hasValue
+          ? subscriptionAsync.valueOrNull
+          : await ref.read(subscriptionNotifierProvider.future);
+      if (hasPremiumFeatureAccess(subscription)) {
+        return true;
+      }
+    } catch (_) {
+      // Unknown entitlement state must not be treated as confirmed free.
+      // Server-side entitlement checks remain the final authority.
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    await show(context, highlightedFeature: feature);
+    if (!context.mounted) return false;
+    try {
+      return hasPremiumFeatureAccess(
+        await ref.read(subscriptionNotifierProvider.future),
+      );
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -389,6 +415,69 @@ class PlusLockedSheet extends HookConsumerWidget {
   }
 }
 
+class PlusFeatureGuard extends ConsumerStatefulWidget {
+  const PlusFeatureGuard({
+    super.key,
+    required this.feature,
+    required this.child,
+  });
+
+  final PlusFeature feature;
+  final Widget child;
+
+  @override
+  ConsumerState<PlusFeatureGuard> createState() => _PlusFeatureGuardState();
+}
+
+class _PlusFeatureGuardState extends ConsumerState<PlusFeatureGuard> {
+  bool? _hasAccess;
+  bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAccess());
+  }
+
+  Future<void> _checkAccess() async {
+    if (_isChecking) return;
+    setState(() => _isChecking = true);
+    final hasAccess = await PlusLockedSheet.ensureAccess(
+      context,
+      ref,
+      feature: widget.feature,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isChecking = false;
+      _hasAccess = hasAccess;
+    });
+    if (!hasAccess) {
+      await Navigator.of(context).maybePop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasAccess == true) return widget.child;
+
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: colorScheme.appBackground,
+      body: SafeArea(
+        child: Center(
+          child: _isChecking || _hasAccess == null
+              ? const CircularProgressIndicator.adaptive()
+              : TextButton(
+                  onPressed: _checkAccess,
+                  child: Text(context.l10n.viewPlans),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 enum _LockedSheetMode { freeToPlus, trialToPlus }
 
 class _LockedSheetContent {
@@ -485,7 +574,7 @@ class _LockedSheetContent {
         icon: Icons.group_rounded,
         title: "${context.l10n.plusLockedSharedBudgets} ∞",
         value: context.l10n.unlimited,
-        featureKey: PlusFeature.sharedBudgets,
+        featureKey: PlusFeature.spaceCreation,
       ),
       _PremiumFeature(
         icon: Icons.account_balance_wallet_rounded,
@@ -1160,7 +1249,7 @@ _PlanComparisonContent _freeVsPlusComparison(
         _ComparisonValue.text('2'),
         _ComparisonValue.text(context.l10n.unlimited),
       ],
-      featureKey: PlusFeature.sharedBudgets,
+      featureKey: PlusFeature.spaceCreation,
     ),
     _ComparisonRowData(
       feature: context.l10n.walletCreation,

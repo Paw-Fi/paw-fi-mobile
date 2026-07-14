@@ -49,7 +49,7 @@ final dashboardUserContactProvider =
   final response = await supabase
       .from('user_contacts')
       .select(
-          'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone')
+          'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone,financial_month_start_day')
       .eq('user_id', userId)
       .order('updated_at', ascending: false)
       .limit(1)
@@ -141,6 +141,15 @@ final dashboardPersonalBudgetsProvider =
   }));
   trace.mark('load-success', {'count': budgets.length});
   return budgets;
+});
+
+final dashboardActiveScopeBudgetsProvider =
+    FutureProvider.autoDispose<List<DailyBudgetEntry>>((ref) async {
+  final scope = ref.watch(householdScopeProvider);
+  if (scope.activeAccountType != ActiveWalletType.personal) {
+    return const <DailyBudgetEntry>[];
+  }
+  return ref.watch(dashboardPersonalBudgetsProvider.future);
 });
 
 final dashboardSelectedHomeCurrencyCodeProvider = Provider<String>((ref) {
@@ -293,15 +302,21 @@ final dashboardCurrencySummariesProvider =
     _debugCurrencySummaries(
       'rpc-start p_user_id=$userId p_household_id=${activeHouseholdId ?? '<null>'}',
     );
-    final response = await supabase.rpc(
-      'get_dashboard_currency_summaries_v1',
-      params: <String, dynamic>{
-        'p_user_id': userId,
-        'p_household_id': activeHouseholdId,
-      },
-    );
-
-    final budgets = await ref.watch(dashboardPersonalBudgetsProvider.future);
+    final budgetsFuture = scope.activeAccountType == ActiveWalletType.personal
+        ? ref.watch(dashboardPersonalBudgetsProvider.future)
+        : Future<List<DailyBudgetEntry>>.value(const <DailyBudgetEntry>[]);
+    final results = await Future.wait<dynamic>([
+      supabase.rpc(
+        'get_dashboard_currency_summaries_v1',
+        params: <String, dynamic>{
+          'p_user_id': userId,
+          'p_household_id': activeHouseholdId,
+        },
+      ),
+      budgetsFuture,
+    ]);
+    final response = results[0];
+    final budgets = results[1] as List<DailyBudgetEntry>;
     final budgetTotals = <String, double>{};
     if (scope.activeAccountType == ActiveWalletType.personal) {
       for (final budget in budgets) {
@@ -401,24 +416,11 @@ final dashboardCurrencyTransactionCountsProvider =
       'direct-counts query-start user=$userId scope=${scope.activeAccountType.name} household=${activeHouseholdId ?? '<personal>'} key=$cacheKey bypass=$shouldBypassCache',
     );
 
-    dynamic query = supabase
-        .from('expenses')
-        .select('currency,household_id,user_id,is_recurring,type,deleted_at')
-        .isFilter('deleted_at', null);
-    if (scope.activeAccountType == ActiveWalletType.personal) {
-      query = query.eq('user_id', userId).isFilter('household_id', null);
-    } else {
-      query = query.eq('household_id', activeHouseholdId);
-    }
-
-    final response = await query.limit(10000);
-    final rows = (response as List? ?? const []).cast<Map>();
-    final counts = <String, int>{};
-    for (final row in rows) {
-      final code = (row['currency'] as String? ?? '').trim().toUpperCase();
-      if (code.isEmpty) continue;
-      counts[code] = (counts[code] ?? 0) + 1;
-    }
+    final counts = await _fetchDashboardCurrencyTransactionCounts(
+      userId: userId,
+      householdId: activeHouseholdId,
+      usePersonalScope: scope.activeAccountType == ActiveWalletType.personal,
+    );
 
     writeDashboardSessionCache(cacheKey, counts);
     _currencyCountsRefreshGenerationByKey[cacheKey] = refreshGeneration;
@@ -427,7 +429,7 @@ final dashboardCurrencyTransactionCountsProvider =
       'state': {'counts': counts},
     }));
     _debugCurrencySummaries(
-      'direct-counts query-success key=$cacheKey rows=${rows.length} counts=$counts sample=${rows.take(8).map((row) => Map<String, dynamic>.from(row)).toList(growable: false)}',
+      'direct-counts query-success key=$cacheKey counts=$counts',
     );
     return counts;
   } catch (error, stackTrace) {
@@ -443,6 +445,32 @@ final dashboardCurrencyTransactionCountsProvider =
     rethrow;
   }
 });
+
+Future<Map<String, int>> _fetchDashboardCurrencyTransactionCounts({
+  required String userId,
+  required String? householdId,
+  required bool usePersonalScope,
+}) async {
+  // This provider is opened with the currency selector rather than the Home
+  // critical path. Preserve its existing PostgREST-capped row semantics: an
+  // unordered capped sample cannot be grouped in a new RPC with a factual
+  // guarantee that the same physical rows were selected.
+  dynamic query =
+      supabase.from('expenses').select('currency').isFilter('deleted_at', null);
+  if (usePersonalScope) {
+    query = query.eq('user_id', userId).isFilter('household_id', null);
+  } else {
+    query = query.eq('household_id', householdId);
+  }
+  final response = await query.limit(10000);
+  final counts = <String, int>{};
+  for (final row in (response as List? ?? const []).cast<Map>()) {
+    final code = (row['currency'] as String? ?? '').trim().toUpperCase();
+    if (code.isEmpty) continue;
+    counts[code] = (counts[code] ?? 0) + 1;
+  }
+  return counts;
+}
 
 final dashboardCurrencySummaryTransactionCountsProvider =
     Provider.autoDispose<Map<String, int>>((ref) {

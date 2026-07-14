@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_calculation_breakdown_page.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
@@ -24,6 +25,22 @@ import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:moneko/core/utils/money_parser.dart';
+
+@visibleForTesting
+SettlementPaymentRecord buildOptimisticSettlementPayment({
+  required String currentUserId,
+  required String memberUserId,
+  required bool currentUserOwes,
+  required int amountCents,
+  required String currency,
+}) {
+  return SettlementPaymentRecord(
+    payerUserId: currentUserOwes ? memberUserId : currentUserId,
+    participantUserId: currentUserOwes ? currentUserId : memberUserId,
+    amountCents: amountCents,
+    currency: currency,
+  );
+}
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
@@ -695,12 +712,13 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       final currentUserId = Supabase.instance.client.auth.currentUser?.id;
       SettlementPaymentRecord? optimisticPayment;
       if (currentUserId != null && currentUserId.isNotEmpty) {
-        final currentUserPays = widget.isExpressNetting
+        final currentUserOwes = widget.isExpressNetting
             ? _youOweCents >= _youAreOwedCents
             : !widget.settleTheyOweYou;
-        optimisticPayment = SettlementPaymentRecord(
-          payerUserId: currentUserPays ? currentUserId : memberId,
-          participantUserId: currentUserPays ? memberId : currentUserId,
+        optimisticPayment = buildOptimisticSettlementPayment(
+          currentUserId: currentUserId,
+          memberUserId: memberId,
+          currentUserOwes: currentUserOwes,
           amountCents: amountCents,
           currency: _settlementCurrencyCode,
         );
@@ -719,6 +737,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       );
 
       // Force-refresh cached data so settlement changes show immediately
+      try {
+        await clearHouseholdSettlementPaymentsPersistentCache(
+          widget.householdId,
+        );
+      } catch (_) {}
+      ref
+          .read(householdRemoteMutationRefreshSignalProvider(
+            widget.householdId,
+          ).notifier)
+          .state += 1;
       ref
           .read(cacheInvalidatorProvider)
           .invalidateHouseholdData(widget.householdId);
@@ -731,7 +759,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       try {
         final homeFilter = ref.read(homeFilterProvider);
         final periodSelection = ref.read(periodFilterProvider);
-        final range = resolvePeriodDateRange(periodSelection);
+        final financialMonthStartDay = ref.read(financialMonthStartDayProvider);
+        final range = resolvePeriodDateRange(
+          periodSelection,
+          financialMonthStartDay: financialMonthStartDay,
+        );
         ref.invalidate(householdExpensesProvider(
           HouseholdExpensesParams(
             householdId: widget.householdId,
@@ -763,6 +795,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             currency: _settlementCurrencyCode,
           ),
         ));
+        ref.invalidate(householdSettlementBreakdownV2Provider);
       } catch (_) {}
       if (optimisticPayment != null) {
         ref
@@ -783,14 +816,15 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         final currentUserId = Supabase.instance.client.auth.currentUser?.id;
         final memberId = _selectedMemberId ?? widget.specificMemberId;
         if (currentUserId != null && memberId != null) {
-          final currentUserPays = widget.isExpressNetting
+          final currentUserOwes = widget.isExpressNetting
               ? _youOweCents >= _youAreOwedCents
               : !widget.settleTheyOweYou;
           ref.read(optimisticSettlementPaymentsProvider.notifier).removePayment(
                 widget.householdId,
-                SettlementPaymentRecord(
-                  payerUserId: currentUserPays ? currentUserId : memberId,
-                  participantUserId: currentUserPays ? memberId : currentUserId,
+                buildOptimisticSettlementPayment(
+                  currentUserId: currentUserId,
+                  memberUserId: memberId,
+                  currentUserOwes: currentUserOwes,
                   amountCents: _clampAmountCents(
                         requestedCents: _parseAmountCents(_pendingAmountText),
                         maxCents: _maxSettleCents,

@@ -17,6 +17,7 @@ import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -60,6 +61,7 @@ class _AppState extends ConsumerState<App> {
             ref.read(subscriptionManagementProvider.notifier).refresh(),
           );
           unawaited(_syncPendingIosWalletCapturesOnResume());
+          unawaited(_syncPendingAndroidNotificationCapturesOnResume());
         } else if (state == AppLifecycleState.hidden ||
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.detached) {
@@ -139,7 +141,6 @@ class _AppState extends ConsumerState<App> {
         supabaseUrl: Constants.supabaseUrl,
         supabaseAnonKey: Constants.supabaseAnon,
         accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
         userId: session.user.id,
         expiresAt: session.expiresAt,
       );
@@ -152,6 +153,34 @@ class _AppState extends ConsumerState<App> {
           stackTrace,
           fatal: false,
           reason: 'ios_wallet_pending_resume_sync_error',
+        );
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _syncPendingAndroidNotificationCapturesOnResume() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null || session.isExpired) return;
+
+    try {
+      await NotificationCaptureService.instance.syncAuthContext(
+        supabaseUrl: Constants.supabaseUrl,
+        supabaseAnonKey: Constants.supabaseAnon,
+        accessToken: session.accessToken,
+        userId: session.user.id,
+        expiresAt: session.expiresAt ?? 0,
+      );
+      await NotificationCaptureService.instance.syncPendingCaptures();
+    } on MissingPluginException {
+      return;
+    } catch (error, stackTrace) {
+      try {
+        await FirebaseCrashlytics.instance.recordError(
+          error,
+          stackTrace,
+          fatal: false,
+          reason: 'android_notification_pending_resume_sync_error',
         );
       } catch (_) {}
     }
