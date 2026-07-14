@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
       id: id,
@@ -37,8 +38,9 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
   );
 
   final List<TransactionsFeedPageResult> pages;
+  final Object? allPagesError;
 
-  _FakeTransactionsFeedService(this.pages);
+  _FakeTransactionsFeedService(this.pages, {this.allPagesError});
 
   @override
   Future<TransactionsFeedPageResult> fetchPage(
@@ -54,6 +56,7 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
   @override
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
     allPagesCallCount += 1;
+    if (allPagesError != null) throw allPagesError!;
     final items = <ExpenseEntry>[];
     for (final page in pages) {
       items.addAll(page.items);
@@ -100,6 +103,44 @@ void main() {
 
     expect(usdPrimary, eurPrimary);
     expect(usdPrimary.hashCode, eurPrimary.hashCode);
+  });
+
+  test('bounded unfiltered pages use the optimized RPC', () {
+    final query = buildQuery().copyWith(
+      startDate: DateTime(2025, 11, 1),
+      endDate: DateTime(2026, 5, 31),
+      selectedCurrencies: const ['USD', 'EUR'],
+    );
+
+    expect(
+      transactionsPageRpcNameForTesting(query),
+      'get_bounded_transactions_page_v1',
+    );
+  });
+
+  test('filtered pages keep using the general transaction RPC', () {
+    final query = buildQuery().copyWith(
+      startDate: DateTime(2026, 5, 1),
+      endDate: DateTime(2026, 5, 31),
+      selectedCategory: 'food',
+    );
+
+    expect(
+      transactionsPageRpcNameForTesting(query),
+      'get_user_transactions_page_v1',
+    );
+  });
+
+  test('ranges over 800 days keep using the general transaction RPC', () {
+    final query = buildQuery().copyWith(
+      startDate: DateTime(2023, 1, 1),
+      endDate: DateTime(2026, 1, 1),
+    );
+
+    expect(
+      transactionsPageRpcNameForTesting(query),
+      'get_user_transactions_page_v1',
+    );
   });
 
   test('loads summary and first page initially', () async {
@@ -383,8 +424,7 @@ void main() {
     expect(refreshed.items.map((entry) => entry.id), ['remote_1']);
   });
 
-  test(
-      'local-first service merges pending rows into remote all-pages history',
+  test('local-first service merges pending rows into remote all-pages history',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
@@ -439,6 +479,37 @@ void main() {
     expect(allItems.map((entry) => entry.id), ['pending_1', 'remote_1']);
     expect(remote.summaryCallCount, 0);
     expect(remote.allPagesCallCount, 1);
+  });
+
+  test('local-first service does not hide remote authorization failures',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.upsertTransactions([
+      _entry('cached-household-row', DateTime(2026, 4, 5)),
+    ]);
+    final remote = _FakeTransactionsFeedService(
+      const <TransactionsFeedPageResult>[],
+      allPagesError: const PostgrestException(
+        message: 'Unauthorized household bounded transaction access',
+        code: '42501',
+      ),
+    );
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    await expectLater(
+      service.fetchAllPages(buildQuery()),
+      throwsA(
+        isA<PostgrestException>().having(
+          (error) => error.code,
+          'code',
+          '42501',
+        ),
+      ),
+    );
   });
 
   test('local-first service removes synced local rows missing from remote page',

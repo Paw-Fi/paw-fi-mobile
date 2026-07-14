@@ -30,16 +30,6 @@ void main() {
                 type: 'income', category: 'Payday'),
           ],
           recurringItems: const [],
-          goals: const [
-            MonthlyReportGoalInput(
-              title: 'Emergency Fund',
-              targetAmount: 5000,
-              currentAmount: 2000,
-              currencyCode: 'EUR',
-              targetDate: '2026-11-01',
-              isOnTrack: true,
-            ),
-          ],
         ),
       );
 
@@ -47,7 +37,8 @@ void main() {
       expect(report.overview.spending, 1250);
       expect(report.overview.savings, 1750);
       expect(report.overview.forecastedBalance, 1900);
-      expect(report.safeToSpend.dailyAmount, closeTo(23.80, 0.01));
+      expect(report.safeToSpend.daysRemaining, 22);
+      expect(report.safeToSpend.dailyAmount, closeTo(22.73, 0.01));
       expect(report.cashFlowForecast.map((point) => point.label), [
         'Today',
         'Utilities',
@@ -76,7 +67,6 @@ void main() {
           ],
           futureTransactions: const [],
           recurringItems: const [],
-          goals: const [],
         ),
       );
 
@@ -110,7 +100,6 @@ void main() {
           budgetItems: const [],
           futureTransactions: const [],
           recurringItems: const [],
-          goals: const [],
         ),
       );
 
@@ -136,7 +125,6 @@ void main() {
             _recurring('netflix-2', 'Netflix', 13.99, DateTime(2026, 5, 20)),
             _recurring('spotify', 'Spotify', 10.99, DateTime(2026, 5, 18)),
           ],
-          goals: const [],
         ),
       );
 
@@ -169,7 +157,6 @@ void main() {
           budgetItems: const [],
           futureTransactions: const [],
           recurringItems: const [],
-          goals: const [],
         ),
       );
 
@@ -180,6 +167,27 @@ void main() {
       expect(report.trendSummary.savingsRate, closeTo(0.8, 0.001));
       expect(report.trendSummary.previousSavingsRate, closeTo(0.821, 0.001));
       expect(report.trendSummary.netCashFlow, 2400);
+    });
+
+    test('closed periods do not claim that money is safe to spend', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 4),
+          periodStart: DateTime(2026, 4),
+          periodEnd: DateTime(2026, 4, 30),
+          now: DateTime(2026, 5, 10),
+          currencyCode: 'EUR',
+          currentBalance: 5000,
+          currentMonthTransactions: const [],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: const [],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.safeToSpend.daysRemaining, 0);
+      expect(report.safeToSpend.dailyAmount, 0);
     });
 
     test('summarizes budget plan and unbudgeted spending without placeholders',
@@ -205,7 +213,6 @@ void main() {
           ],
           futureTransactions: const [],
           recurringItems: const [],
-          goals: const [],
         ),
       );
 
@@ -240,7 +247,6 @@ void main() {
           budgetItems: const [],
           futureTransactions: const [],
           recurringItems: const [],
-          goals: const [],
         ),
       );
 
@@ -251,6 +257,107 @@ void main() {
       expect(report.categoryTrends.single.baselineAverageSpent, 200);
       expect(report.categoryTrends.single.previousChangePercent,
           closeTo(1.1, 0.001));
+    });
+
+    test('compares multi-month category totals with the equal previous range',
+        () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 6),
+          periodStart: DateTime(2026, 1),
+          periodEnd: DateTime(2026, 6, 30),
+          compareMonthToDate: false,
+          now: DateTime(2026, 6, 30),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: [
+            _tx('current', DateTime(2026, 6, 10), 600, category: 'Food'),
+          ],
+          previousMonthTransactions: [
+            for (var month = 7; month <= 12; month++)
+              _tx(
+                'previous-$month',
+                DateTime(2025, month, 10),
+                50,
+                category: 'Food',
+              ),
+          ],
+          historicalTransactions: [
+            for (var month = 7; month <= 12; month++)
+              _tx(
+                'historical-$month',
+                DateTime(2025, month, 10),
+                50,
+                category: 'Food',
+              ),
+          ],
+          budgetItems: const [],
+          futureTransactions: const [],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.categoryTrends.single.currentSpent, 600);
+      expect(report.categoryTrends.single.previousSpent, 300);
+      expect(report.categoryTrends.single.baselineAverageSpent, 300);
+    });
+
+    test('does not apply one-month pocket pace to multi-month ranges', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 6),
+          periodStart: DateTime(2026, 1),
+          periodEnd: DateTime(2026, 6, 30),
+          compareMonthToDate: false,
+          now: DateTime(2026, 6, 30),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: [
+            _tx('food', DateTime(2026, 6, 10), 600, category: 'Food'),
+          ],
+          previousMonthTransactions: const [],
+          budgetItems: const [
+            MonthlyReportBudgetInput(
+              name: 'Food',
+              budgetAmount: 500,
+              spent: 100,
+            ),
+          ],
+          futureTransactions: const [],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.spendingPace, isEmpty);
+      expect(report.budgetHealth, isEmpty);
+    });
+
+    test('uses explicit pocket source ids for budget drilldowns', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 5),
+          now: DateTime(2026, 5, 10),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: [
+            _tx('market', DateTime(2026, 5, 4), 100, category: 'Groceries'),
+          ],
+          previousMonthTransactions: const [],
+          budgetItems: const [
+            MonthlyReportBudgetInput(
+              name: 'Food pocket',
+              budgetAmount: 500,
+              spent: 100,
+              sourceTransactionIds: ['market'],
+            ),
+          ],
+          futureTransactions: const [],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.budgetHealth.single.sourceTransactionIds, ['market']);
+      expect(report.spendingPace.single.sourceTransactionIds, ['market']);
     });
 
     test('calculates merchant concentration and cashflow low-water dates', () {
@@ -277,7 +384,6 @@ void main() {
                 type: 'income', category: 'Payday'),
           ],
           recurringItems: const [],
-          goals: const [],
         ),
       );
 
@@ -291,7 +397,7 @@ void main() {
       expect(report.cashFlowHealth.firstNegativeDate, DateTime(2026, 5, 12));
     });
 
-    test('reports recurring commitment, net worth change, and goals', () {
+    test('reports recurring commitment and net worth change', () {
       final report = buildMonthlyFinancialReport(
         MonthlyReportInput(
           monthStart: DateTime(2026, 5),
@@ -310,16 +416,6 @@ void main() {
             _recurring('rent', 'Rent', 900, DateTime(2026, 5, 15)),
             _recurring('gym', 'Gym', 60, DateTime(2026, 5, 28)),
           ],
-          goals: const [
-            MonthlyReportGoalInput(
-              title: 'Emergency Fund',
-              targetAmount: 5000,
-              currentAmount: 2500,
-              currencyCode: 'EUR',
-              targetDate: '2026-11-01',
-              isOnTrack: false,
-            ),
-          ],
         ),
       );
 
@@ -330,7 +426,131 @@ void main() {
       expect(report.netWorthTrend?.currentNetWorth, 1400);
       expect(report.netWorthTrend?.previousNetWorth, 1200);
       expect(report.netWorthTrend?.change, 200);
-      expect(report.goals.single.progress, closeTo(0.5, 0.001));
+    });
+
+    test('monthly recurring commitment uses all scheduled occurrences', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 5),
+          now: DateTime(2026, 5, 1),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: const [],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: const [],
+          recurringItems: [
+            _recurring(
+              'weekly',
+              'Weekly class',
+              10,
+              DateTime(2026, 5, 2),
+              monthlyAmount: 50,
+            ),
+          ],
+        ),
+      );
+
+      expect(report.subscriptions.items.single.amount, 10);
+      expect(report.subscriptions.totalMonthlyAmount, 50);
+      expect(report.recurringCommitment.monthlyAmount, 50);
+    });
+
+    test('preserves recurring ids on projected cash-flow items', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 5),
+          now: DateTime(2026, 5, 1),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: const [],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: [
+            _tx(
+              'recurring-rent-20260510',
+              DateTime(2026, 5, 10),
+              500,
+              category: 'Rent',
+              recurringId: 'rent',
+            ),
+          ],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.upcomingObligations.single.recurringId, 'rent');
+      expect(
+        report.cashFlowForecast
+            .firstWhere((point) => point.sourceTransactionId != null)
+            .recurringId,
+        'rent',
+      );
+    });
+
+    test('keeps future rows native while forecast totals use display currency',
+        () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 5),
+          now: DateTime(2026, 5, 1),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: const [],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: [
+            _tx(
+              'usd-bill',
+              DateTime(2026, 5, 10),
+              85,
+              category: 'Utilities',
+              nativeAmount: 100,
+              nativeCurrencyCode: 'USD',
+            ),
+          ],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.safeToSpend.futureObligations, 85);
+      expect(report.overview.forecastedBalance, 915);
+      expect(report.upcomingObligations.single.amount, 100);
+      expect(report.upcomingObligations.single.currencyCode, 'USD');
+    });
+
+    test('keeps recurring rows native while commitment totals are converted',
+        () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 5),
+          now: DateTime(2026, 5, 1),
+          currencyCode: 'EUR',
+          currentBalance: 1000,
+          currentMonthTransactions: const [],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: const [],
+          recurringItems: [
+            MonthlyReportRecurringInput(
+              id: 'usd-weekly',
+              name: 'USD weekly',
+              amount: 10,
+              currencyCode: 'USD',
+              aggregateAmount: 8.5,
+              monthlyAmount: 43.33,
+              aggregateMonthlyAmount: 36.83,
+              type: 'expense',
+              nextDate: DateTime(2026, 5, 2),
+            ),
+          ],
+        ),
+      );
+
+      expect(report.subscriptions.items.single.amount, 10);
+      expect(report.subscriptions.items.single.currencyCode, 'USD');
+      expect(report.subscriptions.totalMonthlyAmount, 36.83);
+      expect(report.recurringCommitment.dueSoonAmount, 8.5);
     });
   });
 }
@@ -342,6 +562,9 @@ MonthlyReportTransactionInput _tx(
   String type = 'expense',
   String category = 'General',
   String? merchant,
+  String? recurringId,
+  double? nativeAmount,
+  String? nativeCurrencyCode,
 }) {
   return MonthlyReportTransactionInput(
     id: id,
@@ -350,20 +573,21 @@ MonthlyReportTransactionInput _tx(
     type: type,
     category: category,
     merchant: merchant,
+    recurringId: recurringId,
+    nativeAmount: nativeAmount,
+    nativeCurrencyCode: nativeCurrencyCode,
     currencyCode: 'EUR',
   );
 }
 
 MonthlyReportRecurringInput _recurring(
-  String id,
-  String name,
-  double amount,
-  DateTime nextDate,
-) {
+    String id, String name, double amount, DateTime nextDate,
+    {double? monthlyAmount}) {
   return MonthlyReportRecurringInput(
     id: id,
     name: name,
     amount: amount,
+    monthlyAmount: monthlyAmount ?? amount,
     type: 'expense',
     currencyCode: 'EUR',
     nextDate: nextDate,

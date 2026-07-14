@@ -213,6 +213,11 @@ class _MonthlyReportMerchantShareChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (merchants.isEmpty) return const SizedBox.shrink();
+    final visibleShare = merchants.fold<double>(
+      0,
+      (sum, merchant) => sum + merchant.spendingShare,
+    );
+    final otherShare = (1 - visibleShare).clamp(0.0, 1.0);
 
     final accents = [
       colorScheme.primary,
@@ -251,6 +256,13 @@ class _MonthlyReportMerchantShareChart extends StatelessWidget {
                         duration: const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         color: accents[index % accents.length],
+                      ),
+                    ),
+                  if (otherShare > 0)
+                    Expanded(
+                      flex: math.max(1, (otherShare * 1000).round()),
+                      child: ColoredBox(
+                        color: colorScheme.border.withValues(alpha: 0.35),
                       ),
                     ),
                 ],
@@ -307,7 +319,7 @@ class _MonthlyReportMerchantLegendItem extends StatelessWidget {
         Expanded(
           flex: 3,
           child: Text(
-            getCategoryTranslation(context, merchant.name),
+            merchant.name,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,

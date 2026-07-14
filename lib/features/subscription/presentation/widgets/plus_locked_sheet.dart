@@ -2,10 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
@@ -20,7 +18,6 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
   final monthlyPrice = yearlyPrice / 12;
@@ -110,8 +107,6 @@ class PlusLockedSheet extends HookConsumerWidget {
     final currentStatus = currentSubscription?.status?.toLowerCase();
     final selectedPlanId = useState<String?>(null);
     final isCheckoutProcessing = useState(false);
-    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
-    final isBankSyncEligible = isPlaidSupportedTimezone(preferredTimezone);
 
     final useIap = shouldUseAppStoreCheckout(
       forceStripeCheckout: _forceUseStripeCheckout,
@@ -326,55 +321,7 @@ class PlusLockedSheet extends HookConsumerWidget {
                                     selectedPlanId.value = id,
                                 isCurrentPlan: isCurrentPlan,
                                 isNewUser: currentSubscription == null,
-                              ),
-                              if (!isBankSyncEligible) ...[
-                                const SizedBox(height: 10),
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text.rich(
-                                    TextSpan(
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: colorScheme.mutedForeground,
-                                        height: 1.4,
-                                      ),
-                                      children: [
-                                        TextSpan(
-                                          text: context.l10n
-                                              .plusLockedLifetimeDiscountPromo,
-                                        ),
-                                        WidgetSpan(
-                                          child: GestureDetector(
-                                            onTap: () => launchUrl(
-                                              Uri.parse(
-                                                  'https://moneko.io/support'),
-                                            ),
-                                            child: Text(
-                                              context.l10n.contactUs,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: colorScheme.primary,
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                decorationColor:
-                                                    colorScheme.primary,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: context.l10n
-                                              .plusLockedLifetimeDiscountClaim,
-                                        ),
-                                      ],
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
+                              ),                            
                               const SizedBox(height: 12),
                               if (effectiveActivePlanOption != null)
                                 PaywallCheckoutActionButton(

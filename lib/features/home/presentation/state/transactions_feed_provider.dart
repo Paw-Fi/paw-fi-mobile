@@ -556,30 +556,33 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
     TransactionsFeedQuery query, {
     TransactionsFeedCursor? cursor,
   }) async {
-    final params = <String, dynamic>{
-      'p_user_id': query.userId,
-      'p_household_id': query.householdId,
-      'p_currency': query.normalizedCurrency,
-      if (query.normalizedSelectedCurrencies != null)
-        'p_currencies': query.normalizedSelectedCurrencies,
-      'p_category': query.normalizedCategory,
-      'p_account_id': query.normalizedAccountId,
-      'p_include_unassigned_account': query.includeUnassignedAccount,
-      'p_categories': query.normalizedCategories,
-      'p_type': query.normalizedType,
-      'p_search_query': query.normalizedSearchQuery,
-      'p_start_date': query.formattedStartDate,
-      'p_end_date': query.formattedEndDate,
-      'p_page_size': query.pageSize,
-      'p_cursor_date': cursor == null ? null : formatDateOnlyYmd(cursor.date),
-      'p_cursor_created_at': cursor?.createdAt.toUtc().toIso8601String(),
-      'p_cursor_id': cursor?.id,
-    };
-
-    final response = await _runRpc(
-      rpcName: 'get_user_transactions_page_v1',
-      params: params,
+    final rpcName = _transactionsPageRpcName(query);
+    final params = _transactionsPageRpcParams(
+      query,
+      cursor: cursor,
+      includeGeneralFilters: rpcName == 'get_user_transactions_page_v1',
     );
+
+    dynamic response;
+    try {
+      response = await _runRpc(
+        rpcName: rpcName,
+        params: params,
+      );
+    } on PostgrestException catch (error) {
+      if (rpcName != 'get_bounded_transactions_page_v1' ||
+          !_isMissingBoundedTransactionsRpc(error)) {
+        rethrow;
+      }
+      response = await _runRpc(
+        rpcName: 'get_user_transactions_page_v1',
+        params: _transactionsPageRpcParams(
+          query,
+          cursor: cursor,
+          includeGeneralFilters: true,
+        ),
+      );
+    }
 
     final payload = Map<String, dynamic>.from(response as Map);
     final items = ((payload['items'] as List?) ?? const [])
@@ -599,6 +602,34 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
                 )
               : null,
     );
+  }
+
+  Map<String, dynamic> _transactionsPageRpcParams(
+    TransactionsFeedQuery query, {
+    required TransactionsFeedCursor? cursor,
+    required bool includeGeneralFilters,
+  }) {
+    return <String, dynamic>{
+      'p_user_id': query.userId,
+      'p_household_id': query.householdId,
+      'p_currency': query.normalizedCurrency,
+      if (query.normalizedSelectedCurrencies != null)
+        'p_currencies': query.normalizedSelectedCurrencies,
+      if (includeGeneralFilters) ...{
+        'p_category': query.normalizedCategory,
+        'p_account_id': query.normalizedAccountId,
+        'p_include_unassigned_account': query.includeUnassignedAccount,
+        'p_categories': query.normalizedCategories,
+        'p_search_query': query.normalizedSearchQuery,
+      },
+      'p_type': query.normalizedType,
+      'p_start_date': query.formattedStartDate,
+      'p_end_date': query.formattedEndDate,
+      'p_page_size': query.pageSize,
+      'p_cursor_date': cursor == null ? null : formatDateOnlyYmd(cursor.date),
+      'p_cursor_created_at': cursor?.createdAt.toUtc().toIso8601String(),
+      'p_cursor_id': cursor?.id,
+    };
   }
 
   @override
@@ -776,6 +807,34 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
   }
 }
 
+String _transactionsPageRpcName(TransactionsFeedQuery query) {
+  final boundedRangeDays = query.startDate == null || query.endDate == null
+      ? null
+      : query.endDate!.difference(query.startDate!).inDays;
+  final isBoundedUnfilteredQuery = query.formattedStartDate != null &&
+      query.formattedEndDate != null &&
+      boundedRangeDays != null &&
+      boundedRangeDays >= 0 &&
+      boundedRangeDays <= 800 &&
+      query.normalizedCategory == null &&
+      query.normalizedAccountId == null &&
+      !query.includeUnassignedAccount &&
+      query.normalizedCategories == null &&
+      query.normalizedSearchQuery == null;
+  return isBoundedUnfilteredQuery
+      ? 'get_bounded_transactions_page_v1'
+      : 'get_user_transactions_page_v1';
+}
+
+bool _isMissingBoundedTransactionsRpc(PostgrestException error) {
+  return error.code == 'PGRST202' ||
+      error.message.contains('get_bounded_transactions_page_v1');
+}
+
+@foundation.visibleForTesting
+String transactionsPageRpcNameForTesting(TransactionsFeedQuery query) =>
+    _transactionsPageRpcName(query);
+
 class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   const LocalFirstTransactionsFeedService({
     required MonekoDatabase database,
@@ -857,6 +916,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         nextCursor: remotePage.nextCursor,
       );
     } catch (error) {
+      if (_isAuthorizationError(error)) rethrow;
       _homeSpendTrace(
           'feed-fetchPage remote-error return=local error=$error count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
@@ -905,6 +965,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       );
       return remoteSummary;
     } catch (error) {
+      if (_isAuthorizationError(error)) rethrow;
       _homeSpendTrace(
           'feed-fetchSummary remote-error return=local error=$error');
       return _summaryFromLocal(localSummary);
@@ -964,6 +1025,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       if (updatedLocalItems.isEmpty) return remoteItems;
       return _mergeRemoteWithLocalItems(remoteItems, updatedLocalItems);
     } catch (error) {
+      if (_isAuthorizationError(error)) rethrow;
       _homeSpendTrace(
         'feed-fetchAllPages remote-error return=local error=$error '
         'count=${localItems.length} total=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
@@ -1218,6 +1280,9 @@ class TransactionsFeedState {
     );
   }
 }
+
+bool _isAuthorizationError(Object error) =>
+    error is PostgrestException && error.code == '42501';
 
 final transactionsRemoteFeedServiceProvider =
     Provider<TransactionsFeedService>((ref) {

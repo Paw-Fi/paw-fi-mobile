@@ -4,14 +4,12 @@ class _MonthlyReportHealthRing extends StatelessWidget {
   const _MonthlyReportHealthRing({
     required this.colorScheme,
     required this.metrics,
-    required this.score,
     required this.status,
     required this.size,
   });
 
   final ColorScheme colorScheme;
   final List<_HealthRingMetric> metrics;
-  final int score;
   final String status;
   final double size;
 
@@ -20,7 +18,7 @@ class _MonthlyReportHealthRing extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
-      label: context.l10n.financialHealthSemanticsLabel(score, status),
+      label: status,
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: 1),
         duration:
@@ -28,8 +26,6 @@ class _MonthlyReportHealthRing extends StatelessWidget {
         curve: Curves.easeOutCubic,
         builder: (context, animationValue, _) {
           final centerDiameter = (size * 0.42).clamp(68.0, 86.0);
-          final animatedScore = (score * animationValue).round();
-
           return CustomPaint(
             painter: _MonthlyReportHealthRingPainter(
               colorScheme: colorScheme,
@@ -54,12 +50,13 @@ class _MonthlyReportHealthRing extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '$animatedScore',
+                          status,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: animatedScore > 99 ? 19 : 25,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                             color: colorScheme.foreground,
-                            height: 1,
+                            height: 1.15,
                           ),
                         ),
                       ),

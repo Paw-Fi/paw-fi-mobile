@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -17,11 +18,9 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
-import 'package:moneko/features/goals/domain/models/goal.dart';
-import 'package:moneko/features/goals/presentation/providers/goals_providers.dart'
-    as goals;
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -31,7 +30,6 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String _monthlyReportCacheNamespace = 'monthly_report';
 
@@ -151,9 +149,13 @@ class MonthlyFinancialReportSnapshot {
 class MonthlyReportNotifier extends FamilyAsyncNotifier<
     MonthlyFinancialReportSnapshot, MonthlyReportQuery> {
   late MonthlyReportQuery _query;
+  int _refreshGeneration = 0;
 
   @override
   Future<MonthlyFinancialReportSnapshot> build(MonthlyReportQuery arg) async {
+    final buildGeneration = ++_refreshGeneration;
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     _query = arg.normalized(financialMonthStartDay: financialMonthStartDay);
     final user = ref.watch(authProvider);
@@ -168,6 +170,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(transactionsFeedRefreshSignalProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
     final monthStart = _query.monthStart;
     final period = _monthlyReportPeriod(_query, now: now);
@@ -217,7 +221,6 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
             budgetItems: const [],
             futureTransactions: const [],
             recurringItems: const [],
-            goals: const [],
           ),
           l10n: l10n,
         ),
@@ -226,7 +229,9 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
 
     final cachedSnapshot = await _readCachedSnapshot(cacheKey);
     if (cachedSnapshot != null) {
-      Future<void>.microtask(() => _refreshFromSources(
+      unawaited(() async {
+        try {
+          final refreshed = await _refreshFromSources(
             userId: userId,
             householdId: householdId,
             currencyCode: currencyCode,
@@ -236,9 +241,17 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
             pocketsScope: pocketsScope,
             cacheKey: cacheKey,
             l10n: l10n,
-            publish: true,
             watchDependencies: false,
-          ));
+          );
+          if (!disposed && buildGeneration == _refreshGeneration) {
+            state = AsyncData(refreshed);
+          }
+        } catch (_) {
+          if (!disposed && buildGeneration == _refreshGeneration) {
+            state = AsyncData(cachedSnapshot.copyWith(isRefreshing: false));
+          }
+        }
+      }());
       return cachedSnapshot.copyWith(isRefreshing: true);
     }
 
@@ -252,12 +265,12 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       pocketsScope: pocketsScope,
       cacheKey: cacheKey,
       l10n: l10n,
-      publish: false,
       watchDependencies: true,
     );
   }
 
   Future<void> refreshReport() async {
+    final refreshGeneration = ++_refreshGeneration;
     if (ref.read(previewModeProvider).isActive) {
       final context = _currentReportContext();
       final snapshot = _buildPreviewSnapshot(
@@ -290,11 +303,13 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         pocketsScope: context.pocketsScope,
         cacheKey: context.cacheKey,
         l10n: context.l10n,
-        publish: false,
         watchDependencies: false,
       );
-      state = AsyncData(refreshed);
+      if (refreshGeneration == _refreshGeneration) {
+        state = AsyncData(refreshed);
+      }
     } catch (error, stackTrace) {
+      if (refreshGeneration != _refreshGeneration) return;
       if (previous != null) {
         state = AsyncData(previous.copyWith(isRefreshing: false));
         return;
@@ -353,7 +368,6 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     required PocketsScopeType pocketsScope,
     required String cacheKey,
     required AppLocalizations l10n,
-    required bool publish,
     required bool watchDependencies,
   }) async {
     final financialMonthStartDay = _query.financialMonthStartDay;
@@ -363,61 +377,20 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
                 .select((state) => state.normalizedSelectedCurrencies),
           )
         : ref.read(homeFilterProvider).normalizedSelectedCurrencies;
-    final currentQuery = DashboardScopeQuery(
-      userId: userId,
-      householdId: householdId,
-      selectedCurrency: currencyCode,
-      selectedCurrencies: selectedCurrencies,
-      startDate: period.start,
-      endDate: period.end,
-    );
-    final previousQuery = DashboardScopeQuery(
-      userId: userId,
-      householdId: householdId,
-      selectedCurrency: currencyCode,
-      selectedCurrencies: selectedCurrencies,
-      startDate: period.previousStart,
-      endDate: period.previousEnd,
-    );
-    final historicalQuery = DashboardScopeQuery(
+    final transactionsQuery = DashboardScopeQuery(
       userId: userId,
       householdId: householdId,
       selectedCurrency: currencyCode,
       selectedCurrencies: selectedCurrencies,
       startDate: period.historicalStart,
-      endDate: period.previousEnd,
+      endDate: period.end,
     );
-
-    final currentProvider = dashboardCalendarTransactionsProvider(currentQuery);
-    final previousProvider =
-        dashboardCalendarTransactionsProvider(previousQuery);
-    final historicalProvider =
-        dashboardCalendarTransactionsProvider(historicalQuery);
-    final currentBase = await ref.read(currentProvider.future);
-    final previousBase = await ref.read(previousProvider.future);
-    final historicalBase = await ref.read(historicalProvider.future);
-    final currentTransactions = mergeDashboardTransactionsWithLocalOverlay(
-      base: currentBase,
-      localOverlay: watchDependencies
-          ? ref.watch(dashboardLocalOverlayTransactionsProvider(currentQuery))
-          : ref.read(dashboardLocalOverlayTransactionsProvider(currentQuery)),
-      query: currentQuery,
+    final transactionFeed = ref.read(transactionsFeedServiceProvider);
+    final transactionsFuture = transactionFeed.fetchAllPages(
+      dashboardTransactionsQuery(transactionsQuery, pageSize: 500),
     );
-    final previousTransactions = mergeDashboardTransactionsWithLocalOverlay(
-      base: previousBase,
-      localOverlay: watchDependencies
-          ? ref.watch(dashboardLocalOverlayTransactionsProvider(previousQuery))
-          : ref.read(dashboardLocalOverlayTransactionsProvider(previousQuery)),
-      query: previousQuery,
-    );
-    final historicalTransactions = mergeDashboardTransactionsWithLocalOverlay(
-      base: historicalBase,
-      localOverlay: watchDependencies
-          ? ref
-              .watch(dashboardLocalOverlayTransactionsProvider(historicalQuery))
-          : ref
-              .read(dashboardLocalOverlayTransactionsProvider(historicalQuery)),
-      query: historicalQuery,
+    final localOverlay = ref.read(
+      dashboardLocalOverlayTransactionsProvider(transactionsQuery),
     );
     final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
     final rateTable = watchDependencies
@@ -429,6 +402,76 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
           rates: CurrencyRates.rates,
           isStale: true,
         );
+    final recurringTransactionsFuture = _loadRecurringTransactions(
+      ref,
+      userId: userId,
+      householdId: householdId,
+      watchDependencies: watchDependencies,
+    );
+    final pocketsParams = PocketsScopeParams(
+      scope: pocketsScope,
+      householdId: householdId,
+      periodMonth: monthStart,
+      currency: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      financialMonthStartDay: financialMonthStartDay,
+      includeUpcomingRecurring: false,
+    );
+    final pocketsState = watchDependencies
+        ? ref.watch(pocketsProvider(pocketsParams))
+        : ref.read(pocketsProvider(pocketsParams));
+    final pocketsLoadFuture =
+        pocketsState.isLoading && !pocketsState.hasDisplayData
+            ? ref.read(pocketsProvider(pocketsParams).notifier).load()
+            : Future<void>.value();
+    final walletSnapshotFuture = _readWalletSnapshot(
+      ref,
+      userId: userId,
+      householdId: householdId,
+      currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      monthStart: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+      watchDependencies: watchDependencies,
+    );
+    final previousNetWorthFuture = _readPreviousNetWorth(
+      ref,
+      userId: userId,
+      householdId: householdId,
+      currencyCode: currencyCode,
+      selectedCurrencies: selectedCurrencies,
+      monthStart: monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+      watchDependencies: watchDependencies,
+    );
+
+    final sourceResults = await Future.wait<Object?>(
+      <Future<Object?>>[
+        transactionsFuture,
+        recurringTransactionsFuture,
+        pocketsLoadFuture.then<Object?>((_) => null),
+        walletSnapshotFuture,
+        previousNetWorthFuture,
+      ],
+      eagerError: false,
+    );
+    final transactionBase = sourceResults[0]! as List<ExpenseEntry>;
+    final recurringTransactions =
+        sourceResults[1]! as List<RecurringTransaction>;
+    final walletSnapshot = sourceResults[3]! as WalletsMonthSnapshot;
+    final previousNetWorth = sourceResults[4] as double?;
+    final allTransactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionBase,
+      localOverlay: localOverlay,
+      query: transactionsQuery,
+    );
+    final transactionPeriods = _partitionMonthlyReportTransactions(
+      allTransactions,
+      period,
+    );
+    final currentTransactions = transactionPeriods.current;
+    final previousTransactions = transactionPeriods.previous;
+    final historicalTransactions = transactionPeriods.historical;
     final reportCurrentTransactions = shouldConvertCurrencies
         ? convertTransactionsToCurrency(
             currentTransactions,
@@ -451,13 +494,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
           )
         : historicalTransactions;
 
-    final recurringTransactions = await _loadRecurringTransactions(
-      ref,
-      userId: userId,
-      householdId: householdId,
-      watchDependencies: watchDependencies,
-    );
-    final futureTransactions = _futureTransactionsForReport(
+    final futureTransactionSets = _futureTransactionsForReport(
       actualTransactions: currentTransactions,
       recurringTransactions: recurringTransactions,
       now: now,
@@ -466,64 +503,26 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       selectedCurrencies: selectedCurrencies,
       rates: rates,
     );
+    final futureTransactions = futureTransactionSets.report;
+    final nativeFutureTransactionsById = <String, ExpenseEntry>{
+      for (final transaction in futureTransactionSets.native)
+        transaction.id: transaction,
+    };
     final recurringItems = _recurringItemsForReport(
       recurringTransactions,
-      previousTransactions: reportPreviousTransactions,
+      previousTransactions: previousTransactions,
       now: now,
-      monthStart: monthStart,
-      monthEnd: period.end,
       currencyCode: currencyCode,
       selectedCurrencies: selectedCurrencies,
       rates: rates,
     );
 
-    final pocketsParams = PocketsScopeParams(
-      scope: pocketsScope,
-      householdId: householdId,
-      periodMonth: monthStart,
-      currency: currencyCode,
-      selectedCurrencies: selectedCurrencies,
-      financialMonthStartDay: financialMonthStartDay,
-      includeUpcomingRecurring: true,
-    );
-    final pocketsState = watchDependencies
-        ? ref.watch(pocketsProvider(pocketsParams))
-        : ref.read(pocketsProvider(pocketsParams));
-    if (pocketsState.isLoading && !pocketsState.hasDisplayData) {
-      await ref.read(pocketsProvider(pocketsParams).notifier).load();
-    }
     final loadedPocketsState = ref.read(pocketsProvider(pocketsParams));
     if (loadedPocketsState.error != null &&
         loadedPocketsState.error!.trim().isNotEmpty) {
       throw StateError('Budget data unavailable: ${loadedPocketsState.error}');
     }
 
-    final walletSnapshot = await _readWalletSnapshot(
-      ref,
-      userId: userId,
-      householdId: householdId,
-      currencyCode: currencyCode,
-      selectedCurrencies: selectedCurrencies,
-      monthStart: monthStart,
-      financialMonthStartDay: financialMonthStartDay,
-      watchDependencies: watchDependencies,
-    );
-    final previousNetWorth = await _readPreviousNetWorth(
-      ref,
-      userId: userId,
-      householdId: householdId,
-      currencyCode: currencyCode,
-      selectedCurrencies: selectedCurrencies,
-      monthStart: monthStart,
-      financialMonthStartDay: financialMonthStartDay,
-      watchDependencies: watchDependencies,
-    );
-    final goalInputsResult = await _loadGoalInputsForReport(
-      ref,
-      userId: userId,
-      householdId: householdId,
-      currencyCode: currencyCode,
-    );
     final report = buildMonthlyFinancialReport(
       MonthlyReportInput(
         monthStart: monthStart,
@@ -550,13 +549,19 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
           rates: rates,
           aggregateSpentByEnvelopeId:
               loadedPocketsState.aggregateSpentByEnvelopeId,
+          transactions: reportCurrentTransactions,
+          envelopeCategories: loadedPocketsState.envelopeCategories,
         ),
-        futureTransactions:
-            futureTransactions.map(_transactionInput).toList(growable: false),
+        futureTransactions: futureTransactions
+            .map(
+              (transaction) => _transactionInput(
+                transaction,
+                nativeEntry: nativeFutureTransactionsById[transaction.id],
+              ),
+            )
+            .toList(growable: false),
         recurringItems: recurringItems,
-        goals: goalInputsResult.items,
         previousNetWorth: previousNetWorth,
-        goalsDataAvailable: goalInputsResult.dataAvailable,
       ),
       l10n: l10n,
     );
@@ -568,13 +573,9 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
         ...currentTransactions,
         ...previousTransactions,
         ...historicalTransactions,
-        ...futureTransactions,
       ]),
     );
     await _writeCachedSnapshot(cacheKey, snapshot);
-    if (publish && state.valueOrNull != null) {
-      state = AsyncData(snapshot);
-    }
     return snapshot;
   }
 
@@ -666,7 +667,7 @@ String _monthlyReportCacheKey({
   final month = formatFinancialPeriodDate(monthStart);
   final start = formatFinancialPeriodDate(periodStart);
   final end = formatFinancialPeriodDate(periodEnd);
-  return 'monthly-report:v4:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
+  return 'monthly-report:v7:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
 }
 
 String _currencySelectionCacheSegment(List<String>? currencies) {
@@ -711,7 +712,7 @@ MonthlyReportPeriod _monthlyReportPeriod(
         end: end,
         previousStart: previousStart,
         previousEnd: previousEnd,
-        historicalStart: DateTime(start.year, start.month - 6, start.day),
+        historicalStart: _addCalendarMonthsClamped(start, -6),
         compareMonthToDate: false,
       );
     case MonthlyReportRange.month:
@@ -781,6 +782,72 @@ MonthlyReportPeriod _monthlyReportPeriod(
   }
 }
 
+DateTime _addCalendarMonthsClamped(DateTime date, int months) {
+  final firstOfTargetMonth = DateTime(date.year, date.month + months, 1);
+  final lastDay = DateTime(
+    firstOfTargetMonth.year,
+    firstOfTargetMonth.month + 1,
+    0,
+  ).day;
+  return DateTime(
+    firstOfTargetMonth.year,
+    firstOfTargetMonth.month,
+    math.min(date.day, lastDay),
+  );
+}
+
+@foundation.visibleForTesting
+MonthlyReportPeriod monthlyReportPeriodForTesting(
+  MonthlyReportQuery query, {
+  required DateTime now,
+}) =>
+    _monthlyReportPeriod(query, now: now);
+
+({
+  List<ExpenseEntry> current,
+  List<ExpenseEntry> previous,
+  List<ExpenseEntry> historical,
+}) _partitionMonthlyReportTransactions(
+  List<ExpenseEntry> transactions,
+  MonthlyReportPeriod period,
+) {
+  DateTime dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+  bool isWithin(DateTime date, DateTime start, DateTime end) {
+    final day = dateOnly(date);
+    return !day.isBefore(dateOnly(start)) && !day.isAfter(dateOnly(end));
+  }
+
+  return (
+    current: transactions
+        .where((entry) => isWithin(entry.date, period.start, period.end))
+        .toList(growable: false),
+    previous: transactions
+        .where(
+          (entry) =>
+              isWithin(entry.date, period.previousStart, period.previousEnd),
+        )
+        .toList(growable: false),
+    historical: transactions
+        .where(
+          (entry) =>
+              isWithin(entry.date, period.historicalStart, period.previousEnd),
+        )
+        .toList(growable: false),
+  );
+}
+
+@foundation.visibleForTesting
+({
+  List<ExpenseEntry> current,
+  List<ExpenseEntry> previous,
+  List<ExpenseEntry> historical,
+}) partitionMonthlyReportTransactionsForTesting(
+  List<ExpenseEntry> transactions,
+  MonthlyReportPeriod period,
+) =>
+    _partitionMonthlyReportTransactions(transactions, period);
+
 MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
   required MonthlyReportQuery query,
   required MonthlyReportPeriod period,
@@ -819,7 +886,7 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     rates: CurrencyRates.rates,
     isStale: true,
   );
-  final futureTransactions = _futureTransactionsForReport(
+  final futureTransactionSets = _futureTransactionsForReport(
     actualTransactions: currentTransactions,
     recurringTransactions: recurringTransactions,
     now: now,
@@ -827,12 +894,15 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     currencyCode: currencyCode,
     rates: previewRates,
   );
+  final futureTransactions = futureTransactionSets.report;
+  final nativeFutureTransactionsById = <String, ExpenseEntry>{
+    for (final transaction in futureTransactionSets.native)
+      transaction.id: transaction,
+  };
   final recurringItems = _recurringItemsForReport(
     recurringTransactions,
     previousTransactions: previousTransactions,
     now: now,
-    monthStart: query.monthStart,
-    monthEnd: period.end,
     currencyCode: currencyCode,
     rates: previewRates,
   );
@@ -858,12 +928,16 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
       historicalTransactions:
           historicalTransactions.map(_transactionInput).toList(growable: false),
       budgetItems: budgetInputs,
-      futureTransactions:
-          futureTransactions.map(_transactionInput).toList(growable: false),
+      futureTransactions: futureTransactions
+          .map(
+            (transaction) => _transactionInput(
+              transaction,
+              nativeEntry: nativeFutureTransactionsById[transaction.id],
+            ),
+          )
+          .toList(growable: false),
       recurringItems: recurringItems,
-      goals: _previewGoalInputs(currencyCode, now),
       previousNetWorth: previousNetWorth,
-      goalsDataAvailable: true,
     ),
     l10n: l10n,
   );
@@ -871,7 +945,6 @@ MonthlyFinancialReportSnapshot _buildPreviewSnapshot({
     ...currentTransactions,
     ...previousTransactions,
     ...historicalTransactions,
-    ...futureTransactions,
   ]);
   return MonthlyFinancialReportSnapshot(
     report: report,
@@ -1107,45 +1180,6 @@ List<MonthlyReportBudgetInput> _previewBudgetInputs(
       .toList(growable: false);
 }
 
-List<MonthlyReportGoalInput> _previewGoalInputs(
-  String currencyCode,
-  DateTime now,
-) {
-  final futureA = DateTime(now.year, now.month + 6, 1);
-  final futureB = DateTime(now.year, now.month + 10, 1);
-  final futureC = DateTime(now.year, now.month + 4, 1);
-  final normalizedCurrency = currencyCode.trim().toUpperCase();
-  return [
-    MonthlyReportGoalInput(
-      id: 'preview-goal-1',
-      title: 'Emergency buffer',
-      targetAmount: 6000,
-      currentAmount: 2400,
-      currencyCode: normalizedCurrency,
-      targetDate: futureA.toIso8601String(),
-      isOnTrack: true,
-    ),
-    MonthlyReportGoalInput(
-      id: 'preview-goal-2',
-      title: 'Japan trip',
-      targetAmount: 3200,
-      currentAmount: 1100,
-      currencyCode: normalizedCurrency,
-      targetDate: futureB.toIso8601String(),
-      isOnTrack: false,
-    ),
-    MonthlyReportGoalInput(
-      id: 'preview-goal-3',
-      title: 'Car maintenance',
-      targetAmount: 1200,
-      currentAmount: 650,
-      currencyCode: normalizedCurrency,
-      targetDate: futureC.toIso8601String(),
-      isOnTrack: true,
-    ),
-  ];
-}
-
 double _previewCurrentBalance({required HouseholdScope householdScope}) {
   final wallets = PreviewMockData.wallets;
   final targetHouseholdId = _reportHouseholdId(householdScope);
@@ -1244,6 +1278,9 @@ Map<String, dynamic> _monthlyReportToJson(MonthlyFinancialReport report) {
                 'next_date': item.nextDate.toIso8601String(),
                 'status': item.status.name,
                 'note': item.note,
+                'monthly_amount': item.monthlyAmount,
+                'currency_code': item.currencyCode,
+                'aggregate_amount': item.aggregateAmount,
                 'recurring_id': item.recurringId,
               })
           .toList(growable: false),
@@ -1254,6 +1291,7 @@ Map<String, dynamic> _monthlyReportToJson(MonthlyFinancialReport report) {
               'name': item.name,
               'amount': item.amount,
               'type': item.type,
+              'currency_code': item.currencyCode,
               'source_transaction_id': item.sourceTransactionId,
               'recurring_id': item.recurringId,
             })
@@ -1263,17 +1301,7 @@ Map<String, dynamic> _monthlyReportToJson(MonthlyFinancialReport report) {
               'label': item.label,
               'balance': item.balance,
               'source_transaction_id': item.sourceTransactionId,
-            })
-        .toList(growable: false),
-    'goals': report.goals
-        .map((item) => {
-              'id': item.id,
-              'title': item.title,
-              'target_amount': item.targetAmount,
-              'current_amount': item.currentAmount,
-              'progress': item.progress,
-              'monthly_needed': item.monthlyNeeded,
-              'status': item.status.name,
+              'recurring_id': item.recurringId,
             })
         .toList(growable: false),
     'trend_summary': {
@@ -1346,7 +1374,6 @@ Map<String, dynamic> _monthlyReportToJson(MonthlyFinancialReport report) {
             'change': report.netWorthTrend!.change,
             'change_percent': report.netWorthTrend!.changePercent,
           },
-    'goals_data_available': report.goalsDataAvailable,
     'summary': report.summary,
   };
 }
@@ -1424,6 +1451,17 @@ MonthlyFinancialReport _monthlyReportFromJson(Map<String, dynamic> json) {
                 nextDate: DateTime.parse(item['next_date'] as String),
                 status: _monthlySubscriptionStatus(item['status']),
                 note: item['note'] as String? ?? '',
+                monthlyAmount: _num(
+                  json: item,
+                  key: 'monthly_amount',
+                ),
+                currencyCode: item['currency_code'] as String? ??
+                    json['currency_code'] as String? ??
+                    'USD',
+                aggregateAmount: _num(
+                  json: item,
+                  key: 'aggregate_amount',
+                ),
                 recurringId: item['recurring_id'] as String?,
               ))
           .toList(growable: false),
@@ -1434,6 +1472,9 @@ MonthlyFinancialReport _monthlyReportFromJson(Map<String, dynamic> json) {
               name: item['name'] as String? ?? '',
               amount: _num(json: item, key: 'amount'),
               type: item['type'] as String? ?? 'expense',
+              currencyCode: item['currency_code'] as String? ??
+                  json['currency_code'] as String? ??
+                  'USD',
               sourceTransactionId: item['source_transaction_id'] as String?,
               recurringId: item['recurring_id'] as String?,
             ))
@@ -1443,17 +1484,7 @@ MonthlyFinancialReport _monthlyReportFromJson(Map<String, dynamic> json) {
               label: item['label'] as String? ?? '',
               balance: _num(json: item, key: 'balance'),
               sourceTransactionId: item['source_transaction_id'] as String?,
-            ))
-        .toList(growable: false),
-    goals: _list(json['goals'])
-        .map((item) => MonthlyGoalReportItem(
-              id: item['id'] as String? ?? '',
-              title: item['title'] as String? ?? '',
-              targetAmount: _num(json: item, key: 'target_amount'),
-              currentAmount: _num(json: item, key: 'current_amount'),
-              progress: _num(json: item, key: 'progress'),
-              monthlyNeeded: _num(json: item, key: 'monthly_needed'),
-              status: _monthlyReportStatus(item['status']),
+              recurringId: item['recurring_id'] as String?,
             ))
         .toList(growable: false),
     trendSummary: MonthlyTrendSummary(
@@ -1544,10 +1575,15 @@ MonthlyFinancialReport _monthlyReportFromJson(Map<String, dynamic> json) {
               key: 'change_percent',
             ),
           ),
-    goalsDataAvailable: json['goals_data_available'] != false,
     summary: json['summary'] as String? ?? '',
   );
 }
+
+@foundation.visibleForTesting
+MonthlyFinancialReport roundTripMonthlyReportForTesting(
+  MonthlyFinancialReport report,
+) =>
+    _monthlyReportFromJson(_monthlyReportToJson(report));
 
 MonthlyInsightItem _insightFromJson(Map<String, dynamic> json) {
   return MonthlyInsightItem(
@@ -1711,80 +1747,8 @@ Future<double?> _readPreviousNetWorth(
   return priorPoints.first.netWorthCents / 100.0;
 }
 
-Future<_GoalInputsResult> _loadGoalInputsForReport(
-  Ref ref, {
-  required String userId,
-  required String? householdId,
-  required String currencyCode,
-}) async {
-  try {
-    final supabase = ref.read(goals.supabaseProvider);
-    final response = await supabase.functions.invoke(
-      'list-goals',
-      method: HttpMethod.get,
-      queryParameters: {
-        'userId': userId,
-        if (householdId != null) 'householdId': householdId,
-        'status': 'active',
-      },
-    );
-    if (response.status != 200 || response.data == null) {
-      return const _GoalInputsResult(
-        items: <MonthlyReportGoalInput>[],
-        dataAvailable: false,
-      );
-    }
-    final data = response.data as Map<String, dynamic>;
-    final rows = data['goals'] as List<dynamic>? ?? const [];
-    final items = rows
-        .whereType<Map<String, dynamic>>()
-        .map(Goal.fromJson)
-        .where((goal) => goal.isActive && !goal.privacyRedacted)
-        .map((goal) => _goalInput(goal, currencyCode))
-        .whereType<MonthlyReportGoalInput>()
-        .toList(growable: false);
-    return _GoalInputsResult(items: items, dataAvailable: true);
-  } catch (_) {
-    return const _GoalInputsResult(
-      items: <MonthlyReportGoalInput>[],
-      dataAvailable: false,
-    );
-  }
-}
-
-class _GoalInputsResult {
-  const _GoalInputsResult({
-    required this.items,
-    required this.dataAvailable,
-  });
-
-  final List<MonthlyReportGoalInput> items;
-  final bool dataAvailable;
-}
-
-MonthlyReportGoalInput? _goalInput(Goal goal, String currencyCode) {
-  final selectedCurrency = currencyCode.toUpperCase();
-  final goalCurrency = goal.currency.toUpperCase();
-  final baseCurrency = goal.baseCurrency?.toUpperCase();
-  final useNormalized = baseCurrency == selectedCurrency &&
-      goal.normalizedTargetAmount != null &&
-      goal.normalizedCurrentAmount != null;
-  if (!useNormalized && goalCurrency != selectedCurrency) return null;
-
-  return MonthlyReportGoalInput(
-    id: goal.id,
-    title: goal.title,
-    targetAmount:
-        useNormalized ? goal.normalizedTargetAmount! : goal.targetAmount,
-    currentAmount:
-        useNormalized ? goal.normalizedCurrentAmount! : goal.currentAmount,
-    currencyCode: selectedCurrency,
-    targetDate: goal.targetDate,
-    isOnTrack: goal.isOnTrack,
-  );
-}
-
-List<ExpenseEntry> _futureTransactionsForReport({
+({List<ExpenseEntry> native, List<ExpenseEntry> report})
+    _futureTransactionsForReport({
   required List<ExpenseEntry> actualTransactions,
   required List<RecurringTransaction> recurringTransactions,
   required DateTime now,
@@ -1815,21 +1779,20 @@ List<ExpenseEntry> _futureTransactionsForReport({
     ...dedupedProjected
   ]..sort((a, b) => a.date.compareTo(b.date));
 
-  return (selectedCurrencies?.length ?? 0) > 1
+  final reportTransactions = (selectedCurrencies?.length ?? 0) > 1
       ? convertTransactionsToCurrency(
           futureTransactions,
           targetCurrency: currencyCode,
           rates: rates,
         )
       : futureTransactions;
+  return (native: futureTransactions, report: reportTransactions);
 }
 
 List<MonthlyReportRecurringInput> _recurringItemsForReport(
   List<RecurringTransaction> recurringTransactions, {
   required List<ExpenseEntry> previousTransactions,
   required DateTime now,
-  required DateTime monthStart,
-  required DateTime monthEnd,
   required String currencyCode,
   List<String>? selectedCurrencies,
   required CurrencyRateTable rates,
@@ -1851,26 +1814,52 @@ List<MonthlyReportRecurringInput> _recurringItemsForReport(
     final nextDate = item
         .getNextOccurrence(nowDay.subtract(const Duration(microseconds: 1)));
     final itemCurrency = item.currency.trim().toUpperCase();
-    final amount = hasMultiCurrencySelection
+    final aggregateAmount = hasMultiCurrencySelection
         ? rates.convert(item.amount.abs(), itemCurrency, currencyCode)
         : item.amount.abs();
+    final nativeMonthlyAmount = _normalizedMonthlyRecurringAmount(item);
+    final aggregateMonthlyAmount = hasMultiCurrencySelection
+        ? rates.convert(nativeMonthlyAmount, itemCurrency, currencyCode)
+        : nativeMonthlyAmount;
     return MonthlyReportRecurringInput(
       id: item.id,
       name: _recurringName(item),
-      amount: amount,
+      amount: item.amount.abs(),
+      monthlyAmount: nativeMonthlyAmount,
+      aggregateAmount: aggregateAmount,
+      aggregateMonthlyAmount: aggregateMonthlyAmount,
       type: item.type,
-      currencyCode: hasMultiCurrencySelection ? currencyCode : itemCurrency,
+      currencyCode: itemCurrency,
       nextDate: nextDate,
       previousAmount: _previousAmountForRecurring(item, previousTransactions),
     );
-  }).where((item) {
-    final day =
-        DateTime(item.nextDate.year, item.nextDate.month, item.nextDate.day);
-    return !day.isBefore(nowDay) &&
-        !day.isBefore(monthStart) &&
-        !day.isAfter(monthEnd);
   }).toList(growable: false);
 }
+
+double _normalizedMonthlyRecurringAmount(RecurringTransaction item) {
+  final amount = item.amount.abs();
+  final rule = item.recurrenceRule;
+  if (rule == null) return amount;
+  final interval = math.max(rule.interval ?? 1, 1);
+  switch (rule.frequency.trim().toLowerCase()) {
+    case 'daily':
+      return amount * 365.2425 / 12 / interval;
+    case 'weekly':
+      return amount * 52 / 12 / interval;
+    case 'biweekly':
+      return amount * 26 / 12 / interval;
+    case 'monthly':
+      return amount / interval;
+    case 'yearly':
+      return amount / (12 * interval);
+    default:
+      return amount;
+  }
+}
+
+@foundation.visibleForTesting
+double normalizedMonthlyRecurringAmountForTesting(RecurringTransaction item) =>
+    _normalizedMonthlyRecurringAmount(item);
 
 List<MonthlyReportBudgetInput> _budgetInputs(
   List<PocketEnvelope> pockets, {
@@ -1878,6 +1867,8 @@ List<MonthlyReportBudgetInput> _budgetInputs(
   List<String>? selectedCurrencies,
   required CurrencyRateTable rates,
   required Map<String, double> aggregateSpentByEnvelopeId,
+  List<ExpenseEntry> transactions = const <ExpenseEntry>[],
+  Map<String, List<String>> envelopeCategories = const <String, List<String>>{},
 }) {
   final hasMultiCurrencySelection = (selectedCurrencies?.length ?? 0) > 1;
   final targetCurrency = currencyCode.trim().toUpperCase();
@@ -1906,10 +1897,28 @@ List<MonthlyReportBudgetInput> _budgetInputs(
                   ) /
                   100.0
           : pocket.spent;
+      final linkedCategories =
+          (envelopeCategories[pocket.id] ?? const <String>[])
+              .map((category) => category.trim().toLowerCase())
+              .where((category) => category.isNotEmpty)
+              .toSet();
+      if (linkedCategories.isEmpty && pocket.name.trim().isNotEmpty) {
+        linkedCategories.add(pocket.name.trim().toLowerCase());
+      }
+      final sourceTransactionIds = transactions
+          .where((transaction) =>
+              (transaction.type ?? 'expense').toLowerCase() != 'income')
+          .where((transaction) => linkedCategories.contains(
+                (transaction.category ?? 'uncategorized').trim().toLowerCase(),
+              ))
+          .map((transaction) => transaction.id)
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
       return MonthlyReportBudgetInput(
         name: pocket.name,
         budgetAmount: budgetAmount,
         spent: spent,
+        sourceTransactionIds: sourceTransactionIds,
       );
     },
   ).toList(growable: false);
@@ -1922,6 +1931,8 @@ List<MonthlyReportBudgetInput> buildMonthlyReportBudgetInputsForTesting(
   List<String>? selectedCurrencies,
   required CurrencyRateTable rates,
   required Map<String, double> aggregateSpentByEnvelopeId,
+  List<ExpenseEntry> transactions = const <ExpenseEntry>[],
+  Map<String, List<String>> envelopeCategories = const <String, List<String>>{},
 }) {
   return _budgetInputs(
     pockets,
@@ -1929,10 +1940,16 @@ List<MonthlyReportBudgetInput> buildMonthlyReportBudgetInputsForTesting(
     selectedCurrencies: selectedCurrencies,
     rates: rates,
     aggregateSpentByEnvelopeId: aggregateSpentByEnvelopeId,
+    transactions: transactions,
+    envelopeCategories: envelopeCategories,
   );
 }
 
-MonthlyReportTransactionInput _transactionInput(ExpenseEntry entry) {
+MonthlyReportTransactionInput _transactionInput(
+  ExpenseEntry entry, {
+  ExpenseEntry? nativeEntry,
+}) {
+  final sourceEntry = nativeEntry ?? entry;
   return MonthlyReportTransactionInput(
     id: entry.id,
     date: entry.date,
@@ -1944,7 +1961,10 @@ MonthlyReportTransactionInput _transactionInput(ExpenseEntry entry) {
     merchant: entry.merchant?.trim().isNotEmpty == true
         ? entry.merchant!.trim()
         : entry.rawText,
+    recurringId: extractRecurringTransactionIdFromProjectedExpenseId(entry.id),
     currencyCode: (entry.currency ?? '').toUpperCase(),
+    nativeAmount: sourceEntry.amount.abs(),
+    nativeCurrencyCode: (sourceEntry.currency ?? '').toUpperCase(),
   );
 }
 

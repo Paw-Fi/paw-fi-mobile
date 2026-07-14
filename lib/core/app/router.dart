@@ -179,7 +179,6 @@ GoRouter router(RouterRef ref) {
             subtitle: state.uri.queryParameters['subtitle'],
             sourceTransactionIds: state.uri.queryParameters['ids'],
             recurringId: state.uri.queryParameters['recurringId'],
-            goalId: state.uri.queryParameters['goalId'],
           ),
         ),
       ),
