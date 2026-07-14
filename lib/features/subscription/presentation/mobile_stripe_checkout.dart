@@ -14,6 +14,8 @@ Future<MobileStripeCheckoutResult> startMobileStripeCheckout({
   required String startCheckoutError,
   required String noCheckoutUrlError,
   String? billingInterval,
+  String? countryCode,
+  String? currencyCode,
 }) async {
   final session = supabaseClient.auth.currentSession;
   if (session == null) {
@@ -41,6 +43,8 @@ Future<MobileStripeCheckoutResult> startMobileStripeCheckout({
     body: {
       'plan': plan,
       if (plan != 'lifetime') 'billingInterval': billingInterval,
+      if (countryCode != null) 'country': countryCode,
+      if (currencyCode != null) 'currency': currencyCode,
       'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
       'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
     },

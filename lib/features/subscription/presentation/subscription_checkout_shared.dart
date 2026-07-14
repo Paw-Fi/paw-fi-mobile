@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
@@ -6,19 +8,45 @@ import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
+import 'package:moneko/features/subscription/data/regional_pricing.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+bool shouldUseAppStoreCheckout({required bool forceStripeCheckout}) {
+  return defaultTargetPlatform == TargetPlatform.iOS && !forceStripeCheckout;
+}
 
 List<PlanOption> buildPlusPlanOptions({
   required BuildContext context,
   required bool useIap,
   required AsyncValue<List<SubscriptionProduct>> productsAsync,
   required AsyncValue<IapState> iapStateAsync,
+  String? pricingCountryOverride,
 }) {
+  final normalizedPricingCountry = pricingCountryOverride?.trim().toUpperCase();
+  final pricingCountry = normalizedPricingCountry != null &&
+          regionalPricingCountryToMarket.containsKey(normalizedPricingCountry)
+      ? normalizedPricingCountry
+      : resolveDeviceRegionalPricingCountry();
+  final regionalMarket = regionalPricingForCountry(pricingCountry);
+
+  String priceFor(String plan, String? billingInterval) {
+    return formatRegionalPrice(
+      regionalMarket,
+      regionalPriceForPlan(
+        regionalMarket,
+        plan: plan,
+        billingInterval: billingInterval,
+      ),
+    );
+  }
+
   if (useIap) {
-    final storeDetailsById = iapStateAsync.value?.productDetailsById ?? const {};
-    final catalogProducts = (productsAsync.value ?? const <SubscriptionProduct>[])
+    final storeDetailsById =
+        iapStateAsync.value?.productDetailsById ?? const {};
+    final catalogProducts = (productsAsync.value ??
+            const <SubscriptionProduct>[])
         .where((product) => isSubscriptionPlanPubliclySelectable(product.plan))
         .toList();
 
@@ -79,6 +107,9 @@ List<PlanOption> buildPlusPlanOptions({
         catalogProduct: product,
         name: product.displayName,
         storePrice: details?.price,
+        regionalPrice: priceFor(product.plan, product.billingInterval),
+        currencyCode: regionalMarket.currencyCode,
+        pricingCountry: pricingCountry,
         displayPriceUsd: product.displayPriceUsd,
         originalPriceUsd: product.originalPriceUsd,
         tagline: product.tagline,
@@ -87,15 +118,17 @@ List<PlanOption> buildPlusPlanOptions({
       );
     }).toList()
       ..sort((a, b) {
-        final catalogOrder =
-            (a.catalogProduct?.sortOrder ?? 999).compareTo(b.catalogProduct?.sortOrder ?? 999);
+        final catalogOrder = (a.catalogProduct?.sortOrder ?? 999)
+            .compareTo(b.catalogProduct?.sortOrder ?? 999);
         if (catalogOrder != 0) return catalogOrder;
 
         const intervalOrder = {'yearly': 0, 'monthly': 1};
-        final aOrder =
-            a.billingInterval != null ? (intervalOrder[a.billingInterval] ?? 2) : 2;
-        final bOrder =
-            b.billingInterval != null ? (intervalOrder[b.billingInterval] ?? 2) : 2;
+        final aOrder = a.billingInterval != null
+            ? (intervalOrder[a.billingInterval] ?? 2)
+            : 2;
+        final bOrder = b.billingInterval != null
+            ? (intervalOrder[b.billingInterval] ?? 2)
+            : 2;
         return aOrder.compareTo(bOrder);
       });
   }
@@ -107,6 +140,9 @@ List<PlanOption> buildPlusPlanOptions({
       billingInterval: 'yearly',
       name: context.l10n.yearly,
       storePrice: null,
+      regionalPrice: priceFor('plus', 'yearly'),
+      currencyCode: regionalMarket.currencyCode,
+      pricingCountry: pricingCountry,
       displayPriceUsd: Constants.subscriptionYearlyPrice,
       tagline: context.l10n.paywallPlanYearlyTagline,
       isPopular: true,
@@ -118,6 +154,9 @@ List<PlanOption> buildPlusPlanOptions({
       billingInterval: 'monthly',
       name: context.l10n.monthly,
       storePrice: null,
+      regionalPrice: priceFor('plus', 'monthly'),
+      currencyCode: regionalMarket.currencyCode,
+      pricingCountry: pricingCountry,
       displayPriceUsd: Constants.subscriptionMonthlyPrice,
       tagline: context.l10n.paywallPlanMonthlyTagline,
     ),
@@ -127,6 +166,9 @@ List<PlanOption> buildPlusPlanOptions({
       billingInterval: null,
       name: context.l10n.lifetime,
       storePrice: null,
+      regionalPrice: priceFor('lifetime', null),
+      currencyCode: regionalMarket.currencyCode,
+      pricingCountry: pricingCountry,
       displayPriceUsd: Constants.subscriptionLifetimePrice,
       tagline: context.l10n.paywallPlanLifetimeTagline,
       badgeText: context.l10n.paywallBadgeLimited,
@@ -134,7 +176,8 @@ List<PlanOption> buildPlusPlanOptions({
   ];
 }
 
-bool subscriptionMatchesPlanOption(Subscription? subscription, PlanOption option) {
+bool subscriptionMatchesPlanOption(
+    Subscription? subscription, PlanOption option) {
   if (!(subscription?.isSubscribed ?? false)) return false;
 
   final currentPlan = subscription?.plan?.toLowerCase().trim();
@@ -164,6 +207,8 @@ Future<MobileStripeCheckoutResult?> startStripeCheckoutForOption({
     supabaseClient: supabaseClient,
     plan: option.serverPlanId,
     billingInterval: option.billingInterval,
+    countryCode: option.pricingCountry,
+    currencyCode: option.currencyCode,
     noSessionError: noSessionError,
     startCheckoutError: startCheckoutError,
     noCheckoutUrlError: noCheckoutUrlError,
@@ -183,7 +228,8 @@ Future<MobileStripeCheckoutResult?> startStripeCheckoutForOption({
         'verify-payment',
         body: {
           'sessionId': result.sessionId,
-          if (result.verificationNonce != null && result.verificationNonce!.isNotEmpty)
+          if (result.verificationNonce != null &&
+              result.verificationNonce!.isNotEmpty)
             'v': result.verificationNonce,
         },
       );

@@ -10,7 +10,6 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
-import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
@@ -18,9 +17,9 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
+import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
-import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
@@ -116,8 +115,9 @@ class PaywallScreen extends HookConsumerWidget {
     final hasActiveSubscription =
         (currentSub?.subscription?.isSubscribed ?? false) ||
             (directSubscription?.isSubscribed ?? false);
-    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
-    final useIap = isIos && !forceUseStripeCheckout;
+    final useIap = shouldUseAppStoreCheckout(
+      forceStripeCheckout: forceUseStripeCheckout,
+    );
 
     // Avoid accidentally registering multiple listeners across rebuilds.
     final didRegisterIapListener = useRef(false);
@@ -439,129 +439,12 @@ class PaywallScreen extends HookConsumerWidget {
       processingDialogKind.value,
     ]);
 
-    final List<PlanOption> plans;
-    if (useIap) {
-      // iOS uses IAP. Store product IDs:
-      // - lifetime: lifetime_earlybird
-      // - yearly: yearly
-      // - monthly: monthly
-      final storeDetailsById =
-          iapStateAsync.value?.productDetailsById ?? const {};
-      final catalogProducts =
-          (productsAsync.value ?? const <SubscriptionProduct>[])
-              .where((p) => isSubscriptionPlanPubliclySelectable(p.plan))
-              .toList();
-
-      final effectiveCatalogProducts = catalogProducts.isNotEmpty
-          ? catalogProducts
-          : <SubscriptionProduct>[
-              SubscriptionProduct(
-                id: 'fallback_plus_yearly_ios',
-                platform: 'ios',
-                plan: 'plus',
-                billingInterval: 'yearly',
-                storeProductId: 'yearly',
-                displayName: context.l10n.yearly,
-                tagline: context.l10n.paywallPlanYearlyTagline,
-                badgeText: context.l10n.paywallBadgeSave50,
-                isPopular: true,
-                displayPriceUsd: Constants.subscriptionYearlyPrice,
-                originalPriceUsd: Constants.subscriptionYearlyOriginalPrice,
-                sortOrder: 0,
-              ),
-              SubscriptionProduct(
-                id: 'fallback_plus_monthly_ios',
-                platform: 'ios',
-                plan: 'plus',
-                billingInterval: 'monthly',
-                storeProductId: 'monthly',
-                displayName: context.l10n.monthly,
-                tagline: context.l10n.paywallPlanMonthlyTagline,
-                badgeText: null,
-                isPopular: false,
-                displayPriceUsd: Constants.subscriptionMonthlyPrice,
-                originalPriceUsd: Constants.subscriptionMonthlyOriginalPrice,
-                sortOrder: 10,
-              ),
-              SubscriptionProduct(
-                id: 'fallback_lifetime_ios',
-                platform: 'ios',
-                plan: 'lifetime',
-                billingInterval: null,
-                storeProductId: 'lifetime_earlybird',
-                displayName: context.l10n.lifetime,
-                tagline: context.l10n.paywallPlanLifetimeTagline,
-                badgeText: context.l10n.paywallBadgeLimited,
-                isPopular: false,
-                displayPriceUsd: Constants.subscriptionLifetimePrice,
-                originalPriceUsd: null,
-                sortOrder: 40,
-              ),
-            ];
-
-      plans = effectiveCatalogProducts.map((p) {
-        final details = storeDetailsById[p.storeProductId];
-        return PlanOption(
-          id: p.optionId,
-          serverPlanId: p.plan,
-          billingInterval: p.billingInterval,
-          storeProductId: p.storeProductId,
-          catalogProduct: p,
-          name: p.displayName,
-          storePrice: details?.price,
-          displayPriceUsd: p.displayPriceUsd,
-          originalPriceUsd: p.originalPriceUsd,
-          tagline: p.tagline,
-          isPopular: p.isPopular,
-          badgeText: p.badgeText,
-        );
-      }).toList()
-        ..sort((a, b) {
-          final catalogOrder = (a.catalogProduct?.sortOrder ?? 999)
-              .compareTo(b.catalogProduct?.sortOrder ?? 999);
-          if (catalogOrder != 0) return catalogOrder;
-          const order = {'yearly': 0, 'monthly': 1};
-          final aOrder =
-              a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
-          final bOrder =
-              b.billingInterval != null ? (order[b.billingInterval] ?? 2) : 2;
-          return aOrder.compareTo(bOrder);
-        });
-    } else {
-      // Android remains Stripe checkout (web) for now.
-      plans = [
-        PlanOption(
-          id: 'plus_yearly',
-          serverPlanId: 'plus',
-          billingInterval: 'yearly',
-          name: context.l10n.yearly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionYearlyPrice,
-          tagline: context.l10n.paywallPlanYearlyTagline,
-          isPopular: true,
-          badgeText: context.l10n.paywallBadgeSave50,
-        ),
-        PlanOption(
-          id: 'plus_monthly',
-          serverPlanId: 'plus',
-          billingInterval: 'monthly',
-          name: context.l10n.monthly,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionMonthlyPrice,
-          tagline: context.l10n.paywallPlanMonthlyTagline,
-        ),
-        PlanOption(
-          id: 'lifetime',
-          serverPlanId: 'lifetime',
-          billingInterval: null,
-          name: context.l10n.lifetime,
-          storePrice: null,
-          displayPriceUsd: Constants.subscriptionLifetimePrice,
-          tagline: context.l10n.paywallPlanLifetimeTagline,
-          badgeText: context.l10n.paywallBadgeLimited,
-        ),
-      ];
-    }
+    final plans = buildPlusPlanOptions(
+      context: context,
+      useIap: useIap,
+      productsAsync: productsAsync,
+      iapStateAsync: iapStateAsync,
+    );
 
     // Effect: If user is already on a plan, try to select it visually
     useEffect(() {
@@ -845,6 +728,8 @@ class PaywallScreen extends HookConsumerWidget {
         supabaseClient: supabase,
         plan: option.serverPlanId,
         billingInterval: option.billingInterval,
+        countryCode: option.pricingCountry,
+        currencyCode: option.currencyCode,
         noSessionError: noSessionError,
         startCheckoutError: startCheckoutError,
         noCheckoutUrlError: noCheckoutUrlError,
@@ -931,7 +816,7 @@ class PaywallScreen extends HookConsumerWidget {
       );
       try {
         didInitiateCheckout.value = true;
-        print('🍎 Platform check - iOS: $isIos');
+        print('🍎 App Store checkout enabled: $useIap');
         if (useIap) {
           checkoutPlanOption.value = activePlanOption;
           // Don't allow purchase attempts until the store/products are ready.

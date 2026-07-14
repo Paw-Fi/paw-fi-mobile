@@ -9,6 +9,9 @@ class PlanOption {
   final SubscriptionProduct? catalogProduct;
   final String name;
   final String? storePrice;
+  final String? regionalPrice;
+  final String? currencyCode;
+  final String? pricingCountry;
   final double? displayPriceUsd;
   final double? originalPriceUsd;
   final String tagline;
@@ -23,6 +26,9 @@ class PlanOption {
     this.catalogProduct,
     required this.name,
     required this.storePrice,
+    this.regionalPrice,
+    this.currencyCode,
+    this.pricingCountry,
     this.displayPriceUsd,
     this.originalPriceUsd,
     required this.tagline,
@@ -39,6 +45,9 @@ class PlanOption {
   String get priceDisplay {
     if (storePrice != null && storePrice!.isNotEmpty) {
       return storePrice!;
+    }
+    if (regionalPrice != null && regionalPrice!.isNotEmpty) {
+      return regionalPrice!;
     }
     if (displayPriceUsd != null) {
       return '\$${displayPriceUsd!.toStringAsFixed(2)}';

@@ -1,8 +1,6 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, debugPrint;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -181,8 +179,9 @@ class PlanSelectionPage extends HookConsumerWidget {
     // Check if user is truly new (no subscription data exists)
     final isNewUser = currentSub?.subscription == null;
 
-    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
-    final useIap = isIos && !forceUseStripeCheckout;
+    final useIap = shouldUseAppStoreCheckout(
+      forceStripeCheckout: forceUseStripeCheckout,
+    );
 
     // Avoid accidentally registering multiple listeners across rebuilds.
     final didRegisterIapListener = useRef(false);
@@ -580,8 +579,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     final requiresAutoRenewAcknowledgement =
-        activePlanOption != null &&
-            activePlanOption.serverPlanId != 'lifetime';
+        activePlanOption != null && activePlanOption.serverPlanId != 'lifetime';
     final canConfirmAutoRenew = activePlanOption != null &&
         (!requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value);
 
@@ -929,7 +927,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       try {
         didInitiateCheckout.value = true;
         checkoutPlanOption.value = selectedPlan;
-        print('🍎 Platform check - iOS: $isIos');
+        print('🍎 App Store checkout enabled: $useIap');
         if (useIap) {
           // Don't allow purchase attempts until the store/products are ready.
           final iapState = iapStateAsync.valueOrNull;
@@ -1215,11 +1213,9 @@ class PlanSelectionPage extends HookConsumerWidget {
                               switchInCurve: Curves.easeOut,
                               switchOutCurve: Curves.easeIn,
                               child: PlanSelectionCardRow(
-                                key: ValueKey(
-                                    selectedPlanFamily.value.planId),
+                                key: ValueKey(selectedPlanFamily.value.planId),
                                 plans: visiblePlans,
-                                selectedPlanId:
-                                    selectedPlanId.value ?? '',
+                                selectedPlanId: selectedPlanId.value ?? '',
                                 onPlanSelected: (id) =>
                                     selectedPlanId.value = id,
                                 isCurrentPlan: isCurrentPlan,

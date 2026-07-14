@@ -1,6 +1,4 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -105,7 +103,8 @@ class PlusLockedSheet extends HookConsumerWidget {
     final productsAsync = ref.watch(subscriptionProductsProvider);
     final iapStateAsync = ref.watch(iapControllerProvider);
     final content = _LockedSheetContent.resolve(context, subscription);
-    final currentSubscription = subscriptionDetailsAsync.valueOrNull?.subscription;
+    final currentSubscription =
+        subscriptionDetailsAsync.valueOrNull?.subscription;
     final currentPlanId = currentSubscription?.plan ?? 'free';
     final currentInterval = currentSubscription?.billingInterval;
     final currentStatus = currentSubscription?.status?.toLowerCase();
@@ -114,8 +113,9 @@ class PlusLockedSheet extends HookConsumerWidget {
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final isBankSyncEligible = isPlaidSupportedTimezone(preferredTimezone);
 
-    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
-    final useIap = isIos && !_forceUseStripeCheckout;
+    final useIap = shouldUseAppStoreCheckout(
+      forceStripeCheckout: _forceUseStripeCheckout,
+    );
     final plans = buildPlusPlanOptions(
       context: context,
       useIap: useIap,
@@ -123,7 +123,8 @@ class PlusLockedSheet extends HookConsumerWidget {
       iapStateAsync: iapStateAsync,
     );
     final visiblePlans = sortPlanOptions(plans);
-    final isStoreReady = !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
+    final isStoreReady =
+        !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
     useEffect(() {
       if (visiblePlans.isEmpty) {
@@ -157,12 +158,13 @@ class PlusLockedSheet extends HookConsumerWidget {
       }
     }
 
-    final effectiveActivePlanOption =
-        activePlanOption ?? (visiblePlans.isNotEmpty ? visiblePlans.first : null);
+    final effectiveActivePlanOption = activePlanOption ??
+        (visiblePlans.isNotEmpty ? visiblePlans.first : null);
 
     bool isCurrentPlan(PlanOption option) {
       final shouldBlockSamePlan =
-          (currentSubscription?.isSubscribed ?? false) && currentStatus == 'active';
+          (currentSubscription?.isSubscribed ?? false) &&
+              currentStatus == 'active';
       if (!shouldBlockSamePlan) {
         return false;
       }
@@ -204,7 +206,8 @@ class PlusLockedSheet extends HookConsumerWidget {
                   .read(subscriptionManagementProvider)
                   .valueOrNull
                   ?.subscription;
-              return subscriptionMatchesPlanOption(latestSubscription, selectedOption);
+              return subscriptionMatchesPlanOption(
+                  latestSubscription, selectedOption);
             },
           );
 
@@ -231,13 +234,15 @@ class PlusLockedSheet extends HookConsumerWidget {
                   .read(subscriptionManagementProvider)
                   .valueOrNull
                   ?.subscription;
-              return subscriptionMatchesPlanOption(latestSubscription, selectedOption);
+              return subscriptionMatchesPlanOption(
+                  latestSubscription, selectedOption);
             },
           );
         }
 
         if (!context.mounted) return;
-        AppToast.success(context, context.l10n.paymentSuccessfulCheckingSubscription);
+        AppToast.success(
+            context, context.l10n.paymentSuccessfulCheckingSubscription);
         Navigator.of(context).pop();
       } catch (error) {
         if (!context.mounted) return;
@@ -310,16 +315,15 @@ class PlusLockedSheet extends HookConsumerWidget {
                         ],
                         SizedBox(
                           width: double.infinity,
-                       
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                            
                               PlanSelectionCardRow(
                                 plans: visiblePlans,
                                 selectedPlanId: selectedPlanId.value ?? '',
-                                onPlanSelected: (id) => selectedPlanId.value = id,
+                                onPlanSelected: (id) =>
+                                    selectedPlanId.value = id,
                                 isCurrentPlan: isCurrentPlan,
                                 isNewUser: currentSubscription == null,
                               ),
@@ -378,7 +382,8 @@ class PlusLockedSheet extends HookConsumerWidget {
                                   isProcessing: isCheckoutProcessing.value,
                                   isStoreReady: isStoreReady,
                                   canConfirmAutoRenew: true,
-                                  isCurrentPlan: isCurrentPlan(effectiveActivePlanOption),
+                                  isCurrentPlan:
+                                      isCurrentPlan(effectiveActivePlanOption),
                                   trialMode: false,
                                   includePrice: true,
                                   centerText: true,
@@ -793,11 +798,9 @@ class _PremiumFeaturesList extends StatelessWidget {
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(20),
                         topRight: Radius.circular(20),
-                      )
-                    )
+                      ))
                   : null,
-              padding:
-                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
               child: Row(
                 children: [
                   Icon(
@@ -830,8 +833,8 @@ class _PremiumFeaturesList extends StatelessWidget {
                   ),
                   if (isHighlighted) ...[
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: colorScheme.primary,
                         borderRadius: BorderRadius.circular(999),
@@ -1127,9 +1130,8 @@ class _PlanComparisonRow extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isHighlighted
-            ? colorScheme.primary.withValues(alpha: 0.06)
-            : null,
+        color:
+            isHighlighted ? colorScheme.primary.withValues(alpha: 0.06) : null,
         border: isLast
             ? null
             : Border(
@@ -1152,9 +1154,8 @@ class _PlanComparisonRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isHighlighted
-                        ? FontWeight.w800
-                        : FontWeight.w600,
+                    fontWeight:
+                        isHighlighted ? FontWeight.w800 : FontWeight.w600,
                     color: isHighlighted
                         ? colorScheme.primary
                         : colorScheme.foreground,
@@ -1238,10 +1239,7 @@ _PlanComparisonContent _freeVsPlusComparison(
   final rows = [
     _ComparisonRowData(
       feature: context.l10n.plusLockedAiExpenseCapture,
-      values: [
-        _ComparisonValue.included(),
-        _ComparisonValue.included()
-      ],
+      values: [_ComparisonValue.included(), _ComparisonValue.included()],
     ),
     _ComparisonRowData(
       feature: context.l10n.plusLockedSharedBudgets,
