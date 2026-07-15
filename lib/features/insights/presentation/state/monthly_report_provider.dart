@@ -174,7 +174,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     ref.watch(transactionsFeedRefreshSignalProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
     final monthStart = _query.monthStart;
-    final period = _monthlyReportPeriod(_query, now: now);
+    final period = resolveMonthlyReportPeriod(_query, now: now);
     final householdId = _reportHouseholdId(householdScope);
     final pocketsScope = _pocketsScopeType(householdScope.activeAccountType);
     final cacheKey = _monthlyReportCacheKey(
@@ -330,7 +330,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final householdScope = ref.read(householdScopeProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
     final monthStart = _query.monthStart;
-    final period = _monthlyReportPeriod(_query, now: now);
+    final period = resolveMonthlyReportPeriod(_query, now: now);
     final householdId = _reportHouseholdId(householdScope);
     final pocketsScope = _pocketsScopeType(householdScope.activeAccountType);
     return _MonthlyReportContext(
@@ -518,10 +518,6 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     );
 
     final loadedPocketsState = ref.read(pocketsProvider(pocketsParams));
-    if (loadedPocketsState.error != null &&
-        loadedPocketsState.error!.trim().isNotEmpty) {
-      throw StateError('Budget data unavailable: ${loadedPocketsState.error}');
-    }
 
     final report = buildMonthlyFinancialReport(
       MonthlyReportInput(
@@ -544,6 +540,7 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
             .toList(growable: false),
         budgetItems: _budgetInputs(
           loadedPocketsState.editing,
+          sourceError: loadedPocketsState.error,
           currencyCode: currencyCode,
           selectedCurrencies: selectedCurrencies,
           rates: rates,
@@ -680,7 +677,7 @@ String _currencySelectionCacheSegment(List<String>? currencies) {
   return values.isEmpty ? 'default' : values.join(',');
 }
 
-MonthlyReportPeriod _monthlyReportPeriod(
+MonthlyReportPeriod resolveMonthlyReportPeriod(
   MonthlyReportQuery query, {
   required DateTime now,
 }) {
@@ -801,7 +798,7 @@ MonthlyReportPeriod monthlyReportPeriodForTesting(
   MonthlyReportQuery query, {
   required DateTime now,
 }) =>
-    _monthlyReportPeriod(query, now: now);
+    resolveMonthlyReportPeriod(query, now: now);
 
 ({
   List<ExpenseEntry> current,
@@ -1863,6 +1860,7 @@ double normalizedMonthlyRecurringAmountForTesting(RecurringTransaction item) =>
 
 List<MonthlyReportBudgetInput> _budgetInputs(
   List<PocketEnvelope> pockets, {
+  String? sourceError,
   required String currencyCode,
   List<String>? selectedCurrencies,
   required CurrencyRateTable rates,
@@ -1870,6 +1868,9 @@ List<MonthlyReportBudgetInput> _budgetInputs(
   List<ExpenseEntry> transactions = const <ExpenseEntry>[],
   Map<String, List<String>> envelopeCategories = const <String, List<String>>{},
 }) {
+  if (sourceError?.trim().isNotEmpty == true) {
+    return const <MonthlyReportBudgetInput>[];
+  }
   final hasMultiCurrencySelection = (selectedCurrencies?.length ?? 0) > 1;
   final targetCurrency = currencyCode.trim().toUpperCase();
   return pockets.map(
@@ -1927,6 +1928,7 @@ List<MonthlyReportBudgetInput> _budgetInputs(
 @foundation.visibleForTesting
 List<MonthlyReportBudgetInput> buildMonthlyReportBudgetInputsForTesting(
   List<PocketEnvelope> pockets, {
+  String? sourceError,
   required String currencyCode,
   List<String>? selectedCurrencies,
   required CurrencyRateTable rates,
@@ -1936,6 +1938,7 @@ List<MonthlyReportBudgetInput> buildMonthlyReportBudgetInputsForTesting(
 }) {
   return _budgetInputs(
     pockets,
+    sourceError: sourceError,
     currencyCode: currencyCode,
     selectedCurrencies: selectedCurrencies,
     rates: rates,

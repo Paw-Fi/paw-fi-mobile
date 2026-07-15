@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
@@ -100,20 +102,17 @@ DateTime? _parseMonthlyReportMonth(String? value) {
   return parsed;
 }
 
-String _monthlyReportTitle(
-  BuildContext context,
-  MonthlyReportQuery query,
-) {
-  if (query.financialMonthStartDay == 1) {
-    return MaterialLocalizations.of(context).formatMonthYear(query.monthStart);
-  }
-  final end = nextFinancialCycleStart(
-    query.monthStart,
-    startDay: query.financialMonthStartDay,
-  ).subtract(const Duration(days: 1));
-  final localizations = MaterialLocalizations.of(context);
-  return '${localizations.formatShortDate(query.monthStart)} - '
-      '${localizations.formatShortDate(end)}';
+({String title, String year}) monthlyReportDateRangeLabels(
+    MaterialLocalizations localizations, MonthlyReportQuery query,
+    {required DateTime now}) {
+  final period = resolveMonthlyReportPeriod(query, now: now);
+  final startYear = localizations.formatYear(period.start);
+  final endYear = localizations.formatYear(period.end);
+  return (
+    title: '${localizations.formatShortMonthDay(period.start)}'
+        ' – ${localizations.formatShortMonthDay(period.end)}',
+    year: startYear == endYear ? startYear : '$startYear – $endYear',
+  );
 }
 
 String _monthlyReportRoute(
@@ -165,6 +164,8 @@ class MonthlyReportPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
+    final now = effectiveNow(preferredTimezone: preferredTimezone);
     final initialMonthStart = initialQuery?.monthStart ??
         _defaultMonthlyReportQuery(
           financialMonthStartDay: financialMonthStartDay,
@@ -219,6 +220,7 @@ class MonthlyReportPage extends HookConsumerWidget {
                 snapshot,
                 query,
                 canOpenReportDetails,
+                now,
               )
             : reportAsync.hasError && loadedSnapshot == null
                 ? _buildErrorState(context, colorScheme, reportAsync.error!)
@@ -243,9 +245,14 @@ class MonthlyReportPage extends HookConsumerWidget {
     MonthlyFinancialReportSnapshot snapshot,
     MonthlyReportQuery query,
     bool canOpenReportDetails,
+    DateTime now,
   ) {
     final report = snapshot.report;
-    final month = _monthlyReportTitle(context, query);
+    final periodLabels = monthlyReportDateRangeLabels(
+      MaterialLocalizations.of(context),
+      query,
+      now: now,
+    );
 
     return RefreshIndicator(
       onRefresh: () => ref
@@ -269,7 +276,8 @@ class MonthlyReportPage extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _MonthlyReportPageTitle(
-                  title: month,
+                  title: periodLabels.title,
+                  year: periodLabels.year,
                   colorScheme: colorScheme,
                   trailing: _MonthlyReportSyncStatus(
                     colorScheme: colorScheme,
@@ -2745,11 +2753,13 @@ String? _monthlyReportHouseholdId(HouseholdScope scope) {
 class _MonthlyReportPageTitle extends StatelessWidget {
   const _MonthlyReportPageTitle({
     required this.title,
+    required this.year,
     required this.colorScheme,
     this.trailing,
   });
 
   final String title;
+  final String year;
   final ColorScheme colorScheme;
   final Widget? trailing;
 
@@ -2757,22 +2767,41 @@ class _MonthlyReportPageTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.zero,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: _monthlyReportPageTitleFontSize,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.8,
-                color: colorScheme.foreground,
-                height: 1.05,
-              ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: _monthlyReportPageTitleFontSize,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.8,
+              color: colorScheme.foreground,
+              height: 1.05,
             ),
           ),
-          if (trailing != null) trailing!,
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                Text(
+                  year,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                    height: 1.2,
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
+          ),
         ],
       ),
     );

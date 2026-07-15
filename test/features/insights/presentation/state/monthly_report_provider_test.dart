@@ -19,6 +19,31 @@ ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
 
 void main() {
   group('buildMonthlyReportBudgetInputsForTesting', () {
+    test('omits budgets when the pockets backend is unavailable', () {
+      final inputs = buildMonthlyReportBudgetInputsForTesting(
+        [
+          PocketEnvelope(
+            id: 'env-food',
+            name: 'Food',
+            budgetAmountCents: 40000,
+            spent: 100,
+            currency: 'EUR',
+            lastUpdated: DateTime(2026, 5, 1),
+          ),
+        ],
+        sourceError:
+            'Function public.user_financial_month_start_day(uuid) does not exist',
+        currencyCode: 'EUR',
+        rates: const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: {'USD': 1, 'EUR': 1},
+        ),
+        aggregateSpentByEnvelopeId: const {},
+      );
+
+      expect(inputs, isEmpty);
+    });
+
     test('uses rollover-adjusted available budget for report budget health',
         () {
       final inputs = buildMonthlyReportBudgetInputsForTesting(

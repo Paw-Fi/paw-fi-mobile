@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
@@ -5,6 +6,60 @@ import 'package:moneko/features/insights/presentation/pages/monthly_report_page.
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 
 void main() {
+  test('report title shows the exact custom financial month range', () {
+    final labels = monthlyReportDateRangeLabels(
+      const DefaultMaterialLocalizations(),
+      MonthlyReportQuery(
+        monthStart: DateTime(2026, 7, 25),
+        financialMonthStartDay: 25,
+      ),
+      now: DateTime(2026, 7, 30),
+    );
+
+    expect(labels.title, 'Jul 25 – Aug 24');
+    expect(labels.year, '2026');
+  });
+
+  test('report title shows the exact selected multi-month range', () {
+    final labels = monthlyReportDateRangeLabels(
+      const DefaultMaterialLocalizations(),
+      MonthlyReportQuery(
+        monthStart: DateTime(2026, 7, 25),
+        financialMonthStartDay: 25,
+        range: MonthlyReportRange.sixMonths,
+      ),
+      now: DateTime(2026, 7, 30),
+    );
+
+    expect(labels.title, 'Feb 25 – Aug 24');
+    expect(labels.year, '2026');
+  });
+
+  test('calendar-month report title still shows its exact range', () {
+    final labels = monthlyReportDateRangeLabels(
+      const DefaultMaterialLocalizations(),
+      MonthlyReportQuery(monthStart: DateTime(2026, 7, 1)),
+      now: DateTime(2026, 7, 15),
+    );
+
+    expect(labels.title, 'Jul 1 – Jul 31');
+    expect(labels.year, '2026');
+  });
+
+  test('cross-year report title shows both years in its metadata', () {
+    final labels = monthlyReportDateRangeLabels(
+      const DefaultMaterialLocalizations(),
+      MonthlyReportQuery(
+        monthStart: DateTime(2025, 12, 25),
+        financialMonthStartDay: 25,
+      ),
+      now: DateTime(2026, 1, 2),
+    );
+
+    expect(labels.title, 'Dec 25 – Jan 24');
+    expect(labels.year, '2025 – 2026');
+  });
+
   test('MonthlyReportQuery preserves custom financial cycle route keys', () {
     final query = monthlyReportQueryFromUri(
       Uri.parse('/insights/monthly-report?month=2026-07-25&range=month'),
