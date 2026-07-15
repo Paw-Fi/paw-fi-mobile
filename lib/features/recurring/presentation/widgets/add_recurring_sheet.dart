@@ -383,8 +383,14 @@ class AddRecurringSheet extends HookConsumerWidget {
       ActiveWalletType.household => selectedHouseholdId.value,
     };
 
-    final scopedAccountsAsync =
-        ref.watch(walletsByHouseholdIdProvider(walletScopeHouseholdId));
+    final scopedAccountsAsync = ref.watch(
+      walletsByCurrencyProvider(
+        WalletsCurrencyQuery(
+          householdId: walletScopeHouseholdId,
+          currency: selectedCurrency.value,
+        ),
+      ),
+    );
     final scopedAccounts =
         scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
 

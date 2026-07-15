@@ -352,6 +352,7 @@ WalletEntity _wallet({
   required String id,
   required String name,
   String? householdId,
+  String currency = 'USD',
   bool isDefault = false,
 }) {
   return WalletEntity(
@@ -361,6 +362,7 @@ WalletEntity _wallet({
     name: name,
     icon: 'wallet',
     color: '#000000',
+    currency: currency,
     openingBalanceCents: 0,
     goalAmountCents: null,
     isDefault: isDefault,
@@ -380,6 +382,25 @@ List<Override> _defaultWalletOverrides() => [
         ],
       ),
       walletsByHouseholdIdProvider('h1').overrideWith(
+        (ref) async => [
+          _wallet(
+            id: 'w_household',
+            name: 'Household Wallet',
+            householdId: 'h1',
+            isDefault: true,
+          ),
+        ],
+      ),
+      walletsByCurrencyProvider(
+        const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+      ).overrideWith(
+        (ref) async => [
+          _wallet(id: 'w_personal', name: 'Personal Wallet', isDefault: true),
+        ],
+      ),
+      walletsByCurrencyProvider(
+        const WalletsCurrencyQuery(householdId: 'h1', currency: 'USD'),
+      ).overrideWith(
         (ref) async => [
           _wallet(
             id: 'w_household',
@@ -439,6 +460,211 @@ void main() {
         ),
       );
     } catch (_) {}
+  });
+
+  testWidgets(
+      'Add mode only offers wallets matching the primary transaction currency',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: const [],
+      splits: const [],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(() => _MockAuth()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(
+            householdRepository,
+            'user_1',
+            ref,
+            initialHouseholds: const [],
+          ),
+        ),
+        walletsByHouseholdIdProvider(null).overrideWith(
+          (ref) async => [
+            _wallet(
+              id: 'eur-default',
+              name: 'EUR Spending',
+              currency: 'EUR',
+              isDefault: true,
+            ),
+            _wallet(
+              id: 'usd-default',
+              name: 'USD Spending',
+              currency: 'USD',
+              isDefault: true,
+            ),
+          ],
+        ),
+        walletsByCurrencyProvider(
+          const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+        ).overrideWith(
+          (ref) async => [
+            _wallet(
+              id: 'usd-default',
+              name: 'USD Spending',
+              currency: 'USD',
+              isDefault: true,
+            ),
+          ],
+        ),
+        householdScopeProvider.overrideWith((ref) {
+          final viewMode = ref.watch(viewModeProvider).mode;
+          final selected = ref.watch(selectedHouseholdProvider);
+          return HouseholdScope(
+            viewMode: viewMode,
+            selected: selected,
+            portfolioHouseholdIds: const {},
+          );
+        }),
+        selectedHouseholdProvider.overrideWith(
+          (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+        ),
+        viewModeProvider.overrideWith(
+          (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+        ),
+        homeFilterProvider.overrideWith(
+          (ref) => HomeFilterNotifier()
+            ..setSelectedCurrency('USD')
+            ..setSelectedCurrencies(const ['USD', 'EUR']),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: AddRecurringSheet(type: 'expense')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('USD Spending'), findsOneWidget);
+    expect(find.text('EUR Spending'), findsNothing);
+  });
+
+  testWidgets(
+      'Save keeps the wallet in the unchanged primary currency when multiple currencies are selected',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    _TestRecurringSaveNotifier? saveNotifier;
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: const [],
+      splits: const [],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        recurringTransactionSaveProvider.overrideWith((ref) {
+          saveNotifier = _TestRecurringSaveNotifier(ref);
+          return saveNotifier!;
+        }),
+        authProvider.overrideWith(() => _MockAuth()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(
+            householdRepository,
+            'user_1',
+            ref,
+            initialHouseholds: const [],
+          ),
+        ),
+        walletsByHouseholdIdProvider(null).overrideWith(
+          (ref) async => [
+            _wallet(
+              id: 'eur-default',
+              name: 'EUR Spending',
+              currency: 'EUR',
+              isDefault: true,
+            ),
+            _wallet(
+              id: 'usd-default',
+              name: 'USD Spending',
+              currency: 'USD',
+              isDefault: true,
+            ),
+          ],
+        ),
+        walletsByCurrencyProvider(
+          const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+        ).overrideWith(
+          (ref) async => [
+            _wallet(
+              id: 'usd-default',
+              name: 'USD Spending',
+              currency: 'USD',
+              isDefault: true,
+            ),
+          ],
+        ),
+        householdScopeProvider.overrideWith((ref) {
+          final viewMode = ref.watch(viewModeProvider).mode;
+          final selected = ref.watch(selectedHouseholdProvider);
+          return HouseholdScope(
+            viewMode: viewMode,
+            selected: selected,
+            portfolioHouseholdIds: const {},
+          );
+        }),
+        selectedHouseholdProvider.overrideWith(
+          (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+        ),
+        viewModeProvider.overrideWith(
+          (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+        ),
+        homeFilterProvider.overrideWith(
+          (ref) => HomeFilterNotifier()
+            ..setSelectedCurrency('USD')
+            ..setSelectedCurrencies(const ['USD', 'EUR']),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: AddRecurringSheet(
+              type: 'expense',
+              existingTransaction: _recurringExpense(id: 'exp_usd'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.check));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(saveNotifier, isNotNull);
+    expect(saveNotifier!.updateCalled, isTrue);
+    expect(saveNotifier!.lastUpdateArgs?['currency'], 'USD');
+    expect(saveNotifier!.lastUpdateArgs?['accountId'], 'usd-default');
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('Edit save blocks when split totals do not match amount',
@@ -1056,6 +1282,16 @@ void main() {
           (ref) async => personalWallets,
         ),
         walletsByHouseholdIdProvider('h1').overrideWith(
+          (ref) async => householdWallets,
+        ),
+        walletsByCurrencyProvider(
+          const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+        ).overrideWith(
+          (ref) async => personalWallets,
+        ),
+        walletsByCurrencyProvider(
+          const WalletsCurrencyQuery(householdId: 'h1', currency: 'USD'),
+        ).overrideWith(
           (ref) async => householdWallets,
         ),
         householdMembersProvider('h1').overrideWith(

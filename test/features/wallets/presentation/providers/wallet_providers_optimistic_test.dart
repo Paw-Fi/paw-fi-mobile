@@ -17,7 +17,11 @@ class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
   Future<List<WalletEntity>> refreshFromNetwork() async => wallets;
 }
 
-WalletEntity _wallet(String id, {String name = 'Spending'}) {
+WalletEntity _wallet(
+  String id, {
+  String name = 'Spending',
+  String currency = 'USD',
+}) {
   return WalletEntity(
     id: id,
     userId: 'user-1',
@@ -25,6 +29,7 @@ WalletEntity _wallet(String id, {String name = 'Spending'}) {
     name: name,
     icon: 'wallet',
     color: '#6B7280',
+    currency: currency,
     openingBalanceCents: 0,
     goalAmountCents: null,
     isDefault: false,
@@ -112,5 +117,68 @@ void main() {
     final wallets = container.read(effectiveScopeWalletsProvider);
 
     expect(wallets.map((w) => w.id), ['wallet-personal']);
+  });
+
+  test('effectiveScopeWalletsProvider keeps all included currencies', () async {
+    final container = ProviderContainer(
+      overrides: [
+        walletScopeHouseholdIdProvider.overrideWithValue(null),
+        walletsScopeQueryProvider.overrideWith(
+          (ref) => WalletsScopeQuery(
+            userId: 'user-1',
+            householdId: null,
+            selectedCurrency: 'USD',
+            selectedCurrencies: const ['USD', 'EUR'],
+            currentMonthStart: DateTime(2026, 7),
+          ),
+        ),
+        scopedWalletsProvider.overrideWith(
+          () => _StaticScopedWalletsNotifier([
+            _wallet('wallet-usd'),
+            _wallet('wallet-eur', currency: 'EUR'),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(scopedWalletsProvider.future);
+
+    expect(
+      container.read(effectiveScopeWalletsProvider).map((wallet) => wallet.id),
+      ['wallet-usd', 'wallet-eur'],
+    );
+  });
+
+  test('effectiveScopeWalletsProvider excludes non-selected currencies',
+      () async {
+    final container = ProviderContainer(
+      overrides: [
+        walletScopeHouseholdIdProvider.overrideWithValue(null),
+        walletsScopeQueryProvider.overrideWith(
+          (ref) => WalletsScopeQuery(
+            userId: 'user-1',
+            householdId: null,
+            selectedCurrency: 'USD',
+            selectedCurrencies: const ['USD'],
+            currentMonthStart: DateTime(2026, 7),
+          ),
+        ),
+        scopedWalletsProvider.overrideWith(
+          () => _StaticScopedWalletsNotifier([
+            _wallet('wallet-usd'),
+            _wallet('wallet-eur', currency: 'EUR'),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(scopedWalletsProvider.future);
+
+    expect(
+      container.read(effectiveScopeWalletsProvider).map((wallet) => wallet.id),
+      ['wallet-usd'],
+    );
   });
 }

@@ -8,6 +8,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
@@ -374,8 +375,19 @@ class PreviewStep extends ConsumerWidget {
   ) {
     final notifier = ref.read(importWizardProvider.notifier);
     final targetHouseholdId = state.targetHouseholdId;
-    final accountsAsync =
-        ref.watch(walletsByHouseholdIdProvider(targetHouseholdId));
+    final primaryCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
+    final targetCurrency = resolveImportTargetWalletCurrency(
+      rows: state.parsedRows,
+      primaryCurrency: primaryCurrency,
+    );
+    final accountsAsync = ref.watch(
+      walletsByCurrencyProvider(
+        WalletsCurrencyQuery(
+          householdId: targetHouseholdId,
+          currency: targetCurrency,
+        ),
+      ),
+    );
     final allAccounts = accountsAsync.valueOrNull ?? const <WalletEntity>[];
     final accounts = allAccounts
         .where((account) => !account.isArchived)
@@ -401,7 +413,13 @@ class PreviewStep extends ConsumerWidget {
       final preferredAccountId = _resolvePreferredDefaultAccountId(accounts);
       if (preferredAccountId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          notifier.setTargetFinancialWallet(preferredAccountId);
+          final preferredAccount = accounts.firstWhere(
+            (account) => account.id == preferredAccountId,
+          );
+          notifier.setTargetFinancialWallet(
+            preferredAccountId,
+            currency: preferredAccount.currency,
+          );
         });
       }
     }
@@ -469,7 +487,13 @@ class PreviewStep extends ConsumerWidget {
           final raw = item.value;
           if (raw is String && raw.startsWith('account:')) {
             final accountId = raw.replaceFirst('account:', '').trim();
-            notifier.setTargetFinancialWallet(accountId);
+            final selectedAccount = accounts.firstWhere(
+              (account) => account.id == accountId,
+            );
+            notifier.setTargetFinancialWallet(
+              accountId,
+              currency: selectedAccount.currency,
+            );
           }
         },
         child: Container(
@@ -573,7 +597,10 @@ class PreviewStep extends ConsumerWidget {
         isDefault: result.isDefault,
       );
       if (createdId != null && createdId.isNotEmpty) {
-        notifier.setTargetFinancialWallet(createdId);
+        notifier.setTargetFinancialWallet(
+          createdId,
+          currency: result.currency,
+        );
       }
       if (context.mounted) {
         AppToast.success(context, context.l10n.save);

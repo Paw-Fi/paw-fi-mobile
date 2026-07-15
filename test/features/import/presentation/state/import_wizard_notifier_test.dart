@@ -33,6 +33,95 @@ void main() {
     );
   });
 
+  group('resolveImportAccountIdForCurrency', () {
+    test('keeps a selected wallet for rows in the wallet currency', () {
+      expect(
+        resolveImportAccountIdForCurrency(
+          accountId: ' wallet-usd ',
+          accountCurrency: 'usd',
+          transactionCurrency: 'USD',
+        ),
+        'wallet-usd',
+      );
+    });
+
+    test('omits a selected wallet for rows in another currency', () {
+      expect(
+        resolveImportAccountIdForCurrency(
+          accountId: 'wallet-usd',
+          accountCurrency: 'USD',
+          transactionCurrency: 'EUR',
+        ),
+        isNull,
+      );
+    });
+
+    test('omits a wallet when its currency cannot be established', () {
+      expect(
+        resolveImportAccountIdForCurrency(
+          accountId: 'wallet-usd',
+          accountCurrency: null,
+          transactionCurrency: 'USD',
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('resolveImportTargetWalletCurrency', () {
+    test('uses the file currency for a single-currency import', () {
+      expect(
+        resolveImportTargetWalletCurrency(
+          rows: const [
+            ImportParsedRow(
+              index: 0,
+              date: null,
+              amountCents: null,
+              category: null,
+              description: null,
+              currency: 'eur',
+              type: null,
+              errors: [],
+            ),
+          ],
+          primaryCurrency: 'USD',
+        ),
+        'EUR',
+      );
+    });
+
+    test('uses the primary currency for a mixed-currency import', () {
+      expect(
+        resolveImportTargetWalletCurrency(
+          rows: const [
+            ImportParsedRow(
+              index: 0,
+              date: null,
+              amountCents: null,
+              category: null,
+              description: null,
+              currency: 'USD',
+              type: null,
+              errors: [],
+            ),
+            ImportParsedRow(
+              index: 1,
+              date: null,
+              amountCents: null,
+              category: null,
+              description: null,
+              currency: 'EUR',
+              type: null,
+              errors: [],
+            ),
+          ],
+          primaryCurrency: 'usd',
+        ),
+        'USD',
+      );
+    });
+  });
+
   test('updateParsedRow revalidates and marks duplicates', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -230,11 +319,13 @@ void main() {
       ],
     );
 
-    notifier.setTargetFinancialWallet('wallet-a');
+    notifier.setTargetFinancialWallet('wallet-a', currency: 'usd');
 
-    final updated = container.read(importWizardProvider).parsedRows.single;
+    final updatedState = container.read(importWizardProvider);
+    final updated = updatedState.parsedRows.single;
     expect(updated.isDuplicate, isTrue);
     expect(updated.duplicateReason, DuplicateReason.inDb);
+    expect(updatedState.targetAccountCurrency, 'USD');
   });
 
   test('deleted rows stay removed after reparse', () async {

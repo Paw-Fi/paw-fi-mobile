@@ -136,6 +136,11 @@ void main() {
         walletsByHouseholdIdProvider(null).overrideWith(
           (ref) async => const [_defaultWallet],
         ),
+        walletsByCurrencyProvider(
+          const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+        ).overrideWith(
+          (ref) async => const [_defaultWallet],
+        ),
       ],
     );
     final subscription = container.listen<ImportWizardState>(
@@ -177,6 +182,11 @@ void main() {
           ),
         ),
         walletsByHouseholdIdProvider(null).overrideWith(
+          (ref) async => const [_defaultWallet],
+        ),
+        walletsByCurrencyProvider(
+          const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+        ).overrideWith(
           (ref) async => const [_defaultWallet],
         ),
       ],

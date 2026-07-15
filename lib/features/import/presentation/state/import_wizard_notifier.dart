@@ -30,6 +30,39 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
+String? resolveImportAccountIdForCurrency({
+  required String? accountId,
+  required String? accountCurrency,
+  required String transactionCurrency,
+}) {
+  final normalizedAccountId = accountId?.trim();
+  final normalizedAccountCurrency = accountCurrency?.trim().toUpperCase();
+  final normalizedTransactionCurrency =
+      transactionCurrency.trim().toUpperCase();
+  if (normalizedAccountId == null ||
+      normalizedAccountId.isEmpty ||
+      normalizedAccountCurrency == null ||
+      normalizedAccountCurrency.isEmpty ||
+      normalizedTransactionCurrency.isEmpty ||
+      normalizedAccountCurrency != normalizedTransactionCurrency) {
+    return null;
+  }
+  return normalizedAccountId;
+}
+
+String resolveImportTargetWalletCurrency({
+  required Iterable<ImportParsedRow> rows,
+  required String primaryCurrency,
+}) {
+  final rowCurrencies = rows
+      .map((row) => row.currency?.trim().toUpperCase())
+      .whereType<String>()
+      .where((currency) => currency.isNotEmpty)
+      .toSet();
+  if (rowCurrencies.length == 1) return rowCurrencies.single;
+  return primaryCurrency.trim().toUpperCase();
+}
+
 final importWizardProvider =
     StateNotifierProvider.autoDispose<ImportWizardNotifier, ImportWizardState>(
         (ref) {
@@ -59,6 +92,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     String? householdId,
     required bool isPortfolio,
     String? accountId,
+    String? accountCurrency,
   }) {
     final trimmed = householdId?.trim();
     final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
@@ -68,6 +102,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       targetHouseholdId: normalized,
       targetIsPortfolio: normalized == null ? false : isPortfolio,
       targetAccountId: normalizedAccountId,
+      targetAccountCurrency: accountCurrency?.trim().toUpperCase(),
     );
   }
 
@@ -808,6 +843,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       targetIsPortfolio: normalized == null ? false : isPortfolio,
       clearTargetHouseholdId: normalized == null,
       clearTargetAccountId: true,
+      clearTargetAccountCurrency: true,
       parsedRows: updatedRows,
     );
     if (normalized != null) {
@@ -815,9 +851,13 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     }
   }
 
-  void setTargetFinancialWallet(String? accountId) {
+  void setTargetFinancialWallet(
+    String? accountId, {
+    String? currency,
+  }) {
     final normalized =
         (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
+    final normalizedCurrency = currency?.trim().toUpperCase();
     final updatedRows = _inferAndDedupeRows(
       state.parsedRows,
       _existingExpensesForTarget(state.targetHouseholdId),
@@ -825,7 +865,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     );
     state = state.copyWith(
       targetAccountId: normalized,
+      targetAccountCurrency: normalizedCurrency,
       clearTargetAccountId: normalized == null,
+      clearTargetAccountCurrency:
+          normalized == null || normalizedCurrency == null,
       parsedRows: updatedRows,
     );
     final householdId = state.targetHouseholdId;
@@ -870,9 +913,20 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final accountId = (accountData?['id'] as String?)?.trim();
 
     _ref.invalidate(walletsByHouseholdIdProvider(targetHouseholdId));
+    _ref.invalidate(
+      walletsByCurrencyProvider(
+        WalletsCurrencyQuery(
+          householdId: targetHouseholdId,
+          currency: currency,
+        ),
+      ),
+    );
 
     if (accountId != null && accountId.isNotEmpty) {
-      state = state.copyWith(targetAccountId: accountId);
+      state = state.copyWith(
+        targetAccountId: accountId,
+        targetAccountCurrency: currency.trim().toUpperCase(),
+      );
       return accountId;
     }
 
@@ -884,6 +938,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       householdId: state.targetHouseholdId,
       isPortfolio: state.targetIsPortfolio,
       accountId: state.targetAccountId,
+      accountCurrency: state.targetAccountCurrency,
     );
   }
 
@@ -979,31 +1034,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final targetHouseholdId = state.targetHouseholdId;
     final targetIsPortfolio = state.targetIsPortfolio;
     final selectedAccountId = state.targetAccountId?.trim();
-    String? effectiveAccountId =
-        selectedAccountId != null && selectedAccountId.isNotEmpty
-            ? selectedAccountId
-            : null;
-    if (effectiveAccountId == null) {
-      final resolved = await supabase.rpc(
-        'resolve_default_account',
-        params: {
-          'p_user_id': authUser.uid,
-          'p_household_id': targetHouseholdId,
-        },
-      );
-      if (resolved is String && resolved.trim().isNotEmpty) {
-        effectiveAccountId = resolved.trim();
-        final updatedRows = _inferAndDedupeRows(
-          state.parsedRows,
-          _existingExpensesForTarget(targetHouseholdId),
-          targetAccountId: effectiveAccountId,
-        );
-        state = state.copyWith(
-          targetAccountId: effectiveAccountId,
-          parsedRows: updatedRows,
-        );
-      }
-    }
+    final selectedAccountCurrency = state.targetAccountCurrency;
 
     // 1. Filter importable rows, counting invalid ones upfront.
     final importableRows = <ImportParsedRow>[];
@@ -1042,6 +1073,11 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     // 2. Convert rows to transaction maps for the batch endpoint.
     final transactions = importableRows.map((row) {
       final currency = row.currency ?? defaultCurrency;
+      final accountId = resolveImportAccountIdForCurrency(
+        accountId: selectedAccountId,
+        accountCurrency: selectedAccountCurrency,
+        transactionCurrency: currency,
+      );
       final amount = (row.amountCents ?? 0) / 100.0;
       final dateOnly = DateFormat('yyyy-MM-dd').format(row.date!);
       final safeTimestamp =
@@ -1062,7 +1098,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'category': row.category ?? 'uncategorized',
         'currency': currency,
         'date': dateOnly,
-        if (effectiveAccountId != null) 'accountId': effectiveAccountId,
+        if (accountId != null) 'accountId': accountId,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
         if (description != null && description.isNotEmpty)
           'description': description,
