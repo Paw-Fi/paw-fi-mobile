@@ -12,7 +12,6 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -23,8 +22,8 @@ import java.util.concurrent.Executors
  *
  * Flow:
  * 1. Record every notification source in the recent-apps registry.
- * 2. For enabled packages, extract notification text and parse.
- * 3. If parse succeeds with sufficient confidence, call save-wallet-transaction.
+ * 2. For enabled packages, collect bounded visible notification text.
+ * 3. Send financially plausible candidates to the backend AI classifier.
  * 4. Local dedup prevents re-sending identical notification content.
  */
 class TransactionNotificationListenerService : NotificationListenerService() {
@@ -49,6 +48,11 @@ class TransactionNotificationListenerService : NotificationListenerService() {
      */
     private val recentHashes = ConcurrentHashMap<String, Long>()
 
+    override fun onCreate() {
+        super.onCreate()
+        NotificationCaptureConfig(applicationContext).pruneExpiredPendingCaptures()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
 
@@ -69,27 +73,35 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         // Gate: this specific package must be enabled by the user
         if (!config.isPackageEnabled(packageName)) return
 
+        // Child notifications carry the actionable content. Group summaries are
+        // frequently reposted and can combine unrelated messages.
+        if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+
         // Extract notification text
         val extras = sbn.notification?.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
         val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+        val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            ?.map(CharSequence::toString)
+            ?: emptyList()
 
         // Must have at least some text to parse
-        if (title.isNullOrBlank() && text.isNullOrBlank() && bigText.isNullOrBlank()) return
-
-        // Parse
-        val parsed = NotificationTransactionParser.parse(title, text, bigText) ?: return
-
-        // Local dedup
-        val dedupKey = makeDedupKey(
-            packageName = packageName,
-            notificationKey = sbn.key,
+        val content = NotificationCaptureCandidate.buildContent(
             title = title,
             text = text,
             bigText = bigText,
-            amount = parsed.amount,
-            transactionType = parsed.transactionType
+            subText = subText,
+            textLines = textLines,
+        )
+        if (!NotificationCaptureCandidate.shouldAnalyze(content)) return
+
+        // Local dedup
+        val dedupKey = NotificationCaptureCandidate.buildEventFingerprint(
+            packageName = packageName,
+            notificationKey = sbn.key,
+            content = content,
         )
         if (isDuplicate(dedupKey)) {
             Log.d(TAG, "Duplicate notification blocked locally: $packageName")
@@ -103,24 +115,43 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         recordCaptureTelemetry(
             action = "capture_attempted",
             details = mapOf(
-                "transactionType" to parsed.transactionType,
                 "accessTokenExpired" to config.isAccessTokenExpired,
                 "expiresAt" to config.expiresAt,
                 "enabledPackagesCount" to config.getEnabledPackages().size
             )
         )
 
+        val body = buildCaptureRequestBody(
+            config = config,
+            packageName = packageName,
+            appLabel = appLabel,
+            notificationKey = sbn.key,
+            notificationPostTimeMillis = sbn.postTime,
+            dedupKey = dedupKey,
+            title = title,
+            text = text,
+            bigText = bigText,
+            subText = subText,
+            textLines = textLines,
+        )
+        val queued = config.enqueuePendingCapture(
+            body,
+            body.optString("idempotencyKey", dedupKey),
+        )
+        if (!queued) {
+            recentHashes.remove(dedupKey)
+            recordCaptureTelemetry("capture_queue_unavailable")
+            return
+        }
+
         // Send to backend on background thread
         executor.submit {
             try {
                 sendToBackend(
                     config,
-                    parsed,
                     packageName,
-                    appLabel,
-                    sbn.key,
-                    sbn.postTime,
-                    dedupKey
+                    dedupKey,
+                    body,
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send transaction to backend: ${e.message}")
@@ -143,12 +174,9 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
     private fun sendToBackend(
         config: NotificationCaptureConfig,
-        parsed: ParsedTransaction,
         packageName: String,
-        appLabel: String,
-        notificationKey: String?,
-        notificationPostTimeMillis: Long,
-        dedupKey: String
+        dedupKey: String,
+        body: JSONObject,
     ) {
         if (!config.isAuthStorageAvailable) {
             Log.w(TAG, "Secure auth storage unavailable - skipping capture")
@@ -164,71 +192,14 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        val scopeId = config.scopeId
-        val isPortfolio = config.isPortfolio
-        val accountId = config.accountId
-        val accountCurrency = config.accountCurrency
-
-        // Build request body
-        val body = JSONObject().apply {
-            put("captureSource", "android_notification_listener")
-            put(
-                "idempotencyKey",
-                buildRequestIdempotencyKey(
-                    dedupKey,
-                    scopeId,
-                    isPortfolio,
-                    parsed.transactionType,
-                )
-            )
-            put("clientCreatedAt", java.time.Instant.now().toString())
-            put("transaction", JSONObject().apply {
-                if (!parsed.merchantName.isNullOrBlank()) {
-                    put("merchantName", parsed.merchantName)
-                } else {
-                    put("rawMerchant", parsed.rawText)
-                }
-                put("type", parsed.transactionType)
-                put("amount", parsed.amount)
-                put("currency", parsed.currencyCode)
-                if (!parsed.currencyEvidenceRaw.isNullOrBlank()) {
-                    put("currencyEvidenceRaw", parsed.currencyEvidenceRaw)
-                }
-                put("currencyEvidenceType", parsed.currencyEvidenceType)
-                put("currencyAmbiguous", parsed.currencyAmbiguous)
-                if (accountCurrency.isNotBlank()) {
-                    put("accountCurrency", accountCurrency)
-                }
-                put("date", parsed.transactionDate)
-                put("packageName", packageName)
-                put("sourceAppLabel", appLabel)
-                if (!notificationKey.isNullOrBlank()) {
-                    put("notificationKey", notificationKey)
-                    put("externalSourceId", notificationKey)
-                }
-                if (notificationPostTimeMillis > 0) {
-                    put(
-                        "notificationPostTime",
-                        java.time.Instant.ofEpochMilli(notificationPostTimeMillis).toString()
-                    )
-                }
-                put("note", parsed.rawText)
-            })
-            if (scopeId != "personal") {
-                put("householdId", scopeId)
-                put("isPortfolio", isPortfolio)
-            }
-            if (accountId.isNotBlank()) {
-                put("accountId", accountId)
-            }
-        }
+        val idempotencyKey = body.optString("idempotencyKey", dedupKey)
 
         val accessToken = getValidAccessToken(config) ?: run {
             queueCapture(config, body, dedupKey, "access_token_unavailable")
             return
         }
 
-        val url = URL("$supabaseUrl/functions/v1/save-wallet-transaction")
+        val url = URL("$supabaseUrl/functions/v1/classify-notification-capture")
         val initialResponse = try {
             executeCaptureRequest(url, accessToken, anonKey, body)
         } catch (error: Exception) {
@@ -238,6 +209,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
         when (initialResponse.statusCode) {
             200, 201 -> {
+                config.removePendingCaptureByIdempotencyKey(idempotencyKey)
                 Log.d(TAG, "Transaction captured successfully from $packageName")
                 recordCaptureTelemetry(
                     action = "capture_success",
@@ -249,6 +221,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                     Log.w(TAG, "Capture still in progress for $packageName - releasing local dedup for retry")
                     recentHashes.remove(dedupKey)
                 } else {
+                    config.removePendingCaptureByIdempotencyKey(idempotencyKey)
                     Log.d(TAG, "Duplicate transaction detected server-side for $packageName")
                 }
             }
@@ -268,8 +241,66 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                     "capture_http_${initialResponse.statusCode}"
                 )
             }
+            400, 403, 422 -> {
+                config.removePendingCaptureByIdempotencyKey(idempotencyKey)
+                Log.w(TAG, "Terminal backend response ${initialResponse.statusCode}: ${initialResponse.responseBody}")
+            }
             else -> {
                 Log.w(TAG, "Backend error ${initialResponse.statusCode}: ${initialResponse.responseBody}")
+            }
+        }
+    }
+
+    private fun buildCaptureRequestBody(
+        config: NotificationCaptureConfig,
+        packageName: String,
+        appLabel: String,
+        notificationKey: String?,
+        notificationPostTimeMillis: Long,
+        dedupKey: String,
+        title: String?,
+        text: String?,
+        bigText: String?,
+        subText: String?,
+        textLines: List<String>,
+    ): JSONObject {
+        val scopeId = config.scopeId
+        val isPortfolio = config.isPortfolio
+        return JSONObject().apply {
+            put("captureSource", "android_notification_listener")
+            put(
+                "idempotencyKey",
+                buildRequestIdempotencyKey(dedupKey, scopeId, isPortfolio),
+            )
+            put("clientCreatedAt", java.time.Instant.now().toString())
+            put("notification", JSONObject().apply {
+                put("packageName", packageName)
+                put("sourceAppLabel", appLabel)
+                if (!notificationKey.isNullOrBlank()) {
+                    put("notificationKey", notificationKey)
+                    put("externalSourceId", notificationKey)
+                }
+                if (notificationPostTimeMillis > 0) {
+                    put(
+                        "notificationPostTime",
+                        java.time.Instant.ofEpochMilli(notificationPostTimeMillis).toString(),
+                    )
+                }
+                title?.takeIf { it.isNotBlank() }?.let { put("title", it.take(2_000)) }
+                text?.takeIf { it.isNotBlank() }?.let { put("text", it.take(2_000)) }
+                bigText?.takeIf { it.isNotBlank() }?.let { put("bigText", it.take(2_000)) }
+                subText?.takeIf { it.isNotBlank() }?.let { put("subText", it.take(2_000)) }
+                if (textLines.isNotEmpty()) {
+                    put("textLines", org.json.JSONArray(textLines.take(20).map { it.take(500) }))
+                }
+            })
+            if (scopeId != "personal") {
+                put("householdId", scopeId)
+                put("isPortfolio", isPortfolio)
+            }
+            config.accountId.takeIf { it.isNotBlank() }?.let { put("accountId", it) }
+            config.accountCurrency.takeIf { it.isNotBlank() }?.let {
+                put("accountCurrency", it)
             }
         }
     }
@@ -289,7 +320,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             conn.setRequestProperty("apikey", anonKey)
             conn.doOutput = true
             conn.connectTimeout = 15_000
-            conn.readTimeout = 15_000
+            conn.readTimeout = 30_000
 
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
                 writer.write(body.toString())
@@ -374,34 +405,13 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
     // ── Dedup helpers ────────────────────────────────────────────────────
 
-    private fun makeDedupKey(
-        packageName: String,
-        notificationKey: String?,
-        title: String?,
-        text: String?,
-        bigText: String?,
-        amount: Double,
-        transactionType: String
-    ): String {
-        val contentKey = if (!notificationKey.isNullOrBlank()) {
-            "notification:$notificationKey"
-        } else {
-            listOf(title, text, bigText)
-                .joinToString("|") { it.orEmpty().trim().replace(Regex("""\s+"""), " ") }
-        }
-        val raw = "$packageName|$contentKey|$transactionType|$amount"
-        val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
-    }
-
     private fun buildRequestIdempotencyKey(
         dedupKey: String,
         scopeId: String,
         isPortfolio: Boolean,
-        transactionType: String,
     ): String {
         val scopeKey = if (scopeId == "personal") "personal" else "$scopeId|$isPortfolio"
-        return "android_notification_listener|$scopeKey|$transactionType|$dedupKey"
+        return "android_notification_listener|$scopeKey|$dedupKey"
     }
 
     private fun isDuplicate(key: String): Boolean {

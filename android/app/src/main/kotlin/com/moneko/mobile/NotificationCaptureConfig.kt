@@ -4,8 +4,12 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 import java.util.UUID
 
 data class RecentNotificationApp(
@@ -37,12 +41,22 @@ class NotificationCaptureConfig(context: Context) {
         private const val KEY_EXPIRES_AT = "expires_at"
         private const val KEY_AUTH_CONTEXT_VERSION = "auth_context_version"
         private const val KEY_PENDING_CAPTURES = "pending_captures"
+        private const val CLEANUP_WORK_PREFIX = "notification_capture_cleanup_"
         private const val MAX_PENDING_CAPTURES = 100
+        internal const val PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1_000L
+
+        internal fun isPendingCaptureExpired(queuedAt: Long, now: Long): Boolean =
+            queuedAt <= 0 || now - queuedAt >= PENDING_CAPTURE_TTL_MS
     }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val authPrefs: SharedPreferences? = createEncryptedPreferences(context)
+    private val appContext = context.applicationContext
+
+    init {
+        scheduleExistingPendingCaptureCleanup()
+    }
 
     val isAuthStorageAvailable: Boolean
         get() = authPrefs != null
@@ -224,7 +238,7 @@ class NotificationCaptureConfig(context: Context) {
         expiresAt: Long
     ) {
         val prefs = requireAuthPrefs()
-        val previousUserId = userId
+        val previousUserId = prefs.getString(KEY_USER_ID, "") ?: ""
         prefs.edit().apply {
             putString(KEY_SUPABASE_URL, supabaseUrl)
             putString(KEY_SUPABASE_ANON_KEY, supabaseAnonKey)
@@ -261,14 +275,21 @@ class NotificationCaptureConfig(context: Context) {
         }
         if (records.length() >= MAX_PENDING_CAPTURES) return false
 
+        val recordId = UUID.randomUUID().toString()
+        val queuedAt = System.currentTimeMillis()
         records.put(JSONObject().apply {
-            put("id", UUID.randomUUID().toString())
+            put("id", recordId)
             put("idempotencyKey", idempotencyKey)
             put("userId", userId)
-            put("queuedAt", System.currentTimeMillis())
+            put("queuedAt", queuedAt)
             put("body", body)
         })
-        prefs.edit().putString(KEY_PENDING_CAPTURES, records.toString()).commit()
+        val persisted = prefs.edit().putString(KEY_PENDING_CAPTURES, records.toString()).commit()
+        if (!persisted) return false
+        if (!schedulePendingCaptureCleanup(recordId, queuedAt)) {
+            removePendingCaptures(setOf(recordId))
+            return false
+        }
         return true
     }
 
@@ -301,12 +322,71 @@ class NotificationCaptureConfig(context: Context) {
         prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
     }
 
+    @Synchronized
+    fun removePendingCaptureByIdempotencyKey(idempotencyKey: String) {
+        if (idempotencyKey.isBlank()) return
+        val prefs = authPrefs ?: return
+        val records = readPendingCaptures()
+        val remaining = JSONArray()
+        for (index in 0 until records.length()) {
+            val record = records.optJSONObject(index) ?: continue
+            if (record.optString("idempotencyKey") != idempotencyKey) remaining.put(record)
+        }
+        prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
+    }
+
     private fun readPendingCaptures(): JSONArray {
         val json = authPrefs?.getString(KEY_PENDING_CAPTURES, "[]") ?: "[]"
-        return try {
+        val records = try {
             JSONArray(json)
         } catch (_: Exception) {
             JSONArray()
+        }
+        val now = System.currentTimeMillis()
+        val retained = JSONArray()
+        for (index in 0 until records.length()) {
+            val record = records.optJSONObject(index) ?: continue
+            if (!isPendingCaptureExpired(record.optLong("queuedAt"), now)) {
+                retained.put(record)
+            }
+        }
+        if (retained.length() != records.length()) {
+            authPrefs?.edit()?.putString(KEY_PENDING_CAPTURES, retained.toString())?.commit()
+        }
+        return retained
+    }
+
+    internal fun pruneExpiredPendingCaptures() {
+        readPendingCaptures()
+    }
+
+    private fun scheduleExistingPendingCaptureCleanup() {
+        val records = readPendingCaptures()
+        for (index in 0 until records.length()) {
+            val record = records.optJSONObject(index) ?: continue
+            val recordId = record.optString("id")
+            val queuedAt = record.optLong("queuedAt")
+            if (recordId.isNotBlank() && queuedAt > 0) {
+                schedulePendingCaptureCleanup(recordId, queuedAt)
+            }
+        }
+    }
+
+    private fun schedulePendingCaptureCleanup(recordId: String, queuedAt: Long): Boolean {
+        return try {
+            val delayMs = (queuedAt + PENDING_CAPTURE_TTL_MS - System.currentTimeMillis())
+                .coerceAtLeast(0L)
+            val work = OneTimeWorkRequestBuilder<NotificationCaptureCleanupWorker>()
+                .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+                .build()
+            WorkManager.getInstance(appContext).enqueueUniqueWork(
+                "$CLEANUP_WORK_PREFIX$recordId",
+                ExistingWorkPolicy.KEEP,
+                work,
+            )
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -316,6 +396,7 @@ class NotificationCaptureConfig(context: Context) {
             remove(KEY_REFRESH_TOKEN)
             remove(KEY_EXPIRES_AT)
             remove(KEY_AUTH_CONTEXT_VERSION)
+            remove(KEY_PENDING_CAPTURES)
             apply()
         }
     }

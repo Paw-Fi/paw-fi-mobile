@@ -323,7 +323,7 @@ object NotificationTransactionParser {
         if (symbol.length > 1 && symbol.endsWith("$")) {
             val prefix = symbol.dropLast(1)
             if (prefix.all { it.isLetter() }) {
-                return Regex.escape(prefix) + """\s*\$"""
+                return """(?<![A-Za-z])""" + Regex.escape(prefix) + """\s*\$"""
             }
         }
         return Regex.escape(symbol)

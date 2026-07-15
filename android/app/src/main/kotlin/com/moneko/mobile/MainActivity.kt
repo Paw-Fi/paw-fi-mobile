@@ -18,6 +18,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NotificationCaptureConfig(applicationContext).pruneExpiredPendingCaptures()
         WindowCompat.setDecorFitsSystemWindows(window, false)
     }
 

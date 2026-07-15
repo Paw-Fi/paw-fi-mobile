@@ -4,6 +4,24 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+bool shouldRemovePendingNotificationCapture({
+  required int status,
+  Object? responseBody,
+}) {
+  final isRequestInProgress = switch (responseBody) {
+    Map() => responseBody['code']?.toString() == 'REQUEST_IN_PROGRESS',
+    String() => responseBody.contains('REQUEST_IN_PROGRESS'),
+    _ => false,
+  };
+  if (status == 409 && isRequestInProgress) return false;
+  return status == 200 ||
+      status == 201 ||
+      status == 400 ||
+      status == 403 ||
+      status == 409 ||
+      status == 422;
+}
+
 /// Data class representing a recently-seen notification source app.
 class RecentNotificationApp {
   const RecentNotificationApp({
@@ -231,19 +249,24 @@ class NotificationCaptureService {
           completedIds.add(id);
           continue;
         }
+        final functionName = decoded['notification'] is Map
+            ? 'classify-notification-capture'
+            : 'save-wallet-transaction';
         final response = await Supabase.instance.client.functions.invoke(
-          'save-wallet-transaction',
+          functionName,
           body: decoded,
         );
-        if (response.status == 200 ||
-            response.status == 201 ||
-            response.status == 409 ||
-            response.status == 400 ||
-            response.status == 422) {
+        if (shouldRemovePendingNotificationCapture(
+          status: response.status,
+          responseBody: response.data,
+        )) {
           completedIds.add(id);
         }
       } on FunctionException catch (error) {
-        if (error.status == 400 || error.status == 409 || error.status == 422) {
+        if (shouldRemovePendingNotificationCapture(
+          status: error.status,
+          responseBody: error.details,
+        )) {
           completedIds.add(id);
         } else {
           break;
