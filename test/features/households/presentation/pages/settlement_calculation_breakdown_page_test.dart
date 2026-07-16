@@ -15,6 +15,35 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 const _householdId = '00000000-0000-0000-0000-000000000001';
 
 void main() {
+  testWidgets('shows a page skeleton immediately while calculation loads',
+      (tester) async {
+    await _setLargeTestViewport(tester);
+    final calculation = Completer<SettlementCalculationV3>();
+
+    await _pumpPage(tester, (_) => calculation.future);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('settlement-breakdown-loading')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('settlement-breakdown-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    calculation.complete(_reportedCalculation());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    expect(
+      find.byKey(const ValueKey('settlement-breakdown-skeleton')),
+      findsNothing,
+    );
+    expect(find.text('Wet and dry catfood'), findsOneWidget);
+  });
+
   testWidgets('shows both gross directions and their atomic C\$66.11 net',
       (tester) async {
     await _setLargeTestViewport(tester);

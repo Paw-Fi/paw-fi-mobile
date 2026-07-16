@@ -4,12 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_calculation_breakdown_page.dart';
 import 'package:moneko/features/households/presentation/utils/settlement_input_utils.dart';
@@ -355,6 +355,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     required String householdId,
     required String currentUserId,
     required HouseholdMember member,
+    required String currencyCode,
     required List<ExpenseSplitGroup> splits,
     required List<ExpenseEntry> transactions,
   }) {
@@ -367,7 +368,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           memberDisplayName: (member.userName?.trim().isNotEmpty ?? false)
               ? member.userName!.trim()
               : (member.userEmail ?? context.l10n.member),
-          currencyCode: _settlementCurrencyCode,
+          currencyCode: currencyCode,
           transactions: transactions,
           splits: splits,
           paidToCents: _paidToCents,
@@ -454,7 +455,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         (state) => state[widget.householdId] ?? const <ExpenseSplitGroup>[],
       ),
     );
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.watch(authProvider.select((user) => user.uid));
     final transactions = expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
     final effectiveSplits = mergeHouseholdSplits(
       splitsAsync.valueOrNull ?? widget.splits ?? const <ExpenseSplitGroup>[],
@@ -581,7 +582,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                           orElse: () => HouseholdMember(
                               id: 'me',
                               householdId: '',
-                              userId: userId ?? '',
+                              userId: userId,
                               role: HouseholdRole.member,
                               joinedAt: DateTime.now(),
                               createdAt: DateTime.now(),
@@ -711,51 +712,38 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                       onRetryBalance: hasSelectedMember && !interactionLocked
                           ? _scheduleBalanceRecompute
                           : null,
-                      onShowBreakdown: hasResolvedBalance &&
-                              hasSelectedMember &&
+                      onShowBreakdown: hasSelectedMember &&
                               !interactionLocked &&
-                              userId != null
-                          ? () async {
-                              setState(() => _isProcessing = true);
-                              try {
-                                if (!await _prepareAuthoritativeSettlementBalance()) {
-                                  return;
-                                }
-                                if (!context.mounted) return;
+                              userId.isNotEmpty
+                          ? () {
+                              final targetMemberId =
+                                  widget.specificMemberId ?? _selectedMemberId;
+                              if (targetMemberId == null) return;
 
-                                final targetMemberId =
-                                    widget.specificMemberId ??
-                                        _selectedMemberId;
-                                if (targetMemberId == null) return;
-
-                                final members = membersAsync.valueOrNull ??
-                                    const <HouseholdMember>[];
-                                final member = members.firstWhere(
-                                  (m) => m.userId == targetMemberId,
-                                  orElse: () => HouseholdMember(
-                                    id: 'member',
-                                    householdId: widget.householdId,
-                                    userId: targetMemberId,
-                                    role: HouseholdRole.member,
-                                    joinedAt: DateTime.now(),
-                                    createdAt: DateTime.now(),
-                                    updatedAt: DateTime.now(),
-                                  ),
-                                );
-
-                                _openCalculationBreakdownPage(
-                                  context,
+                              final members = membersAsync.valueOrNull ??
+                                  const <HouseholdMember>[];
+                              final member = members.firstWhere(
+                                (m) => m.userId == targetMemberId,
+                                orElse: () => HouseholdMember(
+                                  id: 'member',
                                   householdId: widget.householdId,
-                                  currentUserId: userId,
-                                  member: member,
-                                  splits: effectiveSplits,
-                                  transactions: transactions,
-                                );
-                              } finally {
-                                if (mounted) {
-                                  setState(() => _isProcessing = false);
-                                }
-                              }
+                                  userId: targetMemberId,
+                                  role: HouseholdRole.member,
+                                  joinedAt: DateTime.now(),
+                                  createdAt: DateTime.now(),
+                                  updatedAt: DateTime.now(),
+                                ),
+                              );
+
+                              _openCalculationBreakdownPage(
+                                context,
+                                householdId: widget.householdId,
+                                currentUserId: userId,
+                                member: member,
+                                currencyCode: currency,
+                                splits: effectiveSplits,
+                                transactions: transactions,
+                              );
                             }
                           : null,
                     ),

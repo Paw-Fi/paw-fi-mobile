@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -818,13 +819,132 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Semantics(
       label: label,
       liveRegion: true,
-      child: const SizedBox(
-        height: 160,
-        child: Center(child: CircularProgressIndicator()),
+      excludeSemantics: true,
+      child: Skeletonizer(
+        key: const ValueKey('settlement-breakdown-skeleton'),
+        effect: ShimmerEffect(
+          baseColor: scheme.skeletonBase,
+          highlightColor: scheme.skeletonHighlight,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  _SkeletonAvatar(),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Divider(thickness: 2),
+                    ),
+                  ),
+                  _SkeletonAvatar(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SkeletonCard(
+              scheme: scheme,
+              child: const Column(
+                children: [
+                  Text('Amount to settle'),
+                  SizedBox(height: 16),
+                  Text(
+                    'C\$000.00',
+                    style: TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
+                  ),
+                  SizedBox(height: 8),
+                  Text('Settlement direction'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SkeletonCard(
+              scheme: scheme,
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Transaction breakdown'),
+                  SizedBox(height: 18),
+                  _SkeletonTransactionRow(),
+                  SizedBox(height: 14),
+                  _SkeletonTransactionRow(),
+                  SizedBox(height: 14),
+                  _SkeletonTransactionRow(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _SkeletonAvatar extends StatelessWidget {
+  const _SkeletonAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        CircleAvatar(radius: 28),
+        SizedBox(height: 8),
+        Text('Member'),
+      ],
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard({required this.scheme, required this.child});
+
+  final ColorScheme scheme;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.cardSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.homeCardBorder),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SkeletonTransactionRow extends StatelessWidget {
+  const _SkeletonTransactionRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        CircleAvatar(radius: 20),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Transaction description'),
+              SizedBox(height: 6),
+              Text('Transaction date'),
+            ],
+          ),
+        ),
+        SizedBox(width: 12),
+        Text('C\$00.00'),
+      ],
     );
   }
 }
