@@ -3255,5 +3255,14 @@
   "financialMonthStart": "Start van de financiële maand",
   "financialMonthStartUpdated": "Start van de financiële maand bijgewerkt",
   "financialMonthStartUpdateFailed": "Start van de financiële maand kon niet worden bijgewerkt",
-  "financialMonthStartDayLabel": "Dag {day}"
+  "financialMonthStartDayLabel": "Dag {day}",
+  "supportContactOptionsDescription": "Krijg hulp van de community of stuur rechtstreeks een supportticket naar ons team.",
+  "askOnReddit": "Vraag het op Reddit",
+  "askOnRedditDescription": "Vraag het aan de Moneko-community en krijg sneller antwoord.",
+  "submitATicket": "Supportticket indienen",
+  "submitATicketDescription": "Stuur details en screenshots rechtstreeks naar ons supportteam.",
+  "socialMedia": "Sociale media",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Reddit kon niet worden geopend",
+  "changelog": "Wijzigingsoverzicht"
 }

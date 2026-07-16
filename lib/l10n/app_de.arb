@@ -3308,5 +3308,14 @@
   "financialMonthStart": "Beginn des Finanzmonats",
   "financialMonthStartUpdated": "Beginn des Finanzmonats aktualisiert",
   "financialMonthStartUpdateFailed": "Beginn des Finanzmonats konnte nicht aktualisiert werden",
-  "financialMonthStartDayLabel": "Tag {day}"
+  "financialMonthStartDayLabel": "Tag {day}",
+  "supportContactOptionsDescription": "Hol dir Hilfe aus der Community oder sende direkt ein Support-Ticket an unser Team.",
+  "askOnReddit": "Auf Reddit fragen",
+  "askOnRedditDescription": "Frag die Moneko-Community und finde schneller eine Antwort.",
+  "submitATicket": "Support-Ticket einreichen",
+  "submitATicketDescription": "Sende Details und Screenshots direkt an unser Support-Team.",
+  "socialMedia": "Soziale Medien",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Reddit konnte nicht geöffnet werden",
+  "changelog": "Änderungsverlauf"
 }

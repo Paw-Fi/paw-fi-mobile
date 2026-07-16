@@ -3304,5 +3304,14 @@
   "financialMonthStart": "财务月开始日",
   "financialMonthStartUpdated": "财务月开始日已更新",
   "financialMonthStartUpdateFailed": "无法更新财务月开始日",
-  "financialMonthStartDayLabel": "每月 {day} 日"
+  "financialMonthStartDayLabel": "每月 {day} 日",
+  "supportContactOptionsDescription": "从社区获取帮助，或直接向我们的支持团队提交工单。",
+  "askOnReddit": "在 Reddit 提问",
+  "askOnRedditDescription": "向 Moneko 社区提问，更快获得答案。",
+  "submitATicket": "提交工单",
+  "submitATicketDescription": "将详细信息和截图直接发送给我们的支持团队。",
+  "socialMedia": "社交媒体",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "无法打开 Reddit",
+  "changelog": "更新日志"
 }

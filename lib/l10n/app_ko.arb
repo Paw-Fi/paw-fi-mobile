@@ -3121,5 +3121,14 @@
   "financialMonthStart": "재정 월 시작일",
   "financialMonthStartUpdated": "재정 월 시작일이 업데이트되었습니다",
   "financialMonthStartUpdateFailed": "재정 월 시작일을 업데이트할 수 없습니다",
-  "financialMonthStartDayLabel": "매월 {day}일"
+  "financialMonthStartDayLabel": "매월 {day}일",
+  "supportContactOptionsDescription": "커뮤니티에서 도움을 받거나 지원팀에 직접 문의를 보내세요.",
+  "askOnReddit": "Reddit에서 질문하기",
+  "askOnRedditDescription": "Moneko 커뮤니티에 질문하고 더 빠르게 답변을 받아보세요.",
+  "submitATicket": "문의 보내기",
+  "submitATicketDescription": "세부 정보와 스크린샷을 지원팀에 직접 보내세요.",
+  "socialMedia": "소셜 미디어",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Reddit을 열 수 없습니다",
+  "changelog": "변경 내역"
 }

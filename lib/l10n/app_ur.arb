@@ -3254,5 +3254,14 @@
   "financialMonthStart": "مالی مہینے کا آغاز",
   "financialMonthStartUpdated": "مالی مہینے کا آغاز اپ ڈیٹ ہو گیا",
   "financialMonthStartUpdateFailed": "مالی مہینے کا آغاز اپ ڈیٹ نہیں ہو سکا",
-  "financialMonthStartDayLabel": "ہر ماہ {day} تاریخ"
+  "financialMonthStartDayLabel": "ہر ماہ {day} تاریخ",
+  "supportContactOptionsDescription": "کمیونٹی سے مدد حاصل کریں یا براہِ راست ہماری سپورٹ ٹیم کو ٹکٹ بھیجیں۔",
+  "askOnReddit": "Reddit پر پوچھیں",
+  "askOnRedditDescription": "Moneko کمیونٹی سے پوچھیں اور جلد جواب پائیں۔",
+  "submitATicket": "سپورٹ ٹکٹ بھیجیں",
+  "submitATicketDescription": "تفصیلات اور اسکرین شاٹس براہِ راست ہماری سپورٹ ٹیم کو بھیجیں۔",
+  "socialMedia": "سوشل میڈیا",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Reddit نہیں کھولا جا سکا",
+  "changelog": "تبدیلیوں کی تفصیل"
 }

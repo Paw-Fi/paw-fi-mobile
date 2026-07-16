@@ -3258,5 +3258,14 @@
   "financialMonthStart": "Начало финансового месяца",
   "financialMonthStartUpdated": "Начало финансового месяца обновлено",
   "financialMonthStartUpdateFailed": "Не удалось обновить начало финансового месяца",
-  "financialMonthStartDayLabel": "{day}-й день месяца"
+  "financialMonthStartDayLabel": "{day}-й день месяца",
+  "supportContactOptionsDescription": "Получите помощь от сообщества или отправьте обращение напрямую нашей команде поддержки.",
+  "askOnReddit": "Спросить на Reddit",
+  "askOnRedditDescription": "Задайте вопрос сообществу Moneko и быстрее получите ответ.",
+  "submitATicket": "Отправить обращение",
+  "submitATicketDescription": "Отправьте подробности и скриншоты напрямую нашей команде поддержки.",
+  "socialMedia": "Социальные сети",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Не удалось открыть Reddit",
+  "changelog": "История изменений"
 }

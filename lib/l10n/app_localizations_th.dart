@@ -9154,4 +9154,31 @@ class AppLocalizationsTh extends AppLocalizations {
   String financialMonthStartDayLabel(Object day) {
     return 'วันที่ $day ของทุกเดือน';
   }
+
+  @override
+  String get supportContactOptionsDescription => 'ขอความช่วยเหลือจากชุมชน หรือส่งคำขอถึงทีมสนับสนุนของเราโดยตรง';
+
+  @override
+  String get askOnReddit => 'ถามใน Reddit';
+
+  @override
+  String get askOnRedditDescription => 'ถามชุมชน Moneko เพื่อรับคำตอบได้เร็วขึ้น';
+
+  @override
+  String get submitATicket => 'ส่งคำขอ';
+
+  @override
+  String get submitATicketDescription => 'ส่งรายละเอียดและภาพหน้าจอถึงทีมสนับสนุนของเราโดยตรง';
+
+  @override
+  String get socialMedia => 'โซเชียลมีเดีย';
+
+  @override
+  String get reddit => 'Reddit';
+
+  @override
+  String get couldNotOpenReddit => 'ไม่สามารถเปิด Reddit ได้';
+
+  @override
+  String get changelog => 'ประวัติการเปลี่ยนแปลง';
 }

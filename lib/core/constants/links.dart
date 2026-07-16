@@ -8,6 +8,13 @@ abstract class Links {
   /// Discord support / community server
   static const String discordSupport = 'https://discord.gg/M2Dgujvtze';
 
+  /// Moneko community subreddit
+  static const String redditCommunity =
+      'https://www.reddit.com/r/monekobudget/';
+
+  /// Product updates and release notes
+  static const String changelog = 'https://moneko.io/changelog';
+
   /// Support email address
   static const String supportEmail = 'mailto:hello@moneko.io';
 

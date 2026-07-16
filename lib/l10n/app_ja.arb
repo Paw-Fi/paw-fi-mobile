@@ -3308,5 +3308,14 @@
   "financialMonthStart": "家計管理月の開始日",
   "financialMonthStartUpdated": "家計管理月の開始日を更新しました",
   "financialMonthStartUpdateFailed": "家計管理月の開始日を更新できませんでした",
-  "financialMonthStartDayLabel": "毎月{day}日"
+  "financialMonthStartDayLabel": "毎月{day}日",
+  "supportContactOptionsDescription": "コミュニティで質問するか、サポートチームに直接お問い合わせください。",
+  "askOnReddit": "Redditで質問",
+  "askOnRedditDescription": "Monekoコミュニティに質問して、より早く回答を得ましょう。",
+  "submitATicket": "お問い合わせを送信",
+  "submitATicketDescription": "詳細やスクリーンショットをサポートチームに直接送信できます。",
+  "socialMedia": "ソーシャルメディア",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Redditを開けませんでした",
+  "changelog": "更新履歴"
 }

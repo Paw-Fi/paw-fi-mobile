@@ -34,6 +34,7 @@ import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_m
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
 import 'package:moneko/features/profile/presentation/widgets/category_customization_sheet.dart';
+import 'package:moneko/features/profile/presentation/widgets/support_contact_options_sheet.dart';
 // import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
@@ -502,6 +503,25 @@ class SettingsPage extends HookConsumerWidget {
         if (context.mounted) {
           AppToast.error(context, errorMessage);
         }
+      }
+    }
+
+    Future<void> handleSupportRequest(
+      Future<void> Function() showTicketForm,
+    ) async {
+      final option = await SupportContactOptionsSheet.show(context);
+      if (!context.mounted || option == null) return;
+
+      switch (option) {
+        case SupportContactOption.reddit:
+          await launchIntegrationUrl(
+            Uri.parse(Links.redditCommunity),
+            errorMessage: context.l10n.couldNotOpenReddit,
+          );
+          return;
+        case SupportContactOption.ticket:
+          await showTicketForm();
+          return;
       }
     }
 
@@ -1880,14 +1900,26 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                       ),
                       _SettingsTile(
+                        icon: Icons.new_releases_rounded,
+                        label: context.l10n.changelog,
+                        onTap: () => launchIntegrationUrl(
+                          Uri.parse(Links.changelog),
+                          errorMessage: context.l10n.couldNotOpenLink,
+                        ),
+                      ),
+                      _SettingsTile(
                         icon: Icons.bug_report_rounded,
                         label: context.l10n.reportABug,
-                        onTap: () => _showReportBugSheet(context),
+                        onTap: () => handleSupportRequest(
+                          () => _showReportBugSheet(context),
+                        ),
                       ),
                       _SettingsTile(
                         icon: Icons.chat_bubble_rounded,
                         label: context.l10n.submitNewFeatureRequest,
-                        onTap: () => _showSubmitFeedbackSheet(context),
+                        onTap: () => handleSupportRequest(
+                          () => _showSubmitFeedbackSheet(context),
+                        ),
                       ),
                       _SettingsTile(
                         icon: Icons.headset_mic_rounded,
@@ -1991,6 +2023,28 @@ class SettingsPage extends HookConsumerWidget {
                         onTap: isAccountDeletionInProgress.value
                             ? null
                             : () => handleDeleteAccount(),
+                      ),
+                    ],
+                  ),
+
+                  _SettingsGroup(
+                    title: context.l10n.socialMedia,
+                    children: [
+                      _SettingsTile(
+                        icon: Icons.forum_rounded,
+                        label: context.l10n.reddit,
+                        onTap: () => launchIntegrationUrl(
+                          Uri.parse(Links.redditCommunity),
+                          errorMessage: context.l10n.couldNotOpenReddit,
+                        ),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.groups_rounded,
+                        label: context.l10n.discord,
+                        onTap: () => launchIntegrationUrl(
+                          Uri.parse(Links.discordSupport),
+                          errorMessage: context.l10n.couldNotOpenDiscord,
+                        ),
                       ),
                     ],
                   ),

@@ -3307,5 +3307,14 @@
   "financialMonthStart": "Ngày bắt đầu tháng tài chính",
   "financialMonthStartUpdated": "Đã cập nhật ngày bắt đầu tháng tài chính",
   "financialMonthStartUpdateFailed": "Không thể cập nhật ngày bắt đầu tháng tài chính",
-  "financialMonthStartDayLabel": "Ngày {day} hằng tháng"
+  "financialMonthStartDayLabel": "Ngày {day} hằng tháng",
+  "supportContactOptionsDescription": "Nhận trợ giúp từ cộng đồng hoặc gửi yêu cầu trực tiếp đến đội ngũ hỗ trợ của chúng tôi.",
+  "askOnReddit": "Hỏi trên Reddit",
+  "askOnRedditDescription": "Hỏi cộng đồng Moneko để nhận câu trả lời nhanh hơn.",
+  "submitATicket": "Gửi yêu cầu hỗ trợ",
+  "submitATicketDescription": "Gửi thông tin chi tiết và ảnh chụp màn hình trực tiếp đến đội ngũ hỗ trợ của chúng tôi.",
+  "socialMedia": "Mạng xã hội",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Không thể mở Reddit",
+  "changelog": "Nhật ký thay đổi"
 }

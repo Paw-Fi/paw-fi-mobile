@@ -3300,5 +3300,14 @@
   "financialMonthStart": "Початок фінансового місяця",
   "financialMonthStartUpdated": "Початок фінансового місяця оновлено",
   "financialMonthStartUpdateFailed": "Не вдалося оновити початок фінансового місяця",
-  "financialMonthStartDayLabel": "{day}-й день місяця"
+  "financialMonthStartDayLabel": "{day}-й день місяця",
+  "supportContactOptionsDescription": "Отримайте допомогу від спільноти або надішліть звернення безпосередньо нашій службі підтримки.",
+  "askOnReddit": "Запитати на Reddit",
+  "askOnRedditDescription": "Поставте запитання спільноті Moneko та швидше отримайте відповідь.",
+  "submitATicket": "Надіслати звернення",
+  "submitATicketDescription": "Надішліть подробиці та скриншоти безпосередньо нашій службі підтримки.",
+  "socialMedia": "Соціальні мережі",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "Не вдалося відкрити Reddit",
+  "changelog": "Історія змін"
 }

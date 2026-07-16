@@ -3325,5 +3325,14 @@
   "financialMonthStart": "วันเริ่มต้นเดือนการเงิน",
   "financialMonthStartUpdated": "อัปเดตวันเริ่มต้นเดือนการเงินแล้ว",
   "financialMonthStartUpdateFailed": "ไม่สามารถอัปเดตวันเริ่มต้นเดือนการเงินได้",
-  "financialMonthStartDayLabel": "วันที่ {day} ของทุกเดือน"
+  "financialMonthStartDayLabel": "วันที่ {day} ของทุกเดือน",
+  "supportContactOptionsDescription": "ขอความช่วยเหลือจากชุมชน หรือส่งคำขอถึงทีมสนับสนุนของเราโดยตรง",
+  "askOnReddit": "ถามใน Reddit",
+  "askOnRedditDescription": "ถามชุมชน Moneko เพื่อรับคำตอบได้เร็วขึ้น",
+  "submitATicket": "ส่งคำขอ",
+  "submitATicketDescription": "ส่งรายละเอียดและภาพหน้าจอถึงทีมสนับสนุนของเราโดยตรง",
+  "socialMedia": "โซเชียลมีเดีย",
+  "reddit": "Reddit",
+  "couldNotOpenReddit": "ไม่สามารถเปิด Reddit ได้",
+  "changelog": "ประวัติการเปลี่ยนแปลง"
 }
