@@ -3313,5 +3313,7 @@
   "socialMedia": "社交媒体",
   "reddit": "Reddit",
   "couldNotOpenReddit": "无法打开 Reddit",
-  "changelog": "更新日志"
+  "changelog": "更新日志",
+  "balanceCarriedForward": "结转余额",
+  "balanceCarriedForwardDescription": "这是详细结算记录可用之前累计的余额。"
 }

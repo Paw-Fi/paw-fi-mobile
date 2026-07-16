@@ -9181,4 +9181,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get changelog => 'ประวัติการเปลี่ยนแปลง';
+
+  @override
+  String get balanceCarriedForward => 'ยอดคงเหลือยกมา';
+
+  @override
+  String get balanceCarriedForwardDescription => 'ยอดคงเหลือสะสมจากช่วงก่อนที่จะมีประวัติการชำระบัญชีแบบละเอียด';
 }

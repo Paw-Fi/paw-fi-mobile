@@ -7,11 +7,10 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/utils/settlement_breakdown_calculator.dart';
 import 'package:moneko/features/households/presentation/utils/settlement_breakdown_display.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 
@@ -44,27 +43,13 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final legacyTransactionsAsync = transactions.isNotEmpty
-        ? AsyncValue.data(transactions)
-        : ref.watch(cachedHouseholdExpensesProvider(
-            HouseholdExpensesParams(householdId: householdId),
-          ));
-    final legacySplitsAsync = splits.isNotEmpty
-        ? AsyncValue.data(splits)
-        : ref.watch(cachedHouseholdSplitsProvider(
-            HouseholdSplitsParams(householdId: householdId),
-          ));
-    final legacyPaymentsAsync = ref.watch(
-      householdSettlementPaymentsProvider(householdId),
+    final params = SettlementBreakdownV2Params(
+      householdId: householdId,
+      memberUserId: memberUserId,
+      currency: currencyCode,
     );
-    final breakdownAsync = ref.watch(
-      householdSettlementBreakdownV2Provider(
-        SettlementBreakdownV2Params(
-          householdId: householdId,
-          memberUserId: memberUserId,
-          currency: currencyCode,
-        ),
-      ),
+    final calculationAsync = ref.watch(
+      householdSettlementCalculationV3Provider(params),
     );
 
     return Scaffold(
@@ -82,208 +67,306 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        children: [
-          _SummaryCard(
-            currentUserId: currentUserId,
-            memberUserId: memberUserId,
-            memberDisplayName: memberDisplayName,
-            netCents: netCents,
-            currencyCode: currencyCode,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: calculationAsync.when(
+          skipLoadingOnRefresh: true,
+          skipLoadingOnReload: true,
+          loading: () => _buildPageBody(
+            key: const ValueKey('settlement-breakdown-loading'),
+            context: context,
+            trailingContent: _LoadingState(label: context.l10n.loading),
           ),
-          const SizedBox(height: 18),
-          breakdownAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) {
-              final legacyRows = _buildLegacyRows(
-                transactions: legacyTransactionsAsync.valueOrNull,
-                splits: legacySplitsAsync.valueOrNull,
-                paidToCents: legacyPaymentsAsync.valueOrNull
-                        ?.where((payment) =>
-                            (payment.currency?.trim().toUpperCase() ?? '') ==
-                                currencyCode.trim().toUpperCase() &&
-                            payment.payerUserId == memberUserId &&
-                            payment.participantUserId == currentUserId)
-                        .fold<int>(
-                            0, (sum, payment) => sum + payment.amountCents) ??
-                    paidToCents,
-                paidFromCents: legacyPaymentsAsync.valueOrNull
-                        ?.where((payment) =>
-                            (payment.currency?.trim().toUpperCase() ?? '') ==
-                                currencyCode.trim().toUpperCase() &&
-                            payment.payerUserId == currentUserId &&
-                            payment.participantUserId == memberUserId)
-                        .fold<int>(
-                            0, (sum, payment) => sum + payment.amountCents) ??
-                    paidFromCents,
+          error: (_, __) {
+            final previous = calculationAsync.valueOrNull;
+            final retry = _ErrorState(
+              message: context.l10n.errorLoadingData,
+              retryLabel: context.l10n.retry,
+              onRetry: () => ref.invalidate(
+                householdSettlementCalculationV3Provider(params),
+              ),
+            );
+            if (previous == null) {
+              return _buildPageBody(
+                key: const ValueKey('settlement-breakdown-error'),
+                context: context,
+                trailingContent: retry,
               );
-              if (legacyRows != null) {
-                return _buildBreakdownSections(
-                  context,
-                  scheme,
-                  legacyRows,
+            }
+
+            return _buildPageBody(
+              key: const ValueKey('settlement-breakdown-stale-data'),
+              context: context,
+              netCents: previous.netCents,
+              rows: previous.rows,
+              calculationNetCents: previous.netCents,
+              trailingContent: retry,
+            );
+          },
+          data: (calculation) {
+            final rows = calculation.rows;
+            if (kDebugMode) {
+              final breakdownNet = calculateSettlementBreakdownRowsNetCents(
+                rows: rows,
+              );
+              if (breakdownNet != calculation.netCents) {
+                debugPrint(
+                  '[SettlementBreakdownPage] household=$householdId member=$memberUserId canonicalNet=${calculation.netCents} breakdownNet=$breakdownNet rows=${rows.length}',
                 );
               }
+            }
 
-              if (legacyTransactionsAsync.isLoading ||
-                  legacySplitsAsync.isLoading ||
-                  legacyPaymentsAsync.isLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  context.l10n.errorLoadingData,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: scheme.mutedForeground,
-                  ),
-                ),
-              );
-            },
-            data: (rows) {
-              if (kDebugMode) {
-                final youOweRows = rows
-                    .where((row) => row.direction == _Direction.youOwe)
-                    .toList();
-                final theyOweRows = rows
-                    .where((row) => row.direction == _Direction.theyOweYou)
-                    .toList();
-                final breakdownNet = youOweRows.fold<int>(
-                      0,
-                      (sum, row) => sum + row.remainingAmountCents,
-                    ) -
-                    theyOweRows.fold<int>(
-                      0,
-                      (sum, row) => sum + row.remainingAmountCents,
-                    );
-                if (breakdownNet != netCents) {
-                  debugPrint(
-                    '[SettlementBreakdownPage] household=$householdId member=$memberUserId canonicalNet=$netCents breakdownNet=$breakdownNet rows=${rows.length}',
-                  );
-                }
-              }
-
-              return _buildBreakdownSections(
-                context,
-                scheme,
-                rows,
-              );
-            },
-          ),
-        ],
+            return _buildPageBody(
+              key: const ValueKey('settlement-breakdown-data'),
+              context: context,
+              netCents: calculation.netCents,
+              rows: rows,
+              calculationNetCents: calculation.netCents,
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildBreakdownSections(
-    BuildContext context,
-    ColorScheme scheme,
-    List<_BreakdownRowData> rows,
-  ) {
-    final youOweRows =
-        rows.where((row) => row.direction == _Direction.youOwe).toList();
-    final theyOweRows =
-        rows.where((row) => row.direction == _Direction.theyOweYou).toList();
-    final adjustmentCents = calculateSettlementBreakdownAdjustmentCents(
-      fallbackNetCents: netCents,
-      rows: rows,
-    );
-    final hasPositiveAdjustment = adjustmentCents > 0;
-    final hasNegativeAdjustment = adjustmentCents < 0;
-
-    return Column(
-      children: [
-        if (youOweRows.isNotEmpty)
-          _BreakdownSection(
-            title: '${context.l10n.youOwe} $memberDisplayName',
-            currencyCode: currencyCode,
-            rows: youOweRows,
-            emptyLabel: context.l10n.noSplitTransactionsFound,
-          ),
-        if (youOweRows.isNotEmpty && theyOweRows.isNotEmpty)
-          const SizedBox(height: 16),
-        if (theyOweRows.isNotEmpty)
-          _BreakdownSection(
-            title: '$memberDisplayName ${context.l10n.owesYou}',
-            currencyCode: currencyCode,
-            rows: theyOweRows,
-            emptyLabel: context.l10n.noSplitTransactionsFound,
-          ),
-        if ((youOweRows.isNotEmpty || theyOweRows.isNotEmpty) &&
-            (hasPositiveAdjustment || hasNegativeAdjustment))
-          const SizedBox(height: 16),
-        if (hasPositiveAdjustment)
-          _AdjustmentSection(
-            title: '${context.l10n.youOwe} ${context.l10n.adjustment}',
-            currencyCode: currencyCode,
-            amountCents: adjustmentCents,
-            description: context.l10n.settlement,
-          ),
-        if (hasNegativeAdjustment)
-          _AdjustmentSection(
-            title: '${context.l10n.adjustment} ${context.l10n.owesYou}',
-            currencyCode: currencyCode,
-            amountCents: adjustmentCents.abs(),
-            description: context.l10n.settlement,
-          ),
-        if (youOweRows.isEmpty && theyOweRows.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              context.l10n.noSplitTransactionsFound,
-              style: TextStyle(
-                fontSize: 13,
-                color: scheme.mutedForeground,
-              ),
+  Widget _buildPageBody({
+    required Key key,
+    required BuildContext context,
+    int? netCents,
+    List<_BreakdownRowData>? rows,
+    int? calculationNetCents,
+    Widget? trailingContent,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final slivers = <Widget>[
+      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+    ];
+    if (netCents != null) {
+      slivers.addAll([
+        _withHorizontalPadding(
+          SliverToBoxAdapter(
+            child: _SummaryCard(
+              currentUserId: currentUserId,
+              memberUserId: memberUserId,
+              memberDisplayName: memberDisplayName,
+              netCents: netCents,
+              currencyCode: currencyCode,
             ),
           ),
-      ],
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 18)),
+      ]);
+    }
+    if (rows != null && calculationNetCents != null) {
+      slivers.addAll(
+        _buildBreakdownSlivers(
+          context,
+          scheme,
+          rows,
+          calculationNetCents: calculationNetCents,
+        ),
+      );
+    }
+    if (trailingContent != null) {
+      if (rows != null) {
+        slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 16)));
+      }
+      slivers.add(
+        _withHorizontalPadding(
+          SliverToBoxAdapter(child: trailingContent),
+        ),
+      );
+    }
+    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 28)));
+
+    return CustomScrollView(
+      key: key,
+      slivers: slivers,
     );
   }
 
-  List<_BreakdownRowData>? _buildLegacyRows({
-    required List<ExpenseEntry>? transactions,
-    required List<ExpenseSplitGroup>? splits,
-    required int paidToCents,
-    required int paidFromCents,
-  }) {
-    if ((transactions == null || transactions.isEmpty) &&
-        (splits == null || splits.isEmpty)) {
-      return null;
-    }
+  Widget _withHorizontalPadding(Widget sliver) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: sliver,
+    );
+  }
 
-    final legacy = computeSettlementBreakdownData(
-      currentUserId: currentUserId,
-      memberUserId: memberUserId,
-      currencyCode: currencyCode,
-      transactions: transactions ?? const <ExpenseEntry>[],
-      splits: splits ?? const <ExpenseSplitGroup>[],
-      paidToCents: paidToCents,
-      paidFromCents: paidFromCents,
+  List<Widget> _buildBreakdownSlivers(
+    BuildContext context,
+    ColorScheme scheme,
+    List<_BreakdownRowData> rows, {
+    required int calculationNetCents,
+  }) {
+    final transactionRows = rows.where((row) => !row.isSynthetic).toList();
+    final youOweRows = transactionRows
+        .where((row) => row.direction == _Direction.youOwe)
+        .toList();
+    final theyOweRows = transactionRows
+        .where((row) => row.direction == _Direction.theyOweYou)
+        .toList();
+    final carryoverRows = rows.where((row) => row.isLegacyCarryover).toList();
+    final explicitAdjustmentRows =
+        rows.where((row) => row.isAdjustment).toList();
+    final adjustmentCents = calculateSettlementBreakdownAdjustmentCents(
+      fallbackNetCents: calculationNetCents,
+      rows: rows,
     );
 
-    return legacy.rows
-        .map(
-          (row) => SettlementBreakdownRowV2(
-            direction: row.direction == SettlementBreakdownDirection.youOwe
-                ? SettlementBreakdownDirectionV2.youOwe
-                : SettlementBreakdownDirectionV2.theyOweYou,
-            expenseId: row.transaction.id,
-            splitGroupId: row.transaction.splitGroupId ?? '',
-            splitLineId: row.transaction.id,
-            expenseDate: row.transaction.date,
-            expenseDescription: row.transaction.rawText,
-            expenseCategory: row.transaction.category,
-            expenseRawText: row.transaction.rawText,
-            expenseType: row.transaction.type,
-            totalAmountCents: row.transaction.amountCents.abs(),
-            remainingAmountCents: row.splitAmountCents,
+    final slivers = <Widget>[];
+    var hasSection = false;
+
+    void addSectionGap() {
+      if (hasSection) {
+        slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 16)));
+      }
+    }
+
+    void addExplanationRow({
+      required _BreakdownRowData row,
+      required String title,
+      required String description,
+      required bool showDirectionSign,
+    }) {
+      addSectionGap();
+      slivers.add(
+        _withHorizontalPadding(
+          SliverToBoxAdapter(
+            child: _BalanceExplanationSection(
+              title: title,
+              currencyCode: currencyCode,
+              amountCents: row.remainingAmountCents,
+              direction: row.direction,
+              description: description,
+              showDirectionSign: showDirectionSign,
+            ),
           ),
-        )
-        .toList();
+        ),
+      );
+      hasSection = true;
+    }
+
+    for (final row in carryoverRows) {
+      addExplanationRow(
+        row: row,
+        title: context.l10n.balanceCarriedForward,
+        description: context.l10n.balanceCarriedForwardDescription,
+        showDirectionSign: true,
+      );
+    }
+
+    if (youOweRows.isNotEmpty) {
+      addSectionGap();
+      slivers.addAll(
+        _buildTransactionSectionSlivers(
+          title: '${context.l10n.youOwe} $memberDisplayName',
+          currencyCode: currencyCode,
+          rows: youOweRows,
+        ),
+      );
+      hasSection = true;
+    }
+    if (theyOweRows.isNotEmpty) {
+      addSectionGap();
+      slivers.addAll(
+        _buildTransactionSectionSlivers(
+          title: '$memberDisplayName ${context.l10n.owesYou}',
+          currencyCode: currencyCode,
+          rows: theyOweRows,
+        ),
+      );
+      hasSection = true;
+    }
+
+    for (final row in explicitAdjustmentRows) {
+      addExplanationRow(
+        row: row,
+        title: row.direction == _Direction.youOwe
+            ? '${context.l10n.youOwe} ${context.l10n.adjustment}'
+            : '${context.l10n.adjustment} ${context.l10n.owesYou}',
+        description: context.l10n.settlement,
+        showDirectionSign: false,
+      );
+    }
+
+    if (adjustmentCents != 0) {
+      addSectionGap();
+      final adjustmentDirection =
+          adjustmentCents > 0 ? _Direction.youOwe : _Direction.theyOweYou;
+      slivers.add(
+        _withHorizontalPadding(
+          SliverToBoxAdapter(
+            child: _BalanceExplanationSection(
+              title: adjustmentDirection == _Direction.youOwe
+                  ? '${context.l10n.youOwe} ${context.l10n.adjustment}'
+                  : '${context.l10n.adjustment} ${context.l10n.owesYou}',
+              currencyCode: currencyCode,
+              amountCents: adjustmentCents.abs(),
+              direction: adjustmentDirection,
+              description: context.l10n.settlement,
+              showDirectionSign: false,
+            ),
+          ),
+        ),
+      );
+      hasSection = true;
+    }
+
+    if (!hasSection) {
+      slivers.add(
+        _withHorizontalPadding(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                context.l10n.noSplitTransactionsFound,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: scheme.mutedForeground,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return slivers;
+  }
+
+  List<Widget> _buildTransactionSectionSlivers({
+    required String title,
+    required String currencyCode,
+    required List<_BreakdownRowData> rows,
+  }) {
+    final totalCents =
+        rows.fold<int>(0, (sum, row) => sum + row.remainingAmountCents);
+    return [
+      _withHorizontalPadding(
+        SliverToBoxAdapter(
+          child: _BreakdownSectionHeader(
+            title: title,
+            currencyCode: currencyCode,
+            totalCents: totalCents,
+          ),
+        ),
+      ),
+      _withHorizontalPadding(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _BreakdownRowTile(
+              row: rows[index],
+              currencyCode: currencyCode,
+            ),
+            childCount: rows.length,
+          ),
+        ),
+      ),
+      _withHorizontalPadding(
+        const SliverToBoxAdapter(child: _BreakdownSectionFooter()),
+      ),
+    ];
   }
 }
 
@@ -308,7 +391,11 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final netAmount = formatCurrency(netCents.abs() / 100.0, currencyCode);
+    final netAmount = formatCurrency(
+      netCents.abs() / 100.0,
+      currencyCode,
+      context: context,
+    );
     final isNetPayer = netCents > 0;
     final nothingToSettle = netCents == 0;
     final netLabel = isNetPayer
@@ -482,134 +569,178 @@ class _AvatarNode extends StatelessWidget {
   }
 }
 
-class _BreakdownSection extends StatelessWidget {
+class _BreakdownSectionHeader extends StatelessWidget {
   final String title;
   final String currencyCode;
-  final List<_BreakdownRowData> rows;
-  final String emptyLabel;
+  final int totalCents;
 
-  const _BreakdownSection({
+  const _BreakdownSectionHeader({
     required this.title,
     required this.currencyCode,
-    required this.rows,
-    required this.emptyLabel,
+    required this.totalCents,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final totalCents =
-        rows.fold<int>(0, (sum, row) => sum + row.remainingAmountCents);
 
     return Container(
       decoration: BoxDecoration(
         color: scheme.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.homeCardBorder, width: 1),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        border: Border(
+          top: BorderSide(color: scheme.homeCardBorder),
+          left: BorderSide(color: scheme.homeCardBorder),
+          right: BorderSide(color: scheme.homeCardBorder),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.foreground,
-                    ),
-                  ),
-                ),
-                Text(
-                  formatCurrency(totalCents / 100.0, currencyCode),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.foreground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (rows.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        child: Row(
+          children: [
+            Expanded(
               child: Text(
-                emptyLabel,
+                title,
                 style: TextStyle(
-                  fontSize: 13,
-                  color: scheme.mutedForeground,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: scheme.foreground,
                 ),
               ),
-            )
-          else
-            ...rows.map((row) {
-              final isIncome =
-                  (row.expenseType ?? 'expense').toLowerCase() == 'income';
-              final isAdjustment = row.isAdjustment;
-              final totalAmount = formatCurrency(
-                row.totalAmountCents.abs() / 100.0,
+            ),
+            Text(
+              formatCurrency(
+                totalCents / 100.0,
                 currencyCode,
-              );
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: TransactionListTile(
-                  category: isAdjustment
-                      ? context.l10n.adjustment
-                      : row.expenseCategory ?? context.l10n.other,
-                  title: isAdjustment
-                      ? context.l10n.adjustment
-                      : row.expenseRawText ??
-                          row.expenseDescription ??
-                          row.expenseCategory ??
-                          context.l10n.expense,
-                  description: isAdjustment
-                      ? context.l10n.settlement
-                      : row.expenseRawText ?? row.expenseDescription,
-                  date: row.expenseDate,
-                  amount: row.remainingAmountCents / 100.0,
-                  currency: currencyCode,
-                  isIncome: isIncome,
-                  onTap: null,
-                  trailingWidget: Text(
-                    context.l10n.ofTotalAmount(totalAmount),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: scheme.mutedForeground,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          const SizedBox(height: 8),
-        ],
+                context: context,
+              ),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: scheme.foreground,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _AdjustmentSection extends StatelessWidget {
-  final String title;
+class _BreakdownRowTile extends StatelessWidget {
+  final _BreakdownRowData row;
   final String currencyCode;
-  final int amountCents;
-  final String description;
 
-  const _AdjustmentSection({
-    required this.title,
+  const _BreakdownRowTile({
+    required this.row,
     required this.currencyCode,
-    required this.amountCents,
-    required this.description,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isAdjustment = row.isAdjustment;
+    final totalAmount = formatCurrency(
+      row.totalAmountCents.abs() / 100.0,
+      currencyCode,
+      context: context,
+    );
+
+    return Container(
+      key: ValueKey(
+        'settlement-breakdown-row-'
+        '${row.splitLineId ?? row.expenseId ?? row.expenseDate.toIso8601String()}',
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: scheme.cardSurface,
+        border: Border(
+          left: BorderSide(color: scheme.homeCardBorder),
+          right: BorderSide(color: scheme.homeCardBorder),
+        ),
+      ),
+      child: TransactionListTile(
+        category: isAdjustment
+            ? context.l10n.adjustment
+            : row.expenseCategory ?? context.l10n.other,
+        title: isAdjustment
+            ? context.l10n.adjustment
+            : row.expenseRawText ??
+                row.expenseDescription ??
+                row.expenseCategory ??
+                context.l10n.expense,
+        description: isAdjustment
+            ? context.l10n.settlement
+            : row.expenseRawText ?? row.expenseDescription,
+        date: row.expenseDate,
+        amount: row.remainingAmountCents / 100.0,
+        currency: currencyCode,
+        isIncome: row.direction == _Direction.theyOweYou,
+        onTap: null,
+        trailingWidget: Text(
+          context.l10n.ofTotalAmount(totalAmount),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: scheme.mutedForeground,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BreakdownSectionFooter extends StatelessWidget {
+  const _BreakdownSectionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 8,
+      decoration: BoxDecoration(
+        color: scheme.cardSurface,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        border: Border(
+          left: BorderSide(color: scheme.homeCardBorder),
+          right: BorderSide(color: scheme.homeCardBorder),
+          bottom: BorderSide(color: scheme.homeCardBorder),
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceExplanationSection extends StatelessWidget {
+  final String title;
+  final String currencyCode;
+  final int amountCents;
+  final _Direction direction;
+  final String description;
+  final bool showDirectionSign;
+
+  const _BalanceExplanationSection({
+    required this.title,
+    required this.currencyCode,
+    required this.amountCents,
+    required this.direction,
+    required this.description,
+    required this.showDirectionSign,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final formattedAmount = formatCurrency(
+      amountCents / 100.0,
+      currencyCode,
+      context: context,
+    );
+    final displayAmount = showDirectionSign
+        ? direction == _Direction.youOwe
+            ? '-$formattedAmount'
+            : '+$formattedAmount'
+        : formattedAmount;
 
     return Container(
       decoration: BoxDecoration(
@@ -635,7 +766,7 @@ class _AdjustmentSection extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  formatCurrency(amountCents / 100.0, currencyCode),
+                  displayAmount,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -674,6 +805,77 @@ class _AdjustmentSection extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      liveRegion: true,
+      child: const SizedBox(
+        height: 160,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.retryLabel,
+    required this.onRetry,
+  });
+
+  final String message;
+  final String retryLabel;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      liveRegion: true,
+      child: SizedBox(
+        height: 160,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                color: scheme.destructive,
+                size: 32,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: scheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: OutlinedAdaptiveButton(
+                  onPressed: onRetry,
+                  child: Text(retryLabel),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

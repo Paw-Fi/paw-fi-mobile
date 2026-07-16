@@ -43,7 +43,8 @@ class SyncCoordinator {
         syncedCount += 1;
       } catch (error) {
         final nextAttempt = mutation.attemptCount + 1;
-        if (nextAttempt >= maxAttempts) {
+        if (!isDurableHouseholdSettlementMutation(mutation) &&
+            nextAttempt >= maxAttempts) {
           await database.markMutationCancelled(
             clientMutationId: mutation.clientMutationId,
             error: error,
@@ -64,7 +65,9 @@ class SyncCoordinator {
 
   static Duration retryDelayForAttempt(int attempt) {
     final safeAttempt = math.max(1, attempt);
-    final seconds = math.min(300, 1 << safeAttempt);
+    // Settlement attempts retry indefinitely. Avoid constructing a gigantic
+    // integer after a long offline period once the delay has reached its cap.
+    final seconds = safeAttempt >= 9 ? 300 : math.min(300, 1 << safeAttempt);
     return Duration(seconds: seconds);
   }
 }

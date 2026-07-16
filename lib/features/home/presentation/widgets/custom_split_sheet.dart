@@ -236,7 +236,11 @@ class GroupSplitEditorSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final effectivePayerId = members.any((m) => m.userId == selectedPayerUserId)
+    final selectedPayerIsCurrent =
+        members.any((member) => member.userId == selectedPayerUserId);
+    final hasHistoricalPayer =
+        selectedPayerUserId != null && !selectedPayerIsCurrent;
+    final effectivePayerId = selectedPayerIsCurrent || hasHistoricalPayer
         ? selectedPayerUserId
         : (members.isNotEmpty ? members.first.userId : null);
 
@@ -305,19 +309,25 @@ class GroupSplitEditorSection extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                         color: colorScheme.onSurface,
                       ),
-                      items: members
-                          .map(
-                            (m) => DropdownMenuItem<String>(
-                              value: m.userId,
-                              child: Text(
-                                m.userName ??
-                                    m.userEmail ??
-                                    context.l10n.member,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                      items: [
+                        if (hasHistoricalPayer)
+                          DropdownMenuItem<String>(
+                            value: selectedPayerUserId,
+                            child: Text(
+                              context.l10n.unknownMember,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          )
-                          .toList(),
+                          ),
+                        ...members.map(
+                          (m) => DropdownMenuItem<String>(
+                            value: m.userId,
+                            child: Text(
+                              m.userName ?? m.userEmail ?? context.l10n.member,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
                       onChanged: onPayerChanged,
                     ),
                   ),

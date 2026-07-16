@@ -1917,24 +1917,44 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
   },
 );
 
-final householdSettlementBreakdownV2Provider = FutureProvider.autoDispose
-    .family<List<SettlementBreakdownRowV2>, SettlementBreakdownV2Params>(
+final householdSettlementCalculationV3Provider = FutureProvider.autoDispose
+    .family<SettlementCalculationV3, SettlementBreakdownV2Params>(
   (ref, params) async {
     ref.watch(householdRemoteMutationRefreshSignalProvider(params.householdId));
     ref.watch(transactionsFeedRefreshSignalProvider);
     if (!isBackendHouseholdId(params.householdId)) {
-      return const <SettlementBreakdownRowV2>[];
+      return SettlementCalculationV3(
+        netCents: 0,
+        rows: const <SettlementBreakdownRowV2>[],
+      );
     }
-    final service = ref.watch(householdServiceProvider);
-    final rows = await service.getSettlementBreakdownRowsV2(
-      householdId: params.householdId,
-      memberUserId: params.memberUserId,
-      currency: params.currency,
-    );
 
-    return rows.map(SettlementBreakdownRowV2.fromJson).toList();
+    final service = ref.watch(householdServiceProvider);
+    final results = await Future.wait<Object>(
+      [
+        service.getSettlementCalculationV3(
+          householdId: params.householdId,
+          memberUserId: params.memberUserId,
+          currency: params.currency,
+        ),
+        ref.watch(
+          householdDeletedExpenseIdsProvider(params.householdId).future,
+        ),
+      ],
+      eagerError: true,
+    );
+    final response = results[0] as Map<String, dynamic>;
+    final deletedExpenseIds = results[1] as Set<String>;
+
+    return SettlementCalculationV3.fromJson(response)
+        .excludingExpenseIds(deletedExpenseIds);
   },
 );
+
+// Keep the previous provider identifier as an alias so every existing
+// invalidation site also refreshes the atomic v3 net-and-rows snapshot.
+final householdSettlementBreakdownV2Provider =
+    householdSettlementCalculationV3Provider;
 
 class SettlementLine {
   final String splitGroupId;

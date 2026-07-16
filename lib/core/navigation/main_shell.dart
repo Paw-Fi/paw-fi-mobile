@@ -330,11 +330,7 @@ Future<void> _drainMobileOutbox(
 ) async {
   try {
     if (!guard.isActive) return;
-    final coordinator = await ref.read(
-      mobileOutboxSyncCoordinatorProvider.future,
-    );
-    if (!guard.isActive) return;
-    await coordinator.drainOutbox();
+    await ref.read(mobileOutboxDrainerProvider).drain();
   } catch (_) {}
 }
 
@@ -860,8 +856,7 @@ class MainShell extends HookConsumerWidget {
   Future<void> _showWidgetConfigurationDialog(
       BuildContext context, WidgetRef ref, int widgetId) async {
     final user = ref.read(authProvider);
-    final households =
-        ref.read(userHouseholdsProvider(user.uid)).valueOrNull;
+    final households = ref.read(userHouseholdsProvider(user.uid)).valueOrNull;
     final currencyCode = ref.read(selectedHomeCurrencyCodeProvider);
     final selectedScopeNotifier = ValueNotifier<String>('personal');
 
@@ -875,8 +870,7 @@ class MainShell extends HookConsumerWidget {
         children: [
           ValueListenableBuilder<String>(
             valueListenable: selectedScopeNotifier,
-            builder: (context, value, child) =>
-                DropdownButtonFormField<String>(
+            builder: (context, value, child) => DropdownButtonFormField<String>(
               initialValue: value,
               decoration: InputDecoration(
                 labelText: context.l10n.space,
@@ -1178,4 +1172,3 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
     );
   }
 }
-

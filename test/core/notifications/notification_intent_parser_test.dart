@@ -28,6 +28,7 @@ void main() {
         'invite_reminder_invitee':
             NotificationIntentAction.openHouseholdInviteAcceptance,
         'recurring_reminder': NotificationIntentAction.openRecurringEditor,
+        'income_acknowledged': NotificationIntentAction.openExpenseSheet,
         'log_expense_reminder':
             NotificationIntentAction.openLogExpenseQuickEntry,
       };
@@ -69,6 +70,21 @@ void main() {
       expect(intent.action, NotificationIntentAction.openExpenseSheet);
       expect(intent.expenseId, 'exp-1');
       expect(intent.notificationId, 'n-1');
+    });
+
+    test('parses income acknowledgement to income sheet intent', () {
+      final intent = parser.fromData(<String, dynamic>{
+        'event_type': 'income_acknowledged',
+        'notification_id': 'n-2',
+        'household_id': 'hh-1',
+        'expense_id': 'income-1',
+        'deep_link': 'moneko://expense/income-1',
+      });
+
+      expect(intent.action, NotificationIntentAction.openExpenseSheet);
+      expect(intent.expenseId, 'income-1');
+      expect(intent.householdId, 'hh-1');
+      expect(intent.notificationId, 'n-2');
     });
 
     test('parses inviter reminder to invites page intent', () {

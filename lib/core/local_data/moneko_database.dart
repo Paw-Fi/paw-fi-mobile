@@ -15,8 +15,13 @@ const String localMutationStatusSyncing = 'syncing';
 const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
+const String localHouseholdSettlementMutationEntityType =
+    'household_settlement';
+const String localHouseholdSettlementMutationOperation =
+    'settle_household_balance_v2';
 
 const int _localDatabaseSchemaVersion = 5;
+const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
   required String userId,
@@ -245,6 +250,132 @@ class LocalMutationOutboxData {
   final String? lastError;
   final DateTime? retryAfter;
 }
+
+class LocalHouseholdSettlementMutationPayload {
+  const LocalHouseholdSettlementMutationPayload._({
+    required this.householdId,
+    required this.memberUserId,
+    required this.mode,
+    required this.amountCents,
+    required this.currency,
+    required this.note,
+    required this.expectedSnapshotToken,
+    required this.clientMutationId,
+  });
+
+  factory LocalHouseholdSettlementMutationPayload({
+    required String householdId,
+    required String memberUserId,
+    required String mode,
+    required int amountCents,
+    required String currency,
+    required String? note,
+    required String expectedSnapshotToken,
+    required String clientMutationId,
+  }) {
+    final normalizedHouseholdId = householdId.trim();
+    final normalizedMemberUserId = memberUserId.trim();
+    final normalizedMode = mode.trim().toLowerCase();
+    final normalizedCurrency = currency.trim().toUpperCase();
+    final normalizedNote = note?.trim();
+    final normalizedSnapshotToken = expectedSnapshotToken.trim();
+    final normalizedClientMutationId = clientMutationId.trim();
+
+    if (normalizedHouseholdId.isEmpty) {
+      throw ArgumentError.value(householdId, 'householdId', 'is required');
+    }
+    if (normalizedMemberUserId.isEmpty) {
+      throw ArgumentError.value(memberUserId, 'memberUserId', 'is required');
+    }
+    if (!const {'to_member', 'from_member', 'both'}.contains(normalizedMode)) {
+      throw ArgumentError.value(mode, 'mode', 'is invalid');
+    }
+    if (amountCents <= 0) {
+      throw ArgumentError.value(amountCents, 'amountCents', 'must be > 0');
+    }
+    if (!RegExp(r'^[A-Z]{3}$').hasMatch(normalizedCurrency)) {
+      throw ArgumentError.value(
+        currency,
+        'currency',
+        'must be a three-letter currency code',
+      );
+    }
+    if (!RegExp(r'^v1:[0-9a-f]{64}$').hasMatch(normalizedSnapshotToken)) {
+      throw ArgumentError.value(
+        expectedSnapshotToken,
+        'expectedSnapshotToken',
+        'must be a V1 SHA-256 settlement snapshot token',
+      );
+    }
+    if (normalizedClientMutationId.isEmpty ||
+        normalizedClientMutationId.length > 200) {
+      throw ArgumentError.value(
+        clientMutationId,
+        'clientMutationId',
+        'must contain between 1 and 200 characters',
+      );
+    }
+
+    return LocalHouseholdSettlementMutationPayload._(
+      householdId: normalizedHouseholdId,
+      memberUserId: normalizedMemberUserId,
+      mode: normalizedMode,
+      amountCents: amountCents,
+      currency: normalizedCurrency,
+      note: normalizedNote == null || normalizedNote.isEmpty
+          ? null
+          : normalizedNote,
+      expectedSnapshotToken: normalizedSnapshotToken,
+      clientMutationId: normalizedClientMutationId,
+    );
+  }
+
+  factory LocalHouseholdSettlementMutationPayload.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final amountCents = json['amountCents'];
+    if (amountCents is! int) {
+      throw const FormatException('Settlement amountCents must be an integer');
+    }
+    if (!json.containsKey('note')) {
+      throw const FormatException('Settlement note field is required');
+    }
+    return LocalHouseholdSettlementMutationPayload(
+      householdId: json['householdId']?.toString() ?? '',
+      memberUserId: json['memberUserId']?.toString() ?? '',
+      mode: json['mode']?.toString() ?? '',
+      amountCents: amountCents,
+      currency: json['currency']?.toString() ?? '',
+      note: json['note']?.toString(),
+      expectedSnapshotToken: json['expectedSnapshotToken']?.toString() ?? '',
+      clientMutationId: json['clientMutationId']?.toString() ?? '',
+    );
+  }
+
+  final String householdId;
+  final String memberUserId;
+  final String mode;
+  final int amountCents;
+  final String currency;
+  final String? note;
+  final String expectedSnapshotToken;
+  final String clientMutationId;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'householdId': householdId,
+        'memberUserId': memberUserId,
+        'mode': mode,
+        'amountCents': amountCents,
+        'currency': currency,
+        'note': note,
+        'expectedSnapshotToken': expectedSnapshotToken,
+        'clientMutationId': clientMutationId,
+      };
+}
+
+bool isDurableHouseholdSettlementMutation(LocalMutationOutboxData mutation) =>
+    mutation.entityType == localHouseholdSettlementMutationEntityType &&
+    mutation.operation == localHouseholdSettlementMutationOperation;
 
 class LocalCategoryRemapPreference {
   const LocalCategoryRemapPreference({
@@ -700,10 +831,9 @@ class MonekoDatabase {
         final status = mutation['status'] as String?;
         final isQueuedOrFailed = status == localMutationStatusQueued ||
             status == localMutationStatusFailed;
-        final isMatchingCreate =
-            mutation['entity_type'] == 'transaction' &&
-                mutation['entity_id'] == transactionId &&
-                mutation['operation'] == 'create';
+        final isMatchingCreate = mutation['entity_type'] == 'transaction' &&
+            mutation['entity_id'] == transactionId &&
+            mutation['operation'] == 'create';
 
         if (!isQueuedOrFailed || !isMatchingCreate) {
           return;
@@ -1310,6 +1440,365 @@ class MonekoDatabase {
         )
         .where((id) => id.isNotEmpty)
         .toSet();
+  }
+
+  Future<LocalMutationOutboxData> enqueueHouseholdSettlementMutation({
+    required String householdId,
+    required String memberUserId,
+    required String mode,
+    required int amountCents,
+    required String currency,
+    required String? note,
+    required String expectedSnapshotToken,
+    required String clientMutationId,
+  }) async {
+    final payload = LocalHouseholdSettlementMutationPayload(
+      householdId: householdId,
+      memberUserId: memberUserId,
+      mode: mode,
+      amountCents: amountCents,
+      currency: currency,
+      note: note,
+      expectedSnapshotToken: expectedSnapshotToken,
+      clientMutationId: clientMutationId,
+    );
+    final payloadMap = payload.toJson();
+    final now = DateTime.now().toUtc();
+    late LocalMutationOutboxData result;
+
+    _runInTransaction(() {
+      final existingRows = _db.select(
+        '''
+        SELECT *
+        FROM local_mutation_outbox
+        WHERE client_mutation_id = ?
+        LIMIT 1
+        ''',
+        [payload.clientMutationId],
+      );
+      if (existingRows.isNotEmpty) {
+        final existing = _mutationFromRow(existingRows.first);
+        final existingPayload = _tryDecodeJsonObject(existing.payloadJson);
+        final isSameImmutableAttempt =
+            isDurableHouseholdSettlementMutation(existing) &&
+                existing.entityId == payload.householdId &&
+                existingPayload != null &&
+                _settlementPayloadMapsEqual(existingPayload, payloadMap);
+        if (!isSameImmutableAttempt) {
+          throw StateError(
+            'clientMutationId is already bound to a different immutable mutation',
+          );
+        }
+        result = existing;
+        return;
+      }
+
+      final unresolvedRows = _db.select(
+        '''
+        SELECT client_mutation_id
+        FROM local_mutation_outbox
+        WHERE entity_type = ?
+          AND operation = ?
+          AND entity_id = ?
+          AND status != ?
+        LIMIT 1
+        ''',
+        [
+          localHouseholdSettlementMutationEntityType,
+          localHouseholdSettlementMutationOperation,
+          payload.householdId,
+          localMutationStatusSynced,
+        ],
+      );
+      if (unresolvedRows.isNotEmpty) {
+        throw StateError(
+          'Another settlement attempt is still unresolved for this household',
+        );
+      }
+
+      _db.execute(
+        '''
+        INSERT INTO local_mutation_outbox (
+          client_mutation_id, entity_type, entity_id, operation, payload_json,
+          created_at, updated_at, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        [
+          payload.clientMutationId,
+          localHouseholdSettlementMutationEntityType,
+          payload.householdId,
+          localHouseholdSettlementMutationOperation,
+          jsonEncode(payloadMap),
+          _instant(now),
+          _instant(now),
+          localMutationStatusQueued,
+        ],
+      );
+      result = _mutationFromRow(
+        _db.select(
+          '''
+          SELECT *
+          FROM local_mutation_outbox
+          WHERE client_mutation_id = ?
+          LIMIT 1
+          ''',
+          [payload.clientMutationId],
+        ).single,
+      );
+    });
+
+    return result;
+  }
+
+  Future<LocalMutationOutboxData?> getHouseholdSettlementMutation(
+    String clientMutationId,
+  ) async {
+    final normalizedClientMutationId = clientMutationId.trim();
+    if (normalizedClientMutationId.isEmpty) return null;
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_mutation_outbox
+      WHERE client_mutation_id = ?
+        AND entity_type = ?
+        AND operation = ?
+      LIMIT 1
+      ''',
+      [
+        normalizedClientMutationId,
+        localHouseholdSettlementMutationEntityType,
+        localHouseholdSettlementMutationOperation,
+      ],
+    );
+    return rows.isEmpty ? null : _mutationFromRow(rows.first);
+  }
+
+  Future<List<LocalMutationOutboxData>> getPendingHouseholdSettlementMutations({
+    required String householdId,
+    String? memberUserId,
+    String? currency,
+  }) async {
+    final normalizedHouseholdId = householdId.trim();
+    if (normalizedHouseholdId.isEmpty) {
+      return const <LocalMutationOutboxData>[];
+    }
+    final normalizedMemberUserId = memberUserId?.trim();
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    _requeueExpiredSyncingMutations(DateTime.now().toUtc());
+
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_mutation_outbox
+      WHERE entity_type = ?
+        AND operation = ?
+        AND entity_id = ?
+        AND status != ?
+      ORDER BY created_at ASC
+      ''',
+      [
+        localHouseholdSettlementMutationEntityType,
+        localHouseholdSettlementMutationOperation,
+        normalizedHouseholdId,
+        localMutationStatusSynced,
+      ],
+    );
+
+    return rows.map(_mutationFromRow).where((mutation) {
+      final decoded = _tryDecodeJsonObject(mutation.payloadJson);
+      if (decoded == null) {
+        // This is an accounting mutation with an unknown durable payload.
+        // Keep it blocking for its household rather than risking a duplicate.
+        return true;
+      }
+      try {
+        final payload =
+            LocalHouseholdSettlementMutationPayload.fromJson(decoded);
+        if (normalizedMemberUserId != null &&
+            normalizedMemberUserId.isNotEmpty &&
+            payload.memberUserId != normalizedMemberUserId) {
+          return false;
+        }
+        if (normalizedCurrency != null &&
+            normalizedCurrency.isNotEmpty &&
+            payload.currency != normalizedCurrency) {
+          return false;
+        }
+        return true;
+      } catch (_) {
+        // Malformed settlement attempts are unresolved and must fail closed.
+        return true;
+      }
+    }).toList(growable: false);
+  }
+
+  Future<bool> hasPendingHouseholdSettlementMutations({
+    required String householdId,
+    String? memberUserId,
+    String? currency,
+    String? excludingClientMutationId,
+  }) async {
+    final excluded = excludingClientMutationId?.trim();
+    final mutations = await getPendingHouseholdSettlementMutations(
+      householdId: householdId,
+      memberUserId: memberUserId,
+      currency: currency,
+    );
+    return mutations.any(
+      (mutation) =>
+          excluded == null ||
+          excluded.isEmpty ||
+          mutation.clientMutationId != excluded,
+    );
+  }
+
+  bool _settlementPayloadMapsEqual(
+    Map<String, dynamic> left,
+    Map<String, dynamic> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (final entry in right.entries) {
+      if (!left.containsKey(entry.key) || left[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<bool> hasPendingHouseholdTransactionMutations(
+    String householdId,
+  ) async {
+    final normalizedHouseholdId = householdId.trim();
+    if (normalizedHouseholdId.isEmpty) return false;
+
+    _requeueExpiredSyncingMutations(DateTime.now().toUtc());
+
+    // Deletes remove their local transaction row before they are dispatched,
+    // so the tombstone is the durable source of household scope. A failed
+    // delete can have a cancelled outbox row after retries are exhausted; its
+    // failed tombstone must continue to block settlement until reconciled.
+    final pendingDeleteRows = _db.select(
+      '''
+      SELECT 1
+      FROM local_transaction_tombstones
+      WHERE household_id = ?
+        AND status IN (?, ?, ?)
+      LIMIT 1
+      ''',
+      [
+        normalizedHouseholdId,
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+    if (pendingDeleteRows.isNotEmpty) return true;
+
+    final mutationRows = _db.select(
+      '''
+      SELECT entity_type, entity_id, payload_json
+      FROM local_mutation_outbox
+      WHERE entity_type IN ('transaction', 'ai_input')
+        AND status IN (?, ?, ?)
+      ORDER BY created_at ASC
+      ''',
+      [
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+
+    for (final mutation in mutationRows) {
+      final payloadJson = mutation['payload_json']?.toString() ?? '';
+      if (_mutationPayloadReferencesHousehold(
+        payloadJson,
+        normalizedHouseholdId,
+      )) {
+        return true;
+      }
+
+      // Older queued transaction payloads were not required to embed their
+      // scope. Keep the local row as a compatibility fallback for those rows;
+      // update payloads still take precedence because they retain both the old
+      // and new household scopes even after the local row has moved.
+      if (mutation['entity_type'] == 'transaction' &&
+          _transactionEntityReferencesHousehold(
+            mutation['entity_id']?.toString() ?? '',
+            normalizedHouseholdId,
+          )) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool _mutationPayloadReferencesHousehold(
+    String payloadJson,
+    String householdId,
+  ) {
+    if (payloadJson.isEmpty) return false;
+    try {
+      final householdIds = <String>{};
+      _collectHouseholdIds(jsonDecode(payloadJson), householdIds);
+      return householdIds.contains(householdId);
+    } catch (_) {
+      // A malformed legacy payload cannot be trusted for scope. Transaction
+      // mutations still get the local-row compatibility fallback above.
+      return false;
+    }
+  }
+
+  void _collectHouseholdIds(Object? value, Set<String> householdIds) {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        final normalizedKey =
+            entry.key.toString().trim().toLowerCase().replaceAll('_', '');
+        if (normalizedKey == 'householdid') {
+          final householdId = entry.value?.toString().trim();
+          if (householdId != null && householdId.isNotEmpty) {
+            householdIds.add(householdId);
+          }
+        } else if (normalizedKey == 'householdids' && entry.value is Iterable) {
+          for (final item in entry.value as Iterable) {
+            final householdId = item?.toString().trim();
+            if (householdId != null && householdId.isNotEmpty) {
+              householdIds.add(householdId);
+            }
+          }
+        }
+        _collectHouseholdIds(entry.value, householdIds);
+      }
+      return;
+    }
+
+    if (value is Iterable) {
+      for (final item in value) {
+        _collectHouseholdIds(item, householdIds);
+      }
+    }
+  }
+
+  bool _transactionEntityReferencesHousehold(
+    String entityId,
+    String householdId,
+  ) {
+    if (entityId.trim().isEmpty) return false;
+    final rows = _db.select(
+      '''
+      SELECT 1
+      FROM local_transactions
+      WHERE household_id = ?
+        AND (
+          id = ?
+          OR instr(',' || ? || ',', ',' || id || ',') > 0
+        )
+      LIMIT 1
+      ''',
+      [householdId, entityId, entityId],
+    );
+    return rows.isNotEmpty;
   }
 
   Future<LocalTransactionsFeedSummary> getTransactionsFeedSummary(
@@ -2200,6 +2689,8 @@ class MonekoDatabase {
   }
 
   Future<LocalMutationOutboxData?> nextRetryableMutation(DateTime now) async {
+    final effectiveNow = now.toUtc();
+    _requeueExpiredSyncingMutations(effectiveNow);
     final rows = _db.select(
       '''
       SELECT *
@@ -2212,11 +2703,29 @@ class MonekoDatabase {
       [
         localMutationStatusQueued,
         localMutationStatusFailed,
-        _instant(now),
+        _instant(effectiveNow),
       ],
     );
     if (rows.isEmpty) return null;
     return _mutationFromRow(rows.first);
+  }
+
+  void _requeueExpiredSyncingMutations(DateTime now) {
+    final effectiveNow = now.toUtc();
+    final leaseCutoff = effectiveNow.subtract(_localMutationSyncLease);
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, retry_after = NULL, updated_at = ?
+      WHERE status = ? AND updated_at <= ?
+      ''',
+      [
+        localMutationStatusQueued,
+        _instant(effectiveNow),
+        localMutationStatusSyncing,
+        _instant(leaseCutoff),
+      ],
+    );
   }
 
   Future<void> markMutationSyncing(String clientMutationId) async {
@@ -2546,8 +3055,8 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'last_error', 'TEXT');
       _ensureColumn('local_transactions', 'created_device_id', 'TEXT');
       _ensureColumn('local_transactions', 'deleted_at', 'TEXT');
-      _ensureColumn('local_transactions', 'local_updated_at',
-          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn(
+          'local_transactions', 'local_updated_at', "TEXT NOT NULL DEFAULT ''");
 
       _ensureColumn('local_mutation_outbox', 'attempt_count',
           'INTEGER NOT NULL DEFAULT 0');
@@ -2784,7 +3293,8 @@ class MonekoDatabase {
     final entryUserId = entry.userId?.trim();
     // Tombstones belong to the signed-in actor's local scope, including when
     // a household admin deletes another member's transaction.
-    final userId = actingUserId?.isNotEmpty == true ? actingUserId : entryUserId;
+    final userId =
+        actingUserId?.isNotEmpty == true ? actingUserId : entryUserId;
     if (userId == null || userId.isEmpty) return;
     final now = _instant(DateTime.now().toUtc());
     _db.execute(

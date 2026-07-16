@@ -43,6 +43,7 @@ import 'package:moneko/features/households/presentation/providers/household_opti
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
+import 'package:moneko/features/households/presentation/utils/household_split_update_intent.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
@@ -202,6 +203,7 @@ class _UnifiedTransactionSheetV2State
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
   String? _selectedPayerUserId;
+  bool _hasManuallyChangedPayer = false;
   String? _resolvedSplitGroupId;
   bool _hasCheckedSplitGroup = false;
   String? _selectedFinancialAccountId;
@@ -499,6 +501,7 @@ class _UnifiedTransactionSheetV2State
         _hasEditedMerchant ||
         _editedDate != null ||
         _localImagePath != null ||
+        _hasManuallyChangedPayer ||
         _hasManuallyChangedAccountSelection ||
         _hasManuallySelectedFinancialAccount) {
       return true;
@@ -1076,7 +1079,8 @@ class _UnifiedTransactionSheetV2State
                       onPressed:
                           _isSaving || _isDeleting ? null : _requestCloseSheet,
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
+                        backgroundColor:
+                            colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
                     ),
                     actions: [
@@ -1088,13 +1092,14 @@ class _UnifiedTransactionSheetV2State
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(colorScheme.onSurface),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.onSurface),
                                 ),
                               )
                             : Icon(Icons.check, color: colorScheme.onSurface),
                         style: IconButton.styleFrom(
-                          backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
+                          backgroundColor:
+                              colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                       ),
                     ],
@@ -1817,6 +1822,7 @@ class _UnifiedTransactionSheetV2State
                         _loadedSplitGroupType = null;
                         _resolvedSplitGroupId = null;
                         _hasCheckedSplitGroup = false;
+                        _hasManuallyChangedPayer = false;
                         _householdMembers = null;
                         _membersError = null;
                         _isLoadingMembers = false;
@@ -1943,6 +1949,7 @@ class _UnifiedTransactionSheetV2State
                   selectedPayerUserId: _selectedPayerUserId,
                   onPayerChanged: (v) => setState(() {
                     _selectedPayerUserId = v;
+                    _hasManuallyChangedPayer = true;
                     debugPrint(
                         '👥 [UI] Who paid changed to: $_selectedPayerUserId');
                   }),
@@ -2383,9 +2390,7 @@ class _UnifiedTransactionSheetV2State
             left: 20,
             right: 20,
             top: 8,
-            bottom: rawBottomInset > 0
-                ? rawBottomInset
-                : minimumBottomPadding,
+            bottom: rawBottomInset > 0 ? rawBottomInset : minimumBottomPadding,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2394,8 +2399,8 @@ class _UnifiedTransactionSheetV2State
               Container(
                 height: 140,
                 decoration: BoxDecoration(
-                  color: colorScheme.sheetElementBackground
-                      .withValues(alpha: 0.5),
+                  color:
+                      colorScheme.sheetElementBackground.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: colorScheme.outlineVariant.withValues(alpha: 0.3),
@@ -2417,8 +2422,8 @@ class _UnifiedTransactionSheetV2State
                   decoration: InputDecoration(
                     hintText: context.l10n.addANote,
                     hintStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.4),
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
                     contentPadding: const EdgeInsets.all(16),
                     border: InputBorder.none,
@@ -2542,23 +2547,25 @@ class _UnifiedTransactionSheetV2State
         debugPrint('👥 [LOAD MEMBERS] Current payer selection present');
         debugPrint('👥 [LOAD MEMBERS] Payer exists in members: $payerExists');
 
-        String? validPayerId = currentPayerId;
+        final validPayerId = resolveHouseholdPayerAfterMemberLoad(
+          currentPayerUserId: currentPayerId,
+          currentMemberUserIds:
+              members.map((member) => member.userId).toList(growable: false),
+          isNewExpense: isNewExpense,
+          hasExistingSplitGroup: _effectiveSplitGroupId != null,
+        );
 
-        if (!payerExists) {
-          // Current payer not in household members
-          // For ADD action: Default to first member
-          // For EDIT action: This shouldn't happen, but fallback to first member
-          if (members.isNotEmpty) {
-            validPayerId = members.first.userId;
-            debugPrint(
-                '⚠️ [LOAD MEMBERS] Payer not found; defaulting to first member');
-          } else {
-            validPayerId = null;
-            debugPrint(
-                '⚠️ [LOAD MEMBERS] No members found! Cannot set default payer.');
-          }
-        } else {
+        if (payerExists) {
           debugPrint('✅ [LOAD MEMBERS] Current payer is valid');
+        } else if (!isNewExpense && _effectiveSplitGroupId != null) {
+          debugPrint(
+              'ℹ️ [LOAD MEMBERS] Preserving historical payer until split load completes');
+        } else if (validPayerId != null) {
+          debugPrint(
+              '⚠️ [LOAD MEMBERS] Payer not found; defaulting to first member');
+        } else {
+          debugPrint(
+              '⚠️ [LOAD MEMBERS] No members found! Cannot set default payer.');
         }
 
         setState(() {
@@ -3087,6 +3094,9 @@ class _UnifiedTransactionSheetV2State
         '✅ [LOAD SPLIT] Existing split state present: ${_customSplits != null}',
       );
       setState(() {
+        if (!_hasManuallyChangedPayer) {
+          _selectedPayerUserId = splitGroup.payerUserId;
+        }
         _customSplitType = uiSplitType;
         _customSplits = memberSplits;
         _initialSplitSignature = signature;
@@ -4193,8 +4203,17 @@ class _UnifiedTransactionSheetV2State
             originalHouseholdId != null &&
             targetHouseholdId == originalHouseholdId &&
             !originalIsPortfolio;
-        // Persist payer changes for shared expenses even without split edits
-        if (isSharedSpace) {
+        // Existing split groups may intentionally retain a historical payer
+        // who is no longer a household member. Do not rewrite that payer just
+        // because the current-member editor was loaded; only send a payer
+        // mutation when the user explicitly changed it. New or moved splits
+        // still send the selected current payer.
+        if (shouldSendHouseholdSplitPayerMutation(
+          isSharedSpace: isSharedSpace,
+          hasExistingSplitGroup: existingSplitGroupId != null,
+          staysInSameSharedHousehold: sameSharedHousehold,
+          payerChangedByUser: _hasManuallyChangedPayer,
+        )) {
           final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
           updates['payer_user_id'] = payer;
           updates['payerUserId'] = payer; // compatibility with edge fn
@@ -4288,11 +4307,13 @@ class _UnifiedTransactionSheetV2State
 
           final shouldSendSplitUpdate = hasLoadedSplitConfig &&
               hasCurrentSplitConfig &&
-              (amountCentsChanged || splitChanged);
+              (amountCentsChanged || splitChanged || _hasManuallyChangedPayer);
 
-          // If the amount changed we must update split lines to stay consistent.
-          // If we can't load the split config, fail fast instead of corrupting state.
-          if (amountCentsChanged && !shouldSendSplitUpdate) {
+          // Amount and payer changes both require a complete line set. If the
+          // existing configuration cannot be loaded, fail closed instead of
+          // writing only half of the requested split mutation.
+          if ((amountCentsChanged || _hasManuallyChangedPayer) &&
+              !shouldSendSplitUpdate) {
             if (!mounted || !toastContext.mounted) {
               closeDialog();
               return;
@@ -4317,6 +4338,14 @@ class _UnifiedTransactionSheetV2State
                 ? 'equal'
                 : currentType.toString().split('.').last;
             extraBody = {
+              // The split payload is also required for amount-only edits so
+              // the backend can rescale existing lines. Tell new servers
+              // explicitly whether the user actually changed the split;
+              // released servers safely ignore this additional field.
+              'reSplitRequested': isExplicitHouseholdReSplitRequested(
+                splitChangedByUser: splitChanged,
+                payerChangedByUser: _hasManuallyChangedPayer,
+              ),
               'splitUpdate': {
                 'splitType': splitTypeStr,
                 'memberSplits': preserveEqualSplitType

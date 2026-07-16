@@ -113,8 +113,7 @@ void main() {
     expect(overviewReads, 0);
   });
 
-  testWidgets(
-      'single-currency RPC failure falls back to the legacy exact calculation',
+  testWidgets('single-currency RPC failure never uses the legacy calculation',
       (tester) async {
     var overviewReads = 0;
     await _pumpSettlementCard(
@@ -127,12 +126,12 @@ void main() {
 
     await tester.pump();
 
-    expect(overviewReads, 1);
-    expect(find.text('\$10'), findsWidgets);
-    expect(find.textContaining('Error loading dashboard'), findsNothing);
+    expect(overviewReads, 0);
+    expect(find.text('\$10'), findsNothing);
+    expect(find.textContaining('Error loading dashboard'), findsOneWidget);
   });
 
-  testWidgets('new empty shared space does not show an error when RPC fails',
+  testWidgets('new empty shared space still fails closed when RPC fails',
       (tester) async {
     await _pumpSettlementCard(
       tester,
@@ -143,7 +142,7 @@ void main() {
 
     await tester.pump();
 
-    expect(find.textContaining('Error loading dashboard'), findsNothing);
+    expect(find.textContaining('Error loading dashboard'), findsOneWidget);
   });
 
   testWidgets('optimistic household ID never starts settlement providers',

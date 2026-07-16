@@ -849,6 +849,58 @@ class HouseholdService {
     return (result as int?) ?? 0;
   }
 
+  Future<Map<String, dynamic>> settleAmountAndNotifyV2({
+    required String householdId,
+    required String memberUserId,
+    required String mode,
+    required int amountCents,
+    required String currency,
+    required String expectedSnapshotToken,
+    required String clientMutationId,
+    String? settlementNote,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final normalizedCurrency = currency.trim().toUpperCase();
+    final normalizedSnapshotToken = expectedSnapshotToken.trim();
+    final normalizedMutationId = clientMutationId.trim();
+    final normalizedNote = settlementNote?.trim();
+    if (householdId.trim().isEmpty ||
+        memberUserId.trim().isEmpty ||
+        memberUserId.trim() == userId ||
+        !const {'to_member', 'from_member', 'both'}.contains(mode) ||
+        !RegExp(r'^[A-Z]{3}$').hasMatch(normalizedCurrency) ||
+        !RegExp(r'^v1:[0-9a-f]{64}$').hasMatch(normalizedSnapshotToken) ||
+        normalizedMutationId.isEmpty ||
+        normalizedMutationId.length > 200 ||
+        amountCents <= 0) {
+      throw const FormatException('Invalid settlement write request');
+    }
+
+    final result = await _supabase.rpc(
+      'households_settle_amount_and_notify_v2',
+      params: {
+        'p_household_id': householdId,
+        'p_member_user_id': memberUserId,
+        'p_mode': mode,
+        'p_amount_cents': amountCents,
+        'p_currency': normalizedCurrency,
+        'p_expected_snapshot_token': normalizedSnapshotToken,
+        'p_client_mutation_id': normalizedMutationId,
+        'p_settlement_note': normalizedNote == null || normalizedNote.isEmpty
+            ? null
+            : normalizedNote,
+      },
+    );
+    if (result is! Map) {
+      throw const FormatException(
+        'Settlement write RPC returned an invalid response',
+      );
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
   Future<List<Map<String, dynamic>>> getPairwiseSettlementBalancesV2({
     required String householdId,
     String? currency,
@@ -885,6 +937,30 @@ class HouseholdService {
 
     return (result as List?)?.cast<Map<String, dynamic>>() ??
         const <Map<String, dynamic>>[];
+  }
+
+  Future<Map<String, dynamic>> getSettlementCalculationV3({
+    required String householdId,
+    required String memberUserId,
+    String? currency,
+  }) async {
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    final result = await _supabase.rpc(
+      'households_get_settlement_calculation_v3',
+      params: {
+        'p_household_id': householdId,
+        'p_member_user_id': memberUserId,
+        if (normalizedCurrency != null && normalizedCurrency.isNotEmpty)
+          'p_currency': normalizedCurrency,
+      },
+    );
+
+    if (result is! Map) {
+      throw const FormatException(
+        'Settlement calculation RPC returned an invalid response',
+      );
+    }
+    return Map<String, dynamic>.from(result);
   }
 
   // ============================================================================

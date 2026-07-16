@@ -3,6 +3,9 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
+String _settlementSnapshotToken(String character) =>
+    'v1:${List<String>.filled(64, character).join()}';
+
 void main() {
   late MonekoDatabase database;
 
@@ -167,6 +170,47 @@ void main() {
     await coordinator.drainOutbox();
 
     expect(exhausted, ['poison']);
+  });
+
+  test('durable settlement mutations never use generic cancellation', () async {
+    final now = DateTime.utc(2026, 4, 8, 12);
+    await database.enqueueHouseholdSettlementMutation(
+      householdId: 'household-1',
+      memberUserId: 'member-1',
+      mode: 'both',
+      amountCents: 6611,
+      currency: 'CAD',
+      note: null,
+      expectedSnapshotToken: _settlementSnapshotToken('a'),
+      clientMutationId: 'settlement-1',
+    );
+    final exhausted = <String>[];
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      maxAttempts: 1,
+      dispatchMutation: (_) async {
+        throw StateError('unknown remote outcome');
+      },
+      onMutationCancelled: (mutation, _) async {
+        exhausted.add(mutation.clientMutationId);
+      },
+    );
+
+    expect(await coordinator.drainOutbox(), 0);
+
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusFailed);
+    expect(mutation.attemptCount, 1);
+    expect(mutation.lastError, contains('unknown remote outcome'));
+    expect(exhausted, isEmpty);
+  });
+
+  test('retry delay remains bounded for indefinite attempts', () {
+    expect(
+      SyncCoordinator.retryDelayForAttempt(100000),
+      const Duration(minutes: 5),
+    );
   });
 
   test('exhausted create mutations are excluded from feed and summaries',

@@ -22,6 +22,45 @@ HouseholdMember _member(String userId, String name) {
 }
 
 void main() {
+  testWidgets(
+      'historical payer remains selected until the user chooses a current member',
+      (tester) async {
+    final members = <HouseholdMember>[
+      _member('u1', 'Alice'),
+      _member('u2', 'Bob'),
+    ];
+    String? selectedPayer;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupSplitEditorSection(
+            members: members,
+            selectedPayerUserId: 'departed-user',
+            onPayerChanged: (value) => selectedPayer = value,
+            totalAmount: 10,
+            currencySymbol: '\$',
+            initialSplitType: SplitType.amount,
+            initialSplits: members
+                .map((member) => MemberSplit(member: member, amount: 5))
+                .toList(),
+            onSplitChanged: (_, __) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Unknown Member'), findsOneWidget);
+    expect(selectedPayer, isNull);
+
+    await tester.tap(find.text('Unknown Member'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Alice').last);
+    await tester.pumpAndSettle();
+
+    expect(selectedPayer, 'u1');
+  });
+
   testWidgets('Switching to percent initializes percentages when missing',
       (tester) async {
     final members = <HouseholdMember>[

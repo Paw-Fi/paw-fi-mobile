@@ -18,10 +18,6 @@ int calculateSettlementBreakdownAdjustmentCents({
   required int fallbackNetCents,
   required List<SettlementBreakdownRowV2> rows,
 }) {
-  if (rows.isEmpty) {
-    return 0;
-  }
-
   return fallbackNetCents -
       calculateSettlementBreakdownRowsNetCents(
         rows: rows,

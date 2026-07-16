@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
+String _settlementSnapshotToken(String character) =>
+    'v1:${List<String>.filled(64, character).join()}';
+
 void main() {
   late MonekoDatabase database;
 
@@ -190,6 +193,423 @@ void main() {
 
       expect(next, isNotNull);
       expect(next!.clientMutationId, 'ready');
+    });
+
+    test('reclaims syncing mutations only after the bounded lease expires',
+        () async {
+      await database.enqueueMutation(
+        clientMutationId: 'interrupted',
+        entityType: 'transaction',
+        entityId: 'expense_interrupted',
+        operation: 'create',
+        payload: {'id': 'expense_interrupted'},
+      );
+      await database.markMutationSyncing('interrupted');
+
+      final syncingMutation = (await database.getOutboxMutations()).single;
+      expect(syncingMutation.status, localMutationStatusSyncing);
+      expect(
+        await database.nextRetryableMutation(
+          syncingMutation.updatedAt.add(const Duration(minutes: 9)),
+        ),
+        isNull,
+      );
+
+      final recovered = await database.nextRetryableMutation(
+        syncingMutation.updatedAt.add(const Duration(minutes: 11)),
+      );
+
+      expect(recovered, isNotNull);
+      expect(recovered!.clientMutationId, 'interrupted');
+      expect(recovered.status, localMutationStatusQueued);
+      expect(recovered.retryAfter, isNull);
+    });
+
+    test('pending household gate retains old and new update scopes', () async {
+      final original = _entry(
+        id: 'expense_move',
+        userId: 'user_1',
+        householdId: 'household_old',
+      );
+      final updated = original.copyWith(householdId: 'household_new');
+
+      await database.upsertTransactions([original]);
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: original,
+        updatedEntry: updated,
+        clientMutationId: 'mobile:update_move',
+        payload: {
+          'expenseId': original.id,
+          'updates': {'household_id': 'household_new'},
+          'extraBody': {
+            'householdId': 'household_new',
+          },
+        },
+      );
+
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_old',
+        ),
+        isTrue,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_new',
+        ),
+        isTrue,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_unrelated',
+        ),
+        isFalse,
+      );
+
+      await database.markMutationSyncing('mobile:update_move');
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_old',
+        ),
+        isTrue,
+      );
+      await database.markMutationFailed(
+        clientMutationId: 'mobile:update_move',
+        error: 'offline',
+        retryAfter: DateTime.now().toUtc().add(const Duration(minutes: 1)),
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_new',
+        ),
+        isTrue,
+      );
+
+      await database.markMutationSynced('mobile:update_move');
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_old',
+        ),
+        isFalse,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_new',
+        ),
+        isFalse,
+      );
+    });
+
+    test('pending household gate covers queued AI input payloads', () async {
+      await database.enqueueMutation(
+        clientMutationId: 'mobile:ai_input_1',
+        entityType: 'ai_input',
+        entityId: 'ai_input_1',
+        operation: 'analyze_ai_input',
+        payload: {
+          'userId': 'user_1',
+          'householdId': 'household_ai',
+          'body': {'text': 'Dinner was 20'},
+        },
+      );
+
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_ai',
+        ),
+        isTrue,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_other',
+        ),
+        isFalse,
+      );
+    });
+
+    test('pending household gate supports legacy transaction payloads',
+        () async {
+      await database.writeOptimisticTransaction(
+        entry: _entry(
+          id: 'legacy_queued',
+          userId: 'user_1',
+          householdId: 'household_legacy',
+        ),
+        clientMutationId: 'mobile:legacy_queued',
+        operation: 'create',
+        payload: {'amount': 18},
+      );
+
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_legacy',
+        ),
+        isTrue,
+      );
+    });
+
+    test('delete tombstones block until successfully reconciled', () async {
+      final entry = _entry(
+        id: 'expense_delete',
+        userId: 'user_1',
+        householdId: 'household_delete',
+      );
+      await database.upsertTransactions([entry]);
+      await database.writeOptimisticTransactionDelete(
+        entries: [entry],
+        clientMutationId: 'mobile:delete_household',
+        payload: {'expenseIds': entry.id},
+      );
+
+      expect(
+        await database.getRecentTransactions(
+          userId: 'user_1',
+          householdId: 'household_delete',
+          limit: 20,
+        ),
+        isEmpty,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_delete',
+        ),
+        isTrue,
+      );
+
+      final deleteMutation = (await database.getOutboxMutations()).single;
+      await database.markMutationCancelled(
+        clientMutationId: deleteMutation.clientMutationId,
+        error: 'retry limit reached',
+      );
+      await database.markTransactionMutationExhausted(
+        mutation: deleteMutation,
+      );
+      expect(
+        (await database.getOutboxMutations()).single.status,
+        localMutationStatusCancelled,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_delete',
+        ),
+        isTrue,
+      );
+
+      await database.markOptimisticTransactionDeleteSynced(
+        clientMutationId: deleteMutation.clientMutationId,
+      );
+      expect(
+        await database.hasPendingHouseholdTransactionMutations(
+          'household_delete',
+        ),
+        isFalse,
+      );
+    });
+
+    test('stores settlement attempts as immutable idempotent mutations',
+        () async {
+      final first = await database.enqueueHouseholdSettlementMutation(
+        householdId: ' household_1 ',
+        memberUserId: ' member_1 ',
+        mode: 'TO_MEMBER',
+        amountCents: 6611,
+        currency: 'cad',
+        note: '  Paid by transfer  ',
+        expectedSnapshotToken: _settlementSnapshotToken('a'),
+        clientMutationId: 'mobile:settlement:1',
+      );
+      final payload = jsonDecode(first.payloadJson) as Map<String, dynamic>;
+
+      expect(first.entityType, localHouseholdSettlementMutationEntityType);
+      expect(first.entityId, 'household_1');
+      expect(first.operation, localHouseholdSettlementMutationOperation);
+      expect(payload, {
+        'householdId': 'household_1',
+        'memberUserId': 'member_1',
+        'mode': 'to_member',
+        'amountCents': 6611,
+        'currency': 'CAD',
+        'note': 'Paid by transfer',
+        'expectedSnapshotToken': _settlementSnapshotToken('a'),
+        'clientMutationId': 'mobile:settlement:1',
+      });
+
+      await database.markMutationFailed(
+        clientMutationId: first.clientMutationId,
+        error: 'offline',
+        retryAfter: DateTime.now().toUtc().add(const Duration(minutes: 1)),
+      );
+      final repeated = await database.enqueueHouseholdSettlementMutation(
+        householdId: 'household_1',
+        memberUserId: 'member_1',
+        mode: 'to_member',
+        amountCents: 6611,
+        currency: 'CAD',
+        note: 'Paid by transfer',
+        expectedSnapshotToken: _settlementSnapshotToken('a'),
+        clientMutationId: 'mobile:settlement:1',
+      );
+
+      expect(repeated.status, localMutationStatusFailed);
+      expect(repeated.attemptCount, 1);
+      expect(
+        () => database.enqueueHouseholdSettlementMutation(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          mode: 'to_member',
+          amountCents: 9999,
+          currency: 'CAD',
+          note: 'Paid by transfer',
+          expectedSnapshotToken: _settlementSnapshotToken('a'),
+          clientMutationId: 'mobile:settlement:1',
+        ),
+        throwsStateError,
+      );
+      expect(
+        jsonDecode(
+          (await database.getHouseholdSettlementMutation(
+            'mobile:settlement:1',
+          ))!
+              .payloadJson,
+        ),
+        payload,
+      );
+    });
+
+    test('settlement blocker filters unresolved attempts and fails closed',
+        () async {
+      await database.enqueueHouseholdSettlementMutation(
+        householdId: 'household_1',
+        memberUserId: 'member_1',
+        mode: 'to_member',
+        amountCents: 1000,
+        currency: 'CAD',
+        note: null,
+        expectedSnapshotToken: _settlementSnapshotToken('a'),
+        clientMutationId: 'settlement-1',
+      );
+      await expectLater(
+        () => database.enqueueHouseholdSettlementMutation(
+          householdId: 'household_1',
+          memberUserId: 'member_2',
+          mode: 'from_member',
+          amountCents: 2000,
+          currency: 'USD',
+          note: null,
+          expectedSnapshotToken: _settlementSnapshotToken('b'),
+          clientMutationId: 'settlement-2',
+        ),
+        throwsStateError,
+      );
+      await database.enqueueHouseholdSettlementMutation(
+        householdId: 'household_2',
+        memberUserId: 'member_1',
+        mode: 'both',
+        amountCents: 3000,
+        currency: 'CAD',
+        note: null,
+        expectedSnapshotToken: _settlementSnapshotToken('c'),
+        clientMutationId: 'settlement-3',
+      );
+
+      expect(
+        (await database.getPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+        ))
+            .map((mutation) => mutation.clientMutationId),
+        ['settlement-1'],
+      );
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          currency: 'cad',
+        ),
+        isTrue,
+      );
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          currency: 'CAD',
+          excludingClientMutationId: 'settlement-1',
+        ),
+        isFalse,
+      );
+
+      await database.markMutationSynced('settlement-1');
+      await database.enqueueHouseholdSettlementMutation(
+        householdId: 'household_1',
+        memberUserId: 'member_2',
+        mode: 'from_member',
+        amountCents: 2000,
+        currency: 'USD',
+        note: null,
+        expectedSnapshotToken: _settlementSnapshotToken('b'),
+        clientMutationId: 'settlement-2',
+      );
+      await database.markMutationCancelled(
+        clientMutationId: 'settlement-2',
+        error: 'legacy cancellation',
+      );
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          currency: 'CAD',
+        ),
+        isFalse,
+      );
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_2',
+          currency: 'USD',
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects settlement payloads that the server cannot accept', () async {
+      expect(
+        () => database.enqueueHouseholdSettlementMutation(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          mode: 'invalid',
+          amountCents: 1,
+          currency: 'CAD',
+          note: null,
+          expectedSnapshotToken: _settlementSnapshotToken('a'),
+          clientMutationId: 'settlement-invalid-mode',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => database.enqueueHouseholdSettlementMutation(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          mode: 'both',
+          amountCents: 0,
+          currency: 'CAD',
+          note: null,
+          expectedSnapshotToken: _settlementSnapshotToken('a'),
+          clientMutationId: 'settlement-invalid-amount',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => database.enqueueHouseholdSettlementMutation(
+          householdId: 'household_1',
+          memberUserId: 'member_1',
+          mode: 'both',
+          amountCents: 1,
+          currency: 'CA',
+          note: null,
+          expectedSnapshotToken: 'bad',
+          clientMutationId: 'settlement-invalid-shape',
+        ),
+        throwsArgumentError,
+      );
     });
 
     test('stores category remaps locally and queues sync mutation', () async {

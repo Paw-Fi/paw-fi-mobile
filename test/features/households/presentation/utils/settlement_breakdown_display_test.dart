@@ -40,16 +40,38 @@ void main() {
 
       expect(result, 250000);
     });
+
+    test('includes a legacy carryover in authoritative reconciliation', () {
+      final result = calculateSettlementBreakdownRowsNetCents(
+        rows: [
+          SettlementBreakdownRowV2(
+            direction: SettlementBreakdownDirectionV2.youOwe,
+            expenseDate: DateTime(2026, 7, 16),
+            expenseType: 'legacy_carryover',
+            totalAmountCents: 2500,
+            remainingAmountCents: 2500,
+          ),
+          SettlementBreakdownRowV2(
+            direction: SettlementBreakdownDirectionV2.theyOweYou,
+            expenseDate: DateTime(2026, 7, 16),
+            totalAmountCents: 500,
+            remainingAmountCents: 500,
+          ),
+        ],
+      );
+
+      expect(result, 2000);
+    });
   });
 
   group('calculateSettlementBreakdownAdjustmentCents', () {
-    test('returns zero when there are no rows', () {
+    test('returns the unexplained net when there are no rows', () {
       final result = calculateSettlementBreakdownAdjustmentCents(
         fallbackNetCents: 1940415,
         rows: const <SettlementBreakdownRowV2>[],
       );
 
-      expect(result, 0);
+      expect(result, 1940415);
     });
 
     test('returns remainder not explained by visible rows', () {
@@ -71,6 +93,30 @@ void main() {
       );
 
       expect(result, 1640415);
+    });
+
+    test('returns zero for reciprocal rows that explain a zero net', () {
+      final rows = [
+        SettlementBreakdownRowV2(
+          direction: SettlementBreakdownDirectionV2.youOwe,
+          expenseDate: DateTime(2026, 7, 16),
+          totalAmountCents: 11223,
+          remainingAmountCents: 11223,
+        ),
+        SettlementBreakdownRowV2(
+          direction: SettlementBreakdownDirectionV2.theyOweYou,
+          expenseDate: DateTime(2026, 7, 16),
+          totalAmountCents: 11223,
+          remainingAmountCents: 11223,
+        ),
+      ];
+
+      final result = calculateSettlementBreakdownAdjustmentCents(
+        fallbackNetCents: 0,
+        rows: rows,
+      );
+
+      expect(result, 0);
     });
   });
 }

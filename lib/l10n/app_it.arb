@@ -3264,5 +3264,7 @@
   "socialMedia": "Social media",
   "reddit": "Reddit",
   "couldNotOpenReddit": "Impossibile aprire Reddit",
-  "changelog": "Registro delle modifiche"
+  "changelog": "Registro delle modifiche",
+  "balanceCarriedForward": "Saldo riportato",
+  "balanceCarriedForwardDescription": "Saldo accumulato prima che fosse disponibile la cronologia dettagliata dei conguagli."
 }

@@ -555,6 +555,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         _debugPrint(
           '⚠️ Backend delete succeeded; preserving the optimistic deletion despite refresh failure',
         );
+        // The remote delete is authoritative at this point. Leaving the
+        // in-memory tombstone behind would make settlement preflight treat a
+        // completed delete as permanently pending for this process lifetime.
+        _clearOptimisticDeletedIds(serverTargets);
         try {
           await _refreshAfterLocalTransactionMutation(user.uid);
         } catch (refreshError) {

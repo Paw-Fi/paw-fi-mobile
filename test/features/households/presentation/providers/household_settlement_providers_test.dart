@@ -7,9 +7,11 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
+import 'package:moneko/features/households/data/services/household_service.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:mocktail/mocktail.dart';
 
 const _householdId = '00000000-0000-0000-0000-000000000001';
 
@@ -17,6 +19,8 @@ class _TestAuth extends Auth {
   @override
   AppUser build() => const AppUser(uid: 'me', email: 'me@example.com');
 }
+
+class _MockHouseholdService extends Mock implements HouseholdService {}
 
 void main() {
   test('deleted expense IDs merge persisted and in-memory tombstones',
@@ -109,6 +113,73 @@ void main() {
     expect(balances.single.netCents, 0);
     expect(balances.single.paidToCents, 10000);
   });
+
+  test('atomic settlement provider filters optimistic deletion tombstones',
+      () async {
+    final service = _MockHouseholdService();
+    when(
+      () => service.getSettlementCalculationV3(
+        householdId: _householdId,
+        memberUserId: 'alex',
+        currency: 'USD',
+      ),
+    ).thenAnswer(
+      (_) async => {
+        'split_to_cents': 11223,
+        'split_from_cents': 4612,
+        'paid_to_cents': 0,
+        'paid_from_cents': 0,
+        'net_cents': 6611,
+        'rows': [
+          _breakdownRowJson('deleted-expense', 'you_owe', 11223),
+          _breakdownRowJson('kept-expense', 'they_owe_you', 4612),
+        ],
+      },
+    );
+    final container = ProviderContainer(
+      overrides: [
+        householdServiceProvider.overrideWithValue(service),
+        householdDeletedExpenseIdsProvider.overrideWith(
+          (ref, householdId) async => const {'deleted-expense'},
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final calculation = await container.read(
+      householdSettlementCalculationV3Provider(
+        SettlementBreakdownV2Params(
+          householdId: _householdId,
+          memberUserId: 'alex',
+          currency: 'usd',
+        ),
+      ).future,
+    );
+
+    expect(calculation.netCents, -4612);
+    expect(calculation.rows.single.expenseId, 'kept-expense');
+    expect(calculation.rows.single.remainingAmountCents, 4612);
+  });
+}
+
+Map<String, dynamic> _breakdownRowJson(
+  String expenseId,
+  String direction,
+  int amountCents,
+) {
+  return {
+    'direction': direction,
+    'expense_id': expenseId,
+    'split_group_id': 'group-$expenseId',
+    'split_line_id': 'line-$expenseId',
+    'expense_date': '2026-07-16T00:00:00.000Z',
+    'expense_description': expenseId,
+    'expense_category': 'Other',
+    'expense_raw_text': expenseId,
+    'expense_type': 'expense',
+    'total_amount_cents': amountCents,
+    'remaining_amount_cents': amountCents,
+  };
 }
 
 ProviderContainer _settlementContainer({

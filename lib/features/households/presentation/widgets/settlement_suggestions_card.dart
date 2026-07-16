@@ -104,16 +104,16 @@ class _SettlementSuggestionsCardState
               ),
             ),
           );
-    final useLegacyOverview = needsLegacyOverview ||
-        (balancesAsync.hasError && !balancesAsync.hasValue);
+    final useLegacyOverview = needsLegacyOverview;
     final overviewAsync = useLegacyOverview
         ? ref.watch(settlementOverviewProvider(widget.householdId))
         : null;
 
-    // Never render a partial settlement amount. The common single-currency
-    // path needs only the pairwise RPC; multi-currency and optimistic paths
-    // need the complete legacy overview. Cached values remain usable while
-    // their provider refreshes in the background.
+    // Never render a partial or client-reconstructed settlement amount. The
+    // common single-currency path fails closed when its authoritative RPC
+    // fails; only multi-currency and optimistic previews use the complete
+    // local overview. Cached authoritative values remain usable while their
+    // provider refreshes in the background.
     if (useLegacyOverview) {
       if ((overviewAsync?.hasError ?? false) &&
           !(overviewAsync?.hasValue ?? false)) {

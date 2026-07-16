@@ -8,15 +8,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_calculation_breakdown_page.dart';
+import 'package:moneko/features/households/presentation/utils/settlement_input_utils.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
 import '../providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
-import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -24,23 +26,6 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
-import 'package:moneko/core/utils/money_parser.dart';
-
-@visibleForTesting
-SettlementPaymentRecord buildOptimisticSettlementPayment({
-  required String currentUserId,
-  required String memberUserId,
-  required bool currentUserOwes,
-  required int amountCents,
-  required String currency,
-}) {
-  return SettlementPaymentRecord(
-    payerUserId: currentUserOwes ? memberUserId : currentUserId,
-    participantUserId: currentUserOwes ? currentUserId : memberUserId,
-    amountCents: amountCents,
-    currency: currency,
-  );
-}
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
@@ -68,6 +53,74 @@ class SettleUpSheet extends ConsumerStatefulWidget {
   ConsumerState<SettleUpSheet> createState() => _SettleUpSheetState();
 }
 
+enum _SettlementBalanceStatus { idle, loading, data, error }
+
+class _ConfirmedSettlementContext {
+  final int balanceRequestGeneration;
+  final String memberId;
+  final String currencyCode;
+  final int maxCents;
+  final bool currentUserOwes;
+  final String snapshotToken;
+
+  const _ConfirmedSettlementContext({
+    required this.balanceRequestGeneration,
+    required this.memberId,
+    required this.currencyCode,
+    required this.maxCents,
+    required this.currentUserOwes,
+    required this.snapshotToken,
+  });
+}
+
+class _AuthoritativeSettlementSnapshot {
+  final String memberId;
+  final String currencyCode;
+  final SettlementPairwiseBalance balance;
+  final int maxCents;
+  final bool currentUserOwes;
+  final String snapshotToken;
+
+  const _AuthoritativeSettlementSnapshot({
+    required this.memberId,
+    required this.currencyCode,
+    required this.balance,
+    required this.maxCents,
+    required this.currentUserOwes,
+    required this.snapshotToken,
+  });
+
+  bool matches(_ConfirmedSettlementContext confirmed) {
+    return memberId == confirmed.memberId &&
+        currencyCode == confirmed.currencyCode &&
+        maxCents == confirmed.maxCents &&
+        currentUserOwes == confirmed.currentUserOwes &&
+        snapshotToken == confirmed.snapshotToken;
+  }
+}
+
+class _PendingSettlementAttempt {
+  const _PendingSettlementAttempt({
+    required this.householdId,
+    required this.memberUserId,
+    required this.mode,
+    required this.amountCents,
+    required this.currency,
+    required this.note,
+    required this.expectedSnapshotToken,
+    required this.clientMutationId,
+  });
+
+  final String householdId;
+  final String memberUserId;
+  final String mode;
+  final int amountCents;
+  final String currency;
+  final String? note;
+  final String expectedSnapshotToken;
+  final String clientMutationId;
+}
+
 class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   String? _selectedMemberId;
   bool _isProcessing = false;
@@ -77,7 +130,15 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   int _paidFromCents = 0;
   final TextEditingController _noteController = TextEditingController();
   int _maxSettleCents = 0;
-  String _settlementCurrencyCode = 'USD';
+  String _settlementCurrencyCode = '';
+  String? _snapshotToken;
+  _SettlementBalanceStatus _balanceStatus = _SettlementBalanceStatus.idle;
+  int _balanceRequestGeneration = 0;
+  String? _requestedMemberId;
+  String? _requestedCurrencyCode;
+  bool _balanceRecomputeScheduled = false;
+  _ConfirmedSettlementContext? _confirmedSettlementContext;
+  _PendingSettlementAttempt? _pendingSettlementAttempt;
 
   @override
   void initState() {
@@ -87,22 +148,118 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       _noteController.text = widget.settlementNote!;
     }
     if (_selectedMemberId != null) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _recomputeFromSplits());
+      _scheduleBalanceRecompute();
     }
   }
 
-  Future<void> _recomputeFromSplits() async {
-    if (!mounted) return;
+  @override
+  void didUpdateWidget(covariant SettleUpSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.householdId == widget.householdId &&
+        oldWidget.specificMemberId == widget.specificMemberId &&
+        oldWidget.currency == widget.currency &&
+        oldWidget.isExpressNetting == widget.isExpressNetting &&
+        oldWidget.settleTheyOweYou == widget.settleTheyOweYou) {
+      return;
+    }
 
-    final memberId = _selectedMemberId;
-    if (memberId == null) return;
+    _selectedMemberId = widget.specificMemberId;
+    _pendingSettlementAttempt = null;
+    _invalidateBalanceState();
+    if (_selectedMemberId != null) {
+      _scheduleBalanceRecompute();
+    }
+  }
 
+  void _scheduleBalanceRecompute() {
+    if (_balanceRecomputeScheduled) return;
+    _balanceRecomputeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _balanceRecomputeScheduled = false;
+      if (mounted) {
+        _recomputeFromSplits();
+      }
+    });
+  }
+
+  String _currentCurrencyCode() {
     final homeFilter = ref.read(homeFilterProvider);
     final currencyCode =
         (widget.currency ?? (homeFilter.selectedCurrency ?? 'USD'))
             .trim()
             .toUpperCase();
+    return currencyCode.isEmpty ? 'USD' : currencyCode;
+  }
+
+  void _invalidateBalanceState() {
+    _balanceRequestGeneration += 1;
+    _requestedMemberId = null;
+    _requestedCurrencyCode = null;
+    _balanceStatus = _SettlementBalanceStatus.idle;
+    _youOweCents = 0;
+    _youAreOwedCents = 0;
+    _paidToCents = 0;
+    _paidFromCents = 0;
+    _maxSettleCents = 0;
+    _settlementCurrencyCode = '';
+    _snapshotToken = null;
+    _pendingAmountText = null;
+    _confirmedSettlementContext = null;
+  }
+
+  bool _isCurrentBalanceRequest({
+    required int requestGeneration,
+    required String memberId,
+    required String currencyCode,
+  }) {
+    if (!mounted) return false;
+    return isCurrentSettlementBalanceRequest(
+      requestGeneration: requestGeneration,
+      currentGeneration: _balanceRequestGeneration,
+      requestedMemberId: memberId,
+      currentMemberId: widget.specificMemberId ?? _selectedMemberId,
+      requestedCurrencyCode: currencyCode,
+      currentCurrencyCode: _currentCurrencyCode(),
+    );
+  }
+
+  bool _isConfirmedSettlementContextCurrent(
+    _ConfirmedSettlementContext confirmed,
+  ) {
+    return _balanceStatus == _SettlementBalanceStatus.data &&
+        _maxSettleCents == confirmed.maxCents &&
+        _snapshotToken == confirmed.snapshotToken &&
+        _isCurrentBalanceRequest(
+          requestGeneration: confirmed.balanceRequestGeneration,
+          memberId: confirmed.memberId,
+          currencyCode: confirmed.currencyCode,
+        );
+  }
+
+  Future<void> _recomputeFromSplits() async {
+    if (!mounted) return;
+
+    final memberId = widget.specificMemberId ?? _selectedMemberId;
+    if (memberId == null) {
+      setState(_invalidateBalanceState);
+      return;
+    }
+
+    final currencyCode = _currentCurrencyCode();
+    final requestGeneration = ++_balanceRequestGeneration;
+    setState(() {
+      _requestedMemberId = memberId;
+      _requestedCurrencyCode = currencyCode;
+      _balanceStatus = _SettlementBalanceStatus.loading;
+      _youOweCents = 0;
+      _youAreOwedCents = 0;
+      _paidToCents = 0;
+      _paidFromCents = 0;
+      _maxSettleCents = 0;
+      _settlementCurrencyCode = currencyCode;
+      _snapshotToken = null;
+      _pendingAmountText = null;
+    });
 
     final balancesFuture = ref.read(
       householdPairwiseSettlementBalancesV2Provider(
@@ -116,23 +273,37 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     late final List<SettlementPairwiseBalance> balances;
     try {
       balances = await balancesFuture;
-    } on StateError {
-      return;
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint(
-          '[SettleUpSheet] v2 recompute failed; falling back to legacy calculator: $error\n$stackTrace',
+          '[SettleUpSheet] authoritative v2 recompute failed: $error\n$stackTrace',
         );
       }
-      if (!mounted) return;
-      await _recomputeFromLegacyData(
+      if (!_isCurrentBalanceRequest(
+        requestGeneration: requestGeneration,
         memberId: memberId,
         currencyCode: currencyCode,
-      );
+      )) {
+        return;
+      }
+      setState(() {
+        _balanceStatus = _SettlementBalanceStatus.error;
+        _youOweCents = 0;
+        _youAreOwedCents = 0;
+        _paidToCents = 0;
+        _paidFromCents = 0;
+        _maxSettleCents = 0;
+      });
       return;
     }
 
-    if (!mounted) return;
+    if (!_isCurrentBalanceRequest(
+      requestGeneration: requestGeneration,
+      memberId: memberId,
+      currencyCode: currencyCode,
+    )) {
+      return;
+    }
 
     final balance = balances.firstWhere(
       (entry) => entry.otherUserId == memberId,
@@ -167,7 +338,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       );
     }
 
-    if (!mounted) return;
     setState(() {
       _youOweCents = netYouOwe;
       _youAreOwedCents = netYouAreOwed;
@@ -175,76 +345,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       _paidFromCents = balance.paidFromCents;
       _maxSettleCents = maxSettleCents;
       _settlementCurrencyCode = currencyCode;
-    });
-  }
-
-  Future<void> _recomputeFromLegacyData({
-    required String memberId,
-    required String currencyCode,
-  }) async {
-    if (!mounted) return;
-
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (currentUserId == null) return;
-
-    final splitsFuture = ref.read(
-      cachedHouseholdSplitsProvider(
-        HouseholdSplitsParams(householdId: widget.householdId),
-      ).future,
-    );
-    final paymentsFuture = ref.read(
-      householdSettlementPaymentsProvider(widget.householdId).future,
-    );
-
-    late final List<ExpenseSplitGroup> providerSplits;
-    late final List<SettlementPaymentRecord> allPayments;
-    try {
-      providerSplits = await splitsFuture;
-      if (!mounted) return;
-      allPayments = await paymentsFuture;
-    } on StateError {
-      return;
-    }
-
-    if (!mounted) return;
-
-    final optimisticSplits =
-        ref.read(householdOptimisticSplitsProvider)[widget.householdId] ??
-            const <ExpenseSplitGroup>[];
-    final groups = mergeHouseholdSplits(
-      providerSplits.isNotEmpty
-          ? providerSplits
-          : (widget.splits ?? const <ExpenseSplitGroup>[]),
-      optimisticSplits,
-    );
-    final settlementPayments = allPayments.where((payment) {
-      return (payment.payerUserId == memberId &&
-              payment.participantUserId == currentUserId) ||
-          (payment.payerUserId == currentUserId &&
-              payment.participantUserId == memberId);
-    }).toList();
-
-    final result = computePairwiseNet(
-      splits: groups,
-      currentUserId: currentUserId,
-      otherUserId: memberId,
-      currencyFilter: currencyCode,
-      settlementPayments: settlementPayments,
-    );
-    final maxSettleCents = widget.isExpressNetting
-        ? (result.youOweCents - result.youAreOwedCents).abs()
-        : widget.settleTheyOweYou
-            ? result.youAreOwedCents
-            : result.youOweCents;
-
-    if (!mounted) return;
-    setState(() {
-      _youOweCents = result.youOweCents;
-      _youAreOwedCents = result.youAreOwedCents;
-      _paidToCents = result.paidToCents;
-      _paidFromCents = result.paidFromCents;
-      _maxSettleCents = maxSettleCents;
-      _settlementCurrencyCode = currencyCode;
+      _snapshotToken = null;
+      _balanceStatus = _SettlementBalanceStatus.data;
     });
   }
 
@@ -289,8 +391,56 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     final textTheme = theme.textTheme;
 
     final homeFilter = ref.watch(homeFilterProvider);
-    final currency =
-        widget.currency ?? (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
+    final rawCurrency =
+        (widget.currency ?? (homeFilter.selectedCurrency ?? 'USD'))
+            .trim()
+            .toUpperCase();
+    final currency = rawCurrency.isEmpty ? 'USD' : rawCurrency;
+    ref.listen<int>(
+      householdRemoteMutationRefreshSignalProvider(widget.householdId),
+      (previous, next) {
+        if (previous != next &&
+            !_isProcessing &&
+            _pendingSettlementAttempt == null &&
+            (widget.specificMemberId ?? _selectedMemberId) != null) {
+          _scheduleBalanceRecompute();
+        }
+      },
+    );
+    ref.listen<int>(transactionsFeedRefreshSignalProvider, (previous, next) {
+      if (previous != next &&
+          !_isProcessing &&
+          _pendingSettlementAttempt == null &&
+          (widget.specificMemberId ?? _selectedMemberId) != null) {
+        _scheduleBalanceRecompute();
+      }
+    });
+    ref.listen<List<ExpenseSplitGroup>>(
+      householdOptimisticSplitsProvider.select(
+        (state) => state[widget.householdId] ?? const <ExpenseSplitGroup>[],
+      ),
+      (previous, next) {
+        if (!identical(previous, next) &&
+            !_isProcessing &&
+            _pendingSettlementAttempt == null &&
+            (widget.specificMemberId ?? _selectedMemberId) != null) {
+          _scheduleBalanceRecompute();
+        }
+      },
+    );
+    ref.listen<Set<String>>(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => state[widget.householdId] ?? const <String>{},
+      ),
+      (previous, next) {
+        if (!identical(previous, next) &&
+            !_isProcessing &&
+            _pendingSettlementAttempt == null &&
+            (widget.specificMemberId ?? _selectedMemberId) != null) {
+          _scheduleBalanceRecompute();
+        }
+      },
+    );
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
     final expensesAsync = ref.watch(cachedHouseholdExpensesProvider(
@@ -313,13 +463,31 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
     final hasSelectedMember =
         _selectedMemberId != null || widget.specificMemberId != null;
+    final selectedMemberId = widget.specificMemberId ?? _selectedMemberId;
+    if (selectedMemberId != null) {
+      if (_requestedCurrencyCode != null &&
+          _requestedCurrencyCode != currency &&
+          !_isProcessing) {
+        _scheduleBalanceRecompute();
+      }
+    }
+    if (selectedMemberId != null &&
+        (_requestedMemberId != selectedMemberId ||
+            _requestedCurrencyCode != currency)) {
+      _scheduleBalanceRecompute();
+    }
+
+    final hasResolvedBalance =
+        _balanceStatus == _SettlementBalanceStatus.data &&
+            _requestedMemberId == selectedMemberId &&
+            _requestedCurrencyCode == currency;
     final hasOutstanding = _youOweCents > 0 || _youAreOwedCents > 0;
 
     // Determine when there is actually something the current user can mark as settled.
     // For express netting, any non-zero dues in either direction can be settled.
     // For detailed mode, we gate by the selected direction.
     final bool nothingToSettle;
-    if (!hasSelectedMember) {
+    if (!hasSelectedMember || !hasResolvedBalance) {
       nothingToSettle = true;
     } else if (widget.isExpressNetting) {
       nothingToSettle = !hasOutstanding;
@@ -342,6 +510,12 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     }
 
     final isNetPayer = _youOweCents >= _youAreOwedCents;
+    final canSettle = hasResolvedBalance &&
+        hasSelectedMember &&
+        !nothingToSettle &&
+        _maxSettleCents > 0;
+    final hasPendingSettlementAttempt = _pendingSettlementAttempt != null;
+    final interactionLocked = _isProcessing || hasPendingSettlementAttempt;
     final mediaQuery = MediaQuery.of(context);
     final maxSheetHeight = math.max(
       0.0,
@@ -454,12 +628,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                           // Auto-select logic logic remains separate in the build block above or init
                           // but visually we assume logic is handled
                           if (filtered.length == 1 &&
-                              _selectedMemberId == null) {
+                              _selectedMemberId == null &&
+                              !interactionLocked) {
                             // This side-effect in build is tricky but modifying state during build is bad.
                             // The original code had it in a post frame callback.
                             // We preserve the logic location, just rendering here.
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted && _selectedMemberId == null) {
+                              if (mounted &&
+                                  _selectedMemberId == null &&
+                                  !_isProcessing &&
+                                  _pendingSettlementAttempt == null) {
                                 setState(() {
                                   _selectedMemberId = filtered.first.userId;
                                 });
@@ -482,18 +660,20 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               _ModernMemberSelector(
                                 members: filtered,
                                 selectedId: _selectedMemberId,
-                                onSelect: (id) {
-                                  setState(() {
-                                    _selectedMemberId = id;
-                                    _youOweCents = 0;
-                                    _youAreOwedCents = 0;
-                                    _paidToCents = 0;
-                                    _paidFromCents = 0;
-                                    _maxSettleCents = 0;
-                                    _pendingAmountText = null;
-                                  });
-                                  _recomputeFromSplits();
-                                },
+                                onSelect: interactionLocked
+                                    ? null
+                                    : (id) {
+                                        setState(() {
+                                          _selectedMemberId = id;
+                                          _youOweCents = 0;
+                                          _youAreOwedCents = 0;
+                                          _paidToCents = 0;
+                                          _paidFromCents = 0;
+                                          _maxSettleCents = 0;
+                                          _pendingAmountText = null;
+                                        });
+                                        _recomputeFromSplits();
+                                      },
                                 scheme: colorScheme,
                               ),
                             ],
@@ -514,40 +694,68 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                       maxSettleCents: _maxSettleCents,
                       settlementCurrencyCode: _settlementCurrencyCode,
                       currency: currency,
+                      isBalanceLoading: hasSelectedMember &&
+                          !hasResolvedBalance &&
+                          !(_balanceStatus == _SettlementBalanceStatus.error &&
+                              _requestedMemberId == selectedMemberId &&
+                              _requestedCurrencyCode == currency),
+                      hasBalanceError:
+                          _balanceStatus == _SettlementBalanceStatus.error &&
+                              _requestedMemberId == selectedMemberId &&
+                              _requestedCurrencyCode == currency,
                       isExpressNetting: widget.isExpressNetting,
                       isNetPayer: isNetPayer,
                       settleTheyOweYou: widget.settleTheyOweYou,
                       scheme: colorScheme,
                       l10n: context.l10n,
-                      onShowBreakdown: hasSelectedMember && userId != null
-                          ? () {
-                              final targetMemberId =
-                                  widget.specificMemberId ?? _selectedMemberId;
-                              if (targetMemberId == null) return;
+                      onRetryBalance: hasSelectedMember && !interactionLocked
+                          ? _scheduleBalanceRecompute
+                          : null,
+                      onShowBreakdown: hasResolvedBalance &&
+                              hasSelectedMember &&
+                              !interactionLocked &&
+                              userId != null
+                          ? () async {
+                              setState(() => _isProcessing = true);
+                              try {
+                                if (!await _prepareAuthoritativeSettlementBalance()) {
+                                  return;
+                                }
+                                if (!context.mounted) return;
 
-                              final members = membersAsync.valueOrNull ??
-                                  const <HouseholdMember>[];
-                              final member = members.firstWhere(
-                                (m) => m.userId == targetMemberId,
-                                orElse: () => HouseholdMember(
-                                  id: 'member',
+                                final targetMemberId =
+                                    widget.specificMemberId ??
+                                        _selectedMemberId;
+                                if (targetMemberId == null) return;
+
+                                final members = membersAsync.valueOrNull ??
+                                    const <HouseholdMember>[];
+                                final member = members.firstWhere(
+                                  (m) => m.userId == targetMemberId,
+                                  orElse: () => HouseholdMember(
+                                    id: 'member',
+                                    householdId: widget.householdId,
+                                    userId: targetMemberId,
+                                    role: HouseholdRole.member,
+                                    joinedAt: DateTime.now(),
+                                    createdAt: DateTime.now(),
+                                    updatedAt: DateTime.now(),
+                                  ),
+                                );
+
+                                _openCalculationBreakdownPage(
+                                  context,
                                   householdId: widget.householdId,
-                                  userId: targetMemberId,
-                                  role: HouseholdRole.member,
-                                  joinedAt: DateTime.now(),
-                                  createdAt: DateTime.now(),
-                                  updatedAt: DateTime.now(),
-                                ),
-                              );
-
-                              _openCalculationBreakdownPage(
-                                context,
-                                householdId: widget.householdId,
-                                currentUserId: userId,
-                                member: member,
-                                splits: effectiveSplits,
-                                transactions: transactions,
-                              );
+                                  currentUserId: userId,
+                                  member: member,
+                                  splits: effectiveSplits,
+                                  transactions: transactions,
+                                );
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isProcessing = false);
+                                }
+                              }
                             }
                           : null,
                     ),
@@ -563,7 +771,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed:
+                          _isProcessing ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(color: colorScheme.outlineVariant),
@@ -584,7 +793,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                   Expanded(
                     flex: 2,
                     child: FilledButton(
-                      onPressed: _isProcessing ? null : _confirmAndSettle,
+                      onPressed: _isProcessing ||
+                              (!canSettle && !hasPendingSettlementAttempt)
+                          ? null
+                          : _confirmAndSettle,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: colorScheme.primary,
@@ -604,7 +816,9 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               ),
                             )
                           : Text(
-                              context.l10n.settle,
+                              hasPendingSettlementAttempt
+                                  ? context.l10n.tryAgain
+                                  : context.l10n.settle,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
@@ -621,12 +835,21 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     );
   }
 
-  // ... (keep existing methods: _showConfirm, _confirmAndSettle, _parseAmountCents, _clampAmountCents)
   Future<bool> _showConfirm() async {
+    _pendingAmountText = null;
+    _confirmedSettlementContext = null;
     final maxCents = _maxSettleCents;
-    if (maxCents <= 0) {
+    final memberId = widget.specificMemberId ?? _selectedMemberId;
+    final currencyCode = _settlementCurrencyCode;
+    final snapshotToken = _snapshotToken;
+    final requestGeneration = _balanceRequestGeneration;
+    if (_balanceStatus != _SettlementBalanceStatus.data ||
+        memberId == null ||
+        currencyCode.isEmpty ||
+        snapshotToken == null ||
+        maxCents <= 0) {
       if (mounted) {
-        AppToast.info(context, context.l10n.nothingToSettle);
+        AppToast.info(context, context.l10n.tryAgain);
       }
       return false;
     }
@@ -634,14 +857,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     final result = await MonekoAlertDialog.show(
       context: context,
       title: context.l10n.confirmSettlement,
-      description: context.l10n.confirmSettlementMessage,
+      description:
+          '${context.l10n.amountToSettle}: ${formatCurrency(maxCents / 100.0, currencyCode)}',
       confirmLabel: context.l10n.settle,
       cancelLabel: context.l10n.cancel,
       barrierDismissible: true,
       inputConfig: MonekoAlertDialogInputConfig(
         initialValue: formatAmount(maxCents / 100.0),
         placeholder: context.l10n.amountPlaceholder,
-        isRequired: false,
+        isRequired: true,
+        validationMessage: context.l10n.invalidAmount,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
       ),
       secondaryInputConfig: MonekoAlertDialogInputConfig(
@@ -653,214 +878,415 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     );
 
     if (result == null || !result.confirmed) return false;
+    if (!_isCurrentBalanceRequest(
+          requestGeneration: requestGeneration,
+          memberId: memberId,
+          currencyCode: currencyCode,
+        ) ||
+        _balanceStatus != _SettlementBalanceStatus.data ||
+        _maxSettleCents != maxCents) {
+      if (mounted) {
+        AppToast.info(context, context.l10n.tryAgain);
+      }
+      return false;
+    }
+    final requestedCents = parseSettlementAmountCents(result.text);
+    if (requestedCents == null) {
+      if (mounted) {
+        AppToast.info(context, context.l10n.invalidAmount);
+      }
+      return false;
+    }
+    if (requestedCents > maxCents) {
+      if (mounted) {
+        AppToast.info(
+          context,
+          '${context.l10n.maxIs} '
+          '${formatCurrency(maxCents / 100.0, currencyCode)}',
+        );
+      }
+      return false;
+    }
     _pendingAmountText = result.text;
+    _confirmedSettlementContext = _ConfirmedSettlementContext(
+      balanceRequestGeneration: requestGeneration,
+      memberId: memberId,
+      currencyCode: currencyCode,
+      maxCents: maxCents,
+      currentUserOwes: widget.isExpressNetting
+          ? _youOweCents >= _youAreOwedCents
+          : !widget.settleTheyOweYou,
+      snapshotToken: snapshotToken,
+    );
     _noteController.text = (result.secondaryText ?? '').trim();
     return true;
   }
 
-  Future<void> _confirmAndSettle() async {
-    if (!await _showConfirm()) return;
-    if (_selectedMemberId == null && widget.specificMemberId == null) {
-      if (mounted) {
-        AppToast.info(context, context.l10n.pleaseSelectMember);
-      }
-      return;
-    }
-
-    setState(() {
-      _isProcessing = true;
-    });
+  Future<_AuthoritativeSettlementSnapshot?>
+      _fetchAuthoritativeSettlementSnapshot() async {
+    final memberId = widget.specificMemberId ?? _selectedMemberId;
+    final currencyCode = _currentCurrencyCode();
+    if (memberId == null || currencyCode.isEmpty) return null;
 
     try {
-      final memberId = _selectedMemberId ?? widget.specificMemberId!;
-      final service = ref.read(householdServiceProvider);
-      final note = _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim();
-
-      final maxCents = _maxSettleCents;
-      if (maxCents <= 0) {
-        if (mounted) {
-          AppToast.info(context, context.l10n.nothingToSettle);
-        }
-        return;
-      }
-
-      final requestedCents = _parseAmountCents(_pendingAmountText);
-      final amountCents = _clampAmountCents(
-        requestedCents: requestedCents,
-        maxCents: maxCents,
+      await ref.read(mobileOutboxDrainerProvider).drain(maxMutations: 100);
+      final coordinator = await ref.read(
+        mobileOutboxSyncCoordinatorProvider.future,
       );
-      if (requestedCents != null && requestedCents > maxCents && mounted) {
-        AppToast.info(
-          context,
-          'Max ${formatCurrency(maxCents / 100.0, _settlementCurrencyCode)}',
-        );
-      }
-      if (amountCents == null || amountCents <= 0) {
-        if (mounted) {
-          AppToast.info(context, context.l10n.nothingToSettle);
-        }
-        return;
-      }
+      if (!mounted) return null;
 
-      final mode = widget.isExpressNetting
-          ? 'both'
-          : widget.settleTheyOweYou
-              ? 'from_member'
-              : 'to_member';
-      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      SettlementPaymentRecord? optimisticPayment;
-      if (currentUserId != null && currentUserId.isNotEmpty) {
-        final currentUserOwes = widget.isExpressNetting
-            ? _youOweCents >= _youAreOwedCents
-            : !widget.settleTheyOweYou;
-        optimisticPayment = buildOptimisticSettlementPayment(
-          currentUserId: currentUserId,
-          memberUserId: memberId,
-          currentUserOwes: currentUserOwes,
-          amountCents: amountCents,
-          currency: _settlementCurrencyCode,
-        );
-        ref
-            .read(optimisticSettlementPaymentsProvider.notifier)
-            .addPayment(widget.householdId, optimisticPayment);
-      }
+      // Fetch from the repository instead of a stale-while-revalidate cache so
+      // successfully drained optimistic split rows can be proven present on
+      // the server before any payment is recorded.
+      final remoteSplits = await ref
+          .read(householdRepositoryProvider)
+          .getHouseholdSplits(householdId: widget.householdId);
+      ref
+          .read(householdOptimisticSplitsProvider.notifier)
+          .pruneIfInServer(widget.householdId, remoteSplits);
 
-      final count = await service.settleAmountAndNotify(
+      final hasPendingLocalMutation = await coordinator.database
+          .hasPendingHouseholdTransactionMutations(widget.householdId);
+      final hasPendingSettlement =
+          await coordinator.database.hasPendingHouseholdSettlementMutations(
         householdId: widget.householdId,
         memberUserId: memberId,
-        mode: mode,
-        amountCents: amountCents,
-        currency: _settlementCurrencyCode,
-        settlementNote: note,
+        currency: currencyCode,
+      );
+      final hasUnconfirmedOptimisticSplit =
+          (ref.read(householdOptimisticSplitsProvider)[widget.householdId] ??
+                  const <ExpenseSplitGroup>[])
+              .isNotEmpty;
+      final optimisticDeletedExpenseIds = ref.read(
+            householdOptimisticDeletedExpenseIdsProvider,
+          )[widget.householdId] ??
+          const <String>{};
+
+      if (hasPendingLocalMutation ||
+          hasPendingSettlement ||
+          hasUnconfirmedOptimisticSplit) {
+        if (mounted) {
+          AppToast.info(context, context.l10n.tryAgain);
+        }
+        return null;
+      }
+
+      // The durable outbox/tombstone gate above is authoritative. Once it is
+      // clear, any in-memory delete marker is stale (the delete either synced
+      // or never became durable) and must not block settlement for the rest
+      // of this process lifetime.
+      if (optimisticDeletedExpenseIds.isNotEmpty) {
+        ref
+            .read(householdOptimisticDeletedExpenseIdsProvider.notifier)
+            .restore(widget.householdId, optimisticDeletedExpenseIds);
+      }
+
+      // Confirmation must bypass the optimistic/cached provider. A retained
+      // synced tombstone can intentionally keep that provider on its local
+      // fallback path, which is useful for normal rendering but not safe for
+      // recording an irreversible settlement payment.
+      final response =
+          await ref.read(householdServiceProvider).getSettlementCalculationV3(
+                householdId: widget.householdId,
+                memberUserId: memberId,
+                currency: currencyCode,
+              );
+      if (!mounted ||
+          memberId != (widget.specificMemberId ?? _selectedMemberId) ||
+          currencyCode != _currentCurrencyCode()) {
+        return null;
+      }
+
+      final calculation = SettlementCalculationV3.fromJson(response);
+      if (!calculation.hasAuthoritativeSnapshotToken ||
+          calculation.householdId != widget.householdId ||
+          calculation.memberUserId != memberId ||
+          calculation.currency != currencyCode) {
+        throw const FormatException(
+          'Settlement calculation did not include a matching server snapshot',
+        );
+      }
+      final balance = SettlementPairwiseBalance(
+        otherUserId: memberId,
+        currency: currencyCode,
+        splitToCents: calculation.splitToCents,
+        splitFromCents: calculation.splitFromCents,
+        paidToCents: calculation.paidToCents,
+        paidFromCents: calculation.paidFromCents,
+        netCents: calculation.netCents,
       );
 
-      // Force-refresh cached data so settlement changes show immediately
-      try {
-        await clearHouseholdSettlementPaymentsPersistentCache(
-          widget.householdId,
+      final maxCents = widget.isExpressNetting
+          ? balance.netCents.abs()
+          : widget.settleTheyOweYou
+              ? balance.youAreOwedCents
+              : balance.youOweCents;
+      final currentUserOwes = widget.isExpressNetting
+          ? balance.netCents >= 0
+          : !widget.settleTheyOweYou;
+      return _AuthoritativeSettlementSnapshot(
+        memberId: memberId,
+        currencyCode: currencyCode,
+        balance: balance,
+        maxCents: maxCents,
+        currentUserOwes: currentUserOwes,
+        snapshotToken: calculation.snapshotToken!,
+      );
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          '[SettleUpSheet] settlement preflight failed: $error\n$stackTrace',
         );
-      } catch (_) {}
-      ref
-          .read(householdRemoteMutationRefreshSignalProvider(
-            widget.householdId,
-          ).notifier)
-          .state += 1;
-      ref
-          .read(cacheInvalidatorProvider)
-          .invalidateHouseholdData(widget.householdId);
-      ref.invalidate(cachedHouseholdExpensesProvider(
-        HouseholdExpensesParams(householdId: widget.householdId),
-      ));
-      ref.invalidate(cachedHouseholdSplitsProvider(
-        HouseholdSplitsParams(householdId: widget.householdId),
-      ));
-      try {
-        final homeFilter = ref.read(homeFilterProvider);
-        final periodSelection = ref.read(periodFilterProvider);
-        final financialMonthStartDay = ref.read(financialMonthStartDayProvider);
-        final range = resolvePeriodDateRange(
-          periodSelection,
-          financialMonthStartDay: financialMonthStartDay,
+      }
+      if (mounted) {
+        AppToast.info(context, context.l10n.tryAgain);
+      }
+      return null;
+    }
+  }
+
+  bool _applyAuthoritativeSettlementSnapshot(
+    _AuthoritativeSettlementSnapshot snapshot,
+  ) {
+    if (!mounted ||
+        snapshot.memberId != (widget.specificMemberId ?? _selectedMemberId) ||
+        snapshot.currencyCode != _currentCurrencyCode()) {
+      return false;
+    }
+
+    _balanceRequestGeneration += 1;
+    setState(() {
+      _requestedMemberId = snapshot.memberId;
+      _requestedCurrencyCode = snapshot.currencyCode;
+      _youOweCents = snapshot.balance.youOweCents;
+      _youAreOwedCents = snapshot.balance.youAreOwedCents;
+      _paidToCents = snapshot.balance.paidToCents;
+      _paidFromCents = snapshot.balance.paidFromCents;
+      _maxSettleCents = snapshot.maxCents;
+      _settlementCurrencyCode = snapshot.currencyCode;
+      _snapshotToken = snapshot.snapshotToken;
+      _balanceStatus = _SettlementBalanceStatus.data;
+    });
+    return true;
+  }
+
+  Future<bool> _prepareAuthoritativeSettlementBalance() async {
+    final snapshot = await _fetchAuthoritativeSettlementSnapshot();
+    return snapshot != null && _applyAuthoritativeSettlementSnapshot(snapshot);
+  }
+
+  Future<void> _confirmAndSettle() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    var attemptPersisted = _pendingSettlementAttempt != null;
+    var closedSheet = false;
+
+    try {
+      var attempt = _pendingSettlementAttempt;
+      if (attempt == null) {
+        if (!await _prepareAuthoritativeSettlementBalance()) return;
+        if (!await _showConfirm()) return;
+        final confirmed = _confirmedSettlementContext;
+        if (confirmed == null ||
+            !_isConfirmedSettlementContextCurrent(confirmed)) {
+          if (mounted) AppToast.info(context, context.l10n.tryAgain);
+          return;
+        }
+
+        final requestedCents = parseSettlementAmountCents(_pendingAmountText);
+        final amountCents = requestedCents == null
+            ? null
+            : clampSettlementAmountCents(
+                requestedCents: requestedCents,
+                maxCents: confirmed.maxCents,
+              );
+        if (amountCents == null || amountCents <= 0) {
+          if (mounted) AppToast.info(context, context.l10n.invalidAmount);
+          return;
+        }
+
+        // The token is an opaque hash of row identities, cycle boundary,
+        // causal events, and allocations—not just aggregate totals. A second
+        // read catches dialog-time changes; the RPC compares it once more
+        // under the same household lock before writing.
+        final revalidatedSnapshot =
+            await _fetchAuthoritativeSettlementSnapshot();
+        if (revalidatedSnapshot == null) return;
+        if (!revalidatedSnapshot.matches(confirmed)) {
+          _applyAuthoritativeSettlementSnapshot(revalidatedSnapshot);
+          if (mounted) AppToast.info(context, context.l10n.tryAgain);
+          return;
+        }
+
+        final note = _noteController.text.trim();
+        attempt = _PendingSettlementAttempt(
+          householdId: widget.householdId,
+          memberUserId: confirmed.memberId,
+          mode: widget.isExpressNetting
+              ? 'both'
+              : widget.settleTheyOweYou
+                  ? 'from_member'
+                  : 'to_member',
+          amountCents: amountCents,
+          currency: confirmed.currencyCode,
+          note: note.isEmpty ? null : note,
+          expectedSnapshotToken: confirmed.snapshotToken,
+          clientMutationId: generateSettlementClientMutationId(),
         );
-        ref.invalidate(householdExpensesProvider(
-          HouseholdExpensesParams(
-            householdId: widget.householdId,
-            limit: 10000,
-            startDate: range.start,
-            endDate: range.end,
-          ),
-        ));
-        ref.invalidate(householdSplitsProvider(
-          HouseholdSplitsParams(householdId: widget.householdId),
-        ));
-        final currency = (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
-        ref.invalidate(householdDerivedSummaryProvider(
-          HouseholdSummaryParams(
-            householdId: widget.householdId,
-            currency: currency,
-            startDate: range.start.toIso8601String(),
-            endDate: range.end.toIso8601String(),
-          ),
-        ));
-        ref.invalidate(householdBudgetsProvider(widget.householdId));
-        ref.invalidate(householdMembersProvider(widget.householdId));
-        ref.invalidate(householdSettlementHistoryProvider(
-            SettlementHistoryParams(householdId: widget.householdId)));
-        ref.invalidate(householdSettlementPaymentsProvider(widget.householdId));
-        ref.invalidate(householdPairwiseSettlementBalancesV2Provider(
-          PairwiseSettlementBalancesParams(
-            householdId: widget.householdId,
-            currency: _settlementCurrencyCode,
-          ),
-        ));
-        ref.invalidate(householdSettlementBreakdownV2Provider);
-      } catch (_) {}
-      if (optimisticPayment != null) {
-        ref
-            .read(optimisticSettlementPaymentsProvider.notifier)
-            .removePayment(widget.householdId, optimisticPayment);
+
+        final coordinator = await ref.read(
+          mobileOutboxSyncCoordinatorProvider.future,
+        );
+        await coordinator.database.enqueueHouseholdSettlementMutation(
+          householdId: attempt.householdId,
+          memberUserId: attempt.memberUserId,
+          mode: attempt.mode,
+          amountCents: attempt.amountCents,
+          currency: attempt.currency,
+          note: attempt.note,
+          expectedSnapshotToken: attempt.expectedSnapshotToken,
+          clientMutationId: attempt.clientMutationId,
+        );
+        attemptPersisted = true;
+        if (mounted) {
+          setState(() => _pendingSettlementAttempt = attempt);
+        } else {
+          _pendingSettlementAttempt = attempt;
+        }
       }
 
-      if (mounted) {
-        Navigator.pop(context, true);
-        AppToast.success(
-            context,
-            count > 0
-                ? context.l10n.settlementCompleted
-                : context.l10n.nothingToSettle);
+      final result = await _submitSettlementAttempt(attempt);
+      if (!mounted) return;
+      setState(() => _pendingSettlementAttempt = null);
+      await _refreshSettlementData(attempt.currency);
+      if (!mounted) return;
+
+      switch (result.status) {
+        case SettlementWriteStatusV2.applied:
+          closedSheet = true;
+          Navigator.pop(context, true);
+          AppToast.success(context, context.l10n.settlementCompleted);
+          break;
+        case SettlementWriteStatusV2.snapshotConflict:
+          await _prepareAuthoritativeSettlementBalance();
+          if (!mounted) return;
+          if (mounted) AppToast.info(context, context.l10n.tryAgain);
+          break;
+        case SettlementWriteStatusV2.nothingToSettle:
+          await _prepareAuthoritativeSettlementBalance();
+          if (!mounted) return;
+          if (mounted) AppToast.info(context, context.l10n.nothingToSettle);
+          break;
       }
     } catch (e) {
-      try {
-        final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-        final memberId = _selectedMemberId ?? widget.specificMemberId;
-        if (currentUserId != null && memberId != null) {
-          final currentUserOwes = widget.isExpressNetting
-              ? _youOweCents >= _youAreOwedCents
-              : !widget.settleTheyOweYou;
-          ref.read(optimisticSettlementPaymentsProvider.notifier).removePayment(
-                widget.householdId,
-                buildOptimisticSettlementPayment(
-                  currentUserId: currentUserId,
-                  memberUserId: memberId,
-                  currentUserOwes: currentUserOwes,
-                  amountCents: _clampAmountCents(
-                        requestedCents: _parseAmountCents(_pendingAmountText),
-                        maxCents: _maxSettleCents,
-                      ) ??
-                      0,
-                  currency: _settlementCurrencyCode,
-                ),
-              );
-        }
-      } catch (_) {}
+      if (!attemptPersisted) {
+        _pendingSettlementAttempt = null;
+      }
       if (mounted) {
         AppToast.error(context, '${context.l10n.error}: $e');
       }
     } finally {
+      _confirmedSettlementContext = null;
+      _pendingAmountText = null;
       if (mounted) {
         setState(() {
           _isProcessing = false;
         });
-        _recomputeFromSplits();
+        if (!closedSheet && _pendingSettlementAttempt == null) {
+          _recomputeFromSplits();
+        }
       }
     }
   }
 
-  int? _parseAmountCents(String? raw) {
-    final cents = tryParseMoneyToCents(raw ?? '');
-    return cents != null && cents > 0 ? cents : null;
+  Future<SettlementWriteResultV2> _submitSettlementAttempt(
+    _PendingSettlementAttempt attempt,
+  ) async {
+    final response =
+        await ref.read(householdServiceProvider).settleAmountAndNotifyV2(
+              householdId: attempt.householdId,
+              memberUserId: attempt.memberUserId,
+              mode: attempt.mode,
+              amountCents: attempt.amountCents,
+              currency: attempt.currency,
+              expectedSnapshotToken: attempt.expectedSnapshotToken,
+              clientMutationId: attempt.clientMutationId,
+              settlementNote: attempt.note,
+            );
+    final result = parseHouseholdSettlementWriteResult(
+      response,
+      expectedClientMutationId: attempt.clientMutationId,
+      expectedAmountCents: attempt.amountCents,
+    );
+    final coordinator = await ref.read(
+      mobileOutboxSyncCoordinatorProvider.future,
+    );
+    await coordinator.database.markMutationSynced(attempt.clientMutationId);
+    return result;
   }
 
-  int? _clampAmountCents({
-    required int? requestedCents,
-    required int maxCents,
-  }) {
-    if (maxCents <= 0) return null;
-    final requested = requestedCents ?? maxCents;
-    if (requested <= 0) return null;
-    return math.min(requested, maxCents);
+  Future<void> _refreshSettlementData(String settlementCurrency) async {
+    try {
+      await clearHouseholdSettlementPaymentsPersistentCache(
+        widget.householdId,
+      );
+    } catch (_) {}
+    ref
+        .read(householdRemoteMutationRefreshSignalProvider(
+          widget.householdId,
+        ).notifier)
+        .state += 1;
+    ref.read(cacheInvalidatorProvider).invalidateHouseholdData(
+          widget.householdId,
+        );
+    ref.invalidate(cachedHouseholdExpensesProvider(
+      HouseholdExpensesParams(householdId: widget.householdId),
+    ));
+    ref.invalidate(cachedHouseholdSplitsProvider(
+      HouseholdSplitsParams(householdId: widget.householdId),
+    ));
+    try {
+      final homeFilter = ref.read(homeFilterProvider);
+      final periodSelection = ref.read(periodFilterProvider);
+      final financialMonthStartDay = ref.read(financialMonthStartDayProvider);
+      final range = resolvePeriodDateRange(
+        periodSelection,
+        financialMonthStartDay: financialMonthStartDay,
+      );
+      ref.invalidate(householdExpensesProvider(
+        HouseholdExpensesParams(
+          householdId: widget.householdId,
+          limit: 10000,
+          startDate: range.start,
+          endDate: range.end,
+        ),
+      ));
+      ref.invalidate(householdSplitsProvider(
+        HouseholdSplitsParams(householdId: widget.householdId),
+      ));
+      final currency = (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
+      ref.invalidate(householdDerivedSummaryProvider(
+        HouseholdSummaryParams(
+          householdId: widget.householdId,
+          currency: currency,
+          startDate: range.start.toIso8601String(),
+          endDate: range.end.toIso8601String(),
+        ),
+      ));
+      ref.invalidate(householdBudgetsProvider(widget.householdId));
+      ref.invalidate(householdMembersProvider(widget.householdId));
+      ref.invalidate(householdSettlementHistoryProvider(
+        SettlementHistoryParams(householdId: widget.householdId),
+      ));
+      ref.invalidate(householdSettlementPaymentsProvider(widget.householdId));
+      ref.invalidate(householdPairwiseSettlementBalancesV2Provider(
+        PairwiseSettlementBalancesParams(
+          householdId: widget.householdId,
+          currency: settlementCurrency,
+        ),
+      ));
+      ref.invalidate(householdSettlementBreakdownV2Provider);
+    } catch (_) {}
   }
 
   String? _pendingAmountText;
@@ -870,7 +1296,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 class _ModernMemberSelector extends StatelessWidget {
   final List<HouseholdMember> members;
   final String? selectedId;
-  final ValueChanged<String> onSelect;
+  final ValueChanged<String>? onSelect;
   final ColorScheme scheme;
 
   const _ModernMemberSelector({
@@ -895,62 +1321,73 @@ class _ModernMemberSelector extends StatelessWidget {
           final name = rawName.isEmpty ? context.l10n.memberName : rawName;
           final initial = name.characters.first.toUpperCase();
 
-          return GestureDetector(
-            onTap: () => onSelect(m.userId),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              width: 72,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? scheme.primaryContainer
-                    : scheme.surfaceContainerLow,
+          return Semantics(
+            button: true,
+            enabled: onSelect != null,
+            selected: isSelected,
+            label: name,
+            child: Material(
+              color: scheme.surface.withValues(alpha: 0),
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                onTap: onSelect == null ? null : () => onSelect!(m.userId),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? scheme.primary : scheme.surfaceBorder,
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isSelected
-                          ? scheme.primary
-                          : scheme.surfaceContainerHighest,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  width: 72,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? scheme.primaryContainer
+                        : scheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected ? scheme.primary : scheme.surfaceBorder,
+                      width: 2,
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      initial,
-                      style: TextStyle(
-                        color: isSelected
-                            ? scheme.onPrimary
-                            : scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected
+                              ? scheme.primary
+                              : scheme.surfaceContainerHighest,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          initial,
+                          style: TextStyle(
+                            color: isSelected
+                                ? scheme.onPrimary
+                                : scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSelected
+                              ? scheme.onPrimaryContainer
+                              : scheme.onSurface,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isSelected
-                          ? scheme.onPrimaryContainer
-                          : scheme.onSurface,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ],
+                ),
               ),
             ),
           );
@@ -1114,6 +1551,8 @@ class _AvatarNodePlaceholder extends StatelessWidget {
 class _AmountDisplayCard extends StatelessWidget {
   final bool nothingToSettle;
   final bool hasSelectedMember;
+  final bool isBalanceLoading;
+  final bool hasBalanceError;
   final double? amountToShow;
   final int maxSettleCents;
   final String settlementCurrencyCode;
@@ -1124,10 +1563,13 @@ class _AmountDisplayCard extends StatelessWidget {
   final ColorScheme scheme;
   final AppLocalizations l10n;
   final VoidCallback? onShowBreakdown;
+  final VoidCallback? onRetryBalance;
 
   const _AmountDisplayCard({
     required this.nothingToSettle,
     required this.hasSelectedMember,
+    required this.isBalanceLoading,
+    required this.hasBalanceError,
     required this.amountToShow,
     required this.maxSettleCents,
     required this.settlementCurrencyCode,
@@ -1138,133 +1580,206 @@ class _AmountDisplayCard extends StatelessWidget {
     required this.scheme,
     required this.l10n,
     this.onShowBreakdown,
+    this.onRetryBalance,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      decoration: BoxDecoration(
-        color: scheme.sheetBackground, // M3 distinctive surface
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            l10n.amountToSettle.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: scheme.mutedForeground,
+    final directionLabel = isExpressNetting
+        ? (isNetPayer ? l10n.youOwe : l10n.theyOweYou)
+        : (settleTheyOweYou ? l10n.theyOweYou : l10n.youOwe);
+    final semanticLabel = !hasSelectedMember
+        ? l10n.pleaseSelectMember
+        : isBalanceLoading
+            ? l10n.loading
+            : hasBalanceError
+                ? l10n.errorLoadingData
+                : nothingToSettle
+                    ? l10n.nothingToSettle
+                    : '${l10n.amountToSettle}: '
+                        '${formatCurrency(maxSettleCents / 100.0, settlementCurrencyCode)}, '
+                        '$directionLabel';
+
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: semanticLabel,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: BoxDecoration(
+          color: scheme.sheetBackground, // M3 distinctive surface
+          borderRadius: BorderRadius.circular(24),
+          border:
+              Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              l10n.amountToSettle.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: scheme.mutedForeground,
+              ),
             ),
-          ),
-          if (onShowBreakdown != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: GestureDetector(
-                onTap: onShowBreakdown,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
+            if (onShowBreakdown != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Semantics(
+                  button: true,
+                  label: context.l10n.howItSCalculated,
+                  child: Material(
                     color: scheme.onSurface.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.3),
-                      width: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      side: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.3),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        context.l10n.howItSCalculated,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: scheme.mutedForeground,
+                    child: InkWell(
+                      onTap: onShowBreakdown,
+                      borderRadius: BorderRadius.circular(22),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                context.l10n.howItSCalculated,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: scheme.mutedForeground,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.help_outline_rounded,
+                                size: 16,
+                                color: scheme.mutedForeground,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.help_outline_rounded,
-                        size: 14,
-                        color: scheme.mutedForeground,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          const SizedBox(height: 16),
-          if (!hasSelectedMember)
-            Text(
-              l10n.pleaseSelectMember,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: scheme.outline,
-              ),
-              textAlign: TextAlign.center,
-            )
-          else if (nothingToSettle)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle_outline, color: scheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.nothingToSettle,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.primary,
-                  ),
+            const SizedBox(height: 16),
+            if (!hasSelectedMember)
+              Text(
+                l10n.pleaseSelectMember,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.outline,
                 ),
-              ],
-            )
-          else
-            Column(
-              children: [
-                Text(
-                  formatCurrency(
-                    maxSettleCents / 100.0,
-                    settlementCurrencyCode,
+                textAlign: TextAlign.center,
+              )
+            else if (isBalanceLoading)
+              Column(
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
                   ),
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w800,
-                    color: scheme.foreground,
-                    height: 1.0,
-                    letterSpacing: -1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: scheme.onSurface.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isExpressNetting
-                        ? (isNetPayer ? l10n.youOwe : l10n.theyOweYou)
-                        : (settleTheyOweYou ? l10n.theyOweYou : l10n.youOwe),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.loading,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-              ],
-            )
-        ],
+                ],
+              )
+            else if (hasBalanceError)
+              Column(
+                children: [
+                  Icon(Icons.error_outline_rounded, color: scheme.error),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.errorLoadingData,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (onRetryBalance != null) ...[
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: onRetryBalance,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                      ),
+                      child: Text(l10n.retry),
+                    ),
+                  ],
+                ],
+              )
+            else if (nothingToSettle)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.nothingToSettle,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                children: [
+                  Text(
+                    formatCurrency(
+                      maxSettleCents / 100.0,
+                      settlementCurrencyCode,
+                    ),
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w800,
+                      color: scheme.foreground,
+                      height: 1.0,
+                      letterSpacing: -1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: scheme.onSurface.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      directionLabel,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+          ],
+        ),
       ),
     );
   }

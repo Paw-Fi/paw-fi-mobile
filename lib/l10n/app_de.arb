@@ -3317,5 +3317,7 @@
   "socialMedia": "Soziale Medien",
   "reddit": "Reddit",
   "couldNotOpenReddit": "Reddit konnte nicht geöffnet werden",
-  "changelog": "Änderungsverlauf"
+  "changelog": "Änderungsverlauf",
+  "balanceCarriedForward": "Übertragener Saldo",
+  "balanceCarriedForwardDescription": "Saldo aus der Zeit, bevor ein detaillierter Abrechnungsverlauf verfügbar war."
 }

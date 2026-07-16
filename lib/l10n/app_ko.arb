@@ -3130,5 +3130,7 @@
   "socialMedia": "소셜 미디어",
   "reddit": "Reddit",
   "couldNotOpenReddit": "Reddit을 열 수 없습니다",
-  "changelog": "변경 내역"
+  "changelog": "변경 내역",
+  "balanceCarriedForward": "이월 잔액",
+  "balanceCarriedForwardDescription": "상세 정산 내역을 확인할 수 있기 전부터 이월된 잔액입니다."
 }

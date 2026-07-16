@@ -3319,5 +3319,7 @@
   "socialMedia": "Redes sociales",
   "reddit": "Reddit",
   "couldNotOpenReddit": "No se pudo abrir Reddit",
-  "changelog": "Historial de cambios"
+  "changelog": "Historial de cambios",
+  "balanceCarriedForward": "Saldo anterior",
+  "balanceCarriedForwardDescription": "Saldo acumulado antes de que estuviera disponible el historial detallado de liquidaciones."
 }

@@ -3309,5 +3309,7 @@
   "socialMedia": "Соціальні мережі",
   "reddit": "Reddit",
   "couldNotOpenReddit": "Не вдалося відкрити Reddit",
-  "changelog": "Історія змін"
+  "changelog": "Історія змін",
+  "balanceCarriedForward": "Перенесений баланс",
+  "balanceCarriedForwardDescription": "Баланс, накопичений до появи докладної історії взаєморозрахунків."
 }

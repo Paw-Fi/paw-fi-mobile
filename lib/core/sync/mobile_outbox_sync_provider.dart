@@ -6,15 +6,22 @@ import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/households/data/services/device_registration_service.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+final mobileOutboxSupabaseClientProvider = Provider<SupabaseClient>(
+  (ref) => supabase,
+);
 
 final mobileOutboxSyncCoordinatorProvider =
     FutureProvider<SyncCoordinator>((ref) async {
@@ -31,6 +38,25 @@ final mobileOutboxSyncCoordinatorProvider =
 bool _isMobileOutboxDrainScheduled = false;
 bool _mobileOutboxDrainRequested = false;
 Future<int>? _mobileOutboxDrainInFlight;
+
+final mobileOutboxDrainerProvider = Provider<MobileOutboxDrainer>(
+  (ref) => MobileOutboxDrainer(
+    () => ref.read(mobileOutboxSyncCoordinatorProvider.future),
+  ),
+);
+
+class MobileOutboxDrainer {
+  const MobileOutboxDrainer(this._readCoordinator);
+
+  final Future<SyncCoordinator> Function() _readCoordinator;
+
+  Future<int> drain({int maxMutations = 20}) {
+    return _drainMobileOutboxWithReader(
+      _readCoordinator,
+      maxMutations: maxMutations,
+    );
+  }
+}
 
 Duration? resolveNextMobileOutboxRetryDelay(
   Iterable<LocalMutationOutboxData> mutations, {
@@ -95,10 +121,9 @@ void scheduleMobileOutboxDrain(
 }
 
 Future<int> drainMobileOutbox(Ref ref, {int maxMutations = 20}) async {
-  return _drainMobileOutboxWithReader(
-    () => ref.read(mobileOutboxSyncCoordinatorProvider.future),
-    maxMutations: maxMutations,
-  );
+  return ref
+      .read(mobileOutboxDrainerProvider)
+      .drain(maxMutations: maxMutations);
 }
 
 Future<int> _drainMobileOutboxWithContainer(
@@ -138,6 +163,23 @@ Future<void> _dispatchMobileMutation(
   final payload = _decodePayload(mutation.payloadJson);
 
   switch (mutation.operation) {
+    case localHouseholdSettlementMutationOperation:
+      if (!isDurableHouseholdSettlementMutation(mutation)) {
+        throw StateError('Settlement operation has the wrong entity type');
+      }
+      await dispatchHouseholdSettlementMutation(
+        ref.read(mobileOutboxSupabaseClientProvider),
+        mutation,
+        payload,
+      );
+      ref
+          .read(householdRemoteMutationRefreshSignalProvider(
+            mutation.entityId,
+          ).notifier)
+          .state += 1;
+      ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
+      ref.invalidate(householdSettlementCalculationV3Provider);
+      return;
     case 'create':
       final requestBody = await _requestBodyWithQueuedReceipt(
         _mapValue(payload['requestBody']),

@@ -144,6 +144,7 @@ class NotificationIntentParser {
         final deepLinkIntent = fromUri(uri, raw: normalized);
         if (deepLinkIntent != null &&
             eventType != 'invite_reminder_inviter' &&
+            eventType != 'expense_deleted' &&
             eventType != 'settlement_completed' &&
             eventType != 'split_settled' &&
             eventType != 'log_expense_reminder' &&
@@ -167,6 +168,7 @@ class NotificationIntentParser {
       case 'expense_edited':
       case 'income_added':
       case 'income_edited':
+      case 'income_acknowledged':
         return NotificationIntent(
           action: NotificationIntentAction.openExpenseSheet,
           eventType: eventType,

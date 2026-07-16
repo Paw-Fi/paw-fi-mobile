@@ -3267,5 +3267,7 @@
   "socialMedia": "Социальные сети",
   "reddit": "Reddit",
   "couldNotOpenReddit": "Не удалось открыть Reddit",
-  "changelog": "История изменений"
+  "changelog": "История изменений",
+  "balanceCarriedForward": "Перенесенный баланс",
+  "balanceCarriedForwardDescription": "Баланс, накопленный до появления подробной истории взаиморасчетов."
 }

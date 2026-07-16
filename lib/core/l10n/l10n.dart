@@ -13,6 +13,17 @@ extension L10nX on BuildContext {
   }
 }
 
+/// Settlement cutover copy lives here until the translations catalog is
+/// promoted into generated ARB files. Keeping the getters on
+/// [AppLocalizations] gives every supported locale the intentional English
+/// fallback while `translations.json` remains the source for translators.
+extension SettlementBreakdownL10nX on AppLocalizations {
+  String get balanceCarriedForward => 'Balance carried forward';
+
+  String get balanceCarriedForwardDescription =>
+      'Balance from before detailed settlement history was available.';
+}
+
 extension PocketRolloverL10nX on AppLocalizations {
   String get pocketRolloverActivityTitle => 'Rollover activity';
   String get pocketRolloverAvailableBudgetLabel => 'Available';
@@ -89,7 +100,8 @@ extension TrialWelcomeL10nX on AppLocalizations {
   String get trialWelcomeTitle => 'You\'ve got 7 days of Plus — free!';
   String get trialWelcomeSubtitle =>
       'Enjoy all Plus features at no cost for the next 7 days. Here\'s what you can try:';
-  String get trialWelcomeFeatureMessagingTitle => 'Log expenses via Telegram & WhatsApp';
+  String get trialWelcomeFeatureMessagingTitle =>
+      'Log expenses via Telegram & WhatsApp';
   String get trialWelcomeFeatureMessagingBody =>
       'Forward a message or receipt from your favorite chat app and Moneko captures it automatically.';
   String get trialWelcomeFeatureEmailTitle => 'Email receipt capture';

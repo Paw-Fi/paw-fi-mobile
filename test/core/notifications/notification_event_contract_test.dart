@@ -8,6 +8,8 @@ void main() {
     expect(householdNotificationSupportedEvents, contains('expense_deleted'));
     expect(householdNotificationSupportedEvents, contains('income_added'));
     expect(householdNotificationSupportedEvents, contains('income_edited'));
+    expect(
+        householdNotificationSupportedEvents, contains('income_acknowledged'));
     expect(householdNotificationSupportedEvents, contains('budget_warn'));
     expect(householdNotificationSupportedEvents, contains('budget_alert'));
     expect(householdNotificationSupportedEvents, contains('split_created'));

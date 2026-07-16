@@ -3354,5 +3354,7 @@
   "socialMedia": "Social media",
   "reddit": "Reddit",
   "couldNotOpenReddit": "Could not open Reddit",
-  "changelog": "Changelog"
+  "changelog": "Changelog",
+  "balanceCarriedForward": "Balance carried forward",
+  "balanceCarriedForwardDescription": "Balance from before detailed settlement history was available."
 }
