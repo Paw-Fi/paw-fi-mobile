@@ -20,7 +20,7 @@ const String localHouseholdSettlementMutationEntityType =
 const String localHouseholdSettlementMutationOperation =
     'settle_household_balance_v2';
 
-const int _localDatabaseSchemaVersion = 5;
+const int _localDatabaseSchemaVersion = 6;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -1442,6 +1442,25 @@ class MonekoDatabase {
         .toSet();
   }
 
+  Future<bool> hasPendingTransactionUpdatesOrDeletes() async {
+    final row = _db.select(
+      '''
+      SELECT 1
+      FROM local_mutation_outbox
+      WHERE entity_type = 'transaction'
+        AND operation IN ('update_transaction', 'delete_transaction')
+        AND status IN (?, ?, ?)
+      LIMIT 1
+      ''',
+      [
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+    return row.isNotEmpty;
+  }
+
   Future<LocalMutationOutboxData> enqueueHouseholdSettlementMutation({
     required String householdId,
     required String memberUserId,
@@ -1813,10 +1832,14 @@ class MonekoDatabase {
       '''
       SELECT
         COUNT(*) AS transaction_count,
-        SUM(CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income'
+        SUM(CASE WHEN COALESCE(analytics_is_final, 1) = 1
+          AND COALESCE(analytics_counts_toward_income,
+            CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 1 ELSE 0 END) = 1
           THEN ABS(amount_cents) ELSE 0 END) AS income_total_cents,
-        SUM(CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income'
-          THEN 0 ELSE ABS(amount_cents) END) AS expense_total_cents,
+        SUM(ABS(amount_cents) * CASE WHEN COALESCE(analytics_is_final, 1) = 1
+          THEN COALESCE(analytics_spending_multiplier,
+            CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)
+          ELSE 0 END) AS expense_total_cents,
         COUNT(DISTINCT currency) AS currency_count
       FROM local_transactions
       WHERE $summaryWhereSql
@@ -1828,11 +1851,14 @@ class MonekoDatabase {
       '''
       SELECT
         LOWER(COALESCE(NULLIF(TRIM(category), ''), 'uncategorized')) AS category_key,
-        SUM(ABS(amount_cents)) AS amount_cents,
+        SUM(ABS(amount_cents) * COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)) AS amount_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
       WHERE $summaryWhereSql
-        AND LOWER(COALESCE(type, 'expense')) != 'income'
+        AND COALESCE(analytics_is_final, 1) = 1
+        AND COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
       GROUP BY category_key
       ORDER BY amount_cents DESC, category_key ASC
       ''',
@@ -1843,10 +1869,13 @@ class MonekoDatabase {
       '''
       SELECT
         SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
-        SUM(ABS(amount_cents)) AS amount_cents
+        SUM(ABS(amount_cents) * COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)) AS amount_cents
       FROM local_transactions
       WHERE $summaryWhereSql
-        AND LOWER(COALESCE(type, 'expense')) != 'income'
+        AND COALESCE(analytics_is_final, 1) = 1
+        AND COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
       GROUP BY bucket_start
       ORDER BY bucket_start ASC
       ''',
@@ -1857,10 +1886,13 @@ class MonekoDatabase {
       '''
       SELECT
         ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
-        SUM(ABS(amount_cents)) AS amount_cents
+        SUM(ABS(amount_cents) * COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)) AS amount_cents
       FROM local_transactions
       WHERE $summaryWhereSql
-        AND LOWER(COALESCE(type, 'expense')) != 'income'
+        AND COALESCE(analytics_is_final, 1) = 1
+        AND COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
       GROUP BY bucket_start
       ORDER BY bucket_start ASC
       ''',
@@ -1872,11 +1904,14 @@ class MonekoDatabase {
       SELECT
         LOWER(COALESCE(NULLIF(TRIM(category), ''), 'uncategorized')) AS category_key,
         UPPER(COALESCE(currency, '')) AS currency_key,
-        SUM(ABS(amount_cents)) AS amount_cents,
+        SUM(ABS(amount_cents) * COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)) AS amount_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
       WHERE $summaryWhereSql
-        AND LOWER(COALESCE(type, 'expense')) != 'income'
+        AND COALESCE(analytics_is_final, 1) = 1
+        AND COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
       GROUP BY category_key, currency_key
       ORDER BY amount_cents DESC, category_key ASC, currency_key ASC
       ''',
@@ -1888,10 +1923,13 @@ class MonekoDatabase {
       SELECT
         SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
         UPPER(COALESCE(currency, '')) AS currency_key,
-        SUM(ABS(amount_cents)) AS amount_cents
+        SUM(ABS(amount_cents) * COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)) AS amount_cents
       FROM local_transactions
       WHERE $summaryWhereSql
-        AND LOWER(COALESCE(type, 'expense')) != 'income'
+        AND COALESCE(analytics_is_final, 1) = 1
+        AND COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
       GROUP BY bucket_start, currency_key
       ORDER BY bucket_start ASC, currency_key ASC
       ''',
@@ -1903,10 +1941,13 @@ class MonekoDatabase {
       SELECT
         ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
         UPPER(COALESCE(currency, '')) AS currency_key,
-        SUM(ABS(amount_cents)) AS amount_cents
+        SUM(ABS(amount_cents) * COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)) AS amount_cents
       FROM local_transactions
       WHERE $summaryWhereSql
-        AND LOWER(COALESCE(type, 'expense')) != 'income'
+        AND COALESCE(analytics_is_final, 1) = 1
+        AND COALESCE(analytics_spending_multiplier,
+          CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
       GROUP BY bucket_start, currency_key
       ORDER BY bucket_start ASC, currency_key ASC
       ''',
@@ -1917,9 +1958,13 @@ class MonekoDatabase {
       '''
       SELECT
         UPPER(COALESCE(currency, '')) AS currency_key,
-        SUM(CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income'
-          THEN 0 ELSE ABS(amount_cents) END) AS expense_total_cents,
-        SUM(CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income'
+        SUM(ABS(amount_cents) * CASE WHEN COALESCE(analytics_is_final, 1) = 1
+          THEN COALESCE(analytics_spending_multiplier,
+            CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END)
+          ELSE 0 END) AS expense_total_cents,
+        SUM(CASE WHEN COALESCE(analytics_is_final, 1) = 1
+          AND COALESCE(analytics_counts_toward_income,
+            CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 1 ELSE 0 END) = 1
           THEN ABS(amount_cents) ELSE 0 END) AS income_total_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
@@ -2854,6 +2899,10 @@ class MonekoDatabase {
         account_icon TEXT,
         account_color TEXT,
         type TEXT NOT NULL DEFAULT 'expense',
+        analytics_class TEXT,
+        analytics_is_final INTEGER NOT NULL DEFAULT 1,
+        analytics_spending_multiplier INTEGER,
+        analytics_counts_toward_income INTEGER,
         is_recurring INTEGER NOT NULL DEFAULT 0,
         recurrence_rule_json TEXT,
         client_record_id TEXT,
@@ -3041,6 +3090,13 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'account_color', 'TEXT');
       _ensureColumn(
           'local_transactions', 'type', "TEXT NOT NULL DEFAULT 'expense'");
+      _ensureColumn('local_transactions', 'analytics_class', 'TEXT');
+      _ensureColumn('local_transactions', 'analytics_is_final',
+          'INTEGER NOT NULL DEFAULT 1');
+      _ensureColumn(
+          'local_transactions', 'analytics_spending_multiplier', 'INTEGER');
+      _ensureColumn(
+          'local_transactions', 'analytics_counts_toward_income', 'INTEGER');
       _ensureColumn(
           'local_transactions', 'is_recurring', 'INTEGER NOT NULL DEFAULT 0');
       _ensureColumn('local_transactions', 'recurrence_rule_json', 'TEXT');
@@ -3107,6 +3163,7 @@ class MonekoDatabase {
         END
         WHERE scope_key = ''
       ''');
+      _db.execute('UPDATE local_transaction_feed_cache SET is_complete = 0');
       _db.execute('PRAGMA user_version = $_localDatabaseSchemaVersion');
     });
   }
@@ -3163,10 +3220,12 @@ class MonekoDatabase {
         currency, category, created_at, updated_at, local_updated_at, raw_text, merchant,
         breakdown_json, receipt_image_url, local_receipt_image_path,
         shared_member_ids_json, split_group_id, bank_account_id, wallet_id,
-        account_name, account_icon, account_color, type, is_recurring,
+        account_name, account_icon, account_color, type, analytics_class,
+        analytics_is_final, analytics_spending_multiplier,
+        analytics_counts_toward_income, is_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -3192,6 +3251,10 @@ class MonekoDatabase {
         account_icon = excluded.account_icon,
         account_color = excluded.account_color,
         type = excluded.type,
+        analytics_class = excluded.analytics_class,
+        analytics_is_final = excluded.analytics_is_final,
+        analytics_spending_multiplier = excluded.analytics_spending_multiplier,
+        analytics_counts_toward_income = excluded.analytics_counts_toward_income,
         is_recurring = excluded.is_recurring,
         recurrence_rule_json = CASE
           WHEN excluded.recurrence_rule_json IS NOT NULL
@@ -3240,6 +3303,14 @@ class MonekoDatabase {
         entry.accountIcon,
         entry.accountColor,
         entry.type ?? 'expense',
+        entry.analyticsClass,
+        entry.analyticsIsFinal ? 1 : 0,
+        entry.analyticsSpendingMultiplier,
+        entry.analyticsCountsTowardIncome == null
+            ? null
+            : entry.analyticsCountsTowardIncome!
+                ? 1
+                : 0,
         entry.isRecurring ? 1 : 0,
         _encodeJsonMap(entry.recurrenceRuleJson),
         entry.clientRecordId,
@@ -3429,7 +3500,8 @@ class MonekoDatabase {
     final nextMonth = DateTime(key.month.year, key.month.month + 1);
     final rows = _db.select(
       '''
-      SELECT amount_cents, type, category, wallet_id
+      SELECT amount_cents, type, category, wallet_id, analytics_is_final,
+        analytics_spending_multiplier, analytics_counts_toward_income
       FROM local_transactions
       WHERE scope_key = ?
         AND currency = ?
@@ -3457,18 +3529,32 @@ class MonekoDatabase {
       final type = row['type']?.toString().toLowerCase() == 'income'
           ? 'income'
           : 'expense';
-      if (type == 'income') {
+      final isFinal = (row['analytics_is_final'] as int? ?? 1) == 1;
+      final spendingMultiplier = isFinal
+          ? (row['analytics_spending_multiplier'] as int? ??
+              (type == 'income' ? 0 : 1))
+          : 0;
+      final countsTowardIncome = isFinal &&
+          ((row['analytics_counts_toward_income'] as int?) == 1 ||
+              (row['analytics_counts_toward_income'] == null &&
+                  type == 'income'));
+      if (countsTowardIncome) {
         incomeCents += amountCents;
-      } else {
-        expenseCents += amountCents;
+      } else if (spendingMultiplier != 0) {
+        expenseCents += amountCents * spendingMultiplier;
       }
 
       final category = row['category']?.toString().trim();
-      if (category != null && category.isNotEmpty) {
-        final categoryKey = _CategorySummaryKey(category, type);
+      if (category != null &&
+          category.isNotEmpty &&
+          (countsTowardIncome || spendingMultiplier != 0)) {
+        final summaryType = countsTowardIncome ? 'income' : 'expense';
+        final categoryKey = _CategorySummaryKey(category, summaryType);
         final current =
             categoryTotals[categoryKey] ?? const _CategorySummaryValue();
-        categoryTotals[categoryKey] = current.adding(amountCents);
+        categoryTotals[categoryKey] = current.adding(
+          countsTowardIncome ? amountCents : amountCents * spendingMultiplier,
+        );
       }
 
       final walletId = row['wallet_id']?.toString().trim();
@@ -3605,6 +3691,12 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     accountIcon: row['account_icon'] as String?,
     accountColor: row['account_color'] as String?,
     type: row['type'] as String?,
+    analyticsClass: row['analytics_class'] as String?,
+    analyticsIsFinal: (row['analytics_is_final'] as int? ?? 1) == 1,
+    analyticsSpendingMultiplier: row['analytics_spending_multiplier'] as int?,
+    analyticsCountsTowardIncome: row['analytics_counts_toward_income'] == null
+        ? null
+        : row['analytics_counts_toward_income'] as int == 1,
     isRecurring: (row['is_recurring'] as int? ?? 0) == 1,
     recurrenceRuleJson: _decodeJsonMap(row['recurrence_rule_json'] as String?),
     clientRecordId: row['client_record_id'] as String?,
@@ -3768,9 +3860,18 @@ _LocalFeedFilter _localFeedFilter(
   }
 
   final type = query.type.trim().toLowerCase();
-  if (type == 'expense' || type == 'income') {
-    conditions.add("LOWER(COALESCE(type, 'expense')) = ?");
-    args.add(type);
+  if (type == 'expense') {
+    conditions.add('''
+      COALESCE(analytics_is_final, 1) = 1
+      AND COALESCE(analytics_spending_multiplier,
+        CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 0 ELSE 1 END) != 0
+    ''');
+  } else if (type == 'income') {
+    conditions.add('''
+      COALESCE(analytics_is_final, 1) = 1
+      AND COALESCE(analytics_counts_toward_income,
+        CASE WHEN LOWER(COALESCE(type, 'expense')) = 'income' THEN 1 ELSE 0 END) = 1
+    ''');
   }
 
   final search = query.searchQuery?.trim().toLowerCase();

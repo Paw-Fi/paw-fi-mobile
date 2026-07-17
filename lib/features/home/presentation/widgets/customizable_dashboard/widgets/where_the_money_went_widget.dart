@@ -164,7 +164,7 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
     }
 
     var filteredExpenses = widget.expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .where((expense) => expense.effectiveSpendingMultiplier != 0)
         .toList(growable: false);
     if (widget.currency != null) {
       final curr = widget.currency!.toUpperCase();
@@ -176,7 +176,7 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
     final categoryTotals = <String, double>{};
     for (final expense in filteredExpenses) {
       final cat = canonicalizeCategoryKey(expense.category);
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.spendingEffect;
     }
 
     final sortedCategories = categoryTotals.entries.toList(growable: false)

@@ -146,11 +146,11 @@ WalletSnapshot buildWalletSnapshot({
       expense.amountCents.abs(),
       sourceCurrency,
     );
-    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-    if (isIncome) {
+    if (expense.countsTowardIncome) {
       totalIncomeCents += convertedAmountCents;
-    } else {
-      totalSpentCents += convertedAmountCents;
+    } else if (expense.effectiveSpendingMultiplier != 0) {
+      totalSpentCents +=
+          convertedAmountCents * expense.effectiveSpendingMultiplier;
     }
   }
 

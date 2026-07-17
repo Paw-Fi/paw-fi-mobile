@@ -24,11 +24,10 @@ void _homeSpendTrace(String message) {
 }
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(0, (sum, entry) {
-    final type = (entry.type ?? 'expense').toLowerCase();
-    if (type == 'income') return sum;
-    return sum + entry.amount.abs();
-  });
+  return entries.fold<double>(
+    0,
+    (sum, entry) => sum + entry.spendingEffect,
+  );
 }
 
 String _traceAmount(num value) => value.toStringAsFixed(2);
@@ -564,8 +563,7 @@ class _SpendingCardState extends State<SpendingCard> {
     final totals = <String, _CurrencyTypeTotalAccumulator>{};
 
     for (final expense in widget.expenses) {
-      final type = (expense.type ?? 'expense').toLowerCase();
-      if (type == 'income') continue;
+      if (expense.effectiveSpendingMultiplier == 0) continue;
 
       final date =
           DateTime(expense.date.year, expense.date.month, expense.date.day);
@@ -581,7 +579,7 @@ class _SpendingCardState extends State<SpendingCard> {
       }
 
       final current = totals[currency] ?? _CurrencyTypeTotalAccumulator();
-      current.expenseTotal += expense.amount.abs();
+      current.expenseTotal += expense.spendingEffect;
       current.transactionCount += 1;
       totals[currency] = current;
     }
@@ -664,10 +662,9 @@ class _SpendingCardState extends State<SpendingCard> {
           selectedCode == null ||
           rawCode.isEmpty ||
           rawCode == selectedCode;
-      final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-      if (dateOk && currencyOk && !isIncome) {
+      if (dateOk && currencyOk && expense.effectiveSpendingMultiplier != 0) {
         filteredExpenses.add(expense);
-        directTotal += expense.amount.abs();
+        directTotal += expense.spendingEffect;
       }
     }
 
@@ -933,6 +930,10 @@ int _expenseListSignature(List<ExpenseEntry> expenses) {
       expense.amountCents,
       expense.currency,
       expense.type,
+      expense.analyticsClass,
+      expense.analyticsIsFinal,
+      expense.analyticsSpendingMultiplier,
+      expense.analyticsCountsTowardIncome,
     );
   }
   return hash;

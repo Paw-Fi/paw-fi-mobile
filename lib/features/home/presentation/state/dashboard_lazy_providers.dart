@@ -29,11 +29,10 @@ void _homeSpendTrace(String message) {
 }
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(0, (sum, entry) {
-    final type = (entry.type ?? 'expense').toLowerCase();
-    if (type == 'income') return sum;
-    return sum + entry.amount.abs();
-  });
+  return entries.fold<double>(
+    0,
+    (sum, entry) => sum + entry.spendingEffect,
+  );
 }
 
 String _traceAmount(num value) => value.toStringAsFixed(2);
@@ -82,24 +81,23 @@ class PreviewDashboardDataService implements DashboardDataService {
       );
     }
 
-    final expenseRows = expenses
-        .where((entry) => (entry.type ?? 'expense').toLowerCase() != 'income');
-    final incomeRows = expenses
-        .where((entry) => (entry.type ?? 'expense').toLowerCase() == 'income');
+    final expenseRows =
+        expenses.where((entry) => entry.effectiveSpendingMultiplier != 0);
+    final incomeRows = expenses.where((entry) => entry.countsTowardIncome);
     final categoryTotals = <String, DashboardCategorySummary>{};
     for (final entry in expenseRows) {
       final category = (entry.category ?? 'uncategorized').toLowerCase();
       final existing = categoryTotals[category];
       categoryTotals[category] = DashboardCategorySummary(
         category: category,
-        amount: (existing?.amount ?? 0) + entry.amount.abs(),
+        amount: (existing?.amount ?? 0) + entry.spendingEffect,
         transactionCount: (existing?.transactionCount ?? 0) + 1,
       );
     }
     return DashboardSnapshotSummary(
       transactionCount: expenses.length,
-      expenseTotal:
-          expenseRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
+      expenseTotal: expenseRows.fold<double>(
+          0, (sum, entry) => sum + entry.spendingEffect),
       incomeTotal:
           incomeRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
       hasMultipleCurrencies: expenses
@@ -1102,7 +1100,7 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
       beforeDate = DateTime.tryParse(last['date']?.toString() ?? '');
       beforeCreatedAt = DateTime.tryParse(last['created_at']?.toString() ?? '');
       beforeId = last['id']?.toString();
-      if (beforeDate == null || beforeId == null || beforeId!.isEmpty) {
+      if (beforeDate == null || beforeId == null || beforeId.isEmpty) {
         throw StateError('Home MoM RPC returned an invalid pagination cursor');
       }
       final cursor = '$beforeDate|$beforeCreatedAt|$beforeId';

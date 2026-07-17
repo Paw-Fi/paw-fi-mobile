@@ -71,7 +71,7 @@ class DashboardTrendChart extends StatelessWidget {
     }
 
     final expenses = transactions.where((tx) {
-      return (tx.entry.type ?? 'expense').toLowerCase() != 'income';
+      return tx.entry.effectiveSpendingMultiplier != 0;
     }).toList();
 
     const maxChartMonths = 6;
@@ -112,7 +112,8 @@ class DashboardTrendChart extends StatelessWidget {
       if (monthIndex < 0 || monthIndex >= monthsCount) continue;
       final baseAmount = tx.entry.amountCents / 100.0;
       final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
-      monthlyTotals[monthIndex] += resolvedAmount.abs();
+      monthlyTotals[monthIndex] +=
+          resolvedAmount.abs() * tx.entry.effectiveSpendingMultiplier;
     }
 
     final spots = <FlSpot>[];

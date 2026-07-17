@@ -55,8 +55,7 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
     double total = 0;
     for (final e in items) {
       if (_isWalletTransferFeedEntry(e)) continue;
-      final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
-      total += (isIncome ? 1 : -1) * e.amount.abs();
+      total += e.countsTowardIncome ? e.amount.abs() : -e.spendingEffect;
     }
     return MonthTransactionGroup(
       monthStart: monthStart,
@@ -102,8 +101,7 @@ List<DayTransactionGroup> groupTransactionsByDay(
     double total = 0;
     for (final e in items) {
       if (_isWalletTransferFeedEntry(e)) continue;
-      final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
-      total += (isIncome ? 1 : -1) * e.amount.abs();
+      total += e.countsTowardIncome ? e.amount.abs() : -e.spendingEffect;
     }
     return DayTransactionGroup(
       date: day,

@@ -253,13 +253,11 @@ final dashboardCurrencySummariesProvider =
       final code = (entry.currency ?? '').trim().toUpperCase();
       if (code.isEmpty) continue;
       final existing = rollup[code];
-      final isIncome = (entry.type ?? 'expense').toLowerCase() == 'income';
       rollup[code] = CurrencySummary(
         currencyCode: code,
-        totalExpenses: (existing?.totalExpenses ?? 0) +
-            (isIncome ? 0 : entry.amount.abs()),
-        totalIncome:
-            (existing?.totalIncome ?? 0) + (isIncome ? entry.amount.abs() : 0),
+        totalExpenses: (existing?.totalExpenses ?? 0) + entry.spendingEffect,
+        totalIncome: (existing?.totalIncome ?? 0) +
+            (entry.countsTowardIncome ? entry.amount.abs() : 0),
         totalBudget: budgetTotals[code] ?? 0,
         transactionCount: (existing?.transactionCount ?? 0) + 1,
       );

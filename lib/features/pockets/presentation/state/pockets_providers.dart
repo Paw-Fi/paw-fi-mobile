@@ -357,9 +357,13 @@ double _pocketExpenseAmountInCurrency(
       sourceCurrency == null ||
       sourceCurrency.isEmpty ||
       sourceCurrency == normalizedTarget) {
-    return expense.amount;
+    return expense.spendingEffect;
   }
-  return rates.convert(expense.amount, sourceCurrency, normalizedTarget);
+  return rates.convert(
+    expense.spendingEffect,
+    sourceCurrency,
+    normalizedTarget,
+  );
 }
 
 @foundation.visibleForTesting
@@ -387,7 +391,7 @@ Map<String, double> calculatePocketNativeSpentByEnvelopeId({
       if (expenseCurrency != pocketCurrency) continue;
       final expenseCategory = (expense.category ?? '').trim().toLowerCase();
       if (normalizedCategories.contains(expenseCategory)) {
-        totalSpent += expense.amount;
+        totalSpent += expense.spendingEffect;
       }
     }
     spentById[pocket.id] = totalSpent;
@@ -1059,11 +1063,8 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
 List<ExpenseEntry> filterPocketActualExpenses(
   Iterable<ExpenseEntry> expenses,
 ) {
-  // CRITICAL: treat all non-income expenses as actual spend here so pockets
-  // retain the same totals and recurring behavior used elsewhere in the app.
-  // STRICT REQUIREMENT: do not exclude recurring expenses from this filter.
   return expenses
-      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => expense.effectiveSpendingMultiplier != 0)
       .toList(growable: false);
 }
 
@@ -2726,10 +2727,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             )
           : const <String, double>{};
 
-      final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
-          cacheKey.financialMonthStartDay != 1 ||
-          projectedRecurringExpenses.isNotEmpty ||
-          localOverlayExpenses.isNotEmpty;
+      final shouldComputeSpendFromTransactions =
+          monthlyExpenses.isNotEmpty || envIds.isNotEmpty;
       final spentById = <String, double>{};
       final aggregateSpentById = <String, double>{};
       double totalMonthlySpend = 0.0;
@@ -2738,7 +2737,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         // Preserve existing semantics: when projections are included, all spend
         // calculations include both actual + projected expenses.
         for (final expense in spendExpenses) {
-          totalMonthlySpend += expense.amount;
+          totalMonthlySpend += expense.spendingEffect;
         }
         for (final envId in envIds) {
           final categories = categoriesByEnvelopeId[envId] ?? const <String>[];
@@ -2752,7 +2751,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             final expenseCategory =
                 (expense.category ?? '').trim().toLowerCase();
             if (categories.contains(expenseCategory)) {
-              totalSpent += expense.amount;
+              totalSpent += expense.spendingEffect;
             }
           }
           aggregateSpentById[envId] = totalSpent;

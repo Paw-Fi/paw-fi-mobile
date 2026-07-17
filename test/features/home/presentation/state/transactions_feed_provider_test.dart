@@ -105,7 +105,7 @@ void main() {
     expect(usdPrimary.hashCode, eurPrimary.hashCode);
   });
 
-  test('bounded unfiltered pages use the optimized RPC', () {
+  test('bounded unfiltered pages use the analytics-aware RPC', () {
     final query = buildQuery().copyWith(
       startDate: DateTime(2025, 11, 1),
       endDate: DateTime(2026, 5, 31),
@@ -114,11 +114,11 @@ void main() {
 
     expect(
       transactionsPageRpcNameForTesting(query),
-      'get_bounded_transactions_page_v1',
+      'get_user_transactions_page_v2',
     );
   });
 
-  test('filtered pages keep using the general transaction RPC', () {
+  test('filtered pages use the analytics-aware transaction RPC', () {
     final query = buildQuery().copyWith(
       startDate: DateTime(2026, 5, 1),
       endDate: DateTime(2026, 5, 31),
@@ -127,11 +127,11 @@ void main() {
 
     expect(
       transactionsPageRpcNameForTesting(query),
-      'get_user_transactions_page_v1',
+      'get_user_transactions_page_v2',
     );
   });
 
-  test('ranges over 800 days keep using the general transaction RPC', () {
+  test('ranges over 800 days use the analytics-aware transaction RPC', () {
     final query = buildQuery().copyWith(
       startDate: DateTime(2023, 1, 1),
       endDate: DateTime(2026, 1, 1),
@@ -139,7 +139,14 @@ void main() {
 
     expect(
       transactionsPageRpcNameForTesting(query),
-      'get_user_transactions_page_v1',
+      'get_user_transactions_page_v2',
+    );
+  });
+
+  test('transaction summaries use analytics-aware RPC', () {
+    expect(
+      transactionsSummaryRpcNameForTesting(),
+      'get_user_transactions_summary_v2',
     );
   });
 
@@ -410,17 +417,17 @@ void main() {
 
     expect(page.items.map((entry) => entry.id), ['local_1']);
     expect(summary.transactionCount, 1);
-    expect(summary.expenseTotal, 11);
+    expect(summary.expenseTotal, 22);
     expect(allItems.map((entry) => entry.id), ['remote_1']);
     expect(remote.pageCallCount, 0);
-    expect(remote.summaryCallCount, 0);
+    expect(remote.summaryCallCount, 1);
     expect(remote.allPagesCallCount, 1);
 
     await service.refreshFromRemote(query);
 
     final refreshed = await service.fetchPage(query);
     expect(remote.pageCallCount, 1);
-    expect(remote.summaryCallCount, 1);
+    expect(remote.summaryCallCount, 2);
     expect(refreshed.items.map((entry) => entry.id), ['remote_1']);
   });
 
@@ -474,11 +481,42 @@ void main() {
     final summary = await service.fetchSummary(query);
     final allItems = await service.fetchAllPages(query);
 
-    expect(summary.transactionCount, 1);
-    expect(summary.expenseTotal, 11);
+    expect(summary.transactionCount, 2);
+    expect(summary.expenseTotal, 33);
     expect(allItems.map((entry) => entry.id), ['pending_1', 'remote_1']);
-    expect(remote.summaryCallCount, 0);
+    expect(remote.summaryCallCount, 1);
     expect(remote.allPagesCallCount, 1);
+  });
+
+  test('local-first summary keeps optimistic deletes out of totals', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final deleted = _entry('deleted_1', DateTime(2026, 4, 5));
+    await database.upsertTransactions([deleted]);
+    await database.writeOptimisticTransactionDelete(
+      entries: [deleted],
+      clientMutationId: 'delete-mutation-1',
+      payload: {'id': deleted.id},
+    );
+    final remote = _FakeTransactionsFeedService(const []);
+    remote.summary = const TransactionsFeedSummary(
+      transactionCount: 1,
+      expenseTotal: 10,
+      incomeTotal: 0,
+      hasMultipleCurrencies: false,
+      categorySummaries: <TransactionsFeedCategorySummary>[],
+      yearlyPeriodTotals: <DateTime, double>{},
+    );
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    final summary = await service.fetchSummary(buildQuery());
+
+    expect(summary.transactionCount, 0);
+    expect(summary.expenseTotal, 0);
+    expect(remote.summaryCallCount, 0);
   });
 
   test('local-first service does not hide remote authorization failures',

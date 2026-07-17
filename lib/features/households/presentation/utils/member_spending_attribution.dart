@@ -59,9 +59,11 @@ HouseholdMemberSpendingTotals computeSplitAwareMemberSpendingTotals({
 
   void addAmountToUser(String? userId, int amountCents) {
     if (userId == null || userId.isEmpty) return;
-    if (amountCents <= 0) return;
+    if (amountCents == 0) return;
     totalsByUser[userId] = (totalsByUser[userId] ?? 0) + amountCents;
-    countsByUser[userId] = (countsByUser[userId] ?? 0) + 1;
+    if (amountCents > 0) {
+      countsByUser[userId] = (countsByUser[userId] ?? 0) + 1;
+    }
   }
 
   for (final transaction in transactions) {
@@ -74,8 +76,7 @@ HouseholdMemberSpendingTotals computeSplitAwareMemberSpendingTotals({
       continue;
     }
 
-    final isIncome = (transaction.type ?? 'expense').toLowerCase() == 'income';
-    if (isIncome) continue;
+    if (transaction.effectiveSpendingMultiplier == 0) continue;
 
     final transactionCurrency =
         (transaction.currency ?? '').trim().toUpperCase();
@@ -88,10 +89,11 @@ HouseholdMemberSpendingTotals computeSplitAwareMemberSpendingTotals({
     }
 
     final fullAmountCents = convertCents(
-      transaction.amountCents.abs(),
-      sourceCurrency: transactionCurrency,
-    );
-    if (fullAmountCents <= 0) continue;
+          transaction.amountCents.abs(),
+          sourceCurrency: transactionCurrency,
+        ) *
+        transaction.effectiveSpendingMultiplier;
+    if (fullAmountCents == 0) continue;
 
     final splitGroupId = transaction.splitGroupId;
     if (splitGroupId == null || splitGroupId.isEmpty) {
@@ -109,10 +111,11 @@ HouseholdMemberSpendingTotals computeSplitAwareMemberSpendingTotals({
 
     for (final line in splitLines) {
       final lineAmountCents = convertCents(
-        (line.amountCents ?? 0).abs(),
-        sourceCurrency: splitGroup.currency,
-      );
-      if (lineAmountCents <= 0) continue;
+            (line.amountCents ?? 0).abs(),
+            sourceCurrency: splitGroup.currency,
+          ) *
+          transaction.effectiveSpendingMultiplier;
+      if (lineAmountCents == 0) continue;
       addAmountToUser(line.userId, lineAmountCents);
     }
   }

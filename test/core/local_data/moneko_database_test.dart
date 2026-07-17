@@ -81,6 +81,64 @@ void main() {
       expect(summary.transactionCount, 2);
     });
 
+    test('local summaries apply canonical spending semantics', () async {
+      final base = _entry(
+        id: 'purchase',
+        userId: 'user_1',
+        amountCents: 2500,
+        type: 'expense',
+        date: DateTime(2026, 4, 3),
+      );
+      await database.upsertTransactions([
+        base.copyWith(
+          analyticsClass: 'consumer_spend',
+          analyticsSpendingMultiplier: 1,
+          analyticsCountsTowardIncome: false,
+        ),
+        base.copyWith(
+          id: 'refund',
+          amountCents: 500,
+          type: 'income',
+          analyticsClass: 'refund_or_reversal',
+          analyticsSpendingMultiplier: -1,
+          analyticsCountsTowardIncome: false,
+        ),
+        base.copyWith(
+          id: 'transfer',
+          amountCents: 3000,
+          analyticsClass: 'transfer_out',
+          analyticsSpendingMultiplier: 0,
+          analyticsCountsTowardIncome: false,
+        ),
+        base.copyWith(
+          id: 'pending',
+          amountCents: 1000,
+          analyticsClass: 'consumer_spend',
+          analyticsIsFinal: false,
+          analyticsSpendingMultiplier: 1,
+          analyticsCountsTowardIncome: false,
+        ),
+      ]);
+
+      final monthly = await database.getMonthlySummary(
+        scopeKey: localScopeKey(userId: 'user_1', householdId: null),
+        month: DateTime(2026, 4),
+        currency: 'EUR',
+      );
+      final feed = await database.getTransactionsFeedSummary(
+        const LocalTransactionsFeedQuery(
+          userId: 'user_1',
+          householdId: null,
+          currencies: ['EUR'],
+        ),
+      );
+
+      expect(monthly?.expenseCents, 2000);
+      expect(monthly?.incomeCents, 0);
+      expect(feed.expenseTotalCents, 2000);
+      expect(feed.incomeTotalCents, 0);
+    });
+
     test('stores optimistic write and idempotent outbox mutation together',
         () async {
       final entry = _entry(

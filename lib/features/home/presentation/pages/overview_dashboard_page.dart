@@ -1764,10 +1764,11 @@ List<AccountChartData> _buildAccountChartData({
         startMonth.month;
     if (monthIndex < 0 || monthIndex >= monthsCount) continue;
 
-    if (normalizeTransactionType(tx.entry.type) == 'income') {
-      space.income += amountResolver(tx);
-    } else {
-      final expenseAmount = amountResolver(tx).abs();
+    if (tx.entry.countsTowardIncome) {
+      space.income += amountResolver(tx).abs();
+    } else if (tx.entry.effectiveSpendingMultiplier != 0) {
+      final expenseAmount =
+          amountResolver(tx).abs() * tx.entry.effectiveSpendingMultiplier;
       space.expense += expenseAmount;
       space.dailyExpenses[monthIndex] += expenseAmount;
     }
@@ -1821,10 +1822,9 @@ class _SpaceDetail extends StatelessWidget {
     final currencyFormatter =
         NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
 
-    final incomeTx = transactions
-        .where((tx) => normalizeTransactionType(tx.entry.type) == 'income');
-    final expenseTx = transactions
-        .where((tx) => normalizeTransactionType(tx.entry.type) != 'income');
+    final incomeTx = transactions.where((tx) => tx.entry.countsTowardIncome);
+    final expenseTx =
+        transactions.where((tx) => tx.entry.effectiveSpendingMultiplier != 0);
 
     final totalIncome = incomeTx.fold<double>(0.0, (sum, tx) {
       final amt = amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);
@@ -1832,7 +1832,7 @@ class _SpaceDetail extends StatelessWidget {
     });
     final totalExpense = expenseTx.fold<double>(0.0, (sum, tx) {
       final amt = amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);
-      return sum + amt.abs();
+      return sum + amt.abs() * tx.entry.effectiveSpendingMultiplier;
     });
 
     final net = totalIncome - totalExpense;

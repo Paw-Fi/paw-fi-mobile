@@ -158,8 +158,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
 
         return currencyOk && activeOk;
       })
-      // Treat incomes separately; filteredExpenses represents spending only for UI cards
-      .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => expense.effectiveSpendingMultiplier != 0)
       .toList();
   return filtered;
 });

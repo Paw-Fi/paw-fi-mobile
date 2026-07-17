@@ -1009,11 +1009,14 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
             )
           : mergedTransactions;
       final spendOnly = convertedTransactions
-          .where((tx) => (tx.type ?? 'expense').toLowerCase() != 'income')
+          .where((transaction) => transaction.effectiveSpendingMultiplier != 0)
           .toList(growable: false);
       final totalSpentByHouseholdCents = spendOnly.fold<int>(
         0,
-        (sum, tx) => sum + tx.amountCents.abs(),
+        (sum, transaction) =>
+            sum +
+            transaction.amountCents.abs() *
+                transaction.effectiveSpendingMultiplier,
       );
 
       child = buildHouseholdBudgetOverviewCard(

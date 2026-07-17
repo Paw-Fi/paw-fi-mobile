@@ -686,27 +686,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         feedState.hasMore &&
         completeActualExpenses == null;
 
-    final projectedOnlyDerivedData = deriveTransactionsPageData(
-      TransactionsPageFilterInput(
-        baseExpenses: const <ExpenseEntry>[],
-        projectedRecurringExpenses: projectedRecurringExpenses,
-        searchQuery: _debouncedSearchQuery,
-        selectedCategory: selectedCategory,
-        selectedType: selectedType,
-        selectedCurrency: selectedCurrency,
-        selectedCurrencies: selectedCurrencies,
-        selectedDateFilter: _selectedDateFilter,
-        customStart: _customStart,
-        customEnd: _customEnd,
-        now: userNow,
-        financialMonthStartDay: financialMonthStartDay,
-        pinnedHouseholdId: widget.householdId,
-        activeAccountType: householdScope.activeAccountType,
-        activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
-        selectedHouseholdId: householdScope.selectedHouseholdId,
-      ),
-    );
-
     final derivedData = _resolveDerivedData(
       householdScope: householdScope,
       selectedCurrency: selectedCurrency,
@@ -783,7 +762,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ? deriveTransactionsPageData(
             TransactionsPageFilterInput(
               baseExpenses: chartActualExpenses,
-              projectedRecurringExpenses: projectedRecurringExpenses,
+              projectedRecurringExpenses: const [],
               searchQuery: _debouncedSearchQuery,
               selectedCategory: selectedCategory,
               selectedType: selectedType,
@@ -800,28 +779,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               selectedHouseholdId: householdScope.selectedHouseholdId,
             ),
           ).filteredExpenses
-        : projectedOnlyDerivedData.filteredExpenses;
+        : const <ExpenseEntry>[];
 
     final intervalGranularity =
         feedQuery.normalizedSummaryIntervalGranularity ?? 'yearly';
     final chartSummary = isMultiCurrencySelection
-        ? convertedRollupChartSummary == null
-            ? summarizeTransactionsInCurrency(
-                chartExpenses,
-                targetCurrency: selectedCurrency ?? 'USD',
-                rates: rateTable,
-                intervalGranularity: intervalGranularity,
-              )
-            : addConvertedExpensesToSummary(
-                convertedRollupChartSummary,
-                projectedOnlyDerivedData.filteredExpenses,
-                targetCurrency: selectedCurrency ?? 'USD',
-                rates: rateTable,
-                intervalGranularity: intervalGranularity,
-              )
-        : feedState.summary.addingExpenses(
-            projectedOnlyDerivedData.filteredExpenses,
-          );
+        ? convertedRollupChartSummary ??
+            summarizeTransactionsInCurrency(
+              chartExpenses,
+              targetCurrency: selectedCurrency ?? 'USD',
+              rates: rateTable,
+              intervalGranularity: intervalGranularity,
+            )
+        : feedState.summary;
     final isChartSourceLoading = _shouldShowChartSkeleton(
       feedQuery: feedQuery,
       feedState: feedState,

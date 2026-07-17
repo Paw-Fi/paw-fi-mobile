@@ -67,7 +67,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         buildGroupedTransactionRenderItemIndexByKey(renderItems);
     final totalSpentCentsForRange = memberTransactions.fold<int>(
       0,
-      (sum, entry) => sum + entry.amountCents.abs(),
+      (sum, entry) =>
+          sum + entry.amountCents.abs() * entry.effectiveSpendingMultiplier,
     );
     final transactionCount = memberTransactions.length;
     final daysInRange = rangeTo.difference(rangeFrom).inDays + 1;
@@ -772,7 +773,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     final summaries = grouped.entries.map((entry) {
       final total = entry.value.fold<int>(
         0,
-        (sum, item) => sum + item.amountCents.abs(),
+        (sum, item) =>
+            sum + item.amountCents.abs() * item.effectiveSpendingMultiplier,
       );
       return _CategorySummary(
         category: entry.key,
@@ -824,8 +826,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     for (final t in transactions) {
       if (t.date.isBefore(startDate) || t.date.isAfter(endDate)) continue;
 
-      final isSpend = (t.type ?? 'expense').toLowerCase() != 'income';
-      if (!isSpend) continue;
+      if (t.effectiveSpendingMultiplier == 0) continue;
 
       final tCurrency = (t.currency ?? '').trim().toUpperCase();
       if (currencyRates == null &&
@@ -1002,7 +1003,8 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
       ..sort((a, b) => b.date.compareTo(a.date));
     final totalSpentCents = sortedTransactions.fold<int>(
       0,
-      (sum, item) => sum + item.amountCents.abs(),
+      (sum, item) =>
+          sum + item.amountCents.abs() * item.effectiveSpendingMultiplier,
     );
     final symbol = resolveCurrencySymbol(currency);
     final formattedTotal =

@@ -56,9 +56,8 @@ Map<DateTime, double> groupExpensesByInterval(
     List<ExpenseEntry> expenses, String intervalType,
     {DateTime? rangeStart, DateTime? rangeEnd}) {
   // Exclude income entries; this util is used for spending charts
-  final spendOnly = expenses
-      .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-      .toList();
+  final spendOnly =
+      expenses.where((e) => e.effectiveSpendingMultiplier != 0).toList();
   if (spendOnly.isEmpty) return {};
 
   switch (intervalType) {
@@ -115,7 +114,7 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
       if (hour >= range.startHour && hour < range.endHour) {
         final key =
             DateTime(today.year, today.month, today.day, range.startHour);
-        buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
+        buckets[key] = (buckets[key] ?? 0) + expense.spendingEffect;
         break;
       }
     }
@@ -191,14 +190,14 @@ Map<DateTime, double> _groupBySevenDays(
     // start is > expenseDate; clamp beyond edges to nearest bucket.
     if (expenseDate.isBefore(sortedBuckets.first)) {
       buckets[sortedBuckets.first] =
-          (buckets[sortedBuckets.first] ?? 0) + expense.amount.abs();
+          (buckets[sortedBuckets.first] ?? 0) + expense.spendingEffect;
       continue;
     }
 
     if (expenseDate.isAfter(sortedBuckets.last) ||
         expenseDate.isAtSameMomentAs(sortedBuckets.last)) {
       buckets[sortedBuckets.last] =
-          (buckets[sortedBuckets.last] ?? 0) + expense.amount.abs();
+          (buckets[sortedBuckets.last] ?? 0) + expense.spendingEffect;
       continue;
     }
 
@@ -210,7 +209,7 @@ Map<DateTime, double> _groupBySevenDays(
               expenseDate.isAfter(bucketStart)) &&
           expenseDate.isBefore(bucketEnd)) {
         buckets[bucketStart] =
-            (buckets[bucketStart] ?? 0) + expense.amount.abs();
+            (buckets[bucketStart] ?? 0) + expense.spendingEffect;
         break;
       }
     }
@@ -252,7 +251,7 @@ Map<DateTime, double> _groupByMonthPairs(List<ExpenseEntry> expenses) {
     int startMonth = (m % 2 == 0) ? m - 1 : m;
     final key = DateTime(y, startMonth);
     if (buckets.containsKey(key)) {
-      buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
+      buckets[key] = (buckets[key] ?? 0) + expense.spendingEffect;
     }
   }
 
@@ -276,7 +275,7 @@ Map<DateTime, double> _groupBySevenYears(List<ExpenseEntry> expenses) {
     final y = expense.date.year;
     final key = DateTime(y);
     if (buckets.containsKey(key)) {
-      buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
+      buckets[key] = (buckets[key] ?? 0) + expense.spendingEffect;
     }
   }
   return buckets;

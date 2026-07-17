@@ -68,6 +68,34 @@ void main() {
 
       expect(entry.amount, 123.45);
     });
+
+    test('analytics fields control finalized spending and income effects', () {
+      final refund = ExpenseEntry(
+        id: 'refund',
+        date: DateTime(2024, 1, 1),
+        amountCents: 2500,
+        createdAt: DateTime(2024, 1, 1),
+        type: 'income',
+        analyticsClass: 'refund_or_reversal',
+        analyticsSpendingMultiplier: -1,
+        analyticsCountsTowardIncome: false,
+      );
+      final transfer = refund.copyWith(
+        id: 'transfer',
+        analyticsClass: 'transfer_in',
+        analyticsSpendingMultiplier: 0,
+      );
+      final pending = refund.copyWith(
+        id: 'pending',
+        analyticsIsFinal: false,
+      );
+
+      expect(refund.spendingEffect, -25);
+      expect(refund.countsTowardIncome, isFalse);
+      expect(transfer.spendingEffect, 0);
+      expect(transfer.countsTowardIncome, isFalse);
+      expect(pending.spendingEffect, 0);
+    });
   });
 
   group('ExpenseEntry - JSON Serialization', () {
@@ -88,6 +116,10 @@ void main() {
         'shared_member_ids': ['user_1', 'user_2'],
         'split_group_id': 'split_1',
         'type': 'expense',
+        'analytics_class': 'consumer_spend',
+        'analytics_is_final': true,
+        'analytics_spending_multiplier': 1,
+        'analytics_counts_toward_income': false,
         'is_recurring': true,
       };
 
@@ -106,6 +138,9 @@ void main() {
       expect(entry.rawText, 'Lunch');
       expect(entry.sharedMemberIds, ['user_1', 'user_2']);
       expect(entry.type, 'expense');
+      expect(entry.analyticsClass, 'consumer_spend');
+      expect(entry.effectiveSpendingMultiplier, 1);
+      expect(entry.countsTowardIncome, isFalse);
       expect(entry.isRecurring, true);
     });
 

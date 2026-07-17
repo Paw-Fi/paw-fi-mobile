@@ -58,7 +58,7 @@ List<CategorySummary> buildTransactionsPieCategorySummaries(
   for (final expense in expenses) {
     final category = _normalizePieCategory(expense.category);
     categoryTotals[category] =
-        (categoryTotals[category] ?? 0) + expense.amount.abs();
+        (categoryTotals[category] ?? 0) + expense.spendingEffect;
     categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
   }
 
@@ -115,13 +115,13 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
   }
 
   double _getTotalSpent(List<ExpenseEntry> expenses) {
-    return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+    return expenses.fold(0.0, (sum, e) => sum + e.spendingEffect);
   }
 
   @override
   Widget build(BuildContext context) {
     final spendOnly = widget.expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .where((expense) => expense.effectiveSpendingMultiplier != 0)
         .toList();
 
     var categorySummaries = widget.categorySummariesOverride != null

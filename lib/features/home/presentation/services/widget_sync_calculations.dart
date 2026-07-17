@@ -19,7 +19,7 @@ class WidgetFinancialSummary {
 }
 
 bool isWidgetSpendExpense(ExpenseEntry entry) {
-  return (entry.type ?? 'expense').toLowerCase() != 'income';
+  return entry.effectiveSpendingMultiplier != 0;
 }
 
 List<String?> widgetSourceHouseholdIds({
@@ -34,7 +34,7 @@ List<String?> widgetSourceHouseholdIds({
 
 int widgetSpentCents(ExpenseEntry entry) {
   if (!isWidgetSpendExpense(entry)) return 0;
-  return entry.amountCents.abs();
+  return entry.amountCents.abs() * entry.effectiveSpendingMultiplier;
 }
 
 int calculateWidgetSpentCents(Iterable<ExpenseEntry> entries) {
@@ -50,7 +50,7 @@ Map<String, int> calculateWidgetCategorySpentCents(
   final totals = <String, int>{};
   for (final entry in entries) {
     final spentCents = widgetSpentCents(entry);
-    if (spentCents <= 0) continue;
+    if (spentCents == 0) continue;
 
     final category = entry.category ?? 'uncategorized';
     totals[category] = (totals[category] ?? 0) + spentCents;
