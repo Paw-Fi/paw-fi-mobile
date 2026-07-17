@@ -6,8 +6,12 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/models/user_contact.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/settlement_breakdown_display.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -21,6 +25,7 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
   final String memberUserId;
   final String memberDisplayName;
   final String currencyCode;
+  final UserContact? currentUserContact;
   final List<ExpenseEntry> transactions;
   final List<ExpenseSplitGroup> splits;
   final int paidToCents;
@@ -34,6 +39,7 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
     required this.memberUserId,
     required this.memberDisplayName,
     required this.currencyCode,
+    this.currentUserContact,
     this.transactions = const <ExpenseEntry>[],
     this.splits = const <ExpenseSplitGroup>[],
     this.paidToCents = 0,
@@ -52,6 +58,26 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
     final calculationAsync = ref.watch(
       householdSettlementCalculationV3Provider(params),
     );
+    final expensesParams = HouseholdExpensesParams(householdId: householdId);
+    final liveTransactions =
+        ref.watch(cachedHouseholdExpensesProvider(expensesParams)).valueOrNull;
+    final effectiveTransactions = liveTransactions ?? transactions;
+    final transactionsById = <String, ExpenseEntry>{
+      for (final transaction in effectiveTransactions)
+        if (transaction.id.trim().isNotEmpty) transaction.id: transaction,
+    };
+
+    Future<void> showTransaction(ExpenseEntry transaction) async {
+      final changed = await showUnifiedTransactionSheet(
+        context,
+        existingExpense: transaction,
+        contact: currentUserContact,
+      );
+      if (changed != true || !context.mounted) return;
+
+      ref.invalidate(cachedHouseholdExpensesProvider(expensesParams));
+      ref.invalidate(householdSettlementCalculationV3Provider(params));
+    }
 
     return Scaffold(
       backgroundColor: scheme.appBackground,
@@ -103,6 +129,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
               netCents: previous.netCents,
               rows: previous.rows,
               calculationNetCents: previous.netCents,
+              transactionsById: transactionsById,
+              onShowTransaction: showTransaction,
               trailingContent: retry,
             );
           },
@@ -125,6 +153,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
               netCents: calculation.netCents,
               rows: rows,
               calculationNetCents: calculation.netCents,
+              transactionsById: transactionsById,
+              onShowTransaction: showTransaction,
             );
           },
         ),
@@ -138,6 +168,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
     int? netCents,
     List<_BreakdownRowData>? rows,
     int? calculationNetCents,
+    Map<String, ExpenseEntry> transactionsById = const {},
+    Future<void> Function(ExpenseEntry transaction)? onShowTransaction,
     Widget? trailingContent,
   }) {
     final scheme = Theme.of(context).colorScheme;
@@ -167,6 +199,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
           scheme,
           rows,
           calculationNetCents: calculationNetCents,
+          transactionsById: transactionsById,
+          onShowTransaction: onShowTransaction,
         ),
       );
     }
@@ -200,6 +234,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
     ColorScheme scheme,
     List<_BreakdownRowData> rows, {
     required int calculationNetCents,
+    required Map<String, ExpenseEntry> transactionsById,
+    required Future<void> Function(ExpenseEntry transaction)? onShowTransaction,
   }) {
     final transactionRows = rows.where((row) => !row.isSynthetic).toList();
     final youOweRows = transactionRows
@@ -265,6 +301,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
           title: '${context.l10n.youOwe} $memberDisplayName',
           currencyCode: currencyCode,
           rows: youOweRows,
+          transactionsById: transactionsById,
+          onShowTransaction: onShowTransaction,
         ),
       );
       hasSection = true;
@@ -276,6 +314,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
           title: '$memberDisplayName ${context.l10n.owesYou}',
           currencyCode: currencyCode,
           rows: theyOweRows,
+          transactionsById: transactionsById,
+          onShowTransaction: onShowTransaction,
         ),
       );
       hasSection = true;
@@ -340,6 +380,8 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
     required String title,
     required String currencyCode,
     required List<_BreakdownRowData> rows,
+    required Map<String, ExpenseEntry> transactionsById,
+    required Future<void> Function(ExpenseEntry transaction)? onShowTransaction,
   }) {
     final totalCents =
         rows.fold<int>(0, (sum, row) => sum + row.remainingAmountCents);
@@ -359,6 +401,9 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
             (context, index) => _BreakdownRowTile(
               row: rows[index],
               currencyCode: currencyCode,
+              transaction: transactionsById[rows[index].expenseId],
+              currentUserContact: currentUserContact,
+              onShowTransaction: onShowTransaction,
             ),
             childCount: rows.length,
           ),
@@ -631,18 +676,33 @@ class _BreakdownSectionHeader extends StatelessWidget {
 class _BreakdownRowTile extends StatelessWidget {
   final _BreakdownRowData row;
   final String currencyCode;
+  final ExpenseEntry? transaction;
+  final UserContact? currentUserContact;
+  final Future<void> Function(ExpenseEntry transaction)? onShowTransaction;
 
   const _BreakdownRowTile({
     required this.row,
     required this.currencyCode,
+    required this.transaction,
+    required this.currentUserContact,
+    required this.onShowTransaction,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isAdjustment = row.isAdjustment;
+    final sourceTransaction = isAdjustment ? null : transaction;
+    final displayDate = sourceTransaction == null
+        ? row.expenseDate
+        : composeTransactionDisplayDateTime(
+            transactionDate: sourceTransaction.date,
+            createdAt: sourceTransaction.createdAt,
+            preferredTimezone: currentUserContact?.preferredTimezone,
+          );
     final totalAmount = formatCurrency(
-      row.totalAmountCents.abs() / 100.0,
+      (sourceTransaction?.amountCents.abs() ?? row.totalAmountCents.abs()) /
+          100.0,
       currencyCode,
       context: context,
     );
@@ -673,11 +733,13 @@ class _BreakdownRowTile extends StatelessWidget {
         description: isAdjustment
             ? context.l10n.settlement
             : row.expenseRawText ?? row.expenseDescription,
-        date: row.expenseDate,
+        date: displayDate,
         amount: row.remainingAmountCents / 100.0,
         currency: currencyCode,
         isIncome: row.direction == _Direction.theyOweYou,
-        onTap: null,
+        onTap: sourceTransaction == null || onShowTransaction == null
+            ? null
+            : () => onShowTransaction!(sourceTransaction),
         trailingWidget: Text(
           context.l10n.ofTotalAmount(totalAmount),
           style: TextStyle(

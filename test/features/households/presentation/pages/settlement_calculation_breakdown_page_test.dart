@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_calculation_breakdown_page.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
@@ -57,6 +59,119 @@ void main() {
     expect(find.text(r'+C$46.12'), findsOneWidget);
     expect(find.text('Wet and dry catfood'), findsOneWidget);
     expect(find.text('groceries'), findsOneWidget);
+  });
+
+  testWidgets(
+      'uses the parent transaction total and Recent Transactions local time',
+      (tester) async {
+    await _setLargeTestViewport(tester);
+    final now = DateTime.now();
+    final transaction = ExpenseEntry(
+      id: 'lunch',
+      userId: 'partner',
+      householdId: _householdId,
+      date: DateTime(now.year, now.month, now.day),
+      amountCents: 3000,
+      currency: 'CAD',
+      category: 'Food',
+      rawText: 'Lunch',
+      createdAt: DateTime.utc(now.year, now.month, now.day, 1),
+      type: 'expense',
+    );
+
+    await _pumpPage(
+      tester,
+      (_) async => SettlementCalculationV3(
+        netCents: -1200,
+        rows: [
+          _row(
+            id: 'lunch',
+            direction: SettlementBreakdownDirectionV2.theyOweYou,
+            amountCents: 1200,
+          ),
+        ],
+      ),
+      transactions: [transaction],
+      currentUserContact: UserContact(
+        id: 'contact',
+        verified: true,
+        preferredTimezone: 'UTC+07:00',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(r'+C$12'), findsOneWidget);
+    expect(find.text(r'of C$30'), findsOneWidget);
+    expect(find.text('Today, 8:00 AM'), findsOneWidget);
+    expect(
+      tester
+          .widget<TransactionListTile>(find.byType(TransactionListTile))
+          .onTap,
+      isNotNull,
+    );
+  });
+
+  testWidgets('refreshes transactions and settlement after a sheet edit',
+      (tester) async {
+    await _setLargeTestViewport(tester);
+    var calculationReads = 0;
+    var expenseReads = 0;
+    final transaction = _legacyExpense().copyWith(
+      id: 'editable-expense',
+      rawText: 'Editable lunch',
+    );
+    final container = ProviderContainer(
+      overrides: [
+        cachedHouseholdExpensesProvider.overrideWith((ref, params) async {
+          expenseReads += 1;
+          return [transaction];
+        }),
+        householdSettlementCalculationV3Provider.overrideWith((ref, params) {
+          calculationReads += 1;
+          return Future.value(
+            SettlementCalculationV3(
+              netCents: -1200,
+              rows: [
+                _row(
+                  id: transaction.id,
+                  direction: SettlementBreakdownDirectionV2.theyOweYou,
+                  amountCents: 1200,
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _testApp(
+          SettlementCalculationBreakdownPage(
+            householdId: _householdId,
+            currentUserId: 'me',
+            memberUserId: 'partner',
+            memberDisplayName: 'Alex',
+            currencyCode: 'CAD',
+            transactions: [transaction],
+            netCents: -1200,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(calculationReads, 1);
+    expect(expenseReads, 1);
+    await tester.tap(find.byType(TransactionListTile));
+    tester.state<NavigatorState>(find.byType(Navigator)).pop(true);
+    await tester.pump();
+    await tester.pump();
+
+    expect(calculationReads, 2);
+    expect(expenseReads, 2);
   });
 
   testWidgets('zero-net reciprocal rows remain visible in both directions',
@@ -188,6 +303,9 @@ void main() {
     var reads = 0;
     final container = ProviderContainer(
       overrides: [
+        cachedHouseholdExpensesProvider.overrideWith(
+          (ref, params) async => const <ExpenseEntry>[],
+        ),
         householdSettlementCalculationV3Provider.overrideWith(
           (ref, params) {
             reads += 1;
@@ -324,10 +442,14 @@ Future<void> _pumpPage(
       loader, {
   List<ExpenseEntry> transactions = const <ExpenseEntry>[],
   List<ExpenseSplitGroup> splits = const <ExpenseSplitGroup>[],
+  UserContact? currentUserContact,
 }) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
+        cachedHouseholdExpensesProvider.overrideWith(
+          (ref, params) async => transactions,
+        ),
         householdSettlementCalculationV3Provider.overrideWith(
           (ref, params) => loader(params),
         ),
@@ -339,6 +461,7 @@ Future<void> _pumpPage(
           memberUserId: '',
           memberDisplayName: 'Alex',
           currencyCode: 'CAD',
+          currentUserContact: currentUserContact,
           transactions: transactions,
           splits: splits,
           paidToCents: 99999,
