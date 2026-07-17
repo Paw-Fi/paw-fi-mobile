@@ -22,45 +22,47 @@ class SupportContactOptionsSheet extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.support,
-              style: textTheme.titleLarge?.copyWith(
-                color: colorScheme.foreground,
-                fontWeight: FontWeight.w700,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.support,
+                style: textTheme.titleLarge?.copyWith(
+                  color: colorScheme.foreground,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              context.l10n.supportContactOptionsDescription,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.mutedForeground,
+              const SizedBox(height: 6),
+              Text(
+                context.l10n.supportContactOptionsDescription,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.mutedForeground,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            _SupportContactOptionTile(
-              icon: Icons.forum_rounded,
-              title: context.l10n.askOnReddit,
-              description: context.l10n.askOnRedditDescription,
-              onTap: () => Navigator.of(context).pop(
-                SupportContactOption.reddit,
+              const SizedBox(height: 20),
+              _SupportContactOptionTile(
+                icon: Icons.forum_rounded,
+                title: context.l10n.askOnReddit,
+                description: context.l10n.askOnRedditDescription,
+                onTap: () => Navigator.of(context).pop(
+                  SupportContactOption.reddit,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _SupportContactOptionTile(
-              icon: Icons.confirmation_number_outlined,
-              title: context.l10n.submitATicket,
-              description: context.l10n.submitATicketDescription,
-              onTap: () => Navigator.of(context).pop(
-                SupportContactOption.ticket,
+              const SizedBox(height: 12),
+              _SupportContactOptionTile(
+                icon: Icons.confirmation_number_outlined,
+                title: context.l10n.submitATicket,
+                description: context.l10n.submitATicketDescription,
+                onTap: () => Navigator.of(context).pop(
+                  SupportContactOption.ticket,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

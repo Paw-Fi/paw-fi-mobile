@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
 import 'package:moneko/core/plaid/models/synced_transaction.dart';
+import 'package:moneko/core/plaid/plaid_sync_review_state.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -55,8 +56,13 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   List<SyncedTransaction> _transactions = const [];
   Set<String> _transferSuggestionIds = const {};
   PlaidSyncStatus? _syncStatus;
+  _PlaidReviewCursor? _reviewCursor;
+  int _serverUnresolvedCount = 0;
+  bool _hasMoreTransactions = false;
+  bool _isLoadingMoreTransactions = false;
   bool _isPreparing = true;
   bool _isUpdatingWallet = false;
+  bool _isCompleting = false;
   String? _errorMessage;
 
   @override
@@ -97,19 +103,39 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     if (_isPreparing || widget.session.provider != 'plaid') {
       return false;
     }
-
-    return _syncStatus?.initialUpdateComplete == false;
+    return isPlaidInitialImportIncomplete(_syncStatus);
   }
 
-  bool get _canCompleteReview {
-    return _canDismissReview && !_isTransactionsStillSyncing;
-  }
+  bool get _canCompleteReview => canFinishPlaidReview(
+        isPlaid: widget.session.provider == 'plaid',
+        syncStatus: _syncStatus,
+        isPreparing: _isPreparing,
+        isUpdatingWallet: _isUpdatingWallet,
+        isCompleting: _isCompleting,
+        hasError: _errorMessage != null,
+        hasUnresolvedReview: _serverUnresolvedCount > 0 ||
+            hasUnresolvedPlaidReview(
+              _transactions,
+              _transferSuggestionIds,
+            ),
+      );
 
-  bool get _canDismissReview {
-    return !_isPreparing && !_isUpdatingWallet && _errorMessage == null;
+  bool get _canExitAfterFailure =>
+      !_isPreparing && !_isUpdatingWallet && _errorMessage != null;
+
+  Future<void> _handleBackRequest() async {
+    if (_canExitAfterFailure) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await _handleDone();
   }
 
   int _displayBalanceCentsForAccount(BankSyncReviewAccount account) {
+    final providerBalance = account.providerDisplayBalanceCents;
+    if (providerBalance != null) {
+      return providerBalance;
+    }
     final syncedDeltaCents = _transactions
         .where((item) => item.expense.bankAccountId == account.bankAccountId)
         .fold<int>(0, (sum, item) {
@@ -232,6 +258,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       _awaitBackendSyncAndLoadTransactions() async {
     final deadline = DateTime.now().add(_syncWaitTimeout);
     final reconnectMessage = context.l10n.thisBankNeedsToBeReconnected;
+    final preparingMessage = context.l10n.plaidStillPreparingFirstDownload;
     PlaidSyncStatus? latestSyncStatus;
     var attemptedDirectPlaidFetch = false;
 
@@ -246,7 +273,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       final transactions = await _loadSyncedTransactionsFromDatabase();
       final isStillWaitingForPlaidImport =
           transactions.isEmpty && _isPlaidStillImporting(snapshot.syncStatus);
-      if (transactions.isNotEmpty) {
+      if (transactions.isNotEmpty &&
+          (widget.session.provider != 'plaid' ||
+              latestSyncStatus?.initialUpdateComplete == true)) {
         return ParsedSyncedTransactions(
           transactions: transactions,
           syncStatus: latestSyncStatus,
@@ -262,7 +291,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           throw Exception(reconnectMessage);
         }
 
-        if (directResult.transactions.isNotEmpty) {
+        if (directResult.transactions.isNotEmpty &&
+            (widget.session.provider != 'plaid' ||
+                latestSyncStatus?.initialUpdateComplete == true)) {
           final persistedTransactions =
               await _loadSyncedTransactionsFromDatabase();
           return ParsedSyncedTransactions(
@@ -275,7 +306,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       }
 
       if (snapshot.lastSuccessfulSyncAt != null &&
-          !isStillWaitingForPlaidImport) {
+          !isStillWaitingForPlaidImport &&
+          (widget.session.provider != 'plaid' ||
+              latestSyncStatus?.initialUpdateComplete == true)) {
         return ParsedSyncedTransactions(
           transactions: const [],
           syncStatus: latestSyncStatus,
@@ -286,7 +319,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     }
 
     final fallbackTransactions = await _loadSyncedTransactionsFromDatabase();
-    if (fallbackTransactions.isNotEmpty || widget.session.provider != 'plaid') {
+    if (widget.session.provider != 'plaid' ||
+        (fallbackTransactions.isNotEmpty &&
+            latestSyncStatus?.initialUpdateComplete == true)) {
       return ParsedSyncedTransactions(
         transactions: fallbackTransactions,
         syncStatus: latestSyncStatus,
@@ -295,11 +330,16 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     final directResult = await _loadTransactionsFromPlaidSyncFunction();
     final persistedTransactions = await _loadSyncedTransactionsFromDatabase();
+    final finalSyncStatus = directResult.syncStatus ?? latestSyncStatus;
+    if (widget.session.provider == 'plaid' &&
+        isPlaidInitialImportIncomplete(finalSyncStatus)) {
+      throw Exception(preparingMessage);
+    }
     return ParsedSyncedTransactions(
       transactions: persistedTransactions.isNotEmpty
           ? persistedTransactions
           : directResult.transactions,
-      syncStatus: directResult.syncStatus ?? latestSyncStatus,
+      syncStatus: finalSyncStatus,
     );
   }
 
@@ -423,12 +463,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       return;
     }
 
-    if (!mounted) return;
-    setState(() {
-      _transactions = _transactions
-          .where((item) => item.expense.id != transaction.expense.id)
-          .toList(growable: false);
-    });
+    await _reloadAuthoritativeReviewData();
   }
 
   Future<void> _editTransaction(SyncedTransaction transaction) async {
@@ -490,25 +525,6 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       return;
     }
 
-    setState(() {
-      _transactions = _transactions.map((item) {
-        if (item.expense.id != transaction.expense.id) {
-          return item;
-        }
-
-        return SyncedTransaction(
-          expense: result,
-          isRecurring: result.isRecurring,
-          recurrenceRule: item.recurrenceRule,
-          analyticsClass: item.analyticsClass,
-          classificationSource: item.classificationSource,
-          classificationReviewState: item.classificationReviewState,
-          classificationReviewReason: item.classificationReviewReason,
-          providerPfcConfidence: item.providerPfcConfidence,
-        );
-      }).toList(growable: false);
-    });
-
     final newCategory = normalizeEditableCategory(result.category);
     if (newCategory.toLowerCase() != originalCategory.toLowerCase() &&
         mounted) {
@@ -517,6 +533,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         newCategory: newCategory,
       );
     }
+    await _reloadAuthoritativeReviewData();
   }
 
   Future<void> _reviewClassification(SyncedTransaction transaction) async {
@@ -693,28 +710,16 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     List<ExpenseEntry> updatedExpenses,
   ) async {
     if (updatedExpenses.isEmpty || !mounted) return;
+    await _reloadAuthoritativeReviewData();
+  }
 
-    final updatedExpensesById = {
-      for (final expense in updatedExpenses) expense.id: expense,
-    };
-
+  Future<void> _reloadAuthoritativeReviewData() async {
+    final transactions = await _loadSyncedTransactionsFromDatabase();
+    final transferSuggestionIds = await _loadTransferSuggestionIds();
+    if (!mounted) return;
     setState(() {
-      _transactions = _transactions.map((item) {
-        final updatedExpense = updatedExpensesById[item.expense.id];
-        if (updatedExpense == null) {
-          return item;
-        }
-        return SyncedTransaction(
-          expense: updatedExpense,
-          isRecurring: updatedExpense.isRecurring,
-          recurrenceRule: item.recurrenceRule,
-          analyticsClass: item.analyticsClass,
-          classificationSource: item.classificationSource,
-          classificationReviewState: item.classificationReviewState,
-          classificationReviewReason: item.classificationReviewReason,
-          providerPfcConfidence: item.providerPfcConfidence,
-        );
-      }).toList(growable: false);
+      _transactions = transactions;
+      _transferSuggestionIds = transferSuggestionIds;
     });
   }
 
@@ -745,33 +750,31 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<List<SyncedTransaction>> _loadSyncedTransactionsFromDatabase() async {
-    const pageSize = 1000;
+    const pageSize = 200;
     final bankAccountIds = _accounts
         .map((account) => account.bankAccountId)
         .toList(growable: false);
     if (bankAccountIds.isEmpty) {
+      _reviewCursor = null;
+      _hasMoreTransactions = false;
+      _serverUnresolvedCount = 0;
       return const [];
     }
 
-    final rows = <Map<String, dynamic>>[];
-    var offset = 0;
+    final page = await _loadSyncedTransactionRowsPage(
+      bankAccountIds: bankAccountIds,
+      cursor: null,
+      limit: pageSize,
+    );
+    _reviewCursor = page.nextCursor;
+    _hasMoreTransactions = page.hasMore;
+    _serverUnresolvedCount = page.unresolvedCount;
+    return _parseSyncedTransactionRows(page.rows);
+  }
 
-    while (true) {
-      final page = await _loadSyncedTransactionRowsPage(
-        bankAccountIds: bankAccountIds,
-        offset: offset,
-        limit: pageSize,
-      );
-
-      rows.addAll(page);
-
-      if (page.length < pageSize) {
-        break;
-      }
-
-      offset += pageSize;
-    }
-
+  List<SyncedTransaction> _parseSyncedTransactionRows(
+    List<Map<String, dynamic>> rows,
+  ) {
     final transactions = rows
         .map((row) => SyncedTransaction(
               expense: ExpenseEntry.fromJson(row),
@@ -788,6 +791,43 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
             ))
         .toList(growable: false);
     return inferSyncedRecurringTransactions(transactions);
+  }
+
+  Future<void> _loadMoreTransactions() async {
+    if (_isLoadingMoreTransactions || !_hasMoreTransactions) return;
+    final cursor = _reviewCursor;
+    if (cursor == null) return;
+    setState(() => _isLoadingMoreTransactions = true);
+    try {
+      final page = await _loadSyncedTransactionRowsPage(
+        bankAccountIds:
+            _accounts.map((account) => account.bankAccountId).toList(),
+        cursor: cursor,
+        limit: 200,
+      );
+      if (page.nextCursor == cursor) {
+        throw StateError('Plaid review pagination did not advance');
+      }
+      final existingIds =
+          _transactions.map((transaction) => transaction.expense.id).toSet();
+      final additionalTransactions = _parseSyncedTransactionRows(page.rows)
+          .where((transaction) => existingIds.add(transaction.expense.id));
+      if (!mounted) return;
+      setState(() {
+        _transactions = [..._transactions, ...additionalTransactions];
+        _reviewCursor = page.nextCursor;
+        _hasMoreTransactions = page.hasMore;
+        _serverUnresolvedCount = page.unresolvedCount;
+      });
+    } catch (error) {
+      if (mounted) {
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingMoreTransactions = false);
+      }
+    }
   }
 
   Future<Set<String>> _loadTransferSuggestionIds() async {
@@ -811,31 +851,49 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         const {};
   }
 
-  Future<List<Map<String, dynamic>>> _loadSyncedTransactionRowsPage({
+  Future<_PlaidReviewPage> _loadSyncedTransactionRowsPage({
     required List<String> bankAccountIds,
-    required int offset,
+    required _PlaidReviewCursor? cursor,
     required int limit,
   }) async {
     final userId = ref.read(authProvider).uid;
     final rows = await Supabase.instance.client.rpc(
-      'get_plaid_sync_review_transactions_v1',
+      'get_plaid_sync_review_transactions_v2',
       params: {
         'p_user_id': userId,
         'p_bank_connection_id': widget.session.connectionId,
         'p_bank_account_ids': bankAccountIds,
         'p_household_id': widget.session.targetHouseholdId,
-        'p_offset': offset,
+        'p_cursor_review_priority': cursor?.reviewPriority,
+        'p_cursor_date': cursor?.date,
+        'p_cursor_created_at': cursor?.createdAt,
+        'p_cursor_id': cursor?.id,
         'p_limit': limit,
       },
     );
-
-    return (rows as List<dynamic>)
+    if (rows is! Map) {
+      throw const FormatException('Invalid Plaid review response');
+    }
+    final payload = Map<String, dynamic>.from(rows);
+    final items = (payload['items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
+    final nextCursorJson = payload['next_cursor'];
+    return _PlaidReviewPage(
+      rows: items,
+      hasMore: payload['has_more'] == true,
+      unresolvedCount: (payload['unresolved_count'] as num?)?.round() ?? 0,
+      nextCursor: nextCursorJson is Map
+          ? _PlaidReviewCursor.fromJson(
+              Map<String, dynamic>.from(nextCursorJson),
+            )
+          : null,
+    );
   }
 
   Future<_DirectPlaidFetchResult>
       _loadTransactionsFromPlaidSyncFunction() async {
+    final failedSyncMessage = context.l10n.failedToSyncTransactions;
     late final FunctionResponse response;
     try {
       response = await Supabase.instance.client.functions.invoke(
@@ -863,7 +921,38 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     }
 
     if (response.status >= 400) {
-      return const _DirectPlaidFetchResult(transactions: []);
+      final payload = response.data;
+      final message = payload is Map ? payload['error']?.toString() : null;
+      throw Exception(message ?? failedSyncMessage);
+    }
+
+    if (response.data is Map &&
+        (response.data as Map)['status'] == 'partial_error') {
+      final connections = (response.data as Map)['connections'];
+      final connectionRows = connections is List
+          ? connections.whereType<Map>().toList(growable: false)
+          : const <Map>[];
+      if (connectionRows.isNotEmpty &&
+          connectionRows.every(
+            (item) => const {
+              'INVALID_CURSOR',
+              'STALE_CURSOR_GENERATION',
+            }.contains(item['errorCode']),
+          )) {
+        final parsed = parseSyncedTransactionPayload(response.data);
+        return _DirectPlaidFetchResult(
+          transactions: const [],
+          syncStatus: parsed.syncStatus,
+        );
+      }
+      final firstError = connections is List
+          ? connections
+              .whereType<Map>()
+              .map((item) => item['error']?.toString())
+              .whereType<String>()
+              .firstOrNull
+          : null;
+      throw Exception(firstError ?? failedSyncMessage);
     }
 
     final parsed = parseSyncedTransactionPayload(response.data);
@@ -875,9 +964,6 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<void> _handleDone() async {
-    if (!_canDismissReview) {
-      return;
-    }
     if (hasUnresolvedPlaidReview(_transactions, _transferSuggestionIds)) {
       AppToast.info(
         context,
@@ -885,16 +971,38 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       );
       return;
     }
+    if (!_canCompleteReview) {
+      if (_isTransactionsStillSyncing) {
+        AppToast.info(
+          context,
+          context.l10n.plaidStillSyncingBackground,
+        );
+      }
+      return;
+    }
 
+    setState(() => _isCompleting = true);
     try {
+      await _reloadAuthoritativeReviewData();
+      if (_serverUnresolvedCount > 0 ||
+          hasUnresolvedPlaidReview(
+            _transactions,
+            _transferSuggestionIds,
+          )) {
+        if (!mounted) return;
+        setState(() => _isCompleting = false);
+        AppToast.info(
+          context,
+          context.l10n.plaidReviewFlaggedBeforeContinue,
+        );
+        return;
+      }
       await _refreshAfterSync();
-    } catch (_) {}
-
-    if (_isTransactionsStillSyncing && mounted) {
-      AppToast.info(
-        context,
-        context.l10n.plaidStillSyncingBackground,
-      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isCompleting = false);
+      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      return;
     }
 
     if (!mounted) return;
@@ -916,10 +1024,10 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop || !_canDismissReview) {
+        if (didPop || (!_canCompleteReview && !_canExitAfterFailure)) {
           return;
         }
-        unawaited(_handleDone());
+        unawaited(_handleBackRequest());
       },
       child: Scaffold(
         backgroundColor: colorScheme.appBackground,
@@ -927,9 +1035,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           automaticallyImplyLeading: false,
           backgroundColor: colorScheme.appBackground,
           elevation: 0,
-          leading: _canDismissReview
+          leading: _canCompleteReview || _canExitAfterFailure
               ? IconButton(
-                  onPressed: () => unawaited(_handleDone()),
+                  onPressed: () => unawaited(_handleBackRequest()),
                   icon: const Icon(Icons.arrow_back_ios_new_rounded),
                 )
               : const SizedBox.shrink(),
@@ -1024,12 +1132,28 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 24,
                                 ),
-                                child: Text(
-                                  context.l10n.noTransactionsFound,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                  ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      context.l10n.noTransactionsFound,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                    if (_hasMoreTransactions) ...[
+                                      const SizedBox(height: 16),
+                                      OutlinedButton(
+                                        onPressed: _isLoadingMoreTransactions
+                                            ? null
+                                            : _loadMoreTransactions,
+                                        child: Text(
+                                          context.l10n.plaidReviewLoadMore,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),
@@ -1037,23 +1161,50 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                         else
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                            sliver: SliverList.list(
-                              children: [
-                                for (final month in monthKeys)
-                                  _MonthSection(
-                                    title: DateFormat('MMMM yyyy').format(
-                                      month.asDate,
+                            sliver: SliverList.builder(
+                              itemCount: monthKeys.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == monthKeys.length) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 180),
+                                      child: _hasMoreTransactions
+                                          ? OutlinedButton(
+                                              key: const ValueKey(
+                                                  'plaid-review-load-more'),
+                                              onPressed:
+                                                  _isLoadingMoreTransactions
+                                                      ? null
+                                                      : _loadMoreTransactions,
+                                              child: _isLoadingMoreTransactions
+                                                  ? const SizedBox.square(
+                                                      dimension: 18,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    )
+                                                  : Text(context.l10n
+                                                      .plaidReviewLoadMore),
+                                            )
+                                          : const SizedBox.shrink(),
                                     ),
-                                    transactions: grouped[month]!,
-                                    onDelete: _deleteTransaction,
-                                    onEdit: _editTransaction,
-                                    onReviewClassification:
-                                        _reviewClassification,
-                                    transferSuggestionIds:
-                                        _transferSuggestionIds,
+                                  );
+                                }
+                                final month = monthKeys[index];
+                                return _MonthSection(
+                                  title: DateFormat('MMMM yyyy').format(
+                                    month.asDate,
                                   ),
-                                const SizedBox(height: 12),
-                              ],
+                                  transactions: grouped[month]!,
+                                  onDelete: _deleteTransaction,
+                                  onEdit: _editTransaction,
+                                  onReviewClassification: _reviewClassification,
+                                  transferSuggestionIds: _transferSuggestionIds,
+                                );
+                              },
                             ),
                           ),
                       ],
@@ -1086,12 +1237,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 }
 
 bool _isPlaidStillImporting(PlaidSyncStatus? syncStatus) {
-  if (syncStatus == null) {
-    return false;
-  }
-
-  return syncStatus.initialUpdateComplete != true ||
-      syncStatus.historicalUpdateComplete != true;
+  return isPlaidInitialImportIncomplete(syncStatus);
 }
 
 bool _shouldShowHistoricalSyncStatus(PlaidSyncStatus? syncStatus) {
@@ -1173,6 +1319,53 @@ class _DirectPlaidFetchResult {
   final List<SyncedTransaction> transactions;
   final PlaidSyncStatus? syncStatus;
   final bool requiresReconnect;
+}
+
+class _PlaidReviewPage {
+  const _PlaidReviewPage({
+    required this.rows,
+    required this.hasMore,
+    required this.unresolvedCount,
+    required this.nextCursor,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final bool hasMore;
+  final int unresolvedCount;
+  final _PlaidReviewCursor? nextCursor;
+}
+
+class _PlaidReviewCursor {
+  const _PlaidReviewCursor({
+    required this.reviewPriority,
+    required this.date,
+    required this.createdAt,
+    required this.id,
+  });
+
+  factory _PlaidReviewCursor.fromJson(Map<String, dynamic> json) =>
+      _PlaidReviewCursor(
+        reviewPriority: json['review_priority'] == true,
+        date: json['date'].toString(),
+        createdAt: json['created_at'].toString(),
+        id: json['id'].toString(),
+      );
+
+  final bool reviewPriority;
+  final String date;
+  final String createdAt;
+  final String id;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PlaidReviewCursor &&
+      reviewPriority == other.reviewPriority &&
+      date == other.date &&
+      createdAt == other.createdAt &&
+      id == other.id;
+
+  @override
+  int get hashCode => Object.hash(reviewPriority, date, createdAt, id);
 }
 
 class _WalletHeaderDelegate extends SliverPersistentHeaderDelegate {

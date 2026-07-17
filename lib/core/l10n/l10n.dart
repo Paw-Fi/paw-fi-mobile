@@ -97,6 +97,9 @@ extension PocketRolloverL10nX on AppLocalizations {
 }
 
 extension PlaidClassificationReviewL10nX on AppLocalizations {
+  String get failedToSyncTransactions =>
+      'Bank transactions could not be synced. Try again before continuing.';
+  String get plaidReviewLoadMore => 'Load more transactions';
   String get plaidClassificationNeedsReview => 'Check transaction type';
   String get plaidClassificationNeedsReviewDescription =>
       'Plaid could not identify how this transaction should affect your budget.';

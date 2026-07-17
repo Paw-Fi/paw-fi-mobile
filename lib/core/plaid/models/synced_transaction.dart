@@ -51,11 +51,8 @@ bool hasUnresolvedPlaidReview(
   Iterable<SyncedTransaction> transactions,
   Set<String> transferSuggestionIds,
 ) =>
-    transactions.any(
-      (transaction) =>
-          transaction.needsClassificationReview ||
-          transferSuggestionIds.contains(transaction.expense.id),
-    );
+    transferSuggestionIds.isNotEmpty ||
+    transactions.any((transaction) => transaction.needsClassificationReview);
 
 class ParsedSyncedTransactions {
   const ParsedSyncedTransactions({

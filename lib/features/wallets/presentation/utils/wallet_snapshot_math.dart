@@ -116,7 +116,7 @@ WalletSnapshot buildWalletSnapshot({
   }
 
   final balanceTransactions = transactions.where((expense) {
-    return expense.date.isBefore(endExclusive);
+    return expense.analyticsIsFinal && expense.date.isBefore(endExclusive);
   }).toList(growable: false);
   final totalPeriodStart = periodStart;
   final totalPeriodEndExclusive = periodEndExclusive ?? endExclusive;

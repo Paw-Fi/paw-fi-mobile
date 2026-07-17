@@ -88,6 +88,8 @@ void main() {
 
       expect(hasUnresolvedPlaidReview([needsReview], const {}), true);
       expect(hasUnresolvedPlaidReview([reviewed], const {'txn_123'}), true);
+      expect(
+          hasUnresolvedPlaidReview([reviewed], const {'unloaded_txn'}), true);
       expect(hasUnresolvedPlaidReview([reviewed], const {}), false);
     });
   });

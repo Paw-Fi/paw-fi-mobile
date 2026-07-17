@@ -58,6 +58,8 @@ class BankSyncReviewAccount {
     required this.goalAmountCents,
     required this.openingBalanceCents,
     required this.isDefault,
+    this.providerCurrentBalanceCents,
+    this.providerAvailableBalanceCents,
   });
 
   final String bankAccountId;
@@ -75,6 +77,8 @@ class BankSyncReviewAccount {
   final int? goalAmountCents;
   final int openingBalanceCents;
   final bool isDefault;
+  final int? providerCurrentBalanceCents;
+  final int? providerAvailableBalanceCents;
 
   factory BankSyncReviewAccount.fromJson(
     Map<String, dynamic> json, {
@@ -112,6 +116,16 @@ class BankSyncReviewAccount {
       openingBalanceCents:
           (linkedWallet?['opening_balance_cents'] as num?)?.round() ?? 0,
       isDefault: linkedWallet?['is_default'] == true,
+      providerCurrentBalanceCents: _readOptionalInt(
+        json,
+        'providerBalanceCurrentCents',
+        'provider_balance_current_cents',
+      ),
+      providerAvailableBalanceCents: _readOptionalInt(
+        json,
+        'providerBalanceAvailableCents',
+        'provider_balance_available_cents',
+      ),
     );
   }
 
@@ -124,6 +138,15 @@ class BankSyncReviewAccount {
   }
 
   bool get hasLinkedWallet => walletId != null && walletId!.isNotEmpty;
+
+  int? get providerDisplayBalanceCents {
+    final current = providerCurrentBalanceCents;
+    if (current == null) return null;
+    final normalizedType = type?.trim().toLowerCase();
+    return normalizedType == 'credit' || normalizedType == 'loan'
+        ? -current.abs()
+        : current;
+  }
 
   BankSyncReviewAccount copyWith({
     String? currency,
@@ -155,8 +178,19 @@ class BankSyncReviewAccount {
       goalAmountCents: goalAmountCents ?? this.goalAmountCents,
       openingBalanceCents: openingBalanceCents ?? this.openingBalanceCents,
       isDefault: isDefault ?? this.isDefault,
+      providerCurrentBalanceCents: providerCurrentBalanceCents,
+      providerAvailableBalanceCents: providerAvailableBalanceCents,
     );
   }
+}
+
+int? _readOptionalInt(
+  Map<String, dynamic> json,
+  String camelCaseKey,
+  String snakeCaseKey,
+) {
+  final value = json[camelCaseKey] ?? json[snakeCaseKey];
+  return value is num ? value.round() : int.tryParse(value?.toString() ?? '');
 }
 
 String? _normalizeString(dynamic value) {

@@ -38,6 +38,7 @@ void main() {
     String? householdId,
     String currency = 'USD',
     bool isRecurring = false,
+    bool analyticsIsFinal = true,
   }) {
     return ExpenseEntry(
       id: id,
@@ -49,6 +50,7 @@ void main() {
       householdId: householdId,
       walletId: walletId,
       isRecurring: isRecurring,
+      analyticsIsFinal: analyticsIsFinal,
     );
   }
 
@@ -130,6 +132,26 @@ void main() {
     expect(snapshot.totalSpentCents, 2000);
     expect(snapshot.walletBalances['w1'], 13000);
     expect(snapshot.netWorthCents, 13000);
+  });
+
+  test('pending bank transactions do not change wallet totals or balance', () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [wallet(id: 'w1', opening: 10000, isDefault: true)],
+      transactions: [
+        tx(
+          id: 'pending',
+          date: DateTime(2026, 7, 10),
+          cents: 3000,
+          type: 'expense',
+          walletId: 'w1',
+          analyticsIsFinal: false,
+        ),
+      ],
+      endExclusive: DateTime(2026, 8, 1),
+    );
+
+    expect(snapshot.totalSpentCents, 0);
+    expect(snapshot.walletBalances['w1'], 10000);
   });
 
   test('buildWalletAvailableMonths uses custom financial cycle anchors', () {
