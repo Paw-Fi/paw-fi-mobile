@@ -66,6 +66,30 @@ void main() {
       expect(synced.isRecurring, false);
       expect(synced.recurrenceRule, null);
     });
+
+    test('blocks completion for classification and transfer review', () {
+      final expense = ExpenseEntry(
+        id: 'txn_123',
+        date: DateTime(2024, 1, 15),
+        amountCents: 5000,
+        createdAt: DateTime(2024, 1, 15),
+      );
+      final needsReview = SyncedTransaction(
+        expense: expense,
+        isRecurring: false,
+        recurrenceRule: null,
+        classificationReviewState: 'needs_review',
+      );
+      final reviewed = SyncedTransaction(
+        expense: expense,
+        isRecurring: false,
+        recurrenceRule: null,
+      );
+
+      expect(hasUnresolvedPlaidReview([needsReview], const {}), true);
+      expect(hasUnresolvedPlaidReview([reviewed], const {'txn_123'}), true);
+      expect(hasUnresolvedPlaidReview([reviewed], const {}), false);
+    });
   });
 
   group('parseSyncedTransactions - Function', () {
@@ -87,6 +111,11 @@ void main() {
             'type': 'expense',
             'is_recurring': true,
             'recurrence_rule': {'frequency': 'monthly'},
+            'analytics_class': 'unknown',
+            'classification_source': 'plaid_pfc_v2',
+            'classification_review_state': 'needs_review',
+            'classification_review_reason': 'unknown_provider_intent',
+            'provider_pfc_confidence': 'LOW',
           },
         ],
       };
@@ -98,6 +127,11 @@ void main() {
       expect(transactions[0].expense.amountCents, 5000);
       expect(transactions[0].isRecurring, true);
       expect(transactions[0].recurrenceRule!['frequency'], 'monthly');
+      expect(transactions[0].analyticsClass, 'unknown');
+      expect(transactions[0].needsClassificationReview, true);
+      expect(transactions[0].classificationReviewReason,
+          'unknown_provider_intent');
+      expect(transactions[0].providerPfcConfidence, 'LOW');
     });
 
     test('parses transactions from nested data.addedTransactions', () {
