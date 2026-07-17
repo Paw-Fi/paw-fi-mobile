@@ -3318,5 +3318,6 @@
   "couldNotOpenReddit": "Không thể mở Reddit",
   "changelog": "Nhật ký thay đổi",
   "balanceCarriedForward": "Số dư chuyển tiếp",
-  "balanceCarriedForwardDescription": "Số dư tích lũy từ trước khi có lịch sử thanh toán chi tiết."
+  "balanceCarriedForwardDescription": "Số dư tích lũy từ trước khi có lịch sử thanh toán chi tiết.",
+  "rateUs": "Đánh giá ứng dụng"
 }

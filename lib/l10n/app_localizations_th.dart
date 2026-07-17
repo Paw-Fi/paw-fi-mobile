@@ -9187,4 +9187,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get balanceCarriedForwardDescription => 'ยอดคงเหลือสะสมจากช่วงก่อนที่จะมีประวัติการชำระบัญชีแบบละเอียด';
+
+  @override
+  String get rateUs => 'ให้คะแนนแอป';
 }

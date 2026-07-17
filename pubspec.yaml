@@ -171,6 +171,7 @@ flutter:
     - lib/assets/images/avatar/9.blush/
     - lib/assets/images/avatar/10.accessories/
     - lib/assets/images/avatar/11.stars/
+    - lib/assets/social-media/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

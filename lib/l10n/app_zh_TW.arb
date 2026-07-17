@@ -3263,5 +3263,6 @@
   "couldNotOpenReddit": "無法開啟 Reddit",
   "changelog": "更新紀錄",
   "balanceCarriedForward": "結轉餘額",
-  "balanceCarriedForwardDescription": "這是詳細結算紀錄可用之前累積的餘額。"
+  "balanceCarriedForwardDescription": "這是詳細結算紀錄可用之前累積的餘額。",
+  "rateUs": "為 App 評分"
 }

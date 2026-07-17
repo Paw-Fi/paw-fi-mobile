@@ -3315,5 +3315,6 @@
   "couldNotOpenReddit": "无法打开 Reddit",
   "changelog": "更新日志",
   "balanceCarriedForward": "结转余额",
-  "balanceCarriedForwardDescription": "这是详细结算记录可用之前累计的余额。"
+  "balanceCarriedForwardDescription": "这是详细结算记录可用之前累计的余额。",
+  "rateUs": "为应用评分"
 }

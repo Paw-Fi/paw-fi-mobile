@@ -3321,5 +3321,6 @@
   "couldNotOpenReddit": "No se pudo abrir Reddit",
   "changelog": "Historial de cambios",
   "balanceCarriedForward": "Saldo anterior",
-  "balanceCarriedForwardDescription": "Saldo acumulado antes de que estuviera disponible el historial detallado de liquidaciones."
+  "balanceCarriedForwardDescription": "Saldo acumulado antes de que estuviera disponible el historial detallado de liquidaciones.",
+  "rateUs": "Valorar la aplicación"
 }

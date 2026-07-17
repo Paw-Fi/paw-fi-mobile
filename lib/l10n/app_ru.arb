@@ -3269,5 +3269,6 @@
   "couldNotOpenReddit": "Не удалось открыть Reddit",
   "changelog": "История изменений",
   "balanceCarriedForward": "Перенесенный баланс",
-  "balanceCarriedForwardDescription": "Баланс, накопленный до появления подробной истории взаиморасчетов."
+  "balanceCarriedForwardDescription": "Баланс, накопленный до появления подробной истории взаиморасчетов.",
+  "rateUs": "Оценить приложение"
 }

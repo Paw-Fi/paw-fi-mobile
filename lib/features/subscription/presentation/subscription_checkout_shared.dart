@@ -25,10 +25,15 @@ List<PlanOption> buildPlusPlanOptions({
   String? pricingCountryOverride,
 }) {
   final normalizedPricingCountry = pricingCountryOverride?.trim().toUpperCase();
+  // Temporary: force USD pricing. Restore regional detection by uncommenting below.
+  // final pricingCountry = normalizedPricingCountry != null &&
+  //         regionalPricingCountryToMarket.containsKey(normalizedPricingCountry)
+  //     ? normalizedPricingCountry
+  //     : resolveDeviceRegionalPricingCountry();
   final pricingCountry = normalizedPricingCountry != null &&
           regionalPricingCountryToMarket.containsKey(normalizedPricingCountry)
       ? normalizedPricingCountry
-      : resolveDeviceRegionalPricingCountry();
+      : 'US';
   final regionalMarket = regionalPricingForCountry(pricingCountry);
 
   String priceFor(String plan, String? billingInterval) {

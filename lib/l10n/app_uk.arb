@@ -3311,5 +3311,6 @@
   "couldNotOpenReddit": "Не вдалося відкрити Reddit",
   "changelog": "Історія змін",
   "balanceCarriedForward": "Перенесений баланс",
-  "balanceCarriedForwardDescription": "Баланс, накопичений до появи докладної історії взаєморозрахунків."
+  "balanceCarriedForwardDescription": "Баланс, накопичений до появи докладної історії взаєморозрахунків.",
+  "rateUs": "Оцінити застосунок"
 }
