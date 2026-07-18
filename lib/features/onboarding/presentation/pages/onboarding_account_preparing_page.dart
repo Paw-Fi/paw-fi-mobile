@@ -50,6 +50,19 @@ const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
 const _kAppStoreRestoreTimeout = Duration(seconds: 16);
 const _kTrialGrantTimeout = Duration(seconds: 20);
 const _kPostGrantRefreshTimeout = Duration(seconds: 8);
+const _kTrialGrantProgressUpdateInterval = Duration(milliseconds: 750);
+const _kTrialGrantProgressStart = 0.1;
+const _kTrialGrantProgressCap = 0.6;
+
+double onboardingSubscriptionPreparationVisualProgress(Duration elapsed) {
+  final progress = _kTrialGrantProgressStart +
+      elapsed.inMilliseconds /
+          _kTrialGrantTimeout.inMilliseconds *
+          (_kTrialGrantProgressCap - _kTrialGrantProgressStart);
+  return progress
+      .clamp(_kTrialGrantProgressStart, _kTrialGrantProgressCap)
+      .toDouble();
+}
 
 class OnboardingSubscriptionCompletionCopy {
   const OnboardingSubscriptionCompletionCopy({
@@ -573,7 +586,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       isGrantingOnboardingTrial.value = true;
       try {
         setProgressState(
-          progressValue: 0.1,
+          progressValue: _kTrialGrantProgressStart,
           label: l10n
               .onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
         );
@@ -644,7 +657,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           {double? progressValue, String? label, bool? done}) {
         if (!context.mounted) return;
         if (progressValue != null) {
-          progress.value = progressValue;
+          progress.value =
+              progressValue > progress.value ? progressValue : progress.value;
         }
         if (label != null) {
           progressLabel.value = label;
@@ -671,12 +685,28 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final budgetSyncFailureKey =
           '$_kBudgetSyncFailurePrefix${user.uid}:$budgetSyncScope';
       final wasAlreadySynced = store.isSyncedForUser(user.uid);
-      final existingState = await loadExistingAccountState(user.uid);
-      final hasRequiredSubscription = await ensureOnboardingSubscription(
-        userId: user.uid,
-        existingState: existingState,
-        setProgressState: setProgressState,
+      setProgressState(progressValue: _kTrialGrantProgressStart);
+      final subscriptionPreparationStartedAt = DateTime.now();
+      final subscriptionPreparationTimer = Timer.periodic(
+        _kTrialGrantProgressUpdateInterval,
+        (_) => setProgressState(
+          progressValue: onboardingSubscriptionPreparationVisualProgress(
+            DateTime.now().difference(subscriptionPreparationStartedAt),
+          ),
+        ),
       );
+      late final _ExistingAccountState existingState;
+      late final bool hasRequiredSubscription;
+      try {
+        existingState = await loadExistingAccountState(user.uid);
+        hasRequiredSubscription = await ensureOnboardingSubscription(
+          userId: user.uid,
+          existingState: existingState,
+          setProgressState: setProgressState,
+        );
+      } finally {
+        subscriptionPreparationTimer.cancel();
+      }
       if (!hasRequiredSubscription) {
         setProgressState(
           progressValue: 0.1,

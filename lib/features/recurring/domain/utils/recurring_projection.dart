@@ -138,6 +138,7 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
     }
 
     final rule = r.recurrenceRule;
+    if (rule?.projectionEnabled == false) continue;
     final anchor = (rule?.anchorDate ?? r.date).toLocal();
     final endLocal = rule?.endDate?.toLocal();
     if (endLocal != null && endLocal.isBefore(startDay)) continue;

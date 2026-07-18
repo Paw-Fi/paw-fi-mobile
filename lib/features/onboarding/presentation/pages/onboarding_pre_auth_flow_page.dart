@@ -934,7 +934,8 @@ class _PreAuthBudgetStep extends HookWidget {
             onTap: () async {
               final symbol = resolveCurrencySymbol('USD');
               final header = Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: colorScheme.brightness == Brightness.dark
                       ? Colors.white.withValues(alpha: 0.05)
@@ -1234,7 +1235,8 @@ class _PreAuthDebtStep extends HookWidget {
             onTap: () async {
               final symbol = resolveCurrencySymbol('USD');
               final header = Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: colorScheme.brightness == Brightness.dark
                       ? Colors.white.withValues(alpha: 0.05)
@@ -1516,6 +1518,7 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
         ref,
         showAllByDefault: true,
         preselectPrimary: false,
+        isOnboardingFlow: true,
       );
       if (selected == null || selected.isEmpty) {
         return;

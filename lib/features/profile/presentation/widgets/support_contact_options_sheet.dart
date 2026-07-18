@@ -12,6 +12,7 @@ class SupportContactOptionsSheet extends StatelessWidget {
   static Future<SupportContactOption?> show(BuildContext context) {
     return MonekoBottomSheet.show<SupportContactOption>(
       context: context,
+      isScrollControlled: true,
       builder: (_) => const SupportContactOptionsSheet(),
     );
   }

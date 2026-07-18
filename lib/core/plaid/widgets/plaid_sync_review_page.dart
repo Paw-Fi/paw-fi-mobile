@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import 'package:moneko/features/import/presentation/widgets/import_category_appl
 import 'package:moneko/features/import/presentation/widgets/import_edit_row_sheet.dart';
 import 'package:moneko/features/import/presentation/widgets/persisted_transaction_editing_helper.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -50,6 +52,8 @@ class PlaidSyncReviewPage extends ConsumerStatefulWidget {
 class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   static const Duration _syncPollInterval = Duration(seconds: 2);
   static const Duration _syncWaitTimeout = Duration(seconds: 45);
+  static const Duration _historicalPollInterval = Duration(seconds: 5);
+  static const Duration _historicalWaitTimeout = Duration(minutes: 2);
 
   late List<BankSyncReviewAccount> _accounts;
   late String _selectedBankAccountId;
@@ -159,7 +163,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     try {
       await _ensureLinkedWallets();
       final result = await _awaitBackendSyncAndLoadTransactions();
-      final transferSuggestionIds = await _loadTransferSuggestionIds();
+      final transferSuggestionIds =
+          await _loadTransferSuggestionIds(result.transactions);
       final resolvedCurrency = _resolveCurrencyCode(result.transactions);
 
       ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
@@ -167,6 +172,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       );
       try {
         await _refreshAfterSync();
+        _debugRecurringReviewMatches(result.transactions);
       } catch (error) {
         if (mounted) {
           AppToast.error(context, error.toString());
@@ -180,11 +186,23 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         _syncStatus = result.syncStatus;
         _isPreparing = false;
       });
-    } catch (error) {
+      if (widget.session.provider == 'plaid' &&
+          result.syncStatus?.historicalUpdateComplete != true) {
+        unawaited(_refreshRecurringAfterHistoricalImport());
+      }
+    } catch (error, stackTrace) {
+      assert(() {
+        debugPrint(
+          '[PlaidSyncReview] preparation failed: $error\n$stackTrace',
+        );
+        return true;
+      }());
       if (!mounted) return;
       setState(() {
         _isPreparing = false;
-        _errorMessage = ErrorHandler.getUserFriendlyMessage(error);
+        _errorMessage = error is _PlaidReviewException
+            ? error.message
+            : ErrorHandler.getUserFriendlyMessage(error);
       });
       if (ErrorHandler.isPlusFeatureLimitError(error)) {
         await PlusLockedSheet.show(
@@ -264,10 +282,13 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     while (DateTime.now().isBefore(deadline)) {
       final snapshot = await _fetchConnectionSyncSnapshot();
-      latestSyncStatus = snapshot.syncStatus ?? latestSyncStatus;
+      latestSyncStatus = _mergePlaidSyncStatus(
+        latestSyncStatus,
+        snapshot.effectiveSyncStatus,
+      );
 
       if (snapshot.requiresReconnect) {
-        throw Exception(reconnectMessage);
+        throw _PlaidReviewException(reconnectMessage);
       }
 
       final transactions = await _loadSyncedTransactionsFromDatabase();
@@ -285,10 +306,13 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (widget.session.provider == 'plaid' && !attemptedDirectPlaidFetch) {
         attemptedDirectPlaidFetch = true;
         final directResult = await _loadTransactionsFromPlaidSyncFunction();
-        latestSyncStatus = directResult.syncStatus ?? latestSyncStatus;
+        latestSyncStatus = _mergePlaidSyncStatus(
+          latestSyncStatus,
+          directResult.syncStatus,
+        );
 
         if (directResult.requiresReconnect) {
-          throw Exception(reconnectMessage);
+          throw _PlaidReviewException(reconnectMessage);
         }
 
         if (directResult.transactions.isNotEmpty &&
@@ -330,10 +354,13 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     final directResult = await _loadTransactionsFromPlaidSyncFunction();
     final persistedTransactions = await _loadSyncedTransactionsFromDatabase();
-    final finalSyncStatus = directResult.syncStatus ?? latestSyncStatus;
+    final finalSyncStatus = _mergePlaidSyncStatus(
+      latestSyncStatus,
+      directResult.syncStatus,
+    );
     if (widget.session.provider == 'plaid' &&
         isPlaidInitialImportIncomplete(finalSyncStatus)) {
-      throw Exception(preparingMessage);
+      throw _PlaidReviewException(preparingMessage);
     }
     return ParsedSyncedTransactions(
       transactions: persistedTransactions.isNotEmpty
@@ -366,6 +393,89 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           user.uid,
           forceReload: true,
         );
+  }
+
+  Future<void> _refreshRecurringAfterHistoricalImport() async {
+    final deadline = DateTime.now().add(_historicalWaitTimeout);
+    while (mounted && DateTime.now().isBefore(deadline)) {
+      try {
+        final snapshot = await _fetchConnectionSyncSnapshot();
+        if (!mounted || snapshot.requiresReconnect) return;
+        final mergedStatus = _mergePlaidSyncStatus(
+          _syncStatus,
+          snapshot.effectiveSyncStatus,
+        );
+        if (mergedStatus?.historicalUpdateComplete == true) {
+          setState(() => _syncStatus = mergedStatus);
+          final userId = ref.read(authProvider).uid;
+          if (userId.isNotEmpty) {
+            await ref
+                .read(recurringTransactionsProvider(
+                  widget.session.targetHouseholdId,
+                ).notifier)
+                .refresh(userId);
+            _debugRecurringReviewMatches(_transactions);
+          }
+          return;
+        }
+      } catch (error) {
+        assert(() {
+          debugPrint(
+            '[PlaidSyncReview] historical status refresh failed: $error',
+          );
+          return true;
+        }());
+      }
+      await Future<void>.delayed(_historicalPollInterval);
+    }
+  }
+
+  void _debugRecurringReviewMatches(List<SyncedTransaction> transactions) {
+    if (!mounted) return;
+    assert(() {
+      final recurringTransactions = ref
+              .read(recurringTransactionsProvider(
+                widget.session.targetHouseholdId,
+              ))
+              .data
+              .valueOrNull ??
+          const <RecurringTransaction>[];
+      final signatures = _buildRecurringReviewSignatures(
+        recurringTransactions,
+      );
+      final matched = transactions
+          .where((transaction) =>
+              _hasRecurringReviewSignature(transaction.expense, signatures))
+          .toList(growable: false);
+      debugPrint(
+        '[PlaidSyncReview][Recurring] templates=${recurringTransactions.length} '
+        'signatures=${signatures.length} transactions=${transactions.length} '
+        'matched=${matched.length}',
+      );
+      for (final transaction in recurringTransactions) {
+        final label = _normalizeRecurringReviewLabel(
+          transaction.merchant ?? transaction.description ?? transaction.source,
+        );
+        if (label != null) continue;
+        debugPrint(
+          '[PlaidSyncReview][RecurringTemplateMissingLabel] '
+          'id=${transaction.id} category=${transaction.category} '
+          'bankAccount=${transaction.bankAccountId} '
+          'wallet=${transaction.accountId} currency=${transaction.currency} '
+          'amountCents=${(transaction.amount * 100).round()}',
+        );
+      }
+      for (final transaction in matched) {
+        final expense = transaction.expense;
+        debugPrint(
+          '[PlaidSyncReview][RecurringMatch] id=${expense.id} '
+          'bankAccount=${expense.bankAccountId} wallet=${expense.walletId} '
+          'currency=${expense.currency} amountCents=${expense.amountCents} '
+          'label=${_normalizeRecurringReviewLabel(expense.merchant ?? expense.rawText)}',
+        );
+      }
+      return true;
+    }());
   }
 
   Future<void> _editSelectedWallet() async {
@@ -592,16 +702,48 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final userId = ref.read(authProvider).uid;
     if (userId.isEmpty) return;
     try {
-      await Supabase.instance.client.rpc(
-        'set_transaction_analytics_override_v1',
+      final result = await Supabase.instance.client.rpc(
+        'set_transaction_analytics_override_group_v1',
         params: {
           'p_user_id': userId,
           'p_expense_id': transaction.expense.id,
           'p_analytics_class': selectedClass,
         },
       );
+      final resultMap = result is Map<String, dynamic>
+          ? result
+          : result is Map
+              ? Map<String, dynamic>.from(result)
+              : const <String, dynamic>{};
+      final updatedIds =
+          (resultMap['updated_ids'] as List<dynamic>? ?? const [])
+              .map((value) => value.toString())
+              .toSet();
+      if (updatedIds.isEmpty) {
+        updatedIds.add(transaction.expense.id);
+      }
+      if (selectedClass != 'provider' && mounted) {
+        setState(() {
+          final resolvedReviewCount = _transactions
+              .where((item) =>
+                  updatedIds.contains(item.expense.id) &&
+                  item.needsClassificationReview)
+              .length;
+          _transactions = _transactions.map((item) {
+            if (!updatedIds.contains(item.expense.id)) return item;
+            return _withResolvedClassification(item, selectedClass);
+          }).toList(growable: false);
+          _transferSuggestionIds = Set<String>.from(_transferSuggestionIds)
+            ..removeAll(updatedIds);
+          _serverUnresolvedCount = math.max(
+            0,
+            _serverUnresolvedCount - resolvedReviewCount,
+          );
+        });
+      }
       final refreshedTransactions = await _loadSyncedTransactionsFromDatabase();
-      final transferSuggestionIds = await _loadTransferSuggestionIds();
+      final transferSuggestionIds =
+          await _loadTransferSuggestionIds(refreshedTransactions);
       if (!mounted) return;
       setState(() {
         _transactions = refreshedTransactions;
@@ -715,7 +857,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
   Future<void> _reloadAuthoritativeReviewData() async {
     final transactions = await _loadSyncedTransactionsFromDatabase();
-    final transferSuggestionIds = await _loadTransferSuggestionIds();
+    final transferSuggestionIds =
+        await _loadTransferSuggestionIds(transactions);
     if (!mounted) return;
     setState(() {
       _transactions = transactions;
@@ -739,6 +882,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final syncStatus = _parseConnectionSyncStatus(metadataMap);
 
     return _ConnectionSyncSnapshot(
+      itemStatus: row['item_status']?.toString(),
       requiresReconnect: row['status'] == 'needs_reauth' ||
           row['relink_state'] == 'required' ||
           row['item_status'] == 'pending_relink',
@@ -830,7 +974,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     }
   }
 
-  Future<Set<String>> _loadTransferSuggestionIds() async {
+  Future<Set<String>> _loadTransferSuggestionIds(
+    List<SyncedTransaction> transactions,
+  ) async {
     final userId = ref.read(authProvider).uid;
     if (userId.isEmpty || widget.session.provider != 'plaid') {
       return const {};
@@ -845,10 +991,13 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         'p_household_id': widget.session.targetHouseholdId,
       },
     );
-    return (result as List<dynamic>?)
-            ?.map((value) => value.toString())
-            .toSet() ??
-        const {};
+    final suggestions =
+        (result as List<dynamic>?)?.map((value) => value.toString()).toSet() ??
+            const {};
+    final resolvedIds = transactions
+        .where((transaction) => transaction.hasUserClassificationOverride)
+        .map((transaction) => transaction.expense.id);
+    return Set<String>.from(suggestions)..removeAll(resolvedIds);
   }
 
   Future<_PlaidReviewPage> _loadSyncedTransactionRowsPage({
@@ -936,11 +1085,23 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       final connectionRows = connections is List
           ? connections.whereType<Map>().toList(growable: false)
           : const <Map>[];
+      if (connectionRows.any(
+        (item) => item['errorCode'] == 'ITEM_LOGIN_REQUIRED',
+      )) {
+        final parsed = parseSyncedTransactionPayload(response.data);
+        return _DirectPlaidFetchResult(
+          transactions: const [],
+          syncStatus: parsed.syncStatus,
+          requiresReconnect: true,
+        );
+      }
       if (connectionRows.isNotEmpty &&
           connectionRows.every(
             (item) => const {
               'INVALID_CURSOR',
               'STALE_CURSOR_GENERATION',
+              'SYNC_IN_PROGRESS',
+              'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION',
             }.contains(item['errorCode']),
           )) {
         final parsed = parseSyncedTransactionPayload(response.data);
@@ -1017,6 +1178,16 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final selected = _selectedAccount;
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(
+              widget.session.targetHouseholdId,
+            ))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final recurringSignatures = _buildRecurringReviewSignatures(
+      recurringTransactions,
+    );
     final grouped = _groupByMonth(_selectedTransactions);
     final monthKeys = grouped.keys.toList()
       ..sort((a, b) => b.asDate.compareTo(a.asDate));
@@ -1024,6 +1195,11 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         _errorMessage == null &&
         widget.session.provider == 'plaid' &&
         _shouldShowHistoricalSyncStatus(_syncStatus);
+    final hasUnresolvedTransactions = _serverUnresolvedCount > 0 ||
+        hasUnresolvedPlaidReview(
+          _transactions,
+          _transferSuggestionIds,
+        );
 
     return PopScope(
       canPop: false,
@@ -1103,6 +1279,30 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                               onEdit: _editSelectedWallet,
                             ),
                           ),
+                        SliverToBoxAdapter(
+                          child: AnimatedSize(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOutCubic,
+                            child: hasUnresolvedTransactions
+                                ? const Padding(
+                                    key: ValueKey(
+                                      'plaid-review-required-banner',
+                                    ),
+                                    padding: EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      12,
+                                    ),
+                                    child: _ReviewRequiredBanner(),
+                                  )
+                                : const SizedBox.shrink(
+                                    key: ValueKey(
+                                      'plaid-review-required-banner-hidden',
+                                    ),
+                                  ),
+                          ),
+                        ),
                         if (showHistoricalSyncBanner)
                           SliverToBoxAdapter(
                             child: Padding(
@@ -1207,6 +1407,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                                   onEdit: _editTransaction,
                                   onReviewClassification: _reviewClassification,
                                   transferSuggestionIds: _transferSuggestionIds,
+                                  recurringSignatures: recurringSignatures,
                                 );
                               },
                             ),
@@ -1264,6 +1465,9 @@ bool _payloadRequiresReconnect(dynamic payload) {
   }
 
   for (final item in connections.whereType<Map<String, dynamic>>()) {
+    if (item['errorCode'] == 'ITEM_LOGIN_REQUIRED') {
+      return true;
+    }
     final error = item['error']?.toString().toLowerCase() ?? '';
     if (error.contains('login is required') ||
         error.contains('re-authentication') ||
@@ -1273,6 +1477,35 @@ bool _payloadRequiresReconnect(dynamic payload) {
   }
 
   return false;
+}
+
+class _PlaidReviewException implements Exception {
+  const _PlaidReviewException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+PlaidSyncStatus? _mergePlaidSyncStatus(
+  PlaidSyncStatus? current,
+  PlaidSyncStatus? incoming,
+) {
+  if (current == null) return incoming;
+  if (incoming == null) return current;
+  return PlaidSyncStatus(
+    initialUpdateComplete: current.initialUpdateComplete == true ||
+            incoming.initialUpdateComplete == true
+        ? true
+        : incoming.initialUpdateComplete ?? current.initialUpdateComplete,
+    historicalUpdateComplete: current.historicalUpdateComplete == true ||
+            incoming.historicalUpdateComplete == true
+        ? true
+        : incoming.historicalUpdateComplete ?? current.historicalUpdateComplete,
+    webhookCode: incoming.webhookCode ?? current.webhookCode,
+    updatedAt: incoming.updatedAt ?? current.updatedAt,
+  );
 }
 
 PlaidSyncStatus? _parseConnectionSyncStatus(Map<String, dynamic> metadata) {
@@ -1303,14 +1536,18 @@ PlaidSyncStatus? _parseConnectionSyncStatus(Map<String, dynamic> metadata) {
 
 class _ConnectionSyncSnapshot {
   const _ConnectionSyncSnapshot({
+    this.itemStatus,
     this.requiresReconnect = false,
     this.lastSuccessfulSyncAt,
     this.syncStatus,
   });
 
+  final String? itemStatus;
   final bool requiresReconnect;
   final DateTime? lastSuccessfulSyncAt;
   final PlaidSyncStatus? syncStatus;
+
+  PlaidSyncStatus? get effectiveSyncStatus => syncStatus;
 }
 
 class _DirectPlaidFetchResult {
@@ -1683,6 +1920,70 @@ Map<_MonthKey, List<SyncedTransaction>> _groupByMonth(
   return map;
 }
 
+SyncedTransaction _withResolvedClassification(
+  SyncedTransaction transaction,
+  String analyticsClass,
+) {
+  return SyncedTransaction(
+    expense: transaction.expense,
+    isRecurring: transaction.isRecurring,
+    recurrenceRule: transaction.recurrenceRule,
+    analyticsClass: analyticsClass,
+    classificationSource: 'user_override',
+    classificationReviewState: 'user_override',
+    providerPfcConfidence: transaction.providerPfcConfidence,
+  );
+}
+
+class _ReviewRequiredBanner extends StatelessWidget {
+  const _ReviewRequiredBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colorScheme.errorSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.errorBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: colorScheme.errorAccent,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.priority_high_rounded,
+                color: colorScheme.onError,
+                size: 15,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.l10n.plaidReviewFlaggedBeforeContinue,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MonthSection extends StatelessWidget {
   const _MonthSection({
     required this.title,
@@ -1691,6 +1992,7 @@ class _MonthSection extends StatelessWidget {
     required this.onEdit,
     required this.onReviewClassification,
     required this.transferSuggestionIds,
+    required this.recurringSignatures,
   });
 
   final String title;
@@ -1699,6 +2001,7 @@ class _MonthSection extends StatelessWidget {
   final Future<void> Function(SyncedTransaction) onEdit;
   final Future<void> Function(SyncedTransaction) onReviewClassification;
   final Set<String> transferSuggestionIds;
+  final Set<String> recurringSignatures;
 
   @override
   Widget build(BuildContext context) {
@@ -1742,83 +2045,19 @@ class _MonthSection extends StatelessWidget {
             ),
             children: [
               for (final tx in transactions)
-                Slidable(
+                _ReviewTransactionRow(
                   key: ValueKey(tx.expense.id),
-                  endActionPane: ActionPane(
-                    motion: const ScrollMotion(),
-                    extentRatio: 0.22,
-                    children: [
-                      SlidableAction(
-                        onPressed: (_) => onDelete(tx),
-                        backgroundColor: colorScheme.destructive,
-                        foregroundColor: colorScheme.onError,
-                        icon: Icons.delete,
-                        label: context.l10n.delete,
-                        borderRadius: BorderRadius.circular(12),
+                  transaction: tx,
+                  requiresReview: tx.needsClassificationReview ||
+                      transferSuggestionIds.contains(tx.expense.id),
+                  isRecurring: tx.isRecurring ||
+                      _hasRecurringReviewSignature(
+                        tx.expense,
+                        recurringSignatures,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      buildExpenseTransactionTile(
-                        context: context,
-                        category: tx.expense.category,
-                        rawText: tx.expense.rawText ?? tx.expense.merchant,
-                        date: tx.expense.date,
-                        amount: tx.expense.amount,
-                        currency: tx.expense.currency ?? 'USD',
-                        isIncome:
-                            (tx.expense.type ?? 'expense').toLowerCase() ==
-                                'income',
-                        onTap: () => onEdit(tx),
-                        showRecurringChip: tx.isRecurring,
-                      ),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: Padding(
-                          key: ValueKey(
-                            '${tx.expense.id}:${tx.classificationReviewState}',
-                          ),
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: Row(
-                            children: [
-                              if (tx.needsClassificationReview)
-                                Expanded(
-                                  child: Text(
-                                    context.l10n.plaidClassificationNeedsReview,
-                                    style: TextStyle(
-                                      color: colorScheme.destructive,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Expanded(
-                                  child: transferSuggestionIds
-                                          .contains(tx.expense.id)
-                                      ? Text(
-                                          context
-                                              .l10n.plaidPossibleTransferMatch,
-                                          style: TextStyle(
-                                            color: colorScheme.mutedForeground,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        )
-                                      : const SizedBox.shrink(),
-                                ),
-                              TextButton.icon(
-                                onPressed: () => onReviewClassification(tx),
-                                icon: const Icon(Icons.rule, size: 18),
-                                label: Text(
-                                  context.l10n.plaidOverrideClassification,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  onDelete: () => onDelete(tx),
+                  onEdit: () => onEdit(tx),
+                  onReviewClassification: () => onReviewClassification(tx),
                 ),
               const SizedBox(height: 8),
             ],
@@ -1827,6 +2066,200 @@ class _MonthSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ReviewTransactionRow extends StatelessWidget {
+  const _ReviewTransactionRow({
+    super.key,
+    required this.transaction,
+    required this.requiresReview,
+    required this.isRecurring,
+    required this.onDelete,
+    required this.onEdit,
+    required this.onReviewClassification,
+  });
+
+  final SyncedTransaction transaction;
+  final bool requiresReview;
+  final bool isRecurring;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
+  final VoidCallback onReviewClassification;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final expense = transaction.expense;
+    return Slidable(
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (_) => onDelete(),
+            backgroundColor: colorScheme.destructive,
+            foregroundColor: colorScheme.onError,
+            icon: Icons.delete,
+            label: context.l10n.delete,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ],
+      ),
+      child: Semantics(
+        container: requiresReview,
+        label:
+            requiresReview ? context.l10n.plaidClassificationNeedsReview : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: requiresReview
+                ? colorScheme.errorSurface
+                : colorScheme.surface.withValues(alpha: 0.0),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: requiresReview
+                  ? colorScheme.errorBorder
+                  : colorScheme.surface.withValues(alpha: 0.0),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Material(
+            color: colorScheme.surface.withValues(alpha: 0.0),
+            child: InkWell(
+              onTap: requiresReview ? onReviewClassification : onEdit,
+              borderRadius: BorderRadius.circular(16),
+              child: Row(
+                children: [
+                  if (requiresReview)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: ExcludeSemantics(
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: colorScheme.errorAccent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.priority_high_rounded,
+                            color: colorScheme.onError,
+                            size: 17,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: buildExpenseTransactionTile(
+                      context: context,
+                      category: expense.category,
+                      rawText: expense.rawText ?? expense.merchant,
+                      date: expense.date,
+                      amount: expense.amount,
+                      currency: expense.currency ?? 'USD',
+                      isIncome:
+                          (expense.type ?? 'expense').toLowerCase() == 'income',
+                      onTap: null,
+                      showRecurringChip: isRecurring,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Set<String> _buildRecurringReviewSignatures(
+  Iterable<RecurringTransaction> transactions,
+) {
+  return transactions.expand(_recurringReviewSignaturesForTemplate).toSet();
+}
+
+Set<String> _recurringReviewSignaturesForTemplate(
+  RecurringTransaction transaction,
+) {
+  final label = _normalizeRecurringReviewLabel(
+    transaction.merchant ?? transaction.description ?? transaction.source,
+  );
+  final identity = _recurringReviewIdentity(
+    currency: transaction.currency,
+    amountCents: (transaction.amount * 100).round(),
+    label: label ?? '*',
+  );
+  final signatures = <String>{};
+  final bankAccountId = transaction.bankAccountId?.trim();
+  final walletId = transaction.accountId?.trim();
+  if (bankAccountId != null && bankAccountId.isNotEmpty) {
+    signatures.add('bank:$bankAccountId|$identity');
+  }
+  if (walletId != null && walletId.isNotEmpty) {
+    signatures.add('wallet:$walletId|$identity');
+  }
+  if (signatures.isEmpty) signatures.add('connection|$identity');
+  return signatures;
+}
+
+bool _hasRecurringReviewSignature(
+  ExpenseEntry expense,
+  Set<String> recurringSignatures,
+) {
+  final label = _normalizeRecurringReviewLabel(
+    expense.merchant ?? expense.rawText,
+  );
+  if (label == null) return false;
+
+  final identities = {
+    _recurringReviewIdentity(
+      currency: expense.currency ?? '',
+      amountCents: expense.amountCents,
+      label: label,
+    ),
+    _recurringReviewIdentity(
+      currency: expense.currency ?? '',
+      amountCents: expense.amountCents,
+      label: '*',
+    ),
+  };
+  bool hasScopedSignature(String scope) => identities.any(
+        (identity) => recurringSignatures.contains('$scope|$identity'),
+      );
+  final bankAccountId = expense.bankAccountId?.trim();
+  if (bankAccountId != null &&
+      bankAccountId.isNotEmpty &&
+      hasScopedSignature('bank:$bankAccountId')) {
+    return true;
+  }
+  final walletId = expense.walletId?.trim();
+  if (walletId != null &&
+      walletId.isNotEmpty &&
+      hasScopedSignature('wallet:$walletId')) {
+    return true;
+  }
+  return hasScopedSignature('connection');
+}
+
+String _recurringReviewIdentity({
+  required String currency,
+  required int amountCents,
+  required String label,
+}) {
+  return '${currency.trim().toUpperCase()}|$amountCents|$label';
+}
+
+String? _normalizeRecurringReviewLabel(String? value) {
+  final normalized = (value ?? '')
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9 ]+'), ' ')
+      .replaceAll(RegExp(r'\b\d{2,}\b'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return normalized.length >= 3 ? normalized : null;
 }
 
 class _MonthKey {

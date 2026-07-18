@@ -26,6 +26,7 @@ Future<String?> showCurrencySelectorModal(
   WidgetRef ref, {
   bool showAllByDefault = false,
   bool preselectPrimary = true,
+  bool isOnboardingFlow = false,
 }) async {
   final navigator = Navigator.maybeOf(context, rootNavigator: true);
   if (navigator == null) return null;
@@ -35,6 +36,7 @@ Future<String?> showCurrencySelectorModal(
       builder: (_) => CurrencySelectorScreen(
         showAllByDefault: showAllByDefault,
         preselectPrimary: preselectPrimary,
+        isOnboardingFlow: isOnboardingFlow,
       ),
     ),
   );
@@ -120,11 +122,13 @@ Future<void> _retryCurrencySelectionSync({
 class CurrencySelectorScreen extends ConsumerStatefulWidget {
   final bool showAllByDefault;
   final bool preselectPrimary;
+  final bool isOnboardingFlow;
 
   const CurrencySelectorScreen({
     super.key,
     this.showAllByDefault = false,
     this.preselectPrimary = true,
+    this.isOnboardingFlow = false,
   });
 
   @override
@@ -595,35 +599,35 @@ class _CurrencySelectorScreenState
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () async {
-                        final hasAccess =
-                            await PlusLockedSheet.ensureAccess(
-                          context,
-                          ref,
-                          feature: PlusFeature.currencyConverter,
-                        );
-                        if (!hasAccess || !context.mounted) return;
-                        context.push('/currency-rates');
-                      },
-                      icon: const Icon(
-                        Icons.currency_exchange_rounded,
-                        size: 16,
-                      ),
-                      label: Text(context.l10n.converter),
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                  if (!widget.isOnboardingFlow)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          final hasAccess = await PlusLockedSheet.ensureAccess(
+                            context,
+                            ref,
+                            feature: PlusFeature.currencyConverter,
+                          );
+                          if (!hasAccess || !context.mounted) return;
+                          context.push('/currency-rates');
+                        },
+                        icon: const Icon(
+                          Icons.currency_exchange_rounded,
+                          size: 16,
                         ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        minimumSize: Size.zero,
+                        label: Text(context.l10n.converter),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: Size.zero,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -689,13 +693,15 @@ class _CurrencySelectorScreenState
                               showSelectionCheckbox: true,
                               onCheckboxTap: () async {
                                 HapticFeedback.selectionClick();
-                                final hasAccess =
-                                    await PlusLockedSheet.ensureAccess(
-                                  context,
-                                  ref,
-                                  feature: PlusFeature.multipleCurrencies,
-                                );
-                                if (!hasAccess || !context.mounted) return;
+                                if (!widget.isOnboardingFlow) {
+                                  final hasAccess =
+                                      await PlusLockedSheet.ensureAccess(
+                                    context,
+                                    ref,
+                                    feature: PlusFeature.multipleCurrencies,
+                                  );
+                                  if (!hasAccess || !context.mounted) return;
+                                }
                                 final next = selectedCurrencySet.toSet();
                                 if (primaryCurrency.isEmpty) {
                                   next.add(summary.currencyCode);

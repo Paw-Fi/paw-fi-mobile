@@ -210,7 +210,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('TikTok'));
+    await tester.tap(find.text('Reddit'));
     await tester.pump();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
