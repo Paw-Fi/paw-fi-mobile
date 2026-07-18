@@ -1414,6 +1414,32 @@ void main() {
       expect(summary?.transactionCount, 2);
     });
 
+    test(
+        'household changed-since lookup includes updates owned by another member',
+        () async {
+      final cachedAt =
+          DateTime.now().toUtc().subtract(const Duration(seconds: 1));
+      await database.upsertTransactions([
+        _entry(
+          id: 'member_expense',
+          userId: 'member_user',
+          householdId: 'household_1',
+          amountCents: 4200,
+          date: DateTime(2026, 4, 6),
+        ).copyWith(updatedAt: DateTime.utc(2026, 4, 6, 12)),
+      ]);
+
+      final changed = await database.getSyncedTransactionsChangedSince(
+        userId: 'owner_user',
+        householdId: 'household_1',
+        changedAfter: cachedAt,
+      );
+
+      expect(changed, hasLength(1));
+      expect(changed.single.id, 'member_expense');
+      expect(changed.single.amountCents, 4200);
+    });
+
     test('returns recurring rows from local cache for a scope', () async {
       await database.upsertTransactions([
         _entry(

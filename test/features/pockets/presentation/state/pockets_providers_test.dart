@@ -9,6 +9,30 @@ import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  test('pockets refresh query targets the active household month', () {
+    final query = buildPocketsTransactionsRefreshQuery(
+      userId: 'viewer-1',
+      params: PocketsScopeParams(
+        scope: PocketsScopeType.household,
+        householdId: 'house-1',
+        periodMonth: DateTime(2026, 4, 1),
+        currency: 'USD',
+        selectedCurrencies: const ['USD'],
+      ),
+      state: PocketsState.initial().copyWith(
+        periodMonth: DateTime(2026, 4, 1),
+        financialMonthStartDay: 1,
+        currency: 'USD',
+      ),
+    );
+
+    expect(query.householdId, 'house-1');
+    expect(query.selectedType, 'expense');
+    expect(query.startDate, DateTime(2026, 4, 1));
+    expect(query.endDate, DateTime(2026, 4, 30));
+    expect(query.pageSize, 500);
+  });
+
   group('pocket rollover math', () {
     test('keeps disabled rollover identical to base budget', () {
       final breakdown = calculatePocketRolloverBreakdownCents(

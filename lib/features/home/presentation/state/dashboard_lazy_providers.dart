@@ -610,11 +610,16 @@ final dashboardLocalOverlayTransactionsProvider =
     return overlay;
   }
 
-  final optimistic = ref.watch(
-    householdOptimisticExpensesProvider.select(
-      (state) => state[householdId] ?? const <ExpenseEntry>[],
-    ),
-  );
+  final optimistic = ref
+      .watch(
+        householdOptimisticExpensesProvider.select(
+          (state) => state[householdId] ?? const <ExpenseEntry>[],
+        ),
+      )
+      .where((entry) => _isOptimisticTransactionId(entry.id.trim()))
+      .toList(
+        growable: false,
+      );
   final overlay = mergeDashboardTransactionsWithLocalOverlay(
     base: const <ExpenseEntry>[],
     localOverlay: optimistic,
@@ -1388,8 +1393,9 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
         final reconciledFuture =
             resolvedDatabase.getSyncedTransactionsChangedSince(
           userId: request.query.userId,
+          householdId: request.query.householdId,
           changedAfter: cachedSnapshot.cachedAt,
-          includeAllHouseholds: true,
+          includeAllHouseholds: request.query.householdId == null,
         );
         final pendingFuture = _dashboardPendingLocalTransactions(
           database,
@@ -1570,8 +1576,9 @@ final dashboardCalendarTransactionsProvider =
         final reconciledFuture =
             resolvedDatabase.getSyncedTransactionsChangedSince(
           userId: query.userId,
+          householdId: query.householdId,
           changedAfter: cachedSnapshot.cachedAt,
-          includeAllHouseholds: true,
+          includeAllHouseholds: query.householdId == null,
         );
         final pendingFuture = _dashboardPendingLocalTransactions(
           database,

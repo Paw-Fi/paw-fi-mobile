@@ -1015,7 +1015,7 @@ class _PocketsMonthView extends HookConsumerWidget {
     final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
 
     Future<void> refresh() async {
-      await pocketsNotifier.load(bypassCache: true);
+      await pocketsNotifier.refresh();
     }
 
     // When a new month starts, users often have zero budget and no pockets yet.

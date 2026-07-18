@@ -1386,22 +1386,24 @@ class MonekoDatabase {
     bool includeAllHouseholds = false,
   }) async {
     final conditions = <String>[
-      'user_id = ?',
       'sync_status = ?',
       'deleted_at IS NULL',
       "COALESCE(local_updated_at, '') > ?",
     ];
     final args = <Object?>[
-      userId,
       localSyncStatusSynced,
       _instant(changedAfter.toUtc()),
     ];
     final normalizedHouseholdId = householdId?.trim();
-    if (!includeAllHouseholds) {
-      if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty) {
-        conditions.add('household_id = ?');
-        args.add(normalizedHouseholdId);
-      } else {
+    if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty) {
+      conditions.add('scope_key = ?');
+      args.add(
+        localScopeKey(userId: userId, householdId: normalizedHouseholdId),
+      );
+    } else {
+      conditions.add('user_id = ?');
+      args.add(userId);
+      if (!includeAllHouseholds) {
         conditions.add("(household_id IS NULL OR TRIM(household_id) = '')");
       }
     }

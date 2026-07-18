@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_sqlite_cache.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _TestAuth extends Auth {
@@ -232,6 +233,45 @@ void main() {
     expect(service.lastPageQuery?.selectedCurrencies, ['EUR', 'USD']);
   });
 
+  test('household dashboard overlay excludes confirmed server rows', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    const householdId = '00000000-0000-0000-0000-000000000001';
+    final notifier =
+        container.read(householdOptimisticExpensesProvider.notifier);
+    notifier.addExpense(
+      householdId,
+      _entry(
+        'server-confirmed',
+        DateTime(2026, 7, 18),
+        userId: 'member-2',
+      ).copyWith(householdId: householdId),
+    );
+    notifier.addExpense(
+      householdId,
+      _entry(
+        'optimistic_local-create',
+        DateTime(2026, 7, 18),
+        userId: 'user-1',
+      ).copyWith(householdId: householdId),
+    );
+
+    final overlay = container.read(
+      dashboardLocalOverlayTransactionsProvider(
+        const DashboardScopeQuery(
+          userId: 'user-1',
+          householdId: householdId,
+          selectedCurrency: 'USD',
+          selectedCurrencies: ['USD'],
+          startDate: null,
+          endDate: null,
+        ),
+      ),
+    );
+
+    expect(overlay.map((entry) => entry.id), ['optimistic_local-create']);
+  });
+
   test(
       'recent provider hydrates SQLite snapshot before remote refresh finishes',
       () async {
@@ -368,6 +408,59 @@ void main() {
 
     expect(visible.single.id, reconciled.id);
     expect(visible.single.amountCents, 2500);
+    service.pageCompleter!.complete(
+      const TransactionsFeedPageResult(
+        items: <ExpenseEntry>[],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    );
+  });
+
+  test('cached household snapshot reconciles another member synced update',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    const householdId = '00000000-0000-0000-0000-000000000001';
+    final request = DashboardRecentTransactionsRequest(
+      query: buildQuery().copyWith(
+        householdId: householdId,
+        selectedCurrencies: const ['USD'],
+      ),
+      limit: 5,
+    );
+    final original = _entry(
+      'shared-update',
+      DateTime(2026, 7, 10),
+      userId: 'member-2',
+      amountCents: 1000,
+    ).copyWith(householdId: householdId);
+    await DashboardSqliteCache(
+      database,
+      now: () => DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+    ).writeRecent(request, <ExpenseEntry>[original]);
+    await database.upsertTransactions(<ExpenseEntry>[
+      original.copyWith(
+        amountCents: 4200,
+        updatedAt: DateTime.utc(2026, 7, 10, 9),
+      ),
+    ]);
+    final service = _FakeTransactionsFeedService()
+      ..pageCompleter = Completer<TransactionsFeedPageResult>();
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_TestAuth.new),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      transactionsFeedServiceProvider.overrideWithValue(service),
+      transactionsRemoteFeedServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    final visible = await container.read(
+      dashboardRecentTransactionsProvider(request).future,
+    );
+
+    expect(visible.single.id, original.id);
+    expect(visible.single.amountCents, 4200);
     service.pageCompleter!.complete(
       const TransactionsFeedPageResult(
         items: <ExpenseEntry>[],

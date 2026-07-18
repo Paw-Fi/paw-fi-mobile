@@ -1998,6 +1998,42 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  /// Reconcile the active transaction window before recomputing pocket totals.
+  ///
+  /// A normal [load] remains local-first. User-initiated pull-to-refresh must
+  /// explicitly refresh the transaction feed because a complete local feed
+  /// cache otherwise remains authoritative and can hide another household
+  /// member's recent edits.
+  Future<void> refresh() async {
+    if (!_isPreview &&
+        ref.read(networkReachabilityProvider).valueOrNull != false) {
+      final authUser = ref.read(authProvider);
+      final householdId = params.householdId?.trim();
+      final hasValidScope = params.scope == PocketsScopeType.personal ||
+          (householdId != null && householdId.isNotEmpty);
+      if (authUser.uid.trim().isNotEmpty &&
+          hasValidScope &&
+          state.hasDisplayData) {
+        final query = buildPocketsTransactionsRefreshQuery(
+          userId: authUser.uid,
+          params: params,
+          state: state,
+        );
+        try {
+          await ref
+              .read(transactionsFeedServiceProvider)
+              .refreshFromRemote(query);
+        } catch (error) {
+          _debugLog(
+            '[Pockets] Transaction refresh failed; preserving cached data: $error',
+          );
+        }
+      }
+    }
+
+    await load(bypassCache: true);
+  }
+
   Future<void> _load({bool bypassCache = false}) async {
     final refreshRevision = _refreshRevision;
     final trace = _createPocketsTrace(
@@ -4934,6 +4970,35 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   void _showPreviewModeToast() {
     if (!mounted) return;
   }
+}
+
+@foundation.visibleForTesting
+TransactionsFeedQuery buildPocketsTransactionsRefreshQuery({
+  required String userId,
+  required PocketsScopeParams params,
+  required PocketsState state,
+}) {
+  final monthStart = state.periodMonth;
+  final monthEnd = nextFinancialCycleStart(
+    monthStart,
+    startDay: state.financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
+  final selectedCurrency = state.currency.trim().isNotEmpty
+      ? state.currency.trim()
+      : params.currency?.trim();
+  return TransactionsFeedQuery(
+    userId: userId,
+    householdId:
+        params.scope == PocketsScopeType.personal ? null : params.householdId,
+    selectedCurrency: selectedCurrency,
+    selectedCurrencies: params.normalizedSelectedCurrencies,
+    selectedCategory: null,
+    selectedType: 'expense',
+    searchQuery: '',
+    startDate: monthStart,
+    endDate: monthEnd,
+    pageSize: 500,
+  );
 }
 
 final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
