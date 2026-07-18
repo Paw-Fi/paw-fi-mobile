@@ -71,6 +71,8 @@ String _recentTransactionContentSignature(ExpenseEntry entry) {
     (entry.category ?? '').trim().toLowerCase(),
     _normalizedRecentText(entry),
     entry.splitGroupId?.trim() ?? '',
+    entry.bankAccountId?.trim() ?? '',
+    entry.analyticsIsFinal.toString(),
     entry.receiptImageUrl?.trim() ?? '',
     entry.localReceiptImagePath?.trim() ?? '',
     entry.isRecurring.toString(),
@@ -228,6 +230,8 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.receiptImageUrl,
       expense.localReceiptImagePath,
       expense.splitGroupId,
+      expense.bankAccountId,
+      expense.analyticsIsFinal,
       expense.isRecurring,
     );
   }
@@ -651,6 +655,7 @@ class _RecentTransactionsCardState
           key: ValueKey(_recentTransactionContentSignature(e)),
           child: buildExpenseTransactionTile(
             context: context,
+            expense: e,
             category: e.category,
             rawText: e.merchant?.trim().isNotEmpty == true
                 ? e.merchant!.trim()

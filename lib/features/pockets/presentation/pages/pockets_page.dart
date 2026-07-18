@@ -978,6 +978,7 @@ class PocketsPage extends HookConsumerWidget {
               ),
             ),
           ),
+          const HomeAiBackdropOverlay(),
         ],
       ),
       floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync) &&

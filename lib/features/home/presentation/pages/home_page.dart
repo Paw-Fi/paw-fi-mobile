@@ -647,6 +647,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             },
             child: scrollView,
           ),
+          const HomeAiBackdropOverlay(),
         ],
       ),
       floatingActionButton: shouldShowFab

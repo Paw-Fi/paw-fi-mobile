@@ -267,6 +267,7 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
           rawText: r.description,
           type: r.type,
           splitGroupId: r.splitGroupId,
+          walletId: r.accountId,
           isRecurring: false,
         ),
       );
@@ -408,7 +409,8 @@ String _projectedExpenseComparisonKey(ExpenseEntry expense) {
   final category = expense.category?.trim().toLowerCase() ?? '';
   final householdId = expense.householdId?.trim() ?? '';
   final userId = expense.userId?.trim() ?? '';
+  final walletId = expense.walletId?.trim() ?? '';
   final splitGroupId = expense.splitGroupId?.trim() ?? '';
   final description = expense.rawText?.trim().toLowerCase() ?? '';
-  return '${_dateKey(_dateOnly(expense.date))}|$currency|$category|${expense.amountCents}|$householdId|$userId|$splitGroupId|$description';
+  return '${_dateKey(_dateOnly(expense.date))}|$currency|$category|${expense.amountCents}|$householdId|$userId|$walletId|$splitGroupId|$description';
 }

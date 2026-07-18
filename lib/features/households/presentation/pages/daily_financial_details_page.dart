@@ -550,6 +550,7 @@ class _DailyFinancialDetailsPageState
                                       isIncome:
                                           (t.type ?? 'expense').toLowerCase() ==
                                               'income',
+                                      showPendingChip: t.isProviderPending,
                                       date: t.date,
                                       onTap: () {
                                         showUnifiedTransactionSheet(

@@ -2154,6 +2154,7 @@ class _ReviewTransactionRow extends StatelessWidget {
                   Expanded(
                     child: buildExpenseTransactionTile(
                       context: context,
+                      expense: expense,
                       category: expense.category,
                       rawText: expense.rawText ?? expense.merchant,
                       date: expense.date,

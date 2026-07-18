@@ -109,6 +109,9 @@ class ExpenseEntry {
       (analyticsCountsTowardIncome ??
           (type ?? 'expense').toLowerCase() == 'income');
 
+  bool get isProviderPending =>
+      bankAccountId?.trim().isNotEmpty == true && !analyticsIsFinal;
+
   double get spendingEffect => amount.abs() * effectiveSpendingMultiplier;
 
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {

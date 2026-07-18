@@ -87,6 +87,8 @@ const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
 
 final ImagePicker _imagePicker = ImagePicker();
 
+final isAiFabOpenProvider = StateProvider<bool>((ref) => false);
+
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
 
@@ -3312,6 +3314,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
 
   @override
   void dispose() {
+    ref.read(isAiFabOpenProvider.notifier).state = false;
     _holdAmplitudeTimer?.cancel();
     _holdRecorder.dispose();
     super.dispose();
@@ -3582,12 +3585,6 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
     }
   }
 
-  Widget _buildContextPill(ColorScheme colorScheme) {
-    return _FabContextPill(
-      colorScheme: colorScheme,
-      isFabOpen: _isFabOpen,
-    );
-  }
 
   Widget _buildHoldRecordingIndicator(ColorScheme colorScheme) {
     final dragProgress = (_holdDragDeltaX.abs() / _recordCancelDragThreshold)
@@ -3703,17 +3700,23 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(isAiFabOpenProvider, (previous, next) {
+      if (!next && _isFabOpen) {
+        _fabKey.currentState?.close();
+      }
+    });
+
     final colorScheme = Theme.of(context).colorScheme;
 
     return Stack(
       alignment: Alignment.bottomRight,
       clipBehavior: Clip.none,
       children: [
-        _buildContextPill(colorScheme),
         ExpandableFab(
           key: _fabKey,
           distance: 120,
           onToggle: (isOpen) {
+            ref.read(isAiFabOpenProvider.notifier).state = isOpen;
             if (mounted) {
               setState(() {
                 _isFabOpen = isOpen;
@@ -3812,91 +3815,6 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   }
 }
 
-class _FabContextPill extends ConsumerWidget {
-  const _FabContextPill({
-    required this.colorScheme,
-    required this.isFabOpen,
-  });
-
-  final ColorScheme colorScheme;
-  final bool isFabOpen;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final householdId = _resolveHouseholdIdForAi(ref);
-    final targetLabel = _resolveLogTargetLabel(context, ref);
-    final preferredCurrency = ref.watch(
-      appUserContactProvider.select((contact) => contact?.preferredCurrency),
-    );
-    final selectedCurrency = ref.watch(
-      homeFilterProvider.select((state) => state.selectedCurrency),
-    );
-    final displayCurrency =
-        (selectedCurrency ?? preferredCurrency ?? 'USD').trim().toUpperCase();
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.fastLinearToSlowEaseIn,
-      bottom: 12,
-      right: isFabOpen ? 72 : 24,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 250),
-        opacity: isFabOpen ? 1.0 : 0.0,
-        curve: Curves.easeOut,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 300),
-          scale: isFabOpen ? 1.0 : 0.9,
-          curve: Curves.fastLinearToSlowEaseIn,
-          alignment: Alignment.centerRight,
-          child: IgnorePointer(
-            ignoring: !isFabOpen,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface.withValues(alpha: 0.7),
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        householdId == null
-                            ? Icons.person_outline
-                            : Icons.people_outline,
-                        size: 14,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$targetLabel • $displayCurrency',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurfaceVariant,
-                          letterSpacing: -0.2,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _FabAudioWave extends StatefulWidget {
   const _FabAudioWave({required this.colorScheme});
 
@@ -3980,6 +3898,40 @@ class _FabAudioWavePlaceholder extends StatelessWidget {
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+class HomeAiBackdropOverlay extends ConsumerWidget {
+  const HomeAiBackdropOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOpen = ref.watch(isAiFabOpenProvider);
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: !isOpen,
+        child: GestureDetector(
+          onTap: () => ref.read(isAiFabOpenProvider.notifier).state = false,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            opacity: isOpen ? 1.0 : 0.0,
+            child: isOpen
+                ? ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 4.0, sigmaY: 4.0),
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  )
+                : const SizedBox.expand(),
+          ),
+        ),
       ),
     );
   }

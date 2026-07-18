@@ -517,8 +517,10 @@ class AccountsPage extends HookConsumerWidget {
               child: HomeAiExpandableFab(),
             )
           : null,
-      body: SafeArea(
-        child: Builder(builder: (context) {
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Builder(builder: (context) {
           final wallets = effectiveWallets;
           final hasWalletsContent = walletsAsync.hasValue || wallets.isNotEmpty;
           final hasOverviewContent = isPreviewMode || walletsPageState != null;
@@ -722,7 +724,10 @@ class AccountsPage extends HookConsumerWidget {
           );
         }),
       ),
-    ));
+      const HomeAiBackdropOverlay(),
+    ],
+  ),
+));
   }
 }
 

@@ -940,6 +940,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 children: [
                                   buildExpenseTransactionTile(
                                     context: context,
+                                    expense: tx.entry,
                                     category: categoryId,
                                     rawText: tx.entry.rawText,
                                     date: displayDateTime,

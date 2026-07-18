@@ -1143,6 +1143,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             amount: expense.amountCents / 100.0,
             currency: expense.currency ?? currency,
             isIncome: false,
+            showPendingChip: rawExpense.isProviderPending,
             onTap: () => showUnifiedTransactionSheet(
               context,
               existingExpense: rawExpense,

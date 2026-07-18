@@ -81,6 +81,7 @@ class DashboardTransactionsList extends StatelessWidget {
             amount: displayAmount,
             currency: currencyCode,
             isIncome: isIncome,
+            showPendingChip: tx.entry.isProviderPending,
             date: tx.entry.date,
             subtitleWidget: Row(
               children: [

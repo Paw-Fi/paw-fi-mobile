@@ -5,6 +5,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
@@ -26,6 +27,7 @@ class TransactionListTile extends StatelessWidget {
   final bool dense;
   final bool showYouLabel;
   final bool showRecurringChip;
+  final bool showPendingChip;
   final bool? showCurrencyFlag;
   final String? accountLabel;
 
@@ -45,6 +47,7 @@ class TransactionListTile extends StatelessWidget {
     this.dense = true,
     this.showYouLabel = false,
     this.showRecurringChip = false,
+    this.showPendingChip = false,
     this.showCurrencyFlag,
     this.accountLabel,
   });
@@ -78,10 +81,12 @@ class TransactionListTile extends StatelessWidget {
 
     return Consumer(
       builder: (context, ref, _) {
-        final shouldShowCurrencyFlag = ((ref.watch(
-                  homeFilterProvider
-                      .select((state) => state.normalizedSelectedCurrencies),
-                )?.length ??
+        final shouldShowCurrencyFlag = ((ref
+                    .watch(
+                      homeFilterProvider.select(
+                          (state) => state.normalizedSelectedCurrencies),
+                    )
+                    ?.length ??
                 0) >
             1);
         return _buildContent(context, shouldShowCurrencyFlag);
@@ -147,13 +152,49 @@ class TransactionListTile extends StatelessWidget {
             ),
           );
         }
+        if (showPendingChip) {
+          chips.add(
+            Semantics(
+              label: context.l10n.pending,
+              excludeSemantics: true,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.warningSurface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  context.l10n.pending,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.warning,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
         if (shouldShowCurrencyFlag) {
           chips.add(_TransactionCurrencyFlagBadge(currencyCode: currency));
         }
 
         Widget? subtitleNode;
         if (subtitleWidget != null) {
-          subtitleNode = subtitleWidget;
+          subtitleNode = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: subtitleWidget!),
+              if (chips.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                ...chips
+                    .expand((chip) => [chip, const SizedBox(width: 4)])
+                    .toList()
+                  ..removeLast(),
+              ],
+            ],
+          );
         } else if (date != null) {
           final base = _formatDate(context, date!);
           if (base != null && base.isNotEmpty) {
@@ -292,6 +333,7 @@ class _TransactionCurrencyFlagBadge extends StatelessWidget {
 
 Widget buildExpenseTransactionTile({
   required BuildContext context,
+  ExpenseEntry? expense,
   String? category,
   String? rawText,
   required DateTime date,
@@ -303,6 +345,7 @@ Widget buildExpenseTransactionTile({
   bool dense = true,
   bool showYouLabel = false,
   bool showRecurringChip = false,
+  bool? showPendingChip,
 }) {
   final effectiveCategory = category ?? 'other';
   final title = getCategoryTranslation(context, effectiveCategory);
@@ -322,6 +365,7 @@ Widget buildExpenseTransactionTile({
       dense: dense,
       showYouLabel: showYouLabel,
       showRecurringChip: showRecurringChip,
+      showPendingChip: showPendingChip ?? expense?.isProviderPending ?? false,
     ),
   );
 }

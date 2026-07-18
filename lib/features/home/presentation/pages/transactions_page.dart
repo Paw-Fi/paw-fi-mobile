@@ -2184,6 +2184,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           isIncome: isIncome,
                           showYouLabel: isYou,
                           showRecurringChip: isProjectedRecurring,
+                          showPendingChip: expense.isProviderPending,
                           showCurrencyFlag: shouldShowCurrencyFlag,
                           accountLabel: accountLabel,
                         ),

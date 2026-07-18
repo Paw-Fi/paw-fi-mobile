@@ -1040,6 +1040,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       ),
       child: buildExpenseTransactionTile(
         context: context,
+        expense: originalItem,
         category: item.category ?? 'uncategorized',
         rawText: item.rawText,
         date: composeTransactionDisplayDateTime(
