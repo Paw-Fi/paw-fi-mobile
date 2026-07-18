@@ -878,10 +878,14 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final items = (payload['items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
+    final hasMore = payload['has_more'] == true;
     final nextCursorJson = payload['next_cursor'];
+    if (hasMore && nextCursorJson is! Map) {
+      throw const FormatException('Plaid review response missing next cursor');
+    }
     return _PlaidReviewPage(
       rows: items,
-      hasMore: payload['has_more'] == true,
+      hasMore: hasMore,
       unresolvedCount: (payload['unresolved_count'] as num?)?.round() ?? 0,
       nextCursor: nextCursorJson is Map
           ? _PlaidReviewCursor.fromJson(
@@ -1343,13 +1347,27 @@ class _PlaidReviewCursor {
     required this.id,
   });
 
-  factory _PlaidReviewCursor.fromJson(Map<String, dynamic> json) =>
-      _PlaidReviewCursor(
-        reviewPriority: json['review_priority'] == true,
-        date: json['date'].toString(),
-        createdAt: json['created_at'].toString(),
-        id: json['id'].toString(),
-      );
+  factory _PlaidReviewCursor.fromJson(Map<String, dynamic> json) {
+    final reviewPriority = json['review_priority'];
+    final date = json['date']?.toString().trim();
+    final createdAt = json['created_at']?.toString().trim();
+    final id = json['id']?.toString().trim();
+    if (reviewPriority is! bool ||
+        date == null ||
+        date.isEmpty ||
+        createdAt == null ||
+        createdAt.isEmpty ||
+        id == null ||
+        id.isEmpty) {
+      throw const FormatException('Invalid Plaid review cursor');
+    }
+    return _PlaidReviewCursor(
+      reviewPriority: reviewPriority,
+      date: date,
+      createdAt: createdAt,
+      id: id,
+    );
+  }
 
   final bool reviewPriority;
   final String date;

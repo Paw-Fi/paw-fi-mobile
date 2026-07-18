@@ -104,8 +104,7 @@ class FinancialMonthSettingsPage extends HookConsumerWidget {
       appBar: AdaptiveAppBar(title: context.l10n.financialMonth),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding:
-              EdgeInsets.fromLTRB(16, getSubPageTopPadding(context), 16, 32),
+          padding: EdgeInsets.fromLTRB(16, getSubPageTopPadding(context), 16, 32),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
@@ -393,8 +392,7 @@ class _PeriodPreviewCard extends StatelessWidget {
                             icon: const Icon(Icons.edit_rounded),
                             color: colorScheme.primary,
                             style: IconButton.styleFrom(
-                              backgroundColor:
-                                  colorScheme.primary.withValues(alpha: 0.08),
+                              backgroundColor: colorScheme.primary.withValues(alpha: 0.08),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -462,8 +460,7 @@ class _CalendarMockup extends StatelessWidget {
                   colorScheme.secondary,
                 ],
               ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -514,10 +511,10 @@ class _CycleTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final localizations = MaterialLocalizations.of(context);
     final totalDays = end.difference(start).inDays + 1;
-
+    
     final today = dateOnly(DateTime.now());
     final elapsedDays = today.difference(start).inDays.clamp(0, totalDays - 1);
-
+    
     // Progress calculation for timeline slider
     final progress = totalDays > 1 ? elapsedDays / (totalDays - 1) : 1.0;
 
@@ -589,8 +586,7 @@ class _CycleTimeline extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: colorScheme.primary,
                       shape: BoxShape.circle,
-                      border:
-                          Border.all(color: colorScheme.cardSurface, width: 2),
+                      border: Border.all(color: colorScheme.cardSurface, width: 2),
                       boxShadow: [
                         BoxShadow(
                           color: colorScheme.primary.withValues(alpha: 0.4),
@@ -821,30 +817,13 @@ class _DayPickerGrid extends HookWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 150),
-                child: Text(
-                  context.l10n.financialMonthStartDayLabel(selectedDay.value),
-                  key: ValueKey(selectedDay.value),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.l10n.choiceSavesOnSelectDay,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+          child: Text(
+            context.l10n.choiceSavesOnSelectDay,
+            style: TextStyle(
+              fontSize: 13,
+              color: colorScheme.mutedForeground,
+            ),
+            textAlign: TextAlign.center,
           ),
         ),
         Flexible(
@@ -873,9 +852,10 @@ class _DayPickerGrid extends HookWidget {
                   if (tappedDay.value != null) return;
                   tappedDay.value = day;
                   selectedDay.value = day;
+                  
                   // Satisfying mobile physical haptics
                   await HapticFeedback.selectionClick();
-
+                  
                   // Pause briefly for high-end micro-interaction feedback before pop
                   await Future.delayed(const Duration(milliseconds: 220));
                   if (context.mounted) {
