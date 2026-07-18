@@ -3319,5 +3319,6 @@
   "couldNotOpenReddit": "Redditを開けませんでした",
   "changelog": "更新履歴",
   "balanceCarriedForward": "繰越残高",
-  "balanceCarriedForwardDescription": "詳細な精算履歴が利用可能になる前から引き継がれた残高です。"
+  "balanceCarriedForwardDescription": "詳細な精算履歴が利用可能になる前から引き継がれた残高です。",
+  "rateUs": "アプリを評価"
 }

@@ -3266,5 +3266,6 @@
   "couldNotOpenReddit": "Reddit kon niet worden geopend",
   "changelog": "Wijzigingsoverzicht",
   "balanceCarriedForward": "Overgedragen saldo",
-  "balanceCarriedForwardDescription": "Saldo van voordat er een gedetailleerde afrekenhistorie beschikbaar was."
+  "balanceCarriedForwardDescription": "Saldo van voordat er een gedetailleerde afrekenhistorie beschikbaar was.",
+  "rateUs": "App beoordelen"
 }

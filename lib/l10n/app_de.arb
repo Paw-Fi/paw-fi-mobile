@@ -3319,5 +3319,6 @@
   "couldNotOpenReddit": "Reddit konnte nicht geöffnet werden",
   "changelog": "Änderungsverlauf",
   "balanceCarriedForward": "Übertragener Saldo",
-  "balanceCarriedForwardDescription": "Saldo aus der Zeit, bevor ein detaillierter Abrechnungsverlauf verfügbar war."
+  "balanceCarriedForwardDescription": "Saldo aus der Zeit, bevor ein detaillierter Abrechnungsverlauf verfügbar war.",
+  "rateUs": "App bewerten"
 }

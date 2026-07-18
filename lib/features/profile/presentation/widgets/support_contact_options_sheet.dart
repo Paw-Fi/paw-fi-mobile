@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
@@ -44,7 +45,15 @@ class SupportContactOptionsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             _SupportContactOptionTile(
-              icon: Icons.forum_rounded,
+              icon: SvgPicture.asset(
+                'lib/assets/social-media/reddit.svg',
+                width: 24,
+                height: 24,
+                colorFilter: ColorFilter.mode(
+                  colorScheme.primary,
+                  BlendMode.srcIn,
+                ),
+              ),
               title: context.l10n.askOnReddit,
               description: context.l10n.askOnRedditDescription,
               onTap: () => Navigator.of(context).pop(
@@ -53,7 +62,10 @@ class SupportContactOptionsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _SupportContactOptionTile(
-              icon: Icons.confirmation_number_outlined,
+              icon: Icon(
+                Icons.confirmation_number_outlined,
+                color: colorScheme.primary,
+              ),
               title: context.l10n.submitATicket,
               description: context.l10n.submitATicketDescription,
               onTap: () => Navigator.of(context).pop(
@@ -75,7 +87,7 @@ class _SupportContactOptionTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final Widget icon;
   final String title;
   final String description;
   final VoidCallback onTap;
@@ -101,7 +113,7 @@ class _SupportContactOptionTile extends StatelessWidget {
                   color: colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: colorScheme.primary),
+                child: icon,
               ),
               const SizedBox(width: 14),
               Expanded(

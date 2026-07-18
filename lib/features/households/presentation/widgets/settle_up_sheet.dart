@@ -369,6 +369,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               ? member.userName!.trim()
               : (member.userEmail ?? context.l10n.member),
           currencyCode: currencyCode,
+          currentUserContact: ref.read(analyticsProvider).contact,
           transactions: transactions,
           splits: splits,
           paidToCents: _paidToCents,

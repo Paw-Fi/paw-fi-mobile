@@ -3319,5 +3319,6 @@
   "couldNotOpenReddit": "Impossible d'ouvrir Reddit",
   "changelog": "Historique des modifications",
   "balanceCarriedForward": "Solde reporté",
-  "balanceCarriedForwardDescription": "Solde accumulé avant que l'historique détaillé des règlements ne soit disponible."
+  "balanceCarriedForwardDescription": "Solde accumulé avant que l'historique détaillé des règlements ne soit disponible.",
+  "rateUs": "Noter l'application"
 }

@@ -87,6 +87,7 @@ import 'package:moneko/features/app_lock/data/app_lock_config.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_setup_page.dart';
 
+import 'package:in_app_review/in_app_review.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -1892,6 +1893,19 @@ class SettingsPage extends HookConsumerWidget {
                     title: context.l10n.support,
                     children: [
                       _SettingsTile(
+                        icon: Icons.star_rounded,
+                        label: context.l10n.rateUs,
+                        onTap: () async {
+                          try {
+                            final inAppReview = InAppReview.instance;
+                            final isAvailable =
+                                await inAppReview.isAvailable();
+                            if (!isAvailable) return;
+                            await inAppReview.requestReview();
+                          } catch (_) {}
+                        },
+                      ),
+                      _SettingsTile(
                         icon: Icons.help_rounded,
                         label: context.l10n.helpCenter,
                         onTap: () => launchIntegrationUrl(
@@ -2031,7 +2045,15 @@ class SettingsPage extends HookConsumerWidget {
                     title: context.l10n.socialMedia,
                     children: [
                       _SettingsTile(
-                        icon: Icons.forum_rounded,
+                        customIcon: SvgPicture.asset(
+                          'lib/assets/social-media/reddit.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: ColorFilter.mode(
+                            colorScheme.onSurface,
+                            BlendMode.srcIn,
+                          ),
+                        ),
                         label: context.l10n.reddit,
                         onTap: () => launchIntegrationUrl(
                           Uri.parse(Links.redditCommunity),
@@ -2039,7 +2061,15 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                       ),
                       _SettingsTile(
-                        icon: Icons.groups_rounded,
+                        customIcon: SvgPicture.asset(
+                          'lib/assets/social-media/discord.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: ColorFilter.mode(
+                            colorScheme.onSurface,
+                            BlendMode.srcIn,
+                          ),
+                        ),
                         label: context.l10n.discord,
                         onTap: () => launchIntegrationUrl(
                           Uri.parse(Links.discordSupport),
@@ -2510,17 +2540,7 @@ class _SupportSheet extends HookConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.sheetBorder,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
+                   
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

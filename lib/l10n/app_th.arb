@@ -3336,5 +3336,6 @@
   "couldNotOpenReddit": "ไม่สามารถเปิด Reddit ได้",
   "changelog": "ประวัติการเปลี่ยนแปลง",
   "balanceCarriedForward": "ยอดคงเหลือยกมา",
-  "balanceCarriedForwardDescription": "ยอดคงเหลือสะสมจากช่วงก่อนที่จะมีประวัติการชำระบัญชีแบบละเอียด"
+  "balanceCarriedForwardDescription": "ยอดคงเหลือสะสมจากช่วงก่อนที่จะมีประวัติการชำระบัญชีแบบละเอียด",
+  "rateUs": "ให้คะแนนแอป"
 }

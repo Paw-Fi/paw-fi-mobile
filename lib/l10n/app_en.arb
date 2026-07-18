@@ -3356,5 +3356,6 @@
   "couldNotOpenReddit": "Could not open Reddit",
   "changelog": "Changelog",
   "balanceCarriedForward": "Balance carried forward",
-  "balanceCarriedForwardDescription": "Balance from before detailed settlement history was available."
+  "balanceCarriedForwardDescription": "Balance from before detailed settlement history was available.",
+  "rateUs": "Rate the App"
 }
