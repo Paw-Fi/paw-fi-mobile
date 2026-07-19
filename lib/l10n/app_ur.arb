@@ -3284,5 +3284,10 @@
   "plaidExcludeFromBudget": "بجٹ کے مجموعے میں شامل نہ کریں",
   "plaidPossibleTransferMatch": "ممکنہ مماثل منتقلی",
   "failedToSyncTransactions": "بینک ٹرانزیکشنز کو ہم آہنگ نہیں کیا جا سکا۔ آگے بڑھنے سے پہلے دوبارہ کوشش کریں۔",
-  "plaidReviewFlaggedBeforeContinue": "آگے بڑھنے سے پہلے نشان زدہ تمام ٹرانزیکشنز کا جائزہ لیں۔"
+  "plaidReviewFlaggedBeforeContinue": "آگے بڑھنے سے پہلے نشان زدہ تمام ٹرانزیکشنز کا جائزہ لیں۔",
+  "plaidSyncPreparing": "محفوظ کنکشن تیار کیا جا رہا ہے...",
+  "plaidSyncConnecting": "آپ کے بینک سے کنکشن قائم کیا جا رہا ہے...",
+  "plaidSyncRetrieving": "اکاؤنٹس کی فہرست حاصل کی جا رہی ہے...",
+  "plaidSyncSyncing": "اکاؤنٹ کی تفصیلات محفوظ طریقے سے ہم آہنگ کی جا رہی ہیں...",
+  "plaidSyncFinalizing": "سیٹ اپ مکمل کیا جا رہا ہے..."
 }

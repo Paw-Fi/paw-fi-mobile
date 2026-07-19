@@ -49,6 +49,8 @@ class ExpenseEntry {
   final String? accountIcon;
   final String? accountColor;
   final String? type; // 'expense' | 'income'
+  final bool? providerPending;
+  final bool providerRecurring;
   final String? analyticsClass;
   final bool analyticsIsFinal;
   final int? analyticsSpendingMultiplier;
@@ -85,6 +87,8 @@ class ExpenseEntry {
     this.accountIcon,
     this.accountColor,
     this.type,
+    this.providerPending,
+    this.providerRecurring = false,
     this.analyticsClass,
     this.analyticsIsFinal = true,
     this.analyticsSpendingMultiplier,
@@ -110,7 +114,8 @@ class ExpenseEntry {
           (type ?? 'expense').toLowerCase() == 'income');
 
   bool get isProviderPending =>
-      bankAccountId?.trim().isNotEmpty == true && !analyticsIsFinal;
+      bankAccountId?.trim().isNotEmpty == true &&
+      (providerPending ?? !analyticsIsFinal);
 
   double get spendingEffect => amount.abs() * effectiveSpendingMultiplier;
 
@@ -144,6 +149,15 @@ class ExpenseEntry {
       return 0;
     }
 
+    final bankAccountId = json['bank_account_id'] as String?;
+    final rawProviderPending = json['provider_pending'];
+    final providerPending =
+        rawProviderPending is bool ? rawProviderPending : null;
+    final hasBankProvenance = bankAccountId?.trim().isNotEmpty == true;
+    final rawAnalyticsIsFinal = json['analytics_is_final'];
+    final analyticsIsFinal =
+        rawAnalyticsIsFinal is bool ? rawAnalyticsIsFinal : !hasBankProvenance;
+
     return ExpenseEntry(
       id: stringOrEmpty(json['id']),
       contactId: json['contact_id'] as String?,
@@ -175,14 +189,16 @@ class ExpenseEntry {
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
       splitGroupId: json['split_group_id'] as String?,
-      bankAccountId: json['bank_account_id'] as String?,
+      bankAccountId: bankAccountId,
       walletId: json['account_id'] as String?,
       accountName: _sanitizeNullable(json['account_name'] as String?),
       accountIcon: _sanitizeNullable(json['account_icon'] as String?),
       accountColor: _sanitizeNullable(json['account_color'] as String?),
       type: json['type'] as String?,
+      providerPending: providerPending,
+      providerRecurring: json['provider_recurring'] == true,
       analyticsClass: json['analytics_class'] as String?,
-      analyticsIsFinal: json['analytics_is_final'] != false,
+      analyticsIsFinal: analyticsIsFinal,
       analyticsSpendingMultiplier:
           (json['analytics_spending_multiplier'] as num?)?.toInt(),
       analyticsCountsTowardIncome:
@@ -226,6 +242,8 @@ class ExpenseEntry {
       'account_icon': accountIcon,
       'account_color': accountColor,
       'type': type,
+      'provider_pending': providerPending,
+      'provider_recurring': providerRecurring,
       'analytics_class': analyticsClass,
       'analytics_is_final': analyticsIsFinal,
       'analytics_spending_multiplier': analyticsSpendingMultiplier,
@@ -265,6 +283,8 @@ class ExpenseEntry {
     String? accountIcon,
     String? accountColor,
     String? type,
+    bool? providerPending,
+    bool? providerRecurring,
     String? analyticsClass,
     bool? analyticsIsFinal,
     int? analyticsSpendingMultiplier,
@@ -302,6 +322,8 @@ class ExpenseEntry {
       accountIcon: accountIcon ?? this.accountIcon,
       accountColor: accountColor ?? this.accountColor,
       type: type ?? this.type,
+      providerPending: providerPending ?? this.providerPending,
+      providerRecurring: providerRecurring ?? this.providerRecurring,
       analyticsClass: analyticsClass ?? this.analyticsClass,
       analyticsIsFinal: analyticsIsFinal ?? this.analyticsIsFinal,
       analyticsSpendingMultiplier:

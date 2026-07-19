@@ -17,6 +17,135 @@ void main() {
     });
   });
 
+  group('overview economic effects', () {
+    ExpenseEntry entry({
+      required String id,
+      required String analyticsClass,
+      required bool isFinal,
+      required int spendingMultiplier,
+      required bool countsTowardIncome,
+    }) {
+      return ExpenseEntry(
+        id: id,
+        date: DateTime(2026, 1, 1),
+        amountCents: 10000,
+        createdAt: DateTime(2026, 1, 1, 12),
+        type: countsTowardIncome ? 'income' : 'expense',
+        analyticsClass: analyticsClass,
+        analyticsIsFinal: isFinal,
+        analyticsSpendingMultiplier: spendingMultiplier,
+        analyticsCountsTowardIncome: countsTowardIncome,
+      );
+    }
+
+    test('uses final analytics semantics instead of legacy transaction type',
+        () {
+      final cases = <({ExpenseEntry entry, double income, double spending})>[
+        (
+          entry: entry(
+            id: 'pending',
+            analyticsClass: 'consumer_spend',
+            isFinal: false,
+            spendingMultiplier: 1,
+            countsTowardIncome: false,
+          ),
+          income: 0,
+          spending: 0,
+        ),
+        (
+          entry: entry(
+            id: 'spend',
+            analyticsClass: 'consumer_spend',
+            isFinal: true,
+            spendingMultiplier: 1,
+            countsTowardIncome: false,
+          ),
+          income: 0,
+          spending: 40,
+        ),
+        (
+          entry: entry(
+            id: 'refund',
+            analyticsClass: 'refund_or_reversal',
+            isFinal: true,
+            spendingMultiplier: -1,
+            countsTowardIncome: false,
+          ),
+          income: 0,
+          spending: -40,
+        ),
+        (
+          entry: entry(
+            id: 'income',
+            analyticsClass: 'income',
+            isFinal: true,
+            spendingMultiplier: 0,
+            countsTowardIncome: true,
+          ),
+          income: 40,
+          spending: 0,
+        ),
+        for (final analyticsClass in const [
+          'transfer_in',
+          'transfer_out',
+          'debt_payment',
+          'bank_fee',
+          'cash_movement',
+          'loan_disbursement',
+          'unknown',
+        ])
+          (
+            entry: entry(
+              id: analyticsClass,
+              analyticsClass: analyticsClass,
+              isFinal: true,
+              spendingMultiplier: 0,
+              countsTowardIncome: false,
+            ),
+            income: 0,
+            spending: 0,
+          ),
+      ];
+
+      for (final testCase in cases) {
+        expect(
+          resolveOverviewIncomeEffect(
+            entry: testCase.entry,
+            rawShareAmount: 40,
+          ),
+          testCase.income,
+          reason: testCase.entry.analyticsClass,
+        );
+        expect(
+          resolveOverviewSpendingEffect(
+            entry: testCase.entry,
+            rawShareAmount: 40,
+          ),
+          testCase.spending,
+          reason: testCase.entry.analyticsClass,
+        );
+      }
+    });
+
+    test('top category percentages use only positive visible categories', () {
+      final ranked = rankPositiveOverviewSpendingCategories({
+        'food': 100,
+        'shopping': -20,
+        'transport': 50,
+        'zero': 0,
+      });
+
+      expect(ranked.map((entry) => entry.key), ['food', 'transport']);
+      expect(
+        resolveOverviewCategoryPercent(
+          categoryAmount: ranked.first.value,
+          rankedPositiveCategories: ranked,
+        ),
+        closeTo(66.6667, 0.0001),
+      );
+    });
+  });
+
   group('resolveUserShareRawAmountForOverview', () {
     const currentUserId = 'u1';
 

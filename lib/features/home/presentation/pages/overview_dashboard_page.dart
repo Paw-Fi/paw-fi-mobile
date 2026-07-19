@@ -151,7 +151,10 @@ class OverviewDashboardPage extends ConsumerWidget {
               }
 
               bool isIncomeTransaction(ConsolidatedTransaction tx) =>
-                  isIncomeTransactionType(tx.entry.type);
+                  tx.entry.countsTowardIncome;
+
+              bool isExpenseTransaction(ConsolidatedTransaction tx) =>
+                  tx.entry.effectiveSpendingMultiplier != 0;
 
               double resolveMyShareRawAmount(ConsolidatedTransaction tx) {
                 final householdId = tx.entry.householdId?.trim();
@@ -178,18 +181,18 @@ class OverviewDashboardPage extends ConsumerWidget {
 
               double resolveExpenseAmount(ConsolidatedTransaction tx) {
                 final currency = tx.entry.currency ?? 'USD';
-                final rawAmount = resolveMyShareRawAmount(tx).abs();
+                final rawAmount = resolveOverviewSpendingEffect(
+                  entry: tx.entry,
+                  rawShareAmount: resolveMyShareRawAmount(tx),
+                );
                 return CurrencyRates.convert(
                     rawAmount, currency, displayCurrency);
               }
 
               double resolveAmount(ConsolidatedTransaction tx) {
-                if (isIncomeTransaction(tx)) {
-                  final currency = tx.entry.currency ?? 'USD';
-                  final raw = resolveMyShareRawAmount(tx);
-                  return CurrencyRates.convert(raw, currency, displayCurrency);
-                }
-                return resolveExpenseAmount(tx);
+                final currency = tx.entry.currency ?? 'USD';
+                final raw = resolveMyShareRawAmount(tx).abs();
+                return CurrencyRates.convert(raw, currency, displayCurrency);
               }
 
               const shareEpsilon = 0.000001;
@@ -227,7 +230,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   .where(isIncomeTransaction)
                   .toList(growable: false);
               final myExpenseTransactions = myAllTransactions
-                  .where((tx) => !isIncomeTransaction(tx))
+                  .where(isExpenseTransaction)
                   .toList(growable: false);
               final recentTransactions = myAllTransactions.take(10).toList();
 
@@ -306,19 +309,21 @@ class OverviewDashboardPage extends ConsumerWidget {
                     resolveCachedExpenseAmount(tx);
               }
 
-              final topCategoryEntry = categoryTotals.entries.toList()
-                ..sort((a, b) => b.value.compareTo(a.value));
+              final topCategoryEntry =
+                  rankPositiveOverviewSpendingCategories(categoryTotals);
 
-              final hasExpenses = allTimeTotalExpense > 0;
+              final hasExpenses = topCategoryEntry.isNotEmpty;
               final topCategory =
                   topCategoryEntry.isNotEmpty ? topCategoryEntry.first : null;
               final topCategoryName = topCategory != null
                   ? getCategoryTranslation(context, topCategory.key)
                   : context.l10n.noExpensesYet;
-              final topCategoryPercent =
-                  topCategory != null && allTimeTotalExpense > 0
-                      ? (topCategory.value / allTimeTotalExpense) * 100
-                      : 0.0;
+              final topCategoryPercent = topCategory != null
+                  ? resolveOverviewCategoryPercent(
+                      categoryAmount: topCategory.value,
+                      rankedPositiveCategories: topCategoryEntry,
+                    )
+                  : 0.0;
 
               final accountChartData = _buildAccountChartData(
                 now: now,
@@ -549,7 +554,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   if (isIncomeTransaction(tx)) {
                     stats['income'] =
                         (stats['income'] as double) + resolveCachedAmount(tx);
-                  } else {
+                  } else if (isExpenseTransaction(tx)) {
                     stats['expense'] = (stats['expense'] as double) +
                         resolveCachedExpenseAmount(tx);
                   }
@@ -657,6 +662,8 @@ class OverviewDashboardPage extends ConsumerWidget {
                                   spaceName: stats['name'] as String,
                                   transactions: spaceTransactions,
                                   amountResolver: resolveCachedAmount,
+                                  spendingEffectResolver:
+                                      resolveCachedExpenseAmount,
                                   currencyCode: displayCurrency,
                                 ),
                               ),
@@ -1807,6 +1814,7 @@ class _SpaceDetail extends StatelessWidget {
   final String spaceName;
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final double Function(ConsolidatedTransaction tx)? spendingEffectResolver;
   final String currencyCode;
 
   const _SpaceDetail({
@@ -1814,6 +1822,7 @@ class _SpaceDetail extends StatelessWidget {
     required this.spaceName,
     required this.transactions,
     this.amountResolver,
+    this.spendingEffectResolver,
     required this.currencyCode,
   });
 
@@ -1832,8 +1841,9 @@ class _SpaceDetail extends StatelessWidget {
       return sum + amt;
     });
     final totalExpense = expenseTx.fold<double>(0.0, (sum, tx) {
-      final amt = amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);
-      return sum + amt.abs() * tx.entry.effectiveSpendingMultiplier;
+      final effect =
+          spendingEffectResolver?.call(tx) ?? tx.entry.spendingEffect;
+      return sum + effect;
     });
 
     final net = totalIncome - totalExpense;
@@ -1886,7 +1896,7 @@ class _SpaceDetail extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: DashboardPieChart(
                   transactions: expenseTx.toList(),
-                  amountResolver: amountResolver,
+                  amountResolver: spendingEffectResolver,
                   currencyCode: currencyCode,
                 ),
               ),

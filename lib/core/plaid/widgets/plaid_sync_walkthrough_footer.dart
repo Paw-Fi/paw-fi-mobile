@@ -10,6 +10,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
     required this.providerName,
     required this.onContinue,
     required this.onConnect,
+    this.loadingMessage,
   });
 
   final String connectLabel;
@@ -18,6 +19,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
   final String providerName;
   final VoidCallback onContinue;
   final VoidCallback onConnect;
+  final String? loadingMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,8 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
+                disabledBackgroundColor: colorScheme.primary,
+                disabledForegroundColor: colorScheme.onPrimary,
                 elevation: 0,
                 shadowColor: colorScheme.shadow.withValues(alpha: 0),
                 shape: RoundedRectangleBorder(
@@ -44,13 +48,27 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
                 ),
               ),
               child: isLastPage && isConnecting
-                  ? SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: colorScheme.onPrimary,
-                      ),
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.0,
+                            color: colorScheme.onPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          loadingMessage ?? context.l10n.loading,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
                     )
                   : Text(
                       isLastPage ? connectLabel : context.l10n.continueButton,

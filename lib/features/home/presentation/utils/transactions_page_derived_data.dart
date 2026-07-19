@@ -86,6 +86,7 @@ int transactionEntryContentSignature(ExpenseEntry expense) {
     expense.accountIcon,
     expense.accountColor,
     expense.type,
+    expense.providerPending,
     expense.analyticsClass,
     expense.analyticsIsFinal,
     expense.analyticsSpendingMultiplier,

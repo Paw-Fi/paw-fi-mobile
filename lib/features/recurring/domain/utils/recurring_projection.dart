@@ -28,6 +28,11 @@ String? extractRecurringTransactionIdFromProjectedExpenseId(String expenseId) {
   return match?.group(1);
 }
 
+bool shouldShowRecurringChipForExpense(ExpenseEntry expense) =>
+    expense.isRecurring ||
+    expense.providerRecurring ||
+    extractRecurringTransactionIdFromProjectedExpenseId(expense.id) != null;
+
 int _clampDayOfMonth(
     {required int year, required int month, required int day}) {
   final lastDay = DateTime(year, month + 1, 0).day;

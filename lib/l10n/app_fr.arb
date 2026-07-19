@@ -3338,5 +3338,10 @@
   "plaidExcludeFromBudget": "Exclure des totaux du budget",
   "plaidPossibleTransferMatch": "Correspondance possible avec un virement",
   "failedToSyncTransactions": "Les transactions bancaires n'ont pas pu être synchronisées. Réessayez avant de continuer.",
-  "plaidReviewFlaggedBeforeContinue": "Vérifiez toutes les transactions signalées avant de continuer."
+  "plaidReviewFlaggedBeforeContinue": "Vérifiez toutes les transactions signalées avant de continuer.",
+  "plaidSyncPreparing": "Préparation d'une connexion sécurisée...",
+  "plaidSyncConnecting": "Connexion à votre banque...",
+  "plaidSyncRetrieving": "Récupération de la liste des comptes...",
+  "plaidSyncSyncing": "Synchronisation sécurisée des informations de vos comptes...",
+  "plaidSyncFinalizing": "Finalisation de la configuration..."
 }

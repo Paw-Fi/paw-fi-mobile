@@ -3375,5 +3375,10 @@
   "plaidExcludeFromBudget": "Exclude from budget totals",
   "plaidPossibleTransferMatch": "Possible transfer match",
   "failedToSyncTransactions": "Bank transactions could not be synced. Try again before continuing.",
-  "plaidReviewFlaggedBeforeContinue": "Review every flagged transaction before continuing."
+  "plaidReviewFlaggedBeforeContinue": "Review every flagged transaction before continuing.",
+  "plaidSyncPreparing": "Preparing secure connection...",
+  "plaidSyncConnecting": "Connecting with your bank...",
+  "plaidSyncRetrieving": "Retrieving account list...",
+  "plaidSyncSyncing": "Syncing account details securely...",
+  "plaidSyncFinalizing": "Finalizing setup..."
 }

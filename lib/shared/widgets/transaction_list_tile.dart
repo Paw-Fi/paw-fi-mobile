@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -344,7 +345,7 @@ Widget buildExpenseTransactionTile({
   Widget? trailingWidget,
   bool dense = true,
   bool showYouLabel = false,
-  bool showRecurringChip = false,
+  bool? showRecurringChip,
   bool? showPendingChip,
 }) {
   final effectiveCategory = category ?? 'other';
@@ -364,7 +365,8 @@ Widget buildExpenseTransactionTile({
       trailingWidget: trailingWidget,
       dense: dense,
       showYouLabel: showYouLabel,
-      showRecurringChip: showRecurringChip,
+      showRecurringChip: showRecurringChip ??
+          (expense != null && shouldShowRecurringChipForExpense(expense)),
       showPendingChip: showPendingChip ?? expense?.isProviderPending ?? false,
     ),
   );

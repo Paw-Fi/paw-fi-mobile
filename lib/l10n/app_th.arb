@@ -3355,5 +3355,10 @@
   "plaidExcludeFromBudget": "ไม่รวมในยอดรวมงบประมาณ",
   "plaidPossibleTransferMatch": "อาจตรงกับรายการโอน",
   "failedToSyncTransactions": "ไม่สามารถซิงค์ธุรกรรมธนาคารได้ โปรดลองอีกครั้งก่อนดำเนินการต่อ",
-  "plaidReviewFlaggedBeforeContinue": "ตรวจสอบธุรกรรมที่ถูกทำเครื่องหมายทั้งหมดก่อนดำเนินการต่อ"
+  "plaidReviewFlaggedBeforeContinue": "ตรวจสอบธุรกรรมที่ถูกทำเครื่องหมายทั้งหมดก่อนดำเนินการต่อ",
+  "plaidSyncPreparing": "กำลังเตรียมการเชื่อมต่อที่ปลอดภัย...",
+  "plaidSyncConnecting": "กำลังเชื่อมต่อกับธนาคารของคุณ...",
+  "plaidSyncRetrieving": "กำลังดึงรายการบัญชี...",
+  "plaidSyncSyncing": "กำลังซิงค์ข้อมูลบัญชีอย่างปลอดภัย...",
+  "plaidSyncFinalizing": "กำลังดำเนินการตั้งค่าให้เสร็จสมบูรณ์..."
 }

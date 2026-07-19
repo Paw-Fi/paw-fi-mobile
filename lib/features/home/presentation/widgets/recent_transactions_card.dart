@@ -72,6 +72,7 @@ String _recentTransactionContentSignature(ExpenseEntry entry) {
     _normalizedRecentText(entry),
     entry.splitGroupId?.trim() ?? '',
     entry.bankAccountId?.trim() ?? '',
+    entry.providerPending?.toString() ?? '',
     entry.analyticsIsFinal.toString(),
     entry.receiptImageUrl?.trim() ?? '',
     entry.localReceiptImagePath?.trim() ?? '',
@@ -231,6 +232,7 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.localReceiptImagePath,
       expense.splitGroupId,
       expense.bankAccountId,
+      expense.providerPending,
       expense.analyticsIsFinal,
       expense.isRecurring,
     );

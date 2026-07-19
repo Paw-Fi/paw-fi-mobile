@@ -3285,5 +3285,10 @@
   "plaidExcludeFromBudget": "Niet meetellen in budgettotalen",
   "plaidPossibleTransferMatch": "Mogelijk overeenkomende overboeking",
   "failedToSyncTransactions": "De banktransacties konden niet worden gesynchroniseerd. Probeer het opnieuw voordat je verdergaat.",
-  "plaidReviewFlaggedBeforeContinue": "Controleer alle gemarkeerde transacties voordat je verdergaat."
+  "plaidReviewFlaggedBeforeContinue": "Controleer alle gemarkeerde transacties voordat je verdergaat.",
+  "plaidSyncPreparing": "Beveiligde verbinding voorbereiden...",
+  "plaidSyncConnecting": "Verbinding maken met je bank...",
+  "plaidSyncRetrieving": "Rekeningenlijst ophalen...",
+  "plaidSyncSyncing": "Rekeninggegevens veilig synchroniseren...",
+  "plaidSyncFinalizing": "Configuratie afronden..."
 }

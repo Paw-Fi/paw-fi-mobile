@@ -44,10 +44,11 @@ class DashboardAccountsSection extends StatelessWidget {
 
         final amount = tx.entry.amountCents / 100.0;
         final resolvedAmount = amountResolver?.call(tx) ?? amount;
-        if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
-          income += resolvedAmount;
-        } else {
-          expense += resolvedAmount.abs();
+        if (tx.entry.countsTowardIncome) {
+          income += resolvedAmount.abs();
+        } else if (tx.entry.effectiveSpendingMultiplier != 0) {
+          expense +=
+              resolvedAmount.abs() * tx.entry.effectiveSpendingMultiplier;
         }
       }
 

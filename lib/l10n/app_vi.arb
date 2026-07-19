@@ -3337,5 +3337,10 @@
   "plaidExcludeFromBudget": "Không tính vào tổng ngân sách",
   "plaidPossibleTransferMatch": "Có thể khớp với giao dịch chuyển tiền",
   "failedToSyncTransactions": "Không thể đồng bộ giao dịch ngân hàng. Hãy thử lại trước khi tiếp tục.",
-  "plaidReviewFlaggedBeforeContinue": "Kiểm tra tất cả giao dịch được đánh dấu trước khi tiếp tục."
+  "plaidReviewFlaggedBeforeContinue": "Kiểm tra tất cả giao dịch được đánh dấu trước khi tiếp tục.",
+  "plaidSyncPreparing": "Đang chuẩn bị kết nối an toàn...",
+  "plaidSyncConnecting": "Đang kết nối với ngân hàng của bạn...",
+  "plaidSyncRetrieving": "Đang tải danh sách tài khoản...",
+  "plaidSyncSyncing": "Đang đồng bộ thông tin tài khoản một cách an toàn...",
+  "plaidSyncFinalizing": "Đang hoàn tất thiết lập..."
 }

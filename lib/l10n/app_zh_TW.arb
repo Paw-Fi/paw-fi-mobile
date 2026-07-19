@@ -3282,5 +3282,10 @@
   "plaidExcludeFromBudget": "不計入預算總額",
   "plaidPossibleTransferMatch": "可能相符的轉帳",
   "failedToSyncTransactions": "無法同步銀行交易。請重試後再繼續。",
-  "plaidReviewFlaggedBeforeContinue": "繼續之前，請檢查所有已標記的交易。"
+  "plaidReviewFlaggedBeforeContinue": "繼續之前，請檢查所有已標記的交易。",
+  "plaidSyncPreparing": "正在準備安全連線...",
+  "plaidSyncConnecting": "正在連線至你的銀行...",
+  "plaidSyncRetrieving": "正在取得帳戶清單...",
+  "plaidSyncSyncing": "正在安全同步帳戶資訊...",
+  "plaidSyncFinalizing": "正在完成設定..."
 }

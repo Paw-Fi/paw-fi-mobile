@@ -127,6 +127,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                 amount: transaction.amount,
                 currency: transaction.currency,
                 isIncome: isIncome,
+                showRecurringChip: true,
                 subtitleWidget: Row(
                   children: [
                     Container(

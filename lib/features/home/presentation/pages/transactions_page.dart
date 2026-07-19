@@ -2183,7 +2183,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           currency: expense.currency ?? 'USD',
                           isIncome: isIncome,
                           showYouLabel: isYou,
-                          showRecurringChip: isProjectedRecurring,
+                          showRecurringChip:
+                              shouldShowRecurringChipForExpense(expense),
                           showPendingChip: expense.isProviderPending,
                           showCurrencyFlag: shouldShowCurrencyFlag,
                           accountLabel: accountLabel,

@@ -12,6 +12,7 @@ ExpenseEntry _entry({
   required String currency,
   String? bankAccountId,
   bool analyticsIsFinal = true,
+  bool providerRecurring = false,
 }) {
   final date = DateTime(2026, 5, 22);
   return ExpenseEntry(
@@ -23,6 +24,7 @@ ExpenseEntry _entry({
     rawText: 'Lunch',
     bankAccountId: bankAccountId,
     analyticsIsFinal: analyticsIsFinal,
+    providerRecurring: providerRecurring,
     createdAt: date,
   );
 }
@@ -114,5 +116,58 @@ void main() {
 
     expect(find.text('Personal'), findsOneWidget);
     expect(find.text('Pending'), findsOneWidget);
+  });
+
+  testWidgets('shows recurring tag for projected recurring occurrences',
+      (tester) async {
+    final projectedEntry = _entry(
+      id: 'recurring_template-1_20260522',
+      amountCents: 500,
+      currency: 'USD',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: GroupedTransactionsList(
+              transactions: [projectedEntry],
+              currency: 'USD',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.repeat), findsOneWidget);
+  });
+
+  testWidgets('shows recurring tag for provider-confirmed ledger transactions',
+      (tester) async {
+    final providerRecurringEntry = _entry(
+      id: 'posted-bank-transaction',
+      amountCents: 500,
+      currency: 'USD',
+      providerRecurring: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: GroupedTransactionsList(
+              transactions: [providerRecurringEntry],
+              currency: 'USD',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.repeat), findsOneWidget);
   });
 }

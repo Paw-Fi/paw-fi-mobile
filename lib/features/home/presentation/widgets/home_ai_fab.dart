@@ -3301,6 +3301,7 @@ class HomeAiExpandableFab extends ConsumerStatefulWidget {
 class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   final AudioRecorder _holdRecorder = AudioRecorder();
   final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
+  late final StateController<bool> _fabOpenController;
 
   bool _isHoldRecording = false;
   bool _isHoldCancelled = false;
@@ -3313,8 +3314,14 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   bool _isFabOpen = false;
 
   @override
+  void initState() {
+    super.initState();
+    _fabOpenController = ref.read(isAiFabOpenProvider.notifier);
+  }
+
+  @override
   void dispose() {
-    ref.read(isAiFabOpenProvider.notifier).state = false;
+    _fabOpenController.state = false;
     _holdAmplitudeTimer?.cancel();
     _holdRecorder.dispose();
     super.dispose();
@@ -3584,7 +3591,6 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
       }
     }
   }
-
 
   Widget _buildHoldRecordingIndicator(ColorScheme colorScheme) {
     final dragProgress = (_holdDragDeltaX.abs() / _recordCancelDragThreshold)
@@ -3925,7 +3931,10 @@ class HomeAiBackdropOverlay extends ConsumerWidget {
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 4.0, sigmaY: 4.0),
                       child: Container(
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .scrim
+                            .withValues(alpha: 0.4),
                       ),
                     ),
                   )

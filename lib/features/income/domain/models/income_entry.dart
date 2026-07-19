@@ -28,6 +28,11 @@ class IncomeEntry {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final bool privacyRedacted; // True if details are hidden due to privacy scope
+  final String? bankAccountId;
+  final bool analyticsIsFinal;
+
+  bool get isProviderPending =>
+      bankAccountId?.trim().isNotEmpty == true && !analyticsIsFinal;
 
   IncomeEntry({
     required this.id,
@@ -52,6 +57,8 @@ class IncomeEntry {
     required this.createdAt,
     this.updatedAt,
     required this.privacyRedacted,
+    this.bankAccountId,
+    this.analyticsIsFinal = true,
   });
 
   factory IncomeEntry.fromJson(Map<String, dynamic> json) {
@@ -173,6 +180,16 @@ class IncomeEntry {
       privacyRedacted: (json['privacyRedacted'] as bool?) ??
           (json['privacy_redacted'] as bool?) ??
           false,
+      bankAccountId: asNonEmptyString(
+        json['bankAccountId'] ?? json['bank_account_id'],
+      ),
+      analyticsIsFinal:
+          (json['analyticsIsFinal'] ?? json['analytics_is_final']) is bool
+              ? (json['analyticsIsFinal'] ?? json['analytics_is_final']) as bool
+              : asNonEmptyString(
+                    json['bankAccountId'] ?? json['bank_account_id'],
+                  ) ==
+                  null,
     );
   }
 
@@ -200,6 +217,8 @@ class IncomeEntry {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'privacyRedacted': privacyRedacted,
+      'bankAccountId': bankAccountId,
+      'analyticsIsFinal': analyticsIsFinal,
     };
   }
 
@@ -226,6 +245,8 @@ class IncomeEntry {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? privacyRedacted,
+    String? bankAccountId,
+    bool? analyticsIsFinal,
   }) {
     return IncomeEntry(
       id: id ?? this.id,
@@ -250,6 +271,8 @@ class IncomeEntry {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       privacyRedacted: privacyRedacted ?? this.privacyRedacted,
+      bankAccountId: bankAccountId ?? this.bankAccountId,
+      analyticsIsFinal: analyticsIsFinal ?? this.analyticsIsFinal,
     );
   }
 }

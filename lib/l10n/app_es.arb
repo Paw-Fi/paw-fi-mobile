@@ -3340,5 +3340,10 @@
   "plaidExcludeFromBudget": "Excluir de los totales del presupuesto",
   "plaidPossibleTransferMatch": "Posible transferencia coincidente",
   "failedToSyncTransactions": "No se pudieron sincronizar las transacciones bancarias. Inténtalo de nuevo antes de continuar.",
-  "plaidReviewFlaggedBeforeContinue": "Revisa todas las transacciones marcadas antes de continuar."
+  "plaidReviewFlaggedBeforeContinue": "Revisa todas las transacciones marcadas antes de continuar.",
+  "plaidSyncPreparing": "Preparando una conexión segura...",
+  "plaidSyncConnecting": "Conectando con tu banco...",
+  "plaidSyncRetrieving": "Obteniendo la lista de cuentas...",
+  "plaidSyncSyncing": "Sincronizando de forma segura los datos de tus cuentas...",
+  "plaidSyncFinalizing": "Finalizando la configuración..."
 }

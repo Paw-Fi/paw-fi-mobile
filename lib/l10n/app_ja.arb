@@ -3338,5 +3338,10 @@
   "plaidExcludeFromBudget": "予算の合計から除外",
   "plaidPossibleTransferMatch": "一致する可能性のある振替",
   "failedToSyncTransactions": "銀行取引を同期できませんでした。続行する前にもう一度お試しください。",
-  "plaidReviewFlaggedBeforeContinue": "続行する前に、フラグが付いたすべての取引を確認してください。"
+  "plaidReviewFlaggedBeforeContinue": "続行する前に、フラグが付いたすべての取引を確認してください。",
+  "plaidSyncPreparing": "安全な接続を準備しています...",
+  "plaidSyncConnecting": "銀行に接続しています...",
+  "plaidSyncRetrieving": "口座一覧を取得しています...",
+  "plaidSyncSyncing": "口座情報を安全に同期しています...",
+  "plaidSyncFinalizing": "設定を完了しています..."
 }

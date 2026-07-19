@@ -261,6 +261,33 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                               color: colorScheme.mutedForeground,
                             ),
                           ),
+                          if (income.isProviderPending) ...[
+                            const SizedBox(height: 6),
+                            Semantics(
+                              label: context.l10n.pending,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.warningSurface,
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: colorScheme.warningBorder,
+                                  ),
+                                ),
+                                child: Text(
+                                  context.l10n.pending,
+                                  style: TextStyle(
+                                    color: colorScheme.warning,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

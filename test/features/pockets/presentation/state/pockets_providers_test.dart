@@ -1087,7 +1087,7 @@ void main() {
   });
 
   group('filterPocketActualExpenses', () {
-    test('includes recurring expenses and excludes only income', () {
+    test('keeps only finalized transactions with a spending effect', () {
       final now = DateTime(2026, 4, 3);
       final recurringExpense = ExpenseEntry(
         id: 'rec-exp-1',
@@ -1116,14 +1116,56 @@ void main() {
         type: 'income',
         isRecurring: false,
       );
+      final refund = ExpenseEntry(
+        id: 'refund-1',
+        date: now,
+        amountCents: 500,
+        category: 'coffee & tea',
+        createdAt: now,
+        analyticsClass: 'refund_or_reversal',
+        analyticsSpendingMultiplier: -1,
+      );
+      final pending = ExpenseEntry(
+        id: 'pending-1',
+        date: now,
+        amountCents: 700,
+        category: 'coffee & tea',
+        createdAt: now,
+        bankAccountId: 'bank-1',
+        analyticsClass: 'consumer_spend',
+        analyticsIsFinal: false,
+        analyticsSpendingMultiplier: 0,
+      );
+      final transfer = ExpenseEntry(
+        id: 'transfer-1',
+        date: now,
+        amountCents: 10000,
+        category: 'transfer',
+        createdAt: now,
+        analyticsClass: 'transfer_out',
+        analyticsSpendingMultiplier: 0,
+      );
 
       final filtered = filterPocketActualExpenses([
         recurringExpense,
         oneOffExpense,
         income,
+        refund,
+        pending,
+        transfer,
       ]);
 
-      expect(filtered.map((e) => e.id).toList(), const ['rec-exp-1', 'exp-1']);
+      expect(
+        filtered.map((e) => e.id).toList(),
+        const ['rec-exp-1', 'exp-1', 'refund-1'],
+      );
+      expect(
+        calculatePocketCategorySpendingTotals(filtered),
+        const <String, double>{
+          'rent': 400,
+          'coffee & tea': 7,
+        },
+      );
     });
 
     test('overlays local and synced cached rows but not failed rows', () {

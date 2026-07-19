@@ -127,14 +127,6 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   bool get _canExitAfterFailure =>
       !_isPreparing && !_isUpdatingWallet && _errorMessage != null;
 
-  Future<void> _handleBackRequest() async {
-    if (_canExitAfterFailure) {
-      Navigator.of(context).pop();
-      return;
-    }
-    await _handleDone();
-  }
-
   int _displayBalanceCentsForAccount(BankSyncReviewAccount account) {
     final providerBalance = account.providerDisplayBalanceCents;
     if (providerBalance != null) {
@@ -1202,235 +1194,272 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         );
 
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop || (!_canCompleteReview && !_canExitAfterFailure)) {
-          return;
-        }
-        unawaited(_handleBackRequest());
-      },
+      canPop: _canExitAfterFailure,
+      onPopInvokedWithResult: (didPop, _) {},
       child: Scaffold(
         backgroundColor: colorScheme.appBackground,
         appBar: AppBar(
           automaticallyImplyLeading: false,
           backgroundColor: colorScheme.appBackground,
           elevation: 0,
-          leading: _canCompleteReview || _canExitAfterFailure
+          leading: _canExitAfterFailure
               ? IconButton(
-                  onPressed: () => unawaited(_handleBackRequest()),
+                  onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back_ios_new_rounded),
                 )
-              : const SizedBox.shrink(),
+              : null,
           title: Text(
             selected == null ? context.l10n.transactions : selected.walletName,
           ),
         ),
         body: SafeArea(
-          child: _errorMessage != null
-              ? _ReviewErrorState(
-                  message: _errorMessage!,
-                  onRetry: _prepareReview,
-                )
-              : _isPreparing
-                  ? _ReviewLoadingState(
-                      accountName: selected?.walletName,
-                    )
-                  : CustomScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                        if (_accounts.length > 1)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                              child: SizedBox(
-                                height: 40,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  itemBuilder: (context, index) {
-                                    final account = _accounts[index];
-                                    final isSelected = account.bankAccountId ==
-                                        _selectedBankAccountId;
-                                    return ChoiceChip(
-                                      label: Text(account.displayName),
-                                      selected: isSelected,
-                                      onSelected: (_) {
-                                        setState(() {
-                                          _selectedBankAccountId =
-                                              account.bankAccountId;
-                                        });
-                                      },
-                                    );
-                                  },
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(width: 8),
-                                  itemCount: _accounts.length,
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (selected != null)
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _WalletHeaderDelegate(
-                              account: selected,
-                              displayBalanceCents:
-                                  _displayBalanceCentsForAccount(selected),
-                              isBusy: _isPreparing || _isUpdatingWallet,
-                              onEdit: _editSelectedWallet,
-                            ),
-                          ),
-                        SliverToBoxAdapter(
-                          child: AnimatedSize(
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOutCubic,
-                            child: hasUnresolvedTransactions
-                                ? const Padding(
-                                    key: ValueKey(
-                                      'plaid-review-required-banner',
-                                    ),
-                                    padding: EdgeInsets.fromLTRB(
-                                      16,
-                                      0,
-                                      16,
-                                      12,
-                                    ),
-                                    child: _ReviewRequiredBanner(),
-                                  )
-                                : const SizedBox.shrink(
-                                    key: ValueKey(
-                                      'plaid-review-required-banner-hidden',
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        if (showHistoricalSyncBanner)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                0,
-                                16,
-                                12,
-                              ),
-                              child: _HistoricalSyncStatusCard(
-                                syncStatus: _syncStatus!,
-                              ),
-                            ),
-                          ),
-                        if (_selectedTransactions.isEmpty &&
-                            _isTransactionsStillSyncing)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: _ReviewLoadingState(
-                              accountName: selected?.walletName,
-                              title:
-                                  context.l10n.plaidStillImportingTransactions,
-                              description: context.l10n.keepScreenOpenForImport,
-                            ),
-                          )
-                        else if (_selectedTransactions.isEmpty)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(
+          child: AbsorbPointer(
+            absorbing: _isCompleting,
+            child: _errorMessage != null
+                ? _ReviewErrorState(
+                    message: _errorMessage!,
+                    onRetry: _prepareReview,
+                  )
+                : _isPreparing
+                    ? _ReviewLoadingState(
+                        accountName: selected?.walletName,
+                      )
+                    : CustomScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        slivers: [
+                          if (_accounts.length > 1)
+                            SliverToBoxAdapter(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                                child: SizedBox(
+                                  height: 40,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemBuilder: (context, index) {
+                                      final account = _accounts[index];
+                                      final isSelected =
+                                          account.bankAccountId ==
+                                              _selectedBankAccountId;
+                                      return ChoiceChip(
+                                        label: Text(account.displayName),
+                                        selected: isSelected,
+                                        onSelected: (_) {
+                                          setState(() {
+                                            _selectedBankAccountId =
+                                                account.bankAccountId;
+                                          });
+                                        },
+                                      );
+                                    },
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(width: 8),
+                                    itemCount: _accounts.length,
+                                  ),
                                 ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      context.l10n.noTransactionsFound,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                          if (selected != null)
+                            SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _WalletHeaderDelegate(
+                                account: selected,
+                                displayBalanceCents:
+                                    _displayBalanceCentsForAccount(selected),
+                                isBusy: _isPreparing || _isUpdatingWallet,
+                                onEdit: _editSelectedWallet,
+                              ),
+                            ),
+                          SliverToBoxAdapter(
+                            child: AnimatedSize(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              child: hasUnresolvedTransactions
+                                  ? const Padding(
+                                      key: ValueKey(
+                                        'plaid-review-required-banner',
+                                      ),
+                                      padding: EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        12,
+                                      ),
+                                      child: _ReviewRequiredBanner(),
+                                    )
+                                  : const SizedBox.shrink(
+                                      key: ValueKey(
+                                        'plaid-review-required-banner-hidden',
                                       ),
                                     ),
-                                    if (_hasMoreTransactions) ...[
-                                      const SizedBox(height: 16),
-                                      OutlinedButton(
-                                        onPressed: _isLoadingMoreTransactions
-                                            ? null
-                                            : _loadMoreTransactions,
-                                        child: Text(
-                                          context.l10n.plaidReviewLoadMore,
+                            ),
+                          ),
+                          if (showHistoricalSyncBanner)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  12,
+                                ),
+                                child: _HistoricalSyncStatusCard(
+                                  syncStatus: _syncStatus!,
+                                ),
+                              ),
+                            ),
+                          if (_selectedTransactions.isEmpty &&
+                              _isTransactionsStillSyncing)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _ReviewLoadingState(
+                                accountName: selected?.walletName,
+                                title: context
+                                    .l10n.plaidStillImportingTransactions,
+                                description:
+                                    context.l10n.keepScreenOpenForImport,
+                              ),
+                            )
+                          else if (_selectedTransactions.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        context.l10n.noTransactionsFound,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: colorScheme.mutedForeground,
                                         ),
                                       ),
+                                      if (_hasMoreTransactions) ...[
+                                        const SizedBox(height: 16),
+                                        OutlinedButton(
+                                          onPressed: _isLoadingMoreTransactions
+                                              ? null
+                                              : _loadMoreTransactions,
+                                          child: Text(
+                                            context.l10n.plaidReviewLoadMore,
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        else
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                            sliver: SliverList.builder(
-                              itemCount: monthKeys.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index == monthKeys.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 180),
-                                      child: _hasMoreTransactions
-                                          ? OutlinedButton(
-                                              key: const ValueKey(
-                                                  'plaid-review-load-more'),
-                                              onPressed:
-                                                  _isLoadingMoreTransactions
-                                                      ? null
-                                                      : _loadMoreTransactions,
-                                              child: _isLoadingMoreTransactions
-                                                  ? const SizedBox.square(
-                                                      dimension: 18,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
-                                                    )
-                                                  : Text(context.l10n
-                                                      .plaidReviewLoadMore),
-                                            )
-                                          : const SizedBox.shrink(),
+                            )
+                          else
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                              sliver: SliverList.builder(
+                                itemCount: monthKeys.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == monthKeys.length) {
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 12),
+                                      child: AnimatedSwitcher(
+                                        duration:
+                                            const Duration(milliseconds: 180),
+                                        child: _hasMoreTransactions
+                                            ? OutlinedButton(
+                                                key: const ValueKey(
+                                                    'plaid-review-load-more'),
+                                                onPressed:
+                                                    _isLoadingMoreTransactions
+                                                        ? null
+                                                        : _loadMoreTransactions,
+                                                child:
+                                                    _isLoadingMoreTransactions
+                                                        ? const SizedBox.square(
+                                                            dimension: 18,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                            ),
+                                                          )
+                                                        : Text(context.l10n
+                                                            .plaidReviewLoadMore),
+                                              )
+                                            : const SizedBox.shrink(),
+                                      ),
+                                    );
+                                  }
+                                  final month = monthKeys[index];
+                                  return _MonthSection(
+                                    title: DateFormat('MMMM yyyy').format(
+                                      month.asDate,
                                     ),
+                                    transactions: grouped[month]!,
+                                    onDelete: _deleteTransaction,
+                                    onEdit: _editTransaction,
+                                    onReviewClassification:
+                                        _reviewClassification,
+                                    transferSuggestionIds:
+                                        _transferSuggestionIds,
+                                    recurringSignatures: recurringSignatures,
                                   );
-                                }
-                                final month = monthKeys[index];
-                                return _MonthSection(
-                                  title: DateFormat('MMMM yyyy').format(
-                                    month.asDate,
-                                  ),
-                                  transactions: grouped[month]!,
-                                  onDelete: _deleteTransaction,
-                                  onEdit: _editTransaction,
-                                  onReviewClassification: _reviewClassification,
-                                  transferSuggestionIds: _transferSuggestionIds,
-                                  recurringSignatures: recurringSignatures,
-                                );
-                              },
+                                },
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
+          ),
         ),
-        bottomNavigationBar: _canCompleteReview
+        bottomNavigationBar: (_canCompleteReview || _isCompleting)
             ? SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: SizedBox(
                     height: 52,
                     child: FilledButton(
-                      onPressed: _handleDone,
+                      onPressed: _isCompleting ? null : _handleDone,
                       style: FilledButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         foregroundColor: colorScheme.onPrimary,
+                        disabledBackgroundColor: colorScheme.primary,
+                        disabledForegroundColor: colorScheme.onPrimary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: Text(context.l10n.done),
+                      child: _isCompleting
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                    color: colorScheme.onPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  context.l10n.plaidSyncFinalizing,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              context.l10n.done,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0,
+                              ),
+                            ),
                     ),
                   ),
                 ),

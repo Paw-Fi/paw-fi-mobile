@@ -9244,4 +9244,19 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get plaidReviewFlaggedBeforeContinue => 'ตรวจสอบธุรกรรมที่ถูกทำเครื่องหมายทั้งหมดก่อนดำเนินการต่อ';
+
+  @override
+  String get plaidSyncPreparing => 'กำลังเตรียมการเชื่อมต่อที่ปลอดภัย...';
+
+  @override
+  String get plaidSyncConnecting => 'กำลังเชื่อมต่อกับธนาคารของคุณ...';
+
+  @override
+  String get plaidSyncRetrieving => 'กำลังดึงรายการบัญชี...';
+
+  @override
+  String get plaidSyncSyncing => 'กำลังซิงค์ข้อมูลบัญชีอย่างปลอดภัย...';
+
+  @override
+  String get plaidSyncFinalizing => 'กำลังดำเนินการตั้งค่าให้เสร็จสมบูรณ์...';
 }

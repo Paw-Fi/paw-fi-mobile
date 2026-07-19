@@ -280,6 +280,48 @@ void main() {
       expect(entry.currency, 'USD');
     });
 
+    test('fromJson fails closed for bank rows missing analytics classification',
+        () {
+      final entry = ExpenseEntry.fromJson({
+        'id': 'pending_1',
+        'user_id': 'user_1',
+        'date': '2026-04-10',
+        'amount_cents': 4200,
+        'currency': 'EUR',
+        'created_at': '2026-04-10T09:00:00.000Z',
+        'type': 'expense',
+        'bank_account_id': 'bank_account_1',
+        'analytics_class': null,
+        'analytics_is_final': null,
+        'analytics_spending_multiplier': null,
+        'analytics_counts_toward_income': null,
+      });
+
+      expect(entry.analyticsIsFinal, isFalse);
+      expect(entry.effectiveSpendingMultiplier, 0);
+      expect(entry.spendingEffect, 0);
+      expect(entry.countsTowardIncome, isFalse);
+      expect(entry.isProviderPending, isTrue);
+    });
+
+    test('explicit provider posted state is not inferred as pending', () {
+      final entry = ExpenseEntry.fromJson({
+        'id': 'posted_1',
+        'user_id': 'user_1',
+        'date': '2026-04-10',
+        'amount_cents': 4200,
+        'currency': 'EUR',
+        'created_at': '2026-04-10T09:00:00.000Z',
+        'type': 'expense',
+        'bank_account_id': 'bank_account_1',
+        'provider_pending': false,
+        'analytics_is_final': null,
+      });
+
+      expect(entry.analyticsIsFinal, isFalse);
+      expect(entry.isProviderPending, isFalse);
+    });
+
     test('toJson serializes expense entry correctly', () {
       final now = DateTime(2024, 1, 1);
       final entry = ExpenseEntry(

@@ -15,6 +15,7 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
@@ -1143,6 +1144,8 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             amount: expense.amountCents / 100.0,
             currency: expense.currency ?? currency,
             isIncome: false,
+            showRecurringChip:
+                shouldShowRecurringChipForExpense(rawExpense),
             showPendingChip: rawExpense.isProviderPending,
             onTap: () => showUnifiedTransactionSheet(
               context,

@@ -550,6 +550,8 @@ class _DailyFinancialDetailsPageState
                                       isIncome:
                                           (t.type ?? 'expense').toLowerCase() ==
                                               'income',
+                                      showRecurringChip:
+                                          shouldShowRecurringChipForExpense(t),
                                       showPendingChip: t.isProviderPending,
                                       date: t.date,
                                       onTap: () {
@@ -979,6 +981,7 @@ class _RecurringTransactionTile extends StatelessWidget {
             amount: transaction.amount,
             currency: transaction.currency,
             isIncome: isIncome,
+            showRecurringChip: true,
             subtitleWidget: Row(
               children: [
                 Container(

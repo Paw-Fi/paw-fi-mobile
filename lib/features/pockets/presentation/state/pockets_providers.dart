@@ -1068,6 +1068,22 @@ List<ExpenseEntry> filterPocketActualExpenses(
       .toList(growable: false);
 }
 
+@foundation.visibleForTesting
+Map<String, double> calculatePocketCategorySpendingTotals(
+  Iterable<ExpenseEntry> expenses,
+) {
+  final totals = <String, double>{};
+  for (final expense in expenses) {
+    final category = (expense.category ?? 'uncategorized').trim().toLowerCase();
+    totals.update(
+      category,
+      (total) => total + expense.spendingEffect,
+      ifAbsent: () => expense.spendingEffect,
+    );
+  }
+  return totals;
+}
+
 bool shouldLoadLocalPocketExpenseOverlaySyncStatus(String syncStatus) {
   return syncStatus == localSyncStatusLocal ||
       syncStatus == localSyncStatusSynced;
@@ -2881,17 +2897,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (shouldComputeSpendFromTransactions) {
         // When projecting recurring spend, build uncategorized from the same
         // combined expense list as before.
-        final expenseTotalsByCategory = <String, double>{};
-        for (final expense in spendExpenses) {
-          final amount = expense.amount;
-          final rawCategory =
-              (expense.category ?? 'uncategorized').toLowerCase();
-          expenseTotalsByCategory.update(
-            rawCategory,
-            (v) => v + amount,
-            ifAbsent: () => amount,
-          );
-        }
+        final expenseTotalsByCategory =
+            calculatePocketCategorySpendingTotals(spendExpenses);
 
         final linkedCategories = categoryLinksRows
             .map((r) => ((r['category'] as String?) ?? '').trim().toLowerCase())

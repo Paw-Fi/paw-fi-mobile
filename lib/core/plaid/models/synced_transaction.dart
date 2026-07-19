@@ -118,6 +118,7 @@ ParsedSyncedTransactions parseSyncedTransactionPayload(dynamic payload) {
       bankAccountId: map['bank_account_id'] as String?,
       walletId: map['account_id'] as String?,
       type: map['type'] as String?,
+      providerPending: map['provider_pending'] as bool?,
       analyticsIsFinal: map['analytics_is_final'] != false,
     );
 

@@ -20,7 +20,7 @@ const String localHouseholdSettlementMutationEntityType =
 const String localHouseholdSettlementMutationOperation =
     'settle_household_balance_v2';
 
-const int _localDatabaseSchemaVersion = 6;
+const int _localDatabaseSchemaVersion = 7;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -2906,6 +2906,7 @@ class MonekoDatabase {
         analytics_spending_multiplier INTEGER,
         analytics_counts_toward_income INTEGER,
         is_recurring INTEGER NOT NULL DEFAULT 0,
+        provider_recurring INTEGER NOT NULL DEFAULT 0,
         recurrence_rule_json TEXT,
         client_record_id TEXT,
         client_mutation_id TEXT,
@@ -3101,6 +3102,8 @@ class MonekoDatabase {
           'local_transactions', 'analytics_counts_toward_income', 'INTEGER');
       _ensureColumn(
           'local_transactions', 'is_recurring', 'INTEGER NOT NULL DEFAULT 0');
+      _ensureColumn('local_transactions', 'provider_recurring',
+          'INTEGER NOT NULL DEFAULT 0');
       _ensureColumn('local_transactions', 'recurrence_rule_json', 'TEXT');
       _ensureColumn('local_transactions', 'client_record_id', 'TEXT');
       _ensureColumn('local_transactions', 'client_mutation_id', 'TEXT');
@@ -3224,10 +3227,10 @@ class MonekoDatabase {
         shared_member_ids_json, split_group_id, bank_account_id, wallet_id,
         account_name, account_icon, account_color, type, analytics_class,
         analytics_is_final, analytics_spending_multiplier,
-        analytics_counts_toward_income, is_recurring,
+        analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -3258,6 +3261,7 @@ class MonekoDatabase {
         analytics_spending_multiplier = excluded.analytics_spending_multiplier,
         analytics_counts_toward_income = excluded.analytics_counts_toward_income,
         is_recurring = excluded.is_recurring,
+        provider_recurring = excluded.provider_recurring,
         recurrence_rule_json = CASE
           WHEN excluded.recurrence_rule_json IS NOT NULL
             THEN excluded.recurrence_rule_json
@@ -3314,6 +3318,7 @@ class MonekoDatabase {
                 ? 1
                 : 0,
         entry.isRecurring ? 1 : 0,
+        entry.providerRecurring ? 1 : 0,
         _encodeJsonMap(entry.recurrenceRuleJson),
         entry.clientRecordId,
         entry.clientMutationId,
@@ -3700,6 +3705,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
         ? null
         : row['analytics_counts_toward_income'] as int == 1,
     isRecurring: (row['is_recurring'] as int? ?? 0) == 1,
+    providerRecurring: (row['provider_recurring'] as int? ?? 0) == 1,
     recurrenceRuleJson: _decodeJsonMap(row['recurrence_rule_json'] as String?),
     clientRecordId: row['client_record_id'] as String?,
     clientMutationId: row['client_mutation_id'] as String?,
