@@ -3335,5 +3335,6 @@
   "plaidSyncConnecting": "Підключаємося до вашого банку...",
   "plaidSyncRetrieving": "Отримуємо список рахунків...",
   "plaidSyncSyncing": "Безпечно синхронізуємо дані рахунків...",
-  "plaidSyncFinalizing": "Завершуємо налаштування..."
+  "plaidSyncFinalizing": "Завершуємо налаштування...",
+  "plaidSyncThisMightTakeAMoment": "Це може зайняти кілька хвилин..."
 }

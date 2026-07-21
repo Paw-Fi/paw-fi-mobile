@@ -3287,5 +3287,6 @@
   "plaidSyncConnecting": "正在連線至你的銀行...",
   "plaidSyncRetrieving": "正在取得帳戶清單...",
   "plaidSyncSyncing": "正在安全同步帳戶資訊...",
-  "plaidSyncFinalizing": "正在完成設定..."
+  "plaidSyncFinalizing": "正在完成設定...",
+  "plaidSyncThisMightTakeAMoment": "這可能需要幾分鐘..."
 }

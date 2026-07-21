@@ -3293,5 +3293,6 @@
   "plaidSyncConnecting": "Подключаемся к вашему банку...",
   "plaidSyncRetrieving": "Получаем список счетов...",
   "plaidSyncSyncing": "Безопасно синхронизируем данные счетов...",
-  "plaidSyncFinalizing": "Завершаем настройку..."
+  "plaidSyncFinalizing": "Завершаем настройку...",
+  "plaidSyncThisMightTakeAMoment": "Это может занять несколько минут..."
 }

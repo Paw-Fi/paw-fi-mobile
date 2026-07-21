@@ -50,7 +50,9 @@ class _PlaidSyncWalkthroughPageState
   bool _isConnecting = false;
   final int _numPages = 4;
   Timer? _statusTimer;
+  Timer? _completingHintTimer;
   String? _loadingMessage;
+  bool _showCompletingHint = false;
 
   bool get _isReconnectFlow => widget.connectionId?.trim().isNotEmpty == true;
 
@@ -59,6 +61,7 @@ class _PlaidSyncWalkthroughPageState
   @override
   void dispose() {
     _stopExchangeStatusTimer();
+    _completingHintTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -79,6 +82,14 @@ class _PlaidSyncWalkthroughPageState
           _loadingMessage = context.l10n.plaidSyncSyncing;
         } else if (seconds == 9) {
           _loadingMessage = context.l10n.plaidSyncFinalizing;
+          _completingHintTimer?.cancel();
+          _completingHintTimer = Timer(const Duration(seconds: 5), () {
+            if (mounted && _isConnecting) {
+              setState(() {
+                _showCompletingHint = true;
+              });
+            }
+          });
         } else {
           timer.cancel();
         }
@@ -89,6 +100,9 @@ class _PlaidSyncWalkthroughPageState
   void _stopExchangeStatusTimer() {
     _statusTimer?.cancel();
     _statusTimer = null;
+    _completingHintTimer?.cancel();
+    _completingHintTimer = null;
+    _showCompletingHint = false;
   }
 
   void _nextPage() {
@@ -126,6 +140,7 @@ class _PlaidSyncWalkthroughPageState
 
     setState(() {
       _isConnecting = true;
+      _showCompletingHint = false;
       _loadingMessage = context.l10n.plaidSyncPreparing;
     });
 
@@ -412,6 +427,9 @@ class _PlaidSyncWalkthroughPageState
                 isLastPage: _currentPage == _numPages - 1,
                 isConnecting: _isConnecting,
                 loadingMessage: _loadingMessage,
+                connectingHint: _showCompletingHint
+                    ? context.l10n.plaidSyncThisMightTakeAMoment
+                    : null,
                 providerName: providerName,
                 onContinue: _nextPage,
                 onConnect: _performConnection,

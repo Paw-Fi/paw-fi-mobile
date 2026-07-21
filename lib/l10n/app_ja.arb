@@ -3343,5 +3343,6 @@
   "plaidSyncConnecting": "銀行に接続しています...",
   "plaidSyncRetrieving": "口座一覧を取得しています...",
   "plaidSyncSyncing": "口座情報を安全に同期しています...",
-  "plaidSyncFinalizing": "設定を完了しています..."
+  "plaidSyncFinalizing": "設定を完了しています...",
+  "plaidSyncThisMightTakeAMoment": "数分かかる場合があります..."
 }

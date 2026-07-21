@@ -3380,5 +3380,6 @@
   "plaidSyncConnecting": "Connecting with your bank...",
   "plaidSyncRetrieving": "Retrieving account list...",
   "plaidSyncSyncing": "Syncing account details securely...",
-  "plaidSyncFinalizing": "Finalizing setup..."
+  "plaidSyncFinalizing": "Finalizing setup...",
+  "plaidSyncThisMightTakeAMoment": "This may take a few minutes..."
 }

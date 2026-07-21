@@ -3290,5 +3290,6 @@
   "plaidSyncConnecting": "Verbinding maken met je bank...",
   "plaidSyncRetrieving": "Rekeningenlijst ophalen...",
   "plaidSyncSyncing": "Rekeninggegevens veilig synchroniseren...",
-  "plaidSyncFinalizing": "Configuratie afronden..."
+  "plaidSyncFinalizing": "Configuratie afronden...",
+  "plaidSyncThisMightTakeAMoment": "Dit kan enkele minuten duren..."
 }

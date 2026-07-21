@@ -67,6 +67,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   bool _isPreparing = true;
   bool _isUpdatingWallet = false;
   bool _isCompleting = false;
+  bool _showCompletingHint = false;
+  Timer? _completingHintTimer;
   String? _errorMessage;
 
   @override
@@ -81,6 +83,12 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (!mounted) return;
       unawaited(_prepareReview());
     });
+  }
+
+  @override
+  void dispose() {
+    _completingHintTimer?.cancel();
+    super.dispose();
   }
 
   BankSyncReviewAccount? get _selectedAccount {
@@ -1138,7 +1146,18 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       return;
     }
 
-    setState(() => _isCompleting = true);
+    setState(() {
+      _isCompleting = true;
+      _showCompletingHint = false;
+    });
+    _completingHintTimer?.cancel();
+    _completingHintTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted && _isCompleting) {
+        setState(() {
+          _showCompletingHint = true;
+        });
+      }
+    });
     try {
       await _reloadAuthoritativeReviewData();
       if (_serverUnresolvedCount > 0 ||
@@ -1147,7 +1166,11 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
             _transferSuggestionIds,
           )) {
         if (!mounted) return;
-        setState(() => _isCompleting = false);
+        _completingHintTimer?.cancel();
+        setState(() {
+          _isCompleting = false;
+          _showCompletingHint = false;
+        });
         AppToast.info(
           context,
           context.l10n.plaidReviewFlaggedBeforeContinue,
@@ -1157,7 +1180,11 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       await _refreshAfterSync();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _isCompleting = false);
+      _completingHintTimer?.cancel();
+      setState(() {
+        _isCompleting = false;
+        _showCompletingHint = false;
+      });
       AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
       return;
     }
@@ -1416,51 +1443,75 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
             ? SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: _isCompleting ? null : _handleDone,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        disabledBackgroundColor: colorScheme.primary,
-                        disabledForegroundColor: colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: _isCompleting
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.0,
-                                    color: colorScheme.onPrimary,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  context.l10n.plaidSyncFinalizing,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: _isCompleting ? null : _handleDone,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            disabledBackgroundColor: colorScheme.primary,
+                            disabledForegroundColor: colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: _isCompleting
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.0,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      context.l10n.plaidSyncFinalizing,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  context.l10n.done,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0,
                                   ),
                                 ),
-                              ],
-                            )
-                          : Text(
-                              context.l10n.done,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                    ),
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: _showCompletingHint
+                            ? Padding(
+                                key: const ValueKey('review-completing-hint'),
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  context.l10n.plaidSyncThisMightTakeAMoment,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              )
+                            : const SizedBox.shrink(
+                                key: ValueKey('review-empty-hint')),
+                      ),
+                    ],
                   ),
                 ),
               )

@@ -9259,4 +9259,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get plaidSyncFinalizing => 'กำลังดำเนินการตั้งค่าให้เสร็จสมบูรณ์...';
+
+  @override
+  String get plaidSyncThisMightTakeAMoment => 'ขั้นตอนนี้อาจใช้เวลาสักครู่...';
 }

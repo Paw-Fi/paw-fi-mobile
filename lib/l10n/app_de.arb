@@ -3343,5 +3343,6 @@
   "plaidSyncConnecting": "Verbindung mit deiner Bank wird hergestellt...",
   "plaidSyncRetrieving": "Kontenliste wird abgerufen...",
   "plaidSyncSyncing": "Kontodaten werden sicher synchronisiert...",
-  "plaidSyncFinalizing": "Einrichtung wird abgeschlossen..."
+  "plaidSyncFinalizing": "Einrichtung wird abgeschlossen...",
+  "plaidSyncThisMightTakeAMoment": "Dies kann einige Minuten dauern..."
 }

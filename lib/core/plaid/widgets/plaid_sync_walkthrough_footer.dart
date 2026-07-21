@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class PlaidSyncWalkthroughFooter extends StatelessWidget {
   const PlaidSyncWalkthroughFooter({
@@ -11,6 +12,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
     required this.onContinue,
     required this.onConnect,
     this.loadingMessage,
+    this.connectingHint,
   });
 
   final String connectLabel;
@@ -20,6 +22,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
   final VoidCallback onContinue;
   final VoidCallback onConnect;
   final String? loadingMessage;
+  final String? connectingHint;
 
   @override
   Widget build(BuildContext context) {
@@ -81,32 +84,46 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 180),
-            opacity: isLastPage && !isConnecting ? 1 : 0,
-            child: SizedBox(
-              height: 16,
-              child: isLastPage && !isConnecting
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.lock_outline_rounded,
-                          size: 12,
-                          color: colorScheme.outline,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          context.l10n.securedByProviderName(providerName),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.outline,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    )
-                  : null,
+          SizedBox(
+            height: 20,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: !isLastPage
+                  ? const SizedBox.shrink()
+                  : (isConnecting
+                      ? (connectingHint != null
+                          ? Text(
+                              connectingHint!,
+                              key: const ValueKey('plaid-connecting-hint'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                            )
+                          : const SizedBox.shrink(
+                              key: ValueKey('plaid-empty-hint')))
+                      : Row(
+                          key: const ValueKey('plaid-secure-lock'),
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              size: 12,
+                              color: colorScheme.outline,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.l10n.securedByProviderName(providerName),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.outline,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        )),
             ),
           ),
         ],

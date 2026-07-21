@@ -3343,5 +3343,6 @@
   "plaidSyncConnecting": "Connexion à votre banque...",
   "plaidSyncRetrieving": "Récupération de la liste des comptes...",
   "plaidSyncSyncing": "Synchronisation sécurisée des informations de vos comptes...",
-  "plaidSyncFinalizing": "Finalisation de la configuration..."
+  "plaidSyncFinalizing": "Finalisation de la configuration...",
+  "plaidSyncThisMightTakeAMoment": "Cela peut prendre quelques minutes..."
 }

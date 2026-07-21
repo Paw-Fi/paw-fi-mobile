@@ -3360,5 +3360,6 @@
   "plaidSyncConnecting": "กำลังเชื่อมต่อกับธนาคารของคุณ...",
   "plaidSyncRetrieving": "กำลังดึงรายการบัญชี...",
   "plaidSyncSyncing": "กำลังซิงค์ข้อมูลบัญชีอย่างปลอดภัย...",
-  "plaidSyncFinalizing": "กำลังดำเนินการตั้งค่าให้เสร็จสมบูรณ์..."
+  "plaidSyncFinalizing": "กำลังดำเนินการตั้งค่าให้เสร็จสมบูรณ์...",
+  "plaidSyncThisMightTakeAMoment": "ขั้นตอนนี้อาจใช้เวลาสักครู่..."
 }

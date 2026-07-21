@@ -3345,5 +3345,6 @@
   "plaidSyncConnecting": "Conectando con tu banco...",
   "plaidSyncRetrieving": "Obteniendo la lista de cuentas...",
   "plaidSyncSyncing": "Sincronizando de forma segura los datos de tus cuentas...",
-  "plaidSyncFinalizing": "Finalizando la configuración..."
+  "plaidSyncFinalizing": "Finalizando la configuración...",
+  "plaidSyncThisMightTakeAMoment": "Esto puede tardar unos minutos..."
 }

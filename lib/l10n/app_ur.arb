@@ -3289,5 +3289,6 @@
   "plaidSyncConnecting": "آپ کے بینک سے کنکشن قائم کیا جا رہا ہے...",
   "plaidSyncRetrieving": "اکاؤنٹس کی فہرست حاصل کی جا رہی ہے...",
   "plaidSyncSyncing": "اکاؤنٹ کی تفصیلات محفوظ طریقے سے ہم آہنگ کی جا رہی ہیں...",
-  "plaidSyncFinalizing": "سیٹ اپ مکمل کیا جا رہا ہے..."
+  "plaidSyncFinalizing": "سیٹ اپ مکمل کیا جا رہا ہے...",
+  "plaidSyncThisMightTakeAMoment": "اس میں چند منٹ لگ سکتے ہیں..."
 }

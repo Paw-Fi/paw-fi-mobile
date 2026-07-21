@@ -3156,5 +3156,6 @@
   "plaidSyncConnecting": "은행에 연결하고 있어요...",
   "plaidSyncRetrieving": "계좌 목록을 불러오고 있어요...",
   "plaidSyncSyncing": "계좌 정보를 안전하게 동기화하고 있어요...",
-  "plaidSyncFinalizing": "설정을 마무리하고 있어요..."
+  "plaidSyncFinalizing": "설정을 마무리하고 있어요...",
+  "plaidSyncThisMightTakeAMoment": "몇 분 정도 걸릴 수 있어요..."
 }
