@@ -108,6 +108,67 @@ void main() {
     expect(summaries.last.transactionCount, 1);
   });
 
+  test('legend summaries use converted signed spending effects', () {
+    final purchase = _entry(
+      id: 'purchase',
+      category: 'food',
+      amountCents: 10000,
+    );
+    final refund = ExpenseEntry(
+      id: 'refund',
+      date: purchase.date,
+      amountCents: 2500,
+      category: 'food',
+      type: 'income',
+      createdAt: purchase.createdAt,
+      analyticsClass: 'refund_or_reversal',
+      analyticsSpendingMultiplier: -1,
+      analyticsCountsTowardIncome: false,
+    );
+
+    final summaries = buildTransactionsPieCategorySummaries(
+      null,
+      [purchase, refund],
+      spendingEffectResolver: (entry) => switch (entry.id) {
+        'purchase' => 85,
+        'refund' => -20,
+        _ => 0,
+      },
+    );
+
+    expect(summaries.single.amount, 65);
+    expect(summaries.single.transactionCount, 2);
+  });
+
+  test('legend summaries omit categories whose net spending is not positive',
+      () {
+    final purchase = _entry(
+      id: 'purchase',
+      category: 'food',
+      amountCents: 10000,
+    );
+    final refund = ExpenseEntry(
+      id: 'refund',
+      date: purchase.date,
+      amountCents: 2500,
+      category: 'shopping',
+      type: 'income',
+      createdAt: purchase.createdAt,
+      analyticsClass: 'refund_or_reversal',
+      analyticsSpendingMultiplier: -1,
+      analyticsCountsTowardIncome: false,
+    );
+
+    final summaries = buildTransactionsPieCategorySummaries(
+      null,
+      [purchase, refund],
+    );
+
+    expect(summaries, hasLength(1));
+    expect(summaries.single.category, 'food & drinks');
+    expect(summaries.single.amount, 100);
+  });
+
   testWidgets('real other legend card opens category details', (tester) async {
     final observer = _RecordingNavigatorObserver();
 
@@ -140,6 +201,38 @@ void main() {
     await tester.tap(find.text('Other'));
 
     expect(observer.pushedRoutes, hasLength(2));
+  });
+
+  testWidgets(
+      'positive categories remain visible when net spending is negative',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TransactionsPieChart(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+            expenses: const [],
+            periodLabel: 'This month',
+            categorySummariesOverride: [
+              CategorySummary(
+                category: 'food',
+                amount: 100,
+                transactionCount: 1,
+                color: Colors.blue,
+              ),
+            ],
+            totalSpentOverride: -20,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('transactions-pie-legend-food')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('legend card surface from real expenses opens category details',

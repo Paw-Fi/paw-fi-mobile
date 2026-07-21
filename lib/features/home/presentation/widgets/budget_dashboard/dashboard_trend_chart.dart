@@ -71,7 +71,7 @@ class DashboardTrendChart extends StatelessWidget {
     }
 
     final expenses = transactions.where((tx) {
-      return (tx.entry.type ?? 'expense').toLowerCase() != 'income';
+      return tx.entry.effectiveSpendingMultiplier != 0;
     }).toList();
 
     const maxChartMonths = 6;
@@ -112,16 +112,19 @@ class DashboardTrendChart extends StatelessWidget {
       if (monthIndex < 0 || monthIndex >= monthsCount) continue;
       final baseAmount = tx.entry.amountCents / 100.0;
       final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
-      monthlyTotals[monthIndex] += resolvedAmount.abs();
+      monthlyTotals[monthIndex] +=
+          resolvedAmount.abs() * tx.entry.effectiveSpendingMultiplier;
     }
 
     final spots = <FlSpot>[];
     double maxAmount = 0;
+    double minAmount = 0;
 
     for (int i = 0; i < monthsCount; i++) {
       final amount = monthlyTotals[i];
       spots.add(FlSpot((i + 1).toDouble(), amount));
       if (amount > maxAmount) maxAmount = amount;
+      if (amount < minAmount) minAmount = amount;
     }
 
     if (spots.isEmpty) {
@@ -138,6 +141,7 @@ class DashboardTrendChart extends StatelessWidget {
 
     // Smooth out the chart visuals
     final maxY = maxAmount > 0 ? maxAmount * 1.2 : 1.0;
+    final minY = minAmount < 0 ? minAmount * 1.2 : 0.0;
 
     return Skeletonizer(
       enabled: isLoading,
@@ -191,7 +195,7 @@ class DashboardTrendChart extends StatelessWidget {
                 borderData: FlBorderData(show: false),
                 minX: 1,
                 maxX: monthsCount.toDouble(),
-                minY: 0,
+                minY: minY,
                 maxY: maxY > 0 ? maxY : 100,
                 lineBarsData: [
                   LineChartBarData(

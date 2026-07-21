@@ -24,11 +24,10 @@ void _homeSpendTrace(String message) {
 }
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(0, (sum, entry) {
-    final type = (entry.type ?? 'expense').toLowerCase();
-    if (type == 'income') return sum;
-    return sum + entry.amount.abs();
-  });
+  return entries.fold<double>(
+    0,
+    (sum, entry) => sum + entry.spendingEffect,
+  );
 }
 
 String _traceAmount(num value) => value.toStringAsFixed(2);
@@ -191,7 +190,17 @@ class _SpendingCardState extends State<SpendingCard> {
       return FlSpot(entry.key.toDouble(), entry.value.y);
     }).toList();
 
-    final maxY = allCumulativeData.isEmpty ? 100.0 : allCumulativeData.last.y;
+    final allYValues = allCumulativeData.map((spot) => spot.y).toList();
+    final dataMaxY = allYValues.isEmpty
+        ? 0.0
+        : allYValues.reduce((a, b) => a > b ? a : b);
+    final dataMinY = allYValues.isEmpty
+        ? 0.0
+        : allYValues.reduce((a, b) => a < b ? a : b);
+    // Pad bounds so the line stays inside the chart area. Negative cumulative
+    // values (e.g. from bank-synced refunds/income entries) are now supported.
+    final minY = dataMinY < 0 ? (dataMinY * 1.2).floorToDouble() : 0.0;
+    final maxY = dataMaxY > 0 ? (dataMaxY * 1.2).ceilToDouble() : 100.0;
     final animationStart = _hasPlayedEntranceAnimation ? 1.0 : 0.0;
     final animationDuration = _hasPlayedEntranceAnimation
         ? Duration.zero
@@ -509,8 +518,8 @@ class _SpendingCardState extends State<SpendingCard> {
                           ),
                         ),
                       ],
-                      minY: 0,
-                      maxY: maxY > 0 ? (maxY * 1.2).ceilToDouble() : 100,
+                      minY: minY,
+                      maxY: maxY,
                     ),
                   );
                 },
@@ -564,8 +573,7 @@ class _SpendingCardState extends State<SpendingCard> {
     final totals = <String, _CurrencyTypeTotalAccumulator>{};
 
     for (final expense in widget.expenses) {
-      final type = (expense.type ?? 'expense').toLowerCase();
-      if (type == 'income') continue;
+      if (expense.effectiveSpendingMultiplier == 0) continue;
 
       final date =
           DateTime(expense.date.year, expense.date.month, expense.date.day);
@@ -581,7 +589,7 @@ class _SpendingCardState extends State<SpendingCard> {
       }
 
       final current = totals[currency] ?? _CurrencyTypeTotalAccumulator();
-      current.expenseTotal += expense.amount.abs();
+      current.expenseTotal += expense.spendingEffect;
       current.transactionCount += 1;
       totals[currency] = current;
     }
@@ -664,10 +672,9 @@ class _SpendingCardState extends State<SpendingCard> {
           selectedCode == null ||
           rawCode.isEmpty ||
           rawCode == selectedCode;
-      final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-      if (dateOk && currencyOk && !isIncome) {
+      if (dateOk && currencyOk && expense.effectiveSpendingMultiplier != 0) {
         filteredExpenses.add(expense);
-        directTotal += expense.amount.abs();
+        directTotal += expense.spendingEffect;
       }
     }
 
@@ -933,6 +940,10 @@ int _expenseListSignature(List<ExpenseEntry> expenses) {
       expense.amountCents,
       expense.currency,
       expense.type,
+      expense.analyticsClass,
+      expense.analyticsIsFinal,
+      expense.analyticsSpendingMultiplier,
+      expense.analyticsCountsTowardIncome,
     );
   }
   return hash;

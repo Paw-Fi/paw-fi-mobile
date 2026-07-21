@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -48,6 +49,10 @@ class _PlaidSyncWalkthroughPageState
   int _currentPage = 0;
   bool _isConnecting = false;
   final int _numPages = 4;
+  Timer? _statusTimer;
+  Timer? _completingHintTimer;
+  String? _loadingMessage;
+  bool _showCompletingHint = false;
 
   bool get _isReconnectFlow => widget.connectionId?.trim().isNotEmpty == true;
 
@@ -55,8 +60,49 @@ class _PlaidSyncWalkthroughPageState
 
   @override
   void dispose() {
+    _stopExchangeStatusTimer();
+    _completingHintTimer?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _startExchangeStatusTimer() {
+    _statusTimer?.cancel();
+    int seconds = 0;
+    _statusTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted || !_isConnecting) {
+        timer.cancel();
+        return;
+      }
+      seconds += 3;
+      setState(() {
+        if (seconds == 3) {
+          _loadingMessage = context.l10n.plaidSyncRetrieving;
+        } else if (seconds == 6) {
+          _loadingMessage = context.l10n.plaidSyncSyncing;
+        } else if (seconds == 9) {
+          _loadingMessage = context.l10n.plaidSyncFinalizing;
+          _completingHintTimer?.cancel();
+          _completingHintTimer = Timer(const Duration(seconds: 5), () {
+            if (mounted && _isConnecting) {
+              setState(() {
+                _showCompletingHint = true;
+              });
+            }
+          });
+        } else {
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  void _stopExchangeStatusTimer() {
+    _statusTimer?.cancel();
+    _statusTimer = null;
+    _completingHintTimer?.cancel();
+    _completingHintTimer = null;
+    _showCompletingHint = false;
   }
 
   void _nextPage() {
@@ -92,7 +138,11 @@ class _PlaidSyncWalkthroughPageState
       return;
     }
 
-    setState(() => _isConnecting = true);
+    setState(() {
+      _isConnecting = true;
+      _showCompletingHint = false;
+      _loadingMessage = context.l10n.plaidSyncPreparing;
+    });
 
     final client = Supabase.instance.client;
 
@@ -123,6 +173,8 @@ class _PlaidSyncWalkthroughPageState
           fallback: context.l10n.couldNotConnectThisBankRightNow,
         ),
       );
+    } finally {
+      _stopExchangeStatusTimer();
     }
   }
 
@@ -177,6 +229,12 @@ class _PlaidSyncWalkthroughPageState
       }
       return;
     }
+
+    if (!mounted) return;
+    setState(() {
+      _loadingMessage = context.l10n.plaidSyncConnecting;
+    });
+    _startExchangeStatusTimer();
 
     final isUpdateMode = connectionId != null && connectionId.isNotEmpty;
     final FunctionResponse exchangeResponse;
@@ -368,6 +426,10 @@ class _PlaidSyncWalkthroughPageState
                 connectLabel: _connectButtonLabel(),
                 isLastPage: _currentPage == _numPages - 1,
                 isConnecting: _isConnecting,
+                loadingMessage: _loadingMessage,
+                connectingHint: _showCompletingHint
+                    ? context.l10n.plaidSyncThisMightTakeAMoment
+                    : null,
                 providerName: providerName,
                 onContinue: _nextPage,
                 onConnect: _performConnection,

@@ -28,6 +28,11 @@ String? extractRecurringTransactionIdFromProjectedExpenseId(String expenseId) {
   return match?.group(1);
 }
 
+bool shouldShowRecurringChipForExpense(ExpenseEntry expense) =>
+    expense.isRecurring ||
+    expense.providerRecurring ||
+    extractRecurringTransactionIdFromProjectedExpenseId(expense.id) != null;
+
 int _clampDayOfMonth(
     {required int year, required int month, required int day}) {
   final lastDay = DateTime(year, month + 1, 0).day;
@@ -138,6 +143,7 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
     }
 
     final rule = r.recurrenceRule;
+    if (rule?.projectionEnabled == false) continue;
     final anchor = (rule?.anchorDate ?? r.date).toLocal();
     final endLocal = rule?.endDate?.toLocal();
     if (endLocal != null && endLocal.isBefore(startDay)) continue;
@@ -266,6 +272,7 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
           rawText: r.description,
           type: r.type,
           splitGroupId: r.splitGroupId,
+          walletId: r.accountId,
           isRecurring: false,
         ),
       );
@@ -407,7 +414,8 @@ String _projectedExpenseComparisonKey(ExpenseEntry expense) {
   final category = expense.category?.trim().toLowerCase() ?? '';
   final householdId = expense.householdId?.trim() ?? '';
   final userId = expense.userId?.trim() ?? '';
+  final walletId = expense.walletId?.trim() ?? '';
   final splitGroupId = expense.splitGroupId?.trim() ?? '';
   final description = expense.rawText?.trim().toLowerCase() ?? '';
-  return '${_dateKey(_dateOnly(expense.date))}|$currency|$category|${expense.amountCents}|$householdId|$userId|$splitGroupId|$description';
+  return '${_dateKey(_dateOnly(expense.date))}|$currency|$category|${expense.amountCents}|$householdId|$userId|$walletId|$splitGroupId|$description';
 }

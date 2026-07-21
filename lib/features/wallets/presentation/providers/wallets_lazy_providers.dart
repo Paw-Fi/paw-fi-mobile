@@ -497,6 +497,18 @@ class WalletsPageStateNotifier
       }
       return;
     }
+
+    try {
+      await ref.read(transactionsFeedServiceProvider).refreshFromRemote(
+            _walletActualTransactionsQuery(
+              _query,
+              endInclusive: _walletProjectionNow(ref),
+            ),
+          );
+    } catch (_) {
+      // Keep the existing cached/offline-friendly refresh behavior. The
+      // wallet snapshot refresh below can still resolve from local data.
+    }
     if (previous == null) {
       final cachedState = await _readPersistedCachedPageState(
         bypassPersistedCache: bypassPersistedCache,
@@ -1356,19 +1368,7 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
   final service = ref.read(transactionsFeedServiceProvider);
   final scope = ref.read(householdScopeProvider);
   final transactions = await service.fetchAllPages(
-    TransactionsFeedQuery(
-      userId: query.userId,
-      householdId: query.householdId,
-      selectedCurrency: query.selectedCurrency,
-      selectedCurrencies: query.normalizedSelectedCurrencies,
-      selectedCategory: null,
-      selectedAccountId: null,
-      selectedCategories: null,
-      selectedType: 'all',
-      searchQuery: '',
-      startDate: null,
-      endDate: endInclusive,
-    ),
+    _walletActualTransactionsQuery(query, endInclusive: endInclusive),
   );
 
   final filtered = filterWalletTransactions(
@@ -1382,6 +1382,25 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
     'filteredCount': filtered.length,
   });
   return filtered;
+}
+
+TransactionsFeedQuery _walletActualTransactionsQuery(
+  WalletsScopeQuery query, {
+  required DateTime endInclusive,
+}) {
+  return TransactionsFeedQuery(
+    userId: query.userId,
+    householdId: query.householdId,
+    selectedCurrency: query.selectedCurrency,
+    selectedCurrencies: query.normalizedSelectedCurrencies,
+    selectedCategory: null,
+    selectedAccountId: null,
+    selectedCategories: null,
+    selectedType: 'all',
+    searchQuery: '',
+    startDate: null,
+    endDate: endInclusive,
+  );
 }
 
 Future<List<RecurringTransaction>> _fetchScopedRecurringTransactions(

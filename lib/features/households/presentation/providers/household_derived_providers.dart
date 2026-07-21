@@ -1,6 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -193,9 +192,8 @@ AsyncValue<bool> householdDashboardDependencyState(
   return const AsyncValue.data(true);
 }
 
-final householdDerivedSummaryProvider =
-    Provider.autoDispose
-        .family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
+final householdDerivedSummaryProvider = Provider.autoDispose
+    .family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
   (ref, params) => _buildHouseholdDerivedSummary(
     ref,
     params,
@@ -203,9 +201,8 @@ final householdDerivedSummaryProvider =
   ),
 );
 
-final householdDerivedSummaryWithoutBudgetsProvider =
-    Provider.autoDispose
-        .family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
+final householdDerivedSummaryWithoutBudgetsProvider = Provider.autoDispose
+    .family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
   (ref, params) => _buildHouseholdDerivedSummary(
     ref,
     params,
@@ -218,135 +215,134 @@ AsyncValue<HouseholdSummary?> _buildHouseholdDerivedSummary(
   HouseholdSummaryParams params, {
   required bool includeBudgets,
 }) {
-    final currentUserId = ref.watch(currentUserIdProvider);
-    if (currentUserId == null || currentUserId.isEmpty) {
-      return const AsyncValue.data(null);
-    }
-    final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
-    final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
-    final selectedCurrencies = ref.watch(
-      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
-    );
-    final query = DashboardScopeQuery(
-      userId: currentUserId,
-      householdId: params.householdId,
-      selectedCurrency: params.currency,
-      selectedCurrencies: selectedCurrencies,
-      startDate: rangeStart,
-      endDate: rangeEnd,
-    );
-    final expensesAsync = ref.watch(
-      dashboardCalendarTransactionsProvider(query),
-    );
-    final splitsAsync = ref.watch(householdDashboardSplitsProvider(query));
-    final membersAsync =
-        ref.watch(householdMembersProvider(params.householdId));
-    final budgetsAsync = includeBudgets
-        ? ref.watch(householdBudgetsProvider(params.householdId))
-        : const AsyncValue<List<SharedBudget>>.data(<SharedBudget>[]);
+  final currentUserId = ref.watch(currentUserIdProvider);
+  if (currentUserId == null || currentUserId.isEmpty) {
+    return const AsyncValue.data(null);
+  }
+  final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
+  final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
+  final selectedCurrencies = ref.watch(
+    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+  );
+  final query = DashboardScopeQuery(
+    userId: currentUserId,
+    householdId: params.householdId,
+    selectedCurrency: params.currency,
+    selectedCurrencies: selectedCurrencies,
+    startDate: rangeStart,
+    endDate: rangeEnd,
+  );
+  final expensesAsync = ref.watch(
+    dashboardCalendarTransactionsProvider(query),
+  );
+  final splitsAsync = ref.watch(householdDashboardSplitsProvider(query));
+  final membersAsync = ref.watch(householdMembersProvider(params.householdId));
+  final budgetsAsync = includeBudgets
+      ? ref.watch(householdBudgetsProvider(params.householdId))
+      : const AsyncValue<List<SharedBudget>>.data(<SharedBudget>[]);
 
-    // Recurring: used to project synthetic occurrences into analytics.
-    // This provider is a StateNotifier that may not have loaded yet.
-    final recurringState = ref.watch(recurringTransactionsProvider(
-      params.householdId,
-    ));
+  // Recurring: used to project synthetic occurrences into analytics.
+  // This provider is a StateNotifier that may not have loaded yet.
+  final recurringState = ref.watch(recurringTransactionsProvider(
+    params.householdId,
+  ));
 
-    if (!recurringState.hasLoadedOnce) {
-      final recurringNotifier = ref.read(
-        recurringTransactionsProvider(params.householdId).notifier,
+  if (!recurringState.hasLoadedOnce) {
+    final recurringNotifier = ref.read(
+      recurringTransactionsProvider(params.householdId).notifier,
+    );
+    Future.microtask(() {
+      recurringNotifier.loadRecurringTransactions(currentUserId);
+    });
+  }
+
+  final dependencyState = householdDashboardDependencyState(
+    <AsyncValue<Object?>>[
+      expensesAsync,
+      splitsAsync,
+      membersAsync,
+      budgetsAsync,
+      recurringState.data,
+    ],
+  );
+  if (dependencyState.hasError) {
+    return AsyncValue.error(
+      dependencyState.error!,
+      dependencyState.stackTrace ?? StackTrace.current,
+    );
+  }
+  if (!dependencyState.hasValue) {
+    return const AsyncValue.loading();
+  }
+
+  final baseExpenses = expensesAsync.valueOrNull!;
+
+  final expenses = mergeDashboardTransactionsWithLocalOverlay(
+    base: baseExpenses,
+    localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+    query: query,
+  );
+
+  final optimisticExpenses = ref.watch(
+    householdOptimisticExpensesProvider.select(
+      (state) => state[params.householdId] ?? const <ExpenseEntry>[],
+    ),
+  );
+  final deletedIds = ref.watch(
+    householdOptimisticDeletedExpenseIdsProvider.select(
+      (state) => state[params.householdId] ?? const <String>{},
+    ),
+  );
+  final mergedExpenses = mergeHouseholdExpenses(
+    expenses,
+    optimisticExpenses,
+    deletedIds: deletedIds,
+  );
+  final splits = splitsAsync.valueOrNull!;
+  final members = membersAsync.valueOrNull!;
+  final budgets = budgetsAsync.valueOrNull!;
+
+  final expensesWithRecurring = mergeActualExpensesWithProjectedRecurring(
+    actualExpenses: mergedExpenses,
+    recurringTransactions: recurringState.data.valueOrNull!,
+    rangeStart: rangeStart,
+    rangeEnd: rangeEnd,
+    selectedCurrency: params.currency,
+    selectedCurrencies: selectedCurrencies,
+    includeFutureOccurrences: false,
+  );
+  final shouldConvertCurrencies =
+      selectedCurrencies != null && selectedCurrencies.length > 1;
+  final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
+      const CurrencyRateTable(
+        baseCurrency: 'USD',
+        rates: CurrencyRates.rates,
+        isStale: true,
       );
-      Future.microtask(() {
-        recurringNotifier.loadRecurringTransactions(currentUserId);
-      });
-    }
+  final summaryExpenses = shouldConvertCurrencies
+      ? convertTransactionsToCurrency(
+          expensesWithRecurring,
+          targetCurrency: params.currency,
+          rates: rates,
+        )
+      : expensesWithRecurring;
+  final summarySplits = shouldConvertCurrencies
+      ? _convertSplitGroupsToCurrency(
+          splits,
+          targetCurrency: params.currency,
+          rates: rates,
+        )
+      : splits;
 
-    final dependencyState = householdDashboardDependencyState(
-      <AsyncValue<Object?>>[
-        expensesAsync,
-        splitsAsync,
-        membersAsync,
-        budgetsAsync,
-        recurringState.data,
-      ],
-    );
-    if (dependencyState.hasError) {
-      return AsyncValue.error(
-        dependencyState.error!,
-        dependencyState.stackTrace ?? StackTrace.current,
-      );
-    }
-    if (!dependencyState.hasValue) {
-      return const AsyncValue.loading();
-    }
+  final summary = _buildHouseholdSummary(
+    params: params,
+    expenses: summaryExpenses,
+    splits: summarySplits,
+    members: members,
+    budgets: budgets,
+  );
 
-    final baseExpenses = expensesAsync.valueOrNull!;
-
-    final expenses = mergeDashboardTransactionsWithLocalOverlay(
-      base: baseExpenses,
-      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
-      query: query,
-    );
-
-    final optimisticExpenses = ref.watch(
-      householdOptimisticExpensesProvider.select(
-        (state) => state[params.householdId] ?? const <ExpenseEntry>[],
-      ),
-    );
-    final deletedIds = ref.watch(
-      householdOptimisticDeletedExpenseIdsProvider.select(
-        (state) => state[params.householdId] ?? const <String>{},
-      ),
-    );
-    final mergedExpenses = mergeHouseholdExpenses(
-      expenses,
-      optimisticExpenses,
-      deletedIds: deletedIds,
-    );
-    final splits = splitsAsync.valueOrNull!;
-    final members = membersAsync.valueOrNull!;
-    final budgets = budgetsAsync.valueOrNull!;
-
-    final expensesWithRecurring = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: mergedExpenses,
-      recurringTransactions: recurringState.data.valueOrNull!,
-      rangeStart: rangeStart,
-      rangeEnd: rangeEnd,
-      selectedCurrency: params.currency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
-    );
-    final shouldConvertCurrencies =
-        selectedCurrencies != null && selectedCurrencies.length > 1;
-    final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
-        const CurrencyRateTable(
-          baseCurrency: 'USD',
-          rates: CurrencyRates.rates,
-          isStale: true,
-        );
-    final summaryExpenses = shouldConvertCurrencies
-        ? convertTransactionsToCurrency(
-            expensesWithRecurring,
-            targetCurrency: params.currency,
-            rates: rates,
-          )
-        : expensesWithRecurring;
-    final summarySplits = shouldConvertCurrencies
-        ? _convertSplitGroupsToCurrency(
-            splits,
-            targetCurrency: params.currency,
-            rates: rates,
-          )
-        : splits;
-
-    final summary = _buildHouseholdSummary(
-      params: params,
-      expenses: summaryExpenses,
-      splits: summarySplits,
-      members: members,
-      budgets: budgets,
-    );
-
-    return AsyncValue.data(summary);
+  return AsyncValue.data(summary);
 }
 
 List<ExpenseSplitGroup> _convertSplitGroupsToCurrency(
@@ -436,14 +432,13 @@ HouseholdSummary _buildHouseholdSummary({
 
     transactionCount += 1;
 
-    final amount = e.amountCents.abs();
-    final type = (e.type ?? 'expense').toLowerCase();
-    final isIncome = type == 'income';
-
-    if (isIncome) {
-      totalIncomeCents += amount;
+    final absoluteAmount = e.amountCents.abs();
+    if (e.countsTowardIncome) {
+      totalIncomeCents += absoluteAmount;
       continue;
     }
+    if (e.effectiveSpendingMultiplier == 0) continue;
+    final amount = absoluteAmount * e.effectiveSpendingMultiplier;
 
     totalExpenseCents += amount;
 
@@ -695,10 +690,9 @@ int _calculateBudgetSpent({
     if (!_expenseMatchesCurrency(e, budget.currency.toUpperCase())) continue;
     if (!_expenseInRange(e, rangeStart, rangeEnd)) continue;
 
-    final type = (e.type ?? 'expense').toLowerCase();
-    if (type == 'income') continue;
+    if (e.effectiveSpendingMultiplier == 0) continue;
 
-    final amount = e.amountCents.abs();
+    final amount = e.amountCents.abs() * e.effectiveSpendingMultiplier;
     if (!isPersonal) {
       spentCents += amount;
       continue;
@@ -718,7 +712,8 @@ int _calculateBudgetSpent({
       }
       if (line != null && (line.amountCents ?? 0) > 0) {
         if (budget.countSplitPortionOnly) {
-          spentCents += (line.amountCents ?? 0).abs();
+          spentCents +=
+              (line.amountCents ?? 0).abs() * e.effectiveSpendingMultiplier;
           continue;
         }
         if (e.userId == budgetUserId) {

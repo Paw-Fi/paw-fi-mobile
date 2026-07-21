@@ -31,6 +31,8 @@ String getLocalizedFrequencyText(
           : l10n.weekly;
     case 'biweekly':
       return l10n.every2Weeks;
+    case 'semi_monthly':
+      return l10n.custom;
     case 'monthly':
       return rule.interval != null && rule.interval! > 1
           ? l10n.everyXMonths(rule.interval!)
@@ -125,6 +127,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                 amount: transaction.amount,
                 currency: transaction.currency,
                 isIncome: isIncome,
+                showRecurringChip: true,
                 subtitleWidget: Row(
                   children: [
                     Container(

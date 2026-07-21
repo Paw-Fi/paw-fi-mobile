@@ -81,6 +81,64 @@ void main() {
       expect(summary.transactionCount, 2);
     });
 
+    test('local summaries apply canonical spending semantics', () async {
+      final base = _entry(
+        id: 'purchase',
+        userId: 'user_1',
+        amountCents: 2500,
+        type: 'expense',
+        date: DateTime(2026, 4, 3),
+      );
+      await database.upsertTransactions([
+        base.copyWith(
+          analyticsClass: 'consumer_spend',
+          analyticsSpendingMultiplier: 1,
+          analyticsCountsTowardIncome: false,
+        ),
+        base.copyWith(
+          id: 'refund',
+          amountCents: 500,
+          type: 'income',
+          analyticsClass: 'refund_or_reversal',
+          analyticsSpendingMultiplier: -1,
+          analyticsCountsTowardIncome: false,
+        ),
+        base.copyWith(
+          id: 'transfer',
+          amountCents: 3000,
+          analyticsClass: 'transfer_out',
+          analyticsSpendingMultiplier: 0,
+          analyticsCountsTowardIncome: false,
+        ),
+        base.copyWith(
+          id: 'pending',
+          amountCents: 1000,
+          analyticsClass: 'consumer_spend',
+          analyticsIsFinal: false,
+          analyticsSpendingMultiplier: 1,
+          analyticsCountsTowardIncome: false,
+        ),
+      ]);
+
+      final monthly = await database.getMonthlySummary(
+        scopeKey: localScopeKey(userId: 'user_1', householdId: null),
+        month: DateTime(2026, 4),
+        currency: 'EUR',
+      );
+      final feed = await database.getTransactionsFeedSummary(
+        const LocalTransactionsFeedQuery(
+          userId: 'user_1',
+          householdId: null,
+          currencies: ['EUR'],
+        ),
+      );
+
+      expect(monthly?.expenseCents, 2000);
+      expect(monthly?.incomeCents, 0);
+      expect(feed.expenseTotalCents, 2000);
+      expect(feed.incomeTotalCents, 0);
+    });
+
     test('stores optimistic write and idempotent outbox mutation together',
         () async {
       final entry = _entry(
@@ -1354,6 +1412,32 @@ void main() {
       ]);
       expect(summary?.expenseCents, 4000);
       expect(summary?.transactionCount, 2);
+    });
+
+    test(
+        'household changed-since lookup includes updates owned by another member',
+        () async {
+      final cachedAt =
+          DateTime.now().toUtc().subtract(const Duration(seconds: 1));
+      await database.upsertTransactions([
+        _entry(
+          id: 'member_expense',
+          userId: 'member_user',
+          householdId: 'household_1',
+          amountCents: 4200,
+          date: DateTime(2026, 4, 6),
+        ).copyWith(updatedAt: DateTime.utc(2026, 4, 6, 12)),
+      ]);
+
+      final changed = await database.getSyncedTransactionsChangedSince(
+        userId: 'owner_user',
+        householdId: 'household_1',
+        changedAfter: cachedAt,
+      );
+
+      expect(changed, hasLength(1));
+      expect(changed.single.id, 'member_expense');
+      expect(changed.single.amountCents, 4200);
     });
 
     test('returns recurring rows from local cache for a scope', () async {

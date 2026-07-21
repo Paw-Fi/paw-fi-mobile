@@ -16,7 +16,9 @@ import 'package:moneko/features/home/presentation/state/dashboard_cache_store.da
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_sqlite_cache.dart';
+import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _TestAuth extends Auth {
@@ -232,6 +234,45 @@ void main() {
     expect(service.lastPageQuery?.selectedCurrencies, ['EUR', 'USD']);
   });
 
+  test('household dashboard overlay excludes confirmed server rows', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    const householdId = '00000000-0000-0000-0000-000000000001';
+    final notifier =
+        container.read(householdOptimisticExpensesProvider.notifier);
+    notifier.addExpense(
+      householdId,
+      _entry(
+        'server-confirmed',
+        DateTime(2026, 7, 18),
+        userId: 'member-2',
+      ).copyWith(householdId: householdId),
+    );
+    notifier.addExpense(
+      householdId,
+      _entry(
+        'optimistic_local-create',
+        DateTime(2026, 7, 18),
+        userId: 'user-1',
+      ).copyWith(householdId: householdId),
+    );
+
+    final overlay = container.read(
+      dashboardLocalOverlayTransactionsProvider(
+        const DashboardScopeQuery(
+          userId: 'user-1',
+          householdId: householdId,
+          selectedCurrency: 'USD',
+          selectedCurrencies: ['USD'],
+          startDate: null,
+          endDate: null,
+        ),
+      ),
+    );
+
+    expect(overlay.map((entry) => entry.id), ['optimistic_local-create']);
+  });
+
   test(
       'recent provider hydrates SQLite snapshot before remote refresh finishes',
       () async {
@@ -368,6 +409,59 @@ void main() {
 
     expect(visible.single.id, reconciled.id);
     expect(visible.single.amountCents, 2500);
+    service.pageCompleter!.complete(
+      const TransactionsFeedPageResult(
+        items: <ExpenseEntry>[],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    );
+  });
+
+  test('cached household snapshot reconciles another member synced update',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    const householdId = '00000000-0000-0000-0000-000000000001';
+    final request = DashboardRecentTransactionsRequest(
+      query: buildQuery().copyWith(
+        householdId: householdId,
+        selectedCurrencies: const ['USD'],
+      ),
+      limit: 5,
+    );
+    final original = _entry(
+      'shared-update',
+      DateTime(2026, 7, 10),
+      userId: 'member-2',
+      amountCents: 1000,
+    ).copyWith(householdId: householdId);
+    await DashboardSqliteCache(
+      database,
+      now: () => DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+    ).writeRecent(request, <ExpenseEntry>[original]);
+    await database.upsertTransactions(<ExpenseEntry>[
+      original.copyWith(
+        amountCents: 4200,
+        updatedAt: DateTime.utc(2026, 7, 10, 9),
+      ),
+    ]);
+    final service = _FakeTransactionsFeedService()
+      ..pageCompleter = Completer<TransactionsFeedPageResult>();
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_TestAuth.new),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      transactionsFeedServiceProvider.overrideWithValue(service),
+      transactionsRemoteFeedServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    final visible = await container.read(
+      dashboardRecentTransactionsProvider(request).future,
+    );
+
+    expect(visible.single.id, original.id);
+    expect(visible.single.amountCents, 4200);
     service.pageCompleter!.complete(
       const TransactionsFeedPageResult(
         items: <ExpenseEntry>[],
@@ -704,7 +798,7 @@ void main() {
       httpClient: MockClient((request) async {
         expect(
           request.url.path,
-          endsWith('/rest/v1/rpc/get_home_mom_transactions_v1'),
+          endsWith('/rest/v1/rpc/get_home_mom_transactions_v2'),
         );
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         final beforeId = body['p_before_id'] as String?;
@@ -724,7 +818,12 @@ void main() {
             'category': 'food',
             'created_at': '2026-07-10T12:00:00.000Z',
             'updated_at': '2026-07-10T12:00:00.000Z',
+            'bank_account_id': 'bank-account-1',
             'type': 'expense',
+            'analytics_class': 'transfer_out',
+            'analytics_is_final': true,
+            'analytics_spending_multiplier': 0,
+            'analytics_counts_toward_income': false,
             'is_recurring': false,
           },
         );
@@ -763,6 +862,103 @@ void main() {
 
     expect(rows, hasLength(1001));
     expect(requestedCursors, [null, isNotNull]);
+    expect(rows.first.bankAccountId, 'bank-account-1');
+    expect(rows.first.analyticsClass, 'transfer_out');
+    expect(rows.first.analyticsIsFinal, isTrue);
+    expect(rows.first.spendingEffect, 0);
+  });
+
+  test('owned MoM RPC preserves the complete Plaid economic matrix', () async {
+    final classes = <(String, bool, int, bool)>[
+      ('consumer_spend', true, 1, false),
+      ('refund_or_reversal', true, -1, false),
+      ('transfer_in', true, 0, false),
+      ('transfer_out', true, 0, false),
+      ('debt_payment', true, 0, false),
+      ('bank_fee', true, 0, false),
+      ('cash_movement', true, 0, false),
+      ('loan_disbursement', true, 0, false),
+      ('income', true, 0, true),
+      ('unknown', true, 0, false),
+      ('consumer_spend', false, 0, false),
+    ];
+    final client = SupabaseClient(
+      'https://example.test',
+      'anon-key',
+      httpClient: MockClient((request) async {
+        expect(
+          request.url.path,
+          endsWith('/rest/v1/rpc/get_home_mom_transactions_v2'),
+        );
+        final rows = <Map<String, dynamic>>[
+          for (var index = 0; index < classes.length; index++)
+            <String, dynamic>{
+              'id': '00000000-0000-0000-0000-'
+                  '${index.toString().padLeft(12, '0')}',
+              'user_id': 'user-1',
+              'date': '2026-07-10',
+              'amount_cents': 100,
+              'currency': 'USD',
+              'category': 'test',
+              'created_at': '2026-07-10T12:00:00.000Z',
+              'updated_at': '2026-07-10T12:00:00.000Z',
+              'bank_account_id': 'bank-account-1',
+              'type': classes[index].$4 ? 'income' : 'expense',
+              'analytics_class': classes[index].$1,
+              'analytics_is_final': classes[index].$2,
+              'analytics_spending_multiplier': classes[index].$3,
+              'analytics_counts_toward_income': classes[index].$4,
+              'is_recurring': false,
+            },
+        ];
+        return http.Response(
+          jsonEncode(rows),
+          200,
+          headers: {'content-type': 'application/json'},
+          request: request,
+        );
+      }),
+    );
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_TestAuth.new),
+      dashboardSupabaseClientProvider.overrideWithValue(client),
+      localDatabaseProvider.overrideWith((ref) async => database),
+    ]);
+    addTearDown(container.dispose);
+    final query = DashboardScopeQuery(
+      userId: 'user-1',
+      householdId: null,
+      selectedCurrency: 'USD',
+      selectedCurrencies: const ['USD'],
+      startDate: DateTime(2026, 5, 1),
+      endDate: DateTime(2026, 7, 31),
+    );
+
+    container.listen(
+      dashboardOwnedRangeTransactionsProvider(query),
+      (_, __) {},
+    );
+    final rows = await container.read(
+      dashboardOwnedRangeTransactionsProvider(query).future,
+    );
+    final totals = calculateMomTrend(
+      actualTransactions: rows,
+      recurringTransactions: const [],
+      now: DateTime(2026, 7, 20),
+      financialMonthStartDay: 1,
+      selectedCurrency: 'USD',
+    );
+
+    expect(rows, hasLength(classes.length));
+    expect(rows.where((row) => row.isProviderPending), hasLength(1));
+    expect(rows.where((row) => row.countsTowardIncome), hasLength(1));
+    expect(
+      rows.map((row) => row.effectiveSpendingMultiplier).toList(),
+      containsAll(<int>[1, -1, 0]),
+    );
+    expect(totals['2026-07-01'], 0);
   });
 
   test(

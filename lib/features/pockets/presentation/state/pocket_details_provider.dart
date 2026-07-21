@@ -73,6 +73,27 @@ class PocketDetailsData {
   });
 }
 
+@foundation.visibleForTesting
+({
+  double total,
+  Map<String, double> categories,
+  Map<int, double> days,
+}) calculatePocketDetailSpending(Iterable<ExpenseEntry> transactions) {
+  final categories = <String, double>{};
+  final days = <int, double>{};
+  var total = 0.0;
+  for (final transaction in transactions) {
+    final effect = transaction.spendingEffect;
+    final category = transaction.category ?? 'uncategorized';
+    total += effect;
+    categories.update(category, (value) => value + effect,
+        ifAbsent: () => effect);
+    days.update(transaction.date.day, (value) => value + effect,
+        ifAbsent: () => effect);
+  }
+  return (total: total, categories: categories, days: days);
+}
+
 final pocketDetailsProvider =
     FutureProvider.family<PocketDetailsData, PocketTransactionsParams>(
         (ref, params) async {
@@ -213,11 +234,10 @@ final pocketDetailsProvider =
           .where((transaction) => transaction.userId == authUser.uid)
           .toList(growable: false)
       : currentTransactions;
-  // CRITICAL: keep pocket details aligned with the main pockets page totals.
-  // STRICT REQUIREMENT: exclude only income rows here so recurring expenses
-  // remain visible and totals stay consistent with the primary pockets flow.
+  // Keep pocket details aligned with the classification-aware main page while
+  // retaining recurring expenses that have a real spending effect.
   final actualTransactions = scopedCurrentTransactions
-      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => expense.effectiveSpendingMultiplier != 0)
       .toList(growable: false);
 
   final preferredTimezone =
@@ -297,18 +317,10 @@ final pocketDetailsProvider =
             rates: rateTable,
           )
         : scopedPrevTransactions;
-    totalSpentLastMonth = aggregatePrevTransactions.fold<double>(
-      0,
-      (sum, transaction) {
-        if (transaction.isRecurring) {
-          return sum;
-        }
-        if ((transaction.type ?? 'expense').toLowerCase() == 'income') {
-          return sum;
-        }
-        return sum + transaction.amount;
-      },
-    );
+    totalSpentLastMonth = calculatePocketDetailSpending(
+      aggregatePrevTransactions
+          .where((transaction) => !transaction.isRecurring),
+    ).total;
   } else {
     final previousMonthSummary = await transactionsFeedService.fetchSummary(
       TransactionsFeedQuery(
@@ -339,32 +351,18 @@ final pocketDetailsProvider =
   // 4. Process Data
 
   // Category Breakdown
-  final categoryMap = <String, double>{};
-  double totalSpent = 0;
+  final spending = calculatePocketDetailSpending(aggregateTransactions);
 
-  // Daily Spending
-  final dailyMap = <int, double>{};
-
-  for (final tx in aggregateTransactions) {
-    final amount = tx.amount;
-    final cat = tx.category ?? 'uncategorized';
-    final date = DateTime(tx.date.year, tx.date.month, tx.date.day);
-
-    totalSpent += amount;
-    categoryMap.update(cat, (v) => v + amount, ifAbsent: () => amount);
-    dailyMap.update(date.day, (v) => v + amount, ifAbsent: () => amount);
-  }
-
-  final categorySpending = categoryMap.entries.map((e) {
+  final categorySpending = spending.categories.entries.map((e) {
     return CategorySpend(
       category: e.key,
       amount: e.value,
-      share: totalSpent > 0 ? e.value / totalSpent : 0,
+      share: spending.total > 0 ? e.value / spending.total : 0,
     );
   }).toList()
     ..sort((a, b) => b.amount.compareTo(a.amount));
 
-  final dailySpending = dailyMap.entries.map((e) {
+  final dailySpending = spending.days.entries.map((e) {
     return DailySpend(day: e.key, amount: e.value);
   }).toList()
     ..sort((a, b) => a.day.compareTo(b.day));
@@ -383,10 +381,9 @@ final pocketDetailsProvider =
           1
       : daysInMonth;
 
-  final actualSpent = aggregateActualTransactions.fold<double>(
-    0,
-    (sum, expense) => sum + expense.amount,
-  );
+  final actualSpent = calculatePocketDetailSpending(
+    aggregateActualTransactions,
+  ).total;
 
   final dailyAverage = daysPassed > 0 ? actualSpent / daysPassed : 0.0;
   final projectedSpend = dailyAverage * daysInMonth;

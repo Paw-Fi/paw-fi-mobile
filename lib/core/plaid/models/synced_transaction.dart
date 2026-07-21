@@ -1,4 +1,3 @@
-import 'package:moneko/core/recurring/recurring_transaction_inference.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -8,12 +7,28 @@ class SyncedTransaction {
   final ExpenseEntry expense;
   final bool isRecurring;
   final Map<String, dynamic>? recurrenceRule;
+  final String? analyticsClass;
+  final String? classificationSource;
+  final String classificationReviewState;
+  final String? classificationReviewReason;
+  final String? providerPfcConfidence;
 
   SyncedTransaction({
     required this.expense,
     required this.isRecurring,
     required this.recurrenceRule,
+    this.analyticsClass,
+    this.classificationSource,
+    this.classificationReviewState = 'not_required',
+    this.classificationReviewReason,
+    this.providerPfcConfidence,
   });
+
+  bool get needsClassificationReview =>
+      classificationReviewState == 'needs_review';
+
+  bool get hasUserClassificationOverride =>
+      classificationSource == 'user_override';
 }
 
 class PlaidSyncStatus {
@@ -31,6 +46,13 @@ class PlaidSyncStatus {
 
   bool get isHistoricalBackfillComplete => historicalUpdateComplete == true;
 }
+
+bool hasUnresolvedPlaidReview(
+  Iterable<SyncedTransaction> transactions,
+  Set<String> transferSuggestionIds,
+) =>
+    transferSuggestionIds.isNotEmpty ||
+    transactions.any((transaction) => transaction.needsClassificationReview);
 
 class ParsedSyncedTransactions {
   const ParsedSyncedTransactions({
@@ -96,12 +118,21 @@ ParsedSyncedTransactions parseSyncedTransactionPayload(dynamic payload) {
       bankAccountId: map['bank_account_id'] as String?,
       walletId: map['account_id'] as String?,
       type: map['type'] as String?,
+      providerPending: map['provider_pending'] as bool?,
+      analyticsIsFinal: map['analytics_is_final'] != false,
     );
 
     return SyncedTransaction(
       expense: expense.copyWith(isRecurring: map['is_recurring'] == true),
       isRecurring: map['is_recurring'] == true,
       recurrenceRule: map['recurrence_rule'] as Map<String, dynamic>?,
+      analyticsClass: map['analytics_class'] as String?,
+      classificationSource: map['classification_source'] as String?,
+      classificationReviewState:
+          map['classification_review_state'] as String? ?? 'not_required',
+      classificationReviewReason:
+          map['classification_review_reason'] as String?,
+      providerPfcConfidence: map['provider_pfc_confidence'] as String?,
     );
   }).toList();
 
@@ -126,31 +157,5 @@ PlaidSyncStatus? _parsePlaidSyncStatus(Map<String, dynamic>? map) {
 
 List<SyncedTransaction> inferSyncedRecurringTransactions(
   List<SyncedTransaction> transactions,
-) {
-  final inferred = inferRecurringTransactions(
-    transactions.map(
-      (transaction) => RecurringInferenceInput(
-        id: transaction.expense.id,
-        date: transaction.expense.date,
-        amountCents: transaction.expense.amountCents,
-        currency: transaction.expense.currency,
-        type: transaction.expense.type,
-        accountId: transaction.expense.bankAccountId,
-        merchant: transaction.expense.merchant,
-        description: transaction.expense.rawText,
-        isRecurring: transaction.isRecurring,
-        recurrenceRule: transaction.recurrenceRule,
-      ),
-    ),
-  );
-
-  return transactions.map((transaction) {
-    final result = inferred[transaction.expense.id];
-    if (result == null || !result.isRecurring) return transaction;
-    return SyncedTransaction(
-      expense: transaction.expense.copyWith(isRecurring: true),
-      isRecurring: true,
-      recurrenceRule: result.recurrenceRule,
-    );
-  }).toList(growable: false);
-}
+) =>
+    transactions;

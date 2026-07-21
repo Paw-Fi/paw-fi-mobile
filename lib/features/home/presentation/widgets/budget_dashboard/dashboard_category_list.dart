@@ -38,30 +38,33 @@ class DashboardCategoryList extends StatelessWidget {
       return normalizeCategory(normalized);
     }
 
-    final validTx = transactions
-        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() != 'income');
+    final validTx =
+        transactions.where((tx) => tx.entry.effectiveSpendingMultiplier != 0);
 
     final grouped =
         validTx.groupListsBy((tx) => normalizeCategoryId(tx.entry.category));
 
-    final categoryTotals = grouped.entries.map((entry) {
-      final catId = entry.key;
-      final txs = entry.value;
-      final total = txs.fold<double>(0.0, (sum, tx) {
-        final base = tx.entry.amountCents / 100.0;
-        final resolved = amountResolver?.call(tx) ?? base;
-        return sum + resolved.abs();
-      });
+    final categoryTotals = grouped.entries
+        .map((entry) {
+          final catId = entry.key;
+          final txs = entry.value;
+          final total = txs.fold<double>(0.0, (sum, tx) {
+            final base = tx.entry.amountCents / 100.0;
+            final resolved = amountResolver?.call(tx) ?? base;
+            return sum + resolved.abs() * tx.entry.effectiveSpendingMultiplier;
+          });
 
-      final name = getCategoryTranslation(context, catId);
+          final name = getCategoryTranslation(context, catId);
 
-      return _CategoryTotal(
-        id: catId,
-        name: name,
-        amount: total,
-        transactionCount: txs.length,
-      );
-    }).toList();
+          return _CategoryTotal(
+            id: catId,
+            name: name,
+            amount: total,
+            transactionCount: txs.length,
+          );
+        })
+        .where((category) => category.amount > 0)
+        .toList();
 
     categoryTotals.sort((a, b) => b.amount.compareTo(a.amount));
 

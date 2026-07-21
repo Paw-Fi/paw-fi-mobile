@@ -9190,4 +9190,76 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get rateUs => 'ให้คะแนนแอป';
+
+  @override
+  String get plaidClassificationNeedsReview => 'ตรวจสอบประเภทธุรกรรม';
+
+  @override
+  String get plaidClassificationNeedsReviewDescription => 'Plaid ไม่สามารถระบุได้ว่าควรนำธุรกรรมนี้ไปคำนวณในงบประมาณของคุณอย่างไร';
+
+  @override
+  String get plaidOverrideClassification => 'กำหนดประเภทธุรกรรม';
+
+  @override
+  String get plaidRestoreProviderClassification => 'คืนค่าการจัดประเภทของ Plaid';
+
+  @override
+  String get plaidClassificationUpdated => 'อัปเดตประเภทธุรกรรมแล้ว';
+
+  @override
+  String get plaidConsumerSpend => 'การซื้อหรือค่าใช้จ่าย';
+
+  @override
+  String get plaidIncome => 'รายรับ';
+
+  @override
+  String get plaidTransferOut => 'โอนออก';
+
+  @override
+  String get plaidTransferIn => 'โอนเข้า';
+
+  @override
+  String get plaidDebtPayment => 'ชำระหนี้';
+
+  @override
+  String get plaidLoanDisbursement => 'การเบิกจ่ายเงินกู้';
+
+  @override
+  String get plaidRefundOrReversal => 'คืนเงินหรือย้อนรายการ';
+
+  @override
+  String get plaidBankFee => 'ค่าธรรมเนียมธนาคาร';
+
+  @override
+  String get plaidCashMovement => 'การเคลื่อนไหวของเงินสด';
+
+  @override
+  String get plaidExcludeFromBudget => 'ไม่รวมในยอดรวมงบประมาณ';
+
+  @override
+  String get plaidPossibleTransferMatch => 'อาจตรงกับรายการโอน';
+
+  @override
+  String get failedToSyncTransactions => 'ไม่สามารถซิงค์ธุรกรรมธนาคารได้ โปรดลองอีกครั้งก่อนดำเนินการต่อ';
+
+  @override
+  String get plaidReviewFlaggedBeforeContinue => 'ตรวจสอบธุรกรรมที่ถูกทำเครื่องหมายทั้งหมดก่อนดำเนินการต่อ';
+
+  @override
+  String get plaidSyncPreparing => 'กำลังเตรียมการเชื่อมต่อที่ปลอดภัย...';
+
+  @override
+  String get plaidSyncConnecting => 'กำลังเชื่อมต่อกับธนาคารของคุณ...';
+
+  @override
+  String get plaidSyncRetrieving => 'กำลังดึงรายการบัญชี...';
+
+  @override
+  String get plaidSyncSyncing => 'กำลังซิงค์ข้อมูลบัญชีอย่างปลอดภัย...';
+
+  @override
+  String get plaidSyncFinalizing => 'กำลังดำเนินการตั้งค่าให้เสร็จสมบูรณ์...';
+
+  @override
+  String get plaidSyncThisMightTakeAMoment => 'ขั้นตอนนี้อาจใช้เวลาสักครู่...';
 }

@@ -177,8 +177,9 @@ class _CurrencyHeroCard extends StatelessWidget {
     // Calculate Spend
     final spentCents = monthTransactions.fold<int>(0, (sum, tx) {
       // Only expenses
-      if (tx.entry.type != 'income') {
-        return sum + tx.entry.amountCents;
+      if (tx.entry.effectiveSpendingMultiplier != 0) {
+        return sum +
+            tx.entry.amountCents.abs() * tx.entry.effectiveSpendingMultiplier;
       }
       return sum;
     });

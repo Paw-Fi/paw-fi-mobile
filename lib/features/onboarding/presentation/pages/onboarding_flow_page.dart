@@ -53,6 +53,7 @@ const _heardAboutSourceOptions = [
   (value: 'instagram', label: 'Instagram'),
   (value: 'youtube', label: 'YouTube'),
   (value: 'chatgpt', label: 'ChatGPT'),
+  (value: 'reddit', label: 'Reddit'),
   (value: 'google_search', label: 'Google Search'),
   (value: 'app_store', label: 'App Store'),
   (value: 'friend_or_family', label: 'Friend or family'),
@@ -209,12 +210,11 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         final payloadKey = '$source\u0000$otherText';
         if (heardAboutSavedPayload.value != payloadKey) {
           await ref.read(onboardingHeardAboutSaveActionProvider)(
-                source: source,
-                sourceLabel: _heardAboutSourceLabel(source),
-                otherText:
-                    source == _kHeardAboutOtherValue ? otherText : null,
-                platform: defaultTargetPlatform.name,
-              );
+            source: source,
+            sourceLabel: _heardAboutSourceLabel(source),
+            otherText: source == _kHeardAboutOtherValue ? otherText : null,
+            platform: defaultTargetPlatform.name,
+          );
           if (!context.mounted) return;
           heardAboutSavedPayload.value = payloadKey;
         }
@@ -1859,6 +1859,7 @@ class _CurrencyStep extends HookConsumerWidget {
                         ref,
                         showAllByDefault: true,
                         preselectPrimary: false,
+                        isOnboardingFlow: true,
                       );
                       final user = ref.read(authProvider);
                       if (user.uid.isNotEmpty) {

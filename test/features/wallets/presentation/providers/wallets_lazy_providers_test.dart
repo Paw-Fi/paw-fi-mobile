@@ -21,6 +21,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockWalletsRpcRunner extends Mock implements WalletsRpcRunner {}
 
+class _RecordingTransactionsFeedService extends EmptyTransactionsFeedService {
+  int refreshCalls = 0;
+  TransactionsFeedQuery? lastRefreshQuery;
+
+  @override
+  Future<void> refreshFromRemote(TransactionsFeedQuery query) async {
+    refreshCalls += 1;
+    lastRefreshQuery = query;
+  }
+}
+
 class _FakeWalletsDataService implements WalletsDataService {
   int historyCalls = 0;
   int snapshotCalls = 0;
@@ -493,6 +504,35 @@ void main() {
       {DateTime(2026, 4, 1)},
     );
     expect(service.snapshotMonths.first, DateTime(2026, 4, 1));
+  });
+
+  test('wallet refresh reconciles the active household transaction feed',
+      () async {
+    final service = _FakeWalletsDataService();
+    final feedService = _RecordingTransactionsFeedService();
+    final scope = WalletsScopeQuery(
+      userId: 'user-1',
+      householdId: 'house-1',
+      selectedCurrency: 'USD',
+      currentMonthStart: DateTime(2026, 4, 1),
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletsDataServiceProvider.overrideWithValue(service),
+      transactionsFeedServiceProvider.overrideWithValue(feedService),
+    ]);
+    addTearDown(container.dispose);
+
+    final provider = walletsPageStateProvider(scope);
+    await container.read(provider.future);
+    await container.read(provider.notifier).refresh();
+
+    expect(feedService.refreshCalls, 1);
+    expect(feedService.lastRefreshQuery?.householdId, 'house-1');
+    expect(feedService.lastRefreshQuery?.selectedType, 'all');
+    expect(feedService.lastRefreshQuery?.startDate, isNull);
   });
 
   test(

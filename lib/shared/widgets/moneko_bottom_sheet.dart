@@ -105,7 +105,8 @@ class _MonekoSheetContent extends StatelessWidget {
                       onPressed: onClose,
                       icon: Icon(Icons.close, color: colorScheme.onSurface),
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
+                        backgroundColor:
+                            colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
                     )
                   else
@@ -113,12 +114,17 @@ class _MonekoSheetContent extends StatelessWidget {
 
                   // Title
                   if (title != null)
-                    Text(
-                      title!,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Text(
+                        title!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
                       ),
                     ),
 
@@ -139,7 +145,8 @@ class _MonekoSheetContent extends StatelessWidget {
                             )
                           : Icon(Icons.check, color: colorScheme.onSurface),
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
+                        backgroundColor:
+                            colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
                     )
                   else

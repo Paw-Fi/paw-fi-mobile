@@ -96,6 +96,46 @@ extension PocketRolloverL10nX on AppLocalizations {
       'Base $base - Rollover $rollover - Spent $spent';
 }
 
+extension PlaidClassificationReviewL10nX on AppLocalizations {
+  String get failedToSyncTransactions =>
+      'Bank transactions could not be synced. Try again before continuing.';
+  String get plaidReviewLoadMore => 'Load more transactions';
+  String get plaidClassificationNeedsReview => 'Check transaction type';
+  String get plaidClassificationNeedsReviewDescription =>
+      'Plaid could not identify how this transaction should affect your budget.';
+  String get plaidOverrideClassification => 'Set transaction type';
+  String get plaidRestoreProviderClassification =>
+      'Restore Plaid classification';
+  String get plaidClassificationUpdated => 'Transaction type updated';
+  String get plaidConsumerSpend => 'Purchase or spending';
+  String get plaidIncome => 'Income';
+  String get plaidTransferOut => 'Transfer out';
+  String get plaidTransferIn => 'Transfer in';
+  String get plaidDebtPayment => 'Debt payment';
+  String get plaidLoanDisbursement => 'Loan disbursement';
+  String get plaidRefundOrReversal => 'Refund or reversal';
+  String get plaidBankFee => 'Bank fee';
+  String get plaidCashMovement => 'Cash movement';
+  String get plaidExcludeFromBudget => 'Exclude from budget totals';
+  String get plaidPossibleTransferMatch => 'Possible transfer match';
+  String get plaidReviewFlaggedBeforeContinue =>
+      'Review every flagged transaction before continuing.';
+
+  String plaidAnalyticsClassLabel(String analyticsClass) =>
+      switch (analyticsClass) {
+        'consumer_spend' => plaidConsumerSpend,
+        'income' => plaidIncome,
+        'transfer_out' => plaidTransferOut,
+        'transfer_in' => plaidTransferIn,
+        'debt_payment' => plaidDebtPayment,
+        'loan_disbursement' => plaidLoanDisbursement,
+        'refund_or_reversal' => plaidRefundOrReversal,
+        'bank_fee' => plaidBankFee,
+        'cash_movement' => plaidCashMovement,
+        _ => plaidExcludeFromBudget,
+      };
+}
+
 extension TrialWelcomeL10nX on AppLocalizations {
   String get trialWelcomeTitle => 'You\'ve got 7 days of Plus — free!';
   String get trialWelcomeSubtitle =>

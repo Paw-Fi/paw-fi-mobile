@@ -357,9 +357,13 @@ double _pocketExpenseAmountInCurrency(
       sourceCurrency == null ||
       sourceCurrency.isEmpty ||
       sourceCurrency == normalizedTarget) {
-    return expense.amount;
+    return expense.spendingEffect;
   }
-  return rates.convert(expense.amount, sourceCurrency, normalizedTarget);
+  return rates.convert(
+    expense.spendingEffect,
+    sourceCurrency,
+    normalizedTarget,
+  );
 }
 
 @foundation.visibleForTesting
@@ -387,7 +391,7 @@ Map<String, double> calculatePocketNativeSpentByEnvelopeId({
       if (expenseCurrency != pocketCurrency) continue;
       final expenseCategory = (expense.category ?? '').trim().toLowerCase();
       if (normalizedCategories.contains(expenseCategory)) {
-        totalSpent += expense.amount;
+        totalSpent += expense.spendingEffect;
       }
     }
     spentById[pocket.id] = totalSpent;
@@ -1059,12 +1063,25 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
 List<ExpenseEntry> filterPocketActualExpenses(
   Iterable<ExpenseEntry> expenses,
 ) {
-  // CRITICAL: treat all non-income expenses as actual spend here so pockets
-  // retain the same totals and recurring behavior used elsewhere in the app.
-  // STRICT REQUIREMENT: do not exclude recurring expenses from this filter.
   return expenses
-      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => expense.effectiveSpendingMultiplier != 0)
       .toList(growable: false);
+}
+
+@foundation.visibleForTesting
+Map<String, double> calculatePocketCategorySpendingTotals(
+  Iterable<ExpenseEntry> expenses,
+) {
+  final totals = <String, double>{};
+  for (final expense in expenses) {
+    final category = (expense.category ?? 'uncategorized').trim().toLowerCase();
+    totals.update(
+      category,
+      (total) => total + expense.spendingEffect,
+      ifAbsent: () => expense.spendingEffect,
+    );
+  }
+  return totals;
 }
 
 bool shouldLoadLocalPocketExpenseOverlaySyncStatus(String syncStatus) {
@@ -1997,6 +2014,42 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  /// Reconcile the active transaction window before recomputing pocket totals.
+  ///
+  /// A normal [load] remains local-first. User-initiated pull-to-refresh must
+  /// explicitly refresh the transaction feed because a complete local feed
+  /// cache otherwise remains authoritative and can hide another household
+  /// member's recent edits.
+  Future<void> refresh() async {
+    if (!_isPreview &&
+        ref.read(networkReachabilityProvider).valueOrNull != false) {
+      final authUser = ref.read(authProvider);
+      final householdId = params.householdId?.trim();
+      final hasValidScope = params.scope == PocketsScopeType.personal ||
+          (householdId != null && householdId.isNotEmpty);
+      if (authUser.uid.trim().isNotEmpty &&
+          hasValidScope &&
+          state.hasDisplayData) {
+        final query = buildPocketsTransactionsRefreshQuery(
+          userId: authUser.uid,
+          params: params,
+          state: state,
+        );
+        try {
+          await ref
+              .read(transactionsFeedServiceProvider)
+              .refreshFromRemote(query);
+        } catch (error) {
+          _debugLog(
+            '[Pockets] Transaction refresh failed; preserving cached data: $error',
+          );
+        }
+      }
+    }
+
+    await load(bypassCache: true);
+  }
+
   Future<void> _load({bool bypassCache = false}) async {
     final refreshRevision = _refreshRevision;
     final trace = _createPocketsTrace(
@@ -2726,10 +2779,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             )
           : const <String, double>{};
 
-      final shouldComputeSpendFromTransactions = hasMultiCurrencySelection ||
-          cacheKey.financialMonthStartDay != 1 ||
-          projectedRecurringExpenses.isNotEmpty ||
-          localOverlayExpenses.isNotEmpty;
+      final shouldComputeSpendFromTransactions =
+          monthlyExpenses.isNotEmpty || envIds.isNotEmpty;
       final spentById = <String, double>{};
       final aggregateSpentById = <String, double>{};
       double totalMonthlySpend = 0.0;
@@ -2738,7 +2789,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         // Preserve existing semantics: when projections are included, all spend
         // calculations include both actual + projected expenses.
         for (final expense in spendExpenses) {
-          totalMonthlySpend += expense.amount;
+          totalMonthlySpend += expense.spendingEffect;
         }
         for (final envId in envIds) {
           final categories = categoriesByEnvelopeId[envId] ?? const <String>[];
@@ -2752,7 +2803,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             final expenseCategory =
                 (expense.category ?? '').trim().toLowerCase();
             if (categories.contains(expenseCategory)) {
-              totalSpent += expense.amount;
+              totalSpent += expense.spendingEffect;
             }
           }
           aggregateSpentById[envId] = totalSpent;
@@ -2846,17 +2897,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (shouldComputeSpendFromTransactions) {
         // When projecting recurring spend, build uncategorized from the same
         // combined expense list as before.
-        final expenseTotalsByCategory = <String, double>{};
-        for (final expense in spendExpenses) {
-          final amount = expense.amount;
-          final rawCategory =
-              (expense.category ?? 'uncategorized').toLowerCase();
-          expenseTotalsByCategory.update(
-            rawCategory,
-            (v) => v + amount,
-            ifAbsent: () => amount,
-          );
-        }
+        final expenseTotalsByCategory =
+            calculatePocketCategorySpendingTotals(spendExpenses);
 
         final linkedCategories = categoryLinksRows
             .map((r) => ((r['category'] as String?) ?? '').trim().toLowerCase())
@@ -4935,6 +4977,35 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   void _showPreviewModeToast() {
     if (!mounted) return;
   }
+}
+
+@foundation.visibleForTesting
+TransactionsFeedQuery buildPocketsTransactionsRefreshQuery({
+  required String userId,
+  required PocketsScopeParams params,
+  required PocketsState state,
+}) {
+  final monthStart = state.periodMonth;
+  final monthEnd = nextFinancialCycleStart(
+    monthStart,
+    startDay: state.financialMonthStartDay,
+  ).subtract(const Duration(days: 1));
+  final selectedCurrency = state.currency.trim().isNotEmpty
+      ? state.currency.trim()
+      : params.currency?.trim();
+  return TransactionsFeedQuery(
+    userId: userId,
+    householdId:
+        params.scope == PocketsScopeType.personal ? null : params.householdId,
+    selectedCurrency: selectedCurrency,
+    selectedCurrencies: params.normalizedSelectedCurrencies,
+    selectedCategory: null,
+    selectedType: 'expense',
+    searchQuery: '',
+    startDate: monthStart,
+    endDate: monthEnd,
+    pageSize: 500,
+  );
 }
 
 final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,

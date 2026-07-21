@@ -1163,6 +1163,41 @@ class _UnifiedTransactionSheetV2State
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: widget.existingExpense
+                                            ?.isProviderPending ==
+                                        true
+                                    ? Semantics(
+                                        label: context.l10n.pending,
+                                        child: Container(
+                                          key: const ValueKey('pending'),
+                                          margin:
+                                              const EdgeInsets.only(top: 10),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.warningSurface,
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                            border: Border.all(
+                                              color: colorScheme.warningBorder,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            context.l10n.pending,
+                                            style: TextStyle(
+                                              color: colorScheme.warning,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
                             ],
                           ),
                         ),

@@ -29,11 +29,10 @@ void _homeSpendTrace(String message) {
 }
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(0, (sum, entry) {
-    final type = (entry.type ?? 'expense').toLowerCase();
-    if (type == 'income') return sum;
-    return sum + entry.amount.abs();
-  });
+  return entries.fold<double>(
+    0,
+    (sum, entry) => sum + entry.spendingEffect,
+  );
 }
 
 String _traceAmount(num value) => value.toStringAsFixed(2);
@@ -82,24 +81,23 @@ class PreviewDashboardDataService implements DashboardDataService {
       );
     }
 
-    final expenseRows = expenses
-        .where((entry) => (entry.type ?? 'expense').toLowerCase() != 'income');
-    final incomeRows = expenses
-        .where((entry) => (entry.type ?? 'expense').toLowerCase() == 'income');
+    final expenseRows =
+        expenses.where((entry) => entry.effectiveSpendingMultiplier != 0);
+    final incomeRows = expenses.where((entry) => entry.countsTowardIncome);
     final categoryTotals = <String, DashboardCategorySummary>{};
     for (final entry in expenseRows) {
       final category = (entry.category ?? 'uncategorized').toLowerCase();
       final existing = categoryTotals[category];
       categoryTotals[category] = DashboardCategorySummary(
         category: category,
-        amount: (existing?.amount ?? 0) + entry.amount.abs(),
+        amount: (existing?.amount ?? 0) + entry.spendingEffect,
         transactionCount: (existing?.transactionCount ?? 0) + 1,
       );
     }
     return DashboardSnapshotSummary(
       transactionCount: expenses.length,
-      expenseTotal:
-          expenseRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
+      expenseTotal: expenseRows.fold<double>(
+          0, (sum, entry) => sum + entry.spendingEffect),
       incomeTotal:
           incomeRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
       hasMultipleCurrencies: expenses
@@ -612,11 +610,16 @@ final dashboardLocalOverlayTransactionsProvider =
     return overlay;
   }
 
-  final optimistic = ref.watch(
-    householdOptimisticExpensesProvider.select(
-      (state) => state[householdId] ?? const <ExpenseEntry>[],
-    ),
-  );
+  final optimistic = ref
+      .watch(
+        householdOptimisticExpensesProvider.select(
+          (state) => state[householdId] ?? const <ExpenseEntry>[],
+        ),
+      )
+      .where((entry) => _isOptimisticTransactionId(entry.id.trim()))
+      .toList(
+        growable: false,
+      );
   final overlay = mergeDashboardTransactionsWithLocalOverlay(
     base: const <ExpenseEntry>[],
     localOverlay: optimistic,
@@ -1078,7 +1081,7 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
     final seenCursors = <String>{};
     while (true) {
       final response = await client
-          .rpc('get_home_mom_transactions_v1', params: <String, dynamic>{
+          .rpc('get_home_mom_transactions_v2', params: <String, dynamic>{
         'p_user_id': query.userId,
         'p_start_date': query.formattedStartDate,
         'p_end_date': query.formattedEndDate,
@@ -1102,7 +1105,7 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
       beforeDate = DateTime.tryParse(last['date']?.toString() ?? '');
       beforeCreatedAt = DateTime.tryParse(last['created_at']?.toString() ?? '');
       beforeId = last['id']?.toString();
-      if (beforeDate == null || beforeId == null || beforeId!.isEmpty) {
+      if (beforeDate == null || beforeId == null || beforeId.isEmpty) {
         throw StateError('Home MoM RPC returned an invalid pagination cursor');
       }
       final cursor = '$beforeDate|$beforeCreatedAt|$beforeId';
@@ -1138,7 +1141,9 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
       while (true) {
         dynamic fallback = client.from('expenses').select(
             'id,contact_id,user_id,household_id,date,amount_cents,currency,category,'
-            'created_at,updated_at,raw_text,split_group_id,type,is_recurring');
+            'created_at,updated_at,raw_text,split_group_id,bank_account_id,type,'
+            'analytics_class,analytics_is_final,analytics_spending_multiplier,'
+            'analytics_counts_toward_income,is_recurring');
         if (contacts == null) {
           fallback = fallback.eq('user_id', query.userId);
         } else {
@@ -1390,8 +1395,9 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
         final reconciledFuture =
             resolvedDatabase.getSyncedTransactionsChangedSince(
           userId: request.query.userId,
+          householdId: request.query.householdId,
           changedAfter: cachedSnapshot.cachedAt,
-          includeAllHouseholds: true,
+          includeAllHouseholds: request.query.householdId == null,
         );
         final pendingFuture = _dashboardPendingLocalTransactions(
           database,
@@ -1572,8 +1578,9 @@ final dashboardCalendarTransactionsProvider =
         final reconciledFuture =
             resolvedDatabase.getSyncedTransactionsChangedSince(
           userId: query.userId,
+          householdId: query.householdId,
           changedAfter: cachedSnapshot.cachedAt,
-          includeAllHouseholds: true,
+          includeAllHouseholds: query.householdId == null,
         );
         final pendingFuture = _dashboardPendingLocalTransactions(
           database,

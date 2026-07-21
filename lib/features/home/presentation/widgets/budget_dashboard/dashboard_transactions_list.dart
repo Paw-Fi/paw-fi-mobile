@@ -5,6 +5,7 @@ import 'package:moneko/features/home/presentation/state/budget_dashboard_provide
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/budget_dashboard/dashboard_section_widgets.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:intl/intl.dart';
 
 class DashboardTransactionsList extends StatelessWidget {
@@ -58,7 +59,7 @@ class DashboardTransactionsList extends StatelessWidget {
       children: List.generate(recent.length, (index) {
         final tx = recent[index];
         final categoryId = normalizeCategoryId(tx.entry.category);
-        final isIncome = (tx.entry.type ?? 'expense').toLowerCase() == 'income';
+        final isIncome = tx.entry.countsTowardIncome;
         final categoryName = getCategoryTranslation(context, categoryId);
         final baseAmount = tx.entry.amountCents / 100.0;
         final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
@@ -81,6 +82,9 @@ class DashboardTransactionsList extends StatelessWidget {
             amount: displayAmount,
             currency: currencyCode,
             isIncome: isIncome,
+            showRecurringChip:
+                shouldShowRecurringChipForExpense(tx.entry),
+            showPendingChip: tx.entry.isProviderPending,
             date: tx.entry.date,
             subtitleWidget: Row(
               children: [

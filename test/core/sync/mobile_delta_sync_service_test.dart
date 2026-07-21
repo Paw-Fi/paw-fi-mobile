@@ -217,6 +217,169 @@ void main() {
         rows.map((entry) => entry.id), containsAll(['expense_1', 'expense_2']));
     expect(rows, hasLength(2));
   });
+
+  test('classification-safe delta ignores the legacy v1 cursor', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.setSyncCursorValue(
+      entityName: 'mobile_delta_v1',
+      scopeKey: 'user_1:all',
+      cursor: '{"changedAt":"2026-04-10T09:01:00.000Z","id":"$_cursorId1"}',
+    );
+
+    DateTime? capturedSince;
+    String? capturedSinceId;
+    final service = MobileDeltaSyncService(
+      database: database,
+      fetchDelta: ({
+        required userId,
+        required since,
+        required sinceId,
+        required limit,
+      }) async {
+        capturedSince = since;
+        capturedSinceId = sinceId;
+        return MobileDelta.fromJson({
+          'transactions': const [],
+          'deletedTransactionIds': const [],
+          'nextCursor': '2026-04-10T09:02:00.000Z',
+          'nextCursorId': _cursorId2,
+          'hasMore': false,
+        });
+      },
+    );
+
+    await service.pullAndApply(userId: 'user_1');
+
+    expect(mobileDeltaEntityName, 'mobile_delta_v3');
+    expect(capturedSince, isNull);
+    expect(capturedSinceId, isNull);
+    expect(
+      await database.getSyncCursorValue(
+        entityName: 'mobile_delta_v3',
+        scopeKey: 'user_1:all',
+      ),
+      isNotNull,
+    );
+  });
+
+  test('classified delta repairs pending and zero-effect local rows', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.upsertTransactions([
+      MobileDelta.fromJson({
+        'transactions': [_entryJson('pending_1')],
+      }).transactions.single,
+    ]);
+
+    final service = MobileDeltaSyncService(
+      database: database,
+      fetchDelta: ({
+        required userId,
+        required since,
+        required sinceId,
+        required limit,
+      }) async {
+        return MobileDelta.fromJson({
+          'transactions': [
+            {
+              ..._entryJson('pending_1'),
+              'bank_account_id': 'bank_account_1',
+              'analytics_class': 'pending',
+              'analytics_is_final': false,
+              'analytics_spending_multiplier': 0,
+              'analytics_counts_toward_income': false,
+            },
+            {
+              ..._entryJson('transfer_1'),
+              'bank_account_id': 'bank_account_1',
+              'analytics_class': 'transfer_out',
+              'analytics_is_final': true,
+              'analytics_spending_multiplier': 0,
+              'analytics_counts_toward_income': false,
+            },
+          ],
+          'deletedTransactionIds': const [],
+          'hasMore': false,
+        });
+      },
+    );
+
+    await service.pullAndApply(userId: 'user_1');
+    final rows = await database.getRecentTransactions(
+      userId: 'user_1',
+      householdId: null,
+      limit: 20,
+    );
+    final pending = rows.singleWhere((entry) => entry.id == 'pending_1');
+    final transfer = rows.singleWhere((entry) => entry.id == 'transfer_1');
+
+    expect(pending.analyticsIsFinal, isFalse);
+    expect(pending.isProviderPending, isTrue);
+    expect(pending.spendingEffect, 0);
+    expect(transfer.analyticsIsFinal, isTrue);
+    expect(transfer.isProviderPending, isFalse);
+    expect(transfer.spendingEffect, 0);
+    expect(transfer.countsTowardIncome, isFalse);
+  });
+
+  test('posted replacement removes pending row and stores final economics',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.upsertTransactions([
+      MobileDelta.fromJson({
+        'transactions': [
+          {
+            ..._entryJson('pending_1'),
+            'bank_account_id': 'bank_account_1',
+            'analytics_class': 'pending',
+            'analytics_is_final': false,
+            'analytics_spending_multiplier': 0,
+            'analytics_counts_toward_income': false,
+          },
+        ],
+      }).transactions.single,
+    ]);
+
+    final service = MobileDeltaSyncService(
+      database: database,
+      fetchDelta: ({
+        required userId,
+        required since,
+        required sinceId,
+        required limit,
+      }) async {
+        return MobileDelta.fromJson({
+          'transactions': [
+            {
+              ..._entryJson('posted_1'),
+              'bank_account_id': 'bank_account_1',
+              'analytics_class': 'consumer_spend',
+              'analytics_is_final': true,
+              'analytics_spending_multiplier': 1,
+              'analytics_counts_toward_income': false,
+            },
+          ],
+          'deletedTransactionIds': ['pending_1'],
+          'hasMore': false,
+        });
+      },
+    );
+
+    await service.pullAndApply(userId: 'user_1');
+    final rows = await database.getRecentTransactions(
+      userId: 'user_1',
+      householdId: null,
+      limit: 20,
+    );
+
+    expect(rows, hasLength(1));
+    expect(rows.single.id, 'posted_1');
+    expect(rows.single.analyticsIsFinal, isTrue);
+    expect(rows.single.isProviderPending, isFalse);
+    expect(rows.single.spendingEffect, 12.5);
+  });
 }
 
 const String _cursorId1 = '00000000-0000-4000-8000-000000000001';

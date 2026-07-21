@@ -118,11 +118,10 @@ Widget buildNetCashflowCard(
   double income = 0;
   double spend = 0;
   for (final t in transactions) {
-    final ttype = (t.type ?? 'expense').toLowerCase();
-    if (ttype == 'income') {
+    if (t.countsTowardIncome) {
       income += t.amount.abs();
-    } else {
-      spend += t.amount.abs();
+    } else if (t.effectiveSpendingMultiplier != 0) {
+      spend += t.spendingEffect;
     }
   }
   return (income, spend);

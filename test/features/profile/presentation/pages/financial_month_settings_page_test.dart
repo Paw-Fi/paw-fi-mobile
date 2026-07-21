@@ -40,7 +40,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Save start day'), findsNothing);
-    expect(find.text('Day 31'), findsNothing);
+    expect(find.text('31'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Edit financial month start day'));
     await tester.pumpAndSettle();
@@ -50,7 +50,6 @@ void main() {
       find.text('Your choice saves as soon as you select a day.'),
       findsOneWidget,
     );
-    expect(find.text('Day 31'), findsOneWidget);
-    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    expect(find.text('31'), findsNWidgets(2));
   });
 }

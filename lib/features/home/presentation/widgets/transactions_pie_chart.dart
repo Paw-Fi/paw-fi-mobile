@@ -23,6 +23,7 @@ class TransactionsPieChart extends ConsumerStatefulWidget {
   final List<CategorySummary>? categorySummariesOverride;
   final double? totalSpentOverride;
   final List<TransactionsFeedCurrencyTypeTotal> currencyTypeTotals;
+  final double Function(ExpenseEntry expense)? spendingEffectResolver;
   final DateRangeFilter? initialDateFilter;
   final DateTime? initialStartDate;
   final DateTime? initialEndDate;
@@ -37,6 +38,7 @@ class TransactionsPieChart extends ConsumerStatefulWidget {
     this.categorySummariesOverride,
     this.totalSpentOverride,
     this.currencyTypeTotals = const [],
+    this.spendingEffectResolver,
     this.initialDateFilter,
     this.initialStartDate,
     this.initialEndDate,
@@ -50,19 +52,20 @@ class TransactionsPieChart extends ConsumerStatefulWidget {
 
 List<CategorySummary> buildTransactionsPieCategorySummaries(
   BuildContext? context,
-  List<ExpenseEntry> expenses,
-) {
+  List<ExpenseEntry> expenses, {
+  double Function(ExpenseEntry expense)? spendingEffectResolver,
+}) {
   final categoryTotals = <String, double>{};
   final categoryCounts = <String, int>{};
 
   for (final expense in expenses) {
     final category = _normalizePieCategory(expense.category);
-    categoryTotals[category] =
-        (categoryTotals[category] ?? 0) + expense.amount.abs();
+    categoryTotals[category] = (categoryTotals[category] ?? 0) +
+        (spendingEffectResolver?.call(expense) ?? expense.spendingEffect);
     categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
   }
 
-  return categoryTotals.entries.map((entry) {
+  return categoryTotals.entries.where((entry) => entry.value > 0).map((entry) {
     return CategorySummary(
       category: entry.key,
       amount: entry.value,
@@ -115,18 +118,31 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
   }
 
   double _getTotalSpent(List<ExpenseEntry> expenses) {
-    return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+    return expenses.fold(
+      0.0,
+      (sum, expense) =>
+          sum +
+          (widget.spendingEffectResolver?.call(expense) ??
+              expense.spendingEffect),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final spendOnly = widget.expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .where((expense) => expense.effectiveSpendingMultiplier != 0)
         .toList();
 
     var categorySummaries = widget.categorySummariesOverride != null
         ? List<CategorySummary>.from(widget.categorySummariesOverride!)
-        : buildTransactionsPieCategorySummaries(context, spendOnly);
+        : buildTransactionsPieCategorySummaries(
+            context,
+            spendOnly,
+            spendingEffectResolver: widget.spendingEffectResolver,
+          );
+    categorySummaries = categorySummaries
+        .where((summary) => summary.amount > 0)
+        .toList(growable: false);
 
     var totalSpent = widget.totalSpentOverride ?? _getTotalSpent(spendOnly);
 
@@ -154,7 +170,7 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
       totalSpent = 100;
     }
 
-    var hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
+    var hasData = categorySummaries.isNotEmpty;
 
     if (!hasData && !widget.isLoading) {
       categorySummaries = [
@@ -353,7 +369,13 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
                 separatorBuilder: (context, index) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final category = categorySummaries[index];
-                  final percent = (category.amount / totalSpent) * 100;
+                  final visibleTotal = categorySummaries.fold<double>(
+                    0.0,
+                    (sum, summary) => sum + summary.amount,
+                  );
+                  final percent = visibleTotal > 0
+                      ? (category.amount / visibleTotal) * 100
+                      : 0.0;
                   final isSelected = _touchedIndex == index;
                   final canOpenCategory = isTransactionsPieCategoryNavigable(
                     category.category,

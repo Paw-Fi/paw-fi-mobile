@@ -45,6 +45,7 @@ class RecurringTransaction {
   final String? payerUserId; // Who paid (household sharing)
   final String? splitGroupId;
   final String? accountId;
+  final String? bankAccountId;
   final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
@@ -67,6 +68,7 @@ class RecurringTransaction {
     this.payerUserId,
     this.splitGroupId,
     this.accountId,
+    this.bankAccountId,
     this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
@@ -123,6 +125,7 @@ class RecurringTransaction {
     }
 
     final rawCategory = json['category'] as String? ?? 'Uncategorized';
+    final providerFields = _parseJsonObject(json['provider_fields']);
     final sanitizedDescription = _sanitizeOptional(
           json['description'] as String?,
         ) ??
@@ -150,6 +153,9 @@ class RecurringTransaction {
       splitGroupId:
           json['splitGroupId'] as String? ?? json['split_group_id'] as String?,
       accountId: json['accountId'] as String? ?? json['account_id'] as String?,
+      bankAccountId: json['bankAccountId'] as String? ??
+          json['bank_account_id'] as String? ??
+          providerFields?['bank_account_id'] as String?,
       recurrenceRule: parsedRecurrenceRule,
       type: inferredType,
       attachments: _parseAttachments(json['attachments']),
@@ -161,6 +167,20 @@ class RecurringTransaction {
               ? DateTime.parse(json['updated_at'] as String)
               : null),
     );
+  }
+
+  static Map<String, dynamic>? _parseJsonObject(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is String && value.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   /// Parse attachments from various formats (List, String, null)
@@ -219,6 +239,7 @@ class RecurringTransaction {
       'payerUserId': payerUserId,
       'splitGroupId': splitGroupId,
       'accountId': accountId,
+      'bankAccountId': bankAccountId,
       if (recurrenceRule != null)
         'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
@@ -244,6 +265,7 @@ class RecurringTransaction {
     String? payerUserId,
     String? splitGroupId,
     String? accountId,
+    String? bankAccountId,
     RecurrenceRule? recurrenceRule,
     String? type,
     List<Attachment>? attachments,
@@ -266,6 +288,7 @@ class RecurringTransaction {
       payerUserId: payerUserId ?? this.payerUserId,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       accountId: accountId ?? this.accountId,
+      bankAccountId: bankAccountId ?? this.bankAccountId,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       type: type ?? this.type,
       attachments: attachments ?? this.attachments,
@@ -533,6 +556,7 @@ class RecurrenceRule {
   final bool? reminderEnabled;
   final int? reminderValue;
   final String? reminderUnit;
+  final bool projectionEnabled;
   final List<DateTime>
       excludedDates; // Dates to skip (for "delete this occurrence")
 
@@ -544,6 +568,7 @@ class RecurrenceRule {
     this.reminderEnabled,
     this.reminderValue,
     this.reminderUnit,
+    this.projectionEnabled = true,
     this.excludedDates = const [],
   });
 
@@ -558,6 +583,7 @@ class RecurrenceRule {
       reminderEnabled: reminder?['enabled'] as bool?,
       reminderValue: reminder?['value'] as int?,
       reminderUnit: reminder?['unit'] as String?,
+      projectionEnabled: json['projection_enabled'] != false,
       excludedDates:
           excludedRaw?.map((e) => DateTime.parse(e as String)).toList() ??
               const [],
@@ -570,6 +596,7 @@ class RecurrenceRule {
       'anchor_date': formatDateOnlyYmd(anchorDate),
       'end_date': endDate == null ? null : formatDateOnlyYmd(endDate!),
       'interval': interval,
+      'projection_enabled': projectionEnabled,
       if (reminderEnabled != null ||
           reminderValue != null ||
           reminderUnit != null)
@@ -591,6 +618,7 @@ class RecurrenceRule {
     bool? reminderEnabled,
     int? reminderValue,
     String? reminderUnit,
+    bool? projectionEnabled,
     List<DateTime>? excludedDates,
   }) {
     return RecurrenceRule(
@@ -601,6 +629,7 @@ class RecurrenceRule {
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderValue: reminderValue ?? this.reminderValue,
       reminderUnit: reminderUnit ?? this.reminderUnit,
+      projectionEnabled: projectionEnabled ?? this.projectionEnabled,
       excludedDates: excludedDates ?? this.excludedDates,
     );
   }

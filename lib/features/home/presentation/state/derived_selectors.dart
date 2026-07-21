@@ -19,8 +19,7 @@ final homeCashflowSeriesProvider = Provider<Map<DateTime, double>>((ref) {
   final map = <DateTime, double>{};
   for (final t in txs) {
     final d = DateTime(t.date.year, t.date.month, t.date.day);
-    final isIncome = (t.type ?? 'expense').toLowerCase() == 'income';
-    final delta = (isIncome ? 1 : -1) * t.amount.abs();
+    final delta = t.countsTowardIncome ? t.amount.abs() : -t.spendingEffect;
     map[d] = (map[d] ?? 0) + delta;
   }
   final keys = map.keys.toList()..sort();
@@ -32,11 +31,10 @@ final savingsRateProvider = Provider<double>((ref) {
   final txs = ref.watch(homeFilteredTransactionsProvider);
   double income = 0, spend = 0;
   for (final t in txs) {
-    final isIncome = (t.type ?? 'expense').toLowerCase() == 'income';
-    if (isIncome) {
+    if (t.countsTowardIncome) {
       income += t.amount.abs();
-    } else {
-      spend += t.amount.abs();
+    } else if (t.effectiveSpendingMultiplier != 0) {
+      spend += t.spendingEffect;
     }
   }
   if (income <= 0) return 0;
@@ -79,7 +77,7 @@ Map<String, double> calculateMomTrend({
   };
 
   for (final expense in actualTransactions) {
-    if ((expense.type ?? 'expense').toLowerCase() == 'income') continue;
+    if (expense.effectiveSpendingMultiplier == 0) continue;
     // Recurring rows are schedule templates, not posted transactions. Their
     // actual/projected occurrences are supplied by recurringTransactions.
     if (expense.isRecurring) continue;
@@ -119,7 +117,7 @@ Map<String, double> calculateMomTrend({
     );
     totals[key] = mergedExpenses.fold<double>(
       0,
-      (sum, expense) => sum + expense.amount.abs(),
+      (sum, expense) => sum + expense.spendingEffect,
     );
   }
   return totals;
@@ -230,7 +228,8 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
       (to.difference(from).inDays + 1).clamp(1, 365).toDouble();
 
   // Total spent and average daily spend
-  final totalSpent = expenses.fold<double>(0, (s, e) => s + e.amount.abs());
+  final totalSpent =
+      expenses.fold<double>(0, (sum, expense) => sum + expense.spendingEffect);
   final avgDailySpend = totalSpent / daysInWindow;
 
   // Budget for window (sum of entries in range)

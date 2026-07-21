@@ -386,13 +386,10 @@ class TransactionsFeedSummary {
     }
 
     final expenseRows = summaryExpenses
-        .where(
-            (expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+        .where((expense) => expense.effectiveSpendingMultiplier != 0)
         .toList();
-    final incomeRows = summaryExpenses
-        .where(
-            (expense) => (expense.type ?? 'expense').toLowerCase() == 'income')
-        .toList();
+    final incomeRows =
+        summaryExpenses.where((expense) => expense.countsTowardIncome).toList();
 
     final categoryMap = <String, TransactionsFeedCategorySummary>{};
     for (final summary in categorySummaries) {
@@ -418,7 +415,7 @@ class TransactionsFeedSummary {
             transactionCount: 0,
           );
       categoryMap[category] = current.copyWith(
-        amount: current.amount + expense.amount.abs(),
+        amount: current.amount + expense.spendingEffect,
         transactionCount: current.transactionCount + 1,
       );
     }
@@ -441,7 +438,7 @@ class TransactionsFeedSummary {
       transactionCount: transactionCount + summaryExpenses.length,
       expenseTotal: expenseTotal +
           expenseRows.fold<double>(
-              0, (sum, expense) => sum + expense.amount.abs()),
+              0, (sum, expense) => sum + expense.spendingEffect),
       incomeTotal: incomeTotal +
           incomeRows.fold<double>(
               0, (sum, expense) => sum + expense.amount.abs()),
@@ -556,33 +553,14 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
     TransactionsFeedQuery query, {
     TransactionsFeedCursor? cursor,
   }) async {
-    final rpcName = _transactionsPageRpcName(query);
+    const rpcName = _transactionsPageRpcName;
     final params = _transactionsPageRpcParams(
       query,
       cursor: cursor,
-      includeGeneralFilters: rpcName == 'get_user_transactions_page_v1',
+      includeGeneralFilters: true,
     );
 
-    dynamic response;
-    try {
-      response = await _runRpc(
-        rpcName: rpcName,
-        params: params,
-      );
-    } on PostgrestException catch (error) {
-      if (rpcName != 'get_bounded_transactions_page_v1' ||
-          !_isMissingBoundedTransactionsRpc(error)) {
-        rethrow;
-      }
-      response = await _runRpc(
-        rpcName: 'get_user_transactions_page_v1',
-        params: _transactionsPageRpcParams(
-          query,
-          cursor: cursor,
-          includeGeneralFilters: true,
-        ),
-      );
-    }
+    final response = await _runRpc(rpcName: rpcName, params: params);
 
     final payload = Map<String, dynamic>.from(response as Map);
     final items = ((payload['items'] as List?) ?? const [])
@@ -653,7 +631,7 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
           query.normalizedSummaryIntervalGranularity ?? 'yearly',
     };
     final response = await _runRpc(
-      rpcName: 'get_user_transactions_summary_v1',
+      rpcName: _transactionsSummaryRpcName,
       params: params,
     );
 
@@ -807,33 +785,16 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
   }
 }
 
-String _transactionsPageRpcName(TransactionsFeedQuery query) {
-  final boundedRangeDays = query.startDate == null || query.endDate == null
-      ? null
-      : query.endDate!.difference(query.startDate!).inDays;
-  final isBoundedUnfilteredQuery = query.formattedStartDate != null &&
-      query.formattedEndDate != null &&
-      boundedRangeDays != null &&
-      boundedRangeDays >= 0 &&
-      boundedRangeDays <= 800 &&
-      query.normalizedCategory == null &&
-      query.normalizedAccountId == null &&
-      !query.includeUnassignedAccount &&
-      query.normalizedCategories == null &&
-      query.normalizedSearchQuery == null;
-  return isBoundedUnfilteredQuery
-      ? 'get_bounded_transactions_page_v1'
-      : 'get_user_transactions_page_v1';
-}
-
-bool _isMissingBoundedTransactionsRpc(PostgrestException error) {
-  return error.code == 'PGRST202' ||
-      error.message.contains('get_bounded_transactions_page_v1');
-}
+const _transactionsPageRpcName = 'get_user_transactions_page_v3';
 
 @foundation.visibleForTesting
 String transactionsPageRpcNameForTesting(TransactionsFeedQuery query) =>
-    _transactionsPageRpcName(query);
+    _transactionsPageRpcName;
+
+const _transactionsSummaryRpcName = 'get_user_transactions_summary_v2';
+
+@foundation.visibleForTesting
+String transactionsSummaryRpcNameForTesting() => _transactionsSummaryRpcName;
 
 class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   const LocalFirstTransactionsFeedService({
@@ -929,13 +890,12 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   ) async {
     final localQuery = _localQuery(query);
     final localSummary = await _database.getTransactionsFeedSummary(localQuery);
-    final isComplete = await _database.isTransactionsFeedCacheComplete(
-      localQuery,
-    );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    final hasPendingUpdatesOrDeletes =
+        await _database.hasPendingTransactionUpdatesOrDeletes();
     _homeSpendTrace(
       'feed-fetchSummary start ${_traceFeedQuery(query)} '
-      'remote=$_remoteEnabled complete=$isComplete pending=$hasPendingLocalRows '
+      'remote=$_remoteEnabled pending=$hasPendingLocalRows '
       'localCount=${localSummary.transactionCount} '
       'localExpense=${_traceAmountFromCents(localSummary.expenseTotalCents)} '
       'localIncome=${_traceAmountFromCents(localSummary.incomeTotalCents)}',
@@ -944,20 +904,24 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _homeSpendTrace('feed-fetchSummary return=local-offline');
       return _summaryFromLocal(localSummary);
     }
-    if (isComplete ||
-        hasPendingLocalRows ||
-        localSummary.transactionCount > 0) {
-      final reason = isComplete
-          ? 'complete'
-          : hasPendingLocalRows
-              ? 'pending'
-              : 'cached';
+    if (hasPendingUpdatesOrDeletes) {
       _homeSpendTrace(
-          'feed-fetchSummary return=local-authoritative reason=$reason');
+          'feed-fetchSummary return=local-authoritative reason=pending-update-or-delete');
       return _summaryFromLocal(localSummary);
     }
     try {
-      final remoteSummary = await _remote.fetchSummary(query);
+      var remoteSummary = await _remote.fetchSummary(query);
+      if (hasPendingLocalRows) {
+        final pendingUpdateIds =
+            await _database.getPendingTransactionUpdateIds();
+        final pendingCreates = (await _database.getTransactionsFeedItems(
+          localQuery,
+          syncStatus: localSyncStatusLocal,
+        ))
+            .where((expense) => !pendingUpdateIds.contains(expense.id))
+            .toList(growable: false);
+        remoteSummary = remoteSummary.addingExpenses(pendingCreates);
+      }
       _homeSpendTrace(
         'feed-fetchSummary return=remote count=${remoteSummary.transactionCount} '
         'expense=${_traceAmountFromCents((remoteSummary.expenseTotal * 100).round())} '

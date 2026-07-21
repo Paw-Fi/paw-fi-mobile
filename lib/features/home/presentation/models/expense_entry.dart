@@ -49,6 +49,12 @@ class ExpenseEntry {
   final String? accountIcon;
   final String? accountColor;
   final String? type; // 'expense' | 'income'
+  final bool? providerPending;
+  final bool providerRecurring;
+  final String? analyticsClass;
+  final bool analyticsIsFinal;
+  final int? analyticsSpendingMultiplier;
+  final bool? analyticsCountsTowardIncome;
   final bool isRecurring;
   final Map<String, dynamic>? recurrenceRuleJson;
   final String? clientRecordId;
@@ -81,6 +87,12 @@ class ExpenseEntry {
     this.accountIcon,
     this.accountColor,
     this.type,
+    this.providerPending,
+    this.providerRecurring = false,
+    this.analyticsClass,
+    this.analyticsIsFinal = true,
+    this.analyticsSpendingMultiplier,
+    this.analyticsCountsTowardIncome,
     this.isRecurring = false,
     this.recurrenceRuleJson,
     this.clientRecordId,
@@ -89,6 +101,23 @@ class ExpenseEntry {
   });
 
   double get amount => amountCents / 100.0;
+
+  int get effectiveSpendingMultiplier {
+    if (!analyticsIsFinal) return 0;
+    return analyticsSpendingMultiplier ??
+        ((type ?? 'expense').toLowerCase() == 'income' ? 0 : 1);
+  }
+
+  bool get countsTowardIncome =>
+      analyticsIsFinal &&
+      (analyticsCountsTowardIncome ??
+          (type ?? 'expense').toLowerCase() == 'income');
+
+  bool get isProviderPending =>
+      bankAccountId?.trim().isNotEmpty == true &&
+      (providerPending ?? !analyticsIsFinal);
+
+  double get spendingEffect => amount.abs() * effectiveSpendingMultiplier;
 
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {
     // Extract user data from nested users object if available
@@ -119,6 +148,15 @@ class ExpenseEntry {
       }
       return 0;
     }
+
+    final bankAccountId = json['bank_account_id'] as String?;
+    final rawProviderPending = json['provider_pending'];
+    final providerPending =
+        rawProviderPending is bool ? rawProviderPending : null;
+    final hasBankProvenance = bankAccountId?.trim().isNotEmpty == true;
+    final rawAnalyticsIsFinal = json['analytics_is_final'];
+    final analyticsIsFinal =
+        rawAnalyticsIsFinal is bool ? rawAnalyticsIsFinal : !hasBankProvenance;
 
     return ExpenseEntry(
       id: stringOrEmpty(json['id']),
@@ -151,12 +189,20 @@ class ExpenseEntry {
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
       splitGroupId: json['split_group_id'] as String?,
-      bankAccountId: json['bank_account_id'] as String?,
+      bankAccountId: bankAccountId,
       walletId: json['account_id'] as String?,
       accountName: _sanitizeNullable(json['account_name'] as String?),
       accountIcon: _sanitizeNullable(json['account_icon'] as String?),
       accountColor: _sanitizeNullable(json['account_color'] as String?),
       type: json['type'] as String?,
+      providerPending: providerPending,
+      providerRecurring: json['provider_recurring'] == true,
+      analyticsClass: json['analytics_class'] as String?,
+      analyticsIsFinal: analyticsIsFinal,
+      analyticsSpendingMultiplier:
+          (json['analytics_spending_multiplier'] as num?)?.toInt(),
+      analyticsCountsTowardIncome:
+          json['analytics_counts_toward_income'] as bool?,
       isRecurring: json['is_recurring'] == true,
       recurrenceRuleJson:
           _parseJsonMap(json['recurrence_rule'] ?? json['recurrenceRule']),
@@ -196,6 +242,12 @@ class ExpenseEntry {
       'account_icon': accountIcon,
       'account_color': accountColor,
       'type': type,
+      'provider_pending': providerPending,
+      'provider_recurring': providerRecurring,
+      'analytics_class': analyticsClass,
+      'analytics_is_final': analyticsIsFinal,
+      'analytics_spending_multiplier': analyticsSpendingMultiplier,
+      'analytics_counts_toward_income': analyticsCountsTowardIncome,
       'is_recurring': isRecurring,
       'recurrence_rule': recurrenceRuleJson,
       'client_record_id': clientRecordId,
@@ -231,6 +283,12 @@ class ExpenseEntry {
     String? accountIcon,
     String? accountColor,
     String? type,
+    bool? providerPending,
+    bool? providerRecurring,
+    String? analyticsClass,
+    bool? analyticsIsFinal,
+    int? analyticsSpendingMultiplier,
+    bool? analyticsCountsTowardIncome,
     bool? isRecurring,
     Map<String, dynamic>? recurrenceRuleJson,
     String? clientRecordId,
@@ -264,6 +322,14 @@ class ExpenseEntry {
       accountIcon: accountIcon ?? this.accountIcon,
       accountColor: accountColor ?? this.accountColor,
       type: type ?? this.type,
+      providerPending: providerPending ?? this.providerPending,
+      providerRecurring: providerRecurring ?? this.providerRecurring,
+      analyticsClass: analyticsClass ?? this.analyticsClass,
+      analyticsIsFinal: analyticsIsFinal ?? this.analyticsIsFinal,
+      analyticsSpendingMultiplier:
+          analyticsSpendingMultiplier ?? this.analyticsSpendingMultiplier,
+      analyticsCountsTowardIncome:
+          analyticsCountsTowardIncome ?? this.analyticsCountsTowardIncome,
       isRecurring: isRecurring ?? this.isRecurring,
       recurrenceRuleJson: recurrenceRuleJson ?? this.recurrenceRuleJson,
       clientRecordId: clientRecordId ?? this.clientRecordId,

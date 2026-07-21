@@ -35,6 +35,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:go_router/go_router.dart';
@@ -599,6 +600,33 @@ class _HomePageState extends ConsumerState<HomePage> {
                 }
               }
 
+              final filterState = ref.read(homeFilterProvider);
+              final selectedCurrency =
+                  filterState.selectedCurrency?.trim().toUpperCase();
+              final refreshQuery = dashboardTransactionsQuery(
+                DashboardScopeQuery(
+                  userId: user.uid,
+                  householdId: householdScope.activeAccountHouseholdId,
+                  selectedCurrency:
+                      selectedCurrency == null || selectedCurrency.isEmpty
+                          ? null
+                          : selectedCurrency,
+                  selectedCurrencies: filterState.normalizedSelectedCurrencies,
+                  startDate: null,
+                  endDate: null,
+                ),
+                pageSize: 120,
+              );
+              try {
+                await ref
+                    .read(transactionsFeedServiceProvider)
+                    .refreshFromRemote(refreshQuery);
+              } catch (error) {
+                _debugPrint(
+                  '⚠️ Pull-to-refresh transaction sync failed; keeping cached data: $error',
+                );
+              }
+
               await ref
                   .read(
                     recurringTransactionsProvider(
@@ -619,6 +647,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             },
             child: scrollView,
           ),
+          const HomeAiBackdropOverlay(),
         ],
       ),
       floatingActionButton: shouldShowFab

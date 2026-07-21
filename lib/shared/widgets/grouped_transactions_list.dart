@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -133,7 +134,8 @@ int groupedTransactionEntriesSignature(List<ExpenseEntry> transactions) {
         expense.category,
         expense.rawText,
         expense.type,
-        expense.isRecurring,
+        shouldShowRecurringChipForExpense(expense),
+        expense.isProviderPending,
         expense.walletId,
       ),
     ),
@@ -482,7 +484,8 @@ class GroupedTransactionsList extends StatelessWidget {
                   currency: expense.currency ?? currency,
                   isIncome: isIncome,
                   showYouLabel: false,
-                  showRecurringChip: expense.isRecurring,
+                  showRecurringChip: shouldShowRecurringChipForExpense(expense),
+                  showPendingChip: expense.isProviderPending,
                   showCurrencyFlag: showCurrencyFlag,
                   accountLabel: expense.accountName,
                 ),
@@ -839,7 +842,8 @@ class SliverGroupedTransactionsList extends StatelessWidget {
                   currency: expense.currency ?? currency,
                   isIncome: isIncome,
                   showYouLabel: false,
-                  showRecurringChip: expense.isRecurring,
+                  showRecurringChip: shouldShowRecurringChipForExpense(expense),
+                  showPendingChip: expense.isProviderPending,
                   showCurrencyFlag: showCurrencyFlag,
                   accountLabel: expense.accountName,
                 ),

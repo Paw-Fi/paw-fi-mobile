@@ -137,9 +137,12 @@ class _FinancialCalendarWidgetState
             rates: rates,
           ) /
           100.0;
-      final type = (transaction.type ?? 'expense').toLowerCase();
-      final key = type == 'income' ? 'income' : 'expense';
-      entry[key] = (entry[key] ?? 0) + amount;
+      if (transaction.countsTowardIncome) {
+        entry['income'] = (entry['income'] ?? 0) + amount;
+      } else if (transaction.effectiveSpendingMultiplier != 0) {
+        entry['expense'] = (entry['expense'] ?? 0) +
+            amount * transaction.effectiveSpendingMultiplier;
+      }
     }
     return totals;
   }
@@ -283,8 +286,7 @@ class _FinancialCalendarWidgetState
     final actual = actualDailyTotals[dateOnly];
     final recurring = recurringDailyTotals[dateOnly];
     return <String, double>{
-      'expense':
-          (actual?['expense'] ?? 0) + (recurring?['expense'] ?? 0),
+      'expense': (actual?['expense'] ?? 0) + (recurring?['expense'] ?? 0),
       'income': (actual?['income'] ?? 0) + (recurring?['income'] ?? 0),
     };
   }
@@ -547,8 +549,7 @@ class _FinancialCalendarWidgetState
     ColorScheme colorScheme,
     List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> actualDailyTotals,
-    Map<DateTime, Map<String, double>> recurringDailyTotals,
-    {
+    Map<DateTime, Map<String, double>> recurringDailyTotals, {
     bool isLoading = false,
   }) {
     final totals = _calculateDailyTotals(

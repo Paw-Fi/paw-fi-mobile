@@ -16,6 +16,8 @@ void main() {
               'mask': '1234',
               'type': 'depository',
               'subtype': 'checking',
+              'providerBalanceCurrentCents': 125050,
+              'providerBalanceAvailableCents': 120000,
               'linkedWallet': {
                 'id': 'wallet-1',
                 'name': 'Main Checking',
@@ -54,6 +56,9 @@ void main() {
       );
       expect(account.goalAmountCents, 150000);
       expect(account.openingBalanceCents, 2500);
+      expect(account.providerCurrentBalanceCents, 125050);
+      expect(account.providerAvailableBalanceCents, 120000);
+      expect(account.providerDisplayBalanceCents, 125050);
       expect(account.isDefault, isTrue);
     });
 
@@ -143,6 +148,51 @@ void main() {
 
       expect(session.accounts.first.hasLinkedWallet, isTrue);
       expect(session.accounts.first.walletLogoUrl, isNull);
+    });
+
+    test('shows credit balances as liabilities', () {
+      final session = BankSyncReviewSession.fromResponse(
+        data: {
+          'connectionId': 'connection-5',
+          'accounts': [
+            {
+              'id': 'bank-account-5',
+              'name': 'Credit card',
+              'currency': 'usd',
+              'type': 'credit',
+              'providerBalanceCurrentCents': 42000,
+            },
+          ],
+        },
+        flowReason: null,
+        provider: 'plaid',
+        targetHouseholdId: null,
+        defaultAccountName: 'Bank account',
+      );
+
+      expect(session.accounts.first.providerDisplayBalanceCents, -42000);
+    });
+
+    test('does not fabricate a provider balance when Plaid omits it', () {
+      final session = BankSyncReviewSession.fromResponse(
+        data: {
+          'connectionId': 'connection-6',
+          'accounts': [
+            {
+              'id': 'bank-account-6',
+              'name': 'Checking',
+              'currency': 'usd',
+              'type': 'depository',
+            },
+          ],
+        },
+        flowReason: null,
+        provider: 'plaid',
+        targetHouseholdId: null,
+        defaultAccountName: 'Bank account',
+      );
+
+      expect(session.accounts.first.providerDisplayBalanceCents, isNull);
     });
   });
 }

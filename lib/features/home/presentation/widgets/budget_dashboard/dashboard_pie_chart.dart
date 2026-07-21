@@ -24,11 +24,15 @@ class DashboardPieChart extends StatelessWidget {
     final displayCurrency =
         currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
 
-    // Filter expenses (no income) and convert to ExpenseEntry
-    final expenses = transactions
-        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() != 'income')
-        .map((tx) => tx.entry)
-        .toList();
+    final spendTransactions = transactions
+        .where((tx) => tx.entry.effectiveSpendingMultiplier != 0)
+        .toList(growable: false);
+    final expenses =
+        spendTransactions.map((tx) => tx.entry).toList(growable: false);
+    final spendingEffectsById = {
+      for (final tx in spendTransactions)
+        tx.entry.id: amountResolver?.call(tx) ?? tx.entry.spendingEffect,
+    };
 
     if (expenses.isEmpty && !isLoading) {
       return SizedBox(
@@ -47,6 +51,8 @@ class DashboardPieChart extends StatelessWidget {
       expenses: expenses,
       selectedCurrency: displayCurrency ?? 'USD',
       periodLabel: context.l10n.spendingBreakdown,
+      spendingEffectResolver: (expense) =>
+          spendingEffectsById[expense.id] ?? expense.spendingEffect,
       isLoading: isLoading,
     );
   }

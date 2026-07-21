@@ -1,19 +1,19 @@
 {
-  "rateUs": {
-    "de": "App bewerten",
-    "en": "Rate the App",
-    "es": "Valorar la aplicación",
-    "fr": "Noter l'application",
-    "it": "Valuta l'app",
-    "ja": "アプリを評価",
-    "ko": "앱 평가하기",
-    "nl": "App beoordelen",
-    "ur": "ایپ کو ریٹ کریں",
-    "ru": "Оценить приложение",
-    "th": "ให้คะแนนแอป",
-    "uk": "Оцінити застосунок",
-    "zh": "为应用评分",
-    "zh_TW": "為 App 評分",
-    "vi": "Đánh giá ứng dụng"
+  "plaidSyncThisMightTakeAMoment": {
+    "de": "Dies kann einige Minuten dauern...",
+    "en": "This may take a few minutes...",
+    "es": "Esto puede tardar unos minutos...",
+    "fr": "Cela peut prendre quelques minutes...",
+    "it": "Potrebbero volerci alcuni minuti...",
+    "ja": "数分かかる場合があります...",
+    "ko": "몇 분 정도 걸릴 수 있어요...",
+    "nl": "Dit kan enkele minuten duren...",
+    "ur": "اس میں چند منٹ لگ سکتے ہیں...",
+    "ru": "Это может занять несколько минут...",
+    "th": "ขั้นตอนนี้อาจใช้เวลาสักครู่...",
+    "uk": "Це може зайняти кілька хвилин...",
+    "zh": "这可能需要几分钟...",
+    "zh_TW": "這可能需要幾分鐘...",
+    "vi": "Quá trình này có thể mất vài phút..."
   }
 }

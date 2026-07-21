@@ -138,6 +138,7 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
   bool? hasReminder,
   int? reminderValue,
   String? reminderUnit,
+  bool projectionEnabled = true,
   String ownerType = 'me',
   String privacyScope = 'full',
   String? householdId,
@@ -170,6 +171,7 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
       reminderEnabled: hasReminder,
       reminderValue: hasReminder == true ? reminderValue : null,
       reminderUnit: hasReminder == true ? reminderUnit : null,
+      projectionEnabled: projectionEnabled,
     ),
     type: type,
     attachments: const [],
@@ -372,7 +374,7 @@ class RecurringTransactionsNotifier
             'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
             'currency, owner_type, privacy_scope, household_id, is_recurring, '
             'user_id, split_group_id, account_id, bank_account_id, provider, '
-            'recurrence_rule, type, attachments, created_at, updated_at',
+            'provider_fields, recurrence_rule, type, attachments, created_at, updated_at',
           )
           .eq('is_recurring', true)
           .isFilter('deleted_at', null)
@@ -1798,6 +1800,8 @@ class RecurringTransactionSaveNotifier
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
         'anchor_date': anchorDateYmd,
+        'projection_enabled':
+            originalExpense?.recurrenceRule?.projectionEnabled ?? true,
         if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
@@ -1933,6 +1937,8 @@ class RecurringTransactionSaveNotifier
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
+        projectionEnabled:
+            originalExpense?.recurrenceRule?.projectionEnabled ?? true,
         ownerType: ownerType,
         privacyScope: privacyScope,
         householdId: householdId,
@@ -2137,6 +2143,8 @@ class RecurringTransactionSaveNotifier
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
         'anchor_date': anchorDateYmd,
+        'projection_enabled':
+            originalIncome?.recurrenceRule?.projectionEnabled ?? true,
         if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
@@ -2185,6 +2193,8 @@ class RecurringTransactionSaveNotifier
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
+        projectionEnabled:
+            originalIncome?.recurrenceRule?.projectionEnabled ?? true,
         ownerType: ownerType,
         privacyScope: privacyScope,
         householdId: householdId,

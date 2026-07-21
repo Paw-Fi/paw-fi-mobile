@@ -83,6 +83,27 @@ void main() {
     expect(cupertinoButton.onPressed, isNull);
   });
 
+  test(
+      'subscription preparation progress advances gradually and remains capped',
+      () {
+    expect(
+      onboardingSubscriptionPreparationVisualProgress(Duration.zero),
+      0.1,
+    );
+    expect(
+      onboardingSubscriptionPreparationVisualProgress(
+        const Duration(seconds: 10),
+      ),
+      closeTo(0.35, 0.001),
+    );
+    expect(
+      onboardingSubscriptionPreparationVisualProgress(
+        const Duration(seconds: 30),
+      ),
+      0.6,
+    );
+  });
+
   test('completion copy explains Family Sharing access', () {
     final l10n = lookupAppLocalizations(const Locale('en'));
     final copy = onboardingCompletionCopyForSubscription(

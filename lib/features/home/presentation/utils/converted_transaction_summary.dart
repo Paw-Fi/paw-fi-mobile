@@ -32,15 +32,16 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
 
     // Aggregate the same monetary units the UI can display: convert and round
     // each native row to target-currency cents before adding it to any total.
-    final converted = convertAmountCentsToCurrency(
+    final convertedAbsolute = convertAmountCentsToCurrency(
           entry.amountCents.abs(),
           fromCurrency: sourceCurrency,
           targetCurrency: normalizedTarget,
           rates: rates,
         ).abs() /
         100.0;
-    final isIncome = (entry.type ?? 'expense').toLowerCase() == 'income';
-    
+    final spendingEffect =
+        convertedAbsolute * entry.effectiveSpendingMultiplier;
+
     final currentTypeTotal = currencyTypeTotalsMap[sourceCurrency] ??
         TransactionsFeedCurrencyTypeTotal(
           currency: sourceCurrency,
@@ -49,8 +50,8 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
           transactionCount: 0,
         );
 
-    if (isIncome) {
-      incomeTotal += converted;
+    if (entry.countsTowardIncome) {
+      incomeTotal += convertedAbsolute;
       currencyTypeTotalsMap[sourceCurrency] = TransactionsFeedCurrencyTypeTotal(
         currency: sourceCurrency,
         expenseTotal: currentTypeTotal.expenseTotal,
@@ -60,10 +61,20 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
       continue;
     }
 
-    expenseTotal += converted;
+    if (entry.effectiveSpendingMultiplier == 0) {
+      currencyTypeTotalsMap[sourceCurrency] = TransactionsFeedCurrencyTypeTotal(
+        currency: sourceCurrency,
+        expenseTotal: currentTypeTotal.expenseTotal,
+        incomeTotal: currentTypeTotal.incomeTotal,
+        transactionCount: currentTypeTotal.transactionCount + 1,
+      );
+      continue;
+    }
+
+    expenseTotal += spendingEffect;
     currencyTypeTotalsMap[sourceCurrency] = TransactionsFeedCurrencyTypeTotal(
       currency: sourceCurrency,
-      expenseTotal: currentTypeTotal.expenseTotal + entry.amount.abs(),
+      expenseTotal: currentTypeTotal.expenseTotal + entry.spendingEffect,
       incomeTotal: currentTypeTotal.incomeTotal,
       transactionCount: currentTypeTotal.transactionCount + 1,
     );
@@ -76,14 +87,16 @@ TransactionsFeedSummary summarizeTransactionsInCurrency(
           transactionCount: 0,
         );
     categoryTotals[category] = current.copyWith(
-      amount: current.amount + converted,
+      amount: current.amount + spendingEffect,
       transactionCount: current.transactionCount + 1,
     );
 
     final yearlyBucket = DateTime(entry.date.year);
-    yearlyTotals[yearlyBucket] = (yearlyTotals[yearlyBucket] ?? 0) + converted;
+    yearlyTotals[yearlyBucket] =
+        (yearlyTotals[yearlyBucket] ?? 0) + spendingEffect;
     final periodBucket = _periodBucket(entry.date, intervalGranularity);
-    periodTotals[periodBucket] = (periodTotals[periodBucket] ?? 0) + converted;
+    periodTotals[periodBucket] =
+        (periodTotals[periodBucket] ?? 0) + spendingEffect;
   }
 
   return TransactionsFeedSummary(

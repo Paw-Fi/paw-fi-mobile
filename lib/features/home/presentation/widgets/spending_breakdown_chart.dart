@@ -387,7 +387,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
     }
 
     final spendOnly = widget.expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .where((expense) => expense.effectiveSpendingMultiplier != 0)
         .toList(growable: false);
     final next = _CategoryPieChartDerivedData(
       categorySummaries: _buildChartSummaries(context, colorScheme, spendOnly),
@@ -540,8 +540,7 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
       final rawCode = (e.currency ?? '').trim().toUpperCase();
       final currencyOk =
           selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
-      final type = (e.type ?? 'expense').toLowerCase();
-      final isSpend = type != 'income';
+      final isSpend = e.effectiveSpendingMultiplier != 0;
       return dateOk && currencyOk && isSpend;
     }).toList(growable: false);
     _cachedKey = key;
@@ -641,11 +640,11 @@ List<CategorySummary> _getCategorySummaries(
 
   for (final expense in expenses) {
     final cat = canonicalizeCategoryKey(expense.category);
-    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.spendingEffect;
     categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
   }
 
-  return categoryTotals.entries.map((e) {
+  return categoryTotals.entries.where((entry) => entry.value > 0).map((e) {
     return CategorySummary(
       category: e.key,
       amount: e.value,
@@ -657,7 +656,7 @@ List<CategorySummary> _getCategorySummaries(
 }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+  return expenses.fold(0.0, (sum, e) => sum + e.spendingEffect);
 }
 
 int _expenseListSignature(List<ExpenseEntry> expenses) {
@@ -671,6 +670,10 @@ int _expenseListSignature(List<ExpenseEntry> expenses) {
       expense.currency,
       expense.type,
       expense.category,
+      expense.analyticsClass,
+      expense.analyticsIsFinal,
+      expense.analyticsSpendingMultiplier,
+      expense.analyticsCountsTowardIncome,
     );
   }
   return hash;

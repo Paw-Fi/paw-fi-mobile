@@ -397,10 +397,10 @@ class _DailyFinancialDetailsPageState
 
     for (final t in dailyAggregateTransactions) {
       final amount = t.amountCents.abs() / 100.0;
-      if ((t.type ?? 'expense').toLowerCase() == 'income') {
+      if (t.countsTowardIncome) {
         totalIncome += amount;
-      } else {
-        totalExpense += amount;
+      } else if (t.effectiveSpendingMultiplier != 0) {
+        totalExpense += amount * t.effectiveSpendingMultiplier;
       }
     }
 
@@ -494,8 +494,9 @@ class _DailyFinancialDetailsPageState
                         ),
                         const SizedBox(height: 16),
                         if (chartTransactions.any((t) =>
-                            (t.type ?? 'expense').toLowerCase() !=
-                            'income') || widget.isLoading) ...[
+                                (t.type ?? 'expense').toLowerCase() !=
+                                'income') ||
+                            widget.isLoading) ...[
                           _DailySpendingChart(
                             transactions: chartTransactions,
                             currency: widget.currency,
@@ -549,6 +550,9 @@ class _DailyFinancialDetailsPageState
                                       isIncome:
                                           (t.type ?? 'expense').toLowerCase() ==
                                               'income',
+                                      showRecurringChip:
+                                          shouldShowRecurringChipForExpense(t),
+                                      showPendingChip: t.isProviderPending,
                                       date: t.date,
                                       onTap: () {
                                         showUnifiedTransactionSheet(
@@ -977,6 +981,7 @@ class _RecurringTransactionTile extends StatelessWidget {
             amount: transaction.amount,
             currency: transaction.currency,
             isIncome: isIncome,
+            showRecurringChip: true,
             subtitleWidget: Row(
               children: [
                 Container(

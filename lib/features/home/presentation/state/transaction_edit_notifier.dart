@@ -45,6 +45,17 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     return value?.toString().trim().toLowerCase() ?? '';
   }
 
+  String _analyticsClassForCategory(ExpenseEntry expense, dynamic category) {
+    final normalizedCategory = _normalizeCategoryValue(category);
+    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+    if (normalizedCategory == 'transfers') {
+      return isIncome ? 'transfer_in' : 'transfer_out';
+    }
+    if (normalizedCategory == 'debt payments') return 'debt_payment';
+    if (normalizedCategory == 'bank fees') return 'bank_fee';
+    return isIncome ? 'income' : 'consumer_spend';
+  }
+
   /// Update an expense field with optimistic UI update
   /// Returns true on success, false on failure
   Future<bool> updateExpense(
@@ -838,6 +849,17 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
                 ? Map<String, dynamic>.from(updates['recurrence_rule'] as Map)
                 : null
         : expense.recurrenceRuleJson;
+    final analyticsClass = updates.containsKey('category')
+        ? _analyticsClassForCategory(expense, updates['category'])
+        : expense.analyticsClass;
+    final analyticsSpendingMultiplier = updates.containsKey('category')
+        ? analyticsClass == 'consumer_spend'
+            ? 1
+            : 0
+        : expense.analyticsSpendingMultiplier;
+    final analyticsCountsTowardIncome = updates.containsKey('category')
+        ? analyticsClass == 'income'
+        : expense.analyticsCountsTowardIncome;
 
     return ExpenseEntry(
       id: expense.id,
@@ -878,6 +900,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       accountIcon: expense.accountIcon,
       accountColor: expense.accountColor,
       type: expense.type,
+      analyticsClass: analyticsClass,
+      analyticsIsFinal: expense.analyticsIsFinal,
+      analyticsSpendingMultiplier: analyticsSpendingMultiplier,
+      analyticsCountsTowardIncome: analyticsCountsTowardIncome,
       isRecurring: updates['is_recurring'] as bool? ?? expense.isRecurring,
       recurrenceRuleJson: updatedRecurrenceRuleJson,
       clientRecordId: expense.clientRecordId,

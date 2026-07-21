@@ -15,6 +15,38 @@ bool isIncomeTransactionType(String? type) {
   return normalizeTransactionType(type) == 'income';
 }
 
+double resolveOverviewIncomeEffect({
+  required ExpenseEntry entry,
+  required double rawShareAmount,
+}) {
+  return entry.countsTowardIncome ? rawShareAmount.abs() : 0.0;
+}
+
+double resolveOverviewSpendingEffect({
+  required ExpenseEntry entry,
+  required double rawShareAmount,
+}) {
+  return rawShareAmount.abs() * entry.effectiveSpendingMultiplier;
+}
+
+List<MapEntry<String, double>> rankPositiveOverviewSpendingCategories(
+  Map<String, double> categoryTotals,
+) {
+  return categoryTotals.entries.where((entry) => entry.value > 0).toList()
+    ..sort((left, right) => right.value.compareTo(left.value));
+}
+
+double resolveOverviewCategoryPercent({
+  required double categoryAmount,
+  required List<MapEntry<String, double>> rankedPositiveCategories,
+}) {
+  final visibleTotal = rankedPositiveCategories.fold<double>(
+    0.0,
+    (sum, entry) => sum + entry.value,
+  );
+  return visibleTotal > 0 ? (categoryAmount / visibleTotal) * 100 : 0.0;
+}
+
 Set<String> normalizeSharedMemberIds(List<String>? members) {
   if (members == null || members.isEmpty) return const <String>{};
   return members
