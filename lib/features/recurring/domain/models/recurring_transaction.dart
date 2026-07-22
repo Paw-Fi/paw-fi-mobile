@@ -51,6 +51,10 @@ class RecurringTransaction {
   final List<Attachment> attachments;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String? analyticsClass;
+  final bool analyticsIsFinal;
+  final int? analyticsSpendingMultiplier;
+  final bool? analyticsCountsTowardIncome;
 
   RecurringTransaction({
     required this.id,
@@ -74,6 +78,10 @@ class RecurringTransaction {
     required this.attachments,
     required this.createdAt,
     this.updatedAt,
+    this.analyticsClass,
+    this.analyticsIsFinal = true,
+    this.analyticsSpendingMultiplier,
+    this.analyticsCountsTowardIncome,
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
@@ -166,6 +174,12 @@ class RecurringTransaction {
           : (json['updated_at'] != null
               ? DateTime.parse(json['updated_at'] as String)
               : null),
+      analyticsClass: json['analytics_class'] as String?,
+      analyticsIsFinal: json['analytics_is_final'] as bool? ?? true,
+      analyticsSpendingMultiplier:
+          (json['analytics_spending_multiplier'] as num?)?.toInt(),
+      analyticsCountsTowardIncome:
+          json['analytics_counts_toward_income'] as bool?,
     );
   }
 
@@ -246,6 +260,10 @@ class RecurringTransaction {
       'attachments': attachments.map((e) => e.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'analytics_class': analyticsClass,
+      'analytics_is_final': analyticsIsFinal,
+      'analytics_spending_multiplier': analyticsSpendingMultiplier,
+      'analytics_counts_toward_income': analyticsCountsTowardIncome,
     };
   }
 
@@ -271,6 +289,10 @@ class RecurringTransaction {
     List<Attachment>? attachments,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? analyticsClass,
+    bool? analyticsIsFinal,
+    int? analyticsSpendingMultiplier,
+    bool? analyticsCountsTowardIncome,
   }) {
     return RecurringTransaction(
       id: id ?? this.id,
@@ -294,6 +316,12 @@ class RecurringTransaction {
       attachments: attachments ?? this.attachments,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      analyticsClass: analyticsClass ?? this.analyticsClass,
+      analyticsIsFinal: analyticsIsFinal ?? this.analyticsIsFinal,
+      analyticsSpendingMultiplier:
+          analyticsSpendingMultiplier ?? this.analyticsSpendingMultiplier,
+      analyticsCountsTowardIncome:
+          analyticsCountsTowardIncome ?? this.analyticsCountsTowardIncome,
     );
   }
 

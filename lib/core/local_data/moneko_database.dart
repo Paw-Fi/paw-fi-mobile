@@ -20,7 +20,7 @@ const String localHouseholdSettlementMutationEntityType =
 const String localHouseholdSettlementMutationOperation =
     'settle_household_balance_v2';
 
-const int _localDatabaseSchemaVersion = 7;
+const int _localDatabaseSchemaVersion = 8;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -2895,6 +2895,7 @@ class MonekoDatabase {
         local_receipt_image_path TEXT,
         shared_member_ids_json TEXT,
         split_group_id TEXT,
+        parent_recurring_id TEXT,
         bank_account_id TEXT,
         wallet_id TEXT,
         account_name TEXT,
@@ -3086,6 +3087,7 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'local_receipt_image_path', 'TEXT');
       _ensureColumn('local_transactions', 'shared_member_ids_json', 'TEXT');
       _ensureColumn('local_transactions', 'split_group_id', 'TEXT');
+      _ensureColumn('local_transactions', 'parent_recurring_id', 'TEXT');
       _ensureColumn('local_transactions', 'bank_account_id', 'TEXT');
       _ensureColumn('local_transactions', 'wallet_id', 'TEXT');
       _ensureColumn('local_transactions', 'account_name', 'TEXT');
@@ -3224,13 +3226,14 @@ class MonekoDatabase {
         id, user_id, contact_id, household_id, scope_key, date, amount_cents,
         currency, category, created_at, updated_at, local_updated_at, raw_text, merchant,
         breakdown_json, receipt_image_url, local_receipt_image_path,
-        shared_member_ids_json, split_group_id, bank_account_id, wallet_id,
+        shared_member_ids_json, split_group_id, parent_recurring_id,
+        bank_account_id, wallet_id,
         account_name, account_icon, account_color, type, analytics_class,
         analytics_is_final, analytics_spending_multiplier,
         analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -3250,6 +3253,7 @@ class MonekoDatabase {
         local_receipt_image_path = excluded.local_receipt_image_path,
         shared_member_ids_json = excluded.shared_member_ids_json,
         split_group_id = excluded.split_group_id,
+        parent_recurring_id = excluded.parent_recurring_id,
         bank_account_id = excluded.bank_account_id,
         wallet_id = excluded.wallet_id,
         account_name = excluded.account_name,
@@ -3303,6 +3307,7 @@ class MonekoDatabase {
         entry.localReceiptImagePath,
         _encodeStringList(entry.sharedMemberIds),
         entry.splitGroupId,
+        entry.parentRecurringId,
         entry.bankAccountId,
         entry.walletId,
         entry.accountName,
@@ -3692,6 +3697,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     sharedMemberIds:
         _decodeStringList(row['shared_member_ids_json'] as String?),
     splitGroupId: row['split_group_id'] as String?,
+    parentRecurringId: row['parent_recurring_id'] as String?,
     bankAccountId: row['bank_account_id'] as String?,
     walletId: row['wallet_id'] as String?,
     accountName: row['account_name'] as String?,

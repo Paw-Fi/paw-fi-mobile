@@ -25,6 +25,11 @@ String getChartIntervalTypeFromFilter(DateRangeFilter filter) {
   }
 }
 
+String getSummaryIntervalGranularityFromFilter(DateRangeFilter filter) {
+  final chartInterval = getChartIntervalTypeFromFilter(filter);
+  return chartInterval == 'hourly' ? 'daily' : chartInterval;
+}
+
 /// Determines the chart interval type based on period string (for transactions page)
 String getChartIntervalTypeFromPeriod(String period) {
   switch (period) {

@@ -5,6 +5,101 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 void main() {
+  test('projects occurrences for a series that ended after the selected period',
+      () {
+    final transaction = RecurringTransaction(
+      id: 'ended-rent',
+      date: DateTime(2026, 1, 10),
+      category: 'housing',
+      description: 'Ended rent',
+      amount: 900,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 1, 10),
+        endDate: DateTime(2026, 6, 30),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    final projected = projectRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: [transaction],
+      rangeStart: DateTime(2026, 6, 1),
+      rangeEnd: DateTime(2026, 6, 30),
+      selectedCurrency: 'USD',
+    );
+
+    expect(projected.map((entry) => entry.date), [DateTime(2026, 6, 10)]);
+  });
+
+  test('projects biweekly occurrences every 14 days', () {
+    final transaction = RecurringTransaction(
+      id: 'biweekly-pay',
+      date: DateTime(2026, 5, 29),
+      category: 'income',
+      amount: 1000,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'biweekly',
+        anchorDate: DateTime(2026, 5, 29),
+      ),
+      type: 'income',
+      attachments: const [],
+      createdAt: DateTime(2026, 5, 1),
+    );
+
+    final projected = projectRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: [transaction],
+      rangeStart: DateTime(2026, 6, 1),
+      rangeEnd: DateTime(2026, 6, 30),
+      selectedCurrency: 'USD',
+    );
+
+    expect(
+      projected.map((entry) => entry.date),
+      [DateTime(2026, 6, 12), DateTime(2026, 6, 26)],
+    );
+  });
+
+  test('projected occurrences preserve analytics classification', () {
+    final transaction = RecurringTransaction(
+      id: 'cash-movement',
+      date: DateTime(2026, 6, 5),
+      category: 'transfer',
+      amount: 100,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 6, 5),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 6, 1),
+      analyticsClass: 'cash_movement',
+      analyticsIsFinal: true,
+      analyticsSpendingMultiplier: 0,
+      analyticsCountsTowardIncome: false,
+    );
+
+    final projected = projectRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: [transaction],
+      rangeStart: DateTime(2026, 6, 1),
+      rangeEnd: DateTime(2026, 6, 30),
+    );
+
+    expect(projected.single.analyticsClass, 'cash_movement');
+    expect(projected.single.effectiveSpendingMultiplier, 0);
+    expect(projected.single.countsTowardIncome, isFalse);
+  });
+
   test('projects every 6 month recurring transactions and preserves source id',
       () {
     final transaction = RecurringTransaction(
@@ -530,5 +625,39 @@ void main() {
 
     expect(deduped, hasLength(1));
     expect(deduped.single.id, projected.id);
+  });
+
+  test('parent recurring link replaces projection despite edited metadata', () {
+    final projected = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId(
+          'rent-series', DateTime(2026, 6, 10)),
+      userId: 'user_1',
+      date: DateTime(2026, 6, 10),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 6, 1),
+      rawText: 'Projected rent',
+      type: 'expense',
+    );
+    final actual = ExpenseEntry(
+      id: 'actual-rent',
+      parentRecurringId: 'rent-series',
+      userId: 'user_1',
+      date: DateTime(2026, 6, 10),
+      amountCents: 97500,
+      currency: 'USD',
+      category: 'rent',
+      createdAt: DateTime(2026, 6, 10),
+      rawText: 'Rent with fee',
+      type: 'expense',
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [projected],
+      actualExpenses: [actual],
+    );
+
+    expect(deduped, isEmpty);
   });
 }

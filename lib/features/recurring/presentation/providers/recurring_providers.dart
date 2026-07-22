@@ -82,6 +82,10 @@ RecurringTransaction _recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
     attachments: const [],
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
+    analyticsClass: entry.analyticsClass,
+    analyticsIsFinal: entry.analyticsIsFinal,
+    analyticsSpendingMultiplier: entry.analyticsSpendingMultiplier,
+    analyticsCountsTowardIncome: entry.analyticsCountsTowardIncome,
   );
 }
 
@@ -117,6 +121,10 @@ ExpenseEntry _expenseEntryFromRecurringTransaction(
     splitGroupId: transaction.splitGroupId,
     walletId: transaction.accountId,
     type: transaction.type,
+    analyticsClass: transaction.analyticsClass,
+    analyticsIsFinal: transaction.analyticsIsFinal,
+    analyticsSpendingMultiplier: transaction.analyticsSpendingMultiplier,
+    analyticsCountsTowardIncome: transaction.analyticsCountsTowardIncome,
     isRecurring: true,
     recurrenceRuleJson: transaction.recurrenceRule?.toJson(),
   );
@@ -367,55 +375,51 @@ class RecurringTransactionsNotifier
       // STRICT REQUIREMENT: wallet pages need account_id to attach projected
       // recurring occurrences to the correct wallet. Removing it makes wallet
       // recurring transactions silently disappear again.
-      // Build base query for recurring rows only.
-      final baseQuery = supabase
-          .from('expenses')
-          .select(
-            'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
-            'currency, owner_type, privacy_scope, household_id, is_recurring, '
-            'user_id, split_group_id, account_id, bank_account_id, provider, '
-            'provider_fields, recurrence_rule, type, attachments, created_at, updated_at',
-          )
-          .eq('is_recurring', true)
-          .isFilter('deleted_at', null)
-          .isFilter('provider', null)
-          .isFilter('bank_account_id', null);
-
-      // Scope by household when in household mode; otherwise restrict to
-      // the current user's personal recurring items (including portfolio households).
-      // Portfolio households have is_portfolio=true and should be treated as personal.
-      // The non-null assertion is safe because we only enter the first branch when householdId != null.
-      dynamic scopedQuery;
-      if (householdId != null && householdId!.trim().isNotEmpty) {
-        final householdScope = ref.read(householdScopeProvider);
-        if (householdScope.isPortfolioId(householdId)) {
-          // Portfolio account: scoped to the selected portfolio household + current user.
-          scopedQuery =
-              baseQuery.eq('user_id', userId).eq('household_id', householdId!);
-        } else {
-          // Household-group account: scoped to the selected household.
-          scopedQuery = baseQuery.eq('household_id', householdId!);
-        }
-      } else {
-        // Personal account: household_id is null.
-        scopedQuery =
-            baseQuery.eq('user_id', userId).isFilter('household_id', null);
-      }
-
-      final rows = await scopedQuery
-          .order('date', ascending: false)
-          .limit(limit)
-          .timeout(timeout);
-
       final allTransactions = <RecurringTransaction>[];
-      final typedRows = (rows as List).cast<Map<String, dynamic>>();
+      final pageSize = limit.clamp(1, 1000);
+      var offset = 0;
+      while (true) {
+        final baseQuery = supabase
+            .from('expenses')
+            .select(
+              'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
+              'currency, owner_type, privacy_scope, household_id, is_recurring, '
+              'user_id, split_group_id, account_id, bank_account_id, provider, '
+              'provider_fields, recurrence_rule, type, attachments, created_at, updated_at, '
+              'analytics_class, analytics_is_final, analytics_spending_multiplier, '
+              'analytics_counts_toward_income',
+            )
+            .eq('is_recurring', true)
+            .isFilter('deleted_at', null)
+            .isFilter('provider', null)
+            .isFilter('bank_account_id', null);
 
-      for (final item in typedRows) {
-        try {
-          allTransactions.add(RecurringTransaction.fromJson(item));
-        } catch (parseError) {
-          _debugPrint('[RecurringTx] Error parsing row: $parseError');
+        dynamic scopedQuery;
+        if (householdId != null && householdId!.trim().isNotEmpty) {
+          final householdScope = ref.read(householdScopeProvider);
+          scopedQuery = householdScope.isPortfolioId(householdId)
+              ? baseQuery.eq('user_id', userId).eq('household_id', householdId!)
+              : baseQuery.eq('household_id', householdId!);
+        } else {
+          scopedQuery =
+              baseQuery.eq('user_id', userId).isFilter('household_id', null);
         }
+
+        final rows = await scopedQuery
+            .order('date', ascending: false)
+            .order('id', ascending: false)
+            .range(offset, offset + pageSize - 1)
+            .timeout(timeout);
+        final typedRows = (rows as List).cast<Map<String, dynamic>>();
+        for (final item in typedRows) {
+          try {
+            allTransactions.add(RecurringTransaction.fromJson(item));
+          } catch (parseError) {
+            _debugPrint('[RecurringTx] Error parsing row: $parseError');
+          }
+        }
+        if (typedRows.length < pageSize) break;
+        offset += pageSize;
       }
 
       if (!mounted) return;

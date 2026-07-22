@@ -51,6 +51,25 @@ void main() {
       expect(rows.last.amountCents, 1500);
     });
 
+    test('persists parent recurring links for offline deduplication', () async {
+      await database.upsertTransactions([
+        _entry(
+          id: 'actual_recurring_occurrence',
+          userId: 'user_1',
+          amountCents: 2500,
+          date: DateTime(2026, 6, 10),
+        ).copyWith(parentRecurringId: 'recurring_series_1'),
+      ]);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+
+      expect(rows.single.parentRecurringId, 'recurring_series_1');
+    });
+
     test('maintains precomputed monthly summary on local writes', () async {
       await database.upsertTransactions([
         _entry(

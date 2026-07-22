@@ -80,6 +80,7 @@ int transactionEntryContentSignature(ExpenseEntry expense) {
     expense.localReceiptImagePath,
     Object.hashAll(expense.sharedMemberIds ?? const <String>[]),
     expense.splitGroupId,
+    expense.parentRecurringId,
     expense.bankAccountId,
     expense.walletId,
     expense.accountName,
@@ -332,7 +333,11 @@ TransactionsPageDerivedData deriveTransactionsPageData(
   if (input.selectedType != 'all') {
     final normalizedType = input.selectedType.toLowerCase();
     expenses = expenses.where((expense) {
-      return (expense.type ?? 'expense').toLowerCase() == normalizedType;
+      return switch (normalizedType) {
+        'expense' => expense.effectiveSpendingMultiplier != 0,
+        'income' => expense.countsTowardIncome,
+        _ => true,
+      };
     }).toList();
   }
 

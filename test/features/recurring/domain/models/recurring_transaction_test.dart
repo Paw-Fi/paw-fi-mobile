@@ -106,6 +106,30 @@ void main() {
       expect(transaction.type, 'expense');
     });
 
+    test('fromJson preserves analytics classification', () {
+      final transaction = RecurringTransaction.fromJson({
+        'id': 'rec_transfer',
+        'date': '2026-06-01',
+        'category': 'transfer',
+        'amount_cents': 5000,
+        'currency': 'USD',
+        'owner_type': 'me',
+        'privacy_scope': 'full',
+        'type': 'expense',
+        'attachments': [],
+        'created_at': '2026-06-01T00:00:00.000Z',
+        'analytics_class': 'cash_movement',
+        'analytics_is_final': true,
+        'analytics_spending_multiplier': 0,
+        'analytics_counts_toward_income': false,
+      });
+
+      expect(transaction.analyticsClass, 'cash_movement');
+      expect(transaction.analyticsIsFinal, isTrue);
+      expect(transaction.analyticsSpendingMultiplier, 0);
+      expect(transaction.analyticsCountsTowardIncome, isFalse);
+    });
+
     test('fromJson infers type from source field', () {
       final json = {
         'id': 'rec_2',

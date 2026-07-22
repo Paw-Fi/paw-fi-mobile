@@ -221,6 +221,29 @@ TransactionsFeedSummary addConvertedExpensesToSummary(
   );
 }
 
+TransactionsFeedSummary addProjectedTransactionsToSummary(
+  TransactionsFeedSummary summary,
+  List<ExpenseEntry> projectedEntries, {
+  String? targetCurrency,
+  CurrencyRateTable? rates,
+  String intervalGranularity = 'yearly',
+}) {
+  if (targetCurrency == null) {
+    return summary.addingExpenses(projectedEntries);
+  }
+  if (rates == null) {
+    throw ArgumentError.notNull('rates');
+  }
+
+  return addConvertedExpensesToSummary(
+    summary,
+    projectedEntries,
+    targetCurrency: targetCurrency,
+    rates: rates,
+    intervalGranularity: intervalGranularity,
+  );
+}
+
 TransactionsFeedSummary combineTransactionSummaries(
   TransactionsFeedSummary base,
   TransactionsFeedSummary extra,
@@ -279,8 +302,9 @@ TransactionsFeedSummary combineTransactionSummaries(
     transactionCount: base.transactionCount + extra.transactionCount,
     expenseTotal: base.expenseTotal + extra.expenseTotal,
     incomeTotal: base.incomeTotal + extra.incomeTotal,
-    hasMultipleCurrencies:
-        base.hasMultipleCurrencies || extra.hasMultipleCurrencies,
+    hasMultipleCurrencies: base.hasMultipleCurrencies ||
+        extra.hasMultipleCurrencies ||
+        currencyTypeTotalsMap.length > 1,
     categorySummaries: categoryTotals.values.toList(growable: false)
       ..sort((left, right) => right.amount.compareTo(left.amount)),
     yearlyPeriodTotals: _combinePeriodTotals(

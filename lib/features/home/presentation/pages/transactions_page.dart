@@ -601,6 +601,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final userNow = effectiveNow(
       preferredTimezone: analyticsContact?.preferredTimezone,
     );
+    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final range = _selectedDateFilter == DateRangeFilter.allTime
+        ? null
+        : getDateRangeFromFilter(
+            _selectedDateFilter,
+            _customStart,
+            _customEnd,
+            now: userNow,
+            financialMonthStartDay: financialMonthStartDay,
+          );
     final recurringTransactions = ref
             .watch(recurringTransactionsProvider(_recurringScopeHouseholdId))
             .data
@@ -610,8 +620,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ? const <ExpenseEntry>[]
         : projectRecurringTransactionsAsExpenseEntries(
             recurringTransactions: recurringTransactions,
-            rangeStart: DateTime(2000),
-            rangeEnd: userNow,
+            rangeStart: range?['from'] ??
+                recurringTransactions
+                    .map((transaction) =>
+                        transaction.recurrenceRule?.anchorDate ??
+                        transaction.date)
+                    .reduce(
+                        (left, right) => left.isBefore(right) ? left : right),
+            rangeEnd: range?['to']?.isBefore(userNow) == true
+                ? range!['to']!
+                : userNow,
             selectedCurrency: selectedCurrency,
             selectedCurrencies: selectedCurrencies,
           );
@@ -626,21 +644,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       for (final account in scopedAccounts)
         if (account.id.isNotEmpty) account.id: account.name,
     };
-    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
-
     final effectiveHouseholdId = widget.householdId ??
         (householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId);
-    final range = _selectedDateFilter == DateRangeFilter.allTime
-        ? null
-        : getDateRangeFromFilter(
-            _selectedDateFilter,
-            _customStart,
-            _customEnd,
-            now: userNow,
-            financialMonthStartDay: financialMonthStartDay,
-          );
     final feedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
@@ -651,6 +658,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       searchQuery: _debouncedSearchQuery,
       startDate: range?['from'],
       endDate: range?['to'],
+      summaryIntervalGranularity:
+          getSummaryIntervalGranularityFromFilter(_selectedDateFilter),
     );
     _activeFeedQuery = feedQuery;
 
@@ -668,30 +677,56 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             rates: rateTable,
           )
         : null;
-    final chartSourceState =
-        isMultiCurrencySelection && convertedRollupChartSummary == null
-            ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
-            : null;
     _baseExpenses = feedState.items
         .where((entry) => !_optimisticallyDeletedIds.contains(entry.id))
         .toList(growable: false);
     final shouldLoadCompleteGroupTotals = range != null &&
         range['from']!.year == range['to']!.year &&
         range['from']!.month == range['to']!.month;
-    final completeActualExpensesState = shouldLoadCompleteGroupTotals
+    final shouldLoadFilteredActualExpenses = shouldLoadCompleteGroupTotals ||
+        (isMultiCurrencySelection && convertedRollupChartSummary == null);
+    final filteredActualExpensesState = shouldLoadFilteredActualExpenses
         ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
         : null;
+    final chartSourceState =
+        isMultiCurrencySelection && convertedRollupChartSummary == null
+            ? filteredActualExpensesState
+            : null;
+    final completeActualExpensesState =
+        shouldLoadCompleteGroupTotals ? filteredActualExpensesState : null;
     final completeActualExpenses = completeActualExpensesState?.valueOrNull;
     final shouldSuppressHeaderTotals = shouldLoadCompleteGroupTotals &&
         feedState.hasMore &&
         completeActualExpenses == null;
 
+    final recurringDedupeQuery = TransactionsFeedQuery(
+      userId: currentUserId,
+      householdId: effectiveHouseholdId,
+      selectedCurrency: null,
+      selectedCurrencies: null,
+      selectedCategory: null,
+      selectedType: 'all',
+      searchQuery: '',
+      startDate: range?['from'],
+      endDate: range?['to'],
+      pageSize: feedQuery.pageSize,
+    );
+    final recurringActualExpensesState = projectedRecurringExpenses.isEmpty
+        ? null
+        : ref.watch(transactionsFeedAllItemsProvider(recurringDedupeQuery));
+    final recurringActualExpenses = recurringActualExpensesState?.valueOrNull;
+    final projectedRecurringForDisplay = recurringActualExpenses == null
+        ? projectedRecurringExpenses
+        : dedupeProjectedRecurringExpenseEntries(
+            projectedExpenses: projectedRecurringExpenses,
+            actualExpenses: recurringActualExpenses,
+          );
     final derivedData = _resolveDerivedData(
       householdScope: householdScope,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
       userNow: userNow,
-      projectedRecurringExpenses: projectedRecurringExpenses,
+      projectedRecurringExpenses: projectedRecurringForDisplay,
     );
     final displayFilteredExpenses = isMultiCurrencySelection
         ? convertTransactionsToCurrency(
@@ -719,7 +754,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             final completeDerivedData = deriveTransactionsPageData(
               TransactionsPageFilterInput(
                 baseExpenses: completeActualExpenses,
-                projectedRecurringExpenses: projectedRecurringExpenses,
+                projectedRecurringExpenses: projectedRecurringForDisplay,
                 searchQuery: _debouncedSearchQuery,
                 selectedCategory: selectedCategory,
                 selectedType: selectedType,
@@ -783,7 +818,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     final intervalGranularity =
         feedQuery.normalizedSummaryIntervalGranularity ?? 'yearly';
-    final chartSummary = isMultiCurrencySelection
+    final actualChartSummary = isMultiCurrencySelection
         ? convertedRollupChartSummary ??
             summarizeTransactionsInCurrency(
               chartExpenses,
@@ -792,15 +827,32 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               intervalGranularity: intervalGranularity,
             )
         : feedState.summary;
-    final isChartSourceLoading = _shouldShowChartSkeleton(
-      feedQuery: feedQuery,
-      feedState: feedState,
-      isMultiCurrencySelection: isMultiCurrencySelection,
-      chartSourceState: chartSourceState,
+    final projectedChartExpenses = derivedData.filteredExpenses
+        .where((expense) =>
+            extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
+            null)
+        .toList(growable: false);
+    final chartSummary = addProjectedTransactionsToSummary(
+      actualChartSummary,
+      projectedChartExpenses,
+      targetCurrency: selectedCurrency ?? 'USD',
+      rates: rateTable,
+      intervalGranularity: intervalGranularity,
     );
-    final isChartSourceError = isMultiCurrencySelection &&
-        chartSourceState?.valueOrNull == null &&
-        (chartSourceState?.hasError ?? false);
+    final isRecurringDedupeLoading = projectedRecurringExpenses.isNotEmpty &&
+        recurringActualExpenses == null &&
+        (recurringActualExpensesState?.isLoading ?? false);
+    final isChartSourceLoading = isRecurringDedupeLoading ||
+        _shouldShowChartSkeleton(
+          feedQuery: feedQuery,
+          feedState: feedState,
+          isMultiCurrencySelection: isMultiCurrencySelection,
+          chartSourceState: chartSourceState,
+        );
+    final isChartSourceError = (chartSourceState?.valueOrNull == null &&
+            (chartSourceState?.hasError ?? false)) ||
+        (recurringActualExpenses == null &&
+            (recurringActualExpensesState?.hasError ?? false));
 
     final availableCategories = _resolveAvailableCategories(userCategoryLists);
     final shouldShowCurrencyFlag = (selectedCurrencies?.length ?? 0) > 1;
@@ -1044,6 +1096,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         _buildChart(
                           colorScheme,
                           chartSummary,
+                          intervalGranularity:
+                              feedQuery.normalizedSummaryIntervalGranularity ??
+                                  'yearly',
                           isLoading: isChartSourceLoading,
                         ),
                         if (isChartSourceError)
@@ -1546,6 +1601,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildChart(
     ColorScheme colorScheme,
     TransactionsFeedSummary summary, {
+    required String intervalGranularity,
     required bool isLoading,
   }) {
     const pageHeights = [420.0, 280.0, 280.0];
@@ -1591,7 +1647,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     padding: const EdgeInsets.only(right: 8),
                     child: _buildLineChart(
                       colorScheme,
-                      summary.yearlyPeriodTotals,
+                      summary.periodTotals.isEmpty
+                          ? summary.yearlyPeriodTotals
+                          : summary.periodTotals,
+                      intervalGranularity,
                       isLoading,
                     ),
                   );
@@ -1600,7 +1659,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     padding: const EdgeInsets.only(right: 8),
                     child: _buildBarChart(
                       colorScheme,
-                      summary.yearlyPeriodTotals,
+                      summary.periodTotals.isEmpty
+                          ? summary.yearlyPeriodTotals
+                          : summary.periodTotals,
+                      intervalGranularity,
                       isLoading,
                     ),
                   );
@@ -1708,12 +1770,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return value.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
+  String _formatChartPeriod(DateTime date, String intervalGranularity) {
+    switch (intervalGranularity) {
+      case 'daily':
+      case 'weekly':
+        return DateFormat('MMM d, yy').format(date);
+      case 'monthly':
+        return DateFormat('MMM yy').format(date);
+      case 'yearly':
+      default:
+        return date.year.toString();
+    }
+  }
+
   Widget _buildLineChart(
     ColorScheme colorScheme,
     Map<DateTime, double> periodTotals,
+    String chartIntervalType,
     bool isLoading,
   ) {
-    const chartIntervalType = 'yearly';
     var sortedDates = periodTotals.keys.toList()..sort();
     var isEmptyChart = false;
 
@@ -1790,7 +1865,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     }
                     final date = sortedDates[value.toInt()];
                     return Text(
-                      formatDateForInterval(date, chartIntervalType),
+                      _formatChartPeriod(date, chartIntervalType),
                       style: TextStyle(
                         fontSize: 10,
                         color: colorScheme.mutedForeground,
@@ -1854,9 +1929,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildBarChart(
     ColorScheme colorScheme,
     Map<DateTime, double> periodTotals,
+    String chartIntervalType,
     bool isLoading,
   ) {
-    const chartIntervalType = 'yearly';
     final periodDates = <String, DateTime>{};
     final periodLabels = <String, double>{};
     var isEmptyChart = false;
@@ -1865,7 +1940,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       final now = DateTime.now();
       for (var i = 0; i < 6; i++) {
         final date = DateTime(now.year, now.month - (5 - i), 1);
-        final label = formatDateForInterval(date, chartIntervalType);
+        final label = _formatChartPeriod(date, chartIntervalType);
         periodDates[label] = date;
         periodLabels[label] = 100.0; // dummy value for skeleton
       }
@@ -1874,13 +1949,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       final now = DateTime.now();
       for (var i = 0; i < 6; i++) {
         final date = DateTime(now.year, now.month - (5 - i), 1);
-        final label = formatDateForInterval(date, chartIntervalType);
+        final label = _formatChartPeriod(date, chartIntervalType);
         periodDates[label] = date;
         periodLabels[label] = 0.25;
       }
     } else {
       for (final entry in periodTotals.entries) {
-        final label = formatDateForInterval(entry.key, chartIntervalType);
+        final label = _formatChartPeriod(entry.key, chartIntervalType);
         periodDates[label] = entry.key;
         periodLabels[label] = entry.value;
       }

@@ -132,7 +132,7 @@ MobileDeltaFetcher supabaseMobileDeltaFetcher() {
     required int limit,
   }) async {
     final response = await supabase.rpc(
-      'get_mobile_delta_v3',
+      'get_mobile_delta_v4',
       params: {
         'p_user_id': userId,
         'p_since': since?.toUtc().toIso8601String(),

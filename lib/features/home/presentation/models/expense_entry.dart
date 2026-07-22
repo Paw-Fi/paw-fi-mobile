@@ -43,6 +43,7 @@ class ExpenseEntry {
   final String? localReceiptImagePath;
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
+  final String? parentRecurringId;
   final String? bankAccountId;
   final String? walletId;
   final String? accountName;
@@ -81,6 +82,7 @@ class ExpenseEntry {
     this.localReceiptImagePath,
     this.sharedMemberIds,
     this.splitGroupId,
+    this.parentRecurringId,
     this.bankAccountId,
     this.walletId,
     this.accountName,
@@ -189,6 +191,8 @@ class ExpenseEntry {
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
       splitGroupId: json['split_group_id'] as String?,
+      parentRecurringId: json['parent_recurring_id'] as String? ??
+          json['parentRecurringId'] as String?,
       bankAccountId: bankAccountId,
       walletId: json['account_id'] as String?,
       accountName: _sanitizeNullable(json['account_name'] as String?),
@@ -236,6 +240,7 @@ class ExpenseEntry {
       'localReceiptImagePath': localReceiptImagePath,
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
+      'parent_recurring_id': parentRecurringId,
       'bank_account_id': bankAccountId,
       'account_id': walletId,
       'account_name': accountName,
@@ -277,6 +282,7 @@ class ExpenseEntry {
     String? localReceiptImagePath,
     List<String>? sharedMemberIds,
     String? splitGroupId,
+    String? parentRecurringId,
     String? bankAccountId,
     String? accountId,
     String? accountName,
@@ -316,6 +322,7 @@ class ExpenseEntry {
           localReceiptImagePath ?? this.localReceiptImagePath,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
+      parentRecurringId: parentRecurringId ?? this.parentRecurringId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
       walletId: accountId ?? walletId,
       accountName: accountName ?? this.accountName,

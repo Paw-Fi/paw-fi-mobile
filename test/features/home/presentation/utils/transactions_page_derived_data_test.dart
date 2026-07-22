@@ -15,6 +15,7 @@ ExpenseEntry _entry({
   String? category,
   String? rawText,
   String? type,
+  int? analyticsSpendingMultiplier,
   bool isRecurring = false,
 }) {
   return ExpenseEntry(
@@ -26,6 +27,7 @@ ExpenseEntry _entry({
     category: category,
     rawText: rawText,
     type: type,
+    analyticsSpendingMultiplier: analyticsSpendingMultiplier,
     isRecurring: isRecurring,
     createdAt: date,
   );
@@ -248,6 +250,49 @@ void main() {
         'usd-row',
         'eur-row',
       ]);
+    });
+
+    test('type filters respect analytics classification', () {
+      final result = deriveTransactionsPageData(
+        TransactionsPageFilterInput(
+          baseExpenses: const [],
+          projectedRecurringExpenses: [
+            _entry(
+              id: 'recurring-transfer',
+              date: DateTime(2026, 6, 10),
+              amountCents: 5000,
+              currency: 'USD',
+              type: 'expense',
+              analyticsSpendingMultiplier: 0,
+            ),
+            _entry(
+              id: 'recurring-bill',
+              date: DateTime(2026, 6, 11),
+              amountCents: 2500,
+              currency: 'USD',
+              type: 'expense',
+              analyticsSpendingMultiplier: 1,
+            ),
+          ],
+          searchQuery: '',
+          selectedCategory: 'all',
+          selectedType: 'expense',
+          selectedCurrency: 'USD',
+          selectedDateFilter: DateRangeFilter.lastMonth,
+          customStart: null,
+          customEnd: null,
+          now: DateTime(2026, 7, 22),
+          pinnedHouseholdId: null,
+          activeAccountType: ActiveWalletType.personal,
+          activeAccountHouseholdId: null,
+          selectedHouseholdId: null,
+        ),
+      );
+
+      expect(
+        result.filteredExpenses.map((expense) => expense.id),
+        ['recurring-bill'],
+      );
     });
   });
 

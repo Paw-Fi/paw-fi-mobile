@@ -137,7 +137,6 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
   final now = DateTime.now();
 
   for (final r in recurringTransactions) {
-    if (!r.isActive) continue;
     if (currencyFilters != null && currencyFilters.isNotEmpty) {
       if (!currencyFilters.contains(r.currency.trim().toUpperCase())) continue;
     }
@@ -273,6 +272,10 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
           type: r.type,
           splitGroupId: r.splitGroupId,
           walletId: r.accountId,
+          analyticsClass: r.analyticsClass,
+          analyticsIsFinal: r.analyticsIsFinal,
+          analyticsSpendingMultiplier: r.analyticsSpendingMultiplier,
+          analyticsCountsTowardIncome: r.analyticsCountsTowardIncome,
           isRecurring: false,
         ),
       );
@@ -331,11 +334,22 @@ List<ExpenseEntry> dedupeProjectedRecurringExpenseEntries({
   }
 
   final actualKeys = actualExpenses.map(_projectedExpenseComparisonKey).toSet();
+  final linkedActualOccurrences = actualExpenses
+      .where((expense) => expense.parentRecurringId?.trim().isNotEmpty == true)
+      .map((expense) =>
+          '${expense.parentRecurringId!.trim()}|${_dateKey(_dateOnly(expense.date))}')
+      .toSet();
 
-  return projectedExpenses
-      .where((expense) =>
-          !actualKeys.contains(_projectedExpenseComparisonKey(expense)))
-      .toList(growable: false);
+  return projectedExpenses.where((expense) {
+    final recurringId =
+        extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
+    if (recurringId != null &&
+        linkedActualOccurrences
+            .contains('$recurringId|${_dateKey(_dateOnly(expense.date))}')) {
+      return false;
+    }
+    return !actualKeys.contains(_projectedExpenseComparisonKey(expense));
+  }).toList(growable: false);
 }
 
 List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
