@@ -5,11 +5,52 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/regional_pricing.dart';
+import 'package:moneko/features/subscription/data/commitment_availability.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/app_store_commitment_billing.dart';
 import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  test('commitment is unavailable in the excluded countries', () {
+    for (final country in ['US', 'SG', 'AU']) {
+      expect(isCommitmentAvailableForCountry(country), isFalse);
+    }
+    expect(isCommitmentAvailableForCountry('CA'), isTrue);
+  });
+
+  testWidgets('excluded countries omit the Stripe commitment plan',
+      (tester) async {
+    late List<PlanOption> plans;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            plans = buildPlusPlanOptions(
+              context: context,
+              useIap: false,
+              productsAsync: const AsyncValue.data([]),
+              iapStateAsync: const AsyncValue.data(
+                IapState(
+                  storeAvailable: false,
+                  productDetailsById: {},
+                  lastError: null,
+                ),
+              ),
+              pricingCountryOverride: 'SG',
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(plans.any((plan) => plan.id == 'plus_yearly'), isFalse);
+  });
+
   tearDown(() {
     debugDefaultTargetPlatformOverride = null;
   });
@@ -135,11 +176,117 @@ void main() {
     );
     expect(
       yearlyPlan.priceDisplay,
-      formatRegionalPrice(market, market.yearly),
+      formatRegionalPrice(market, (market.yearly / 12).round()),
     );
+    expect(yearlyPlan.isCommitment, isTrue);
+    expect(yearlyPlan.periodDisplay, '/month');
     expect(
       lifetimePlan.priceDisplay,
       formatRegionalPrice(market, market.lifetime),
     );
+  });
+
+  testWidgets(
+      'eligible iOS devices replace yearly upfront with commitment terms',
+      (tester) async {
+    late List<PlanOption> plans;
+    const yearlyProduct = SubscriptionProduct(
+      id: 'yearly-product',
+      platform: 'ios',
+      plan: 'plus',
+      billingInterval: 'yearly',
+      storeProductId: 'yearly',
+      displayName: 'Yearly',
+      tagline: 'Best value for 12 months.',
+      badgeText: 'SAVE 50%',
+      isPopular: true,
+      displayPriceUsd: 79.99,
+      originalPriceUsd: 131.88,
+      sortOrder: 0,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            plans = buildPlusPlanOptions(
+              context: context,
+              useIap: true,
+              productsAsync: const AsyncValue.data([yearlyProduct]),
+              iapStateAsync: const AsyncValue.data(
+                IapState(
+                  storeAvailable: true,
+                  productDetailsById: {},
+                  commitmentTermsByProductId: {
+                    'yearly': AppStoreCommitmentTerms(
+                      monthlyPrice: '€6.99',
+                      totalCommitmentPrice: '€83.88',
+                    ),
+                  },
+                  lastError: null,
+                ),
+              ),
+              pricingCountryOverride: 'CA',
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final yearlyPlan = plans.singleWhere((plan) => plan.id == 'plus_yearly');
+    expect(yearlyPlan.isCommitment, isTrue);
+    expect(yearlyPlan.priceDisplay, '€6.99');
+    expect(yearlyPlan.totalCommitmentPrice, '€83.88');
+    expect(yearlyPlan.periodDisplay, '/month');
+  });
+
+  testWidgets('unsupported iOS devices retain the yearly upfront option',
+      (tester) async {
+    late List<PlanOption> plans;
+    const yearlyProduct = SubscriptionProduct(
+      id: 'yearly-product',
+      platform: 'ios',
+      plan: 'plus',
+      billingInterval: 'yearly',
+      storeProductId: 'yearly',
+      displayName: 'Yearly',
+      tagline: 'Best value for 12 months.',
+      badgeText: 'SAVE 50%',
+      isPopular: true,
+      displayPriceUsd: 79.99,
+      originalPriceUsd: 131.88,
+      sortOrder: 0,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            plans = buildPlusPlanOptions(
+              context: context,
+              useIap: true,
+              productsAsync: const AsyncValue.data([yearlyProduct]),
+              iapStateAsync: const AsyncValue.data(
+                IapState(
+                  storeAvailable: true,
+                  productDetailsById: {},
+                  lastError: null,
+                ),
+              ),
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final yearlyPlan = plans.singleWhere((plan) => plan.id == 'plus_yearly');
+    expect(yearlyPlan.isCommitment, isFalse);
+    expect(yearlyPlan.periodDisplay, '/month');
   });
 }

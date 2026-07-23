@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
@@ -12,6 +13,7 @@ import 'package:moneko/features/auth/auth.dart';
 import '../../data/models/subscription_product.dart';
 import 'subscription_products_provider.dart';
 import 'subscription_management_provider.dart';
+import '../app_store_commitment_billing.dart';
 
 void _debugLog(Object? message) {
   debugPrint(message?.toString() ?? 'null');
@@ -25,6 +27,7 @@ void print(Object? message) => _debugLog(message);
 class IapState {
   final bool storeAvailable;
   final Map<String, ProductDetails> productDetailsById;
+  final Map<String, AppStoreCommitmentTerms> commitmentTermsByProductId;
   final String? lastError;
   final String? lastErrorCode;
   final bool isProcessing;
@@ -41,6 +44,7 @@ class IapState {
   const IapState({
     required this.storeAvailable,
     required this.productDetailsById,
+    this.commitmentTermsByProductId = const {},
     required this.lastError,
     this.lastErrorCode,
     this.isProcessing = false,
@@ -51,6 +55,7 @@ class IapState {
   IapState copyWith({
     bool? storeAvailable,
     Map<String, ProductDetails>? productDetailsById,
+    Map<String, AppStoreCommitmentTerms>? commitmentTermsByProductId,
     String? lastError,
     String? lastErrorCode,
     bool? isProcessing,
@@ -62,6 +67,8 @@ class IapState {
     return IapState(
       storeAvailable: storeAvailable ?? this.storeAvailable,
       productDetailsById: productDetailsById ?? this.productDetailsById,
+      commitmentTermsByProductId:
+          commitmentTermsByProductId ?? this.commitmentTermsByProductId,
       lastError: lastError,
       lastErrorCode: lastErrorCode,
       isProcessing: isProcessing ?? this.isProcessing,
@@ -236,8 +243,27 @@ class IapController extends AsyncNotifier<IapState> {
       for (final d in response.productDetails) d.id: d,
     };
 
+    final commitmentTerms = <String, AppStoreCommitmentTerms>{};
+    for (final product in products.where(
+      (product) => product.billingInterval == 'yearly',
+    )) {
+      try {
+        final terms =
+            await AppStoreCommitmentBilling.getTerms(product.storeProductId);
+        if (terms != null) {
+          commitmentTerms[product.storeProductId] = terms;
+        }
+      } on PlatformException catch (error) {
+        print('App Store commitment terms unavailable: ${error.code}');
+      }
+    }
+
     return IapState(
-        storeAvailable: true, productDetailsById: map, lastError: null);
+      storeAvailable: true,
+      productDetailsById: map,
+      commitmentTermsByProductId: commitmentTerms,
+      lastError: null,
+    );
   }
 
   void _ensurePurchaseListener() {
@@ -287,7 +313,10 @@ class IapController extends AsyncNotifier<IapState> {
     }
   }
 
-  Future<void> buy(SubscriptionProduct product) async {
+  Future<void> buy(
+    SubscriptionProduct product, {
+    bool useMonthlyCommitment = false,
+  }) async {
     print('🚀 buy() called for product: ${product.storeProductId}');
     final startedAt = DateTime.now();
 
@@ -354,6 +383,65 @@ class IapController extends AsyncNotifier<IapState> {
       _didReceivePurchaseUpdateForCurrentAttempt = false;
       print(
           '✅ Processing state set to true, initiatedProductId=${product.storeProductId}');
+
+      if (useMonthlyCommitment) {
+        final commitmentPurchase = await AppStoreCommitmentBilling.purchase(
+          productId: product.storeProductId,
+          appAccountToken: user.uid,
+        );
+        if (commitmentPurchase.status == 'cancelled') {
+          _setState(
+            isProcessing: false,
+            lastError: 'Purchase cancelled.',
+            clearInitiatedProductId: true,
+          );
+          return;
+        }
+        if (commitmentPurchase.status == 'pending') {
+          _setState(isProcessing: false, lastError: null);
+          return;
+        }
+        final signedTransaction = commitmentPurchase.signedTransaction;
+        final transactionId = commitmentPurchase.transactionId;
+        if (commitmentPurchase.status != 'success' ||
+            signedTransaction == null ||
+            signedTransaction.isEmpty ||
+            transactionId == null ||
+            transactionId.isEmpty) {
+          throw Exception('Failed to verify App Store commitment purchase');
+        }
+
+        final response = await supabase.functions.invoke(
+          'verify-iap-purchase',
+          body: {
+            'platform': 'ios',
+            'storeProductId': product.storeProductId,
+            'appAccountToken': user.uid,
+            'expectedBillingPlanType': 'MONTHLY',
+            'expectedCommitmentMonths': 12,
+            'verificationData': {
+              'source': 'app_store',
+              'localVerificationData': signedTransaction,
+              'serverVerificationData': signedTransaction,
+            },
+            'purchaseId': transactionId,
+          },
+        );
+        if (response.status >= 400) {
+          final error = _extractFunctionError(response.data);
+          throw Exception(error.message);
+        }
+
+        await AppStoreCommitmentBilling.finish(transactionId);
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
+        _setState(
+          isProcessing: false,
+          lastError: null,
+          lastCompletedProductId: product.storeProductId,
+          clearInitiatedProductId: true,
+        );
+        return;
+      }
 
       PurchaseParam purchaseParam;
 

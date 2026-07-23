@@ -62,7 +62,10 @@ class _FakeIapController extends IapController {
   Future<IapState> build() async => initialState;
 
   @override
-  Future<void> buy(SubscriptionProduct product) async {
+  Future<void> buy(
+    SubscriptionProduct product, {
+    bool useMonthlyCommitment = false,
+  }) async {
     buyCallCount += 1;
     state = AsyncValue.data(
       IapState(

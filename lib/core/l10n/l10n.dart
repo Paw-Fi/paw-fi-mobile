@@ -24,6 +24,46 @@ extension SettlementBreakdownL10nX on AppLocalizations {
       'Balance from before detailed settlement history was available.';
 }
 
+extension PaywallCommitmentL10nX on AppLocalizations {
+  String paywallCommitmentName(int months) => '$months-month commitment';
+  String paywallCommitmentTerms(int months) =>
+      'Pay monthly over a $months-month commitment. Cancel anytime to prevent the next commitment from starting.';
+  String get paywallCommitmentAnnualPlan => 'Annual Plan';
+  String get paywallCommitmentHowItWorks => 'How it works';
+  String paywallCommitmentBilledMonthly(int months) =>
+      'Billed monthly for $months months';
+  String paywallCommitmentBilledMonthlyWithTotal(String total, int months) =>
+      'Billed monthly for $months months · $total over $months months';
+  String paywallCommitmentPaidUpfront(int months) =>
+      'Paid upfront for $months months';
+  String paywallCommitmentPaidUpfrontWithTotal(String total, int months) =>
+      'Paid upfront: $total for $months months';
+  String get paywallCommitmentSavings =>
+      'Enjoy annual savings without paying the full amount upfront.';
+  String get paywallCommitmentHowItWorksSemantics =>
+      'Learn how Annual Plan monthly payments work';
+  String get paywallCommitmentDetailsTitle => 'Annual Plan, paid monthly';
+  String paywallCommitmentDetailsIntro(
+    String monthly,
+    String total,
+    int months,
+  ) =>
+      "Instead of paying $total upfront, you'll be charged $monthly each month over a $months-month commitment.";
+  String get paywallCommitmentBillingTitle => 'How billing works';
+  String paywallCommitmentBillingBody(
+    String monthly,
+    String total,
+    int months,
+  ) =>
+      "You'll be charged $monthly each month for $months months ($total over the full commitment). You'll enjoy all Plus features throughout your subscription.";
+  String get paywallCommitmentCancellationTitle => 'If you cancel';
+  String paywallCommitmentCancellationBody(int months) =>
+      "Cancelling prevents your subscription from renewing for another $months-month commitment. It doesn't end your current commitment—your remaining monthly payments will continue until all $months payments have been completed.";
+  String paywallCommitmentRenewalTitle(int months) => 'After $months months';
+  String paywallCommitmentRenewalBody(int months) =>
+      'Your subscription renews for another $months-month commitment unless you cancel before the renewal date.';
+}
+
 extension PocketRolloverL10nX on AppLocalizations {
   String get pocketRolloverActivityTitle => 'Rollover activity';
   String get pocketRolloverAvailableBudgetLabel => 'Available';
