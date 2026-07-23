@@ -97,6 +97,46 @@ void main() {
     expect(resolved?.id, 'a2');
   });
 
+  test('defaultScopedAccountProvider does not substitute a non-default wallet',
+      () async {
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Travel',
+        icon: 'plane',
+        color: '#3B82F6',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: false,
+        isSystem: false,
+        isArchived: false,
+        currentBalanceCents: 0,
+      ),
+    ];
+
+    final container = ProviderContainer(
+      overrides: [
+        walletScopeHouseholdIdProvider.overrideWith((ref) => null),
+        walletsScopeQueryProvider.overrideWith(
+          (ref) => WalletsScopeQuery(
+            userId: 'u1',
+            householdId: null,
+            selectedCurrency: 'USD',
+            currentMonthStart: DateTime(2026, 7),
+          ),
+        ),
+        scopedWalletsProvider
+            .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(scopedWalletsProvider.future);
+    expect(container.read(defaultScopedAccountProvider), isNull);
+  });
+
   test('scopedWalletsProvider stays empty while auth is not ready', () async {
     final container = ProviderContainer(
       overrides: [

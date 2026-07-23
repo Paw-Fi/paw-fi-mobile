@@ -424,7 +424,7 @@ class PreviewStep extends ConsumerWidget {
       }
     }
 
-    final selectedLabel = selectedAccount?.name ?? 'Spending';
+    final selectedLabel = selectedAccount?.name ?? context.l10n.tapToSet;
     final pillLabel = truncateMenuLabel(selectedLabel, maxLength: 18);
 
     final items = <AdaptivePopupMenuItem>[
@@ -466,7 +466,7 @@ class PreviewStep extends ConsumerWidget {
         ),
         alignment: Alignment.center,
         child: Text(
-          'Spending',
+          context.l10n.tapToSet,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -745,16 +745,11 @@ class PreviewStep extends ConsumerWidget {
 
 String? _resolvePreferredDefaultAccountId(List<WalletEntity> accounts) {
   for (final account in accounts) {
-    if (account.name.trim().toLowerCase() == 'spending') {
-      return account.id;
-    }
-  }
-  for (final account in accounts) {
     if (account.isDefault) {
       return account.id;
     }
   }
-  return accounts.isNotEmpty ? accounts.first.id : null;
+  return null;
 }
 
 /// Banner shown when the map-columns step was auto-skipped due to high

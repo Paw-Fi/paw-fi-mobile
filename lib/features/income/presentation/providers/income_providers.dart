@@ -202,7 +202,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         'privacyScope': privacyScope,
         if (householdId != null) 'householdId': householdId,
         if (householdId != null) 'isPortfolio': isPortfolio,
-        if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
+        'accountId': accountId?.trim().isEmpty == true ? null : accountId,
         if (fxRate != null) 'fxRate': fxRate,
         if (clientRecordId != null && clientRecordId.isNotEmpty)
           'clientRecordId': clientRecordId,

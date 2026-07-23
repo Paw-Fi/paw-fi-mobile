@@ -410,7 +410,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         for (final account in scopedAccounts) {
           if (account.isDefault) return account.id;
         }
-        return scopedAccounts.first.id;
+        return null;
       }();
 
       String? desiredId;
@@ -899,7 +899,7 @@ class AddRecurringSheet extends HookConsumerWidget {
               for (final account in scopedAccounts) {
                 if (account.isDefault) return account.id;
               }
-              return scopedAccounts.isNotEmpty ? scopedAccounts.first.id : null;
+              return null;
             })();
         // Only household-group accounts support shared splits.
         final shareWithHousehold =
@@ -1755,11 +1755,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   }
                                 }
                               }
-                              final fallback = scopedAccounts.firstWhere(
-                                (account) => account.isDefault,
-                                orElse: () => scopedAccounts.first,
-                              );
-                              return fallback.name;
+                              for (final account in scopedAccounts) {
+                                if (account.isDefault) return account.name;
+                              }
+                              return context.l10n.tapToSet;
                             }(),
                             isValuePlaceholder: scopedAccounts.isEmpty,
                             onTap: () async {

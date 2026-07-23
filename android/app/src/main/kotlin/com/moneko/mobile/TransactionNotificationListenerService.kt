@@ -298,7 +298,11 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 put("householdId", scopeId)
                 put("isPortfolio", isPortfolio)
             }
-            config.accountId.takeIf { it.isNotBlank() }?.let { put("accountId", it) }
+            if (config.accountId.isBlank()) {
+                put("accountId", JSONObject.NULL)
+            } else {
+                put("accountId", config.accountId)
+            }
             config.accountCurrency.takeIf { it.isNotBlank() }?.let {
                 put("accountCurrency", it)
             }

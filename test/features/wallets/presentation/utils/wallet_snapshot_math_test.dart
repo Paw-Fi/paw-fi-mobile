@@ -209,7 +209,7 @@ void main() {
     expect(filtered.map((e) => e.id).toList(), ['ok']);
   });
 
-  test('buildWalletSnapshot uses legacy fallback for null wallet id', () {
+  test('buildWalletSnapshot keeps null wallet transactions unassigned', () {
     final wallets = [
       wallet(id: 'sys', opening: 10000, isSystem: true),
       wallet(id: 'd1', opening: 20000, isDefault: true),
@@ -222,9 +222,10 @@ void main() {
       endExclusive: DateTime(2026, 5, 1),
     );
 
-    expect(snapshot.walletBalances['sys'], 7000);
+    expect(snapshot.totalSpentCents, 3000);
+    expect(snapshot.walletBalances['sys'], 10000);
     expect(snapshot.walletBalances['d1'], 20000);
-    expect(snapshot.netWorthCents, 27000);
+    expect(snapshot.netWorthCents, 30000);
   });
 
   test('retargetWalletBalance preserves transaction delta when opening changes',

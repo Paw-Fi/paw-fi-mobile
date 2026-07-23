@@ -207,7 +207,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
         if (wallet.id == defaultId) return wallet.name;
       }
     }
-    return wallets.first.name;
+    return context.l10n.tapToSet;
   }
 
   Future<void> _applyWalletSelection(WalletEntity selected) async {

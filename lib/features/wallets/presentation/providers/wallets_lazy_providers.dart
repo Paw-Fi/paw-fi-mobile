@@ -1596,10 +1596,10 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
     );
     final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
     final localDeltaCents = isIncome ? amountCents : -amountCents;
-    netWorthCents += localDeltaCents;
 
     final walletId = _resolvePendingWalletBalanceId(tx, walletBalances);
     if (walletId != null) {
+      netWorthCents += localDeltaCents;
       walletBalances[walletId] =
           (walletBalances[walletId] ?? 0) + localDeltaCents;
     }
@@ -1631,6 +1631,13 @@ int _walletTransactionNetDeltaCents(
   required String targetCurrency,
   required CurrencyRateTable rates,
 }) {
+  final walletId = resolveTransactionWalletId(
+    transaction: transaction,
+    wallets: wallets,
+  );
+  if (walletId == null || !walletsById.containsKey(walletId)) {
+    return 0;
+  }
   final amountCents = _convertWalletAmountCents(
     amountCents: transaction.amountCents.abs(),
     fromCurrency: _walletTransactionSourceCurrency(
@@ -1670,9 +1677,6 @@ String? _resolvePendingWalletBalanceId(
       accountId.isNotEmpty &&
       walletBalances.containsKey(accountId)) {
     return accountId;
-  }
-  if (walletBalances.length == 1) {
-    return walletBalances.keys.single;
   }
   return null;
 }

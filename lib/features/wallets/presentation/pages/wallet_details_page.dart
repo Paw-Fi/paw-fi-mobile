@@ -818,7 +818,8 @@ class WalletDetailsPage extends HookConsumerWidget {
         icon: PlatformInfo.isIOS26OrHigher() ? 'pencil' : Icons.edit,
         value: 'edit',
       ),
-      if (!latestWallet.isSystem && !latestWallet.isArchived)
+      if (!latestWallet.isArchived &&
+          (latestWallet.isSystem || !latestWallet.isDefault))
         AdaptivePopupMenuItem<String>(
           label: context.l10n.archive,
           icon: PlatformInfo.isIOS26OrHigher()

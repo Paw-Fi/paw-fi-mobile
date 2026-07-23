@@ -300,6 +300,7 @@ class NotificationCaptureService {
     String? accountId,
     String? accountName,
     String? accountCurrency,
+    bool clearAccount = false,
   }) async {
     if (!Platform.isAndroid) return;
     final args = <String, dynamic>{};
@@ -307,9 +308,15 @@ class NotificationCaptureService {
     if (scopeId != null) args['scopeId'] = scopeId;
     if (scopeName != null) args['scopeName'] = scopeName;
     if (isPortfolio != null) args['isPortfolio'] = isPortfolio;
-    if (accountId != null) args['accountId'] = accountId;
-    if (accountName != null) args['accountName'] = accountName;
-    if (accountCurrency != null) args['accountCurrency'] = accountCurrency;
+    if (clearAccount) {
+      args['accountId'] = null;
+      args['accountName'] = null;
+      args['accountCurrency'] = null;
+    } else {
+      if (accountId != null) args['accountId'] = accountId;
+      if (accountName != null) args['accountName'] = accountName;
+      if (accountCurrency != null) args['accountCurrency'] = accountCurrency;
+    }
     await _channel.invokeMethod<void>('setConfig', args);
   }
 

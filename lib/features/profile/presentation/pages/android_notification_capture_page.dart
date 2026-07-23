@@ -57,7 +57,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       for (final wallet in wallets) {
         if (wallet.isDefault) return wallet;
       }
-      return wallets.isNotEmpty ? wallets.first : null;
+      return null;
     }
 
     WalletEntity? resolveEffectiveWallet(List<WalletEntity> wallets) {
@@ -346,6 +346,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           accountId: walletToPersist?.id,
           accountName: walletToPersist?.name,
           accountCurrency: walletToPersist?.currency.trim().toUpperCase(),
+          clearAccount: enabled && walletToPersist == null,
         );
         debugPrint('[NotificationCapture] Android native write succeeded');
 

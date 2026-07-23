@@ -1539,7 +1539,7 @@ class _UnifiedTransactionSheetV2State
     for (final account in accounts) {
       if (account.isDefault) return account.id;
     }
-    return accounts.isNotEmpty ? accounts.first.id : null;
+    return null;
   }
 
   String _selectedFinancialAccountLabel(
@@ -1562,7 +1562,7 @@ class _UnifiedTransactionSheetV2State
       }
     }
 
-    return accounts.first.name;
+    return context.l10n.tapToSet;
   }
 
   Future<void> _handleEditFinancialAccount(List<WalletEntity> accounts) async {
@@ -3297,7 +3297,7 @@ class _UnifiedTransactionSheetV2State
         'merchant': expense.merchant,
         if (expense.breakdown != null) 'breakdown': expense.breakdown,
         if (householdId != null) 'householdId': householdId,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
         if (canUseHouseholdSplits && payerUserId != null)
           'payerUserId': payerUserId,
         if (canUseHouseholdSplits &&

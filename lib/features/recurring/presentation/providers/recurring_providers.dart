@@ -1147,7 +1147,7 @@ class RecurringTransactionSaveNotifier
         'privacyScope': privacyScope,
         'isRecurring': true,
         'recurrence_rule': recurrenceRule,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -1421,7 +1421,7 @@ class RecurringTransactionSaveNotifier
               ref.read(householdScopeProvider).isPortfolioId(householdId),
         'isRecurring': true,
         'recurrence_rule': recurrenceRule,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
       };
       localDatabase = await _queueRecurringCreate(
         optimisticTransaction: optimisticTransaction,
@@ -1562,7 +1562,7 @@ class RecurringTransactionSaveNotifier
         'ownerType': recurringSeries.ownerType,
         'privacyScope': recurringSeries.privacyScope,
         'isRecurring': false,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -1694,7 +1694,7 @@ class RecurringTransactionSaveNotifier
             'isPortfolio':
                 ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': false,
-          if (accountId != null) 'accountId': accountId,
+          'accountId': accountId,
         },
       );
 
