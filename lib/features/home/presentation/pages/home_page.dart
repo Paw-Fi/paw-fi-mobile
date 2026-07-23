@@ -27,8 +27,6 @@ import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
-import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
-import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
@@ -647,24 +645,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             },
             child: scrollView,
           ),
-          const HomeAiBackdropOverlay(),
         ],
       ),
-      floatingActionButton: shouldShowFab
-          ? SpotlightTarget(
-              controller: _fabTourController,
-              id: 'home_unified_fab',
-              title: context.l10n.homeFabTourTitle,
-              description: context.l10n.homeFabTourDescription,
-              placement: SpotlightPlacement.top,
-              padding: 6,
-              borderRadius: 34,
-              child: const Padding(
-                padding: EdgeInsets.all(0),
-                child: HomeAiExpandableFab(),
-              ),
-            )
-          : null,
     ));
   }
 

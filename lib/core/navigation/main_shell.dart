@@ -17,6 +17,12 @@ import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
+import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
+import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:moneko/features/home/presentation/services/widget_sync_manager.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -43,7 +49,6 @@ import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
@@ -736,8 +741,16 @@ class MainShell extends HookConsumerWidget {
       );
     }, growable: false);
 
+    final viewMode = ref.watch(viewModeProvider);
+    final householdsAsync =
+        ref.watch(userHouseholdsProvider(auth.uid));
+    final showAiFab = shouldShowHomeFab(viewMode, householdsAsync);
+    final fabTourController = ref.read(homeSpotlightControllerProvider);
+
     return StatusBarOverlayRegion(
-      child: AdaptiveScaffold(
+      child: Stack(
+        children: [
+          AdaptiveScaffold(
         body: SafeArea(
           child: Material(
             color: colorScheme.appBackground,
@@ -849,6 +862,38 @@ class MainShell extends HookConsumerWidget {
             ref.read(mainShellTabIndexProvider.notifier).state = index;
           },
         ),
+        ),
+          const HomeAiBackdropOverlay(),
+          if (showAiFab && currentIndex != 4)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom +
+                  kBottomNavigationBarHeight +
+                  50,
+              right: 16,
+              child: currentIndex == 0
+                  ? SpotlightTarget(
+                      controller: fabTourController,
+                      id: 'home_unified_fab',
+                      title: context.l10n.homeFabTourTitle,
+                      description: context.l10n.homeFabTourDescription,
+                      placement: SpotlightPlacement.top,
+                      padding: 6,
+                      borderRadius: 34,
+                      child: const Padding(
+                        padding: EdgeInsets.all(0),
+                        child: HomeAiExpandableFab(),
+                      ),
+                    )
+                  : currentIndex == 1
+                      ? _RecurringFab(
+                          colorScheme: colorScheme,
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.all(0),
+                          child: HomeAiExpandableFab(),
+                        ),
+            ),
+        ],
       ),
     );
   }
@@ -1169,6 +1214,28 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _RecurringFab extends ConsumerWidget {
+  const _RecurringFab({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedTab = ref.watch(selectedRecurringTabProvider);
+    final isExpense = selectedTab == 0;
+
+    return AdaptiveFloatingActionButton(
+      onPressed: () => showAddRecurringSheet(
+        context,
+        type: isExpense ? 'expense' : 'income',
+      ),
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.primaryForeground,
+      child: const Icon(Icons.add),
     );
   }
 }

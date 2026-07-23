@@ -548,18 +548,6 @@ class _RecurringTransactionsPageState
     return normalized;
   }
 
-  Widget _buildFAB(ColorScheme colorScheme) {
-    final selectedTab = ref.watch(selectedRecurringTabProvider);
-    final isExpense = selectedTab == 0;
-
-    return AdaptiveFloatingActionButton(
-      onPressed: () => _showAddSheet(isExpense ? 'expense' : 'income'),
-      backgroundColor: colorScheme.primary,
-      foregroundColor: colorScheme.primaryForeground,
-      child: const Icon(Icons.add),
-    );
-  }
-
   List<RecurringTransaction> _buildFakeRecurringTransactions({
     required bool isIncome,
     required String currency,
