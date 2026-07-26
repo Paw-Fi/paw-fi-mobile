@@ -573,18 +573,12 @@ final defaultScopedAccountProvider = Provider<WalletEntity?>((ref) {
         return wallet;
       }
     }
-
-    for (final wallet in wallets) {
-      if (wallet.currency.trim().toUpperCase() == baseCurrency) {
-        return wallet;
-      }
-    }
   }
 
   for (final wallet in wallets) {
     if (wallet.isDefault) return wallet;
   }
-  return wallets.isNotEmpty ? wallets.first : null;
+  return null;
 });
 
 final walletByIdProvider = Provider.family<WalletEntity?, String>((ref, id) {
@@ -851,7 +845,9 @@ class WalletActions {
     final authHeaders = _requireAuthHeaders();
     final existingWallet = ref.read(walletByIdProvider(accountId));
     if (existingWallet != null) {
-      setOptimisticWallet(existingWallet.copyWith(isArchived: true));
+      setOptimisticWallet(
+        existingWallet.copyWith(isArchived: true, isDefault: false),
+      );
     }
     try {
       final requestBody = {'accountId': accountId};
@@ -886,7 +882,9 @@ class WalletActions {
         .valueOrNull
         ?.firstWhereOrNull((wallet) => wallet.id == accountId);
     if (existingWallet != null) {
-      setOptimisticWallet(existingWallet.copyWith(isArchived: false));
+      setOptimisticWallet(
+        existingWallet.copyWith(isArchived: false, isDefault: false),
+      );
     }
     try {
       final requestBody = {'accountId': accountId};

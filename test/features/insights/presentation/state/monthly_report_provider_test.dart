@@ -269,4 +269,38 @@ void main() {
       'rent',
     );
   });
+
+  test('report transactions keep actual recurring occurrence provenance', () {
+    final actual = _entry('actual-rent', DateTime(2026, 5, 12)).copyWith(
+      parentRecurringId: 'rent-template',
+    );
+
+    final input = monthlyReportTransactionInputForTesting(actual);
+
+    expect(input.recurringId, 'rent-template');
+  });
+
+  test('mutation refresh signals bypass cached report snapshots', () {
+    expect(
+      shouldReadMonthlyReportCache(
+        dashboardRefreshSignal: 0,
+        transactionsRefreshSignal: 0,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldReadMonthlyReportCache(
+        dashboardRefreshSignal: 1,
+        transactionsRefreshSignal: 0,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldReadMonthlyReportCache(
+        dashboardRefreshSignal: 0,
+        transactionsRefreshSignal: 1,
+      ),
+      isFalse,
+    );
+  });
 }

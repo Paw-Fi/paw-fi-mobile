@@ -1098,7 +1098,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'category': row.category ?? 'uncategorized',
         'currency': currency,
         'date': dateOnly,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
         if (description != null && description.isNotEmpty)
           'description': description,

@@ -31,6 +31,8 @@ String? extractRecurringTransactionIdFromProjectedExpenseId(String expenseId) {
 bool shouldShowRecurringChipForExpense(ExpenseEntry expense) =>
     expense.isRecurring ||
     expense.providerRecurring ||
+    expense.parentRecurringId != null ||
+    expense.scheduledOccurrenceDate != null ||
     extractRecurringTransactionIdFromProjectedExpenseId(expense.id) != null;
 
 int _clampDayOfMonth(
@@ -276,6 +278,8 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
           analyticsIsFinal: r.analyticsIsFinal,
           analyticsSpendingMultiplier: r.analyticsSpendingMultiplier,
           analyticsCountsTowardIncome: r.analyticsCountsTowardIncome,
+          parentRecurringId: r.id,
+          scheduledOccurrenceDate: day,
           isRecurring: false,
         ),
       );
@@ -333,24 +337,41 @@ List<ExpenseEntry> dedupeProjectedRecurringExpenseEntries({
     return projectedExpenses;
   }
 
-  final actualKeys = actualExpenses.map(_projectedExpenseComparisonKey).toSet();
+  final legacyActualKeys = actualExpenses
+      .where((expense) => expense.parentRecurringId?.trim().isNotEmpty != true)
+      .map(_projectedExpenseComparisonKey)
+      .toSet();
   final linkedActualOccurrences = actualExpenses
       .where((expense) => expense.parentRecurringId?.trim().isNotEmpty == true)
-      .map((expense) =>
-          '${expense.parentRecurringId!.trim()}|${_dateKey(_dateOnly(expense.date))}')
+      .map(_linkedActualOccurrenceKey)
       .toSet();
 
   return projectedExpenses.where((expense) {
-    final recurringId =
-        extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
-    if (recurringId != null &&
-        linkedActualOccurrences
-            .contains('$recurringId|${_dateKey(_dateOnly(expense.date))}')) {
+    final occurrenceKey = _projectedOccurrenceKey(expense);
+    if (occurrenceKey != null &&
+        linkedActualOccurrences.contains(occurrenceKey)) {
       return false;
     }
-    return !actualKeys.contains(_projectedExpenseComparisonKey(expense));
+    return !legacyActualKeys.contains(_projectedExpenseComparisonKey(expense));
   }).toList(growable: false);
 }
+
+List<ExpenseEntry> buildConfirmedOccurrenceSuppressionEntries({
+  required String recurringId,
+  required Iterable<DateTime> confirmedScheduledDates,
+}) =>
+    confirmedScheduledDates
+        .map(
+          (scheduledDate) => ExpenseEntry(
+            id: 'occurrence-suppression:$recurringId:${_dateKey(scheduledDate)}',
+            date: scheduledDate,
+            createdAt: scheduledDate,
+            amountCents: 0,
+            parentRecurringId: recurringId,
+            scheduledOccurrenceDate: scheduledDate,
+          ),
+        )
+        .toList(growable: false);
 
 List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   required List<ExpenseEntry> actualExpenses,
@@ -371,17 +392,17 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
       _normalizeCurrencySet(
         selectedCurrency == null ? null : <String>[selectedCurrency],
       );
-  final filteredActualExpenses = actualExpenses.where((expense) {
-    final expenseDay = _dateOnly(expense.date);
-    if (expenseDay.isBefore(normalizedStart) ||
-        expenseDay.isAfter(projectionEnd)) {
-      return false;
-    }
+  final scopedActualExpenses = actualExpenses.where((expense) {
     if (currencyFilters == null || currencyFilters.isEmpty) {
       return true;
     }
     final expenseCurrency = expense.currency?.trim().toUpperCase() ?? '';
     return expenseCurrency.isEmpty || currencyFilters.contains(expenseCurrency);
+  }).toList(growable: false);
+  final filteredActualExpenses = scopedActualExpenses.where((expense) {
+    final expenseDay = _dateOnly(expense.date);
+    return !expenseDay.isBefore(normalizedStart) &&
+        !expenseDay.isAfter(projectionEnd);
   }).toList(growable: false);
 
   if (recurringTransactions.isEmpty) {
@@ -401,7 +422,7 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   );
   final dedupedProjectedExpenses = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
-    actualExpenses: filteredActualExpenses,
+    actualExpenses: scopedActualExpenses,
   );
 
   if (dedupedProjectedExpenses.isEmpty) {
@@ -432,4 +453,18 @@ String _projectedExpenseComparisonKey(ExpenseEntry expense) {
   final splitGroupId = expense.splitGroupId?.trim() ?? '';
   final description = expense.rawText?.trim().toLowerCase() ?? '';
   return '${_dateKey(_dateOnly(expense.date))}|$currency|$category|${expense.amountCents}|$householdId|$userId|$walletId|$splitGroupId|$description';
+}
+
+String _linkedActualOccurrenceKey(ExpenseEntry expense) {
+  final occurrenceDate = expense.scheduledOccurrenceDate ?? expense.date;
+  return '${expense.parentRecurringId!.trim()}|${_dateKey(_dateOnly(occurrenceDate))}';
+}
+
+String? _projectedOccurrenceKey(ExpenseEntry expense) {
+  final recurringId = expense.parentRecurringId?.trim().isNotEmpty == true
+      ? expense.parentRecurringId!.trim()
+      : extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
+  if (recurringId == null) return null;
+  final occurrenceDate = expense.scheduledOccurrenceDate ?? expense.date;
+  return '$recurringId|${_dateKey(_dateOnly(occurrenceDate))}';
 }

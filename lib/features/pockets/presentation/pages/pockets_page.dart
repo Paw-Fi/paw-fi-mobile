@@ -11,7 +11,6 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/pages/household_onboarding_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -474,12 +473,6 @@ class PocketsPage extends HookConsumerWidget {
               valueColor: AlwaysStoppedAnimation(colorScheme.primary),
             ),
           ),
-          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? const Padding(
-                  padding: EdgeInsets.all(0),
-                  child: HomeAiExpandableFab(),
-                )
-              : null,
         ));
       }
 
@@ -516,26 +509,14 @@ class PocketsPage extends HookConsumerWidget {
               ),
             ),
           ),
-          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? const Padding(
-                  padding: EdgeInsets.all(0),
-                  child: HomeAiExpandableFab(),
-                )
-              : null,
         ));
       }
 
       if (households.isEmpty) {
         pageTrace.mark('page-blocked', const {'reason': 'no-households'});
-        return StatusBarOverlayRegion(
+        return const StatusBarOverlayRegion(
             child: AdaptiveScaffold(
-          body: const HouseholdOnboardingPage(),
-          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? const Padding(
-                  padding: EdgeInsets.all(0),
-                  child: HomeAiExpandableFab(),
-                )
-              : null,
+          body: HouseholdOnboardingPage(),
         ));
       }
 
@@ -558,12 +539,6 @@ class PocketsPage extends HookConsumerWidget {
               ),
             ),
           ),
-          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? const Padding(
-                  padding: EdgeInsets.all(0),
-                  child: HomeAiExpandableFab(),
-                )
-              : null,
         ));
       }
     }
@@ -616,8 +591,6 @@ class PocketsPage extends HookConsumerWidget {
     final currentPocketsNotifier =
         ref.read(pocketsProvider(currentScopeParams).notifier);
     final hasChanges = currentPocketsState.hasChanges;
-    final isPocketsInitialLoading =
-        currentPocketsState.isLoading && !currentPocketsState.hasDisplayData;
     final didLogUsefulPaintRef = useRef<bool>(false);
 
     useEffect(() {
@@ -978,16 +951,8 @@ class PocketsPage extends HookConsumerWidget {
               ),
             ),
           ),
-          const HomeAiBackdropOverlay(),
         ],
       ),
-      floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync) &&
-              !isPocketsInitialLoading
-          ? const Padding(
-              padding: EdgeInsets.all(0),
-              child: HomeAiExpandableFab(),
-            )
-          : null,
     ));
   }
 }

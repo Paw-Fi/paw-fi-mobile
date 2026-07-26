@@ -27,6 +27,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
@@ -1053,9 +1054,40 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     );
   }).toList(growable: false);
 
+  final confirmedOccurrenceSuppressionEntries = <ExpenseEntry>[];
+  for (final transaction in recurringTransactions) {
+    try {
+      final response = await supabase.functions.invoke(
+        'list-recurring-occurrences',
+        body: {'userId': userId, 'recurringId': transaction.id, 'limit': 100},
+      );
+      final payload = response.data;
+      if (payload is! Map || payload['success'] != true) continue;
+      final confirmedDates = (payload['data'] as List? ?? const <dynamic>[])
+          .whereType<Map>()
+          .map((item) => RecurringOccurrenceTimelineItem.fromPersistedJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .where((item) =>
+              item.isConfirmed &&
+              !item.scheduledOccurrenceDate.isBefore(monthStart) &&
+              !item.scheduledOccurrenceDate.isAfter(periodEnd))
+          .map((item) => item.scheduledOccurrenceDate);
+      confirmedOccurrenceSuppressionEntries.addAll(
+        buildConfirmedOccurrenceSuppressionEntries(
+          recurringId: transaction.id,
+          confirmedScheduledDates: confirmedDates,
+        ),
+      );
+    } catch (_) {}
+  }
+
   return dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
-    actualExpenses: actualExpenses,
+    actualExpenses: [
+      ...actualExpenses,
+      ...confirmedOccurrenceSuppressionEntries,
+    ],
   );
 }
 

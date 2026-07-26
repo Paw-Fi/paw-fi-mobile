@@ -38,9 +38,7 @@ ExpenseEntry _transaction({String? accountId}) {
 
 void main() {
   group('resolveTransactionWalletId', () {
-    test(
-        'pins legacy null-account transactions to Spending instead of the current default wallet',
-        () {
+    test('keeps unassigned transactions separate from every wallet', () {
       final wallets = [
         _wallet(
           id: 'spending-wallet',
@@ -61,33 +59,7 @@ void main() {
         wallets: wallets,
       );
 
-      expect(resolvedWalletId, 'spending-wallet');
-    });
-
-    test(
-        'prefers the Spending system wallet when multiple system wallets exist',
-        () {
-      final wallets = [
-        _wallet(
-          id: 'reserve-wallet',
-          name: 'Reserve',
-          isDefault: false,
-          isSystem: true,
-        ),
-        _wallet(
-          id: 'spending-wallet',
-          name: 'Spending',
-          isDefault: false,
-          isSystem: true,
-        ),
-      ];
-
-      final resolvedWalletId = resolveTransactionWalletId(
-        transaction: _transaction(),
-        wallets: wallets,
-      );
-
-      expect(resolvedWalletId, 'spending-wallet');
+      expect(resolvedWalletId, isNull);
     });
 
     test('keeps an explicitly assigned wallet id unchanged', () {
@@ -106,26 +78,6 @@ void main() {
       );
 
       expect(resolvedWalletId, 'wallet-c');
-    });
-
-    test(
-        'falls back to the current default when no active system wallet exists',
-        () {
-      final wallets = [
-        _wallet(
-          id: 'wallet-b',
-          name: 'Wallet B',
-          isDefault: true,
-          isSystem: false,
-        ),
-      ];
-
-      final resolvedWalletId = resolveTransactionWalletId(
-        transaction: _transaction(),
-        wallets: wallets,
-      );
-
-      expect(resolvedWalletId, 'wallet-b');
     });
   });
 }

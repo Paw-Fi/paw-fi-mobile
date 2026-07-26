@@ -1417,7 +1417,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
       // Include ALL expenses with this household_id, regardless of split_group_id.
       // Expenses logged via WhatsApp AI bot may not have a split group yet.
       const expenseSelectFields =
-          'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring, account_id';
+          'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, scheduled_occurrence_date, recurring_confirmed_at, recurring_confirmation_source, type, is_recurring, account_id';
 
       dynamic buildExpensesQuery() {
         var query = supabase

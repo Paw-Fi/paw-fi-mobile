@@ -8,42 +8,7 @@ String? resolveDefaultWalletId(List<WalletEntity> wallets) {
     }
   }
 
-  for (final wallet in wallets) {
-    if (wallet.isSystem && !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-
-  for (final wallet in wallets) {
-    if (!wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-
   return null;
-}
-
-String? resolveLegacyWalletId(
-  List<WalletEntity> wallets, {
-  String? currency,
-}) {
-  final matchingWallets = _filterWalletsByCurrency(wallets, currency);
-
-  for (final wallet in matchingWallets) {
-    if (wallet.isSystem &&
-        !wallet.isArchived &&
-        wallet.name.trim().toLowerCase() == 'spending') {
-      return wallet.id;
-    }
-  }
-
-  for (final wallet in matchingWallets) {
-    if (wallet.isSystem && !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-
-  return resolveDefaultWalletId(matchingWallets);
 }
 
 String? resolveTransactionWalletId({
@@ -62,20 +27,7 @@ String? resolveTransactionWalletId({
     return raw;
   }
 
-  return resolveLegacyWalletId(wallets, currency: transaction.currency);
-}
-
-List<WalletEntity> _filterWalletsByCurrency(
-  List<WalletEntity> wallets,
-  String? currency,
-) {
-  final normalized = currency?.trim().toUpperCase();
-  if (normalized == null || normalized.isEmpty) {
-    return wallets;
-  }
-  return wallets
-      .where((wallet) => _walletMatchesCurrency(wallet, normalized))
-      .toList(growable: false);
+  return null;
 }
 
 bool _walletMatchesCurrency(WalletEntity wallet, String? currency) {

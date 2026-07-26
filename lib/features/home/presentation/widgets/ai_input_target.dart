@@ -1,5 +1,4 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/ai_input_wallet_filter.dart';
@@ -128,7 +127,7 @@ String? resolveAiInputTargetDefaultWalletId(Iterable<WalletEntity> wallets) {
   for (final wallet in wallets) {
     if (wallet.isDefault) return wallet.id;
   }
-  return wallets.isNotEmpty ? wallets.first.id : null;
+  return null;
 }
 
 String? resolveAiInputTargetWalletId(

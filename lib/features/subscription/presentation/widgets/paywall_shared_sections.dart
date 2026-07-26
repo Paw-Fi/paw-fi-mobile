@@ -12,7 +12,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 bool paywallPlanHasTrial(PlanOption option) => option.serverPlanId == 'premium';
 
 String paywallPeriodLabel(BuildContext context, PlanOption option) {
-  return option.billingInterval == 'monthly'
+  return option.billingInterval == 'monthly' || option.isCommitment
       ? context.l10n.paywallPeriodMonth
       : context.l10n.paywallPeriodYear;
 }
@@ -25,6 +25,12 @@ String paywallAutoRenewTerms(
   final period = paywallPeriodLabel(context, option);
   if (trialMode && paywallPlanHasTrial(option)) {
     return context.l10n.paywallTrialTerms(period, option.priceDisplay);
+  }
+  if (option.isCommitment) {
+    return 'I agree to 12 monthly payments of ${option.priceDisplay} '
+        '(${option.totalCommitmentPrice ?? '12 payments'} total). Canceling '
+        'prevents the next commitment; all remaining payments in the current '
+        'commitment will still be charged.';
   }
   return context.l10n.paywallSubTerms(period, option.priceDisplay);
 }
@@ -46,9 +52,12 @@ String paywallPrimaryActionLabel(
   }
   if (option.serverPlanId == 'lifetime') return context.l10n.paywallGetLifetime;
   if (includePrice) {
+    final price = option.billingInterval == 'yearly' && !option.isCommitment
+        ? option.upfrontYearlyPrice ?? option.priceDisplay
+        : option.priceDisplay;
     return context.l10n.subscribeForPricePeriod(
       paywallPeriodLabel(context, option),
-      option.priceDisplay,
+      price,
     );
   }
   return context.l10n.paywallSubscribe;

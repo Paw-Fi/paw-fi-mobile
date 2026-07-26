@@ -715,11 +715,38 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ? null
         : ref.watch(transactionsFeedAllItemsProvider(recurringDedupeQuery));
     final recurringActualExpenses = recurringActualExpensesState?.valueOrNull;
-    final projectedRecurringForDisplay = recurringActualExpenses == null
+    final occurrenceSuppressionEntries = <ExpenseEntry>[
+      for (final transaction in recurringTransactions)
+        if (currentUserId.isNotEmpty && projectedRecurringExpenses.isNotEmpty)
+          ...buildConfirmedOccurrenceSuppressionEntries(
+            recurringId: transaction.id,
+            confirmedScheduledDates: ref
+                    .watch(recurringOccurrenceTimelineProvider(
+                      RecurringOccurrenceTimelineQuery(
+                        userId: currentUserId,
+                        householdId: transaction.householdId,
+                        recurringId: transaction.id,
+                        startDate: range?['from'] ??
+                            projectedRecurringExpenses.first.date,
+                        endDate: range?['to'] ??
+                            projectedRecurringExpenses.last.date,
+                      ),
+                    ))
+                    .valueOrNull
+                    ?.where((item) => item.isConfirmed)
+                    .map((item) => item.scheduledOccurrenceDate) ??
+                const <DateTime>[],
+          ),
+    ];
+    final dedupeActualExpenses = [
+      ...?recurringActualExpenses,
+      ...occurrenceSuppressionEntries,
+    ];
+    final projectedRecurringForDisplay = dedupeActualExpenses.isEmpty
         ? projectedRecurringExpenses
         : dedupeProjectedRecurringExpenseEntries(
             projectedExpenses: projectedRecurringExpenses,
-            actualExpenses: recurringActualExpenses,
+            actualExpenses: dedupeActualExpenses,
           );
     final derivedData = _resolveDerivedData(
       householdScope: householdScope,

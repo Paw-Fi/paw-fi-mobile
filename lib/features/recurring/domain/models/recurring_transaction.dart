@@ -326,7 +326,10 @@ class RecurringTransaction {
   }
 
   /// Get the next occurrence date from a reference date
-  DateTime getNextOccurrence([DateTime? from]) {
+  DateTime getNextOccurrence([
+    DateTime? from,
+    int skippedOccurrenceSteps = 0,
+  ]) {
     // If no recurrence rule, return the transaction date
     if (recurrenceRule == null) {
       return date;
@@ -334,6 +337,21 @@ class RecurringTransaction {
 
     final rule = recurrenceRule!; // Safe after null check
     final reference = from ?? DateTime.now();
+
+    bool isExcluded(DateTime occurrence) => rule.excludedDates.any(
+          (excludedDate) =>
+              excludedDate.year == occurrence.year &&
+              excludedDate.month == occurrence.month &&
+              excludedDate.day == occurrence.day,
+        );
+
+    DateTime nextNonExcluded(DateTime occurrence) {
+      if (!isExcluded(occurrence) ||
+          skippedOccurrenceSteps >= rule.excludedDates.length) {
+        return occurrence;
+      }
+      return getNextOccurrence(occurrence, skippedOccurrenceSteps + 1);
+    }
 
     // Recurring schedules are calendar-based. In practice we've seen cases where
     // `recurrence_rule.anchor_date` drifts from the intended calendar date due to
@@ -386,7 +404,7 @@ class RecurringTransaction {
 
     // If reference is before anchor, return anchor
     if (reference.isBefore(anchor)) {
-      return anchor;
+      return nextNonExcluded(anchor);
     }
 
     // If there's an end date and we're past it, return the anchor (no more occurrences)
@@ -397,7 +415,8 @@ class RecurringTransaction {
     // Calculate next occurrence based on frequency
     switch (rule.frequency) {
       case 'daily':
-        final intervalDays = rule.interval ?? 1;
+        final configuredInterval = rule.interval ?? 1;
+        final intervalDays = configuredInterval > 0 ? configuredInterval : 1;
         final anchorDay = dateOnly(anchor);
         final referenceDay = dateOnly(reference);
 
@@ -407,10 +426,11 @@ class RecurringTransaction {
         if (!candidate.isAfter(reference)) {
           candidate = candidate.add(Duration(days: intervalDays));
         }
-        return candidate;
+        return nextNonExcluded(candidate);
 
       case 'weekly':
-        final intervalWeeks = rule.interval ?? 1;
+        final configuredInterval = rule.interval ?? 1;
+        final intervalWeeks = configuredInterval > 0 ? configuredInterval : 1;
         final intervalDays = intervalWeeks * 7;
         final anchorDay = dateOnly(anchor);
         final referenceDay = dateOnly(reference);
@@ -421,7 +441,7 @@ class RecurringTransaction {
         if (!candidate.isAfter(reference)) {
           candidate = candidate.add(Duration(days: intervalDays));
         }
-        return candidate;
+        return nextNonExcluded(candidate);
 
       case 'biweekly':
         const intervalDays = 14;
@@ -434,10 +454,11 @@ class RecurringTransaction {
         if (!candidate.isAfter(reference)) {
           candidate = candidate.add(const Duration(days: intervalDays));
         }
-        return candidate;
+        return nextNonExcluded(candidate);
 
       case 'monthly':
-        final interval = rule.interval ?? 1;
+        final configuredInterval = rule.interval ?? 1;
+        final interval = configuredInterval > 0 ? configuredInterval : 1;
         var nextDate = buildDatePreservingTime(
           year: anchor.year,
           month: anchor.month,
@@ -462,10 +483,11 @@ class RecurringTransaction {
             ),
           );
         }
-        return nextDate;
+        return nextNonExcluded(nextDate);
 
       case 'yearly':
-        final interval = rule.interval ?? 1;
+        final configuredInterval = rule.interval ?? 1;
+        final interval = configuredInterval > 0 ? configuredInterval : 1;
         var nextDate = buildDatePreservingTime(
           year: anchor.year,
           month: anchor.month,
@@ -488,10 +510,10 @@ class RecurringTransaction {
             ),
           );
         }
-        return nextDate;
+        return nextNonExcluded(nextDate);
 
       default:
-        return anchor;
+        return nextNonExcluded(anchor);
     }
   }
 

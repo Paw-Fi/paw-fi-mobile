@@ -72,9 +72,7 @@ Map<String, double> calculateMomTrend({
   );
   final keys = months.map(formatFinancialPeriodDate).toList(growable: false);
   final totals = <String, double>{for (final key in keys) key: 0};
-  final actualExpensesByKey = <String, List<ExpenseEntry>>{
-    for (final key in keys) key: <ExpenseEntry>[],
-  };
+  final eligibleActualExpenses = <ExpenseEntry>[];
 
   for (final expense in actualTransactions) {
     if (expense.effectiveSpendingMultiplier == 0) continue;
@@ -88,16 +86,7 @@ Map<String, double> calculateMomTrend({
         expense.currency?.toUpperCase() != normalizedCurrency) {
       continue;
     }
-    final expenseDate = dateOnly(expense.date);
-    for (final start in months) {
-      final end = nextFinancialCycleStart(
-        start,
-        startDay: financialMonthStartDay,
-      ).subtract(const Duration(days: 1));
-      if (expenseDate.isBefore(start) || expenseDate.isAfter(end)) continue;
-      actualExpensesByKey[formatFinancialPeriodDate(start)]!.add(expense);
-      break;
-    }
+    eligibleActualExpenses.add(expense);
   }
 
   for (final start in months) {
@@ -107,7 +96,9 @@ Map<String, double> calculateMomTrend({
     ).subtract(const Duration(days: 1));
     final key = formatFinancialPeriodDate(start);
     final mergedExpenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: actualExpensesByKey[key] ?? const <ExpenseEntry>[],
+      // Include all actuals for scheduled-occurrence suppression, while the
+      // merge keeps returned actuals scoped to this paid-date period.
+      actualExpenses: eligibleActualExpenses,
       recurringTransactions: recurringTransactions,
       rangeStart: start,
       rangeEnd: end,

@@ -5,6 +5,11 @@ import Foundation
 import NaturalLanguage
 import Security
 import CryptoKit
+import StoreKit
+
+private enum AppStoreCommitmentChannel {
+  static let name = "moneko/app_store_commitment"
+}
 
 private enum SiriShortcutChannel {
   static let name = "moneko/siri_shortcut_auth"
@@ -2917,13 +2922,138 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  private var pendingCommitmentTransactions: [UInt64: StoreKit.Transaction] = [:]
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
     setupSiriShortcutAuthChannel()
+    setupAppStoreCommitmentChannel()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private func setupAppStoreCommitmentChannel() {
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      DispatchQueue.main.async { [weak self] in
+        self?.setupAppStoreCommitmentChannel()
+      }
+      return
+    }
+
+    let channel = FlutterMethodChannel(
+      name: AppStoreCommitmentChannel.name,
+      binaryMessenger: controller.binaryMessenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard #available(iOS 26.4, *) else {
+        result(nil)
+        return
+      }
+      guard let arguments = call.arguments as? [String: Any] else {
+        result(FlutterError(code: "invalid_args", message: "Missing arguments", details: nil))
+        return
+      }
+
+      if call.method == "finish" {
+        guard let rawTransactionId = arguments["transactionId"] as? String,
+              let transactionId = UInt64(rawTransactionId),
+              let transaction = self.pendingCommitmentTransactions[transactionId] else {
+          result(FlutterError(code: "transaction_not_found", message: "Pending transaction not found", details: nil))
+          return
+        }
+        Task {
+          await transaction.finish()
+          await MainActor.run {
+            self.pendingCommitmentTransactions.removeValue(forKey: transactionId)
+            result(nil)
+          }
+        }
+        return
+      }
+
+      guard let productId = arguments["productId"] as? String,
+            !productId.isEmpty else {
+        result(FlutterError(code: "invalid_args", message: "Missing product ID", details: nil))
+        return
+      }
+
+      Task {
+        do {
+          guard let product = try await Product.products(for: [productId]).first else {
+            await MainActor.run { result(nil) }
+            return
+          }
+          guard let subscription = product.subscription else {
+            await MainActor.run { result(nil) }
+            return
+          }
+          guard let terms = subscription.pricingTerms.first(where: { terms in
+            terms.billingPlanType == .monthly
+          }) else {
+            await MainActor.run { result(nil) }
+            return
+          }
+
+          switch call.method {
+          case "getTerms":
+            let payload: [String: Any] = [
+              "monthlyPrice": terms.billingDisplayPrice,
+              "totalCommitmentPrice": terms.commitmentInfo.price.formatted(product.priceFormatStyle),
+            ]
+            await MainActor.run { result(payload) }
+          case "purchase":
+            var options: Set<Product.PurchaseOption> = [.billingPlanType(.monthly)]
+            if let rawToken = arguments["appAccountToken"] as? String,
+               let token = UUID(uuidString: rawToken) {
+              options.insert(.appAccountToken(token))
+            }
+            let purchaseResult = try await product.purchase(options: options)
+            let status: String
+            switch purchaseResult {
+            case .success(let verification):
+              switch verification {
+              case .verified(let transaction):
+                status = "success"
+                let payload: [String: Any] = [
+                  "status": status,
+                  "transactionId": String(transaction.id),
+                  "signedTransaction": verification.jwsRepresentation,
+                ]
+                await MainActor.run {
+                  self.pendingCommitmentTransactions[transaction.id] = transaction
+                  result(payload)
+                }
+                return
+              case .unverified:
+                throw NSError(
+                  domain: "MonekoStoreKit",
+                  code: 1,
+                  userInfo: [NSLocalizedDescriptionKey: "The App Store transaction could not be verified."]
+                )
+              }
+            case .pending:
+              status = "pending"
+            case .userCancelled:
+              status = "cancelled"
+            @unknown default:
+              status = "failed"
+            }
+            await MainActor.run { result(["status": status]) }
+          default:
+            await MainActor.run { result(FlutterMethodNotImplemented) }
+          }
+        } catch {
+          await MainActor.run {
+            result(FlutterError(
+              code: "storekit_commitment_error",
+              message: error.localizedDescription,
+              details: nil
+            ))
+          }
+        }
+      }
+    }
   }
 
   private func setupSiriShortcutAuthChannel() {

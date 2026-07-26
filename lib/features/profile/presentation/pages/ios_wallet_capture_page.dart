@@ -61,7 +61,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
       for (final wallet in wallets) {
         if (wallet.isDefault) return wallet.id;
       }
-      return wallets.isNotEmpty ? wallets.first.id : null;
+      return null;
     }
 
     String selectedWalletLabel(AsyncValue<List<WalletEntity>> state) {
@@ -80,7 +80,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
               if (wallet.id == fallbackId) return wallet.name;
             }
           }
-          return wallets.first.name;
+          return context.l10n.tapToSet;
         },
         loading: () => context.l10n.loading,
         error: (_, __) => context.l10n.tapToSet,

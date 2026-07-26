@@ -17,6 +17,9 @@ class PlanOption {
   final String tagline;
   final bool isPopular;
   final String? badgeText;
+  final bool isCommitment;
+  final String? totalCommitmentPrice;
+  final String? upfrontYearlyPrice;
 
   const PlanOption({
     required this.id,
@@ -34,11 +37,16 @@ class PlanOption {
     required this.tagline,
     this.isPopular = false,
     this.badgeText,
+    this.isCommitment = false,
+    this.totalCommitmentPrice,
+    this.upfrontYearlyPrice,
   });
 
   String get periodDisplay {
     if (billingInterval == 'monthly') return '/month';
-    if (billingInterval == 'yearly') return '/year';
+    if (billingInterval == 'yearly') {
+      return '/month';
+    }
     return 'once';
   }
 

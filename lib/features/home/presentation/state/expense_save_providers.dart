@@ -174,9 +174,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         requestBody['householdId'] = householdId;
       }
 
-      if (accountId != null && accountId.trim().isNotEmpty) {
-        requestBody['accountId'] = accountId;
-      }
+      requestBody['accountId'] =
+          accountId?.trim().isEmpty == true ? null : accountId;
 
       final isPortfolio = householdId != null &&
           ref.read(householdScopeProvider).isPortfolioId(householdId);
@@ -314,7 +313,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           final localDatabase = await ref.read(localDatabaseProvider.future);
           await localDatabase.upsertTransactions([reconciledEntry]);
         } catch (error) {
-          _debugPrint('⚠️ Saved expense local cache update unavailable: $error');
+          _debugPrint(
+              '⚠️ Saved expense local cache update unavailable: $error');
         }
       }
 

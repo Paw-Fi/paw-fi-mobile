@@ -186,7 +186,7 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
         if (wallet.id == defaultId) return wallet.name;
       }
     }
-    return wallets.first.name;
+    return context.l10n.tapToSet;
   }
 
   String? _savedWalletId() {

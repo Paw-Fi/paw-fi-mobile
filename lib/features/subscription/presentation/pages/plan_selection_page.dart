@@ -969,7 +969,10 @@ class PlanSelectionPage extends HookConsumerWidget {
           _debugLog(
             '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
           );
-          await ref.read(iapControllerProvider.notifier).buy(catalog);
+          await ref.read(iapControllerProvider.notifier).buy(
+                catalog,
+                useMonthlyCommitment: selectedPlan.isCommitment,
+              );
           print('✅ buy() method completed');
           _debugLog('🧾 IAP buy completed');
           _debugLog(

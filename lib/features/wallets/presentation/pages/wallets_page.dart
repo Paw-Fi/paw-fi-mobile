@@ -39,9 +39,6 @@ import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
 import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
-import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -151,11 +148,6 @@ class AccountsPage extends HookConsumerWidget {
         : ref.watch(effectiveScopeWalletsProvider);
     final walletsPageStateAsync =
         isPreviewMode ? null : ref.watch(walletsPageStateProvider(scopeQuery));
-    final viewMode = ref.watch(viewModeProvider);
-    final AsyncValue<List<Household>> householdsAsync =
-        viewMode.mode == ViewMode.personal
-            ? const AsyncValue<List<Household>>.data(<Household>[])
-            : ref.watch(userHouseholdsProvider(ref.watch(authProvider).uid));
 
     Future<void> onRefresh() async {
       if (isPreviewMode) {
@@ -511,12 +503,6 @@ class AccountsPage extends HookConsumerWidget {
 
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
-      floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-          ? const Padding(
-              padding: EdgeInsets.all(0),
-              child: HomeAiExpandableFab(),
-            )
-          : null,
       body: Stack(
         children: [
           SafeArea(
@@ -724,7 +710,6 @@ class AccountsPage extends HookConsumerWidget {
           );
         }),
       ),
-      const HomeAiBackdropOverlay(),
     ],
   ),
 ));

@@ -8,13 +8,17 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
-    show analyticsProvider;
+    show analyticsProvider, widgetSyncVersionProvider;
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -228,6 +232,539 @@ class DeleteRecurringResult {
 
   const DeleteRecurringResult.failure([String? error])
       : this._(success: false, error: error);
+}
+
+const String recurringOccurrenceConfirmationOperation =
+    localRecurringOccurrenceConfirmationMutationOperation;
+
+String recurringOccurrenceIdempotencyKey({
+  required String userId,
+  required String recurringId,
+  required DateTime scheduledOccurrenceDate,
+}) {
+  return 'recurring-occurrence:v1:${userId.trim()}:${recurringId.trim()}:'
+      '${formatDateOnlyYmd(scheduledOccurrenceDate)}';
+}
+
+@immutable
+class RecurringOccurrenceConfirmationCommand {
+  const RecurringOccurrenceConfirmationCommand({
+    required this.userId,
+    required this.recurringTransaction,
+    required this.scheduledOccurrenceDate,
+    required this.paidDate,
+    required this.amountCents,
+    required this.accountId,
+    this.merchant,
+    this.description,
+    this.customSplits,
+    this.payerUserId,
+    this.updateFutureAmount = false,
+  });
+
+  final String userId;
+  final RecurringTransaction recurringTransaction;
+  final DateTime scheduledOccurrenceDate;
+  final DateTime paidDate;
+  final int amountCents;
+  final String accountId;
+  final String? merchant;
+  final String? description;
+  final Map<String, dynamic>? customSplits;
+  final String? payerUserId;
+  final bool updateFutureAmount;
+
+  String get idempotencyKey => recurringOccurrenceIdempotencyKey(
+        userId: userId,
+        recurringId: recurringTransaction.id,
+        scheduledOccurrenceDate: scheduledOccurrenceDate,
+      );
+
+  String get optimisticId =>
+      'optimistic-recurring-occurrence-${recurringTransaction.id}-${formatDateOnlyYmd(scheduledOccurrenceDate)}';
+
+  Map<String, dynamic> toRequestBody() => <String, dynamic>{
+        'userId': userId,
+        'recurringId': recurringTransaction.id,
+        'scheduledOccurrenceDate': formatDateOnlyYmd(scheduledOccurrenceDate),
+        'paidDate': formatDateOnlyYmd(paidDate),
+        'amount': amountCents / 100,
+        'accountId': accountId,
+        if (merchant?.trim().isNotEmpty == true) 'merchant': merchant!.trim(),
+        if (description?.trim().isNotEmpty == true)
+          'description': description!.trim(),
+        if (customSplits != null) 'customSplits': customSplits,
+        if (payerUserId?.trim().isNotEmpty == true) 'payerUserId': payerUserId,
+        'updateFutureAmount': updateFutureAmount,
+        'clientMutationId': idempotencyKey,
+        'idempotencyKey': idempotencyKey,
+      };
+}
+
+@immutable
+class RecurringOccurrenceUpdateCommand {
+  const RecurringOccurrenceUpdateCommand({
+    required this.userId,
+    required this.recurringTransaction,
+    required this.occurrence,
+    required this.paidDate,
+    required this.amountCents,
+    required this.accountId,
+    this.merchant,
+    this.description,
+    this.updateFutureAmount = false,
+  });
+
+  final String userId;
+  final RecurringTransaction recurringTransaction;
+  final RecurringOccurrenceTimelineItem occurrence;
+  final DateTime paidDate;
+  final int? amountCents;
+  final String? accountId;
+  final String? merchant;
+  final String? description;
+  final bool updateFutureAmount;
+
+  Map<String, dynamic> toRequestBody() => <String, dynamic>{
+        'userId': userId,
+        'recurringId': recurringTransaction.id,
+        'scheduledOccurrenceDate':
+            formatDateOnlyYmd(occurrence.scheduledOccurrenceDate),
+        if (!occurrence.isSettlementLocked) 'merchant': merchant?.trim(),
+        if (!occurrence.isSettlementLocked) ...{
+          'paidDate': formatDateOnlyYmd(paidDate),
+          'amount': amountCents! / 100,
+          'accountId': accountId,
+          'updateFutureAmount': updateFutureAmount,
+        },
+        'description': description?.trim() ?? '',
+      };
+}
+
+@immutable
+class RecurringOccurrenceUnconfirmCommand {
+  const RecurringOccurrenceUnconfirmCommand({
+    required this.userId,
+    required this.recurringTransaction,
+    required this.occurrence,
+  });
+
+  final String userId;
+  final RecurringTransaction recurringTransaction;
+  final RecurringOccurrenceTimelineItem occurrence;
+
+  Map<String, dynamic> toRequestBody() => <String, dynamic>{
+        'userId': userId,
+        'recurringId': recurringTransaction.id,
+        'scheduledOccurrenceDate':
+            formatDateOnlyYmd(occurrence.scheduledOccurrenceDate),
+      };
+}
+
+@immutable
+class RecurringOccurrenceConfirmationResult {
+  const RecurringOccurrenceConfirmationResult.queued({
+    required this.optimisticId,
+    required this.idempotencyKey,
+  })  : isQueued = true,
+        error = null;
+
+  const RecurringOccurrenceConfirmationResult.failure(this.error)
+      : optimisticId = null,
+        idempotencyKey = null,
+        isQueued = false;
+
+  final String? optimisticId;
+  final String? idempotencyKey;
+  final bool isQueued;
+  final String? error;
+}
+
+@immutable
+class RecurringOccurrenceTimelineQuery {
+  const RecurringOccurrenceTimelineQuery({
+    required this.userId,
+    required this.householdId,
+    required this.recurringId,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  final String userId;
+  final String? householdId;
+  final String recurringId;
+  final DateTime startDate;
+  final DateTime endDate;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RecurringOccurrenceTimelineQuery &&
+      userId == other.userId &&
+      householdId == other.householdId &&
+      recurringId == other.recurringId &&
+      formatDateOnlyYmd(startDate) == formatDateOnlyYmd(other.startDate) &&
+      formatDateOnlyYmd(endDate) == formatDateOnlyYmd(other.endDate);
+
+  @override
+  int get hashCode => Object.hash(
+        userId,
+        householdId,
+        recurringId,
+        formatDateOnlyYmd(startDate),
+        formatDateOnlyYmd(endDate),
+      );
+}
+
+@immutable
+class RecurringOccurrenceTimelineItem {
+  const RecurringOccurrenceTimelineItem({
+    required this.scheduledOccurrenceDate,
+    required this.status,
+    this.actualTransaction,
+    this.paidDate,
+    this.amountCents,
+    this.currency,
+    this.confirmedAt,
+    this.confirmationSource,
+    this.isSettlementLocked = false,
+  });
+
+  final DateTime scheduledOccurrenceDate;
+  final String status;
+  final ExpenseEntry? actualTransaction;
+  final DateTime? paidDate;
+  final int? amountCents;
+  final String? currency;
+  final DateTime? confirmedAt;
+  final String? confirmationSource;
+  final bool isSettlementLocked;
+
+  bool get isConfirmed => status == 'confirmed';
+  bool get isSkipped => status == 'skipped';
+  bool get isImported => confirmationSource == 'legacy_migration';
+
+  factory RecurringOccurrenceTimelineItem.fromPersistedJson(
+    Map<String, dynamic> json,
+  ) {
+    final occurrence = Map<String, dynamic>.from(json['occurrence'] as Map);
+    final transaction = json['transaction'];
+    final scheduledDate = DateTime.parse(
+      occurrence['scheduled_occurrence_date'] as String,
+    );
+    final paidDate = occurrence['paid_date'] as String?;
+    final confirmedAt = occurrence['confirmed_at'] as String?;
+    return RecurringOccurrenceTimelineItem(
+      scheduledOccurrenceDate: scheduledDate,
+      status: occurrence['status']?.toString() ?? 'pending',
+      actualTransaction: transaction is Map
+          ? ExpenseEntry.fromJson(Map<String, dynamic>.from(transaction))
+          : null,
+      paidDate: paidDate == null ? null : DateTime.tryParse(paidDate),
+      amountCents: (occurrence['amount_cents'] as num?)?.round(),
+      currency: occurrence['currency']?.toString(),
+      confirmedAt: confirmedAt == null ? null : DateTime.tryParse(confirmedAt),
+      confirmationSource: occurrence['confirmation_source']?.toString(),
+      isSettlementLocked: json['settlement_locked'] == true,
+    );
+  }
+
+  factory RecurringOccurrenceTimelineItem.fromLocalEntry(ExpenseEntry entry) {
+    return RecurringOccurrenceTimelineItem(
+      scheduledOccurrenceDate: entry.scheduledOccurrenceDate!,
+      status: 'confirmed',
+      actualTransaction: entry,
+      paidDate: entry.date,
+      amountCents: entry.amountCents,
+      currency: entry.currency,
+      confirmedAt: entry.recurringConfirmedAt,
+      confirmationSource: entry.recurringConfirmationSource,
+    );
+  }
+}
+
+final recurringOccurrenceTimelineProvider = FutureProvider.family<
+    List<RecurringOccurrenceTimelineItem>, RecurringOccurrenceTimelineQuery>(
+  (ref, query) async {
+    ref.watch(transactionsFeedRefreshSignalProvider);
+    final database = await ref.watch(localDatabaseProvider.future);
+    final entries = await database.getTransactionsByScheduledOccurrenceRange(
+      userId: query.userId,
+      householdId: query.householdId,
+      parentRecurringId: query.recurringId,
+      startDate: query.startDate,
+      endDate: query.endDate,
+    );
+    final localItems = entries
+        .where((entry) => entry.scheduledOccurrenceDate != null)
+        .map(RecurringOccurrenceTimelineItem.fromLocalEntry)
+        .toList(growable: false);
+    try {
+      final response = await supabase.functions.invoke(
+        'list-recurring-occurrences',
+        body: {
+          'userId': query.userId,
+          'recurringId': query.recurringId,
+          'limit': 100,
+        },
+      );
+      final payload = response.data;
+      if (payload is! Map || payload['success'] != true) return localItems;
+      final persistedItems = (payload['data'] as List? ?? const <dynamic>[])
+          .whereType<Map>()
+          .map((item) => RecurringOccurrenceTimelineItem.fromPersistedJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .where((item) =>
+              !item.scheduledOccurrenceDate.isBefore(query.startDate) &&
+              !item.scheduledOccurrenceDate.isAfter(query.endDate))
+          .toList(growable: false);
+      final itemsByScheduledDate = <String, RecurringOccurrenceTimelineItem>{
+        for (final item in persistedItems)
+          formatDateOnlyYmd(item.scheduledOccurrenceDate): item,
+        // Pending local confirmations must take precedence until reconciliation.
+        for (final item in localItems)
+          formatDateOnlyYmd(item.scheduledOccurrenceDate): item,
+      };
+      final merged = itemsByScheduledDate.values.toList(growable: false)
+        ..sort((a, b) => b.scheduledOccurrenceDate.compareTo(
+              a.scheduledOccurrenceDate,
+            ));
+      return merged;
+    } catch (_) {
+      return localItems;
+    }
+  },
+);
+
+final recurringOccurrenceConfirmationProvider =
+    Provider<RecurringOccurrenceConfirmationController>(
+  (ref) => RecurringOccurrenceConfirmationController(ref),
+);
+
+final recurringOccurrenceUpdateProvider =
+    Provider<RecurringOccurrenceUpdateController>(
+  (ref) => RecurringOccurrenceUpdateController(ref),
+);
+
+final recurringOccurrenceUnconfirmProvider =
+    Provider<RecurringOccurrenceUnconfirmController>(
+  (ref) => RecurringOccurrenceUnconfirmController(ref),
+);
+
+class RecurringOccurrenceUpdateController {
+  const RecurringOccurrenceUpdateController(this._ref);
+
+  final Ref _ref;
+
+  Future<RecurringOccurrenceConfirmationResult> update(
+    RecurringOccurrenceUpdateCommand command,
+  ) async {
+    if (_ref.read(previewModeProvider).isActive) {
+      _showPreviewToast();
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Preview mode is read-only.',
+      );
+    }
+    if (command.userId.trim().isEmpty ||
+        command.recurringTransaction.id.trim().isEmpty ||
+        (!_isNotesOnly(command) &&
+            (command.amountCents == null ||
+                command.amountCents! <= 0 ||
+                command.accountId?.trim().isEmpty != false))) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'A user, recurring transaction, wallet, and positive amount are required.',
+      );
+    }
+
+    try {
+      final response = await supabase.functions.invoke(
+        'update-recurring-occurrence',
+        body: command.toRequestBody(),
+      );
+      final payload = response.data;
+      if (payload is! Map || payload['success'] != true) {
+        return RecurringOccurrenceConfirmationResult.failure(
+          payload is Map && payload['error'] is String
+              ? payload['error'] as String
+              : 'Unable to update payment.',
+        );
+      }
+      _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      _ref.read(widgetSyncVersionProvider.notifier).state += 1;
+      _ref.invalidate(recurringTransactionsProvider(
+        command.recurringTransaction.householdId,
+      ));
+      _ref.invalidate(pocketsProvider);
+      _ref.invalidate(currencyTransactionCountsProvider);
+      return RecurringOccurrenceConfirmationResult.queued(
+        optimisticId: command.recurringTransaction.id,
+        idempotencyKey: command.recurringTransaction.id,
+      );
+    } catch (error) {
+      return RecurringOccurrenceConfirmationResult.failure(
+        ErrorHandler.getUserFriendlyMessage(error),
+      );
+    }
+  }
+
+  bool _isNotesOnly(RecurringOccurrenceUpdateCommand command) =>
+      command.occurrence.isSettlementLocked;
+}
+
+class RecurringOccurrenceUnconfirmController {
+  const RecurringOccurrenceUnconfirmController(this._ref);
+
+  final Ref _ref;
+
+  Future<RecurringOccurrenceConfirmationResult> unconfirm(
+    RecurringOccurrenceUnconfirmCommand command,
+  ) async {
+    if (_ref.read(previewModeProvider).isActive) {
+      _showPreviewToast();
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Preview mode is read-only.',
+      );
+    }
+    if (command.userId.trim().isEmpty ||
+        command.recurringTransaction.id.trim().isEmpty ||
+        !command.occurrence.isConfirmed) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'A confirmed recurring occurrence is required.',
+      );
+    }
+
+    try {
+      final response = await supabase.functions.invoke(
+        'unconfirm-recurring-occurrence',
+        body: command.toRequestBody(),
+      );
+      final payload = response.data;
+      if (payload is! Map || payload['success'] != true) {
+        return RecurringOccurrenceConfirmationResult.failure(
+          payload is Map && payload['error'] is String
+              ? payload['error'] as String
+              : 'Unable to unconfirm payment.',
+        );
+      }
+      _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      _ref.read(widgetSyncVersionProvider.notifier).state += 1;
+      _ref.invalidate(recurringOccurrenceTimelineProvider);
+      _ref.invalidate(recurringTransactionsProvider(
+        command.recurringTransaction.householdId,
+      ));
+      _ref.invalidate(pocketsProvider);
+      _ref.invalidate(currencyTransactionCountsProvider);
+      return RecurringOccurrenceConfirmationResult.queued(
+        optimisticId: command.recurringTransaction.id,
+        idempotencyKey: command.recurringTransaction.id,
+      );
+    } catch (error) {
+      return RecurringOccurrenceConfirmationResult.failure(
+        ErrorHandler.getUserFriendlyMessage(error),
+      );
+    }
+  }
+}
+
+class RecurringOccurrenceConfirmationController {
+  const RecurringOccurrenceConfirmationController(this._ref);
+
+  final Ref _ref;
+
+  Future<RecurringOccurrenceConfirmationResult> confirm(
+    RecurringOccurrenceConfirmationCommand command,
+  ) async {
+    if (_ref.read(previewModeProvider).isActive) {
+      _showPreviewToast();
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Preview mode is read-only.',
+      );
+    }
+    if (command.userId.trim().isEmpty ||
+        command.recurringTransaction.id.trim().isEmpty ||
+        command.accountId.trim().isEmpty ||
+        command.amountCents <= 0) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'A user, recurring transaction, wallet, and positive amount are required.',
+      );
+    }
+
+    final scheduledDate = DateTime(
+      command.scheduledOccurrenceDate.year,
+      command.scheduledOccurrenceDate.month,
+      command.scheduledOccurrenceDate.day,
+    );
+    final paidDate = DateTime(
+      command.paidDate.year,
+      command.paidDate.month,
+      command.paidDate.day,
+    );
+    final now = DateTime.now();
+    final today = effectiveToday(
+      preferredTimezone:
+          _ref.read(analyticsProvider).contact?.preferredTimezone,
+    );
+    if (scheduledDate.isAfter(today) || paidDate.isAfter(today)) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Only current or overdue occurrences can be confirmed.',
+      );
+    }
+
+    final optimisticEntry = ExpenseEntry(
+      id: command.optimisticId,
+      userId: command.userId,
+      householdId: command.recurringTransaction.householdId,
+      date: paidDate,
+      amountCents: command.amountCents,
+      currency: command.recurringTransaction.currency,
+      category: command.recurringTransaction.category,
+      createdAt: now,
+      rawText: command.description ?? command.recurringTransaction.description,
+      merchant: command.merchant ?? command.recurringTransaction.merchant,
+      walletId: command.accountId,
+      type: command.recurringTransaction.type,
+      parentRecurringId: command.recurringTransaction.id,
+      scheduledOccurrenceDate: scheduledDate,
+      recurringConfirmedAt: now,
+      recurringConfirmationSource: 'user',
+      clientRecordId: command.optimisticId,
+      clientMutationId: command.idempotencyKey,
+      idempotencyKey: command.idempotencyKey,
+    );
+
+    try {
+      final database = await _ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransaction(
+        entry: optimisticEntry,
+        clientMutationId: command.idempotencyKey,
+        operation: recurringOccurrenceConfirmationOperation,
+        payload: {
+          'idempotencyKey': command.idempotencyKey,
+          'clientMutationId': command.idempotencyKey,
+          'requestBody': command.toRequestBody(),
+        },
+      );
+      _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      _ref.read(widgetSyncVersionProvider.notifier).state += 1;
+      _ref.invalidate(recurringTransactionsProvider(
+        command.recurringTransaction.householdId,
+      ));
+      _ref.invalidate(pocketsProvider);
+      _ref.invalidate(currencyTransactionCountsProvider);
+      unawaited(drainMobileOutbox(_ref));
+      return RecurringOccurrenceConfirmationResult.queued(
+        optimisticId: command.optimisticId,
+        idempotencyKey: command.idempotencyKey,
+      );
+    } catch (error) {
+      return RecurringOccurrenceConfirmationResult.failure(
+        ErrorHandler.getUserFriendlyMessage(error),
+      );
+    }
+  }
 }
 
 // ============================================================================
@@ -674,18 +1211,19 @@ class RecurringTransactionsNotifier
           payload: {
             ...mutationMetadata.toRequestJson(),
             'userId': userId,
-            'expenseIds': transactionId,
+            'recurringId': transactionId,
           },
+          operation: 'delete_recurring_template',
         );
       }
 
       // Backend call
       final response = await supabase.functions.invoke(
-        'delete-expense',
+        'delete-recurring-template',
         body: {
           ...mutationMetadata.toRequestJson(),
           'userId': userId,
-          'expenseIds': transactionId,
+          'recurringId': transactionId,
         },
       );
 
@@ -749,15 +1287,16 @@ class RecurringTransactionsNotifier
   Future<DeleteRecurringResult> skipOccurrence(
     String userId,
     String transactionId,
-    DateTime dateToSkip,
-  ) async {
+    DateTime dateToSkip, {
+    RecurringTransaction? transaction,
+  }) async {
     if (_guardPreviewWrites()) {
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
     MonekoDatabase? localDatabase;
     ExpenseEntry? originalEntry;
     ExpenseEntry? updatedEntry;
-    RecurringTransaction? target;
+    RecurringTransaction? target = transaction;
     final mutationMetadata = buildTransactionMutationMetadataForRecord(
       clientRecordId: transactionId,
       operation: 'skip_recurring_occurrence',
@@ -775,9 +1314,11 @@ class RecurringTransactionsNotifier
         return const DeleteRecurringResult.failure('Provider unmounted');
       }
 
-      // Find the transaction to get its current recurrence_rule
+      // Prefer the provider's current state so consecutive skips retain every
+      // local exclusion; the route's transaction is only a fallback.
       state.data.whenData((transactions) {
-        target = transactions.where((t) => t.id == transactionId).firstOrNull;
+        target = transactions.where((t) => t.id == transactionId).firstOrNull ??
+            target;
       });
 
       if (target == null) {
@@ -817,20 +1358,26 @@ class RecurringTransactionsNotifier
         clientMutationId: mutationMetadata.clientMutationId,
         payload: {
           ...mutationMetadata.toRequestJson(),
+          'functionName': 'skip-recurring-occurrence',
+          'requestBody': {
+            'userId': userId,
+            'recurringId': transactionId,
+            'scheduledOccurrenceDate': formatDateOnlyYmd(dateToSkip),
+          },
           'userId': userId,
           'expenseId': transactionId,
           'updates': updates,
         },
+        operation: 'skip_recurring_occurrence',
       );
 
-      // Backend call - update the recurrence_rule via update-expense
+      // Backend skip is atomic: ledger state, legacy exclusion, and reminder.
       final response = await supabase.functions.invoke(
-        'update-expense',
+        'skip-recurring-occurrence',
         body: {
-          ...mutationMetadata.toRequestJson(),
           'userId': userId,
-          'expenseId': transactionId,
-          'updates': updates,
+          'recurringId': transactionId,
+          'scheduledOccurrenceDate': formatDateOnlyYmd(dateToSkip),
         },
       );
 
@@ -842,6 +1389,9 @@ class RecurringTransactionsNotifier
         await localDatabase.markMutationSynced(
           mutationMetadata.clientMutationId,
         );
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        ref.read(widgetSyncVersionProvider.notifier).state += 1;
         _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
         _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();
@@ -1012,7 +1562,8 @@ final upcomingRecurringTransactionProvider =
 
   final preferredTimezone =
       ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-  final today = effectiveToday(preferredTimezone: preferredTimezone);
+  final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+  final today = DateTime(userNow.year, userNow.month, userNow.day);
   UpcomingRecurringTransaction? best;
 
   for (final transaction in transactions) {
@@ -1028,11 +1579,38 @@ final upcomingRecurringTransactionProvider =
       continue;
     }
 
-    final nextOccurrence = transaction.getNextOccurrence(today);
-    final nextDate = DateTime(
-      nextOccurrence.year,
-      nextOccurrence.month,
-      nextOccurrence.day,
+    final generatedOccurrences = getOccurrencesList(transaction, userNow)
+        .where((occurrence) => !occurrence.isBefore(today))
+        .toList(growable: false);
+    if (generatedOccurrences.isEmpty) continue;
+
+    String? userId;
+    try {
+      userId = supabase.auth.currentUser?.id;
+    } catch (_) {
+      // Provider tests and unauthenticated previews have no Supabase client.
+    }
+    final timeline = userId == null || userId.isEmpty
+        ? const <RecurringOccurrenceTimelineItem>[]
+        : ref
+                .watch(recurringOccurrenceTimelineProvider(
+                  RecurringOccurrenceTimelineQuery(
+                    userId: userId,
+                    householdId: transaction.householdId,
+                    recurringId: transaction.id,
+                    startDate: today,
+                    endDate: generatedOccurrences.last,
+                  ),
+                ))
+                .valueOrNull ??
+            const <RecurringOccurrenceTimelineItem>[];
+    final confirmedDates = <String>{
+      for (final item in timeline)
+        if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
+    };
+    final nextDate = generatedOccurrences.firstWhere(
+      (occurrence) => !confirmedDates.contains(formatDateOnlyYmd(occurrence)),
+      orElse: () => generatedOccurrences.last,
     );
     final daysUntil = nextDate.difference(today).inDays;
 
@@ -1147,7 +1725,7 @@ class RecurringTransactionSaveNotifier
         'privacyScope': privacyScope,
         'isRecurring': true,
         'recurrence_rule': recurrenceRule,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -1421,7 +1999,7 @@ class RecurringTransactionSaveNotifier
               ref.read(householdScopeProvider).isPortfolioId(householdId),
         'isRecurring': true,
         'recurrence_rule': recurrenceRule,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
       };
       localDatabase = await _queueRecurringCreate(
         optimisticTransaction: optimisticTransaction,
@@ -1562,7 +2140,7 @@ class RecurringTransactionSaveNotifier
         'ownerType': recurringSeries.ownerType,
         'privacyScope': recurringSeries.privacyScope,
         'isRecurring': false,
-        if (accountId != null) 'accountId': accountId,
+        'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -1694,7 +2272,7 @@ class RecurringTransactionSaveNotifier
             'isPortfolio':
                 ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': false,
-          if (accountId != null) 'accountId': accountId,
+          'accountId': accountId,
         },
       );
 

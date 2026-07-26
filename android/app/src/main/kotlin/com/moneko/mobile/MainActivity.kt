@@ -103,9 +103,15 @@ class MainActivity : FlutterFragmentActivity() {
                     (args["scopeId"] as? String)?.let { config.scopeId = it }
                     (args["scopeName"] as? String)?.let { config.scopeName = it }
                     (args["isPortfolio"] as? Boolean)?.let { config.isPortfolio = it }
-                    (args["accountId"] as? String)?.let { config.accountId = it }
-                    (args["accountName"] as? String)?.let { config.accountName = it }
-                    (args["accountCurrency"] as? String)?.let { config.accountCurrency = it }
+                    if (args.containsKey("accountId")) {
+                        config.accountId = (args["accountId"] as? String).orEmpty()
+                    }
+                    if (args.containsKey("accountName")) {
+                        config.accountName = (args["accountName"] as? String).orEmpty()
+                    }
+                    if (args.containsKey("accountCurrency")) {
+                        config.accountCurrency = (args["accountCurrency"] as? String).orEmpty()
+                    }
                     result.success(true)
                 }
 

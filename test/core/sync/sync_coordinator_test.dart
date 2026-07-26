@@ -213,6 +213,44 @@ void main() {
     );
   });
 
+  test('cancels non-retryable occurrence failures without retrying', () async {
+    final now = DateTime.utc(2026, 4, 8, 12);
+    final entry = ExpenseEntry(
+      id: 'occurrence_1',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 8),
+      amountCents: 1200,
+      currency: 'USD',
+      category: 'food',
+      createdAt: now,
+      type: 'expense',
+    );
+    await database.writeOptimisticTransaction(
+      entry: entry,
+      clientMutationId: 'recurring-occurrence:v1:user-1:series:2026-04-08',
+      operation: localRecurringOccurrenceConfirmationMutationOperation,
+      payload: const {'requestBody': {}},
+    );
+
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      dispatchMutation: (_) async {
+        throw const NonRetryableLocalMutationException('not due');
+      },
+      onMutationCancelled: (mutation, _) =>
+          database.markTransactionMutationExhausted(mutation: mutation),
+    );
+    await coordinator.drainOutbox();
+
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusCancelled);
+    expect(
+      await database.getRecentTransactions(userId: 'user-1', householdId: null),
+      isEmpty,
+    );
+  });
+
   test('exhausted create mutations are excluded from feed and summaries',
       () async {
     final now = DateTime.utc(2026, 4, 8, 12);

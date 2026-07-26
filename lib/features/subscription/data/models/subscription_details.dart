@@ -91,13 +91,23 @@ class SubscriptionDetails {
         subscription!.currentPeriodEnd != null) {
       final trialEnd = subscription!.currentPeriodEnd!;
       final now = DateTime.now();
-      final daysLeft = trialEnd.difference(now).inDays+1;
+      final daysLeft = trialEnd.difference(now).inDays + 1;
 
       if (daysLeft > 0) {
         return l10n.trialEndsInDays(daysLeft);
       } else {
         return l10n.trialEnded;
       }
+    }
+
+    if (subscription!.status?.toLowerCase() == 'active' &&
+        subscription!.cancelAtPeriodEnd == true &&
+        subscription!.commitmentEnd != null) {
+      final daysLeft =
+          subscription!.commitmentEnd!.difference(DateTime.now()).inDays;
+      return daysLeft > 0
+          ? l10n.accessEndsInDays(daysLeft)
+          : l10n.subscriptionEnded;
     }
 
     if (subscription!.status?.toLowerCase() == 'active' &&

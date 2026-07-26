@@ -16,6 +16,9 @@ class Subscription {
   final String? boundToUserId;
   final String? boundToHouseholdId;
   final String? billingInterval; // Added field
+  final String? paymentInterval;
+  final int? commitmentMonths;
+  final DateTime? commitmentEnd;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -35,6 +38,9 @@ class Subscription {
     this.boundToUserId,
     this.boundToHouseholdId,
     this.billingInterval, // Added param
+    this.paymentInterval,
+    this.commitmentMonths,
+    this.commitmentEnd,
     required this.createdAt,
     this.updatedAt,
   });
@@ -61,6 +67,11 @@ class Subscription {
       boundToUserId: json['bound_to_user_id'] as String?,
       boundToHouseholdId: json['bound_to_household_id'] as String?,
       billingInterval: json['billing_interval'] as String?, // Added mapping
+      paymentInterval: json['payment_interval'] as String?,
+      commitmentMonths: json['commitment_months'] as int?,
+      commitmentEnd: json['commitment_end'] != null
+          ? DateTime.tryParse(json['commitment_end'].toString())
+          : null,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -87,6 +98,9 @@ class Subscription {
       'bound_to_user_id': boundToUserId,
       'bound_to_household_id': boundToHouseholdId,
       'billing_interval': billingInterval, // Added mapping
+      'payment_interval': paymentInterval,
+      'commitment_months': commitmentMonths,
+      'commitment_end': commitmentEnd?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };

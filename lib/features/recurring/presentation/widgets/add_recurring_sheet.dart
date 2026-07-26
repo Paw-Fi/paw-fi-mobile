@@ -49,6 +49,8 @@ import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/utils/reminder_before_affixes.dart';
+import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
+import 'package:moneko/features/recurring/pages/recurring_history_page.dart';
 
 // Prevent accidental PII/financial logging.
 // Enable explicitly with: --dart-define=MONEKO_DEBUG_LOGS=true
@@ -112,6 +114,10 @@ class AddRecurringSheet extends HookConsumerWidget {
     final isEditing = existingTransaction != null;
     // Ensure custom category style overrides are loaded for display widgets.
     ref.watch(userCategoryConfigProvider);
+
+    final preferredTimezone = ref
+        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
     final txn = existingTransaction;
     final amountText = txn != null
@@ -410,7 +416,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         for (final account in scopedAccounts) {
           if (account.isDefault) return account.id;
         }
-        return scopedAccounts.first.id;
+        return null;
       }();
 
       String? desiredId;
@@ -899,7 +905,7 @@ class AddRecurringSheet extends HookConsumerWidget {
               for (final account in scopedAccounts) {
                 if (account.isDefault) return account.id;
               }
-              return scopedAccounts.isNotEmpty ? scopedAccounts.first.id : null;
+              return null;
             })();
         // Only household-group accounts support shared splits.
         final shareWithHousehold =
@@ -1568,6 +1574,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                       height: 20,
                     ),
 
+                    if (isEditing && existingTransaction != null)
+                      _PaymentHistorySection(
+                        tx: existingTransaction!,
+                        userNow: userNow,
+                      ),
+
                     // Detail cards grouped in single section
                     MonekoInput(
                       child: Column(
@@ -1755,11 +1767,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   }
                                 }
                               }
-                              final fallback = scopedAccounts.firstWhere(
-                                (account) => account.isDefault,
-                                orElse: () => scopedAccounts.first,
-                              );
-                              return fallback.name;
+                              for (final account in scopedAccounts) {
+                                if (account.isDefault) return account.name;
+                              }
+                              return context.l10n.tapToSet;
                             }(),
                             isValuePlaceholder: scopedAccounts.isEmpty,
                             onTap: () async {
@@ -2343,8 +2354,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.check, size: 20),
-                                const SizedBox(width: 8),
+                               
                                 Text(
                                   isEditing
                                       ? context.l10n.updateRecurringTransaction
@@ -2720,4 +2730,132 @@ Future<bool?> showAddRecurringSheet(
       ),
     ),
   );
+}
+
+class _PaymentHistorySection extends HookConsumerWidget {
+  final RecurringTransaction tx;
+  final DateTime userNow;
+
+  const _PaymentHistorySection({
+    required this.tx,
+    required this.userNow,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final historyToday = DateTime(userNow.year, userNow.month, userNow.day);
+    final nextOccurrence = tx.getNextOccurrence(
+      historyToday.subtract(const Duration(days: 1)),
+    );
+    final historyStartDate = tx.recurrenceRule?.anchorDate ?? tx.date;
+    final userId = ref.watch(authProvider).uid;
+    final timeline = userId.isEmpty
+        ? const <RecurringOccurrenceTimelineItem>[]
+        : ref
+                .watch(recurringOccurrenceTimelineProvider(
+                  RecurringOccurrenceTimelineQuery(
+                    userId: userId,
+                    householdId: tx.householdId,
+                    recurringId: tx.id,
+                    startDate: historyStartDate,
+                    endDate: nextOccurrence,
+                  ),
+                ))
+                .valueOrNull ??
+            const <RecurringOccurrenceTimelineItem>[];
+    final historyOccurrencesByDate = <String, DateTime>{
+      for (final occurrence in getOccurrencesList(tx, userNow))
+        if (!occurrence.isAfter(nextOccurrence))
+          formatDateOnlyYmd(occurrence): occurrence,
+      for (final item in timeline)
+        formatDateOnlyYmd(item.scheduledOccurrenceDate):
+            item.scheduledOccurrenceDate,
+    };
+    final historyOccurrences = historyOccurrencesByDate.values.isEmpty
+        ? [nextOccurrence]
+        : historyOccurrencesByDate.values.toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          color: colorScheme.surface.withValues(alpha: 0.0),
+          child: InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecurringHistoryPage(transaction: tx),
+                ),
+              );
+            },
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.event_repeat_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.paymentHistoryAndUpcoming,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Text(
+                      '${historyOccurrences.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
