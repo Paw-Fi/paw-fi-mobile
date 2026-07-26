@@ -19,8 +19,10 @@ const String localHouseholdSettlementMutationEntityType =
     'household_settlement';
 const String localHouseholdSettlementMutationOperation =
     'settle_household_balance_v2';
+const String localRecurringOccurrenceConfirmationMutationOperation =
+    'confirm_recurring_occurrence';
 
-const int _localDatabaseSchemaVersion = 8;
+const int _localDatabaseSchemaVersion = 9;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -412,6 +414,10 @@ class MonekoDatabase {
 
   factory MonekoDatabase.inMemory() => MonekoDatabase._(sqlite3.openInMemory());
 
+  /// Opens a pre-existing SQLite database for migration coverage in tests.
+  factory MonekoDatabase.fromExistingDatabaseForTesting(Database database) =>
+      MonekoDatabase._(database);
+
   static Future<MonekoDatabase> openDefault() async {
     final directory = await getApplicationSupportDirectory();
     await directory.create(recursive: true);
@@ -652,6 +658,23 @@ class MonekoDatabase {
           }
           return;
         }
+      }
+
+      if (mutation.operation ==
+          localRecurringOccurrenceConfirmationMutationOperation) {
+        final placeholders = List.filled(ids.length, '?').join(',');
+        for (final id in ids) {
+          final key = _summaryKeyForTransactionId(id);
+          if (key != null) touched.add(key);
+        }
+        _db.execute(
+          'DELETE FROM local_transactions WHERE id IN ($placeholders)',
+          ids,
+        );
+        for (final key in touched) {
+          _rebuildSummary(key);
+        }
+        return;
       }
 
       final placeholders = List.filled(ids.length, '?').join(',');
@@ -1204,6 +1227,44 @@ class MonekoDatabase {
       ],
     );
 
+    return rows.map(_entryFromTransactionRow).toList(growable: false);
+  }
+
+  Future<List<ExpenseEntry>> getTransactionsByScheduledOccurrenceRange({
+    required String userId,
+    required String? householdId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? parentRecurringId,
+  }) async {
+    final conditions = <String>[
+      'scope_key = ?',
+      'deleted_at IS NULL',
+      'sync_status != ?',
+      'scheduled_occurrence_date >= ?',
+      'scheduled_occurrence_date <= ?',
+    ];
+    final args = <Object?>[
+      localScopeKey(userId: userId, householdId: householdId),
+      localSyncStatusFailed,
+      _dateOnly(startDate),
+      _dateOnly(endDate),
+    ];
+    final recurringId = parentRecurringId?.trim();
+    if (recurringId != null && recurringId.isNotEmpty) {
+      conditions.add('parent_recurring_id = ?');
+      args.add(recurringId);
+    }
+
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY scheduled_occurrence_date DESC, created_at DESC, id DESC
+      ''',
+      args,
+    );
     return rows.map(_entryFromTransactionRow).toList(growable: false);
   }
 
@@ -2896,6 +2957,9 @@ class MonekoDatabase {
         shared_member_ids_json TEXT,
         split_group_id TEXT,
         parent_recurring_id TEXT,
+        scheduled_occurrence_date TEXT,
+        recurring_confirmed_at TEXT,
+        recurring_confirmation_source TEXT,
         bank_account_id TEXT,
         wallet_id TEXT,
         account_name TEXT,
@@ -3067,6 +3131,11 @@ class MonekoDatabase {
       'ON local_category_remaps(user_id, transaction_type, last_used_at DESC);',
     );
     _migrateSchemaIfNeeded();
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_local_transactions_scope_scheduled_occurrence '
+      'ON local_transactions(scope_key, scheduled_occurrence_date DESC) '
+      'WHERE scheduled_occurrence_date IS NOT NULL;',
+    );
   }
 
   void _migrateSchemaIfNeeded() {
@@ -3088,6 +3157,10 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'shared_member_ids_json', 'TEXT');
       _ensureColumn('local_transactions', 'split_group_id', 'TEXT');
       _ensureColumn('local_transactions', 'parent_recurring_id', 'TEXT');
+      _ensureColumn('local_transactions', 'scheduled_occurrence_date', 'TEXT');
+      _ensureColumn('local_transactions', 'recurring_confirmed_at', 'TEXT');
+      _ensureColumn(
+          'local_transactions', 'recurring_confirmation_source', 'TEXT');
       _ensureColumn('local_transactions', 'bank_account_id', 'TEXT');
       _ensureColumn('local_transactions', 'wallet_id', 'TEXT');
       _ensureColumn('local_transactions', 'account_name', 'TEXT');
@@ -3227,13 +3300,15 @@ class MonekoDatabase {
         currency, category, created_at, updated_at, local_updated_at, raw_text, merchant,
         breakdown_json, receipt_image_url, local_receipt_image_path,
         shared_member_ids_json, split_group_id, parent_recurring_id,
+        scheduled_occurrence_date, recurring_confirmed_at,
+        recurring_confirmation_source,
         bank_account_id, wallet_id,
         account_name, account_icon, account_color, type, analytics_class,
         analytics_is_final, analytics_spending_multiplier,
         analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -3254,6 +3329,9 @@ class MonekoDatabase {
         shared_member_ids_json = excluded.shared_member_ids_json,
         split_group_id = excluded.split_group_id,
         parent_recurring_id = excluded.parent_recurring_id,
+        scheduled_occurrence_date = excluded.scheduled_occurrence_date,
+        recurring_confirmed_at = excluded.recurring_confirmed_at,
+        recurring_confirmation_source = excluded.recurring_confirmation_source,
         bank_account_id = excluded.bank_account_id,
         wallet_id = excluded.wallet_id,
         account_name = excluded.account_name,
@@ -3308,6 +3386,13 @@ class MonekoDatabase {
         _encodeStringList(entry.sharedMemberIds),
         entry.splitGroupId,
         entry.parentRecurringId,
+        entry.scheduledOccurrenceDate == null
+            ? null
+            : _dateOnly(entry.scheduledOccurrenceDate!),
+        entry.recurringConfirmedAt == null
+            ? null
+            : _instant(entry.recurringConfirmedAt!),
+        entry.recurringConfirmationSource,
         entry.bankAccountId,
         entry.walletId,
         entry.accountName,
@@ -3698,6 +3783,12 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
         _decodeStringList(row['shared_member_ids_json'] as String?),
     splitGroupId: row['split_group_id'] as String?,
     parentRecurringId: row['parent_recurring_id'] as String?,
+    scheduledOccurrenceDate:
+        _parseNullableDate(row['scheduled_occurrence_date'] as String?),
+    recurringConfirmedAt:
+        _parseNullableDate(row['recurring_confirmed_at'] as String?),
+    recurringConfirmationSource:
+        row['recurring_confirmation_source'] as String?,
     bankAccountId: row['bank_account_id'] as String?,
     walletId: row['wallet_id'] as String?,
     accountName: row['account_name'] as String?,

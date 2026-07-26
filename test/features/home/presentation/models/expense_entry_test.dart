@@ -121,6 +121,10 @@ void main() {
         'analytics_spending_multiplier': 1,
         'analytics_counts_toward_income': false,
         'is_recurring': true,
+        'parent_recurring_id': 'recurring_1',
+        'scheduled_occurrence_date': '2023-12-31',
+        'recurring_confirmed_at': '2024-01-01T11:00:00.000Z',
+        'recurring_confirmation_source': 'manual',
       };
 
       final entry = ExpenseEntry.fromJson(json);
@@ -142,6 +146,10 @@ void main() {
       expect(entry.effectiveSpendingMultiplier, 1);
       expect(entry.countsTowardIncome, isFalse);
       expect(entry.isRecurring, true);
+      expect(entry.parentRecurringId, 'recurring_1');
+      expect(entry.scheduledOccurrenceDate, DateTime(2023, 12, 31));
+      expect(entry.recurringConfirmedAt, DateTime.utc(2024, 1, 1, 11));
+      expect(entry.recurringConfirmationSource, 'manual');
     });
 
     test('fromJson parses nested users object', () {

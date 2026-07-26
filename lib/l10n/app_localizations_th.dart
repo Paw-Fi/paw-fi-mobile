@@ -1729,7 +1729,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get member => 'สมาชิก';
 
   @override
-  String get pending => 'รอตอบรับ';
+  String get pending => '';
 
   @override
   String get accepted => 'เข้าร่วมแล้ว';
@@ -2134,7 +2134,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get saving => 'กำลังบันทึก...';
 
   @override
-  String get skipForNow => 'ข้ามไปก่อน';
+  String get skipForNow => '';
 
   @override
   String get selectColor => 'เลือกสี';
@@ -2791,7 +2791,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paydown => 'โปะหนี้';
 
   @override
-  String get all => 'ทั้งหมด';
+  String get all => '';
 
   @override
   String get completed => 'สำเร็จแล้ว';
@@ -9262,4 +9262,182 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get plaidSyncThisMightTakeAMoment => 'ขั้นตอนนี้อาจใช้เวลาสักครู่...';
+
+  @override
+  String paywallCommitmentName(Object months) {
+    return '';
+  }
+
+  @override
+  String paywallCommitmentTerms(Object months) {
+    return '';
+  }
+
+  @override
+  String get paywallCommitmentHowItWorks => '';
+
+  @override
+  String get paywallCommitmentAnnualPlan => '';
+
+  @override
+  String paywallCommitmentBilledMonthly(Object months) {
+    return '';
+  }
+
+  @override
+  String paywallCommitmentBilledMonthlyWithTotal(Object months, Object total) {
+    return '';
+  }
+
+  @override
+  String paywallCommitmentPaidUpfront(Object months) {
+    return '';
+  }
+
+  @override
+  String paywallCommitmentPaidUpfrontWithTotal(Object months, Object total) {
+    return '';
+  }
+
+  @override
+  String get paywallCommitmentSavings => '';
+
+  @override
+  String get paywallCommitmentHowItWorksSemantics => '';
+
+  @override
+  String get paywallCommitmentDetailsTitle => '';
+
+  @override
+  String paywallCommitmentDetailsIntro(Object monthly, Object months, Object total) {
+    return '';
+  }
+
+  @override
+  String get paywallCommitmentBillingTitle => '';
+
+  @override
+  String paywallCommitmentBillingBody(Object monthly, Object months, Object total) {
+    return '';
+  }
+
+  @override
+  String get paywallCommitmentCancellationTitle => '';
+
+  @override
+  String paywallCommitmentCancellationBody(Object months) {
+    return '';
+  }
+
+  @override
+  String paywallCommitmentRenewalTitle(Object months) {
+    return '';
+  }
+
+  @override
+  String paywallCommitmentRenewalBody(Object months) {
+    return '';
+  }
+
+  @override
+  String get monthlyCommitment => '';
+
+  @override
+  String get monthlyIncome => '';
+
+  @override
+  String get activeBills => '';
+
+  @override
+  String get activePaychecks => '';
+
+  @override
+  String get dueIn7Days => '';
+
+  @override
+  String get dueThisMonth => '';
+
+  @override
+  String get dueLater => '';
+
+  @override
+  String get activeSchedules => '';
+
+  @override
+  String get paymentHistoryAndUpcoming => '';
+
+  @override
+  String get confirmPayment => '';
+
+  @override
+  String get nextPaymentDue => '';
+
+  @override
+  String paidStatusOn(Object date) {
+    return '';
+  }
+
+  @override
+  String get dueTodayStatus => '';
+
+  @override
+  String get dueTomorrowStatus => '';
+
+  @override
+  String dueInDaysStatus(Object days) {
+    return '';
+  }
+
+  @override
+  String overdueByDaysStatus(Object days) {
+    return '';
+  }
+
+  @override
+  String get paid => '';
+
+  @override
+  String get recurringOccurrenceScheduledDate => '';
+
+  @override
+  String showOlderPayments(Object count) {
+    return '';
+  }
+
+  @override
+  String get showLess => '';
+
+  @override
+  String get viewPaymentHistory => '';
+
+  @override
+  String get totalPaid => '';
+
+  @override
+  String get totalCycles => '';
+
+  @override
+  String get perCycle => '';
+
+  @override
+  String get nextDue => '';
+
+  @override
+  String get totalDeducted => '';
+
+  @override
+  String get confirmRemainingCycles => '';
+
+  @override
+  String confirmRemainingSubtitle(Object count) {
+    return '';
+  }
+
+  @override
+  String confirmAllPayments(Object count) {
+    return '';
+  }
+
+  @override
+  String get unconfirmedPastCycles => '';
 }

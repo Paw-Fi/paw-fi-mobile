@@ -11,6 +11,16 @@ typedef LocalMutationCancelledHandler = Future<void> Function(
   Object error,
 );
 
+/// Signals that replay reached the server but cannot ever succeed by retrying.
+class NonRetryableLocalMutationException implements Exception {
+  const NonRetryableLocalMutationException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class SyncCoordinator {
   const SyncCoordinator({
     required this.database,
@@ -43,8 +53,9 @@ class SyncCoordinator {
         syncedCount += 1;
       } catch (error) {
         final nextAttempt = mutation.attemptCount + 1;
-        if (!isDurableHouseholdSettlementMutation(mutation) &&
-            nextAttempt >= maxAttempts) {
+        if (error is NonRetryableLocalMutationException ||
+            (!isDurableHouseholdSettlementMutation(mutation) &&
+                nextAttempt >= maxAttempts)) {
           await database.markMutationCancelled(
             clientMutationId: mutation.clientMutationId,
             error: error,

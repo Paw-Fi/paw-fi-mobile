@@ -45,6 +45,8 @@ class ExpenseEntry {
   final String? splitGroupId;
   final String? parentRecurringId;
   final DateTime? scheduledOccurrenceDate;
+  final DateTime? recurringConfirmedAt;
+  final String? recurringConfirmationSource;
   final String? bankAccountId;
   final String? walletId;
   final String? accountName;
@@ -85,6 +87,8 @@ class ExpenseEntry {
     this.splitGroupId,
     this.parentRecurringId,
     this.scheduledOccurrenceDate,
+    this.recurringConfirmedAt,
+    this.recurringConfirmationSource,
     this.bankAccountId,
     this.walletId,
     this.accountName,
@@ -200,6 +204,14 @@ class ExpenseEntry {
           : json['scheduledOccurrenceDate'] != null
               ? parseDateOnly(json['scheduledOccurrenceDate'])
               : null,
+      recurringConfirmedAt: json['recurring_confirmed_at'] != null
+          ? parseInstant(json['recurring_confirmed_at'])
+          : json['recurringConfirmedAt'] != null
+              ? parseInstant(json['recurringConfirmedAt'])
+              : null,
+      recurringConfirmationSource:
+          json['recurring_confirmation_source'] as String? ??
+              json['recurringConfirmationSource'] as String?,
       bankAccountId: bankAccountId,
       walletId: json['account_id'] as String?,
       accountName: _sanitizeNullable(json['account_name'] as String?),
@@ -251,6 +263,8 @@ class ExpenseEntry {
       'scheduled_occurrence_date': scheduledOccurrenceDate == null
           ? null
           : formatDateOnlyYmd(scheduledOccurrenceDate!),
+      'recurring_confirmed_at': recurringConfirmedAt?.toIso8601String(),
+      'recurring_confirmation_source': recurringConfirmationSource,
       'bank_account_id': bankAccountId,
       'account_id': walletId,
       'account_name': accountName,
@@ -294,6 +308,8 @@ class ExpenseEntry {
     String? splitGroupId,
     String? parentRecurringId,
     DateTime? scheduledOccurrenceDate,
+    DateTime? recurringConfirmedAt,
+    String? recurringConfirmationSource,
     String? bankAccountId,
     String? accountId,
     String? accountName,
@@ -336,6 +352,9 @@ class ExpenseEntry {
       parentRecurringId: parentRecurringId ?? this.parentRecurringId,
       scheduledOccurrenceDate:
           scheduledOccurrenceDate ?? this.scheduledOccurrenceDate,
+      recurringConfirmedAt: recurringConfirmedAt ?? this.recurringConfirmedAt,
+      recurringConfirmationSource:
+          recurringConfirmationSource ?? this.recurringConfirmationSource,
       bankAccountId: bankAccountId ?? this.bankAccountId,
       walletId: accountId ?? walletId,
       accountName: accountName ?? this.accountName,

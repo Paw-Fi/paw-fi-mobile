@@ -204,3 +204,14 @@ extension TrialWelcomeL10nX on AppLocalizations {
       'That\'s absolutely fine! You can continue using Moneko for free with some features limited. No pressure, no surprises.';
   String get trialWelcomeCta => 'Start exploring';
 }
+
+extension RecurringPageL10nX on AppLocalizations {
+  String get monthlyCommitment => 'Monthly Commitment';
+  String get monthlyIncome => 'Monthly Income';
+  String get activeBills => 'Active Bills';
+  String get activePaychecks => 'Active Paychecks';
+  String get dueIn7Days => 'Due in 7 Days';
+  String get dueThisMonth => 'Due This Month';
+  String get dueLater => 'Due Later';
+  String get activeSchedules => 'Active Schedules';
+}

@@ -13,6 +13,10 @@ void main() {
       'category': 'food',
       'created_at': '2026-04-10T09:00:00.000Z',
       'type': 'expense',
+      'parent_recurring_id': 'recurring_1',
+      'scheduled_occurrence_date': '2026-04-01',
+      'recurring_confirmed_at': '2026-04-10T08:30:00.000Z',
+      'recurring_confirmation_source': 'manual',
     };
 
     final delta = MobileDelta.fromJson({
@@ -24,6 +28,16 @@ void main() {
     });
 
     expect(delta.transactions.single.id, 'expense_1');
+    expect(delta.transactions.single.parentRecurringId, 'recurring_1');
+    expect(
+      delta.transactions.single.scheduledOccurrenceDate,
+      DateTime(2026, 4, 1),
+    );
+    expect(
+      delta.transactions.single.recurringConfirmedAt,
+      DateTime.utc(2026, 4, 10, 8, 30),
+    );
+    expect(delta.transactions.single.recurringConfirmationSource, 'manual');
     expect(delta.deletedTransactionIds, ['expense_2']);
     expect(delta.nextCursor, DateTime.parse('2026-04-10T09:01:00.000Z'));
     expect(delta.nextCursorId, _cursorId1);
@@ -218,11 +232,11 @@ void main() {
     expect(rows, hasLength(2));
   });
 
-  test('classification-safe delta ignores the legacy v1 cursor', () async {
+  test('occurrence-safe delta ignores the legacy v3 cursor', () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
     await database.setSyncCursorValue(
-      entityName: 'mobile_delta_v1',
+      entityName: 'mobile_delta_v3',
       scopeKey: 'user_1:all',
       cursor: '{"changedAt":"2026-04-10T09:01:00.000Z","id":"$_cursorId1"}',
     );
@@ -251,12 +265,13 @@ void main() {
 
     await service.pullAndApply(userId: 'user_1');
 
-    expect(mobileDeltaEntityName, 'mobile_delta_v3');
+    expect(mobileDeltaEntityName, 'mobile_delta_v5');
+    expect(mobileDeltaRpcName, 'get_mobile_delta_v5');
     expect(capturedSince, isNull);
     expect(capturedSinceId, isNull);
     expect(
       await database.getSyncCursorValue(
-        entityName: 'mobile_delta_v3',
+        entityName: 'mobile_delta_v5',
         scopeKey: 'user_1:all',
       ),
       isNotNull,

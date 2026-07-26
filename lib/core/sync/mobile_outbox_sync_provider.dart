@@ -278,6 +278,28 @@ Future<void> _dispatchMobileMutation(
         clientMutationId: mutation.clientMutationId,
       );
       return;
+    case localRecurringOccurrenceConfirmationMutationOperation:
+      final responseBody = await _invokeRecurringOccurrenceConfirmation(
+        _mapValue(payload['requestBody']),
+      );
+      final savedPayload = _extractRecurringOccurrenceTransaction(responseBody);
+      if (savedPayload == null) {
+        throw StateError(
+          'Recurring occurrence sync succeeded without an actual transaction payload',
+        );
+      }
+      await database.replaceOptimisticTransaction(
+        optimisticId: mutation.entityId,
+        savedEntry: ExpenseEntry.fromJson(savedPayload).copyWith(
+          clientRecordId: mutation.entityId,
+          clientMutationId: mutation.clientMutationId,
+          idempotencyKey:
+              _metadataFromPayload(payload)['idempotencyKey']?.toString() ??
+                  mutation.clientMutationId,
+        ),
+        clientMutationId: mutation.clientMutationId,
+      );
+      return;
     default:
       throw UnsupportedError(
           'Unsupported local mutation: ${mutation.operation}');
@@ -481,6 +503,29 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
     throw Exception(
       responseBody?['error']?.toString() ?? '$functionName failed',
     );
+  }
+  return responseBody;
+}
+
+Future<Map<String, dynamic>> _invokeRecurringOccurrenceConfirmation(
+  Map<String, dynamic>? body,
+) async {
+  if (body == null || body.isEmpty) {
+    throw ArgumentError('Missing recurring occurrence confirmation payload');
+  }
+  final response = await supabase.functions.invoke(
+    'confirm-recurring-occurrence',
+    body: body,
+  );
+  final responseBody = _mapValue(response.data);
+  if (responseBody == null || responseBody['success'] != true) {
+    final code = responseBody?['code']?.toString() ?? '';
+    final message = responseBody?['error']?.toString() ??
+        'Recurring occurrence confirmation failed';
+    if (code.startsWith('OCCURRENCE_') || code == 'VALIDATION_ERROR') {
+      throw NonRetryableLocalMutationException(message);
+    }
+    throw Exception(message);
   }
   return responseBody;
 }
@@ -842,6 +887,14 @@ Map<String, dynamic>? _extractSavedEntryPayload(Map<String, dynamic> data) {
   if (saved is Map<String, dynamic>) return saved;
   if (saved is Map) return Map<String, dynamic>.from(saved);
   return null;
+}
+
+Map<String, dynamic>? _extractRecurringOccurrenceTransaction(
+  Map<String, dynamic> response,
+) {
+  final data = _mapValue(response['data']);
+  final transaction = _mapValue(data?['transaction']);
+  return transaction;
 }
 
 Map<String, dynamic> _decodePayload(String payloadJson) {

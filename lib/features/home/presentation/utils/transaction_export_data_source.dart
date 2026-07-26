@@ -11,7 +11,7 @@ class TransactionExportDataSource {
   static const _maxPages = 200;
   static const _queryTimeout = Duration(seconds: 20);
   static const _selectFields =
-      'id,contact_id,user_id,household_id,date,amount_cents,currency,category,raw_text,merchant,breakdown,receipt_image_url,created_at,updated_at,split_group_id,type,is_recurring,account_id';
+      'id,contact_id,user_id,household_id,date,amount_cents,currency,category,raw_text,merchant,breakdown,receipt_image_url,created_at,updated_at,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,type,is_recurring,account_id';
 
   final SupabaseClient _client;
 

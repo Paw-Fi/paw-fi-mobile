@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/foundation.dart' as foundation;
@@ -25,6 +26,10 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -129,6 +134,9 @@ class _RecurringTransactionsPageState
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final selectedRecurringTab = ref.watch(selectedRecurringTabProvider);
     final preview = ref.watch(previewModeProvider);
+    final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
+        const CurrencyRateTable(
+            baseCurrency: 'USD', rates: CurrencyRates.rates);
 
     // Use householdScopeProvider to properly handle portfolio households
     // Portfolio households (is_portfolio=true) are treated as personal, not household
@@ -235,42 +243,37 @@ class _RecurringTransactionsPageState
               },
               children: [
                 _buildRecurringTabView(
-                  colorScheme,
-                  _buildExpensesSliver(
+                  colorScheme: colorScheme,
+                  slivers: _buildExpensesSlivers(
                     recurringExpenses,
                     colorScheme,
                     selectedCurrency,
                     selectedCurrencies,
                     householdId,
                     userNow,
+                    rateTable,
                   ),
-                  householdId,
-                  recurringExpenses.isLoading,
+                  householdId: householdId,
+                  isLoading: recurringExpenses.isLoading,
                 ),
                 _buildRecurringTabView(
-                  colorScheme,
-                  _buildIncomesSliver(
+                  colorScheme: colorScheme,
+                  slivers: _buildIncomesSlivers(
                     recurringIncomes,
                     colorScheme,
                     selectedCurrency,
                     selectedCurrencies,
                     householdId,
                     userNow,
+                    rateTable,
                   ),
-                  householdId,
-                  recurringIncomes.isLoading,
+                  householdId: householdId,
+                  isLoading: recurringIncomes.isLoading,
                 ),
               ],
             ),
           ),
         ],
-      ),
-
-      // Floating action button
-      floatingActionButton: Padding(
-        key: _recurringFabSpotlightKey,
-        padding: const EdgeInsets.all(0),
-        child: _buildFAB(colorScheme),
       ),
     ));
   }
@@ -314,12 +317,12 @@ class _RecurringTransactionsPageState
     ref.read(recurringPageCommandProvider.notifier).state = null;
   }
 
-  Widget _buildRecurringTabView(
-    ColorScheme colorScheme,
-    Widget sliver,
-    String? householdId,
-    bool isLoading,
-  ) {
+  Widget _buildRecurringTabView({
+    required ColorScheme colorScheme,
+    required List<Widget> slivers,
+    required String? householdId,
+    required bool isLoading,
+  }) {
     return RefreshIndicator(
       onRefresh: () => _refresh(householdId),
       child: Skeletonizer(
@@ -330,24 +333,20 @@ class _RecurringTransactionsPageState
         ),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 20),
-            ),
-            sliver,
-          ],
+          slivers: slivers,
         ),
       ),
     );
   }
 
-  Widget _buildExpensesSliver(
+  List<Widget> _buildExpensesSlivers(
     AsyncValue<List<dynamic>> recurringExpenses,
     ColorScheme colorScheme,
     String? selectedCurrency,
     List<String>? selectedCurrencies,
     String? householdId,
     DateTime userNow,
+    CurrencyRateTable rateTable,
   ) {
     return recurringExpenses.when(
       data: (expenses) {
@@ -363,12 +362,15 @@ class _RecurringTransactionsPageState
                     .toList())
             .cast<RecurringTransaction>();
 
-        return _buildTransactionsListSliver(
-          filtered,
-          colorScheme,
-          'expense',
-          householdId,
+        return _buildTabSlivers(
+          transactions: filtered,
+          colorScheme: colorScheme,
+          type: 'expense',
+          householdId: householdId,
           isLoading: false,
+          baseCurrency: selectedCurrency ?? 'USD',
+          rateTable: rateTable,
+          userNow: userNow,
         );
       },
       loading: () {
@@ -379,26 +381,31 @@ class _RecurringTransactionsPageState
           now: userNow,
         );
 
-        return _buildTransactionsListSliver(
-          fakeExpenses,
-          colorScheme,
-          'expense',
-          householdId,
+        return _buildTabSlivers(
+          transactions: fakeExpenses,
+          colorScheme: colorScheme,
+          type: 'expense',
+          householdId: householdId,
           isLoading: true,
+          baseCurrency: currency,
+          rateTable: rateTable,
+          userNow: userNow,
         );
       },
-      error: (error, _) =>
-          _buildErrorSliver(error.toString(), context.l10n.expense),
+      error: (error, _) => [
+        _buildErrorSliver(error.toString(), context.l10n.expense),
+      ],
     );
   }
 
-  Widget _buildIncomesSliver(
+  List<Widget> _buildIncomesSlivers(
     AsyncValue<List<dynamic>> recurringIncomes,
     ColorScheme colorScheme,
     String? selectedCurrency,
     List<String>? selectedCurrencies,
     String? householdId,
     DateTime userNow,
+    CurrencyRateTable rateTable,
   ) {
     return recurringIncomes.when(
       data: (incomes) {
@@ -414,12 +421,15 @@ class _RecurringTransactionsPageState
                     .toList())
             .cast<RecurringTransaction>();
 
-        return _buildTransactionsListSliver(
-          filtered,
-          colorScheme,
-          'income',
-          householdId,
+        return _buildTabSlivers(
+          transactions: filtered,
+          colorScheme: colorScheme,
+          type: 'income',
+          householdId: householdId,
           isLoading: false,
+          baseCurrency: selectedCurrency ?? 'USD',
+          rateTable: rateTable,
+          userNow: userNow,
         );
       },
       loading: () {
@@ -430,58 +440,354 @@ class _RecurringTransactionsPageState
           now: userNow,
         );
 
-        return _buildTransactionsListSliver(
-          fakeIncomes,
-          colorScheme,
-          'income',
-          householdId,
+        return _buildTabSlivers(
+          transactions: fakeIncomes,
+          colorScheme: colorScheme,
+          type: 'income',
+          householdId: householdId,
           isLoading: true,
+          baseCurrency: currency,
+          rateTable: rateTable,
+          userNow: userNow,
         );
       },
-      error: (error, _) =>
-          _buildErrorSliver(error.toString(), context.l10n.income),
+      error: (error, _) => [
+        _buildErrorSliver(error.toString(), context.l10n.income),
+      ],
     );
   }
 
-  Widget _buildTransactionsListSliver(
-    List<RecurringTransaction> transactions,
-    ColorScheme colorScheme,
-    String type,
-    String? householdId, {
+  List<Widget> _buildTabSlivers({
+    required List<RecurringTransaction> transactions,
+    required ColorScheme colorScheme,
+    required String type,
+    required String? householdId,
     required bool isLoading,
+    required String baseCurrency,
+    required CurrencyRateTable rateTable,
+    required DateTime userNow,
   }) {
     if (!isLoading && transactions.isEmpty) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: EmptyRecurringState(
-              type: type,
-              onAddPressed: () => _showAddSheet(type),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: EmptyRecurringState(
+                type: type,
+                onAddPressed: () => _showAddSheet(type),
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    final activeTransactions = transactions.where((t) => t.isActive).toList();
+    final totalCommitted =
+        _calculateTotalMonthlyCommitted(transactions, baseCurrency, rateTable);
+
+    // Build summary card
+    final summaryCardSliver = SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        child: _buildSummaryCard(
+          colorScheme: colorScheme,
+          total: totalCommitted,
+          currencyCode: baseCurrency,
+          activeCount: activeTransactions.length,
+          isIncome: type == 'income',
+          hasMultipleCurrencies: (ref
+                      .read(homeFilterProvider)
+                      .normalizedSelectedCurrencies
+                      ?.length ??
+                  0) >
+              1,
+        ),
+      ),
+    );
+
+    if (isLoading) {
+      // While loading, build fake transactions in a simple list without grouping headers
+      return [
+        summaryCardSliver,
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final transaction = transactions[index];
+                return RecurringTransactionCard(
+                  transaction: transaction,
+                  onTap: null,
+                  onDelete: null,
+                );
+              },
+              childCount: transactions.length,
+            ),
+          ),
+        ),
+      ];
+    }
+
+    // Group transactions
+    final groups = GroupedRecurringTransactions.fromList(transactions, userNow);
+
+    final slivers = <Widget>[
+      summaryCardSliver,
+    ];
+
+    Widget buildSectionHeader(String title, int count) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+        child: Row(
+          children: [
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.mutedForeground,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: colorScheme.muted.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Helper to add a group section
+    void addGroupSection({
+      required String title,
+      required List<RecurringTransaction> groupTransactions,
+    }) {
+      if (groupTransactions.isEmpty) return;
+      slivers.add(
+        SliverToBoxAdapter(
+          child: buildSectionHeader(title, groupTransactions.length),
+        ),
+      );
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final transaction = groupTransactions[index];
+                return RecurringTransactionCard(
+                  transaction: transaction,
+                  onTap: () => _showTransactionDetails(transaction),
+                  onDelete: () => _deleteTransaction(transaction, householdId),
+                );
+              },
+              childCount: groupTransactions.length,
             ),
           ),
         ),
       );
     }
 
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final transaction = transactions[index];
-            return RecurringTransactionCard(
-              transaction: transaction,
-              onTap:
-                  isLoading ? null : () => _showTransactionDetails(transaction),
-              onDelete: isLoading
-                  ? null
-                  : () => _deleteTransaction(transaction, householdId),
-            );
-          },
-          childCount: transactions.length,
+    addGroupSection(
+      title: context.l10n.dueIn7Days,
+      groupTransactions: groups.dueIn7Days,
+    );
+
+    addGroupSection(
+      title: context.l10n.dueThisMonth,
+      groupTransactions: groups.dueThisMonth,
+    );
+
+    addGroupSection(
+      title: context.l10n.dueLater,
+      groupTransactions: groups.dueLater,
+    );
+
+    // Bottom spacing
+    slivers.add(
+      const SliverToBoxAdapter(
+        child: SizedBox(height: 40),
+      ),
+    );
+
+    return slivers;
+  }
+
+  Widget _buildSummaryCard({
+    required ColorScheme colorScheme,
+    required double total,
+    required String currencyCode,
+    required int activeCount,
+    required bool isIncome,
+    required bool hasMultipleCurrencies,
+  }) {
+    final symbol = resolveCurrencySymbol(currencyCode);
+    final normalized = double.parse(formatAmount(total));
+    final localizedTotal = formatLocalizedNumber(context, normalized);
+    final label =
+        isIncome ? context.l10n.monthlyIncome : context.l10n.monthlyCommitment;
+    final subtext = isIncome
+        ? (activeCount == 1
+            ? '1 active paycheck'
+            : '$activeCount active paychecks')
+        : (activeCount == 1 ? '1 active bill' : '$activeCount active bills');
+
+    final isDark = colorScheme.brightness == Brightness.dark;
+
+    final content = Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isIncome ? Icons.trending_up : Icons.receipt_long_rounded,
+                    size: 16,
+                    color: isIncome ? colorScheme.success : colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.mutedForeground,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasMultipleCurrencies)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.muted.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 10,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'CONVERTED',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            textBaseline: TextBaseline.alphabetic,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            children: [
+              Text(
+                '$symbol$localizedTotal',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                  letterSpacing: -1,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                currencyCode,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtext,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  colorScheme.primary.withValues(alpha: 0.12),
+                  colorScheme.surface.withValues(alpha: 0.04),
+                ]
+              : [
+                  colorScheme.primary.withValues(alpha: 0.03),
+                  colorScheme.cardSurface,
+                ],
         ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? colorScheme.surfaceBorder
+              : colorScheme.primary.withValues(alpha: 0.12),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? colorScheme.homeCardShadow
+                : Colors.black.withValues(alpha: 0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: isDark
+            ? BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: content,
+              )
+            : content,
       ),
     );
   }
@@ -504,18 +810,30 @@ class _RecurringTransactionsPageState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: colorScheme.mutedForeground,
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: colorScheme.error.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.error.withValues(alpha: 0.12),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  size: 40,
+                  color: colorScheme.error,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Text(
                 context.l10n.errorLoadingData,
                 style: TextStyle(
                   color: colorScheme.foreground,
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 8),
@@ -524,7 +842,7 @@ class _RecurringTransactionsPageState
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: colorScheme.mutedForeground,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
               const SizedBox(height: 24),
@@ -742,5 +1060,104 @@ class _RecurringTransactionsPageState
 
     _debugPrint('✅ [RecurringPage] Delete operation completed');
     _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+}
+
+double _calculateMonthlyAmount(RecurringTransaction tx) {
+  if (tx.recurrenceRule == null) return 0.0;
+  final rule = tx.recurrenceRule!;
+  final interval = rule.interval ?? 1;
+  final effectiveInterval = interval <= 0 ? 1 : interval;
+
+  switch (rule.frequency) {
+    case 'daily':
+      return tx.amount * (30.0 / effectiveInterval);
+    case 'weekly':
+      return tx.amount * (4.333333333333333 / effectiveInterval);
+    case 'biweekly':
+      return tx.amount * (2.1666666666666667 / effectiveInterval);
+    case 'monthly':
+      return tx.amount / effectiveInterval;
+    case 'yearly':
+      return tx.amount / (12.0 * effectiveInterval);
+    default:
+      return 0.0;
+  }
+}
+
+double _calculateTotalMonthlyCommitted(
+  List<RecurringTransaction> transactions,
+  String baseCurrency,
+  CurrencyRateTable rateTable,
+) {
+  double total = 0.0;
+  for (final tx in transactions) {
+    if (!tx.isActive) continue;
+    final monthlyAmount = _calculateMonthlyAmount(tx);
+    final converted = rateTable.convert(
+      monthlyAmount,
+      tx.currency.toUpperCase(),
+      baseCurrency.toUpperCase(),
+    );
+    total += converted;
+  }
+  return total;
+}
+
+class GroupedRecurringTransactions {
+  final List<RecurringTransaction> dueIn7Days;
+  final List<RecurringTransaction> dueThisMonth;
+  final List<RecurringTransaction> dueLater;
+
+  GroupedRecurringTransactions({
+    required this.dueIn7Days,
+    required this.dueThisMonth,
+    required this.dueLater,
+  });
+
+  factory GroupedRecurringTransactions.fromList(
+    List<RecurringTransaction> list,
+    DateTime userNow,
+  ) {
+    final listCopy = List<RecurringTransaction>.from(list)
+      ..sort((a, b) {
+        final nextA = a.getNextOccurrence(userNow);
+        final nextB = b.getNextOccurrence(userNow);
+        return nextA.compareTo(nextB);
+      });
+
+    final dueIn7Days = <RecurringTransaction>[];
+    final dueThisMonth = <RecurringTransaction>[];
+    final dueLater = <RecurringTransaction>[];
+
+    final endOf7Days = DateTime(userNow.year, userNow.month, userNow.day)
+        .add(const Duration(days: 7));
+    final endOfThisMonth = DateTime(userNow.year, userNow.month + 1, 0);
+
+    for (final tx in listCopy) {
+      if (!tx.isActive) {
+        dueLater.add(tx);
+        continue;
+      }
+      final nextOccurrence = tx.getNextOccurrence(userNow);
+      final nextDay = DateTime(
+          nextOccurrence.year, nextOccurrence.month, nextOccurrence.day);
+
+      if (nextDay.isBefore(endOf7Days) ||
+          nextDay.isAtSameMomentAs(endOf7Days)) {
+        dueIn7Days.add(tx);
+      } else if (nextDay.isBefore(endOfThisMonth) ||
+          nextDay.isAtSameMomentAs(endOfThisMonth)) {
+        dueThisMonth.add(tx);
+      } else {
+        dueLater.add(tx);
+      }
+    }
+
+    return GroupedRecurringTransactions(
+      dueIn7Days: dueIn7Days,
+      dueThisMonth: dueThisMonth,
+      dueLater: dueLater,
+    );
   }
 }

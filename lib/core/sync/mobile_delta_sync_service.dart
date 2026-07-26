@@ -4,7 +4,8 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
-const String mobileDeltaEntityName = 'mobile_delta_v3';
+const String mobileDeltaEntityName = 'mobile_delta_v5';
+const String mobileDeltaRpcName = 'get_mobile_delta_v5';
 const int _maxDeltaPagesPerPull = 20;
 
 typedef MobileDeltaFetcher = Future<MobileDelta> Function({
@@ -132,7 +133,7 @@ MobileDeltaFetcher supabaseMobileDeltaFetcher() {
     required int limit,
   }) async {
     final response = await supabase.rpc(
-      'get_mobile_delta_v4',
+      mobileDeltaRpcName,
       params: {
         'p_user_id': userId,
         'p_since': since?.toUtc().toIso8601String(),

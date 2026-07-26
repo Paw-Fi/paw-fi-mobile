@@ -114,7 +114,7 @@ void main() {
 
     expect(
       transactionsPageRpcNameForTesting(query),
-      'get_user_transactions_page_v4',
+      'get_user_transactions_page_v5',
     );
   });
 
@@ -127,7 +127,7 @@ void main() {
 
     expect(
       transactionsPageRpcNameForTesting(query),
-      'get_user_transactions_page_v4',
+      'get_user_transactions_page_v5',
     );
   });
 
@@ -139,7 +139,7 @@ void main() {
 
     expect(
       transactionsPageRpcNameForTesting(query),
-      'get_user_transactions_page_v4',
+      'get_user_transactions_page_v5',
     );
   });
 

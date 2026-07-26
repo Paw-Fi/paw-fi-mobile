@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 String _settlementSnapshotToken(String character) =>
     'v1:${List<String>.filled(64, character).join()}';
@@ -68,6 +69,117 @@ void main() {
       );
 
       expect(rows.single.parentRecurringId, 'recurring_series_1');
+    });
+
+    test('round-trips recurring occurrence provenance through upserts',
+        () async {
+      final confirmedAt = DateTime.utc(2026, 6, 11, 12, 30);
+      final entry = _entry(
+        id: 'actual_recurring_occurrence',
+        userId: 'user_1',
+        amountCents: 2500,
+        date: DateTime(2026, 6, 13),
+      ).copyWith(
+        parentRecurringId: 'recurring_series_1',
+        scheduledOccurrenceDate: DateTime(2026, 6, 10),
+        recurringConfirmedAt: confirmedAt,
+        recurringConfirmationSource: 'manual',
+      );
+
+      await database.upsertTransactions([entry]);
+      await database.upsertTransactions([
+        entry.copyWith(
+          recurringConfirmedAt: confirmedAt.add(const Duration(minutes: 5)),
+          recurringConfirmationSource: 'reconciled',
+        ),
+      ]);
+
+      final rows = await database.getTransactionsByScheduledOccurrenceRange(
+        userId: 'user_1',
+        householdId: null,
+        parentRecurringId: 'recurring_series_1',
+        startDate: DateTime(2026, 6, 10),
+        endDate: DateTime(2026, 6, 10),
+      );
+
+      expect(rows, hasLength(1));
+      expect(rows.single.date, DateTime(2026, 6, 13));
+      expect(rows.single.scheduledOccurrenceDate, DateTime(2026, 6, 10));
+      expect(
+        rows.single.recurringConfirmedAt,
+        confirmedAt.add(const Duration(minutes: 5)),
+      );
+      expect(rows.single.recurringConfirmationSource, 'reconciled');
+    });
+
+    test('migrates existing transaction caches with nullable provenance',
+        () async {
+      final oldDatabase = sqlite.sqlite3.openInMemory();
+      oldDatabase.execute('''
+        CREATE TABLE local_transactions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          scope_key TEXT NOT NULL,
+          date TEXT NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          currency TEXT NOT NULL,
+          category TEXT,
+          created_at TEXT NOT NULL,
+          merchant TEXT,
+          raw_text TEXT,
+          wallet_id TEXT,
+          sync_status TEXT NOT NULL DEFAULT 'synced',
+          deleted_at TEXT
+        );
+      ''');
+      oldDatabase.execute(
+        '''
+        INSERT INTO local_transactions (
+          id, user_id, scope_key, date, amount_cents, currency, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''',
+        [
+          'legacy_recurring',
+          'user_1',
+          'user_1:personal',
+          '2026-06-10',
+          2500,
+          'EUR',
+          '2026-06-10T09:00:00.000Z'
+        ],
+      );
+      oldDatabase.execute('PRAGMA user_version = 8');
+
+      final migrated =
+          MonekoDatabase.fromExistingDatabaseForTesting(oldDatabase);
+      try {
+        var rows = await migrated.getRecentTransactions(
+          userId: 'user_1',
+          householdId: null,
+        );
+        expect(rows, hasLength(1));
+        expect(rows.single.scheduledOccurrenceDate, isNull);
+        expect(rows.single.recurringConfirmedAt, isNull);
+        expect(rows.single.recurringConfirmationSource, isNull);
+
+        await migrated.upsertTransactions([
+          rows.single.copyWith(
+            parentRecurringId: 'recurring_series_1',
+            scheduledOccurrenceDate: DateTime(2026, 6, 10),
+            recurringConfirmedAt: DateTime.utc(2026, 6, 11),
+            recurringConfirmationSource: 'manual',
+          ),
+        ]);
+        rows = await migrated.getTransactionsByScheduledOccurrenceRange(
+          userId: 'user_1',
+          householdId: null,
+          startDate: DateTime(2026, 6, 10),
+          endDate: DateTime(2026, 6, 10),
+        );
+        expect(rows.single.recurringConfirmationSource, 'manual');
+      } finally {
+        await migrated.close();
+      }
     });
 
     test('maintains precomputed monthly summary on local writes', () async {
