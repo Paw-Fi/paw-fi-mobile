@@ -660,4 +660,201 @@ void main() {
 
     expect(deduped, isEmpty);
   });
+
+  test('linked actual on the scheduled date replaces only that projection', () {
+    final scheduledDate = DateTime(2026, 8, 10);
+    final matchingProjection = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId('rent-series', scheduledDate),
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 8, 1),
+      type: 'expense',
+    );
+    final laterProjection = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId(
+        'rent-series',
+        DateTime(2026, 9, 10),
+      ),
+      userId: 'user_1',
+      date: DateTime(2026, 9, 10),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 8, 1),
+      type: 'expense',
+    );
+    final actual = ExpenseEntry(
+      id: 'actual-rent-august',
+      parentRecurringId: 'rent-series',
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: scheduledDate,
+      type: 'expense',
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [matchingProjection, laterProjection],
+      actualExpenses: [actual],
+    );
+
+    expect(deduped, [laterProjection]);
+  });
+
+  test('linked actual replaces its scheduled projection when paid date moves',
+      () {
+    final scheduledDate = DateTime(2026, 8, 10);
+    final projection = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId('rent-series', scheduledDate),
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 8, 1),
+      type: 'expense',
+    );
+    final movedActual = ExpenseEntry(
+      id: 'actual-rent-paid-late',
+      parentRecurringId: 'rent-series',
+      scheduledOccurrenceDate: scheduledDate,
+      userId: 'user_1',
+      date: DateTime(2026, 8, 13),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 8, 13),
+      type: 'expense',
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [projection],
+      actualExpenses: [movedActual],
+    );
+
+    expect(deduped, isEmpty);
+  });
+
+  test('linked actual does not fuzzy-match a different occurrence', () {
+    final augustProjection = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId(
+        'rent-series',
+        DateTime(2026, 8, 10),
+      ),
+      userId: 'user_1',
+      date: DateTime(2026, 8, 10),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 8, 1),
+      rawText: 'Rent',
+      type: 'expense',
+    );
+    final actual = ExpenseEntry(
+      id: 'actual-rent-september',
+      parentRecurringId: 'rent-series',
+      scheduledOccurrenceDate: DateTime(2026, 9, 10),
+      userId: 'user_1',
+      date: DateTime(2026, 8, 10),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 8, 10),
+      rawText: 'Rent',
+      type: 'expense',
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [augustProjection],
+      actualExpenses: [actual],
+    );
+
+    expect(deduped, [augustProjection]);
+  });
+
+  test('suppresses a projection when its actual is outside the paid-date range',
+      () {
+    final recurring = RecurringTransaction(
+      id: 'rent-series',
+      userId: 'user_1',
+      date: DateTime(2026, 8, 10),
+      category: 'housing',
+      description: 'Rent',
+      amount: 950,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 8, 10),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 8, 1),
+    );
+    final movedActual = ExpenseEntry(
+      id: 'actual-rent-paid-late',
+      parentRecurringId: 'rent-series',
+      scheduledOccurrenceDate: DateTime(2026, 8, 10),
+      userId: 'user_1',
+      date: DateTime(2026, 9, 2),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 9, 2),
+      type: 'expense',
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: [movedActual],
+      recurringTransactions: [recurring],
+      rangeStart: DateTime(2026, 8, 1),
+      rangeEnd: DateTime(2026, 8, 31),
+      selectedCurrency: 'USD',
+    );
+
+    expect(merged, isEmpty);
+  });
+
+  test('linked actual replacement ignores changed amount, merchant, and wallet',
+      () {
+    final scheduledDate = DateTime(2026, 8, 10);
+    final projection = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId('rent-series', scheduledDate),
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      merchant: 'Original landlord',
+      walletId: 'wallet-original',
+      createdAt: DateTime(2026, 8, 1),
+      type: 'expense',
+    );
+    final actual = ExpenseEntry(
+      id: 'actual-rent-with-fee',
+      parentRecurringId: 'rent-series',
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 97500,
+      currency: 'USD',
+      category: 'housing',
+      merchant: 'Replacement landlord',
+      walletId: 'wallet-replacement',
+      createdAt: scheduledDate,
+      type: 'expense',
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [projection],
+      actualExpenses: [actual],
+    );
+
+    expect(deduped, isEmpty);
+  });
 }

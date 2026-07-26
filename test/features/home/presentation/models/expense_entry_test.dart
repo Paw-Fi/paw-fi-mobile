@@ -280,6 +280,25 @@ void main() {
       expect(entry.currency, 'USD');
     });
 
+    test('preserves scheduled occurrence dates using canonical JSON keys', () {
+      final entry = ExpenseEntry.fromJson({
+        'id': 'actual_1',
+        'date': '2026-08-13',
+        'amount_cents': 95000,
+        'created_at': '2026-08-13T00:00:00.000Z',
+        'parentRecurringId': 'rent-series',
+        'scheduledOccurrenceDate': '2026-08-10',
+      });
+
+      expect(entry.parentRecurringId, 'rent-series');
+      expect(entry.scheduledOccurrenceDate, DateTime(2026, 8, 10));
+      expect(entry.toJson()['scheduled_occurrence_date'], '2026-08-10');
+      expect(
+        entry.copyWith().scheduledOccurrenceDate,
+        DateTime(2026, 8, 10),
+      );
+    });
+
     test('fromJson fails closed for bank rows missing analytics classification',
         () {
       final entry = ExpenseEntry.fromJson({
