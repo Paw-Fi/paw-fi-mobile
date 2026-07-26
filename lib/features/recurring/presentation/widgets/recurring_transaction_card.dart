@@ -82,6 +82,12 @@ class RecurringTransactionCard extends ConsumerWidget {
     final nextOccurrence = transaction.getNextOccurrence(userNow);
     final historyStartDate =
         transaction.recurrenceRule?.anchorDate ?? transaction.date;
+    final eligibleOccurrences = getOccurrencesList(transaction, userNow)
+        .where((occurrence) =>
+            canConfirmOccurrenceAt(transaction, occurrence, userNow))
+        .toList(growable: false);
+    final timelineEndDate =
+        eligibleOccurrences.isEmpty ? userToday : eligibleOccurrences.last;
 
     final categoryColor = getCategoryColor(transaction.category, context);
     final adaptedCategoryColor =
@@ -106,7 +112,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                     householdId: transaction.householdId,
                     recurringId: transaction.id,
                     startDate: historyStartDate,
-                    endDate: userToday,
+                    endDate: timelineEndDate,
                   ),
                 ))
                 .valueOrNull ??
@@ -115,9 +121,8 @@ class RecurringTransactionCard extends ConsumerWidget {
       for (final item in timeline)
         if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
     };
-    final latestUnconfirmedOccurrence = getOccurrencesList(transaction, userNow)
+    final latestUnconfirmedOccurrence = eligibleOccurrences
         .where((occurrence) =>
-            !occurrence.isAfter(userToday) &&
             !confirmedDates.contains(formatDateOnlyYmd(occurrence)))
         .fold<DateTime?>(
             null,

@@ -28,6 +28,8 @@ void main() {
     String? rawText,
     bool isRecurring = false,
     String? splitGroupId,
+    String? parentRecurringId,
+    DateTime? scheduledOccurrenceDate,
   }) {
     return ExpenseEntry(
       id: id,
@@ -41,6 +43,8 @@ void main() {
       type: type,
       isRecurring: isRecurring,
       splitGroupId: splitGroupId,
+      parentRecurringId: parentRecurringId,
+      scheduledOccurrenceDate: scheduledOccurrenceDate,
     );
   }
 
@@ -136,6 +140,48 @@ void main() {
       '2026-06-01': 10,
       '2026-05-01': 10,
     });
+  });
+
+  test('suppresses a scheduled projection when its actual is paid next cycle',
+      () {
+    final recurring = RecurringTransaction(
+      id: 'rent-recurring',
+      userId: 'user-1',
+      date: DateTime(2026, 7, 26),
+      category: 'housing',
+      amount: 10,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 7, 26),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 7, 1),
+    );
+
+    final totals = calculateMomTrend(
+      actualTransactions: [
+        expense(
+          id: 'paid-august-occurrence',
+          date: DateTime(2026, 9, 1),
+          amountCents: 1000,
+          category: 'housing',
+          parentRecurringId: recurring.id,
+          scheduledOccurrenceDate: DateTime(2026, 8, 26),
+        ),
+      ],
+      recurringTransactions: [recurring],
+      now: DateTime(2026, 9, 5),
+      financialMonthStartDay: 1,
+      selectedCurrency: 'USD',
+    );
+
+    expect(totals['2026-09-01'], 10);
+    expect(totals['2026-08-01'], 0);
+    expect(totals['2026-07-01'], 10);
   });
 
   test('does not count recurring schedule templates as posted expenses', () {

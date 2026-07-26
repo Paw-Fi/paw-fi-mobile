@@ -7,6 +7,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
@@ -18,6 +19,7 @@ import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 enum _HistoryFilter { all, paid, pending }
 
@@ -34,6 +36,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final activeFilter = useState<_HistoryFilter>(_HistoryFilter.all);
+    final locallySkippedDates = useState<Set<String>>(<String>{});
 
     final preferredTimezone = ref
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
@@ -46,6 +49,17 @@ class RecurringHistoryPage extends HookConsumerWidget {
     final historyStartDate =
         transaction.recurrenceRule?.anchorDate ?? transaction.date;
     final generatedOccurrences = getOccurrencesList(transaction, userNow);
+    final eligibleOccurrences = generatedOccurrences
+        .where((occurrence) =>
+            canConfirmOccurrenceAt(transaction, occurrence, userNow))
+        .toList(growable: false);
+    final timelineDates = <DateTime>[
+      userToday,
+      if (eligibleOccurrences.isNotEmpty) eligibleOccurrences.last,
+      ...?transaction.recurrenceRule?.excludedDates,
+      ...locallySkippedDates.value.map(DateTime.parse),
+    ]..sort();
+    final timelineEndDate = timelineDates.last;
 
     final description = transaction.description?.trim();
     final hasDescription = description != null && description.isNotEmpty;
@@ -77,19 +91,21 @@ class RecurringHistoryPage extends HookConsumerWidget {
                     householdId: transaction.householdId,
                     recurringId: transaction.id,
                     startDate: historyStartDate,
-                    endDate: userToday,
+                    endDate: timelineEndDate,
                   ),
                 ))
                 .valueOrNull ??
             const <RecurringOccurrenceTimelineItem>[];
 
     final occurrencesByDate = <String, DateTime>{
-      for (final occurrence in generatedOccurrences)
-        if (!occurrence.isAfter(userToday))
-          formatDateOnlyYmd(occurrence): occurrence,
+      for (final occurrence in eligibleOccurrences)
+        formatDateOnlyYmd(occurrence): occurrence,
       for (final item in fullRangeTimeline)
         formatDateOnlyYmd(item.scheduledOccurrenceDate):
             item.scheduledOccurrenceDate,
+      for (final excludedDate
+          in transaction.recurrenceRule?.excludedDates ?? const <DateTime>[])
+        formatDateOnlyYmd(excludedDate): excludedDate,
     };
     final occurrences = occurrencesByDate.values.toList(growable: false)
       ..sort();
@@ -98,16 +114,46 @@ class RecurringHistoryPage extends HookConsumerWidget {
       for (final item in fullRangeTimeline)
         formatDateOnlyYmd(item.scheduledOccurrenceDate): item,
     };
+    for (final excludedDate
+        in transaction.recurrenceRule?.excludedDates ?? const <DateTime>[]) {
+      timelineByDate.putIfAbsent(
+        formatDateOnlyYmd(excludedDate),
+        () => RecurringOccurrenceTimelineItem(
+          scheduledOccurrenceDate: excludedDate,
+          status: 'skipped',
+        ),
+      );
+    }
 
-    final latestUnconfirmedOccurrence = occurrences
-        .where((occurrence) =>
-            timelineByDate[formatDateOnlyYmd(occurrence)]?.isConfirmed != true)
-        .fold<DateTime?>(null, (latest, occurrence) {
+    final latestUnconfirmedOccurrence = occurrences.where((occurrence) {
+      final item = timelineByDate[formatDateOnlyYmd(occurrence)];
+      return item?.isConfirmed != true &&
+          item?.isSkipped != true &&
+          !locallySkippedDates.value.contains(formatDateOnlyYmd(occurrence));
+    }).fold<DateTime?>(null, (latest, occurrence) {
       if (latest == null || occurrence.isAfter(latest)) return occurrence;
       return latest;
     });
+    final skippedDates = <String>{
+      ...locallySkippedDates.value,
+      for (final item in fullRangeTimeline)
+        if (item.isSkipped) formatDateOnlyYmd(item.scheduledOccurrenceDate),
+    };
     final futureReference = latestUnconfirmedOccurrence == null
-        ? transaction.getNextOccurrence(userToday)
+        ? (() {
+            var next = transaction.getNextOccurrence(
+              userToday.subtract(const Duration(days: 1)),
+            );
+            for (var steps = 0;
+                steps <= skippedDates.length &&
+                    skippedDates.contains(formatDateOnlyYmd(next));
+                steps++) {
+              final following = transaction.getNextOccurrence(next);
+              if (!following.isAfter(next)) break;
+              next = following;
+            }
+            return next;
+          })()
         : null;
     final nextDueOccurrence =
         latestUnconfirmedOccurrence ?? futureReference ?? nextOccurrence;
@@ -122,10 +168,11 @@ class RecurringHistoryPage extends HookConsumerWidget {
           ? (item!.amountCents! / 100.0)
           : transaction.amount;
 
-      totalCumulativeAmount += occAmount;
-
-      if (item?.isConfirmed == true) {
+      if (item?.isConfirmed == true || item?.isSkipped == true) {
         paidCyclesCount++;
+      }
+      if (item?.isConfirmed == true) {
+        totalCumulativeAmount += occAmount;
       }
     }
 
@@ -138,13 +185,14 @@ class RecurringHistoryPage extends HookConsumerWidget {
     ];
     final filteredList = reversedOccurrences.where((occurrence) {
       final dateString = formatDateOnlyYmd(occurrence);
-      final isConfirmed = timelineByDate[dateString]?.isConfirmed == true;
+      final item = timelineByDate[dateString];
+      final isResolved = item?.isConfirmed == true || item?.isSkipped == true;
 
       if (activeFilter.value == _HistoryFilter.paid) {
-        return isConfirmed;
+        return isResolved;
       }
       if (activeFilter.value == _HistoryFilter.pending) {
-        return !isConfirmed;
+        return !isResolved;
       }
       return true;
     }).toList();
@@ -405,11 +453,14 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                   .valueOrNull ??
                               const <RecurringOccurrenceTimelineItem>[];
                       final timelineItem = timeline
-                          .where((item) =>
-                              formatDateOnlyYmd(item.scheduledOccurrenceDate) ==
-                              dateString)
-                          .firstOrNull;
+                              .where((item) =>
+                                  formatDateOnlyYmd(
+                                      item.scheduledOccurrenceDate) ==
+                                  dateString)
+                              .firstOrNull ??
+                          timelineByDate[dateString];
                       final isConfirmed = timelineItem?.isConfirmed == true;
+                      final isSkipped = timelineItem?.isSkipped == true;
 
                       final formattedDate =
                           formatLocalizedDate(context, occurrence);
@@ -417,13 +468,12 @@ class RecurringHistoryPage extends HookConsumerWidget {
                           occurrence.year == futureReference.year &&
                           occurrence.month == futureReference.month &&
                           occurrence.day == futureReference.day;
-                      final isActionableConfirmation =
+                      final isActionableConfirmation = !isSkipped &&
                           latestUnconfirmedOccurrence != null &&
-                              occurrence.year ==
-                                  latestUnconfirmedOccurrence.year &&
-                              occurrence.month ==
-                                  latestUnconfirmedOccurrence.month &&
-                              occurrence.day == latestUnconfirmedOccurrence.day;
+                          occurrence.year == latestUnconfirmedOccurrence.year &&
+                          occurrence.month ==
+                              latestUnconfirmedOccurrence.month &&
+                          occurrence.day == latestUnconfirmedOccurrence.day;
                       final isUpcoming = isFutureReference;
 
                       final occurrenceDateOnly = DateTime(
@@ -446,19 +496,23 @@ class RecurringHistoryPage extends HookConsumerWidget {
 
                       final Color nodeColor = isConfirmed
                           ? colorScheme.success
-                          : (isUpcoming
-                              ? (isOverdue
-                                  ? colorScheme.destructive
-                                  : colorScheme.primary)
-                              : colorScheme.mutedForeground);
+                          : (isSkipped
+                              ? colorScheme.mutedForeground
+                              : (isUpcoming
+                                  ? (isOverdue
+                                      ? colorScheme.destructive
+                                      : colorScheme.primary)
+                                  : colorScheme.mutedForeground));
 
                       final IconData nodeIcon = isConfirmed
                           ? Icons.check_circle_rounded
-                          : (isUpcoming
-                              ? (isOverdue
-                                  ? Icons.error_outline_rounded
-                                  : Icons.schedule_rounded)
-                              : Icons.circle_outlined);
+                          : (isSkipped
+                              ? Icons.remove_circle_outline
+                              : (isUpcoming
+                                  ? (isOverdue
+                                      ? Icons.error_outline_rounded
+                                      : Icons.schedule_rounded)
+                                  : Icons.circle_outlined));
 
                       final paidDate = timelineItem?.paidDate;
                       final paidDateFormatted = paidDate != null
@@ -486,6 +540,44 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                   )
                               : null;
 
+                      Future<void> skipOccurrence() async {
+                        final result = await MonekoAlertDialog.show(
+                          context: context,
+                          title: context.l10n.skipNextOccurrence,
+                          description: null,
+                          confirmLabel: context.l10n.skip,
+                          cancelLabel: context.l10n.cancel,
+                          isDestructive: true,
+                        );
+                        if (result == null ||
+                            result.action == MonekoAlertDialogAction.cancel) {
+                          return;
+                        }
+                        final success = await ref
+                            .read(recurringTransactionsProvider(
+                                    transaction.householdId)
+                                .notifier)
+                            .skipOccurrence(
+                              userId,
+                              transaction.id,
+                              occurrence,
+                              transaction: transaction,
+                            );
+                        if (!context.mounted) return;
+                        if (success.success) {
+                          locallySkippedDates.value = {
+                            ...locallySkippedDates.value,
+                            formatDateOnlyYmd(occurrence),
+                          };
+                          ref.invalidate(recurringOccurrenceTimelineProvider);
+                          return;
+                        }
+                        AppToast.error(
+                          context,
+                          success.error ?? 'Unable to skip occurrence.',
+                        );
+                      }
+
                       return IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -494,8 +586,9 @@ class RecurringHistoryPage extends HookConsumerWidget {
                               width: 28,
                               child: Column(
                                 children: [
-                            SizedBox(height: 6,),
-
+                                  SizedBox(
+                                    height: 6,
+                                  ),
                                   if (isConfirmed)
                                     Container(
                                       width: 18,
@@ -699,11 +792,17 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                             ),
                                           ],
                                         )
+                                      else if (isSkipped)
+                                        Text('Skipped',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    colorScheme.mutedForeground,
+                                                fontWeight: FontWeight.w600))
                                       else if (isConfirmed)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                         
                                             Text(
                                               confirmedDateText,
                                               style: TextStyle(
@@ -715,13 +814,38 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                           ],
                                         )
                                       else
-                                        Text(
-                                          dueText,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: colorScheme.mutedForeground,
-                                            fontWeight: FontWeight.w400,
-                                          ),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(dueText,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: colorScheme
+                                                        .mutedForeground,
+                                                    fontWeight:
+                                                        FontWeight.w400)),
+                                            if (isFutureReference)
+                                              TextButton(
+                                                onPressed: userId.isEmpty
+                                                    ? null
+                                                    : skipOccurrence,
+                                                style: TextButton.styleFrom(
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
+                                                child: Text(context.l10n.skip),
+                                              ),
+                                          ],
                                         ),
                                     ],
                                   ),

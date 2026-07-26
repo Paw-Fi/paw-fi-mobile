@@ -5,6 +5,19 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 void main() {
+  test('marks a materialized recurring occurrence as recurring', () {
+    final occurrence = ExpenseEntry(
+      id: 'actual-occurrence',
+      date: DateTime(2026, 8, 23),
+      createdAt: DateTime(2026, 8, 23),
+      amountCents: 1000,
+      parentRecurringId: 'recurring-template',
+      scheduledOccurrenceDate: DateTime(2026, 8, 26),
+    );
+
+    expect(shouldShowRecurringChipForExpense(occurrence), isTrue);
+  });
+
   test('projects occurrences for a series that ended after the selected period',
       () {
     final transaction = RecurringTransaction(

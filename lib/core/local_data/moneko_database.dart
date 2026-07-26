@@ -497,6 +497,7 @@ class MonekoDatabase {
     required ExpenseEntry updatedEntry,
     required String clientMutationId,
     required Map<String, dynamic> payload,
+    String operation = 'update_transaction',
   }) async {
     final outboxPayload = <String, dynamic>{
       ...payload,
@@ -513,7 +514,7 @@ class MonekoDatabase {
         clientMutationId: clientMutationId,
         entityType: 'transaction',
         entityId: updatedEntry.id,
-        operation: 'update_transaction',
+        operation: operation,
         payload: outboxPayload,
       );
 

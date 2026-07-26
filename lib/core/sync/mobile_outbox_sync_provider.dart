@@ -268,6 +268,12 @@ Future<void> _dispatchMobileMutation(
         clientMutationId: mutation.clientMutationId,
       );
       return;
+    case 'skip_recurring_occurrence':
+      await _invokeMutationFunction(
+        payload['functionName']?.toString(),
+        _mapValue(payload['requestBody']),
+      );
+      return;
     case 'delete_transaction':
       await _invokeMutationFunction('delete-expense', {
         ..._metadataFromPayload(payload),

@@ -48,3 +48,40 @@ List<DateTime> getOccurrencesList(
   dates.sort();
   return dates;
 }
+
+DateTime confirmationOpensAt(
+  RecurringTransaction transaction,
+  DateTime scheduledOccurrenceDate,
+) {
+  final rule = transaction.recurrenceRule;
+  if (rule?.reminderEnabled != true) return scheduledOccurrenceDate;
+
+  final value = rule?.reminderValue ?? 0;
+  if (value <= 0) return scheduledOccurrenceDate;
+
+  return switch (rule?.reminderUnit?.toLowerCase()) {
+    'days' => scheduledOccurrenceDate.subtract(Duration(days: value)),
+    'hours' => scheduledOccurrenceDate.subtract(Duration(hours: value)),
+    _ => scheduledOccurrenceDate,
+  };
+}
+
+bool canConfirmOccurrenceAt(
+  RecurringTransaction transaction,
+  DateTime scheduledOccurrenceDate,
+  DateTime userNow,
+) {
+  final userWallNow = DateTime(
+    userNow.year,
+    userNow.month,
+    userNow.day,
+    userNow.hour,
+    userNow.minute,
+    userNow.second,
+    userNow.millisecond,
+    userNow.microsecond,
+  );
+  return !userWallNow.isBefore(
+    confirmationOpensAt(transaction, scheduledOccurrenceDate),
+  );
+}

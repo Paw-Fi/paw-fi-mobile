@@ -31,6 +31,8 @@ String? extractRecurringTransactionIdFromProjectedExpenseId(String expenseId) {
 bool shouldShowRecurringChipForExpense(ExpenseEntry expense) =>
     expense.isRecurring ||
     expense.providerRecurring ||
+    expense.parentRecurringId != null ||
+    expense.scheduledOccurrenceDate != null ||
     extractRecurringTransactionIdFromProjectedExpenseId(expense.id) != null;
 
 int _clampDayOfMonth(
@@ -353,6 +355,23 @@ List<ExpenseEntry> dedupeProjectedRecurringExpenseEntries({
     return !legacyActualKeys.contains(_projectedExpenseComparisonKey(expense));
   }).toList(growable: false);
 }
+
+List<ExpenseEntry> buildConfirmedOccurrenceSuppressionEntries({
+  required String recurringId,
+  required Iterable<DateTime> confirmedScheduledDates,
+}) =>
+    confirmedScheduledDates
+        .map(
+          (scheduledDate) => ExpenseEntry(
+            id: 'occurrence-suppression:$recurringId:${_dateKey(scheduledDate)}',
+            date: scheduledDate,
+            createdAt: scheduledDate,
+            amountCents: 0,
+            parentRecurringId: recurringId,
+            scheduledOccurrenceDate: scheduledDate,
+          ),
+        )
+        .toList(growable: false);
 
 List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   required List<ExpenseEntry> actualExpenses,

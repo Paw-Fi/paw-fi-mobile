@@ -91,7 +91,13 @@ class _ConfirmRecurringOccurrenceFormState
           widget.recurringTransaction.description ??
           '',
     );
-    _paidDate = existing?.paidDate ?? widget.scheduledOccurrenceDate;
+    final today = effectiveToday(
+      preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
+    );
+    _paidDate = existing?.paidDate ??
+        (widget.scheduledOccurrenceDate.isAfter(today)
+            ? today
+            : widget.scheduledOccurrenceDate);
     _accountId = existing?.actualTransaction?.walletId ??
         widget.recurringTransaction.accountId;
   }
@@ -120,9 +126,17 @@ class _ConfirmRecurringOccurrenceFormState
       setState(() => _error = 'Enter an amount greater than zero.');
       return;
     }
-    if (!_isEditing && widget.scheduledOccurrenceDate.isAfter(today)) {
+    if (!_isEditing &&
+        !canConfirmOccurrenceAt(
+          widget.recurringTransaction,
+          widget.scheduledOccurrenceDate,
+          effectiveNow(
+            preferredTimezone:
+                ref.read(analyticsProvider).contact?.preferredTimezone,
+          ),
+        )) {
       setState(() =>
-          _error = 'Only current or overdue occurrences can be confirmed.');
+          _error = 'This occurrence is not available for confirmation yet.');
       return;
     }
     if (!_isSettlementLocked && (_accountId == null || _accountId!.isEmpty)) {

@@ -18,6 +18,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -420,6 +421,7 @@ class RecurringOccurrenceTimelineItem {
   final bool isSettlementLocked;
 
   bool get isConfirmed => status == 'confirmed';
+  bool get isSkipped => status == 'skipped';
   bool get isImported => confirmationSource == 'legacy_migration';
 
   factory RecurringOccurrenceTimelineItem.fromPersistedJson(
@@ -1204,15 +1206,16 @@ class RecurringTransactionsNotifier
   Future<DeleteRecurringResult> skipOccurrence(
     String userId,
     String transactionId,
-    DateTime dateToSkip,
-  ) async {
+    DateTime dateToSkip, {
+    RecurringTransaction? transaction,
+  }) async {
     if (_guardPreviewWrites()) {
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
     MonekoDatabase? localDatabase;
     ExpenseEntry? originalEntry;
     ExpenseEntry? updatedEntry;
-    RecurringTransaction? target;
+    RecurringTransaction? target = transaction;
     final mutationMetadata = buildTransactionMutationMetadataForRecord(
       clientRecordId: transactionId,
       operation: 'skip_recurring_occurrence',
@@ -1230,9 +1233,11 @@ class RecurringTransactionsNotifier
         return const DeleteRecurringResult.failure('Provider unmounted');
       }
 
-      // Find the transaction to get its current recurrence_rule
+      // Prefer the provider's current state so consecutive skips retain every
+      // local exclusion; the route's transaction is only a fallback.
       state.data.whenData((transactions) {
-        target = transactions.where((t) => t.id == transactionId).firstOrNull;
+        target = transactions.where((t) => t.id == transactionId).firstOrNull ??
+            target;
       });
 
       if (target == null) {
@@ -1272,20 +1277,26 @@ class RecurringTransactionsNotifier
         clientMutationId: mutationMetadata.clientMutationId,
         payload: {
           ...mutationMetadata.toRequestJson(),
+          'functionName': 'skip-recurring-occurrence',
+          'requestBody': {
+            'userId': userId,
+            'recurringId': transactionId,
+            'scheduledOccurrenceDate': formatDateOnlyYmd(dateToSkip),
+          },
           'userId': userId,
           'expenseId': transactionId,
           'updates': updates,
         },
+        operation: 'skip_recurring_occurrence',
       );
 
-      // Backend call - update the recurrence_rule via update-expense
+      // Backend skip is atomic: ledger state, legacy exclusion, and reminder.
       final response = await supabase.functions.invoke(
-        'update-expense',
+        'skip-recurring-occurrence',
         body: {
-          ...mutationMetadata.toRequestJson(),
           'userId': userId,
-          'expenseId': transactionId,
-          'updates': updates,
+          'recurringId': transactionId,
+          'scheduledOccurrenceDate': formatDateOnlyYmd(dateToSkip),
         },
       );
 
@@ -1467,7 +1478,8 @@ final upcomingRecurringTransactionProvider =
 
   final preferredTimezone =
       ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-  final today = effectiveToday(preferredTimezone: preferredTimezone);
+  final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+  final today = DateTime(userNow.year, userNow.month, userNow.day);
   UpcomingRecurringTransaction? best;
 
   for (final transaction in transactions) {
@@ -1483,11 +1495,38 @@ final upcomingRecurringTransactionProvider =
       continue;
     }
 
-    final nextOccurrence = transaction.getNextOccurrence(today);
-    final nextDate = DateTime(
-      nextOccurrence.year,
-      nextOccurrence.month,
-      nextOccurrence.day,
+    final generatedOccurrences = getOccurrencesList(transaction, userNow)
+        .where((occurrence) => !occurrence.isBefore(today))
+        .toList(growable: false);
+    if (generatedOccurrences.isEmpty) continue;
+
+    String? userId;
+    try {
+      userId = supabase.auth.currentUser?.id;
+    } catch (_) {
+      // Provider tests and unauthenticated previews have no Supabase client.
+    }
+    final timeline = userId == null || userId.isEmpty
+        ? const <RecurringOccurrenceTimelineItem>[]
+        : ref
+                .watch(recurringOccurrenceTimelineProvider(
+                  RecurringOccurrenceTimelineQuery(
+                    userId: userId,
+                    householdId: transaction.householdId,
+                    recurringId: transaction.id,
+                    startDate: today,
+                    endDate: generatedOccurrences.last,
+                  ),
+                ))
+                .valueOrNull ??
+            const <RecurringOccurrenceTimelineItem>[];
+    final confirmedDates = <String>{
+      for (final item in timeline)
+        if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
+    };
+    final nextDate = generatedOccurrences.firstWhere(
+      (occurrence) => !confirmedDates.contains(formatDateOnlyYmd(occurrence)),
+      orElse: () => generatedOccurrences.last,
     );
     final daysUntil = nextDate.difference(today).inDays;
 

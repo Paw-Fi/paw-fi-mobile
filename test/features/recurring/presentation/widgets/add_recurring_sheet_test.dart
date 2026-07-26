@@ -145,8 +145,9 @@ class _TestRecurringTransactionsNotifier extends RecurringTransactionsNotifier {
   Future<DeleteRecurringResult> skipOccurrence(
     String userId,
     String transactionId,
-    DateTime dateToSkip,
-  ) async {
+    DateTime dateToSkip, {
+    RecurringTransaction? transaction,
+  }) async {
     skipCalled = true;
     skippedTransactionId = transactionId;
     skippedDate = dateToSkip;
