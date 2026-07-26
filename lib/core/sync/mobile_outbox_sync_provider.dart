@@ -284,6 +284,16 @@ Future<void> _dispatchMobileMutation(
         clientMutationId: mutation.clientMutationId,
       );
       return;
+    case 'delete_recurring_template':
+      await _invokeMutationFunction('delete-recurring-template', {
+        ..._metadataFromPayload(payload),
+        'userId': payload['userId'],
+        'recurringId': payload['recurringId'] ?? mutation.entityId,
+      });
+      await database.markOptimisticTransactionDeleteSynced(
+        clientMutationId: mutation.clientMutationId,
+      );
+      return;
     case localRecurringOccurrenceConfirmationMutationOperation:
       final responseBody = await _invokeRecurringOccurrenceConfirmation(
         _mapValue(payload['requestBody']),

@@ -255,6 +255,43 @@ class _ConfirmRecurringOccurrenceFormState
     }
   }
 
+  Future<void> _unconfirm() async {
+    final userId = ref.read(authProvider).uid;
+    final occurrence = widget.existingOccurrence;
+    if (userId.isEmpty || occurrence == null) return;
+    final confirmation = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Unconfirm payment?',
+      description: 'The payment will be removed and the occurrence restored.',
+      confirmLabel: 'Unconfirm',
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
+    if (!mounted || confirmation?.confirmed != true) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _error = null;
+    });
+    final result = await ref
+        .read(recurringOccurrenceUnconfirmProvider)
+        .unconfirm(RecurringOccurrenceUnconfirmCommand(
+          userId: userId,
+          recurringTransaction: widget.recurringTransaction,
+          occurrence: occurrence,
+        ));
+    if (!mounted) return;
+    if (!result.isQueued) {
+      setState(() {
+        _isSubmitting = false;
+        _error = result.error ?? 'Unable to unconfirm payment.';
+      });
+      return;
+    }
+    Navigator.of(context).pop();
+    AppToast.success(context, 'Payment unconfirmed.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -491,6 +528,13 @@ class _ConfirmRecurringOccurrenceFormState
                 ? (_isEditing ? 'Saving...' : 'Confirming...')
                 : (_isEditing ? 'Save changes' : context.l10n.confirmPayment)),
           ),
+          if (_isEditing && !_isSettlementLocked) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _isSubmitting ? null : _unconfirm,
+              child: const Text('Unconfirm payment'),
+            ),
+          ],
         ],
       ),
     );

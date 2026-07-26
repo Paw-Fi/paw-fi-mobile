@@ -330,8 +330,7 @@ class RecurringOccurrenceUpdateCommand {
         'recurringId': recurringTransaction.id,
         'scheduledOccurrenceDate':
             formatDateOnlyYmd(occurrence.scheduledOccurrenceDate),
-        // The RPC checks merchant changes before applying its notes-only lock.
-        'merchant': merchant?.trim(),
+        if (!occurrence.isSettlementLocked) 'merchant': merchant?.trim(),
         if (!occurrence.isSettlementLocked) ...{
           'paidDate': formatDateOnlyYmd(paidDate),
           'amount': amountCents! / 100,
@@ -339,6 +338,26 @@ class RecurringOccurrenceUpdateCommand {
           'updateFutureAmount': updateFutureAmount,
         },
         'description': description?.trim() ?? '',
+      };
+}
+
+@immutable
+class RecurringOccurrenceUnconfirmCommand {
+  const RecurringOccurrenceUnconfirmCommand({
+    required this.userId,
+    required this.recurringTransaction,
+    required this.occurrence,
+  });
+
+  final String userId;
+  final RecurringTransaction recurringTransaction;
+  final RecurringOccurrenceTimelineItem occurrence;
+
+  Map<String, dynamic> toRequestBody() => <String, dynamic>{
+        'userId': userId,
+        'recurringId': recurringTransaction.id,
+        'scheduledOccurrenceDate':
+            formatDateOnlyYmd(occurrence.scheduledOccurrenceDate),
       };
 }
 
@@ -527,6 +546,11 @@ final recurringOccurrenceUpdateProvider =
   (ref) => RecurringOccurrenceUpdateController(ref),
 );
 
+final recurringOccurrenceUnconfirmProvider =
+    Provider<RecurringOccurrenceUnconfirmController>(
+  (ref) => RecurringOccurrenceUnconfirmController(ref),
+);
+
 class RecurringOccurrenceUpdateController {
   const RecurringOccurrenceUpdateController(this._ref);
 
@@ -586,6 +610,62 @@ class RecurringOccurrenceUpdateController {
 
   bool _isNotesOnly(RecurringOccurrenceUpdateCommand command) =>
       command.occurrence.isSettlementLocked;
+}
+
+class RecurringOccurrenceUnconfirmController {
+  const RecurringOccurrenceUnconfirmController(this._ref);
+
+  final Ref _ref;
+
+  Future<RecurringOccurrenceConfirmationResult> unconfirm(
+    RecurringOccurrenceUnconfirmCommand command,
+  ) async {
+    if (_ref.read(previewModeProvider).isActive) {
+      _showPreviewToast();
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Preview mode is read-only.',
+      );
+    }
+    if (command.userId.trim().isEmpty ||
+        command.recurringTransaction.id.trim().isEmpty ||
+        !command.occurrence.isConfirmed) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'A confirmed recurring occurrence is required.',
+      );
+    }
+
+    try {
+      final response = await supabase.functions.invoke(
+        'unconfirm-recurring-occurrence',
+        body: command.toRequestBody(),
+      );
+      final payload = response.data;
+      if (payload is! Map || payload['success'] != true) {
+        return RecurringOccurrenceConfirmationResult.failure(
+          payload is Map && payload['error'] is String
+              ? payload['error'] as String
+              : 'Unable to unconfirm payment.',
+        );
+      }
+      _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      _ref.read(widgetSyncVersionProvider.notifier).state += 1;
+      _ref.invalidate(recurringOccurrenceTimelineProvider);
+      _ref.invalidate(recurringTransactionsProvider(
+        command.recurringTransaction.householdId,
+      ));
+      _ref.invalidate(pocketsProvider);
+      _ref.invalidate(currencyTransactionCountsProvider);
+      return RecurringOccurrenceConfirmationResult.queued(
+        optimisticId: command.recurringTransaction.id,
+        idempotencyKey: command.recurringTransaction.id,
+      );
+    } catch (error) {
+      return RecurringOccurrenceConfirmationResult.failure(
+        ErrorHandler.getUserFriendlyMessage(error),
+      );
+    }
+  }
 }
 
 class RecurringOccurrenceConfirmationController {
@@ -1131,18 +1211,19 @@ class RecurringTransactionsNotifier
           payload: {
             ...mutationMetadata.toRequestJson(),
             'userId': userId,
-            'expenseIds': transactionId,
+            'recurringId': transactionId,
           },
+          operation: 'delete_recurring_template',
         );
       }
 
       // Backend call
       final response = await supabase.functions.invoke(
-        'delete-expense',
+        'delete-recurring-template',
         body: {
           ...mutationMetadata.toRequestJson(),
           'userId': userId,
-          'expenseIds': transactionId,
+          'recurringId': transactionId,
         },
       );
 
@@ -1308,6 +1389,9 @@ class RecurringTransactionsNotifier
         await localDatabase.markMutationSynced(
           mutationMetadata.clientMutationId,
         );
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        ref.read(widgetSyncVersionProvider.notifier).state += 1;
         _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
         _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();

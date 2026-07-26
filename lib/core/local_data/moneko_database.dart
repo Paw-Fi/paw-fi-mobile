@@ -579,6 +579,7 @@ class MonekoDatabase {
     required String clientMutationId,
     required Map<String, dynamic> payload,
     String? actingUserId,
+    String operation = 'delete_transaction',
   }) async {
     if (entries.isEmpty) return;
 
@@ -600,7 +601,7 @@ class MonekoDatabase {
         clientMutationId: clientMutationId,
         entityType: 'transaction',
         entityId: entries.map((entry) => entry.id).join(','),
-        operation: 'delete_transaction',
+        operation: operation,
         payload: payload,
       );
 
@@ -638,7 +639,8 @@ class MonekoDatabase {
 
     final touched = <_SummaryKey>{};
     _runInTransaction(() {
-      if (mutation.operation == 'delete_transaction') {
+      if (mutation.operation == 'delete_transaction' ||
+          mutation.operation == 'delete_recurring_template') {
         _markTransactionTombstonesFailed(mutation.clientMutationId);
         return;
       }
@@ -1512,7 +1514,7 @@ class MonekoDatabase {
       SELECT 1
       FROM local_mutation_outbox
       WHERE entity_type = 'transaction'
-        AND operation IN ('update_transaction', 'delete_transaction')
+        AND operation IN ('update_transaction', 'delete_transaction', 'delete_recurring_template')
         AND status IN (?, ?, ?)
       LIMIT 1
       ''',

@@ -170,8 +170,9 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
     final l10n = lookupAppLocalizations(appLocale);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);
-    ref.watch(dashboardRefreshSignalProvider);
-    ref.watch(transactionsFeedRefreshSignalProvider);
+    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
+    final transactionsRefreshSignal =
+        ref.watch(transactionsFeedRefreshSignalProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
     final monthStart = _query.monthStart;
     final period = resolveMonthlyReportPeriod(_query, now: now);
@@ -227,7 +228,12 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       );
     }
 
-    final cachedSnapshot = await _readCachedSnapshot(cacheKey);
+    final cachedSnapshot = shouldReadMonthlyReportCache(
+      dashboardRefreshSignal: dashboardRefreshSignal,
+      transactionsRefreshSignal: transactionsRefreshSignal,
+    )
+        ? await _readCachedSnapshot(cacheKey)
+        : null;
     if (cachedSnapshot != null) {
       unawaited(() async {
         try {
@@ -1964,12 +1970,25 @@ MonthlyReportTransactionInput _transactionInput(
     merchant: entry.merchant?.trim().isNotEmpty == true
         ? entry.merchant!.trim()
         : entry.rawText,
-    recurringId: extractRecurringTransactionIdFromProjectedExpenseId(entry.id),
+    recurringId: sourceEntry.parentRecurringId ??
+        extractRecurringTransactionIdFromProjectedExpenseId(entry.id),
     currencyCode: (entry.currency ?? '').toUpperCase(),
     nativeAmount: sourceEntry.amount.abs(),
     nativeCurrencyCode: (sourceEntry.currency ?? '').toUpperCase(),
   );
 }
+
+bool shouldReadMonthlyReportCache({
+  required int dashboardRefreshSignal,
+  required int transactionsRefreshSignal,
+}) =>
+    dashboardRefreshSignal == 0 && transactionsRefreshSignal == 0;
+
+MonthlyReportTransactionInput monthlyReportTransactionInputForTesting(
+  ExpenseEntry entry, {
+  ExpenseEntry? nativeEntry,
+}) =>
+    _transactionInput(entry, nativeEntry: nativeEntry);
 
 String _recurringName(RecurringTransaction item) {
   final merchant = item.merchant?.trim();

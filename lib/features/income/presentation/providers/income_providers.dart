@@ -13,6 +13,24 @@ final incomeListProvider =
   return IncomeListNotifier(ref);
 });
 
+Map<String, dynamic> buildIncomeListRequest({
+  required String userId,
+  required int limit,
+  DateTime? startDate,
+  DateTime? endDate,
+  String? currency,
+  String? householdId,
+}) =>
+    <String, dynamic>{
+      'userId': userId,
+      'limit': limit,
+      'excludeRecurring': true,
+      if (startDate != null) 'startDate': formatDateOnlyYmd(startDate),
+      if (endDate != null) 'endDate': formatDateOnlyYmd(endDate),
+      if (currency != null) 'currency': currency,
+      if (householdId != null) 'householdId': householdId,
+    };
+
 class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
   final Ref ref;
 
@@ -32,14 +50,14 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
     try {
       final response = await supabase.functions.invoke(
         'list-income',
-        body: {
-          'userId': userId,
-          'limit': limit,
-          if (startDate != null) 'startDate': formatDateOnlyYmd(startDate),
-          if (endDate != null) 'endDate': formatDateOnlyYmd(endDate),
-          if (currency != null) 'currency': currency,
-          if (householdId != null) 'householdId': householdId,
-        },
+        body: buildIncomeListRequest(
+          userId: userId,
+          limit: limit,
+          startDate: startDate,
+          endDate: endDate,
+          currency: currency,
+          householdId: householdId,
+        ),
       );
 
       if (response.data['success'] == true) {

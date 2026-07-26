@@ -65,8 +65,24 @@ void main() {
       'userId': 'user-id',
       'recurringId': 'recurring-id',
       'scheduledOccurrenceDate': '2026-07-01',
-      'merchant': 'Landlord',
       'description': 'Corrected note',
+    });
+  });
+
+  test('builds an unconfirm request for a confirmed occurrence', () {
+    final command = RecurringOccurrenceUnconfirmCommand(
+      userId: 'user-id',
+      recurringTransaction: recurringTransaction,
+      occurrence: RecurringOccurrenceTimelineItem(
+        scheduledOccurrenceDate: DateTime(2026, 7, 1),
+        status: 'confirmed',
+      ),
+    );
+
+    expect(command.toRequestBody(), {
+      'userId': 'user-id',
+      'recurringId': 'recurring-id',
+      'scheduledOccurrenceDate': '2026-07-01',
     });
   });
 }

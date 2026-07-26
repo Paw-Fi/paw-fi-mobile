@@ -46,6 +46,9 @@ class WidgetSyncState {
   /// Currency used by the last sync attempt.
   final String? lastAttemptedCurrency;
 
+  /// Mutation generation processed by the last sync attempt.
+  final int lastAttemptedWidgetSyncVersion;
+
   /// Map of failed scope:currency combinations to their failure timestamps
   /// Used for circuit breaker pattern - skip scopes that failed recently
   final Map<String, DateTime> failedScopes;
@@ -61,6 +64,7 @@ class WidgetSyncState {
     this.lastSyncTime,
     this.lastAttemptTime,
     this.lastAttemptedCurrency,
+    this.lastAttemptedWidgetSyncVersion = 0,
     this.failedScopes = const {},
     required this.appStartTime,
     this.consecutiveFailures = 0,
@@ -71,6 +75,7 @@ class WidgetSyncState {
     DateTime? lastSyncTime,
     DateTime? lastAttemptTime,
     String? lastAttemptedCurrency,
+    int? lastAttemptedWidgetSyncVersion,
     Map<String, DateTime>? failedScopes,
     DateTime? appStartTime,
     int? consecutiveFailures,
@@ -81,6 +86,8 @@ class WidgetSyncState {
       lastAttemptTime: lastAttemptTime ?? this.lastAttemptTime,
       lastAttemptedCurrency:
           lastAttemptedCurrency ?? this.lastAttemptedCurrency,
+      lastAttemptedWidgetSyncVersion:
+          lastAttemptedWidgetSyncVersion ?? this.lastAttemptedWidgetSyncVersion,
       failedScopes: Map.unmodifiable(failedScopes ?? this.failedScopes),
       appStartTime: appStartTime ?? this.appStartTime,
       consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
@@ -107,7 +114,11 @@ class WidgetSyncState {
 
   /// Allows header currency changes to update widgets immediately while still
   /// debouncing repeated syncs for the same currency.
-  bool canSyncForCurrency(String currency) {
+  bool canSyncForCurrency(
+    String currency, {
+    required int widgetSyncVersion,
+  }) {
+    if (widgetSyncVersion != lastAttemptedWidgetSyncVersion) return true;
     final normalized = currency.trim().toUpperCase();
     if (normalized.isNotEmpty && normalized != lastAttemptedCurrency) {
       return true;
@@ -129,11 +140,15 @@ class WidgetSyncStateNotifier extends StateNotifier<WidgetSyncState> {
       : super(WidgetSyncState(appStartTime: DateTime.now()));
 
   /// Mark sync as started
-  void startSync({required String currency}) {
+  void startSync({
+    required String currency,
+    required int widgetSyncVersion,
+  }) {
     state = state.copyWith(
       isSyncing: true,
       lastAttemptTime: DateTime.now(),
       lastAttemptedCurrency: currency.trim().toUpperCase(),
+      lastAttemptedWidgetSyncVersion: widgetSyncVersion,
     );
   }
 

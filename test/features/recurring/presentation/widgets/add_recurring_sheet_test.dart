@@ -113,6 +113,17 @@ class _MockAuth extends Auth {
   AppUser build() => const AppUser(uid: 'user_1', email: 'test@example.com');
 }
 
+Future<void> _tapUpdateRecurringButton(WidgetTester tester) async {
+  final context = tester.element(find.byType(AddRecurringSheet));
+  final l10n = AppLocalizations.of(context)!;
+  final button = find.widgetWithText(
+    ElevatedButton,
+    l10n.updateRecurringTransaction,
+  );
+  expect(button, findsOneWidget);
+  await tester.tap(button);
+}
+
 class _TestRecurringTransactionsNotifier extends RecurringTransactionsNotifier {
   _TestRecurringTransactionsNotifier(
     super.ref,
@@ -657,7 +668,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.check));
+    await _tapUpdateRecurringButton(tester);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 1));
 
@@ -845,7 +856,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.check));
+    await _tapUpdateRecurringButton(tester);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 8));
 
@@ -994,7 +1005,7 @@ void main() {
     // Ensure provider is constructed.
     container.read(recurringTransactionSaveProvider);
 
-    await tester.tap(find.byIcon(Icons.check));
+    await _tapUpdateRecurringButton(tester);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 5));
 
@@ -1366,7 +1377,7 @@ void main() {
     await tester.tap(find.text('Family Card').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.check));
+    await _tapUpdateRecurringButton(tester);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 1));
 

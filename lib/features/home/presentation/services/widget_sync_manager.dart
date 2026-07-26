@@ -217,7 +217,10 @@ class WidgetSyncManager extends HookConsumerWidget {
       }
 
       // GUARD 4: Debounce - don't sync too frequently
-      if (!syncState.canSyncForCurrency(selectedWidgetCurrency)) {
+      if (!syncState.canSyncForCurrency(
+        selectedWidgetCurrency,
+        widgetSyncVersion: widgetSyncVersion,
+      )) {
         debugPrint(
             '🔄 [WidgetSync] Skipping - debounce (last sync ${syncState.lastAttemptTime})');
         return null;
@@ -238,7 +241,10 @@ class WidgetSyncManager extends HookConsumerWidget {
       Future<void> syncAllScopes() async {
         final widgetService = WidgetService();
         // Mark sync as started
-        syncStateNotifier.startSync(currency: selectedWidgetCurrency);
+        syncStateNotifier.startSync(
+          currency: selectedWidgetCurrency,
+          widgetSyncVersion: widgetSyncVersion,
+        );
 
         // Track whether sync completed successfully to ensure proper cleanup
         bool syncSucceeded = false;

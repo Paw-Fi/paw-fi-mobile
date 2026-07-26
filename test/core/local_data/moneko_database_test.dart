@@ -1206,6 +1206,27 @@ void main() {
       expect(summary?.transactionCount, 0);
     });
 
+    test('persists recurring lifecycle deletion as a distinct outbox operation',
+        () async {
+      final entry = _entry(
+        id: 'recurring_1',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      await database.upsertTransactions([entry]);
+
+      await database.writeOptimisticTransactionDelete(
+        entries: [entry],
+        clientMutationId: 'mobile:recurring_delete_1',
+        payload: {'recurringId': entry.id},
+        operation: 'delete_recurring_template',
+      );
+
+      final mutations = await database.getOutboxMutations();
+
+      expect(mutations.single.operation, 'delete_recurring_template');
+    });
+
     test('remote delta cannot overwrite a pending local row', () async {
       final local = _entry(
         id: 'expense_1',
