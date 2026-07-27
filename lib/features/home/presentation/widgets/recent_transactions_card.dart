@@ -649,32 +649,24 @@ class _RecentTransactionsCardState
           ),
         ],
       ),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeOutCubic,
-        child: KeyedSubtree(
-          key: ValueKey(_recentTransactionContentSignature(e)),
-          child: buildExpenseTransactionTile(
-            context: context,
-            expense: e,
-            category: e.category,
-            rawText: e.merchant?.trim().isNotEmpty == true
-                ? e.merchant!.trim()
-                : e.rawText,
-            date: displayDateTime,
-            amount: e.amount,
-            currency: e.currency ?? widget.selectedCurrency ?? 'USD',
-            isIncome: isIncome,
-            onTap: row.isRemoving
-                ? null
-                : () => showUnifiedTransactionSheet(
-                      context,
-                      existingExpense: e,
-                      contact: widget.contact,
-                    ),
-          ),
-        ),
+      child: buildExpenseTransactionTile(
+        context: context,
+        expense: e,
+        category: e.category,
+        rawText: e.merchant?.trim().isNotEmpty == true
+            ? e.merchant!.trim()
+            : e.rawText,
+        date: displayDateTime,
+        amount: e.amount,
+        currency: e.currency ?? widget.selectedCurrency ?? 'USD',
+        isIncome: isIncome,
+        onTap: row.isRemoving
+            ? null
+            : () => showUnifiedTransactionSheet(
+                  context,
+                  existingExpense: e,
+                  contact: widget.contact,
+                ),
       ),
     );
   }
@@ -735,10 +727,7 @@ class _AnimatedRecentTransactionRowState
           child: Align(
             alignment: Alignment.topCenter,
             heightFactor: value,
-            child: Opacity(
-              opacity: value.clamp(0.0, 1.0),
-              child: child,
-            ),
+            child: child,
           ),
         );
       },

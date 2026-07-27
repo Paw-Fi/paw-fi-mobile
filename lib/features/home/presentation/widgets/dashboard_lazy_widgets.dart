@@ -17,7 +17,8 @@ import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
+import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
+import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
@@ -35,40 +36,16 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:skeletonizer/skeletonizer.dart';
 
 Widget _buildDashboardSwitcher(Widget child) {
-  return AnimatedSize(
-    duration: const Duration(milliseconds: 220),
-    curve: Curves.easeOutCubic,
-    alignment: Alignment.topCenter,
-    child: AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      transitionBuilder: _buildDashboardSwitcherTransition,
-      child: KeyedSubtree(
-        key: _dashboardSwitcherStateKey(child),
-        child: child,
-      ),
-    ),
-  );
+  return child;
 }
 
-Key _dashboardSwitcherStateKey(Widget child) {
-  final key = child.key;
-  if (key is ValueKey<String>) {
-    final value = key.value;
-    if (value.contains('skeleton') || value.contains('error')) {
-      return key;
-    }
+HomePeriodDateRange _selectedHomePeriodRange(WidgetRef ref) {
+  final userId = ref.watch(authProvider.select((user) => user.uid));
+  if (userId.isEmpty) {
+    final now = DateTime.now();
+    return HomePeriodDateRange(start: now, end: now);
   }
-  return const ValueKey('dashboard_data');
-}
-
-Widget _buildDashboardSwitcherTransition(
-  Widget child,
-  Animation<double> animation,
-) {
-  return FadeTransition(
-    opacity: animation,
-    child: child,
-  );
+  return ref.watch(homePeriodDateRangeProvider(userId));
 }
 
 void _homeSpendTrace(String message) {
@@ -125,13 +102,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
               isStale: true,
             )
         : null;
-    final range = getDateRangeFromFilter(
-      dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: userNow,
-      financialMonthStartDay: financialMonthStartDay,
-    );
+    final selectedPeriod = _selectedHomePeriodRange(ref);
+    final range = {'from': selectedPeriod.start, 'to': selectedPeriod.end};
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
@@ -252,14 +224,14 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         colorScheme,
         mergedTransactions,
         contact,
-        dateRange,
+        DateRangeFilter.custom,
         key: ValueKey('spending_data_${config.id}_$selectedCurrency'),
         referenceNow: userNow,
         selectedCurrency: selectedCurrency,
         selectedCurrencies: selectedCurrencies,
         currencyRates: rateTable,
-        customStartDate: config.customStartDate,
-        customEndDate: config.customEndDate,
+        customStartDate: selectedPeriod.start,
+        customEndDate: selectedPeriod.end,
         financialMonthStartDay: financialMonthStartDay,
         animationStorageKey:
             'spending:${config.id}:${selectedCurrency ?? currency}:${dateRange.name}:fmsd$financialMonthStartDay:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
@@ -269,9 +241,9 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
               builder: (_) => TransactionsPage(
                 householdId: query.householdId,
                 enableDateFilter: true,
-                initialDateFilter: dateRange,
-                initialStartDate: config.customStartDate,
-                initialEndDate: config.customEndDate,
+                initialDateFilter: DateRangeFilter.custom,
+                initialStartDate: selectedPeriod.start,
+                initialEndDate: selectedPeriod.end,
               ),
             ),
           );
@@ -302,22 +274,30 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     final scope = ref.watch(householdScopeProvider);
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
-    final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
-    final currentRange = _getDateRangeForFilter(
-      dateRange,
-      userNow,
-      config.customStartDate,
-      config.customEndDate,
-      financialMonthStartDay,
+    final selectedPeriod = _selectedHomePeriodRange(ref);
+    final currentRange = (selectedPeriod.start, selectedPeriod.end);
+    final selectedMode = ref.watch(
+      homePeriodSelectionProvider(
+              ref.watch(authProvider.select((user) => user.uid)))
+          .select((value) => value.mode),
     );
-    final previousRange = _getPreviousDateRangeForFilter(
-      dateRange,
-      userNow,
-      config.customStartDate,
-      config.customEndDate,
-      financialMonthStartDay,
-    );
+    final previousRange = selectedMode == HomePeriodMode.daily
+        ? (
+            selectedPeriod.start.subtract(const Duration(days: 1)),
+            selectedPeriod.start.subtract(const Duration(days: 1)),
+          )
+        : (() {
+            final previousStart = previousFinancialCycleStart(
+              selectedPeriod.start,
+              startDay: financialMonthStartDay,
+            );
+            final previous = financialCycleForMonth(
+              previousStart,
+              startDay: financialMonthStartDay,
+            );
+            return (previous.start, previous.end);
+          })();
 
     final currentQuery = _buildScopedQuery(
       ref: ref,
@@ -471,11 +451,11 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         displayCurrentTransactions,
         displayPreviousTransactions,
         contact,
-        dateRange,
+        DateRangeFilter.custom,
         key: ValueKey('net_cashflow_data_${config.id}_$selectedCurrency'),
         selectedCurrency: selectedCurrency,
-        customStartDate: config.customStartDate,
-        customEndDate: config.customEndDate,
+        customStartDate: selectedPeriod.start,
+        customEndDate: selectedPeriod.end,
       ),
     );
   }
@@ -498,6 +478,7 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
     final scope = ref.watch(householdScopeProvider);
     final userId = _dashboardUserId(ref);
     final selectedCurrency = _selectedCurrency(ref);
+    final selectedPeriod = _selectedHomePeriodRange(ref);
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
@@ -545,6 +526,7 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
         householdId: scope.activeAccountHouseholdId,
         recurringTransactions: recurringState.data.valueOrNull ?? const [],
         currency: selectedCurrency ?? fallbackCurrency,
+        initialMonth: selectedPeriod.start,
         isExpanded: config.viewMode == DashboardWidgetViewMode.full,
       ),
     );
@@ -565,10 +547,13 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(householdScopeProvider);
     final selectedCurrency = _selectedCurrency(ref);
+    final selectedPeriod = _selectedHomePeriodRange(ref);
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
       selectedCurrency: selectedCurrency,
+      startDate: selectedPeriod.start,
+      endDate: selectedPeriod.end,
     );
     final recentAsync = ref.watch(
       dashboardRecentTransactionsProvider(
@@ -622,7 +607,13 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
         onViewAll: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const TransactionsPage(),
+              builder: (_) => TransactionsPage(
+                householdId: query.householdId,
+                enableDateFilter: true,
+                initialDateFilter: DateRangeFilter.custom,
+                initialStartDate: selectedPeriod.start,
+                initialEndDate: selectedPeriod.end,
+              ),
             ),
           );
         },
@@ -651,15 +642,8 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     final analyticsContact = ref.watch(
       dashboardUserContactProvider.select((state) => state.valueOrNull),
     );
-    final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
-    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
-    final range = getDateRangeFromFilter(
-      dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: userNow,
-      financialMonthStartDay: financialMonthStartDay,
-    );
+    final selectedPeriod = _selectedHomePeriodRange(ref);
+    final range = {'from': selectedPeriod.start, 'to': selectedPeriod.end};
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
@@ -755,12 +739,12 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
         displayExpenses,
         const [],
         analyticsContact,
-        dateRange,
+        DateRangeFilter.custom,
         key: ValueKey('breakdown_data_${config.id}_$selectedCurrency'),
         referenceNow: userNow,
         selectedCurrency: selectedCurrency,
-        customStartDate: config.customStartDate,
-        customEndDate: config.customEndDate,
+        customStartDate: selectedPeriod.start,
+        customEndDate: selectedPeriod.end,
       ),
     );
   }
@@ -784,14 +768,8 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     final selectedCurrency = _selectedCurrency(ref);
     final selectedCurrencies = _selectedCurrencies(ref);
     final dateRange = _effectivePreviewDateRange(ref, config.dateRange);
-    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
-    final range = getDateRangeFromFilter(
-      dateRange,
-      config.customStartDate,
-      config.customEndDate,
-      now: userNow,
-      financialMonthStartDay: financialMonthStartDay,
-    );
+    final selectedPeriod = _selectedHomePeriodRange(ref);
+    final range = {'from': selectedPeriod.start, 'to': selectedPeriod.end};
     final query = _buildScopedQuery(
       ref: ref,
       scope: scope,
@@ -917,6 +895,8 @@ void _ensureRecurringTransactionsLoaded(
   );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
+    // The notifier exposes its current state for this mounted dashboard only.
+    // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
     if (notifier.state.hasLoadedOnce) return;
     notifier.loadRecurringTransactions(userId);
   });
@@ -1155,6 +1135,9 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
   );
 }
 
+// Legacy comparison helpers remain while persisted dashboard configurations
+// decode their former date fields. Home no longer calls them for data queries.
+// ignore: unused_element
 (DateTime, DateTime) _getDateRangeForFilter(
   DateRangeFilter filter,
   DateTime now,
@@ -1240,6 +1223,7 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
   }
 }
 
+// ignore: unused_element
 (DateTime, DateTime) _getPreviousDateRangeForFilter(
   DateRangeFilter filter,
   DateTime now,

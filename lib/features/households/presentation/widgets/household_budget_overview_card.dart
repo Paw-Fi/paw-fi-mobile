@@ -4,9 +4,9 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 /// Budget overview card showing total spent, budget progress, and remaining budget
 Widget buildHouseholdBudgetOverviewCard(
@@ -24,8 +24,6 @@ Widget buildHouseholdBudgetOverviewCard(
   final currency = (summary?.currency ?? 'USD').toUpperCase();
   final symbol = resolveCurrencySymbol(currency);
   final totalSpentAmount = totalExpensesCents / 100.0;
-  final formattedTotalSpent =
-      '$symbol${formatLocalizedNumber(context, totalSpentAmount)}';
   final transactionCount =
       transactionCountOverride ?? summary?.totals.transactionCount ?? 0;
 
@@ -49,12 +47,6 @@ Widget buildHouseholdBudgetOverviewCard(
 
   final budgetSpentAmount = totalBudgetSpentCents / 100.0;
   final budgetRemainingAmount = totalBudgetRemainingCents / 100.0;
-  final formattedBudgetSpent =
-      '$symbol${formatLocalizedNumber(context, budgetSpentAmount)}';
-  final formattedBudgetRemaining = '$symbol${formatLocalizedNumber(
-    context,
-    budgetRemainingAmount.abs(),
-  )}';
   final budgetPercentage = totalBudgetCents > 0
       ? (totalBudgetSpentCents / totalBudgetCents * 100).clamp(0, 100)
       : 0.0;
@@ -125,8 +117,10 @@ Widget buildHouseholdBudgetOverviewCard(
               color: colorScheme.mutedForeground,
             ),
             const SizedBox(width: 4),
-            Text(
-              '$transactionCount',
+            AnimatedAmountText(
+              value: transactionCount.toDouble(),
+              symbol: '',
+              decimalDigits: 0,
               style: TextStyle(
                 fontSize: 12,
                 color: colorScheme.mutedForeground,
@@ -135,8 +129,9 @@ Widget buildHouseholdBudgetOverviewCard(
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          formattedTotalSpent,
+        AnimatedAmountText(
+          value: totalSpentAmount,
+          symbol: symbol,
           style: WidgetTextStyles.amount.copyWith(
             color: colorScheme.foreground,
           ),
@@ -173,44 +168,35 @@ Widget buildHouseholdBudgetOverviewCard(
           const SizedBox(height: 16),
 
           // Budget Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                Container(
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: budgetPercentage / 100,
-                  child: Container(
-                    height: 12,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isOverBudget
-                            ? [
-                                colorScheme.destructive,
-                                colorScheme.destructive.withValues(alpha: 0.8),
-                              ]
-                            : budgetPercentage > 80
-                                ? [
-                                    colorScheme.warning,
-                                    colorScheme.warning.withValues(alpha: 0.8),
-                                  ]
-                                : [
-                                    colorScheme.primary,
-                                    colorScheme.primary.withValues(alpha: 0.8),
-                                  ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
+          AnimatedProgressBar(
+            progress: budgetPercentage / 100,
+            color: isOverBudget
+                ? colorScheme.destructive
+                : budgetPercentage > 80
+                    ? colorScheme.warning
+                    : colorScheme.primary,
+            backgroundColor: colorScheme.muted.withValues(alpha: 0.2),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isOverBudget
+                    ? [
+                        colorScheme.destructive,
+                        colorScheme.destructive.withValues(alpha: 0.8),
+                      ]
+                    : budgetPercentage > 80
+                        ? [
+                            colorScheme.warning,
+                            colorScheme.warning.withValues(alpha: 0.8),
+                          ]
+                        : [
+                            colorScheme.primary,
+                            colorScheme.primary.withValues(alpha: 0.8),
+                          ],
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
+            height: 12,
+            borderRadius: BorderRadius.circular(12),
           ),
 
           const SizedBox(height: 12),
@@ -235,8 +221,9 @@ Widget buildHouseholdBudgetOverviewCard(
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      formattedBudgetSpent,
+                    AnimatedAmountText(
+                      value: budgetSpentAmount,
+                      symbol: symbol,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -266,8 +253,9 @@ Widget buildHouseholdBudgetOverviewCard(
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      formattedBudgetRemaining,
+                    AnimatedAmountText(
+                      value: budgetRemainingAmount.abs(),
+                      symbol: symbol,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

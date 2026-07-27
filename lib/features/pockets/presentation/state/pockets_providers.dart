@@ -2590,45 +2590,26 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .map((row) => Map<String, dynamic>.from(row))
           .toList(growable: false);
 
-      if (envRows.isEmpty) {
-        return PocketsState(
-          isLoading: false,
-          error: null,
-          saved: const [],
-          editing: const [],
-          budgetId: budgetId,
-          periodMonth: monthStart,
-          financialMonthStartDay: cacheKey.financialMonthStartDay,
-          previousBudget: previousBudget / 100.0,
-          hasPreviousMonthPockets: hasPreviousMonthPockets,
-          currency: selectedCurrency,
-          totalBudget: totalBudget / 100.0,
-          savedTotalBudget: totalBudget / 100.0,
-          unallocatedSpend: 0,
-          uncategorized: const [],
-          uncategorizedExpenses: const {},
-          envelopeCategories: const {},
-        );
-      }
-
       final envIds =
           envRows.map((e) => e['id'] as String).toList(growable: false);
 
-      try {
-        final logoRows = await supabase
-            .from('budget_envelopes')
-            .select('id,logo_url')
-            .inFilter('id', envIds);
-        final logoUrlByEnvelopeId = <String, String?>{
-          for (final row in (logoRows as List?) ?? const [])
-            if (row is Map && row['id'] is String)
-              row['id'] as String: row['logo_url'] as String?,
-        };
-        for (final row in envRows) {
-          row['logo_url'] = logoUrlByEnvelopeId[row['id'] as String];
+      if (envIds.isNotEmpty) {
+        try {
+          final logoRows = await supabase
+              .from('budget_envelopes')
+              .select('id,logo_url')
+              .inFilter('id', envIds);
+          final logoUrlByEnvelopeId = <String, String?>{
+            for (final row in (logoRows as List?) ?? const [])
+              if (row is Map && row['id'] is String)
+                row['id'] as String: row['logo_url'] as String?,
+          };
+          for (final row in envRows) {
+            row['logo_url'] = logoUrlByEnvelopeId[row['id'] as String];
+          }
+        } catch (error) {
+          _debugLog('[Pockets] logo_url enrichment skipped: $error');
         }
-      } catch (error) {
-        _debugLog('[Pockets] logo_url enrichment skipped: $error');
       }
 
       final allocationRows = payloads

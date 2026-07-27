@@ -10,6 +10,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
   final HouseholdSummary summary;
@@ -168,30 +169,33 @@ class GroupFairnessMeter extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: ClipRRect(
+                child: AnimatedProgressBar(
+                  progress: fairness,
+                  height: 10,
                   borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: fairness,
-                    minHeight: 10,
-                    backgroundColor: colorScheme.muted.withValues(alpha: 0.2),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      fairness > 0.7
-                          ? colorScheme.success
-                          : (fairness > 0.4
-                              ? colorScheme.warning
-                              : colorScheme.destructive),
-                    ),
-                  ),
+                  backgroundColor: colorScheme.muted.withValues(alpha: 0.2),
+                  color: fairness > 0.7
+                      ? colorScheme.success
+                      : (fairness > 0.4
+                          ? colorScheme.warning
+                          : colorScheme.destructive),
                 ),
               ),
               const SizedBox(width: 12),
-              Text('${(fairness * 100).toStringAsFixed(0)}%'),
+              AnimatedAmountText(
+                value: fairness * 100,
+                symbol: '',
+                suffix: '%',
+                decimalDigits: 0,
+                style: const TextStyle(),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(context.l10n.evenShare((evenShare / 100).toStringAsFixed(2)),
-              style:
-                  TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+          Text(
+            context.l10n.evenShare((evenShare / 100).toStringAsFixed(2)),
+            style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+          ),
         ],
       ),
     );

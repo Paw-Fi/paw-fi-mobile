@@ -5,7 +5,6 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
-import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -18,9 +17,9 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 
 String _safeCompactFormat(num value, BuildContext context) {
   try {
-    final locale = Localizations.localeOf(context);
-    final safe = intlSafeLocaleName(locale);
-    return NumberFormat.compact(locale: safe).format(value);
+    return NumberFormat.compact(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+    ).format(value);
   } catch (_) {
     return NumberFormat.compact(locale: 'en_US').format(value);
   }
@@ -164,6 +163,18 @@ class _FinancialCalendarWidgetState
   @override
   void didUpdateWidget(covariant FinancialCalendarWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialMonth != widget.initialMonth &&
+        widget.initialMonth != null) {
+      _focusedMonth = DateTime(
+        widget.initialMonth!.year,
+        widget.initialMonth!.month,
+      );
+      _focusedWeekStart = DateTime(
+        widget.initialMonth!.year,
+        widget.initialMonth!.month,
+        widget.initialMonth!.day,
+      ).subtract(const Duration(days: 6));
+    }
     final storageKey = _storageKey;
     if (_restoredStorageKey != storageKey) {
       _restoreFocusedDates(force: true);

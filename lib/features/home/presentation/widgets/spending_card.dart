@@ -191,12 +191,10 @@ class _SpendingCardState extends State<SpendingCard> {
     }).toList();
 
     final allYValues = allCumulativeData.map((spot) => spot.y).toList();
-    final dataMaxY = allYValues.isEmpty
-        ? 0.0
-        : allYValues.reduce((a, b) => a > b ? a : b);
-    final dataMinY = allYValues.isEmpty
-        ? 0.0
-        : allYValues.reduce((a, b) => a < b ? a : b);
+    final dataMaxY =
+        allYValues.isEmpty ? 0.0 : allYValues.reduce((a, b) => a > b ? a : b);
+    final dataMinY =
+        allYValues.isEmpty ? 0.0 : allYValues.reduce((a, b) => a < b ? a : b);
     // Pad bounds so the line stays inside the chart area. Negative cumulative
     // values (e.g. from bank-synced refunds/income entries) are now supported.
     final minY = dataMinY < 0 ? (dataMinY * 1.2).floorToDouble() : 0.0;
@@ -521,6 +519,10 @@ class _SpendingCardState extends State<SpendingCard> {
                       minY: minY,
                       maxY: maxY,
                     ),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
                   );
                 },
               ),

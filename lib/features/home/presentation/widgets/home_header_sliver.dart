@@ -23,6 +23,7 @@ import 'package:moneko/features/home/presentation/widgets/currency_selector_moda
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/transaction_export_options_sheet.dart';
+import 'package:moneko/features/home/presentation/widgets/home_period_selector.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -236,6 +237,11 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final spotlightController = ref.read(homeSpotlightControllerProvider);
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
+    final homePeriodMode = user.uid.isEmpty
+        ? null
+        : ref.watch(
+            homePeriodSelectionProvider(user.uid).select((state) => state.mode),
+          );
     final showCurrencyIndicator = useState<bool>(false);
 
     // Load indicator dismissal state
@@ -769,6 +775,15 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     if (currentIndex == 0) {
       menuItems.add(AdaptivePopupMenuItem(
+        label: homePeriodMode == HomePeriodMode.daily
+            ? 'Daily view'
+            : 'Monthly view',
+        icon: homePeriodMode == HomePeriodMode.daily
+            ? Icons.today_outlined
+            : Icons.calendar_view_month_outlined,
+        value: 'toggle_period_mode',
+      ));
+      menuItems.add(AdaptivePopupMenuItem(
         label: context.l10n.editWidgets,
         icon: PlatformInfo.isIOS26OrHigher()
             ? 'square.grid.2x2'
@@ -915,6 +930,19 @@ class HomeHeaderSliver extends HookConsumerWidget {
                                 return;
                               }
 
+                              if (item.value == 'toggle_period_mode' &&
+                                  homePeriodMode != null) {
+                                await ref
+                                    .read(homePeriodSelectionProvider(user.uid)
+                                        .notifier)
+                                    .setMode(
+                                      homePeriodMode == HomePeriodMode.daily
+                                          ? HomePeriodMode.monthly
+                                          : HomePeriodMode.daily,
+                                    );
+                                return;
+                              }
+
                               if (item.value == 'export_all') {
                                 await exportAllTransactions();
                                 return;
@@ -946,6 +974,8 @@ class HomeHeaderSliver extends HookConsumerWidget {
             ],
           ),
         ),
+        if (ref.watch(mainShellTabIndexProvider) == 0)
+          const HomePeriodSelector(),
       ],
     );
   }

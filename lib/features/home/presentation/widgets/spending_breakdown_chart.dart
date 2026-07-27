@@ -6,9 +6,9 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 class CategoryPieChart extends StatefulWidget {
   final ColorScheme colorScheme;
@@ -100,9 +100,6 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
     final currencyCode = widget.selectedCurrency ?? 'USD';
     final symbol = resolveCurrencySymbol(currencyCode);
 
-    String displayAmount(double amount) =>
-        '$symbol${formatLocalizedNumber(context, amount)}';
-
     if (!hasData && !widget.showCenterSummary) {
       return Center(
         child: Text(
@@ -155,17 +152,24 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                               return PieChartSectionData(
                                 color: category.color,
                                 value: category.amount,
-                                title: percent > 4
-                                    ? '${percent.toStringAsFixed(0)}%'
-                                    : '',
+                                title: '',
+                                badgePositionPercentageOffset: 0.5,
+                                badgeWidget: percent > 4
+                                    ? AnimatedAmountText(
+                                        value: percent,
+                                        symbol: '',
+                                        suffix: '%',
+                                        decimalDigits: 0,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.onPrimary,
+                                        ),
+                                      )
+                                    : null,
                                 radius: isTouched
                                     ? widget.touchedSectionRadius
                                     : widget.sectionRadius,
-                                titleStyle: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onPrimary,
-                                ),
                               );
                             }).toList()
                           : [
@@ -178,105 +182,84 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                               ),
                             ],
                     ),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
                   ),
                 ),
               ),
               if (widget.showCenterSummary)
                 Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: hasData
-                        ? selected != null
-                            ? SizedBox(
-                                width: 110,
-                                child: Column(
-                                  key: const ValueKey('selected'),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      getCategoryTranslation(
-                                          context, selected.category),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        displayAmount(selected.amount),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -0.8,
-                                          color: colorScheme.foreground,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : SizedBox(
-                                width: 110,
-                                child: Column(
-                                  key: const ValueKey('total'),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        displayAmount(totalSpent),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -1.0,
-                                          color: colorScheme.foreground,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      context.l10n.spent,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                        : Column(
-                            key: const ValueKey('empty'),
+                  child: hasData
+                      ? SizedBox(
+                          width: 110,
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.pie_chart_outline_rounded,
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.8),
+                              SizedBox(
+                                height: 18,
+                                child: Text(
+                                  selected == null
+                                      ? ''
+                                      : getCategoryTranslation(
+                                          context,
+                                          selected.category,
+                                        ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 6),
-                              Text(
-                                context.l10n.noData,
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: AnimatedAmountText(
+                                  value: selected?.amount ?? totalSpent,
+                                  symbol: symbol,
+                                  style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.9,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              SizedBox(
+                                height: 18,
+                                child: Text(
+                                  selected == null ? context.l10n.spent : '',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                  ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.pie_chart_outline_rounded,
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              context.l10n.noData,
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
             ],
           ),

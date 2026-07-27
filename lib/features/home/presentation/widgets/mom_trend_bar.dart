@@ -57,7 +57,9 @@ class MoMTrendBar extends ConsumerWidget {
         height: 90,
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 800),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 500),
           curve: Curves.easeOutCubic,
           builder: (context, animationValue, child) {
             return BarChart(
@@ -121,6 +123,10 @@ class MoMTrendBar extends ConsumerWidget {
                 ),
                 maxY: maxY,
               ),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 400),
+              curve: Curves.easeOutCubic,
             );
           },
         ),

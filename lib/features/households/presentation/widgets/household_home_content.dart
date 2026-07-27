@@ -154,6 +154,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
     required int financialMonthStartDay,
+    required HomePeriodDateRange selectedPeriod,
   }) async {
     if (!mounted) return;
 
@@ -177,13 +178,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     var needsBudgets = false;
 
     for (final config in visibleConfigs) {
-      final range = getDateRangeFromFilter(
-        config.dateRange,
-        config.customStartDate,
-        config.customEndDate,
-        now: referenceNow,
-        financialMonthStartDay: financialMonthStartDay,
-      );
+      final range = selectedPeriod;
 
       switch (config.type) {
         case DashboardWidgetType.householdSpentByYou:
@@ -353,6 +348,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
     required int financialMonthStartDay,
+    required HomePeriodDateRange selectedPeriod,
   }) {
     if (_dashboardWarmupKey == warmupKey) return;
 
@@ -369,6 +365,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         configs: configs,
         referenceNow: referenceNow,
         financialMonthStartDay: financialMonthStartDay,
+        selectedPeriod: selectedPeriod,
       ));
     });
   }
@@ -505,6 +502,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
           final financialMonthStartDay =
               ref.watch(financialMonthStartDayProvider);
+          final selectedPeriod = ref.watch(homePeriodDateRangeProvider(userId));
 
           // Data providers with date filtering
           // Note: Individual widgets inside DraggableDashboardList will fetch their own data
@@ -551,7 +549,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               final warmupKey = _buildDashboardWarmupKey(
                 householdId: resolvedHousehold.id,
                 selectedCurrency:
-                    '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|fmsd:$financialMonthStartDay|refresh:$dashboardRefreshSignal',
+                    '$selectedCurrency|${selectedCurrencies?.join(',') ?? '<none>'}|fmsd:$financialMonthStartDay|period:${selectedPeriod.start}:${selectedPeriod.end}|refresh:$dashboardRefreshSignal',
                 referenceNow: userNow,
                 configs: configs,
               );
@@ -564,6 +562,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 configs: configs,
                 referenceNow: userNow,
                 financialMonthStartDay: financialMonthStartDay,
+                selectedPeriod: selectedPeriod,
               );
 
               if (!_didLogFirstUsefulPaint) {

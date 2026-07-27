@@ -16,7 +16,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -661,15 +661,6 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isZero = amountCents == 0;
     final amountValue = amountCents / 100.0;
-    final String amountText;
-    if (currency != null && currency!.isNotEmpty) {
-      final symbol = resolveCurrencySymbol(currency);
-      final normalized = double.parse(formatAmount(amountValue));
-      final localized = formatLocalizedNumber(context, normalized);
-      amountText = '$symbol$localized';
-    } else {
-      amountText = formatLocalizedNumber(context, amountValue);
-    }
     final labelColor = isZero
         ? Theme.of(context).colorScheme.mutedForeground
         : color.withValues(alpha: 0.8);
@@ -690,8 +681,11 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            amountText,
+          AnimatedAmountText(
+            value: amountValue,
+            symbol: currency != null && currency!.isNotEmpty
+                ? resolveCurrencySymbol(currency)
+                : '',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -739,9 +733,6 @@ class _SuggestionRow extends StatelessWidget {
         : suggestion.currency.trim().toUpperCase();
     final amountValue = suggestion.amountCents / 100.0;
     final symbol = resolveCurrencySymbol(rowCurrency);
-    final normalized = double.parse(formatAmount(amountValue));
-    final localized = formatLocalizedNumber(context, normalized);
-    final amountText = '$symbol$localized';
     final color = isPayer ? scheme.destructive : scheme.success;
 
     // Left text: "Alice owes you" or "You owe Bob"
@@ -779,8 +770,9 @@ class _SuggestionRow extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      amountText,
+                    AnimatedAmountText(
+                      value: amountValue,
+                      symbol: symbol,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,

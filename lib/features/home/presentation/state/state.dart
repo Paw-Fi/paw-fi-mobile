@@ -11,6 +11,8 @@ export 'home_filter_provider.dart';
 export 'bank_sync_result_provider.dart';
 export 'bank_connections_provider.dart';
 export 'home_card_filter_provider.dart';
+export 'home_period_selection.dart';
+export 'home_period_selection_provider.dart';
 export 'derived_selectors.dart';
 export 'currency_transaction_counts_provider.dart';
 export 'currency_preference_service_provider.dart';

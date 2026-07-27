@@ -24,7 +24,7 @@ void main() {
       ],
     );
 
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('\$10'), findsOneWidget);
     expect(find.text('€20'), findsOneWidget);
@@ -52,7 +52,7 @@ void main() {
       ],
     );
 
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('\$26'), findsOneWidget);
     expect(find.text('€20'), findsOneWidget);

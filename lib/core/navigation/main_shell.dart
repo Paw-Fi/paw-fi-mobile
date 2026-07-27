@@ -752,6 +752,7 @@ class MainShell extends HookConsumerWidget {
         children: [
           AdaptiveScaffold(
         body: SafeArea(
+          bottom: false,
           child: Material(
             color: colorScheme.appBackground,
             child: Stack(
@@ -868,7 +869,7 @@ class MainShell extends HookConsumerWidget {
             Positioned(
               bottom: MediaQuery.of(context).padding.bottom +
                   kBottomNavigationBarHeight +
-                  50,
+                  35,
               right: 16,
               child: currentIndex == 0
                   ? SpotlightTarget(

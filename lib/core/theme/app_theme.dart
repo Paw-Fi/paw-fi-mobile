@@ -214,6 +214,16 @@ extension AppColorScheme on ColorScheme {
   Color get warning =>
       brightness == Brightness.dark ? AppTheme.darkWarning : AppTheme.warning;
 
+  /// Progress color for early, but non-zero, completion.
+  Color get progressOrange => brightness == Brightness.dark
+      ? AppTheme.darkProgressOrange
+      : AppTheme.progressOrange;
+
+  /// Progress color for fully completed budgets.
+  Color get progressComplete => brightness == Brightness.dark
+      ? AppTheme.darkProgressComplete
+      : AppTheme.progressComplete;
+
   /// Info color
   Color get info =>
       brightness == Brightness.dark ? AppTheme.darkInfo : AppTheme.info;
@@ -432,6 +442,8 @@ class AppTheme {
   static const Color warning = Color(0xFFFFC219); // --warning (Moneko Amber)
   static const Color danger = Color(0xFFFF6060); // --danger (Moneko Red)
   static const Color info = monekoPrimary;
+  static const Color progressOrange = Color(0xFFFF8A3D);
+  static const Color progressComplete = Color(0xFF087F5B);
 
   static const Color darkPrimary =
       Color(0xFF8B70FF); // Slightly lighter purple for dark mode
@@ -543,6 +555,8 @@ class AppTheme {
       Color(0xFFFFD147); // Lighter Amber for Dark Mode
   static const Color darkDanger = Color(0xFFFF6B6B); // Soft Red for Dark Mode
   static const Color darkInfo = Color(0xFF8B70FF); // Matches Dark Primary
+  static const Color darkProgressOrange = Color(0xFFFF9E5C);
+  static const Color darkProgressComplete = Color(0xFF00A67A);
 
   static const Color lightChartBackground = Color(0xFFFFFFFF);
   static const Color darkChartBackground = Color(0xFF17181D);

@@ -406,20 +406,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                 dashboardContact?.preferredTimezone,
               );
               final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-              final netFilterState = ref.watch(
-                cardDateFilterProvider(HomeCardFilterId.netCashflow),
+              final selectedPeriod = ref.watch(
+                homePeriodDateRangeProvider(userId),
               );
-              final financialMonthStartDay =
-                  ref.watch(financialMonthStartDayProvider);
-              final netRange = getDateRangeFromFilter(
-                netFilterState.dateRangeFilter,
-                netFilterState.customStartDate,
-                netFilterState.customEndDate,
-                now: userNow,
-                financialMonthStartDay: financialMonthStartDay,
-              );
-              final netFrom = netRange['from']!;
-              final netTo = netRange['to']!;
+              final netFrom = selectedPeriod.start;
+              final netTo = selectedPeriod.end;
               final netBudgets = dashboardBudgets.where((budget) {
                 final d = DateTime(
                     budget.date.year, budget.date.month, budget.date.day);
