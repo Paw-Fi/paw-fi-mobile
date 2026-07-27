@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 
@@ -240,7 +241,7 @@ class _SpendingCardState extends State<SpendingCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        widget.dateFilter.getSpentLabel(context).toUpperCase(),
+                        context.l10n.spent.toUpperCase(),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

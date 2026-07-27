@@ -3390,5 +3390,6 @@
   "monekoPreview": "Попередній перегляд Moneko",
   "sarahCollins": "Олена Коваленко",
   "switchToMonthlyView": "Перейти до перегляду за місяцями",
-  "switchToDailyView": "Перейти до перегляду за днями"
+  "switchToDailyView": "Перейти до перегляду за днями",
+  "total": "Загальна сума"
 }

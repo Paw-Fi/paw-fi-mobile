@@ -3211,5 +3211,6 @@
   "monekoPreview": "Moneko 미리보기",
   "sarahCollins": "김서연",
   "switchToMonthlyView": "월간 보기로 전환",
-  "switchToDailyView": "일간 보기로 전환"
+  "switchToDailyView": "일간 보기로 전환",
+  "total": "총액"
 }

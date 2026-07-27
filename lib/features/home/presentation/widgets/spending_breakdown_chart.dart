@@ -450,14 +450,6 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
               color: widget.colorScheme.mutedForeground,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            widget.dateRangeFilter.getLabel(context),
-            style: TextStyle(
-              fontSize: 13,
-              color: widget.colorScheme.mutedForeground,
-            ),
-          ),
           const SizedBox(height: 32),
           CategoryPieChart(
             colorScheme: widget.colorScheme,

@@ -9458,4 +9458,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get switchToDailyView => 'เปลี่ยนเป็นมุมมองรายวัน';
+
+  @override
+  String get total => 'ยอดรวม';
 }

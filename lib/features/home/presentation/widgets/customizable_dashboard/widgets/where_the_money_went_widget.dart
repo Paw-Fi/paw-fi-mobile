@@ -79,12 +79,6 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
                         color: colorScheme.mutedForeground,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.dateRange.getLabel(context),
-                      style: WidgetTextStyles.dateLabel(
-                          colorScheme.mutedForeground),
-                    ),
                   ],
                 ),
                 if (widget.onHelpTap != null)

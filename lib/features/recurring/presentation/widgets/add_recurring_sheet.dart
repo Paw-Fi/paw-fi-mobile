@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -1558,7 +1559,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AdaptiveSegmentedControl(
+                    MonekoSegmentedControl(
                       labels: [context.l10n.expenses, context.l10n.income],
                       selectedIndex: isExpense ? 0 : 1,
                       height: 40,

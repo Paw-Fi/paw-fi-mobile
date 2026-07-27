@@ -3400,5 +3400,6 @@
   "monekoPreview": "Vista previa de Moneko",
   "sarahCollins": "Sofía García",
   "switchToMonthlyView": "Cambiar a la vista mensual",
-  "switchToDailyView": "Cambiar a la vista diaria"
+  "switchToDailyView": "Cambiar a la vista diaria",
+  "total": "Importe total"
 }

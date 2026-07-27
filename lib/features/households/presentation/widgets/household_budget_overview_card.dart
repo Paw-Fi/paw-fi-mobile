@@ -88,12 +88,6 @@ Widget buildHouseholdBudgetOverviewCard(
                     color: colorScheme.mutedForeground,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  dateFilter.getLabel(context),
-                  style:
-                      WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
-                ),
               ],
             ),
             const SizedBox(width: 4),

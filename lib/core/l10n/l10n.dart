@@ -24,6 +24,10 @@ extension SettlementBreakdownL10nX on AppLocalizations {
       'Balance from before detailed settlement history was available.';
 }
 
+extension HomeDashboardL10nX on AppLocalizations {
+  String get netCashflow => 'Net cashflow';
+}
+
 extension PaywallCommitmentL10nX on AppLocalizations {
   String paywallCommitmentName(int months) => '$months-month commitment';
   String paywallCommitmentTerms(int months) =>

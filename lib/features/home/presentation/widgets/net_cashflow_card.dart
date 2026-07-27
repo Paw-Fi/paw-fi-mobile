@@ -32,7 +32,6 @@ Widget buildNetCashflowCard(
   final localizedAmount = formatLocalizedNumber(context, normalized);
   final displayText =
       isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
-  final title = _netCashflowTitleForFilter(context, dateFilter);
   final isBetter = currentNet > previousNet;
 
   return Container(
@@ -59,9 +58,7 @@ Widget buildNetCashflowCard(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title.toUpperCase(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+          context.l10n.netCashflow.toUpperCase(),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -125,34 +122,6 @@ Widget buildNetCashflowCard(
     }
   }
   return (income, spend);
-}
-
-String _netCashflowTitleForFilter(
-    BuildContext context, DateRangeFilter filter) {
-  final l10n = context.l10n;
-  switch (filter) {
-    case DateRangeFilter.today:
-      return l10n.netCashflowToday;
-    case DateRangeFilter.yesterday:
-      return l10n.netCashflowYesterday;
-    case DateRangeFilter.thisWeek:
-      return l10n.netCashflowThisWeek;
-    case DateRangeFilter.lastWeek:
-      return l10n.netCashflowLastWeek;
-    case DateRangeFilter.last30Days:
-      return l10n.netCashflowLast30Days;
-    case DateRangeFilter.thisMonth:
-      return l10n.netCashflowThisMonth;
-    case DateRangeFilter.custom:
-      return l10n.netCashflowCustom;
-    // Fallback to a sensible label when we don't have a dedicated string
-    case DateRangeFilter.last7Days:
-    case DateRangeFilter.lastMonth:
-    case DateRangeFilter.last3Months:
-    case DateRangeFilter.thisYear:
-    case DateRangeFilter.allTime:
-      return l10n.netCashflowThisMonth;
-  }
 }
 
 double _netCashflowFontSize(String displayText) {

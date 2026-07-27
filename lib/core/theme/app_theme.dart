@@ -373,6 +373,25 @@ extension AppColorScheme on ColorScheme {
   Color get householdAdmin => AppTheme.householdAdmin;
   Color get householdMember => AppTheme.householdMember;
 
+  /// Recurring summary card gradient colors
+  List<Color> get recurringSummaryGradient =>
+      brightness == Brightness.dark
+          ? [
+              primary.withValues(alpha: 0.12),
+              surface.withValues(alpha: 0.04),
+            ]
+          : [
+              AppTheme.lightRecurringSummaryGradientStart,
+              AppTheme.lightRecurringSummaryGradientBlush,
+              AppTheme.lightRecurringSummaryGradientCool,
+              AppTheme.lightRecurringSummaryGradientEnd,
+            ];
+
+  /// Recurring summary card border
+  Color get recurringSummaryBorder => brightness == Brightness.dark
+      ? surfaceBorder
+      : AppTheme.lightRecurringSummaryBorder;
+
   /// Home: standard card surface
   Color get homeCardSurface => cardSurface;
 
@@ -546,6 +565,19 @@ class AppTheme {
   static const Color lightUncategorizedAmount = Color(0xFFB45309);
   static const Color darkUncategorizedAmount = Color(0xFFFFCC80);
   static const Color lightSplitSheetBg = Color(0xFFF4F4F4);
+
+  // Recurring summary card gradient (light): atmospheric multi-stop
+  // near-white -> warm blush -> cool gray-blue -> pure white
+  static const Color lightRecurringSummaryGradientStart =
+      Color(0xFFFAFAFA); // Near-white (top-left)
+  static const Color lightRecurringSummaryGradientBlush =
+      Color(0xFFFBF6F4); // Barely visible warm blush (top-right)
+  static const Color lightRecurringSummaryGradientCool =
+      Color(0xFFF4F6F8); // Subtle cool gray-blue (middle)
+  static const Color lightRecurringSummaryGradientEnd =
+      Color(0xFFFFFFFF); // Pure white (bottom)
+  static const Color lightRecurringSummaryBorder =
+      Color(0xFFE8E5E1); // Subtle warm border
 
   // REVISED: Dark mode semantic colors (True Moneko Brand)
   // Replaced stock iOS colors with branded dark mode equivalents

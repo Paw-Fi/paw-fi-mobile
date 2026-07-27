@@ -808,8 +808,6 @@ Widget _buildBreakdownSkeleton(BuildContext context, {Key? key}) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Spending breakdown'),
-              SizedBox(height: 8),
-              Text('Current period'),
               SizedBox(height: 32),
               Expanded(child: Center(child: Text('Chart placeholder'))),
               SizedBox(height: 24),
@@ -840,8 +838,6 @@ Widget _buildWhereMoneyWentSkeleton(BuildContext context, {Key? key}) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Where the money went'),
-              SizedBox(height: 8),
-              Text('Current period'),
               SizedBox(height: 32),
               Text('Category row placeholder'),
               SizedBox(height: 16),

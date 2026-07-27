@@ -34,9 +34,6 @@ Widget buildHouseholdMemberSpendingCard(
 }) {
   final currency =
       ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
-  final rangeLabel =
-      (dateRangeFilter ?? DateRangeFilter.thisMonth).getLabel(context);
-
   final memberTotals = (transactions != null && from != null && to != null)
       ? computeSplitAwareMemberSpendingTotals(
           transactions: transactions,
@@ -132,7 +129,7 @@ Widget buildHouseholdMemberSpendingCard(
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
             child: Text(
-              '${context.l10n.spent} • $rangeLabel',
+              context.l10n.spent,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

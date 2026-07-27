@@ -62,6 +62,7 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/notification_dot_indicator.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
@@ -395,6 +396,21 @@ class MainShell extends HookConsumerWidget {
     final homeFilterState = ref.watch(homeFilterProvider);
     final selectedCurrencies = homeFilterState.normalizedSelectedCurrencies;
     final selectedCurrency = homeFilterState.selectedCurrency;
+    final recurringScope = ref.watch(householdScopeProvider);
+    final recurringHouseholdId = switch (recurringScope.activeAccountType) {
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => recurringScope.activeAccountHouseholdId,
+      ActiveWalletType.household => recurringScope.selectedHouseholdId,
+    };
+    final hasUnconfirmedRecurringOccurrences = ref.watch(
+      hasUnconfirmedRecurringOccurrencesProvider(
+        UpcomingRecurringScope(
+          householdId: recurringHouseholdId,
+          currency: selectedCurrency,
+          selectedCurrencies: selectedCurrencies,
+        ),
+      ),
+    );
     final warmedWalletsKeyRef = useRef<String?>(null);
     final showNoNetworkBanner = !hasNetworkAccess;
 
@@ -742,8 +758,7 @@ class MainShell extends HookConsumerWidget {
     }, growable: false);
 
     final viewMode = ref.watch(viewModeProvider);
-    final householdsAsync =
-        ref.watch(userHouseholdsProvider(auth.uid));
+    final householdsAsync = ref.watch(userHouseholdsProvider(auth.uid));
     final showAiFab = shouldShowHomeFab(viewMode, householdsAsync);
     final fabTourController = ref.read(homeSpotlightControllerProvider);
 
@@ -751,119 +766,186 @@ class MainShell extends HookConsumerWidget {
       child: Stack(
         children: [
           AdaptiveScaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Material(
-            color: colorScheme.appBackground,
-            child: Stack(
-              children: [
-                Column(
+            body: SafeArea(
+              bottom: false,
+              child: Material(
+                color: colorScheme.appBackground,
+                child: Stack(
                   children: [
-                    if (previewState.isActive)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                        child: _PreviewModeBanner(
-                          currentIndex: currentIndex,
-                          onRegisterTap: () {
-                            unawaited(() async {
-                              await exitPreviewMode(
-                                  restorePreauthOnExit: false);
-                              if (context.mounted) {
-                                context.go('/register');
-                              }
-                            }());
-                          },
-                          onExitTap: () {
-                            unawaited(() async {
-                              final returnRoute = await exitPreviewMode(
-                                restorePreauthOnExit: true,
-                              );
-                              if (context.mounted) {
-                                context.go(returnRoute ?? '/paywall');
-                              }
-                            }());
-                          },
-                        ),
-                      ),
-                    _AnimatedTopBannerSlot(
-                      visible: !previewState.isActive && showNoNetworkBanner,
-                      child: const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
-                        child: _SubscriptionVerificationBanner(),
-                      ),
-                    ),
-                    const TrialReminderBannerGate(),
-                    const ExpiredSubscriptionBannerGate(),
-                    if (!isAppLockPromptActive) const HomeHeaderSliver(),
-                    Expanded(
-                      child: Stack(
-                        children: [
+                    Column(
+                      children: [
+                        if (previewState.isActive)
                           Padding(
-                            padding: const EdgeInsets.only(top: 0.0),
-                            child: IndexedStack(
-                              index: currentIndex,
-                              children: pages,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                            child: _PreviewModeBanner(
+                              currentIndex: currentIndex,
+                              onRegisterTap: () {
+                                unawaited(() async {
+                                  await exitPreviewMode(
+                                      restorePreauthOnExit: false);
+                                  if (context.mounted) {
+                                    context.go('/register');
+                                  }
+                                }());
+                              },
+                              onExitTap: () {
+                                unawaited(() async {
+                                  final returnRoute = await exitPreviewMode(
+                                    restorePreauthOnExit: true,
+                                  );
+                                  if (context.mounted) {
+                                    context.go(returnRoute ?? '/paywall');
+                                  }
+                                }());
+                              },
                             ),
                           ),
-                          const WidgetSyncManager(),
-                        ],
-                      ),
+                        _AnimatedTopBannerSlot(
+                          visible:
+                              !previewState.isActive && showNoNetworkBanner,
+                          child: const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
+                            child: _SubscriptionVerificationBanner(),
+                          ),
+                        ),
+                        const TrialReminderBannerGate(),
+                        const ExpiredSubscriptionBannerGate(),
+                        if (!isAppLockPromptActive) const HomeHeaderSliver(),
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 0.0),
+                                child: IndexedStack(
+                                  index: currentIndex,
+                                  children: pages,
+                                ),
+                              ),
+                              const WidgetSyncManager(),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
+                    if (isSyncing.value)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: ReconcileProgressBar(
+                          key: syncKey.value,
+                          onComplete: () => isSyncing.value = false,
+                        ),
+                      ),
                   ],
                 ),
-                if (isSyncing.value)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: ReconcileProgressBar(
-                      key: syncKey.value,
-                      onComplete: () => isSyncing.value = false,
-                    ),
-                  ),
+              ),
+            ),
+            bottomNavigationBar: AdaptiveBottomNavigationBar(
+              useNativeBottomBar: false,
+              items: [
+                AdaptiveNavigationDestination(
+                  icon: PlatformInfo.isIOS
+                      ? CupertinoIcons.square_grid_2x2_fill
+                      : Icons.dashboard,
+                  label: context.l10n.overview,
+                ),
+                AdaptiveNavigationDestination(
+                  icon:
+                      PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
+                  label: context.l10n.recurring,
+                ),
+                AdaptiveNavigationDestination(
+                  icon: PlatformInfo.isIOS
+                      ? CupertinoIcons.chart_pie
+                      : Icons.pie_chart_outline,
+                  label: context.l10n.budget,
+                ),
+                AdaptiveNavigationDestination(
+                  icon: PlatformInfo.isIOS
+                      ? CupertinoIcons.creditcard
+                      : Icons.account_balance_wallet_outlined,
+                  label: context.l10n.wallet,
+                ),
+                AdaptiveNavigationDestination(
+                  icon: PlatformInfo.isIOS
+                      ? CupertinoIcons.chart_bar_alt_fill
+                      : Icons.bar_chart,
+                  label: context.l10n.insights,
+                ),
               ],
+              cupertinoTabBar: CupertinoTabBar(
+                currentIndex: currentIndex,
+                onTap: (index) {
+                  if (index == currentIndex) return;
+                  ref.read(mainShellTabIndexProvider.notifier).state = index;
+                },
+                items: [
+                  BottomNavigationBarItem(
+                    icon: const Icon(CupertinoIcons.square_grid_2x2_fill),
+                    label: context.l10n.overview,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: NotificationDotIndicator(
+                      isVisible: hasUnconfirmedRecurringOccurrences,
+                      right: -10,
+                      child: const Icon(CupertinoIcons.repeat),
+                    ),
+                    label: context.l10n.recurring,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(CupertinoIcons.chart_pie),
+                    label: context.l10n.budget,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(CupertinoIcons.creditcard),
+                    label: context.l10n.wallet,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
+                    label: context.l10n.insights,
+                  ),
+                ],
+              ),
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: currentIndex,
+                onDestinationSelected: (index) {
+                  if (index == currentIndex) return;
+                  ref.read(mainShellTabIndexProvider.notifier).state = index;
+                },
+                destinations: [
+                  NavigationDestination(
+                    icon: const Icon(Icons.dashboard),
+                    label: context.l10n.overview,
+                  ),
+                  NavigationDestination(
+                    icon: NotificationDotIndicator(
+                      isVisible: hasUnconfirmedRecurringOccurrences,
+                      child: const Icon(Icons.repeat),
+                    ),
+                    label: context.l10n.recurring,
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.pie_chart_outline),
+                    label: context.l10n.budget,
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    label: context.l10n.wallet,
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.bar_chart),
+                    label: context.l10n.insights,
+                  ),
+                ],
+              ),
+              selectedIndex: currentIndex,
+              onTap: (index) {
+                if (index == currentIndex) return;
+                ref.read(mainShellTabIndexProvider.notifier).state = index;
+              },
             ),
           ),
-        ),
-        bottomNavigationBar: AdaptiveBottomNavigationBar(
-          useNativeBottomBar: false,
-          items: [
-            AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.square_grid_2x2_fill
-                  : Icons.dashboard,
-              label: context.l10n.overview,
-            ),
-            AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
-              label: context.l10n.recurring,
-            ),
-            AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.chart_pie
-                  : Icons.pie_chart_outline,
-              label: context.l10n.budget,
-            ),
-            AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.creditcard
-                  : Icons.account_balance_wallet_outlined,
-              label: context.l10n.wallet,
-            ),
-            AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.chart_bar_alt_fill
-                  : Icons.bar_chart,
-              label: context.l10n.insights,
-            ),
-          ],
-          selectedIndex: currentIndex,
-          onTap: (index) {
-            if (index == currentIndex) return;
-            ref.read(mainShellTabIndexProvider.notifier).state = index;
-          },
-        ),
-        ),
           const HomeAiBackdropOverlay(),
           if (showAiFab && currentIndex != 4)
             Positioned(

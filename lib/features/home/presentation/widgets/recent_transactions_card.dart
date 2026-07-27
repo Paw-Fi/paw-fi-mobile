@@ -455,6 +455,8 @@ class _RecentTransactionsCardState
     final cardRadius = BorderRadius.circular(24);
 
     return Material(
+      borderRadius: cardRadius,
+      clipBehavior: Clip.antiAlias,
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.homeCardSurface,

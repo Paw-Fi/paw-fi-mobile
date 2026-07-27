@@ -18,6 +18,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -226,7 +227,7 @@ class _RecurringTransactionsPageState
           Padding(
             key: _recurringTabBarSpotlightKey,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: AdaptiveSegmentedControl(
+            child: MonekoSegmentedControl(
               labels: [
                 context.l10n.expenses,
                 context.l10n.income,
@@ -660,12 +661,7 @@ class _RecurringTransactionsPageState
             children: [
               Row(
                 children: [
-                  Icon(
-                    isIncome ? Icons.trending_up : Icons.receipt_long_rounded,
-                    size: 16,
-                    color: isIncome ? colorScheme.success : colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
+                 
                   Text(
                     label,
                     style: TextStyle(
@@ -752,31 +748,25 @@ class _RecurringTransactionsPageState
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  colorScheme.primary.withValues(alpha: 0.12),
-                  colorScheme.surface.withValues(alpha: 0.04),
-                ]
-              : [
-                  colorScheme.primary.withValues(alpha: 0.03),
-                  colorScheme.cardSurface,
-                ],
+          colors: colorScheme.recurringSummaryGradient,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark
-              ? colorScheme.surfaceBorder
-              : colorScheme.primary.withValues(alpha: 0.12),
-          width: 1,
-        ),
         boxShadow: [
           BoxShadow(
             color: isDark
                 ? colorScheme.homeCardShadow
-                : Colors.black.withValues(alpha: 0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-            spreadRadius: -4,
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+            spreadRadius: -6,
+          ),
+          BoxShadow(
+            color: isDark
+                ? colorScheme.homeCardShadow
+                : Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
           ),
         ],
       ),

@@ -3345,5 +3345,6 @@
   "monekoPreview": "Anteprima di Moneko",
   "sarahCollins": "Giulia Rossi",
   "switchToMonthlyView": "Passa alla vista mensile",
-  "switchToDailyView": "Passa alla vista giornaliera"
+  "switchToDailyView": "Passa alla vista giornaliera",
+  "total": "Importo totale"
 }

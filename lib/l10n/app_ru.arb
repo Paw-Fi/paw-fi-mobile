@@ -3348,5 +3348,6 @@
   "monekoPreview": "Предпросмотр Moneko",
   "sarahCollins": "Анна Смирнова",
   "switchToMonthlyView": "Переключиться на просмотр по месяцам",
-  "switchToDailyView": "Переключиться на просмотр по дням"
+  "switchToDailyView": "Переключиться на просмотр по дням",
+  "total": "Общая сумма"
 }

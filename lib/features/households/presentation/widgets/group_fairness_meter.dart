@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
@@ -146,12 +145,6 @@ class GroupFairnessMeter extends StatelessWidget {
                   Text(context.l10n.groupFairness,
                       style: TextStyle(
                           fontSize: 14, color: colorScheme.mutedForeground)),
-                  const SizedBox(height: 4),
-                  Text(
-                    dateRange.getLabel(context),
-                    style:
-                        WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
-                  ),
                 ],
               ),
               const SizedBox(width: 6),

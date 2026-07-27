@@ -1537,6 +1537,80 @@ bool _sameStringList(List<String>? left, List<String>? right) {
   return true;
 }
 
+/// Whether the current scope contains an occurrence that can be confirmed.
+///
+/// This mirrors the eligibility and confirmation checks used by
+/// [RecurringTransactionCard] so navigation badges match the visible CTA.
+final hasUnconfirmedRecurringOccurrencesProvider =
+    Provider.family<bool, UpcomingRecurringScope>((ref, scope) {
+  final transactions = ref
+      .watch(recurringTransactionsProvider(scope.householdId))
+      .data
+      .valueOrNull;
+  if (transactions == null || transactions.isEmpty) return false;
+
+  String? userId;
+  try {
+    userId = supabase.auth.currentUser?.id;
+  } catch (_) {
+    return false;
+  }
+  if (userId == null || userId.isEmpty) return false;
+
+  final currency = scope.currency?.trim().toUpperCase();
+  final currencies = scope.normalizedSelectedCurrencies;
+  final preferredTimezone =
+      ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+  final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+
+  for (final transaction in transactions) {
+    if (!transaction.isActive) continue;
+
+    final transactionCurrency = transaction.currency.trim().toUpperCase();
+    if (currencies != null && !currencies.contains(transactionCurrency)) {
+      continue;
+    }
+    if (currencies == null &&
+        currency != null &&
+        currency.isNotEmpty &&
+        transactionCurrency != currency) {
+      continue;
+    }
+
+    final eligibleOccurrences = getOccurrencesList(transaction, userNow)
+        .where((occurrence) =>
+            canConfirmOccurrenceAt(transaction, occurrence, userNow))
+        .toList(growable: false);
+    if (eligibleOccurrences.isEmpty) continue;
+
+    final historyStartDate =
+        transaction.recurrenceRule?.anchorDate ?? transaction.date;
+    final timeline = ref
+            .watch(recurringOccurrenceTimelineProvider(
+              RecurringOccurrenceTimelineQuery(
+                userId: userId,
+                householdId: transaction.householdId,
+                recurringId: transaction.id,
+                startDate: historyStartDate,
+                endDate: eligibleOccurrences.last,
+              ),
+            ))
+            .valueOrNull ??
+        const <RecurringOccurrenceTimelineItem>[];
+    final confirmedDates = <String>{
+      for (final item in timeline)
+        if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
+    };
+    if (eligibleOccurrences.any(
+      (occurrence) => !confirmedDates.contains(formatDateOnlyYmd(occurrence)),
+    )) {
+      return true;
+    }
+  }
+
+  return false;
+});
+
 class UpcomingRecurringTransaction {
   final RecurringTransaction transaction;
   final DateTime nextOccurrence;
