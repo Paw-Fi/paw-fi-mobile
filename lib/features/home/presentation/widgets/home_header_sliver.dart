@@ -41,6 +41,7 @@ import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
+import 'package:moneko/shared/widgets/notification_dot_indicator.dart';
 
 Household? _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -99,6 +100,8 @@ String _exportSpaceFileSlug(TransactionExportSpaceOption space) {
   }
 }
 
+const _periodViewFeatureSeenPreferenceKey = 'home_period_view_feature_seen_v1';
+
 String _slugFileSegment(String value, {required String fallback}) {
   final slug = value
       .trim()
@@ -126,7 +129,7 @@ class HomeHeaderLeading extends ConsumerWidget {
         ? [
             Household(
               id: 'preview-card',
-              name: 'Chase Sapphire',
+              name: context.l10n.chaseSapphire,
               ownerId: user.uid.isNotEmpty ? user.uid : 'preview-user',
               currency: 'USD',
               themeColor: '#0EA5E9',
@@ -137,7 +140,7 @@ class HomeHeaderLeading extends ConsumerWidget {
             ),
             Household(
               id: 'preview-savings',
-              name: 'High-Yield Savings',
+              name: context.l10n.highYieldSavings,
               ownerId: user.uid.isNotEmpty ? user.uid : 'preview-user',
               currency: 'USD',
               themeColor: '#10B981',
@@ -152,7 +155,7 @@ class HomeHeaderLeading extends ConsumerWidget {
         ref.read(zoomDrawerControllerProvider);
 
     final name = preview.isActive
-        ? 'Moneko Preview'
+        ? context.l10n.monekoPreview
         : viewMode.mode == ViewMode.personal
             ? _userLabel(user, shortenEmail: false)
             : householdsAsync.when(
@@ -243,6 +246,26 @@ class HomeHeaderSliver extends HookConsumerWidget {
             homePeriodSelectionProvider(user.uid).select((state) => state.mode),
           );
     final showCurrencyIndicator = useState<bool>(false);
+    final isPeriodViewFeatureNew = useState<bool?>(null);
+
+    useEffect(() {
+      var isDisposed = false;
+      Future<void>(() async {
+        final prefs = await SharedPreferences.getInstance();
+        final hasSeenFeature =
+            prefs.getBool(_periodViewFeatureSeenPreferenceKey) ?? false;
+        if (!isDisposed && isPeriodViewFeatureNew.value != false) {
+          isPeriodViewFeatureNew.value = !hasSeenFeature;
+        }
+      });
+      return () => isDisposed = true;
+    }, const []);
+
+    Future<void> dismissPeriodViewFeatureIndicator() async {
+      isPeriodViewFeatureNew.value = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_periodViewFeatureSeenPreferenceKey, true);
+    }
 
     // Load indicator dismissal state
     // useEffect(() {
@@ -321,7 +344,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
             selectedHouseholdState.household?.id)
         : null;
 
-    const previewLabel = 'Sarah Collins';
+    final previewLabel = context.l10n.sarahCollins;
 
     final personalLabel = _truncateMenuLabel(
       preview.isActive ? previewLabel : _userLabel(user, shortenEmail: true),
@@ -776,11 +799,13 @@ class HomeHeaderSliver extends HookConsumerWidget {
     if (currentIndex == 0) {
       menuItems.add(AdaptivePopupMenuItem(
         label: homePeriodMode == HomePeriodMode.daily
-            ? 'Daily view'
-            : 'Monthly view',
-        icon: homePeriodMode == HomePeriodMode.daily
-            ? Icons.today_outlined
-            : Icons.calendar_view_month_outlined,
+            ? context.l10n.switchToMonthlyView
+            : context.l10n.switchToDailyView,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'calendar'
+            : homePeriodMode == HomePeriodMode.daily
+                ? Icons.calendar_view_month_outlined
+                : Icons.today_outlined,
         value: 'toggle_period_mode',
       ));
       menuItems.add(AdaptivePopupMenuItem(
@@ -897,66 +922,74 @@ class HomeHeaderSliver extends HookConsumerWidget {
                               ),
                             ),
                           )
-                        : AdaptivePopupMenuButton.widget(
-                            key: const ValueKey('menuButton'),
-                            child: Container(
-                              height: 40,
-                              width: 40,
-                              alignment: Alignment.center,
-                              child: Icon(
-                                Icons.more_horiz_rounded,
-                                color: colorScheme.foreground,
-                                size: 24,
+                        : Listener(
+                            onPointerDown: (_) =>
+                                dismissPeriodViewFeatureIndicator(),
+                            child: AdaptivePopupMenuButton.widget(
+                              key: const ValueKey('menuButton'),
+                              child: NotificationDotIndicator(
+                                isVisible: isPeriodViewFeatureNew.value == true,
+                                child: Container(
+                                  height: 40,
+                                  width: 40,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.more_horiz_rounded,
+                                    color: colorScheme.foreground,
+                                    size: 24,
+                                  ),
+                                ),
                               ),
-                            ),
-                            items: menuItems,
-                            onSelected: (index, item) async {
-                              if (item.value == 'manage_household' &&
-                                  selectedHouseholdIdForSettings != null) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => HouseholdSettingsPage(
-                                      householdId:
-                                          selectedHouseholdIdForSettings,
+                              items: menuItems,
+                              onSelected: (index, item) async {
+                                if (item.value == 'manage_household' &&
+                                    selectedHouseholdIdForSettings != null) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => HouseholdSettingsPage(
+                                        householdId:
+                                            selectedHouseholdIdForSettings,
+                                      ),
                                     ),
-                                  ),
-                                );
-                                return;
-                              }
+                                  );
+                                  return;
+                                }
 
-                              if (item.value == 'edit_widgets') {
-                                ref.read(isEditModeProvider.notifier).state =
-                                    true;
-                                return;
-                              }
+                                if (item.value == 'edit_widgets') {
+                                  ref.read(isEditModeProvider.notifier).state =
+                                      true;
+                                  return;
+                                }
 
-                              if (item.value == 'toggle_period_mode' &&
-                                  homePeriodMode != null) {
-                                await ref
-                                    .read(homePeriodSelectionProvider(user.uid)
-                                        .notifier)
-                                    .setMode(
-                                      homePeriodMode == HomePeriodMode.daily
-                                          ? HomePeriodMode.monthly
-                                          : HomePeriodMode.daily,
-                                    );
-                                return;
-                              }
+                                if (item.value == 'toggle_period_mode' &&
+                                    homePeriodMode != null) {
+                                  await ref
+                                      .read(
+                                          homePeriodSelectionProvider(user.uid)
+                                              .notifier)
+                                      .setMode(
+                                        homePeriodMode == HomePeriodMode.daily
+                                            ? HomePeriodMode.monthly
+                                            : HomePeriodMode.daily,
+                                      );
+                                  return;
+                                }
 
-                              if (item.value == 'export_all') {
-                                await exportAllTransactions();
-                                return;
-                              }
+                                if (item.value == 'export_all') {
+                                  await exportAllTransactions();
+                                  return;
+                                }
 
-                              if (item.value == 'settings') {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const SettingsPage(),
-                                  ),
-                                );
-                                return;
-                              }
-                            },
+                                if (item.value == 'settings') {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const SettingsPage(),
+                                    ),
+                                  );
+                                  return;
+                                }
+                              },
+                            ),
                           ),
                   ),
                   if (kDebugMode) ...[

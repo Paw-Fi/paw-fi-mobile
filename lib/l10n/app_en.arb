@@ -3429,5 +3429,11 @@
   "confirmRemainingCycles": "Confirm remaining cycles?",
   "confirmRemainingSubtitle": "You have {count} other past unconfirmed payments. Would you like to confirm them using default settings?",
   "confirmAllPayments": "Confirm all {count} payments",
-  "unconfirmedPastCycles": "Unconfirmed past cycles"
+  "unconfirmedPastCycles": "Unconfirmed past cycles",
+  "chaseSapphire": "Chase Sapphire",
+  "highYieldSavings": "High-Yield Savings",
+  "monekoPreview": "Moneko Preview",
+  "sarahCollins": "Sarah Collins",
+  "switchToMonthlyView": "Switch to monthly view",
+  "switchToDailyView": "Switch to daily view"
 }

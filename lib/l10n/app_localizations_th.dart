@@ -1729,7 +1729,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get member => 'สมาชิก';
 
   @override
-  String get pending => '';
+  String get pending => 'รอดำเนินการ';
 
   @override
   String get accepted => 'เข้าร่วมแล้ว';
@@ -2134,7 +2134,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get saving => 'กำลังบันทึก...';
 
   @override
-  String get skipForNow => '';
+  String get skipForNow => 'ข้ามไปก่อน';
 
   @override
   String get selectColor => 'เลือกสี';
@@ -2791,7 +2791,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paydown => 'โปะหนี้';
 
   @override
-  String get all => '';
+  String get all => 'ทั้งหมด';
 
   @override
   String get completed => 'สำเร็จแล้ว';
@@ -9265,179 +9265,197 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String paywallCommitmentName(Object months) {
-    return '';
+    return 'ข้อผูกพัน $months เดือน';
   }
 
   @override
   String paywallCommitmentTerms(Object months) {
-    return '';
+    return 'ชำระรายเดือนตลอดระยะเวลาผูกพัน $months เดือน ยกเลิกได้ทุกเมื่อเพื่อไม่ให้เริ่มรอบสัญญาใหม่';
   }
 
   @override
   String get paywallCommitmentHowItWorks => '';
 
   @override
-  String get paywallCommitmentAnnualPlan => '';
+  String get paywallCommitmentAnnualPlan => 'รายปี';
 
   @override
   String paywallCommitmentBilledMonthly(Object months) {
-    return '';
+    return 'เรียกเก็บเงินรายเดือนเป็นเวลา $months เดือน';
   }
 
   @override
   String paywallCommitmentBilledMonthlyWithTotal(Object months, Object total) {
-    return '';
+    return 'เรียกเก็บรายเดือนเป็นเวลา $months เดือน · รวม $total ตลอด $months เดือน';
   }
 
   @override
   String paywallCommitmentPaidUpfront(Object months) {
-    return '';
+    return 'ชำระล่วงหน้าสำหรับ $months เดือน';
   }
 
   @override
   String paywallCommitmentPaidUpfrontWithTotal(Object months, Object total) {
-    return '';
+    return 'ชำระล่วงหน้า: $total สำหรับ $months เดือน';
   }
 
   @override
-  String get paywallCommitmentSavings => '';
+  String get paywallCommitmentSavings => 'รับส่วนลดแบบรายปีโดยไม่ต้องชำระเงินเต็มจำนวนล่วงหน้า';
 
   @override
-  String get paywallCommitmentHowItWorksSemantics => '';
+  String get paywallCommitmentHowItWorksSemantics => 'ดูวิธีการชำระรายเดือนของแผนรายปี';
 
   @override
-  String get paywallCommitmentDetailsTitle => '';
+  String get paywallCommitmentDetailsTitle => 'แผนรายปี ชำระรายเดือน';
 
   @override
   String paywallCommitmentDetailsIntro(Object monthly, Object months, Object total) {
-    return '';
+    return 'แทนที่จะชำระ $total ล่วงหน้า ระบบจะเรียกเก็บ $monthly ต่อเดือนตลอดระยะเวลาผูกพัน $months เดือน';
   }
 
   @override
-  String get paywallCommitmentBillingTitle => '';
+  String get paywallCommitmentBillingTitle => 'วิธีการเรียกเก็บเงิน';
 
   @override
   String paywallCommitmentBillingBody(Object monthly, Object months, Object total) {
-    return '';
+    return 'ระบบจะเรียกเก็บ $monthly ต่อเดือนเป็นเวลา $months เดือน รวมทั้งหมด $total ตลอดระยะเวลาผูกพัน คุณจะใช้งานฟีเจอร์ Plus ทั้งหมดได้ตลอดการสมัคร';
   }
 
   @override
-  String get paywallCommitmentCancellationTitle => '';
+  String get paywallCommitmentCancellationTitle => 'หากคุณยกเลิก';
 
   @override
   String paywallCommitmentCancellationBody(Object months) {
-    return '';
+    return 'การยกเลิกจะป้องกันไม่ให้การสมัครต่ออายุเป็นรอบผูกพันใหม่อีก $months เดือน แต่จะไม่ยุติรอบปัจจุบัน โดยระบบจะยังเรียกเก็บเงินรายเดือนที่เหลือต่อไปจนครบทั้ง $months งวด';
   }
 
   @override
   String paywallCommitmentRenewalTitle(Object months) {
-    return '';
+    return 'หลังจาก $months เดือน';
   }
 
   @override
   String paywallCommitmentRenewalBody(Object months) {
-    return '';
+    return 'การสมัครจะต่ออายุเป็นรอบผูกพันใหม่อีก $months เดือน เว้นแต่คุณจะยกเลิกก่อนวันที่ต่ออายุ';
   }
 
   @override
-  String get monthlyCommitment => '';
+  String get monthlyCommitment => 'ค่าใช้จ่ายประจำต่อเดือน';
 
   @override
-  String get monthlyIncome => '';
+  String get monthlyIncome => 'รายรับรายเดือน';
 
   @override
-  String get activeBills => '';
+  String get activeBills => 'บิลที่ใช้งานอยู่';
 
   @override
-  String get activePaychecks => '';
+  String get activePaychecks => 'รายการเงินเดือนที่ใช้งานอยู่';
 
   @override
-  String get dueIn7Days => '';
+  String get dueIn7Days => 'ครบกำหนดภายใน 7 วัน';
 
   @override
-  String get dueThisMonth => '';
+  String get dueThisMonth => 'ครบกำหนดเดือนนี้';
 
   @override
-  String get dueLater => '';
+  String get dueLater => 'ครบกำหนดภายหลัง';
 
   @override
-  String get activeSchedules => '';
+  String get activeSchedules => 'กำหนดการที่ใช้งานอยู่';
 
   @override
-  String get paymentHistoryAndUpcoming => '';
+  String get paymentHistoryAndUpcoming => 'ประวัติและรายการชำระเงินที่กำลังจะถึง';
 
   @override
-  String get confirmPayment => '';
+  String get confirmPayment => 'ยืนยัน';
 
   @override
-  String get nextPaymentDue => '';
+  String get nextPaymentDue => 'การชำระเงินครั้งถัดไป';
 
   @override
   String paidStatusOn(Object date) {
-    return '';
+    return 'ชำระแล้วเมื่อ $date';
   }
 
   @override
-  String get dueTodayStatus => '';
+  String get dueTodayStatus => 'ครบกำหนดวันนี้';
 
   @override
-  String get dueTomorrowStatus => '';
+  String get dueTomorrowStatus => 'ครบกำหนดพรุ่งนี้';
 
   @override
   String dueInDaysStatus(Object days) {
-    return '';
+    return 'ครบกำหนดในอีก $days วัน';
   }
 
   @override
   String overdueByDaysStatus(Object days) {
-    return '';
+    return 'เกินกำหนด $days วัน';
   }
 
   @override
-  String get paid => '';
+  String get paid => 'ชำระแล้ว';
 
   @override
-  String get recurringOccurrenceScheduledDate => '';
+  String get recurringOccurrenceScheduledDate => 'วันที่กำหนดไว้';
 
   @override
   String showOlderPayments(Object count) {
-    return '';
+    return 'แสดงการชำระเงินก่อนหน้า $count รายการ';
   }
 
   @override
-  String get showLess => '';
+  String get showLess => 'แสดงน้อยลง';
 
   @override
-  String get viewPaymentHistory => '';
+  String get viewPaymentHistory => 'ดูประวัติการชำระเงิน';
 
   @override
-  String get totalPaid => '';
+  String get totalPaid => 'ชำระแล้วทั้งหมด';
 
   @override
-  String get totalCycles => '';
+  String get totalCycles => 'จำนวนรอบทั้งหมด';
 
   @override
-  String get perCycle => '';
+  String get perCycle => 'ต่อรอบ';
 
   @override
-  String get nextDue => '';
+  String get nextDue => 'ครบกำหนดครั้งถัดไป';
 
   @override
-  String get totalDeducted => '';
+  String get totalDeducted => 'ยอดหักทั้งหมด';
 
   @override
-  String get confirmRemainingCycles => '';
+  String get confirmRemainingCycles => 'ยืนยันรอบที่เหลือหรือไม่';
 
   @override
   String confirmRemainingSubtitle(Object count) {
-    return '';
+    return 'คุณมีการชำระเงินที่ผ่านมาอีก $count รายการที่ยังไม่ได้ยืนยัน ต้องการยืนยันโดยใช้การตั้งค่าเริ่มต้นหรือไม่';
   }
 
   @override
   String confirmAllPayments(Object count) {
-    return '';
+    return 'ยืนยันการชำระเงินทั้ง $count รายการ';
   }
 
   @override
-  String get unconfirmedPastCycles => '';
+  String get unconfirmedPastCycles => 'รอบที่ผ่านมาแต่ยังไม่ยืนยัน';
+
+  @override
+  String get chaseSapphire => 'บัตรเครดิต KBank Platinum';
+
+  @override
+  String get highYieldSavings => 'บัญชีออมทรัพย์ดอกเบี้ยสูง';
+
+  @override
+  String get monekoPreview => 'ตัวอย่าง Moneko';
+
+  @override
+  String get sarahCollins => 'พิมพ์ชนก ศรีสุข';
+
+  @override
+  String get switchToMonthlyView => 'เปลี่ยนเป็นมุมมองรายเดือน';
+
+  @override
+  String get switchToDailyView => 'เปลี่ยนเป็นมุมมองรายวัน';
 }
