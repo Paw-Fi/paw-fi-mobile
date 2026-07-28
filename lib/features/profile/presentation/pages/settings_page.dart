@@ -1898,8 +1898,7 @@ class SettingsPage extends HookConsumerWidget {
                         onTap: () async {
                           try {
                             final inAppReview = InAppReview.instance;
-                            final isAvailable =
-                                await inAppReview.isAvailable();
+                            final isAvailable = await inAppReview.isAvailable();
                             if (!isAvailable) return;
                             await inAppReview.requestReview();
                           } catch (_) {}
@@ -2540,7 +2539,6 @@ class _SupportSheet extends HookConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                   
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3170,6 +3168,9 @@ class _ProfileHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final profileFullName = authState.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(authState.uid)).valueOrNull?.fullName;
 
     return Column(
       children: [
@@ -3279,7 +3280,9 @@ class _ProfileHeader extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          authState.displayName ?? context.l10n.user,
+          profileFullName?.trim().isNotEmpty == true
+              ? profileFullName!.trim()
+              : authState.displayName ?? context.l10n.user,
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,

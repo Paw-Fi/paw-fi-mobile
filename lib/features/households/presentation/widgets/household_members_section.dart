@@ -9,6 +9,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -584,9 +585,17 @@ class _HouseholdMembersSectionState
       try {
         // Get names for better invite context
         final user = ref.read(authProvider);
-        final inviterName = (user.displayName?.isNotEmpty == true
-                ? user.displayName
-                : user.email)
+        UserProfile? profile;
+        if (user.uid.isNotEmpty) {
+          try {
+            profile = await ref.read(userProfileProvider(user.uid).future);
+          } catch (_) {}
+        }
+        final inviterName = (profile?.fullName?.trim().isNotEmpty == true
+                ? profile!.fullName
+                : user.displayName?.trim().isNotEmpty == true
+                    ? user.displayName
+                    : user.email)
             ?.trim();
         // Household name might be passed or we fetch it?
         // We'll use widget.householdName or try to fetch it if null, but let's assume passed or not critical

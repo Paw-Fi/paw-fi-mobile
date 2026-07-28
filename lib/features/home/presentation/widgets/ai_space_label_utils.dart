@@ -61,8 +61,13 @@ String _emailLocalPart(String email) {
   return trimmed.substring(0, atIndex);
 }
 
-String resolveAiPersonalSpaceLabel(AppUser user) {
-  final displayName = user.displayName?.trim();
+String resolveAiPersonalSpaceLabel(
+  AppUser user, {
+  String? profileFullName,
+}) {
+  final displayName = profileFullName?.trim().isNotEmpty == true
+      ? profileFullName!.trim()
+      : user.displayName?.trim();
   if (displayName != null && displayName.isNotEmpty) return displayName;
   return _emailLocalPart(user.email);
 }

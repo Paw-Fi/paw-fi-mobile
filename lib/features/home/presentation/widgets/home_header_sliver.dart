@@ -33,6 +33,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_export_data_source.dart';
 import 'package:moneko/features/home/presentation/utils/export_date_range.dart';
@@ -73,8 +74,14 @@ String _emailLocalPart(String email) {
   return trimmed.substring(0, atIndex);
 }
 
-String _userLabel(AppUser user, {required bool shortenEmail}) {
-  final displayName = user.displayName?.trim();
+String _userLabel(
+  AppUser user, {
+  String? profileFullName,
+  required bool shortenEmail,
+}) {
+  final displayName = profileFullName?.trim().isNotEmpty == true
+      ? profileFullName!.trim()
+      : user.displayName?.trim();
   if (displayName != null && displayName.isNotEmpty) return displayName;
 
   return shortenEmail ? _emailLocalPart(user.email) : user.email.trim();
@@ -122,6 +129,9 @@ class HomeHeaderLeading extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     final preview = ref.watch(previewModeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
@@ -157,22 +167,28 @@ class HomeHeaderLeading extends ConsumerWidget {
     final name = preview.isActive
         ? context.l10n.monekoPreview
         : viewMode.mode == ViewMode.personal
-            ? _userLabel(user, shortenEmail: false)
+            ? _userLabel(user,
+                profileFullName: profileFullName, shortenEmail: false)
             : householdsAsync.when(
-                loading: () => _userLabel(user, shortenEmail: false),
-                error: (_, __) => _userLabel(user, shortenEmail: false),
+                loading: () => _userLabel(user,
+                    profileFullName: profileFullName, shortenEmail: false),
+                error: (_, __) => _userLabel(user,
+                    profileFullName: profileFullName, shortenEmail: false),
                 data: (households) {
                   final combined = [
                     ...households,
                     ...previewPrivateSpaces,
                   ];
                   if (combined.isEmpty) {
-                    return _userLabel(user, shortenEmail: false);
+                    return _userLabel(user,
+                        profileFullName: profileFullName, shortenEmail: false);
                   }
                   final resolved = _resolveSelectedHousehold(
                       selectedHouseholdState, combined);
                   return resolved?.name ??
-                      _userLabel(user, shortenEmail: false);
+                      _userLabel(user,
+                          profileFullName: profileFullName,
+                          shortenEmail: false);
                 },
               );
 
@@ -234,6 +250,9 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     final preview = ref.watch(previewModeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
@@ -347,25 +366,34 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final previewLabel = context.l10n.sarahCollins;
 
     final personalLabel = _truncateMenuLabel(
-      preview.isActive ? previewLabel : _userLabel(user, shortenEmail: true),
+      preview.isActive
+          ? previewLabel
+          : _userLabel(user,
+              profileFullName: profileFullName, shortenEmail: true),
     );
 
     final profilePillLabel = _truncateMenuLabel(
       preview.isActive
           ? previewLabel
           : viewMode.mode == ViewMode.personal
-              ? _userLabel(user, shortenEmail: true)
+              ? _userLabel(user,
+                  profileFullName: profileFullName, shortenEmail: true)
               : householdsAsync.when(
-                  loading: () => _userLabel(user, shortenEmail: true),
-                  error: (_, __) => _userLabel(user, shortenEmail: true),
+                  loading: () => _userLabel(user,
+                      profileFullName: profileFullName, shortenEmail: true),
+                  error: (_, __) => _userLabel(user,
+                      profileFullName: profileFullName, shortenEmail: true),
                   data: (households) {
                     if (households.isEmpty) {
-                      return _userLabel(user, shortenEmail: true);
+                      return _userLabel(user,
+                          profileFullName: profileFullName, shortenEmail: true);
                     }
                     final resolved = _resolveSelectedHousehold(
                         selectedHouseholdState, households);
                     return resolved?.name ??
-                        _userLabel(user, shortenEmail: true);
+                        _userLabel(user,
+                            profileFullName: profileFullName,
+                            shortenEmail: true);
                   },
                 ),
       maxLength: 18,
@@ -375,9 +403,8 @@ class HomeHeaderSliver extends HookConsumerWidget {
       final households = householdsAsync.valueOrNull ?? const <Household>[];
       final exportPersonalLabel = preview.isActive
           ? previewLabel
-          : user.displayName?.trim().isNotEmpty == true
-              ? user.displayName!.trim()
-              : user.email;
+          : _userLabel(user,
+              profileFullName: profileFullName, shortenEmail: false);
       final exportRequest = await showTransactionExportOptionsSheet(
         context: context,
         spaces: households,

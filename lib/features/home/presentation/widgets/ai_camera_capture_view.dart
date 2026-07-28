@@ -20,6 +20,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 
 class AiCameraCaptureResult {
   const AiCameraCaptureResult({
@@ -120,7 +121,7 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
   }
 
   List<AiInputSpaceOption> _spaceOptions(List<Household> households) {
-    final personalLabel = resolveAiPersonalSpaceLabel(ref.read(authProvider));
+    final personalLabel = _personalLabel();
     return buildAiInputSpaceOptions(
       context,
       households: households,
@@ -134,7 +135,18 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
       accountType: _selectedAccountType,
       selectedHouseholdId: _selectedHouseholdId,
       households: households,
-      personalLabel: resolveAiPersonalSpaceLabel(ref.read(authProvider)),
+      personalLabel: _personalLabel(),
+    );
+  }
+
+  String _personalLabel() {
+    final user = ref.read(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.read(userProfileProvider(user.uid)).valueOrNull?.fullName;
+    return resolveAiPersonalSpaceLabel(
+      user,
+      profileFullName: profileFullName,
     );
   }
 
@@ -352,6 +364,9 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final userId = ref.watch(authProvider).uid;
+    if (userId.isNotEmpty) {
+      ref.watch(userProfileProvider(userId));
+    }
     final householdsAsync = userId.isEmpty
         ? const AsyncValue<List<Household>>.data([])
         : ref.watch(userHouseholdsProvider(userId));

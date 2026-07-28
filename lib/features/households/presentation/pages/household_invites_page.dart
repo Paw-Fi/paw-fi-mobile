@@ -8,6 +8,7 @@ import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
@@ -201,11 +202,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
               valueListenable: expiresInDaysNotifier,
               builder: (context, value, child) => DropdownButtonFormField<int>(
                 initialValue: value,
-                decoration:
-                    InputDecoration(labelText: context.l10n.expiresIn),
+                decoration: InputDecoration(labelText: context.l10n.expiresIn),
                 items: [
-                  DropdownMenuItem(
-                      value: 1, child: Text(context.l10n.oneDay)),
+                  DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
                   DropdownMenuItem(
                       value: 3, child: Text(context.l10n.threeDays)),
                   DropdownMenuItem(
@@ -229,12 +228,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
 
     if (result?.confirmed == true) {
       await _createInvite(
-        email: emailController.text.isNotEmpty
-            ? emailController.text
-            : null,
-        message: messageController.text.isNotEmpty
-            ? messageController.text
-            : null,
+        email: emailController.text.isNotEmpty ? emailController.text : null,
+        message:
+            messageController.text.isNotEmpty ? messageController.text : null,
         expiresInDays: expiresInDaysNotifier.value,
       );
     }
@@ -251,9 +247,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }) async {
     try {
       final user = ref.read(authProvider);
-      final inviterName = (user.displayName?.trim().isNotEmpty == true
-              ? user.displayName
-              : user.email)
+      UserProfile? profile;
+      if (user.uid.isNotEmpty) {
+        try {
+          profile = await ref.read(userProfileProvider(user.uid).future);
+        } catch (_) {}
+      }
+      final inviterName = (profile?.fullName?.trim().isNotEmpty == true
+              ? profile!.fullName
+              : user.displayName?.trim().isNotEmpty == true
+                  ? user.displayName
+                  : user.email)
           ?.trim();
       final selectedHousehold = ref.read(selectedHouseholdObjectProvider);
       final householdName = selectedHousehold?.id == widget.householdId

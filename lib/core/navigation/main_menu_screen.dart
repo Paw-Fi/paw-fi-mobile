@@ -9,6 +9,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -297,7 +298,7 @@ class _HouseholdSection extends ConsumerWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends ConsumerWidget {
   const _ProfileHeader({
     required this.user,
     required this.colorScheme,
@@ -307,7 +308,10 @@ class _ProfileHeader extends StatelessWidget {
   final ColorScheme colorScheme;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     return Row(
       children: [
         SizedBox(
@@ -355,9 +359,11 @@ class _ProfileHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                user.displayName?.isNotEmpty == true
-                    ? user.displayName!
-                    : context.l10n.user,
+                profileFullName?.trim().isNotEmpty == true
+                    ? profileFullName!.trim()
+                    : user.displayName?.isNotEmpty == true
+                        ? user.displayName!
+                        : context.l10n.user,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,

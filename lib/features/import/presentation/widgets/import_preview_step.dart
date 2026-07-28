@@ -13,6 +13,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
@@ -239,6 +240,9 @@ class PreviewStep extends ConsumerWidget {
   ) {
     final notifier = ref.read(importWizardProvider.notifier);
     final user = ref.watch(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final households = householdsAsync.valueOrNull ?? const [];
     final selectedHouseholdId = state.targetHouseholdId;
@@ -254,11 +258,11 @@ class PreviewStep extends ConsumerWidget {
     }
 
     final selectedLabel = selectedHouseholdId == null
-        ? userLabel(user, shortenEmail: false)
+        ? userLabel(user, profileFullName: profileFullName, shortenEmail: false)
         : (selectedHousehold?.name ?? context.l10n.forUs);
     final pillLabel = truncateMenuLabel(selectedLabel, maxLength: 18);
-    final personalLabel =
-        truncateMenuLabel(userLabel(user, shortenEmail: true));
+    final personalLabel = truncateMenuLabel(
+        userLabel(user, profileFullName: profileFullName, shortenEmail: true));
 
     final items = <AdaptivePopupMenuItem>[
       AdaptivePopupMenuItem(

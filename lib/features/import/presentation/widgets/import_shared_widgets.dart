@@ -20,8 +20,14 @@ String emailLocalPart(String email) {
 
 /// Returns a short user label: display name if available, or email (optionally
 /// shortened to local-part only).
-String userLabel(AppUser user, {required bool shortenEmail}) {
-  final displayName = user.displayName?.trim();
+String userLabel(
+  AppUser user, {
+  String? profileFullName,
+  required bool shortenEmail,
+}) {
+  final displayName = profileFullName?.trim().isNotEmpty == true
+      ? profileFullName!.trim()
+      : user.displayName?.trim();
   if (displayName != null && displayName.isNotEmpty) return displayName;
 
   return shortenEmail ? emailLocalPart(user.email) : user.email.trim();
