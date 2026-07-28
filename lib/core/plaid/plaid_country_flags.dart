@@ -45,7 +45,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'SI': 'EUR',
     'MT': 'EUR',
     'CY': 'EUR',
-    'MD': 'EUR',
+    'MD': 'MDL',
     'BY': 'EUR',
     'RO': 'EUR',
     'AL': 'EUR',
@@ -99,6 +99,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'IL': 'ILS',
     'SA': 'SAR',
     'MW': 'MWK',
+    'MU': 'MUR',
     'TR': 'TRY',
   };
 

@@ -18,6 +18,8 @@ class WalletStackCard extends StatelessWidget {
     this.metadataChips = const <Widget>[],
     this.showBalanceChevron = true,
     this.showGoalProgress = true,
+    this.showAnalyticsExclusionStatus = true,
+    this.footer,
   });
 
   final WalletEntity wallet;
@@ -29,6 +31,8 @@ class WalletStackCard extends StatelessWidget {
   final List<Widget> metadataChips;
   final bool showBalanceChevron;
   final bool showGoalProgress;
+  final bool showAnalyticsExclusionStatus;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +102,26 @@ class WalletStackCard extends StatelessWidget {
                   color: baseColor.withValues(alpha: 0.8),
                 ),
               ],
+              if (showAnalyticsExclusionStatus) ...[
+                const SizedBox(width: 8),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: wallet.excludeFromAnalytics
+                      ? Tooltip(
+                          key: const ValueKey('analytics-excluded-icon'),
+                          message: context.l10n.excludedFromAnalytics,
+                          child: Icon(
+                            Icons.visibility_off_rounded,
+                            size: 16,
+                            color: colorScheme.mutedForeground,
+                            semanticLabel: context.l10n.excludedFromAnalytics,
+                          ),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('analytics-included-icon'),
+                        ),
+                ),
+              ],
             ],
           ),
         ),
@@ -126,15 +150,27 @@ class WalletStackCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    wallet.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          wallet.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colorScheme.foreground,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (showAnalyticsExclusionStatus &&
+                          wallet.excludeFromAnalytics) ...[
+                        const SizedBox(width: 12),
+                        const _AnalyticsExclusionBadge(),
+                      ],
+                    ],
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 6),
@@ -287,48 +323,92 @@ class WalletStackCard extends StatelessWidget {
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
               opacity: isExpanded ? 1.0 : 0.0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showGoalProgress) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+              child: IgnorePointer(
+                ignoring: !isExpanded,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (footer != null)
+                      footer!
+                    else if (showGoalProgress) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                          Text(
+                            '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        minHeight: 6,
-                        value: progress,
-                        backgroundColor: baseColor.withValues(alpha: 0.15),
-                        valueColor: AlwaysStoppedAnimation<Color>(baseColor),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          minHeight: 6,
+                          value: progress,
+                          backgroundColor: baseColor.withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(baseColor),
+                        ),
+                      ),
+                    ],
+                    if (footer == null) const SizedBox(height: 24),
                   ],
-                  const SizedBox(height: 24),
-                ],
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AnalyticsExclusionBadge extends StatelessWidget {
+  const _AnalyticsExclusionBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.muted.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colorScheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.visibility_off_rounded,
+              size: 14,
+              color: colorScheme.mutedForeground,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              context.l10n.excludedFromAnalytics,
+              style: TextStyle(
+                color: colorScheme.mutedForeground,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

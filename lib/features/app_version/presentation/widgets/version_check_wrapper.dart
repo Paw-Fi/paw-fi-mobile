@@ -101,9 +101,7 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
         // while widgets are being deactivated/rebuilt during route transitions.
         await WidgetsBinding.instance.endOfFrame;
 
-        if (mounted &&
-            (ModalRoute.of(context)?.isCurrent ?? true) &&
-            context.mounted) {
+        if (mounted && context.mounted) {
           await showForceUpdateDialog(
             context: context,
             currentVersion: currentVersion,

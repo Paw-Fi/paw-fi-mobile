@@ -214,6 +214,16 @@ extension AppColorScheme on ColorScheme {
   Color get warning =>
       brightness == Brightness.dark ? AppTheme.darkWarning : AppTheme.warning;
 
+  /// Progress color for early, but non-zero, completion.
+  Color get progressOrange => brightness == Brightness.dark
+      ? AppTheme.darkProgressOrange
+      : AppTheme.progressOrange;
+
+  /// Progress color for fully completed budgets.
+  Color get progressComplete => brightness == Brightness.dark
+      ? AppTheme.darkProgressComplete
+      : AppTheme.progressComplete;
+
   /// Info color
   Color get info =>
       brightness == Brightness.dark ? AppTheme.darkInfo : AppTheme.info;
@@ -363,6 +373,25 @@ extension AppColorScheme on ColorScheme {
   Color get householdAdmin => AppTheme.householdAdmin;
   Color get householdMember => AppTheme.householdMember;
 
+  /// Recurring summary card gradient colors
+  List<Color> get recurringSummaryGradient =>
+      brightness == Brightness.dark
+          ? [
+              primary.withValues(alpha: 0.12),
+              surface.withValues(alpha: 0.04),
+            ]
+          : [
+              AppTheme.lightRecurringSummaryGradientStart,
+              AppTheme.lightRecurringSummaryGradientBlush,
+              AppTheme.lightRecurringSummaryGradientCool,
+              AppTheme.lightRecurringSummaryGradientEnd,
+            ];
+
+  /// Recurring summary card border
+  Color get recurringSummaryBorder => brightness == Brightness.dark
+      ? surfaceBorder
+      : AppTheme.lightRecurringSummaryBorder;
+
   /// Home: standard card surface
   Color get homeCardSurface => cardSurface;
 
@@ -432,6 +461,8 @@ class AppTheme {
   static const Color warning = Color(0xFFFFC219); // --warning (Moneko Amber)
   static const Color danger = Color(0xFFFF6060); // --danger (Moneko Red)
   static const Color info = monekoPrimary;
+  static const Color progressOrange = Color(0xFFFF8A3D);
+  static const Color progressComplete = Color(0xFF087F5B);
 
   static const Color darkPrimary =
       Color(0xFF8B70FF); // Slightly lighter purple for dark mode
@@ -535,6 +566,19 @@ class AppTheme {
   static const Color darkUncategorizedAmount = Color(0xFFFFCC80);
   static const Color lightSplitSheetBg = Color(0xFFF4F4F4);
 
+  // Recurring summary card gradient (light): atmospheric multi-stop
+  // near-white -> warm blush -> cool gray-blue -> pure white
+  static const Color lightRecurringSummaryGradientStart =
+      Color(0xFFFAFAFA); // Near-white (top-left)
+  static const Color lightRecurringSummaryGradientBlush =
+      Color(0xFFFBF6F4); // Barely visible warm blush (top-right)
+  static const Color lightRecurringSummaryGradientCool =
+      Color(0xFFF4F6F8); // Subtle cool gray-blue (middle)
+  static const Color lightRecurringSummaryGradientEnd =
+      Color(0xFFFFFFFF); // Pure white (bottom)
+  static const Color lightRecurringSummaryBorder =
+      Color(0xFFE8E5E1); // Subtle warm border
+
   // REVISED: Dark mode semantic colors (True Moneko Brand)
   // Replaced stock iOS colors with branded dark mode equivalents
   static const Color darkSuccess =
@@ -543,6 +587,8 @@ class AppTheme {
       Color(0xFFFFD147); // Lighter Amber for Dark Mode
   static const Color darkDanger = Color(0xFFFF6B6B); // Soft Red for Dark Mode
   static const Color darkInfo = Color(0xFF8B70FF); // Matches Dark Primary
+  static const Color darkProgressOrange = Color(0xFFFF9E5C);
+  static const Color darkProgressComplete = Color(0xFF00A67A);
 
   static const Color lightChartBackground = Color(0xFFFFFFFF);
   static const Color darkChartBackground = Color(0xFF17181D);

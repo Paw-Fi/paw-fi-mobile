@@ -15,6 +15,7 @@ import 'package:record/record.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -133,7 +134,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   }
 
   List<AiInputSpaceOption> _spaceOptions(List<Household> households) {
-    final personalLabel = resolveAiPersonalSpaceLabel(ref.read(authProvider));
+    final personalLabel = _personalLabel();
     return buildAiInputSpaceOptions(
       context,
       households: households,
@@ -147,7 +148,18 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       accountType: _selectedAccountType,
       selectedHouseholdId: _selectedHouseholdId,
       households: households,
-      personalLabel: resolveAiPersonalSpaceLabel(ref.read(authProvider)),
+      personalLabel: _personalLabel(),
+    );
+  }
+
+  String _personalLabel() {
+    final user = ref.read(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.read(userProfileProvider(user.uid)).valueOrNull?.fullName;
+    return resolveAiPersonalSpaceLabel(
+      user,
+      profileFullName: profileFullName,
     );
   }
 
@@ -574,6 +586,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
     final userId = ref.watch(authProvider).uid;
+    if (userId.isNotEmpty) {
+      ref.watch(userProfileProvider(userId));
+    }
     final householdsAsync = userId.isEmpty
         ? const AsyncValue<List<Household>>.data([])
         : ref.watch(userHouseholdsProvider(userId));

@@ -17,6 +17,8 @@ void main() {
       expect(resolveCurrencySymbol('COP'), 'COP\$');
       expect(resolveCurrencySymbol('ETB'), 'Br');
       expect(resolveCurrencySymbol('XOF'), 'CFA');
+      expect(resolveCurrencySymbol('MDL'), 'L');
+      expect(resolveCurrencySymbol('MUR'), 'Rs');
     });
 
     test('handles null and empty codes', () {
@@ -53,6 +55,8 @@ void main() {
       expect(canonicalizeCurrencyCode('rur'), 'RUB');
       expect(canonicalizeCurrencyCode('₽'), 'RUB');
       expect(canonicalizeCurrencyCode('د.إ'), 'AED');
+      expect(canonicalizeCurrencyCode('Moldovan Leu'), 'MDL');
+      expect(canonicalizeCurrencyCode('Mauritian Rupee'), 'MUR');
     });
 
     test('extracts canonical currency codes from free-form text', () {
@@ -75,6 +79,8 @@ void main() {
       expect(isSupportedCurrencyCode('COP'), true);
       expect(isSupportedCurrencyCode('ETB'), true);
       expect(isSupportedCurrencyCode('XOF'), true);
+      expect(isSupportedCurrencyCode('MDL'), true);
+      expect(isSupportedCurrencyCode('MUR'), true);
     });
 
     test('rejects unsupported currencies', () {
@@ -140,6 +146,8 @@ void main() {
       expect(options.containsKey('COP'), true);
       expect(options.containsKey('ETB'), true);
       expect(options.containsKey('XOF'), true);
+      expect(options.containsKey('MDL'), true);
+      expect(options.containsKey('MUR'), true);
     });
 
     test('contains correct symbol mappings', () {
@@ -156,6 +164,8 @@ void main() {
       expect(options['COP'], 'COP\$');
       expect(options['ETB'], 'Br');
       expect(options['XOF'], 'CFA');
+      expect(options['MDL'], 'L');
+      expect(options['MUR'], 'Rs');
     });
   });
 

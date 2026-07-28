@@ -46,15 +46,15 @@ class NotificationCaptureCandidateTest {
     }
 
     @Test
-    fun acceptsAlphabeticCurrencySymbolsOnlyAsStandaloneTokens() {
+    fun sendsUnknownFormatsToAiWithoutCurrencyOrLanguageHeuristics() {
         assertTrue(NotificationCaptureCandidate.shouldAnalyze("Paid R 250.00 at Market"))
         assertTrue(NotificationCaptureCandidate.shouldAnalyze("Paid Q100.00 at Market"))
-        assertFalse(NotificationCaptureCandidate.shouldAnalyze("Your order 100 arrives Friday"))
-        assertFalse(NotificationCaptureCandidate.shouldAnalyze("Free trial for 100 days"))
+        assertTrue(NotificationCaptureCandidate.shouldAnalyze("支払い完了: 千二百三十四円"))
+        assertTrue(NotificationCaptureCandidate.shouldAnalyze("تمت عملية الشراء"))
     }
 
     @Test
-    fun rejectsOrdinaryMessagesWithoutMoney() {
+    fun sendsOrdinaryEnabledAppMessagesToAiForSemanticRejection() {
         val content = NotificationCaptureCandidate.buildContent(
             title = "Dinner tonight",
             text = "Are we still meeting at seven?",
@@ -63,11 +63,11 @@ class NotificationCaptureCandidateTest {
             textLines = emptyList(),
         )
 
-        assertFalse(NotificationCaptureCandidate.shouldAnalyze(content))
+        assertTrue(NotificationCaptureCandidate.shouldAnalyze(content))
     }
 
     @Test
-    fun keepsSensitiveSecurityMessagesOnDevice() {
+    fun sendsSecurityMessagesToAiForSemanticRejection() {
         val content = NotificationCaptureCandidate.buildContent(
             title = "Security code",
             text = "Your OTP is 123456. Do not share it. Purchase limit $500.00",
@@ -76,7 +76,7 @@ class NotificationCaptureCandidateTest {
             textLines = emptyList(),
         )
 
-        assertFalse(NotificationCaptureCandidate.shouldAnalyze(content))
+        assertTrue(NotificationCaptureCandidate.shouldAnalyze(content))
     }
 
     @Test
@@ -87,12 +87,29 @@ class NotificationCaptureCandidateTest {
             bigText = "You received USD 120.00 from Acme",
             subText = "Inbox",
             textLines = listOf("Invoice paid", "Short preview"),
+            summaryText = "1 new payment",
+            infoText = "Business account",
+            conversationTitle = "Bank alerts",
+            tickerText = "Incoming payment",
+            messages = listOf("Settlement complete"),
+            additionalText = listOf("Custom bank field"),
         )
 
         assertTrue(content.contains("Payment received"))
         assertTrue(content.contains("You received USD 120.00 from Acme"))
         assertTrue(content.contains("Invoice paid"))
+        assertTrue(content.contains("1 new payment"))
+        assertTrue(content.contains("Business account"))
+        assertTrue(content.contains("Bank alerts"))
+        assertTrue(content.contains("Incoming payment"))
+        assertTrue(content.contains("Settlement complete"))
+        assertTrue(content.contains("Custom bank field"))
         assertTrue(content.split("Short preview").size - 1 == 1)
+    }
+
+    @Test
+    fun rejectsOnlyBlankNotificationContentBeforeAi() {
+        assertFalse(NotificationCaptureCandidate.shouldAnalyze(" \n\t "))
     }
 
     @Test

@@ -1374,6 +1374,19 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     );
   }
 
+  void applyOptimisticEntries(Iterable<ExpenseEntry> entries) {
+    final matchingEntries = entries.where(_entryMatchesQuery).toList();
+    if (matchingEntries.isEmpty) return;
+    final matchingIds = matchingEntries.map((entry) => entry.id).toSet();
+    state = state.copyWith(
+      items: _uniqueSortedTransactions([
+        ...state.items.where((entry) => !matchingIds.contains(entry.id)),
+        ...matchingEntries,
+      ]),
+      clearError: true,
+    );
+  }
+
   bool _entryMatchesQuery(ExpenseEntry entry) {
     final userId = entry.userId?.trim();
     if (userId == null || userId.isEmpty || userId != _query.userId) {

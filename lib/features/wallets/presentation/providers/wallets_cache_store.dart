@@ -34,7 +34,7 @@ String walletsListCacheKey({
 }
 
 String walletsPageStateCacheKey(WalletsScopeQuery query) {
-  return 'wallets:page-state:v5:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:fmsd${query.financialMonthStartDay}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
+  return 'wallets:page-state:v6:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:fmsd${query.financialMonthStartDay}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
 }
 
 List<WalletEntity>? readPersistedWalletsList(
@@ -251,6 +251,35 @@ Future<void> clearAllWalletsCachesForUser(
       cacheKeyPrefix: 'wallets:page-state:v4:$userId:',
     );
   } catch (_) {}
+}
+
+Future<void> clearWalletAnalyticsPageStateCachesForUser(
+  Ref ref, {
+  required String userId,
+}) async {
+  ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
+
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.deleteJsonCacheByPrefix(
+      namespace: _walletsPageStateJsonCacheNamespace,
+      cacheKeyPrefix: 'wallets:page-state:v6:$userId:',
+    );
+  } catch (_) {}
+
+  final prefs = _readPrefsOrNull(ref);
+  if (prefs == null) return;
+
+  final keysToRemove = prefs
+      .getKeys()
+      .where(
+        (key) =>
+            key.startsWith('wallets:page-state:') && key.contains(':$userId:'),
+      )
+      .toList(growable: false);
+  for (final key in keysToRemove) {
+    await prefs.remove(key);
+  }
 }
 
 SharedPreferences? _readPrefsOrNull(Ref ref) {

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/l10n/app_localizations_en.dart';
@@ -474,11 +475,13 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
   ).end;
   final periodEnd = _dateOnly(input.periodEnd ?? monthEnd);
   final today = _dateOnly(input.now);
+  final isCompletedPeriod = today.isAfter(periodEnd);
+  final compareMonthToDate = input.compareMonthToDate && !isCompletedPeriod;
   final timeProgress = _periodProgress(today, periodStart, periodEnd);
   final currentTransactions = input.currentMonthTransactions
       .where((tx) => _isInRange(tx.date, periodStart, periodEnd))
       .toList(growable: false);
-  final previousComparableTransactions = input.compareMonthToDate
+  final previousComparableTransactions = compareMonthToDate
       ? _previousMonthToDateTransactions(
           input.previousMonthTransactions,
           today: today,
@@ -486,7 +489,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
           financialMonthStartDay: input.financialMonthStartDay,
         )
       : input.previousMonthTransactions;
-  final historicalComparableTransactions = input.compareMonthToDate
+  final historicalComparableTransactions = compareMonthToDate
       ? _historicalMonthToDateTransactions(
           input.historicalTransactions,
           elapsedDays: math.max(today.difference(periodStart).inDays, 0),
@@ -535,7 +538,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
     previousComparableTransactions: previousComparableTransactions,
     historicalComparableTransactions: historicalComparableTransactions,
     financialMonthStartDay: input.financialMonthStartDay,
-    useHistoricalMonthlyBaseline: input.compareMonthToDate,
+    useHistoricalMonthlyBaseline: compareMonthToDate,
     l10n: localizations,
   );
   final merchantConcentration =
@@ -614,6 +617,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
     anomalies: anomalies,
     safeToSpend: safeToSpend.dailyAmount,
     savings: income - spending,
+    includeSafeToSpend: !isCompletedPeriod,
   );
 
   return MonthlyFinancialReport(
@@ -641,15 +645,23 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
     recurringCommitment: recurringCommitment,
     cashFlowHealth: cashFlowHealth,
     netWorthTrend: netWorthTrend,
-    summary: _buildSummary(
-      status: overviewStatus,
-      safeToSpend: safeToSpend.dailyAmount,
-      forecastedBalance: forecastedBalance,
-      budgetHealth: budgetHealth,
-      anomalies: anomalies,
-      currencyCode: input.currencyCode,
-      l10n: localizations,
-    ),
+    summary: isCompletedPeriod
+        ? localizations.monthlyReportCompletedSummary(
+            monthlyReportStatusLabel(overviewStatus, l10n: localizations)
+                .toLowerCase(),
+            _formatReportAmount(income - spending),
+            _formatReportAmount(input.currentBalance),
+            input.currencyCode,
+          )
+        : _buildSummary(
+            status: overviewStatus,
+            safeToSpend: safeToSpend.dailyAmount,
+            forecastedBalance: forecastedBalance,
+            budgetHealth: budgetHealth,
+            anomalies: anomalies,
+            currencyCode: input.currencyCode,
+            l10n: localizations,
+          ),
   );
 }
 
@@ -1283,13 +1295,14 @@ MonthlyReportStatus _overviewStatus({
   required List<MonthlyInsightItem> anomalies,
   required double safeToSpend,
   required double savings,
+  bool includeSafeToSpend = true,
 }) {
   if (budgetHealth
       .any((item) => item.status == MonthlyReportStatus.overBudget)) {
     return MonthlyReportStatus.overBudget;
   }
   if (anomalies.isNotEmpty) return MonthlyReportStatus.unusualSpending;
-  if (safeToSpend <= 0 || savings < 0) {
+  if ((includeSafeToSpend && safeToSpend <= 0) || savings < 0) {
     return MonthlyReportStatus.needsAttention;
   }
   if (budgetHealth

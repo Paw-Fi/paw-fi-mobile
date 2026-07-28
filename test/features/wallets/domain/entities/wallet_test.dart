@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 
 void main() {
-  test('WalletEntity serializes logoUrl', () {
+  test('WalletEntity serializes wallet preferences', () {
     const wallet = WalletEntity(
       id: 'wallet-1',
       userId: 'user-1',
@@ -17,6 +17,7 @@ void main() {
       isSystem: false,
       isArchived: false,
       currentBalanceCents: 1000,
+      excludeFromAnalytics: true,
     );
 
     final json = wallet.toJson();
@@ -24,6 +25,18 @@ void main() {
 
     expect(json['logo_url'], 'https://example.com/wallet.jpg');
     expect(parsed.logoUrl, 'https://example.com/wallet.jpg');
+    expect(json['exclude_from_analytics'], isTrue);
+    expect(parsed.excludeFromAnalytics, isTrue);
+  });
+
+  test('WalletEntity defaults analytics exclusion to false', () {
+    final wallet = WalletEntity.fromJson({
+      'id': 'wallet-1',
+      'user_id': 'user-1',
+      'name': 'Main Wallet',
+    });
+
+    expect(wallet.excludeFromAnalytics, isFalse);
   });
 
   test('WalletEntity copyWith can replace logoUrl', () {
@@ -43,7 +56,9 @@ void main() {
     );
 
     final updated = wallet.copyWith(logoUrl: 'https://example.com/logo.jpg');
+    final excluded = updated.copyWith(excludeFromAnalytics: true);
 
     expect(updated.logoUrl, 'https://example.com/logo.jpg');
+    expect(excluded.excludeFromAnalytics, isTrue);
   });
 }

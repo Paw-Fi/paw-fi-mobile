@@ -203,7 +203,7 @@ class UnifiedPlanCard extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
-                              context.l10n.paywallCommitmentHowItWorks,
+                              context.l10n.howItWorksTitle,
                               style: TextStyle(
                                 color: scheme.primary,
                                 fontSize: 11,

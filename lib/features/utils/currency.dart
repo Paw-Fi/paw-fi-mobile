@@ -36,7 +36,9 @@ const Map<String, String> currencyOptions = {
   'KES': 'KSh',
   'KRW': '₩',
   'LKR': 'Rs',
+  'MDL': 'L',
   'MOP': 'MOP\$',
+  'MUR': 'Rs',
   'MXN': 'MX\$',
   'MYR': 'RM',
   'MWK': 'MK',
@@ -132,6 +134,8 @@ Map<String, String> _buildCurrencyAliases() {
     'KSH': 'KES',
     'J\$': 'JMD',
     'MK': 'MWK',
+    'MOLDOVAN LEU': 'MDL',
+    'MAURITIAN RUPEE': 'MUR',
     '£S': 'SYP',
     'ZK': 'ZMW',
   });

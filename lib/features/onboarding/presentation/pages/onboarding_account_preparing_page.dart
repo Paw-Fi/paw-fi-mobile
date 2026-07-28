@@ -16,6 +16,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/household_creation_utils.dart';
@@ -812,9 +813,17 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               prefs.getBool('$_kCreatedInvitePrefix${user.uid}') ?? false;
           if ((inviteEmail.isNotEmpty || inviteMessage.isNotEmpty) &&
               !inviteCreated) {
-            final inviterName = (user.displayName?.trim().isNotEmpty == true
-                    ? user.displayName
-                    : user.email)
+            UserProfile? profile;
+            if (user.uid.isNotEmpty) {
+              try {
+                profile = await ref.read(userProfileProvider(user.uid).future);
+              } catch (_) {}
+            }
+            final inviterName = (profile?.fullName?.trim().isNotEmpty == true
+                    ? profile!.fullName
+                    : user.displayName?.trim().isNotEmpty == true
+                        ? user.displayName
+                        : user.email)
                 ?.trim();
             await repository.createInvite(
               householdId: createdHousehold.id,

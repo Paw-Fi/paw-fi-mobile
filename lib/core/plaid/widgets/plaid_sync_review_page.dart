@@ -32,6 +32,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -234,6 +235,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           'openingBalanceCents': account.openingBalanceCents,
           'goalAmountCents': account.goalAmountCents,
           'isDefault': account.isDefault,
+          'excludeFromAnalytics': account.excludeFromAnalytics,
           if (account.walletLogoUrl != null) 'logoUrl': account.walletLogoUrl,
           'linkedBankAccountId': account.bankAccountId,
           if (widget.session.targetHouseholdId != null)
@@ -263,6 +265,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         openingBalanceCents:
             (walletData?['opening_balance_cents'] as num?)?.round(),
         isDefault: walletData?['is_default'] == true,
+        excludeFromAnalytics: walletData?['exclude_from_analytics'] == true,
       );
       updatedAccounts.add(updatedAccount);
       _accounts = List<BankSyncReviewAccount>.from(updatedAccounts)
@@ -499,6 +502,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         openingBalanceCents: selected.openingBalanceCents,
         goalAmountCents: selected.goalAmountCents,
         isDefault: selected.isDefault,
+        excludeFromAnalytics: selected.excludeFromAnalytics,
         isSystem: false,
         isArchived: false,
         currentBalanceCents: 0,
@@ -521,6 +525,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
             goalAmountCents: result.goalAmountCents,
             includeGoalAmount: true,
             isDefault: result.isDefault,
+            excludeFromAnalytics: result.excludeFromAnalytics,
           );
 
       if (!mounted) return;
@@ -540,6 +545,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
             openingBalanceCents: result.openingBalanceCents,
             goalAmountCents: result.goalAmountCents,
             isDefault: result.isDefault,
+            excludeFromAnalytics: result.excludeFromAnalytics,
           );
         }).toList(growable: false);
         _isUpdatingWallet = false;
@@ -548,6 +554,47 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (!mounted) return;
       setState(() => _isUpdatingWallet = false);
       AppToast.error(context, error.toString());
+    }
+  }
+
+  Future<void> _setSelectedWalletAnalyticsExclusion(bool value) async {
+    final selected = _selectedAccount;
+    if (selected == null || !selected.hasLinkedWallet || _isUpdatingWallet) {
+      return;
+    }
+
+    setState(() {
+      _isUpdatingWallet = true;
+      _accounts = _accounts.map((account) {
+        return account.bankAccountId == selected.bankAccountId
+            ? account.copyWith(excludeFromAnalytics: value)
+            : account;
+      }).toList(growable: false);
+    });
+
+    try {
+      await ref.read(walletActionsProvider).updateAccount(
+            walletId: selected.walletId!,
+            excludeFromAnalytics: value,
+            invalidate: false,
+          );
+      ref.read(walletActionsProvider).refreshAccountData();
+      if (mounted) {
+        setState(() => _isUpdatingWallet = false);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingWallet = false;
+        _accounts = _accounts.map((account) {
+          return account.bankAccountId == selected.bankAccountId
+              ? account.copyWith(
+                  excludeFromAnalytics: selected.excludeFromAnalytics,
+                )
+              : account;
+        }).toList(growable: false);
+      });
+      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
     }
   }
 
@@ -1295,6 +1342,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                                     _displayBalanceCentsForAccount(selected),
                                 isBusy: _isPreparing || _isUpdatingWallet,
                                 onEdit: _editSelectedWallet,
+                                onAnalyticsExclusionChanged:
+                                    _setSelectedWalletAnalyticsExclusion,
                               ),
                             ),
                           SliverToBoxAdapter(
@@ -1709,12 +1758,14 @@ class _WalletHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.displayBalanceCents,
     required this.isBusy,
     required this.onEdit,
+    required this.onAnalyticsExclusionChanged,
   });
 
   final BankSyncReviewAccount account;
   final int displayBalanceCents;
   final bool isBusy;
   final VoidCallback onEdit;
+  final ValueChanged<bool> onAnalyticsExclusionChanged;
 
   @override
   double get minExtent => 131;
@@ -1746,6 +1797,7 @@ class _WalletHeaderDelegate extends SliverPersistentHeaderDelegate {
               displayBalanceCents: displayBalanceCents,
               isBusy: isBusy,
               onEdit: onEdit,
+              onAnalyticsExclusionChanged: onAnalyticsExclusionChanged,
               isExpanded: easedProgress < 0.45,
             ),
           ),
@@ -1768,6 +1820,7 @@ class _ReviewWalletCard extends StatelessWidget {
     required this.displayBalanceCents,
     required this.isBusy,
     required this.onEdit,
+    required this.onAnalyticsExclusionChanged,
     required this.isExpanded,
   });
 
@@ -1775,6 +1828,7 @@ class _ReviewWalletCard extends StatelessWidget {
   final int displayBalanceCents;
   final bool isBusy;
   final VoidCallback onEdit;
+  final ValueChanged<bool> onAnalyticsExclusionChanged;
   final bool isExpanded;
 
   @override
@@ -1796,12 +1850,15 @@ class _ReviewWalletCard extends StatelessWidget {
         isSystem: false,
         isArchived: false,
         currentBalanceCents: displayBalanceCents,
+        excludeFromAnalytics: account.excludeFromAnalytics,
       ),
       currencyCode: account.currency,
       displayBalanceCents: displayBalanceCents,
       isExpanded: isExpanded,
       subtitle: account.displayName,
       showBalanceChevron: false,
+      showGoalProgress: false,
+      showAnalyticsExclusionStatus: false,
       headerAction: TextButton(
         onPressed: isBusy ? null : onEdit,
         style: TextButton.styleFrom(
@@ -1816,6 +1873,74 @@ class _ReviewWalletCard extends StatelessWidget {
         child: Text(
           context.l10n.edit,
           style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+      footer: _WalletAnalyticsExclusionSwitch(
+        value: account.excludeFromAnalytics,
+        isBusy: isBusy,
+        onChanged: onAnalyticsExclusionChanged,
+      ),
+      metadataChips: const [],
+    );
+  }
+}
+
+class _WalletAnalyticsExclusionSwitch extends StatelessWidget {
+  const _WalletAnalyticsExclusionSwitch({
+    required this.value,
+    required this.isBusy,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool isBusy;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return MergeSemantics(
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      context.l10n.excludeFromWalletAnalytics,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: context.l10n.excludeFromWalletAnalyticsDetails,
+                    triggerMode: TooltipTriggerMode.tap,
+                    showDuration: const Duration(seconds: 8),
+                    child: Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: colorScheme.mutedForeground,
+                      semanticLabel:
+                          context.l10n.excludeFromWalletAnalyticsDetails,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            MonekoSwitch(
+              value: value,
+              onChanged: isBusy ? null : onChanged,
+            ),
+          ],
         ),
       ),
     );

@@ -150,7 +150,6 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         );
         return;
       }
-
       ImportTable table;
       List<ImportSheetResult> availableSheets = const [];
       int selectedSheetIndex = -1;
@@ -201,6 +200,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         table,
         mappingResult.mapping,
         deletedRowIndices: const {},
+        nonRecurringRowIndices: const {},
       );
 
       // High confidence AND most sample rows parsed → skip mapping step.
@@ -224,6 +224,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         availableSheets: availableSheets,
         selectedSheetIndex: selectedSheetIndex,
         clearDeletedRowIndices: true,
+        clearNonRecurringRowIndices: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -814,6 +815,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       table,
       mappingResult.mapping,
       deletedRowIndices: const {},
+      nonRecurringRowIndices: const {},
     );
 
     state = state.copyWith(
@@ -823,6 +825,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       mappingResult: mappingResult,
       parsedRows: parsedRows,
       clearDeletedRowIndices: true,
+      clearNonRecurringRowIndices: true,
     );
   }
 
@@ -967,6 +970,45 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     final deleted = {...state.deletedRowIndices, index};
     state = state.copyWith(parsedRows: deduped, deletedRowIndices: deleted);
+  }
+
+  void releaseRecurringSeries(int rowIndex) {
+    ImportParsedRow? selectedRow;
+    for (final row in state.parsedRows) {
+      if (row.index == rowIndex && row.isRecurring) {
+        selectedRow = row;
+        break;
+      }
+    }
+    if (selectedRow == null) return;
+    final selected = selectedRow;
+
+    final seriesKey = selected.recurringSeriesKey;
+    final releasedIndices = state.parsedRows
+        .where(
+          (row) =>
+              row.isRecurring &&
+              (seriesKey == null
+                  ? row.index == selected.index
+                  : row.recurringSeriesKey == seriesKey),
+        )
+        .map((row) => row.index)
+        .toSet();
+    if (releasedIndices.isEmpty) return;
+
+    final nonRecurringRowIndices = {
+      ...state.nonRecurringRowIndices,
+      ...releasedIndices,
+    };
+    state = state.copyWith(
+      nonRecurringRowIndices: nonRecurringRowIndices,
+      parsedRows: _inferAndDedupeRows(
+        state.parsedRows,
+        _existingExpensesForTarget(state.targetHouseholdId),
+        targetAccountId: state.targetAccountId,
+        nonRecurringRowIndices: nonRecurringRowIndices,
+      ),
+    );
   }
 
   /// Apply a new category to all parsed rows that currently have [fromCategory].
@@ -1196,7 +1238,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   List<ImportParsedRow> _parseAndDedupe(
       ImportTable table, ImportMapping mapping,
-      {Set<int>? deletedRowIndices}) {
+      {Set<int>? deletedRowIndices, Set<int>? nonRecurringRowIndices}) {
     final rows = <ImportParsedRow>[];
     final dateOrderHint = inferDateOrderHint(
       table.rows,
@@ -1230,6 +1272,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       filteredRows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: state.targetAccountId,
+      nonRecurringRowIndices: nonRecurringRowIndices,
     );
   }
 
@@ -1237,7 +1280,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     List<ImportParsedRow> rows,
     List<ExpenseEntry> existingExpenses, {
     String? targetAccountId,
+    Set<int>? nonRecurringRowIndices,
   }) {
+    final effectiveNonRecurringRowIndices =
+        nonRecurringRowIndices ?? state.nonRecurringRowIndices;
     final inferred = inferRecurringTransactions([
       ...existingExpenses
           .where((expense) => expense.isRecurring || expense.amountCents > 0)
@@ -1254,20 +1300,24 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
               isRecurring: expense.isRecurring,
             ),
           ),
-      ...rows.map(
-        (row) => RecurringInferenceInput(
-          id: 'import:${row.index}',
-          date: row.date,
-          amountCents: row.amountCents,
-          currency: row.currency,
-          type: row.type,
-          accountId: targetAccountId,
-          merchant: row.merchant,
-          description: row.description,
-          isRecurring: row.isRecurring,
-          recurrenceRule: row.recurrenceRule,
-        ),
-      ),
+      ...rows
+          .where(
+            (row) => !effectiveNonRecurringRowIndices.contains(row.index),
+          )
+          .map(
+            (row) => RecurringInferenceInput(
+              id: 'import:${row.index}',
+              date: row.date,
+              amountCents: row.amountCents,
+              currency: row.currency,
+              type: row.type,
+              accountId: targetAccountId,
+              merchant: row.merchant,
+              description: row.description,
+              isRecurring: row.isRecurring,
+              recurrenceRule: row.recurrenceRule,
+            ),
+          ),
     ]);
 
     final seriesWithExistingRecurringTemplate = <String>{};
@@ -1297,6 +1347,14 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     }
 
     final recurrenceAwareRows = rows.map((row) {
+      if (effectiveNonRecurringRowIndices.contains(row.index)) {
+        return row.copyWith(
+          isRecurring: false,
+          recurrenceRule: null,
+          recurringSeriesKey: null,
+          isRecurringSeriesAnchor: false,
+        );
+      }
       final importId = 'import:${row.index}';
       final result = inferred['import:${row.index}'];
       if (result == null || !result.isRecurring) {

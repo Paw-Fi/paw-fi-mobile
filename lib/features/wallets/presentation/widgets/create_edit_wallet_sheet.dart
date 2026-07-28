@@ -30,6 +30,7 @@ class CreateEditWalletResult {
   final int openingBalanceCents;
   final int? goalAmountCents;
   final bool isDefault;
+  final bool excludeFromAnalytics;
 
   const CreateEditWalletResult({
     required this.name,
@@ -40,6 +41,7 @@ class CreateEditWalletResult {
     required this.openingBalanceCents,
     required this.goalAmountCents,
     required this.isDefault,
+    required this.excludeFromAnalytics,
   });
 }
 
@@ -96,6 +98,8 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     );
     final currencySymbol = resolveCurrencySymbol(selectedCurrency.value);
     final isDefault = useState<bool>(initial?.isDefault ?? false);
+    final excludeFromAnalytics =
+        useState<bool>(initial?.excludeFromAnalytics ?? false);
     final isPrimaryWalletLocked = isEditing && (initial?.isDefault ?? false);
     final canChangeCurrency = !isEditing;
 
@@ -122,6 +126,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
           openingBalanceCents: openingCents,
           goalAmountCents: goalCents,
           isDefault: isDefault.value,
+          excludeFromAnalytics: excludeFromAnalytics.value,
         ),
       );
     }
@@ -319,8 +324,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     }
 
                     final iconName = _walletIcons[index - 1];
-                    final isSelected =
-                        selectedLogoUrl.value == null &&
+                    final isSelected = selectedLogoUrl.value == null &&
                         selectedIcon.value == iconName;
                     return GestureDetector(
                       onTap: () {
@@ -524,6 +528,34 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                 onChanged: isPrimaryWalletLocked
                     ? null
                     : (value) => isDefault.value = value,
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: excludeFromAnalytics.value,
+                title: Row(
+                  children: [
+                    Flexible(
+                      child: Text(context.l10n.excludeFromWalletAnalytics),
+                    ),
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message: context.l10n.excludeFromWalletAnalyticsDetails,
+                      triggerMode: TooltipTriggerMode.tap,
+                      showDuration: const Duration(seconds: 8),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: colorScheme.mutedForeground,
+                        semanticLabel:
+                            context.l10n.excludeFromWalletAnalyticsDetails,
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  context.l10n.excludeFromWalletAnalyticsDescription,
+                ),
+                onChanged: (value) => excludeFromAnalytics.value = value,
               ),
               const SizedBox(height: 18),
               SizedBox(

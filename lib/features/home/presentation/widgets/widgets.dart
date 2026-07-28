@@ -15,5 +15,6 @@ export 'ai_input_target.dart';
 export 'date_range_filter_modal.dart';
 export 'currency_selector_modal.dart';
 export 'home_header_sliver.dart';
+export 'home_period_selector.dart';
 export 'home_ai_fab.dart';
 export 'customizable_dashboard/widgets/where_the_money_went_widget.dart';

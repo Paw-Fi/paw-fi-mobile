@@ -13,6 +13,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
@@ -45,13 +46,32 @@ class PreviewStep extends ConsumerWidget {
     final notifier = ref.read(importWizardProvider.notifier);
     final scheme = Theme.of(context).colorScheme;
 
-    final importableRows = state.parsedRows
-        .where(
-            (row) => row.isValid && (!state.skipDuplicates || !row.isDuplicate))
-        .length;
+    final importableRows = state.parsedRows.where((row) {
+      if (!row.isValid || (state.skipDuplicates && row.isDuplicate)) {
+        return false;
+      }
+      return !row.isRecurring ||
+          row.recurringSeriesKey == null ||
+          row.isRecurringSeriesAnchor;
+    }).length;
     final canImport = importableRows > 0 && !state.isImporting;
 
     final rowsToDisplay = state.parsedRows;
+    final recurringSeriesCounts = <int, int>{};
+    final firstRowIndexByRecurringSeries = <String, int>{};
+    for (final row in rowsToDisplay.where((row) => row.isRecurring)) {
+      final seriesKey = row.recurringSeriesKey;
+      if (seriesKey == null) {
+        recurringSeriesCounts[row.index] = 1;
+        continue;
+      }
+      final actionRowIndex = firstRowIndexByRecurringSeries.putIfAbsent(
+        seriesKey,
+        () => row.index,
+      );
+      recurringSeriesCounts[actionRowIndex] =
+          (recurringSeriesCounts[actionRowIndex] ?? 0) + 1;
+    }
 
     // +1 for auto-skip banner when applicable
     final hasAutoSkipBanner = state.didAutoSkipMapping;
@@ -118,6 +138,11 @@ class PreviewStep extends ConsumerWidget {
                 onTap: state.isImporting
                     ? null
                     : () => _openEditRowSheet(context, ref, row),
+                showReleaseAction: recurringSeriesCounts.containsKey(row.index),
+                recurringSeriesCount: recurringSeriesCounts[row.index] ?? 0,
+                onReleaseSeries: state.isImporting
+                    ? null
+                    : () => _confirmReleaseRecurringSeries(context, ref, row),
               );
             },
           ),
@@ -239,6 +264,9 @@ class PreviewStep extends ConsumerWidget {
   ) {
     final notifier = ref.read(importWizardProvider.notifier);
     final user = ref.watch(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final households = householdsAsync.valueOrNull ?? const [];
     final selectedHouseholdId = state.targetHouseholdId;
@@ -254,11 +282,11 @@ class PreviewStep extends ConsumerWidget {
     }
 
     final selectedLabel = selectedHouseholdId == null
-        ? userLabel(user, shortenEmail: false)
+        ? userLabel(user, profileFullName: profileFullName, shortenEmail: false)
         : (selectedHousehold?.name ?? context.l10n.forUs);
     final pillLabel = truncateMenuLabel(selectedLabel, maxLength: 18);
-    final personalLabel =
-        truncateMenuLabel(userLabel(user, shortenEmail: true));
+    final personalLabel = truncateMenuLabel(
+        userLabel(user, profileFullName: profileFullName, shortenEmail: true));
 
     final items = <AdaptivePopupMenuItem>[
       AdaptivePopupMenuItem(
@@ -741,6 +769,49 @@ class PreviewStep extends ConsumerWidget {
       notifier.applyCategoryToAllRows(originalCategory, newCategory);
     }
   }
+
+  List<ImportParsedRow> _recurringSeriesRows(ImportParsedRow selectedRow) {
+    final seriesKey = selectedRow.recurringSeriesKey;
+    final rows = state.parsedRows.where((row) {
+      if (!row.isRecurring) return false;
+      return seriesKey == null
+          ? row.index == selectedRow.index
+          : row.recurringSeriesKey == seriesKey;
+    }).toList(growable: false)
+      ..sort((left, right) {
+        final leftDate = left.date;
+        final rightDate = right.date;
+        if (leftDate == null) return rightDate == null ? 0 : 1;
+        if (rightDate == null) return -1;
+        return leftDate.compareTo(rightDate);
+      });
+    return rows;
+  }
+
+  Future<void> _confirmReleaseRecurringSeries(
+    BuildContext context,
+    WidgetRef ref,
+    ImportParsedRow selectedRow,
+  ) async {
+    final seriesRows = _recurringSeriesRows(selectedRow);
+    if (seriesRows.isEmpty) return;
+
+    final confirmed = await MonekoBottomSheet.show<bool>(
+      context: context,
+      isScrollControlled: true,
+      title: context.l10n.importReleaseSeriesTitle,
+      onClose: () => Navigator.of(context).pop(false),
+      builder: (sheetContext) => _ReleaseRecurringSeriesSheet(
+        rows: seriesRows,
+        onConfirm: () => Navigator.of(sheetContext).pop(true),
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    ref
+        .read(importWizardProvider.notifier)
+        .releaseRecurringSeries(selectedRow.index);
+  }
 }
 
 String? _resolvePreferredDefaultAccountId(List<WalletEntity> accounts) {
@@ -818,12 +889,18 @@ class TransactionPreviewTile extends StatelessWidget {
     required this.isFirst,
     required this.isLast,
     required this.onTap,
+    this.showReleaseAction = false,
+    this.recurringSeriesCount = 0,
+    this.onReleaseSeries,
   });
 
   final ImportParsedRow row;
   final bool isFirst;
   final bool isLast;
   final VoidCallback? onTap;
+  final bool showReleaseAction;
+  final int recurringSeriesCount;
+  final VoidCallback? onReleaseSeries;
 
   @override
   Widget build(BuildContext context) {
@@ -893,6 +970,80 @@ class TransactionPreviewTile extends StatelessWidget {
                       : null,
             ),
           ),
+          AnimatedSize(
+            duration: MediaQuery.of(context).disableAnimations
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            child: showReleaseAction
+                ? Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 56),
+                        child: Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: scheme.border.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      Semantics(
+                        button: true,
+                        label: context.l10n.importNotRecurringAction,
+                        excludeSemantics: true,
+                        child: Material(
+                          color: scheme.surface.withValues(alpha: 0.0),
+                          child: InkWell(
+                            onTap: onReleaseSeries,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 48),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 24),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.repeat_rounded,
+                                      size: 18,
+                                      color: scheme.primary,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        context.l10n.importNotRecurringAction,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: scheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      context.l10n.importSeriesTransactionCount(
+                                        recurringSeriesCount,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: scheme.mutedForeground,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
+                                      color: scheme.mutedForeground,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
           if (!isLast)
             Padding(
               padding: const EdgeInsets.only(left: 56),
@@ -943,6 +1094,96 @@ class TransactionPreviewTile extends StatelessWidget {
       case DuplicateReason.none:
         return 'Duplicate';
     }
+  }
+}
+
+class _ReleaseRecurringSeriesSheet extends StatelessWidget {
+  const _ReleaseRecurringSeriesSheet({
+    required this.rows,
+    required this.onConfirm,
+  });
+
+  final List<ImportParsedRow> rows;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final maxListHeight = MediaQuery.sizeOf(context).height * 0.42;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              context.l10n.importReleaseSeriesDescription(rows.length),
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.45,
+                color: scheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              context.l10n.importReleaseSeriesOverview(rows.length),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: scheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxListHeight),
+                child: Semantics(
+                  explicitChildNodes: true,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: scheme.sheetBorder,
+                    ),
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      final localizedCategory = getCategoryTranslation(
+                        context,
+                        row.category ?? 'uncategorized',
+                      );
+                      return TransactionListTile(
+                        category: row.category ?? 'uncategorized',
+                        title: row.merchant?.isNotEmpty == true
+                            ? row.merchant!
+                            : row.description?.isNotEmpty == true
+                                ? row.description!
+                                : localizedCategory,
+                        date: row.date,
+                        amount: (row.amountCents ?? 0) / 100.0,
+                        currency: row.currency ?? 'USD',
+                        isIncome: (row.type ?? '').toLowerCase() == 'income',
+                        dense: true,
+                        showCurrencyFlag: true,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            PrimaryAdaptiveButton(
+              onPressed: onConfirm,
+              child: Text(context.l10n.importReleaseSeriesConfirm),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

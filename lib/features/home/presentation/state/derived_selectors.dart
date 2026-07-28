@@ -6,6 +6,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
 import 'package:moneko/features/home/presentation/state/period_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/period_selection.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -121,6 +122,7 @@ final momTrendProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
     return const AsyncValue.data(<String, double>{});
   }
   final filter = ref.watch(homeFilterProvider);
+  final periodSelection = ref.watch(homePeriodSelectionProvider(userId));
   final setCurrency = filter.selectedCurrency?.toUpperCase();
   final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
   final scope = ref.watch(householdScopeProvider);
@@ -130,7 +132,7 @@ final momTrendProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
   final recurringExpensesAV = ref.watch(recurringExpensesProvider(householdId));
 
   // Build last 3 financial-cycle keys.
-  final now = DateTime.now();
+  final now = periodSelection.selectedDate;
   final months = _momTrendCycleStarts(
     now,
     financialMonthStartDay: financialMonthStartDay,

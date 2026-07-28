@@ -14,6 +14,7 @@ class WalletEntity {
   final bool isArchived;
   final int currentBalanceCents;
   final String? linkedBankAccountId;
+  final bool excludeFromAnalytics;
 
   const WalletEntity({
     required this.id,
@@ -31,6 +32,7 @@ class WalletEntity {
     required this.isArchived,
     required this.currentBalanceCents,
     this.linkedBankAccountId,
+    this.excludeFromAnalytics = false,
   });
 
   factory WalletEntity.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,7 @@ class WalletEntity {
       linkedBankAccountId: _nullableTrimmedString(
         json['linked_bank_account_id'],
       ),
+      excludeFromAnalytics: json['exclude_from_analytics'] == true,
     );
   }
 
@@ -74,6 +77,7 @@ class WalletEntity {
       'is_archived': isArchived,
       'current_balance_cents': currentBalanceCents,
       'linked_bank_account_id': linkedBankAccountId,
+      'exclude_from_analytics': excludeFromAnalytics,
     };
   }
 
@@ -94,6 +98,7 @@ class WalletEntity {
     bool? isArchived,
     int? currentBalanceCents,
     String? linkedBankAccountId,
+    bool? excludeFromAnalytics,
   }) {
     return WalletEntity(
       id: id ?? this.id,
@@ -111,6 +116,7 @@ class WalletEntity {
       isArchived: isArchived ?? this.isArchived,
       currentBalanceCents: currentBalanceCents ?? this.currentBalanceCents,
       linkedBankAccountId: linkedBankAccountId ?? this.linkedBankAccountId,
+      excludeFromAnalytics: excludeFromAnalytics ?? this.excludeFromAnalytics,
     );
   }
 }

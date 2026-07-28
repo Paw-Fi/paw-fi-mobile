@@ -315,7 +315,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                context.l10n.totalDeducted,
+                                context.l10n.total,
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,

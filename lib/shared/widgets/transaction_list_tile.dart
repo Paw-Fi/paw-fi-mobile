@@ -10,8 +10,8 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 
 class TransactionListTile extends StatelessWidget {
   final String category;

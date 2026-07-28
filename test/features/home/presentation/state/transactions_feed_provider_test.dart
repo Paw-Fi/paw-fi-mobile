@@ -183,6 +183,37 @@ void main() {
     expect(state.hasMore, isTrue);
   });
 
+  test('optimistic entries render before an initial remote page exists', () {
+    final query = buildQuery().copyWith(selectedAccountId: 'wallet-1');
+    final notifier = TransactionsFeedNotifier(
+      service: _FakeTransactionsFeedService(const []),
+      query: query,
+    );
+    addTearDown(notifier.dispose);
+
+    notifier.applyOptimisticEntries([
+      ExpenseEntry(
+        id: 'transfer:optimistic-transfer-1:out',
+        userId: 'user-1',
+        date: DateTime(2026, 7, 28),
+        amountCents: 2500,
+        currency: 'USD',
+        category: 'transfers',
+        createdAt: DateTime.utc(2026, 7, 28, 12),
+        walletId: 'wallet-1',
+        type: 'expense',
+        analyticsClass: 'transfer_out',
+        analyticsSpendingMultiplier: 0,
+        analyticsCountsTowardIncome: false,
+      ),
+    ]);
+
+    expect(
+      notifier.state.items.map((entry) => entry.id),
+      ['transfer:optimistic-transfer-1:out'],
+    );
+  });
+
   test('loadMore appends next page and preserves summary', () async {
     final service = _FakeTransactionsFeedService([
       TransactionsFeedPageResult(

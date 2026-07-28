@@ -1,0 +1,6 @@
+Date,Amount,Category,Description,Merchant,Currency,Type
+2026-01-15,29.99,subscriptions,Monthly streaming payment,StreamBox,USD,expense
+2026-02-15,29.99,subscriptions,Monthly streaming payment,StreamBox,USD,expense
+2026-03-15,29.99,subscriptions,Monthly streaming payment,StreamBox,USD,expense
+2026-04-15,29.99,subscriptions,Monthly streaming payment,StreamBox,USD,expense
+2026-04-20,84.37,groceries,Weekly grocery shopping,Fresh Market,USD,expense

@@ -23,6 +23,7 @@ import 'package:moneko/features/home/presentation/widgets/currency_selector_moda
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/transaction_export_options_sheet.dart';
+import 'package:moneko/features/home/presentation/widgets/home_period_selector.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -32,6 +33,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_export_data_source.dart';
 import 'package:moneko/features/home/presentation/utils/export_date_range.dart';
@@ -40,6 +42,7 @@ import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
+import 'package:moneko/shared/widgets/notification_dot_indicator.dart';
 
 Household? _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -71,8 +74,14 @@ String _emailLocalPart(String email) {
   return trimmed.substring(0, atIndex);
 }
 
-String _userLabel(AppUser user, {required bool shortenEmail}) {
-  final displayName = user.displayName?.trim();
+String _userLabel(
+  AppUser user, {
+  String? profileFullName,
+  required bool shortenEmail,
+}) {
+  final displayName = profileFullName?.trim().isNotEmpty == true
+      ? profileFullName!.trim()
+      : user.displayName?.trim();
   if (displayName != null && displayName.isNotEmpty) return displayName;
 
   return shortenEmail ? _emailLocalPart(user.email) : user.email.trim();
@@ -98,6 +107,8 @@ String _exportSpaceFileSlug(TransactionExportSpaceOption space) {
   }
 }
 
+const _periodViewFeatureSeenPreferenceKey = 'home_period_view_feature_seen_v1';
+
 String _slugFileSegment(String value, {required String fallback}) {
   final slug = value
       .trim()
@@ -118,6 +129,9 @@ class HomeHeaderLeading extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     final preview = ref.watch(previewModeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
@@ -125,7 +139,7 @@ class HomeHeaderLeading extends ConsumerWidget {
         ? [
             Household(
               id: 'preview-card',
-              name: 'Chase Sapphire',
+              name: context.l10n.chaseSapphire,
               ownerId: user.uid.isNotEmpty ? user.uid : 'preview-user',
               currency: 'USD',
               themeColor: '#0EA5E9',
@@ -136,7 +150,7 @@ class HomeHeaderLeading extends ConsumerWidget {
             ),
             Household(
               id: 'preview-savings',
-              name: 'High-Yield Savings',
+              name: context.l10n.highYieldSavings,
               ownerId: user.uid.isNotEmpty ? user.uid : 'preview-user',
               currency: 'USD',
               themeColor: '#10B981',
@@ -151,24 +165,30 @@ class HomeHeaderLeading extends ConsumerWidget {
         ref.read(zoomDrawerControllerProvider);
 
     final name = preview.isActive
-        ? 'Moneko Preview'
+        ? context.l10n.monekoPreview
         : viewMode.mode == ViewMode.personal
-            ? _userLabel(user, shortenEmail: false)
+            ? _userLabel(user,
+                profileFullName: profileFullName, shortenEmail: false)
             : householdsAsync.when(
-                loading: () => _userLabel(user, shortenEmail: false),
-                error: (_, __) => _userLabel(user, shortenEmail: false),
+                loading: () => _userLabel(user,
+                    profileFullName: profileFullName, shortenEmail: false),
+                error: (_, __) => _userLabel(user,
+                    profileFullName: profileFullName, shortenEmail: false),
                 data: (households) {
                   final combined = [
                     ...households,
                     ...previewPrivateSpaces,
                   ];
                   if (combined.isEmpty) {
-                    return _userLabel(user, shortenEmail: false);
+                    return _userLabel(user,
+                        profileFullName: profileFullName, shortenEmail: false);
                   }
                   final resolved = _resolveSelectedHousehold(
                       selectedHouseholdState, combined);
                   return resolved?.name ??
-                      _userLabel(user, shortenEmail: false);
+                      _userLabel(user,
+                          profileFullName: profileFullName,
+                          shortenEmail: false);
                 },
               );
 
@@ -230,13 +250,41 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
+    final profileFullName = user.uid.isEmpty
+        ? null
+        : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
     final preview = ref.watch(previewModeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final spotlightController = ref.read(homeSpotlightControllerProvider);
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
+    final homePeriodMode = user.uid.isEmpty
+        ? null
+        : ref.watch(
+            homePeriodSelectionProvider(user.uid).select((state) => state.mode),
+          );
     final showCurrencyIndicator = useState<bool>(false);
+    final isPeriodViewFeatureNew = useState<bool?>(null);
+
+    useEffect(() {
+      var isDisposed = false;
+      Future<void>(() async {
+        final prefs = await SharedPreferences.getInstance();
+        final hasSeenFeature =
+            prefs.getBool(_periodViewFeatureSeenPreferenceKey) ?? false;
+        if (!isDisposed && isPeriodViewFeatureNew.value != false) {
+          isPeriodViewFeatureNew.value = !hasSeenFeature;
+        }
+      });
+      return () => isDisposed = true;
+    }, const []);
+
+    Future<void> dismissPeriodViewFeatureIndicator() async {
+      isPeriodViewFeatureNew.value = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_periodViewFeatureSeenPreferenceKey, true);
+    }
 
     // Load indicator dismissal state
     // useEffect(() {
@@ -315,28 +363,37 @@ class HomeHeaderSliver extends HookConsumerWidget {
             selectedHouseholdState.household?.id)
         : null;
 
-    const previewLabel = 'Sarah Collins';
+    final previewLabel = context.l10n.sarahCollins;
 
     final personalLabel = _truncateMenuLabel(
-      preview.isActive ? previewLabel : _userLabel(user, shortenEmail: true),
+      preview.isActive
+          ? previewLabel
+          : _userLabel(user,
+              profileFullName: profileFullName, shortenEmail: true),
     );
 
     final profilePillLabel = _truncateMenuLabel(
       preview.isActive
           ? previewLabel
           : viewMode.mode == ViewMode.personal
-              ? _userLabel(user, shortenEmail: true)
+              ? _userLabel(user,
+                  profileFullName: profileFullName, shortenEmail: true)
               : householdsAsync.when(
-                  loading: () => _userLabel(user, shortenEmail: true),
-                  error: (_, __) => _userLabel(user, shortenEmail: true),
+                  loading: () => _userLabel(user,
+                      profileFullName: profileFullName, shortenEmail: true),
+                  error: (_, __) => _userLabel(user,
+                      profileFullName: profileFullName, shortenEmail: true),
                   data: (households) {
                     if (households.isEmpty) {
-                      return _userLabel(user, shortenEmail: true);
+                      return _userLabel(user,
+                          profileFullName: profileFullName, shortenEmail: true);
                     }
                     final resolved = _resolveSelectedHousehold(
                         selectedHouseholdState, households);
                     return resolved?.name ??
-                        _userLabel(user, shortenEmail: true);
+                        _userLabel(user,
+                            profileFullName: profileFullName,
+                            shortenEmail: true);
                   },
                 ),
       maxLength: 18,
@@ -346,9 +403,8 @@ class HomeHeaderSliver extends HookConsumerWidget {
       final households = householdsAsync.valueOrNull ?? const <Household>[];
       final exportPersonalLabel = preview.isActive
           ? previewLabel
-          : user.displayName?.trim().isNotEmpty == true
-              ? user.displayName!.trim()
-              : user.email;
+          : _userLabel(user,
+              profileFullName: profileFullName, shortenEmail: false);
       final exportRequest = await showTransactionExportOptionsSheet(
         context: context,
         spaces: households,
@@ -769,6 +825,17 @@ class HomeHeaderSliver extends HookConsumerWidget {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     if (currentIndex == 0) {
       menuItems.add(AdaptivePopupMenuItem(
+        label: homePeriodMode == HomePeriodMode.daily
+            ? context.l10n.switchToMonthlyView
+            : context.l10n.switchToDailyView,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'calendar'
+            : homePeriodMode == HomePeriodMode.daily
+                ? Icons.calendar_view_month_outlined
+                : Icons.today_outlined,
+        value: 'toggle_period_mode',
+      ));
+      menuItems.add(AdaptivePopupMenuItem(
         label: context.l10n.editWidgets,
         icon: PlatformInfo.isIOS26OrHigher()
             ? 'square.grid.2x2'
@@ -882,53 +949,74 @@ class HomeHeaderSliver extends HookConsumerWidget {
                               ),
                             ),
                           )
-                        : AdaptivePopupMenuButton.widget(
-                            key: const ValueKey('menuButton'),
-                            child: Container(
-                              height: 40,
-                              width: 40,
-                              alignment: Alignment.center,
-                              child: Icon(
-                                Icons.more_horiz_rounded,
-                                color: colorScheme.foreground,
-                                size: 24,
+                        : Listener(
+                            onPointerDown: (_) =>
+                                dismissPeriodViewFeatureIndicator(),
+                            child: AdaptivePopupMenuButton.widget(
+                              key: const ValueKey('menuButton'),
+                              child: NotificationDotIndicator(
+                                isVisible: isPeriodViewFeatureNew.value == true,
+                                child: Container(
+                                  height: 40,
+                                  width: 40,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.more_horiz_rounded,
+                                    color: colorScheme.foreground,
+                                    size: 24,
+                                  ),
+                                ),
                               ),
-                            ),
-                            items: menuItems,
-                            onSelected: (index, item) async {
-                              if (item.value == 'manage_household' &&
-                                  selectedHouseholdIdForSettings != null) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => HouseholdSettingsPage(
-                                      householdId:
-                                          selectedHouseholdIdForSettings,
+                              items: menuItems,
+                              onSelected: (index, item) async {
+                                if (item.value == 'manage_household' &&
+                                    selectedHouseholdIdForSettings != null) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => HouseholdSettingsPage(
+                                        householdId:
+                                            selectedHouseholdIdForSettings,
+                                      ),
                                     ),
-                                  ),
-                                );
-                                return;
-                              }
+                                  );
+                                  return;
+                                }
 
-                              if (item.value == 'edit_widgets') {
-                                ref.read(isEditModeProvider.notifier).state =
-                                    true;
-                                return;
-                              }
+                                if (item.value == 'edit_widgets') {
+                                  ref.read(isEditModeProvider.notifier).state =
+                                      true;
+                                  return;
+                                }
 
-                              if (item.value == 'export_all') {
-                                await exportAllTransactions();
-                                return;
-                              }
+                                if (item.value == 'toggle_period_mode' &&
+                                    homePeriodMode != null) {
+                                  await ref
+                                      .read(
+                                          homePeriodSelectionProvider(user.uid)
+                                              .notifier)
+                                      .setMode(
+                                        homePeriodMode == HomePeriodMode.daily
+                                            ? HomePeriodMode.monthly
+                                            : HomePeriodMode.daily,
+                                      );
+                                  return;
+                                }
 
-                              if (item.value == 'settings') {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const SettingsPage(),
-                                  ),
-                                );
-                                return;
-                              }
-                            },
+                                if (item.value == 'export_all') {
+                                  await exportAllTransactions();
+                                  return;
+                                }
+
+                                if (item.value == 'settings') {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const SettingsPage(),
+                                    ),
+                                  );
+                                  return;
+                                }
+                              },
+                            ),
                           ),
                   ),
                   if (kDebugMode) ...[
@@ -946,6 +1034,8 @@ class HomeHeaderSliver extends HookConsumerWidget {
             ],
           ),
         ),
+        if (ref.watch(mainShellTabIndexProvider) == 0)
+          const HomePeriodSelector(),
       ],
     );
   }

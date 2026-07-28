@@ -9,10 +9,10 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 /// Member spending breakdown card with modern, Apple-inspired design
 Widget buildHouseholdMemberSpendingCard(
@@ -34,9 +34,6 @@ Widget buildHouseholdMemberSpendingCard(
 }) {
   final currency =
       ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
-  final rangeLabel =
-      (dateRangeFilter ?? DateRangeFilter.thisMonth).getLabel(context);
-
   final memberTotals = (transactions != null && from != null && to != null)
       ? computeSplitAwareMemberSpendingTotals(
           transactions: transactions,
@@ -132,7 +129,7 @@ Widget buildHouseholdMemberSpendingCard(
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
             child: Text(
-              '${context.l10n.spent} • $rangeLabel',
+              context.l10n.spent,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -258,10 +255,7 @@ Widget _buildMemberRow(
       ? (member.totalSpentCents / totalMemberSpent) * 100
       : 0.0;
   final amount = member.totalSpentCents / 100.0;
-  final normalized = double.parse(formatAmount(amount));
   final symbol = resolveCurrencySymbol(currency);
-  final localized = formatLocalizedNumber(context, normalized);
-  final formatted = '$symbol$localized';
 
   // Get member data from the members list to ensure we have the correct name
   final memberData = members?.firstWhere(
@@ -382,8 +376,11 @@ Widget _buildMemberRow(
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Text(
-                          '${member.transactionCount} ${context.l10n.transactions}',
+                        AnimatedAmountText(
+                          value: member.transactionCount.toDouble(),
+                          symbol: '',
+                          suffix: ' ${context.l10n.transactions}',
+                          decimalDigits: 0,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -404,8 +401,9 @@ Widget _buildMemberRow(
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    formatted,
+                  AnimatedAmountText(
+                    value: amount,
+                    symbol: symbol,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -416,8 +414,11 @@ Widget _buildMemberRow(
                   ),
                   if (totalMemberSpent > 0) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      '${percentage.toStringAsFixed(0)}%',
+                    AnimatedAmountText(
+                      value: percentage,
+                      symbol: '',
+                      suffix: '%',
+                      decimalDigits: 0,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -435,36 +436,23 @@ Widget _buildMemberRow(
           const SizedBox(height: 12),
 
           // Modern progress bar
-          Container(
-            height: 6,
+          AnimatedProgressBar(
+            progress: percentage / 100,
+            color: colorScheme.primary,
+            backgroundColor: colorScheme.muted.withValues(alpha: 0.15),
             decoration: BoxDecoration(
-              color: colorScheme.muted.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: Stack(
-                children: [
-                  if (percentage > 0)
-                    FractionallySizedBox(
-                      widthFactor: percentage / 100,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              colorScheme.primary,
-                              colorScheme.primary.withValues(alpha: 0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  colorScheme.primary,
+                  colorScheme.primary.withValues(alpha: 0.8),
                 ],
               ),
+              borderRadius: BorderRadius.circular(3),
             ),
+            height: 6,
+            borderRadius: BorderRadius.circular(3),
           ),
         ],
       ),

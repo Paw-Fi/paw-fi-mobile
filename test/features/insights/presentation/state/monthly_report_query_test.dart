@@ -85,6 +85,61 @@ void main() {
     expect(calendar.hashCode, financial.hashCode);
   });
 
+  test('shifts report queries by exact custom financial cycles', () {
+    final query = MonthlyReportQuery(
+      monthStart: DateTime(2026, 7, 25),
+      financialMonthStartDay: 25,
+      range: MonthlyReportRange.sixMonths,
+    );
+
+    final previous = shiftMonthlyReportQuery(query, -1);
+    final next = shiftMonthlyReportQuery(query, 1);
+
+    expect(previous.monthStart, DateTime(2026, 6, 25));
+    expect(next.monthStart, DateTime(2026, 8, 25));
+    expect(previous.financialMonthStartDay, 25);
+    expect(previous.range, MonthlyReportRange.sixMonths);
+  });
+
+  test('shifting a day-31 cycle clamps short months', () {
+    final previous = shiftMonthlyReportQuery(
+      MonthlyReportQuery(
+        monthStart: DateTime(2026, 3, 31),
+        financialMonthStartDay: 31,
+      ),
+      -1,
+    );
+
+    expect(previous.monthStart, DateTime(2026, 2, 28));
+  });
+
+  test('archive contains current and twelve previous financial periods', () {
+    final queries = monthlyReportArchiveQueries(
+      currentQuery: MonthlyReportQuery(
+        monthStart: DateTime(2026, 7, 25),
+        financialMonthStartDay: 25,
+      ),
+    );
+
+    expect(queries, hasLength(13));
+    expect(queries.first.monthStart, DateTime(2026, 7, 25));
+    expect(queries.last.monthStart, DateTime(2025, 7, 25));
+    expect(queries.every((query) => query.range == MonthlyReportRange.month),
+        isTrue);
+  });
+
+  test('identifies completed and current financial periods', () {
+    final now = DateTime(2026, 7, 30);
+    final current = MonthlyReportQuery(
+      monthStart: DateTime(2026, 7, 25),
+      financialMonthStartDay: 25,
+    );
+    final previous = shiftMonthlyReportQuery(current, -1);
+
+    expect(isMonthlyReportPeriodCompleted(current, now: now), isFalse);
+    expect(isMonthlyReportPeriodCompleted(previous, now: now), isTrue);
+  });
+
   test('forecast preview always retains the final month-end balance', () {
     final points = <MonthlyCashFlowPoint>[
       const MonthlyCashFlowPoint(label: 'Today', balance: 1000),

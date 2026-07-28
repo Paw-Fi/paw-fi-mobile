@@ -6,8 +6,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/pages/category_details_page.dart';
+import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 class WhereTheMoneyWentWidget extends StatefulWidget {
   final List<ExpenseEntry> expenses;
@@ -78,12 +78,6 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
                         letterSpacing: 1.0,
                         color: colorScheme.mutedForeground,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.dateRange.getLabel(context),
-                      style: WidgetTextStyles.dateLabel(
-                          colorScheme.mutedForeground),
                     ),
                   ],
                 ),
@@ -267,10 +261,7 @@ class _CategoryRow extends StatelessWidget {
 
     // Calculate percentage, careful of div by zero
     final percent = totalSpent > 0 ? (amount / totalSpent) : 0.0;
-    final percentString = '${(percent * 100).toStringAsFixed(0)}%';
-
     final symbol = resolveCurrencySymbol(currency ?? 'USD');
-    final displayAmount = '$symbol${formatLocalizedNumber(context, amount)}';
 
     return GestureDetector(
       onTap: onTap,
@@ -317,8 +308,9 @@ class _CategoryRow extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          displayAmount,
+                        AnimatedAmountText(
+                          value: amount,
+                          symbol: symbol,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -334,19 +326,20 @@ class _CategoryRow extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: ClipRRect(
+                      child: AnimatedProgressBar(
+                        progress: percent,
+                        color: color,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        height: 6,
                         borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: percent,
-                          backgroundColor: colorScheme.surfaceContainerHighest,
-                          color: color,
-                          minHeight: 6,
-                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      percentString,
+                    AnimatedAmountText(
+                      value: percent * 100,
+                      symbol: '',
+                      suffix: '%',
+                      decimalDigits: 0,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

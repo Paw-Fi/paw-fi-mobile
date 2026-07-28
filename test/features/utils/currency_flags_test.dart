@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 
 void main() {
@@ -16,6 +17,9 @@ void main() {
       expect(getCurrencyFlagPath('CAD'), 'lib/assets/images/flags/ca.png');
       expect(getCurrencyFlagPath('JMD'), 'lib/assets/images/flags/jamaica.png');
       expect(getCurrencyFlagPath('MWK'), 'lib/assets/images/flags/malawi.png');
+      expect(getCurrencyFlagPath('MDL'), 'lib/assets/images/flags/moldova.png');
+      expect(
+          getCurrencyFlagPath('MUR'), 'lib/assets/images/flags/mauritius.png');
       expect(getCurrencyFlagPath('ZMW'), 'lib/assets/images/flags/zambia.png');
     });
 
@@ -72,6 +76,8 @@ void main() {
         'IDR': 'indonesia',
         'MYR': 'my',
         'MWK': 'malawi',
+        'MDL': 'moldova',
+        'MUR': 'mauritius',
         'ZMW': 'zambia',
         'PHP': 'philippines',
         'TRY': 'turkey',
@@ -103,6 +109,19 @@ void main() {
       final path = getCurrencyFlagPath('AED');
       expect(path, 'lib/assets/images/flags/uae.png');
       expect(path, isNot('lib/assets/images/flags/uab.png'));
+    });
+  });
+
+  group('Country Flag Resolution', () {
+    test('maps Moldova and Mauritius to their native currency flags', () {
+      expect(
+        getPlaidCountryFlagPath('MD'),
+        'lib/assets/images/flags/moldova.png',
+      );
+      expect(
+        getPlaidCountryFlagPath('MU'),
+        'lib/assets/images/flags/mauritius.png',
+      );
     });
   });
 }

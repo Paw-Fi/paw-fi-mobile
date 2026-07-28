@@ -41,6 +41,7 @@ class PlaidSyncReviewWalletCard extends StatelessWidget {
           isSystem: false,
           isArchived: false,
           currentBalanceCents: displayBalanceCents,
+          excludeFromAnalytics: account.excludeFromAnalytics,
         ),
         currencyCode: account.currency,
         displayBalanceCents: displayBalanceCents,

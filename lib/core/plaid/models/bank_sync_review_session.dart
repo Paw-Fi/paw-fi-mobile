@@ -58,6 +58,7 @@ class BankSyncReviewAccount {
     required this.goalAmountCents,
     required this.openingBalanceCents,
     required this.isDefault,
+    required this.excludeFromAnalytics,
     this.providerCurrentBalanceCents,
     this.providerAvailableBalanceCents,
   });
@@ -77,6 +78,7 @@ class BankSyncReviewAccount {
   final int? goalAmountCents;
   final int openingBalanceCents;
   final bool isDefault;
+  final bool excludeFromAnalytics;
   final int? providerCurrentBalanceCents;
   final int? providerAvailableBalanceCents;
 
@@ -116,6 +118,7 @@ class BankSyncReviewAccount {
       openingBalanceCents:
           (linkedWallet?['opening_balance_cents'] as num?)?.round() ?? 0,
       isDefault: linkedWallet?['is_default'] == true,
+      excludeFromAnalytics: linkedWallet?['exclude_from_analytics'] == true,
       providerCurrentBalanceCents: _readOptionalInt(
         json,
         'providerBalanceCurrentCents',
@@ -159,6 +162,7 @@ class BankSyncReviewAccount {
     int? goalAmountCents,
     int? openingBalanceCents,
     bool? isDefault,
+    bool? excludeFromAnalytics,
   }) {
     return BankSyncReviewAccount(
       bankAccountId: bankAccountId,
@@ -178,6 +182,7 @@ class BankSyncReviewAccount {
       goalAmountCents: goalAmountCents ?? this.goalAmountCents,
       openingBalanceCents: openingBalanceCents ?? this.openingBalanceCents,
       isDefault: isDefault ?? this.isDefault,
+      excludeFromAnalytics: excludeFromAnalytics ?? this.excludeFromAnalytics,
       providerCurrentBalanceCents: providerCurrentBalanceCents,
       providerAvailableBalanceCents: providerAvailableBalanceCents,
     );

@@ -63,6 +63,13 @@ final _walletsPageStateSessionCacheGenerationsProvider =
 final _walletsPageStateBaseSessionCacheProvider =
     StateProvider<Map<String, WalletsPageState>>((ref) => const {});
 
+void clearWalletsPageStateMemoryCaches(Ref ref) {
+  ref.read(_walletsPageStateBaseSessionCacheProvider.notifier).state = const {};
+  ref.read(_walletsPageStateSessionCacheGenerationsProvider.notifier).state =
+      const {};
+  ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
+}
+
 _WalletsPageStateCacheGeneration _readWalletsPageStateCacheGeneration(Ref ref) {
   return _WalletsPageStateCacheGeneration(
     wallets: ref.read(walletsRefreshSignalProvider),
@@ -1598,13 +1605,18 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
     final localDeltaCents = isIncome ? amountCents : -amountCents;
 
     final walletId = _resolvePendingWalletBalanceId(tx, walletBalances);
+    final isExcludedFromAnalytics = walletId != null &&
+        (walletsById[walletId]?.excludeFromAnalytics ?? false);
     if (walletId != null) {
-      netWorthCents += localDeltaCents;
       walletBalances[walletId] =
           (walletBalances[walletId] ?? 0) + localDeltaCents;
+      if (!isExcludedFromAnalytics) {
+        netWorthCents += localDeltaCents;
+      }
     }
 
-    if (!tx.date.isBefore(periodStart) &&
+    if (!isExcludedFromAnalytics &&
+        !tx.date.isBefore(periodStart) &&
         tx.date.isBefore(periodEndExclusive)) {
       if (isIncome) {
         incomeTotalCents += amountCents;
@@ -1636,6 +1648,9 @@ int _walletTransactionNetDeltaCents(
     wallets: wallets,
   );
   if (walletId == null || !walletsById.containsKey(walletId)) {
+    return 0;
+  }
+  if (walletsById[walletId]?.excludeFromAnalytics ?? false) {
     return 0;
   }
   final amountCents = _convertWalletAmountCents(

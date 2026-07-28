@@ -12,11 +12,13 @@ import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final mobileOutboxSupabaseClientProvider = Provider<SupabaseClient>(
@@ -221,6 +223,7 @@ Future<void> _dispatchMobileMutation(
       if (mutation.entityType == 'wallet') {
         await _reconcileSyncedWalletMutation(
           ref,
+          database,
           mutation,
           payload,
           responseBody,
@@ -324,10 +327,26 @@ Future<void> _dispatchMobileMutation(
 
 Future<void> _reconcileSyncedWalletMutation(
   Ref ref,
+  MonekoDatabase database,
   LocalMutationOutboxData mutation,
   Map<String, dynamic> payload,
   Map<String, dynamic> responseBody,
 ) async {
+  if (payload['functionName'] == 'create-wallet-transfer') {
+    final savedTransfer = _mapValue(responseBody['data']);
+    if (savedTransfer == null) {
+      throw StateError('Transfer sync succeeded without a saved transfer');
+    }
+    await database.replaceOptimisticWalletTransfer(
+      optimisticIds: walletTransferFeedEntryIds(mutation.entityId),
+      savedEntries: buildWalletTransferFeedEntries(
+        transferJson: savedTransfer,
+        fallbackUserId: ref.read(authProvider).uid,
+      ),
+      clientMutationId: mutation.clientMutationId,
+    );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  }
   final walletIds = _walletIdsForMutation(
     mutation,
     payload,
@@ -346,6 +365,14 @@ Future<void> _handleCancelledMobileMutation(
     return;
   }
   final payload = _decodePayload(mutation.payloadJson);
+  if (payload['functionName'] == 'create-wallet-transfer') {
+    await database.rollbackOptimisticWalletTransfer(
+      optimisticIds: walletTransferFeedEntryIds(mutation.entityId),
+      clientMutationId: mutation.clientMutationId,
+      error: mutation.lastError ?? 'Transfer sync failed',
+    );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  }
   await _clearWalletOptimisticState(
     ref,
     _walletIdsForMutation(mutation, payload),

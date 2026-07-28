@@ -24,6 +24,56 @@ extension SettlementBreakdownL10nX on AppLocalizations {
       'Balance from before detailed settlement history was available.';
 }
 
+extension HomeDashboardL10nX on AppLocalizations {
+  String get netCashflow => 'Net cashflow';
+}
+
+extension WalletAnalyticsL10nX on AppLocalizations {
+  String get excludeFromWalletAnalytics => 'Exclude from wallet analytics';
+  String get excludeFromWalletAnalyticsDescription =>
+      'Keep this wallet visible without including it in Wallets totals.';
+  String get excludeFromWalletAnalyticsDetails =>
+      'Excludes this wallet\'s balance, wallet-linked income and spending from the Wallets net worth total, monthly summary, history, and chart. The wallet, its balance, and its transactions remain visible in the wallet card and details. No data is hidden or deleted.';
+  String get excludedFromAnalytics => 'Excluded from analytics';
+}
+
+extension MonthlyReportHistoryL10nX on AppLocalizations {
+  String get monthlyReportReports => 'Reports';
+  String get monthlyReportPreviousPeriod => 'Previous period';
+  String get monthlyReportNextPeriod => 'Next period';
+  String get monthlyReportSelectPeriod => 'Select report period';
+  String get monthlyReportCurrentPeriod => 'Current period';
+  String get monthlyReportCompletedPeriod => 'Completed period';
+  String get monthlyReportCurrent => 'Current';
+  String get monthlyReportReturnToCurrent => 'Return to current period';
+  String get monthlyReportClosingBalance => 'Closing balance';
+  String get monthlyReportCompletedSafeSpendUnavailable =>
+      'Safe to spend only applies to the current period.';
+  String get monthlyReportCompletedRecurringUnavailable =>
+      'Recurring schedules show current commitments and are not part of a completed report.';
+
+  String monthlyReportCompletedSummary(
+    String status,
+    String netCashFlow,
+    String closingBalance,
+    String currencyCode,
+  ) =>
+      'This period finished $status, with $netCashFlow $currencyCode in net cash flow and a closing balance of $closingBalance $currencyCode.';
+}
+
+extension ImportRecurringL10nX on AppLocalizations {
+  String get importNotRecurringAction => 'Not recurring?';
+  String get importReleaseSeriesTitle => 'Import as separate transactions?';
+  String importReleaseSeriesDescription(int count) => count == 1
+      ? 'Moneko detected this transaction as recurring. Releasing it will import it as a regular transaction.'
+      : 'Moneko detected these $count transactions as a recurring series. Releasing them will import every occurrence as its own transaction.';
+  String importReleaseSeriesOverview(int count) =>
+      'Transactions in this series ($count)';
+  String importSeriesTransactionCount(int count) =>
+      count == 1 ? '1 transaction' : '$count transactions';
+  String get importReleaseSeriesConfirm => 'Release transactions';
+}
+
 extension PaywallCommitmentL10nX on AppLocalizations {
   String paywallCommitmentName(int months) => '$months-month commitment';
   String paywallCommitmentTerms(int months) =>

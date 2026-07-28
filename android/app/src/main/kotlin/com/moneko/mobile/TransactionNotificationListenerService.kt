@@ -23,7 +23,7 @@ import java.util.concurrent.Executors
  * Flow:
  * 1. Record every notification source in the recent-apps registry.
  * 2. For enabled packages, collect bounded visible notification text.
- * 3. Send financially plausible candidates to the backend AI classifier.
+ * 3. Send non-empty candidates to the backend AI classifier for semantic review.
  * 4. Local dedup prevents re-sending identical notification content.
  */
 class TransactionNotificationListenerService : NotificationListenerService() {
@@ -43,7 +43,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     /**
-     * Local dedup cache: SHA-256(packageName + title + text + amount) → timestamp.
+     * Local dedup cache: SHA-256(packageName + notification key + visible content) → timestamp.
      * Prevents sending the same notification twice within [DEDUP_WINDOW_MS].
      */
     private val recentHashes = ConcurrentHashMap<String, Long>()
@@ -73,19 +73,43 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         // Gate: this specific package must be enabled by the user
         if (!config.isPackageEnabled(packageName)) return
 
-        // Child notifications carry the actionable content. Group summaries are
-        // frequently reposted and can combine unrelated messages.
-        if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
-
         // Extract notification text
         val extras = sbn.notification?.extras ?: return
+        val isGroupSummary =
+            (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
         val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
         val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+        val summaryText = extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+        val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
+        val conversationTitle =
+            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()
+        val tickerText = sbn.notification?.tickerText?.toString()
         val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             ?.map(CharSequence::toString)
             ?: emptyList()
+        val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            ?.let(Notification.MessagingStyle.Message::getMessagesFromBundleArray)
+            ?.mapNotNull { message -> message.text?.toString() }
+            ?: emptyList()
+        val additionalText = extras.keySet()
+            .asSequence()
+            .filterNot { key -> key.startsWith("android.") }
+            .flatMap { key ->
+                when (val value = extras.get(key)) {
+                    is CharSequence -> sequenceOf(value.toString())
+                    is Array<*> -> value.asSequence()
+                        .filterIsInstance<CharSequence>()
+                        .map(CharSequence::toString)
+                    else -> emptySequence()
+                }
+            }
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .distinct()
+            .take(20)
+            .toList()
 
         // Must have at least some text to parse
         val content = NotificationCaptureCandidate.buildContent(
@@ -94,6 +118,12 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             bigText = bigText,
             subText = subText,
             textLines = textLines,
+            summaryText = summaryText,
+            infoText = infoText,
+            conversationTitle = conversationTitle,
+            tickerText = tickerText,
+            messages = messages,
+            additionalText = additionalText,
         )
         if (!NotificationCaptureCandidate.shouldAnalyze(content)) return
 
@@ -133,6 +163,13 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             bigText = bigText,
             subText = subText,
             textLines = textLines,
+            summaryText = summaryText,
+            infoText = infoText,
+            conversationTitle = conversationTitle,
+            tickerText = tickerText,
+            messages = messages,
+            additionalText = additionalText,
+            isGroupSummary = isGroupSummary,
         )
         val queued = config.enqueuePendingCapture(
             body,
@@ -263,6 +300,13 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         bigText: String?,
         subText: String?,
         textLines: List<String>,
+        summaryText: String?,
+        infoText: String?,
+        conversationTitle: String?,
+        tickerText: String?,
+        messages: List<String>,
+        additionalText: List<String>,
+        isGroupSummary: Boolean,
     ): JSONObject {
         val scopeId = config.scopeId
         val isPortfolio = config.isPortfolio
@@ -276,6 +320,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             put("notification", JSONObject().apply {
                 put("packageName", packageName)
                 put("sourceAppLabel", appLabel)
+                put("isGroupSummary", isGroupSummary)
                 if (!notificationKey.isNullOrBlank()) {
                     put("notificationKey", notificationKey)
                     put("externalSourceId", notificationKey)
@@ -290,8 +335,27 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 text?.takeIf { it.isNotBlank() }?.let { put("text", it.take(2_000)) }
                 bigText?.takeIf { it.isNotBlank() }?.let { put("bigText", it.take(2_000)) }
                 subText?.takeIf { it.isNotBlank() }?.let { put("subText", it.take(2_000)) }
+                summaryText?.takeIf { it.isNotBlank() }?.let {
+                    put("summaryText", it.take(2_000))
+                }
+                infoText?.takeIf { it.isNotBlank() }?.let { put("infoText", it.take(2_000)) }
+                conversationTitle?.takeIf { it.isNotBlank() }?.let {
+                    put("conversationTitle", it.take(2_000))
+                }
+                tickerText?.takeIf { it.isNotBlank() }?.let {
+                    put("tickerText", it.take(2_000))
+                }
                 if (textLines.isNotEmpty()) {
                     put("textLines", org.json.JSONArray(textLines.take(20).map { it.take(500) }))
+                }
+                if (messages.isNotEmpty()) {
+                    put("messages", org.json.JSONArray(messages.take(20).map { it.take(500) }))
+                }
+                if (additionalText.isNotEmpty()) {
+                    put(
+                        "additionalText",
+                        org.json.JSONArray(additionalText.take(20).map { it.take(500) }),
+                    )
                 }
             })
             if (scopeId != "personal") {

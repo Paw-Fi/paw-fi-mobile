@@ -22,7 +22,7 @@ Widget buildBudgetCard(
   final currency = selectedCurrency ?? 'USD';
   final displayText = _formatLocalizedCurrency(context, totalBudget, currency);
 
-  final title = _budgetTitleForFilter(context, filter);
+  final title = context.l10n.budget;
 
   return Material(
     color: colorScheme.surface.withValues(alpha: 0.0),
@@ -106,35 +106,4 @@ String _formatLocalizedCurrency(
   final symbol = resolveCurrencySymbol(currency);
   final localized = formatLocalizedNumber(context, normalized);
   return '$symbol$localized';
-}
-
-String _budgetTitleForFilter(BuildContext context, DateRangeFilter filter) {
-  final l10n = context.l10n;
-  switch (filter) {
-    case DateRangeFilter.today:
-      return l10n.todaysBudget;
-    case DateRangeFilter.yesterday:
-      return l10n.yesterdaysBudget;
-    case DateRangeFilter.thisWeek:
-      return l10n.sumOfDailyBudgetsThisWeek;
-    case DateRangeFilter.lastWeek:
-      return l10n.sumOfDailyBudgetsLastWeek;
-    case DateRangeFilter.last7Days:
-      return l10n.sumOfDailyBudgetsForSelectedRange;
-    case DateRangeFilter.thisMonth:
-      return l10n.sumOfDailyBudgetsThisMonth;
-    case DateRangeFilter.lastMonth:
-      return l10n.sumOfDailyBudgetsForSelectedRange;
-    case DateRangeFilter.last3Months:
-      return l10n.sumOfDailyBudgetsForSelectedRange;
-    case DateRangeFilter.last30Days:
-      return l10n.sumOfDailyBudgetsLast30Days;
-    case DateRangeFilter.thisYear:
-      return l10n.sumOfDailyBudgetsForSelectedRange;
-    case DateRangeFilter.allTime:
-      // Use generic label to avoid introducing new l10n keys per locale
-      return l10n.sumOfDailyBudgetsForSelectedRange;
-    case DateRangeFilter.custom:
-      return l10n.sumOfDailyBudgetsForSelectedRange;
-  }
 }

@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 
@@ -191,12 +192,10 @@ class _SpendingCardState extends State<SpendingCard> {
     }).toList();
 
     final allYValues = allCumulativeData.map((spot) => spot.y).toList();
-    final dataMaxY = allYValues.isEmpty
-        ? 0.0
-        : allYValues.reduce((a, b) => a > b ? a : b);
-    final dataMinY = allYValues.isEmpty
-        ? 0.0
-        : allYValues.reduce((a, b) => a < b ? a : b);
+    final dataMaxY =
+        allYValues.isEmpty ? 0.0 : allYValues.reduce((a, b) => a > b ? a : b);
+    final dataMinY =
+        allYValues.isEmpty ? 0.0 : allYValues.reduce((a, b) => a < b ? a : b);
     // Pad bounds so the line stays inside the chart area. Negative cumulative
     // values (e.g. from bank-synced refunds/income entries) are now supported.
     final minY = dataMinY < 0 ? (dataMinY * 1.2).floorToDouble() : 0.0;
@@ -242,7 +241,7 @@ class _SpendingCardState extends State<SpendingCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        widget.dateFilter.getSpentLabel(context).toUpperCase(),
+                        context.l10n.spent.toUpperCase(),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -521,6 +520,10 @@ class _SpendingCardState extends State<SpendingCard> {
                       minY: minY,
                       maxY: maxY,
                     ),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
                   );
                 },
               ),

@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -12,6 +13,7 @@ import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -26,6 +28,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 part '../widgets/monthly_report/monthly_report_metric_card.dart';
 part '../widgets/monthly_report/monthly_report_health_ring.dart';
@@ -60,11 +63,12 @@ enum MonthlyReportDetailKind {
 
 MonthlyReportQuery _defaultMonthlyReportQuery({
   int financialMonthStartDay = 1,
+  DateTime? now,
 }) {
-  final now = DateTime.now();
+  final effectiveDate = now ?? DateTime.now();
   return MonthlyReportQuery(
     monthStart: financialCycleStartForDate(
-      now,
+      effectiveDate,
       startDay: financialMonthStartDay,
     ),
     financialMonthStartDay: financialMonthStartDay,
@@ -166,15 +170,41 @@ class MonthlyReportPage extends HookConsumerWidget {
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final now = effectiveNow(preferredTimezone: preferredTimezone);
-    final initialMonthStart = initialQuery?.monthStart ??
-        _defaultMonthlyReportQuery(
-          financialMonthStartDay: financialMonthStartDay,
-        ).monthStart;
-    final query = MonthlyReportQuery(
+    final currentMonthQuery = _defaultMonthlyReportQuery(
+      financialMonthStartDay: financialMonthStartDay,
+      now: now,
+    );
+    final currentQuery = MonthlyReportQuery(
+      monthStart: currentMonthQuery.monthStart,
+      financialMonthStartDay: financialMonthStartDay,
+      range: initialQuery?.range ?? MonthlyReportRange.month,
+    );
+    final initialMonthStart =
+        initialQuery?.monthStart ?? currentQuery.monthStart;
+    final seededQuery = MonthlyReportQuery(
       monthStart: initialMonthStart,
       range: initialQuery?.range ?? MonthlyReportRange.month,
       financialMonthStartDay: financialMonthStartDay,
     ).normalized(financialMonthStartDay: financialMonthStartDay);
+    final queryState = useState(seededQuery);
+    final navigationDirection = useState(0);
+    final query = queryState.value;
+    final reportCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrencies = ref.watch(
+      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
+    );
+    final locale = ref.watch(localeProvider);
+    final householdScope = ref.watch(householdScopeProvider);
+    final reportViewKey = Object.hash(
+      query,
+      reportCurrency,
+      selectedCurrencies?.join(','),
+      locale?.toLanguageTag(),
+      householdScope.activeAccountType,
+      householdScope.activeAccountHouseholdId,
+      householdScope.selectedHouseholdId,
+      preferredTimezone,
+    );
     final reportProvider = monthlyFinancialReportProvider(query);
     final reportAsync = ref.watch(reportProvider);
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
@@ -182,7 +212,28 @@ class MonthlyReportPage extends HookConsumerWidget {
         hasPremiumFeatureAccess(subscriptionAsync.valueOrNull);
     final loadedSnapshot = reportAsync.valueOrNull;
     final visibleSnapshot = useState<MonthlyFinancialReportSnapshot?>(null);
+    final visibleSnapshotKey = useState<int?>(null);
     final isCompletingInitialLoad = useState(false);
+
+    useEffect(() {
+      final normalized = queryState.value.normalized(
+        financialMonthStartDay: financialMonthStartDay,
+      );
+      if (normalized != queryState.value) {
+        queryState.value = normalized;
+      }
+      return null;
+    }, [financialMonthStartDay]);
+
+    useEffect(() {
+      if (visibleSnapshotKey.value != null &&
+          visibleSnapshotKey.value != reportViewKey) {
+        visibleSnapshot.value = null;
+        visibleSnapshotKey.value = null;
+        isCompletingInitialLoad.value = false;
+      }
+      return null;
+    }, [reportViewKey]);
 
     useEffect(() {
       if (loadedSnapshot == null) {
@@ -199,28 +250,68 @@ class MonthlyReportPage extends HookConsumerWidget {
 
       if (!identical(visibleSnapshot.value, loadedSnapshot)) {
         visibleSnapshot.value = loadedSnapshot;
+        visibleSnapshotKey.value = reportViewKey;
       }
 
       return null;
-    }, [loadedSnapshot]);
+    }, [loadedSnapshot, reportViewKey]);
 
-    final snapshot = visibleSnapshot.value;
+    final snapshot = visibleSnapshotKey.value == reportViewKey
+        ? visibleSnapshot.value
+        : null;
+    final animationsDisabled = MediaQuery.disableAnimationsOf(context);
+
+    void selectQuery(MonthlyReportQuery nextQuery) {
+      final normalized = nextQuery.normalized(
+        financialMonthStartDay: financialMonthStartDay,
+      );
+      navigationDirection.value = normalized.monthStart.compareTo(
+        query.monthStart,
+      );
+      queryState.value = normalized;
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
+        duration: animationsDisabled
+            ? Duration.zero
+            : const Duration(milliseconds: 250),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final horizontalOffset = navigationDirection.value == 0
+              ? 0.0
+              : navigationDirection.value < 0
+                  ? -0.04
+                  : 0.04;
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset(horizontalOffset, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
         child: snapshot != null && !isCompletingInitialLoad.value
-            ? _buildReportContent(
-                context,
-                ref,
-                colorScheme,
-                snapshot,
-                query,
-                canOpenReportDetails,
-                now,
+            ? KeyedSubtree(
+                key: ValueKey(
+                  'monthly_report_${query.monthKey}_${query.range.key}',
+                ),
+                child: _buildReportContent(
+                  context,
+                  ref,
+                  colorScheme,
+                  snapshot,
+                  query,
+                  currentQuery,
+                  canOpenReportDetails,
+                  now,
+                  selectQuery,
+                ),
               )
             : reportAsync.hasError && loadedSnapshot == null
                 ? _buildErrorState(context, colorScheme, reportAsync.error!)
@@ -231,6 +322,7 @@ class MonthlyReportPage extends HookConsumerWidget {
                       final completedSnapshot = loadedSnapshot;
                       if (!context.mounted || completedSnapshot == null) return;
                       visibleSnapshot.value = completedSnapshot;
+                      visibleSnapshotKey.value = reportViewKey;
                       isCompletingInitialLoad.value = false;
                     },
                   ),
@@ -244,15 +336,13 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReportSnapshot snapshot,
     MonthlyReportQuery query,
+    MonthlyReportQuery currentQuery,
     bool canOpenReportDetails,
     DateTime now,
+    ValueChanged<MonthlyReportQuery> onQueryChanged,
   ) {
     final report = snapshot.report;
-    final periodLabels = monthlyReportDateRangeLabels(
-      MaterialLocalizations.of(context),
-      query,
-      now: now,
-    );
+    final isCompletedPeriod = isMonthlyReportPeriodCompleted(query, now: now);
 
     return RefreshIndicator(
       onRefresh: () => ref
@@ -275,10 +365,22 @@ class MonthlyReportPage extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MonthlyReportPageTitle(
-                  title: periodLabels.title,
-                  year: periodLabels.year,
-                  colorScheme: colorScheme,
+                MonthlyReportPeriodNavigator(
+                  query: query,
+                  currentQuery: currentQuery,
+                  now: now,
+                  onPrevious: () =>
+                      onQueryChanged(shiftMonthlyReportQuery(query, -1)),
+                  onNext: () =>
+                      onQueryChanged(shiftMonthlyReportQuery(query, 1)),
+                  onSelectPeriod: () => _showReportArchive(
+                    context,
+                    selectedQuery: query,
+                    currentQuery: currentQuery,
+                    now: now,
+                    onSelected: onQueryChanged,
+                  ),
+                  onReturnToCurrent: () => onQueryChanged(currentQuery),
                   trailing: _MonthlyReportSyncStatus(
                     colorScheme: colorScheme,
                     lastSyncedAt: snapshot.lastSyncedAt,
@@ -292,6 +394,7 @@ class MonthlyReportPage extends HookConsumerWidget {
                   report,
                   query,
                   canOpenReportDetails,
+                  isCompletedPeriod,
                 ),
                 const SizedBox(height: 12),
                 _buildSummaryMetricGrid(
@@ -300,6 +403,7 @@ class MonthlyReportPage extends HookConsumerWidget {
                   report,
                   query,
                   canOpenReportDetails,
+                  isCompletedPeriod,
                 ),
                 const SizedBox(height: 16),
                 _MonthlyReportSectionTitle(
@@ -318,6 +422,7 @@ class MonthlyReportPage extends HookConsumerWidget {
                   report,
                   query,
                   canOpenReportDetails,
+                  isCompletedPeriod,
                 ),
                 const SizedBox(height: 15),
                 _MonthlyReportSectionTitle(
@@ -337,28 +442,55 @@ class MonthlyReportPage extends HookConsumerWidget {
                   query,
                   canOpenReportDetails,
                 ),
-                const SizedBox(height: 16),
-                _MonthlyReportSectionTitle(
-                  title: context.l10n.upcomingBills,
-                  actionLabel: "",
-                  onActionTap: () => _openReportDetail(
-                    context,
-                    canOpenReportDetails,
-                    _monthlyReportRoute(_monthlyReportRecurringRoute, query),
+                if (!isCompletedPeriod) ...[
+                  const SizedBox(height: 16),
+                  _MonthlyReportSectionTitle(
+                    title: context.l10n.upcomingBills,
+                    actionLabel: "",
+                    onActionTap: () => _openReportDetail(
+                      context,
+                      canOpenReportDetails,
+                      _monthlyReportRoute(_monthlyReportRecurringRoute, query),
+                    ),
+                    colorScheme: colorScheme,
                   ),
-                  colorScheme: colorScheme,
-                ),
-                _buildUpcomingPreview(
-                  context,
-                  colorScheme,
-                  report,
-                  query,
-                  canOpenReportDetails,
-                ),
+                  _buildUpcomingPreview(
+                    context,
+                    colorScheme,
+                    report,
+                    query,
+                    canOpenReportDetails,
+                  ),
+                ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showReportArchive(
+    BuildContext context, {
+    required MonthlyReportQuery selectedQuery,
+    required MonthlyReportQuery currentQuery,
+    required DateTime now,
+    required ValueChanged<MonthlyReportQuery> onSelected,
+  }) {
+    return MonekoBottomSheet.show<void>(
+      context: context,
+      isScrollControlled: true,
+      title: context.l10n.monthlyReportReports,
+      onClose: () => Navigator.of(context).pop(),
+      builder: (sheetContext) => MonthlyReportArchiveSheet(
+        queries: monthlyReportArchiveQueries(currentQuery: currentQuery),
+        selectedQuery: selectedQuery,
+        currentQuery: currentQuery,
+        now: now,
+        onSelected: (query) {
+          Navigator.of(sheetContext).pop();
+          onSelected(query);
+        },
       ),
     );
   }
@@ -369,16 +501,28 @@ class MonthlyReportPage extends HookConsumerWidget {
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
     bool canOpenReportDetails,
+    bool isCompletedPeriod,
   ) {
-    final rings = _buildHealthRingMetrics(context, colorScheme, report);
+    final rings = _buildHealthRingMetrics(
+      context,
+      colorScheme,
+      report,
+      isCompletedPeriod: isCompletedPeriod,
+    );
     final netWorth = report.netWorthTrend;
-    final caption = netWorth == null
-        ? '${context.l10n.forecast} ${formatCurrency(report.overview.forecastedBalance, report.currencyCode)}'
-        : '${_formatSignedCurrency(netWorth.change, report.currencyCode)} ${context.l10n.fromLastSnapshot}';
+    final caption = isCompletedPeriod
+        ? netWorth == null
+            ? '${context.l10n.netCashFlow}: ${_formatSignedCurrency(report.trendSummary.netCashFlow, report.currencyCode)}'
+            : '${_formatSignedCurrency(netWorth.change, report.currencyCode)} ${context.l10n.fromLastSnapshot}'
+        : netWorth == null
+            ? '${context.l10n.forecast} ${formatCurrency(report.overview.forecastedBalance, report.currencyCode)}'
+            : '${_formatSignedCurrency(netWorth.change, report.currencyCode)} ${context.l10n.fromLastSnapshot}';
 
     return _MonthlyReportHeroCard(
       colorScheme: colorScheme,
-      label: context.l10n.financialHealth,
+      label: isCompletedPeriod
+          ? context.l10n.monthlyReportClosingBalance
+          : context.l10n.financialHealth,
       title: _shortHealthHeadline(context, report.overview.status),
       value: formatCurrency(
         report.overview.currentBalance,
@@ -406,6 +550,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
     bool canOpenReportDetails,
+    bool isCompletedPeriod,
   ) {
     final budgetProgress = _budgetUsedProgress(report);
     final spendingCaption = report.trendSummary.spendingChange == 0
@@ -414,25 +559,48 @@ class MonthlyReportPage extends HookConsumerWidget {
             report.trendSummary.spendingChange, report.currencyCode));
 
     final items = [
-      _MonthlyMetricSpec(
-        label: context.l10n.safeToSpend,
-        value: context.l10n.perDay(formatCurrency(
-            report.safeToSpend.dailyAmount, report.currencyCode)),
-        caption: context.l10n.daysLeft(report.safeToSpend.daysRemaining),
-        accent: colorScheme.success,
-        icon: Icons.wallet_rounded,
-        route: _monthlyReportSafeSpendRoute,
-        visual: _MonthlyReportMiniBarChart(
-          colorScheme: colorScheme,
-          values: [
-            report.safeToSpend.futureIncome,
-            report.safeToSpend.budgetRemaining,
-            report.overview.forecastedBalance,
-            report.safeToSpend.dailyAmount * report.safeToSpend.daysRemaining,
-          ],
+      if (isCompletedPeriod)
+        _MonthlyMetricSpec(
+          label: context.l10n.income,
+          value: formatCurrency(report.overview.income, report.currencyCode),
+          caption: context.l10n.vsLastMonth(_formatSignedCurrency(
+            report.trendSummary.incomeChange,
+            report.currencyCode,
+          )),
+          accent: report.trendSummary.incomeChange >= 0
+              ? colorScheme.success
+              : colorScheme.warning,
+          icon: Icons.arrow_downward_rounded,
+          route: _monthlyReportSavingsRoute,
+          visual: _MonthlyReportMiniBarChart(
+            colorScheme: colorScheme,
+            values: [
+              report.trendSummary.previousIncome,
+              report.trendSummary.currentIncome,
+            ],
+            accent: colorScheme.success,
+          ),
+        )
+      else
+        _MonthlyMetricSpec(
+          label: context.l10n.safeToSpend,
+          value: context.l10n.perDay(formatCurrency(
+              report.safeToSpend.dailyAmount, report.currencyCode)),
+          caption: context.l10n.daysLeft(report.safeToSpend.daysRemaining),
           accent: colorScheme.success,
+          icon: Icons.wallet_rounded,
+          route: _monthlyReportSafeSpendRoute,
+          visual: _MonthlyReportMiniBarChart(
+            colorScheme: colorScheme,
+            values: [
+              report.safeToSpend.futureIncome,
+              report.safeToSpend.budgetRemaining,
+              report.overview.forecastedBalance,
+              report.safeToSpend.dailyAmount * report.safeToSpend.daysRemaining,
+            ],
+            accent: colorScheme.success,
+          ),
         ),
-      ),
       _MonthlyMetricSpec(
         label: context.l10n.spending,
         value: formatCurrency(report.overview.spending, report.currencyCode),
@@ -524,9 +692,14 @@ class MonthlyReportPage extends HookConsumerWidget {
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
     bool canOpenReportDetails,
+    bool isCompletedPeriod,
   ) {
-    final highlights =
-        _buildHighlightItems(context, colorScheme, report).take(3).toList();
+    final highlights = _buildHighlightItems(
+      context,
+      colorScheme,
+      report,
+      isCompletedPeriod: isCompletedPeriod,
+    ).take(3).toList();
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
@@ -723,8 +896,9 @@ class MonthlyReportPage extends HookConsumerWidget {
   List<_MonthlyHighlightItem> _buildHighlightItems(
     BuildContext context,
     ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
+    MonthlyFinancialReport report, {
+    required bool isCompletedPeriod,
+  }) {
     final items = <_MonthlyHighlightItem>[];
 
     if (report.anomalies.isNotEmpty) {
@@ -766,15 +940,22 @@ class MonthlyReportPage extends HookConsumerWidget {
       items.add(
         _MonthlyHighlightItem(
           title: _shortHealthHeadline(context, report.overview.status),
-          label: _paceStatus(context, report),
+          label: isCompletedPeriod
+              ? _shortInsightCopy(report.summary)
+              : _paceStatus(context, report),
           status: report.overview.status,
           icon: Icons.favorite_rounded,
           route: _monthlyReportBalanceRoute,
           chart: _MonthlyReportSparkline(
             colorScheme: colorScheme,
-            values: report.cashFlowForecast
-                .map((point) => point.balance)
-                .toList(growable: false),
+            values: isCompletedPeriod
+                ? [
+                    report.trendSummary.previousSpending,
+                    report.trendSummary.currentSpending,
+                  ]
+                : report.cashFlowForecast
+                    .map((point) => point.balance)
+                    .toList(growable: false),
             accent: _statusColor(report.overview.status, colorScheme),
           ),
         ),
@@ -891,13 +1072,61 @@ class MonthlyReportPage extends HookConsumerWidget {
   List<_HealthRingMetric> _buildHealthRingMetrics(
     BuildContext context,
     ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
+    MonthlyFinancialReport report, {
+    required bool isCompletedPeriod,
+  }) {
     final budgetPaceProgress = _budgetPaceProgress(report);
+    final vibrantPalette = _vibrantRingPalette(colorScheme);
+
+    if (isCompletedPeriod) {
+      final previousIncome = report.trendSummary.previousIncome;
+      final incomeProgress = previousIncome <= 0
+          ? (report.overview.income > 0 ? 1.0 : 0.0)
+          : (report.overview.income / previousIncome).clamp(0.0, 1.0);
+      final savingsRate = report.trendSummary.savingsRate;
+      final netCashFlow = report.trendSummary.netCashFlow;
+      return [
+        _HealthRingMetric(
+          label: context.l10n.income,
+          value: formatCurrency(report.overview.income, report.currencyCode),
+          status: context.l10n.vsLastMonth(_formatSignedCurrency(
+            report.trendSummary.incomeChange,
+            report.currencyCode,
+          )),
+          progress: incomeProgress,
+          color: vibrantPalette[0],
+          icon: Icons.arrow_downward_rounded,
+        ),
+        _HealthRingMetric(
+          label: context.l10n.budget,
+          value: _formatPercent(_budgetUsedProgress(report)),
+          status: _paceStatus(context, report),
+          progress: budgetPaceProgress,
+          color: vibrantPalette[1],
+          icon: Icons.track_changes_rounded,
+        ),
+        _HealthRingMetric(
+          label: context.l10n.savingsRate,
+          value: _formatPercent(savingsRate),
+          status: formatCurrency(report.overview.savings, report.currencyCode),
+          progress: savingsRate.clamp(0.0, 1.0),
+          color: savingsRate >= 0 ? vibrantPalette[2] : colorScheme.destructive,
+          icon: Icons.savings_rounded,
+        ),
+        _HealthRingMetric(
+          label: context.l10n.netCashFlow,
+          value: _formatSignedCurrency(netCashFlow, report.currencyCode),
+          status: _localizedStatusLabel(context, report.overview.status),
+          progress: netCashFlow > 0 ? 1 : 0.08,
+          color: netCashFlow >= 0 ? vibrantPalette[3] : colorScheme.destructive,
+          icon: Icons.swap_vert_rounded,
+        ),
+      ];
+    }
+
     final billsCoveredProgress = _billsCoveredProgress(report);
     final savingsBufferProgress = _savingsBufferProgress(report);
     final forecastIsPositive = report.overview.forecastedBalance >= 0;
-    final vibrantPalette = _vibrantRingPalette(colorScheme);
 
     return [
       _HealthRingMetric(
@@ -1146,6 +1375,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final effectiveQuery = (query ??
             _defaultMonthlyReportQuery(
               financialMonthStartDay: financialMonthStartDay,
@@ -1154,6 +1384,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     final reportAsync =
         ref.watch(monthlyFinancialReportProvider(effectiveQuery));
     final snapshot = reportAsync.valueOrNull;
+    final now = effectiveNow(preferredTimezone: preferredTimezone);
+    final isCompletedPeriod =
+        isMonthlyReportPeriodCompleted(effectiveQuery, now: now);
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
@@ -1197,6 +1430,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                     colorScheme,
                     snapshot.report,
                     effectiveQuery,
+                    isCompletedPeriod,
                   ),
                 ),
         ),
@@ -1209,10 +1443,34 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool isCompletedPeriod,
   ) {
+    if (isCompletedPeriod && kind == MonthlyReportDetailKind.safeSpend) {
+      return _buildCompletedUnavailable(
+        context,
+        colorScheme,
+        context.l10n.safeToSpend,
+        context.l10n.monthlyReportCompletedSafeSpendUnavailable,
+      );
+    }
+    if (isCompletedPeriod && kind == MonthlyReportDetailKind.recurring) {
+      return _buildCompletedUnavailable(
+        context,
+        colorScheme,
+        context.l10n.recurring,
+        context.l10n.monthlyReportCompletedRecurringUnavailable,
+      );
+    }
+
     switch (kind) {
       case MonthlyReportDetailKind.balance:
-        return _buildBalanceDetail(context, colorScheme, report, query);
+        return _buildBalanceDetail(
+          context,
+          colorScheme,
+          report,
+          query,
+          isCompletedPeriod,
+        );
       case MonthlyReportDetailKind.safeSpend:
         return _buildSafeSpendDetail(context, colorScheme, report, query);
       case MonthlyReportDetailKind.spending:
@@ -1225,7 +1483,13 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       case MonthlyReportDetailKind.budget:
         return _buildBudgetDetail(context, colorScheme, report, query);
       case MonthlyReportDetailKind.savings:
-        return _buildSavingsDetail(context, colorScheme, report, query);
+        return _buildSavingsDetail(
+          context,
+          colorScheme,
+          report,
+          query,
+          isCompletedPeriod,
+        );
       case MonthlyReportDetailKind.categories:
         return _buildCategoryDetail(context, colorScheme, report, query);
       case MonthlyReportDetailKind.recurring:
@@ -1233,13 +1497,35 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     }
   }
 
+  Widget _buildCompletedUnavailable(
+    BuildContext context,
+    ColorScheme colorScheme,
+    String title,
+    String body,
+  ) {
+    return _MonthlyReportAdviceCard(
+      colorScheme: colorScheme,
+      label: context.l10n.monthlyReportCompletedPeriod,
+      title: title,
+      body: body,
+      accent: colorScheme.info,
+      icon: Icons.history_rounded,
+    );
+  }
+
   Widget _buildBalanceDetail(
     BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool isCompletedPeriod,
   ) {
-    final rings = _buildDetailHealthRingMetrics(context, colorScheme, report);
+    final rings = _buildDetailHealthRingMetrics(
+      context,
+      colorScheme,
+      report,
+      isCompletedPeriod: isCompletedPeriod,
+    );
     final statusColor = _detailStatusColor(report.overview.status, colorScheme);
     final watchFirst = [...rings]
       ..sort((a, b) => a.progress.compareTo(b.progress));
@@ -1249,7 +1535,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          status: context.l10n.financialHealth,
+          status: isCompletedPeriod
+              ? context.l10n.monthlyReportClosingBalance
+              : context.l10n.financialHealth,
           title: _detailHealthHeadline(context, report.overview.status),
           value: formatCurrency(
             report.overview.currentBalance,
@@ -1355,93 +1643,95 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 12),
-        _MonthlyReportSectionTitle(
-          title: context.l10n.cashFlow,
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(height: 12),
-        _MonthlyReportPreviewCard(
-          colorScheme: colorScheme,
-          children: [
-            _MonthlyReportStaticRow(
-              colorScheme: colorScheme,
-              title: context.l10n.currentBalance,
-              value: formatCurrency(
-                report.overview.currentBalance,
-                report.currencyCode,
-              ),
-              subtitle: context.l10n.forecastAmount(
-                formatCurrency(
-                  report.overview.forecastedBalance,
-                  report.currencyCode,
-                ),
-              ),
-              accent: statusColor,
-              visual: _MonthlyReportSparkline(
-                colorScheme: colorScheme,
-                values: report.cashFlowForecast
-                    .map((point) => point.balance)
-                    .toList(growable: false),
-                accent: statusColor,
-                height: 44,
-              ),
-            ),
-            if (report.netWorthTrend != null)
+        if (!isCompletedPeriod) ...[
+          const SizedBox(height: 12),
+          _MonthlyReportSectionTitle(
+            title: context.l10n.cashFlow,
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 12),
+          _MonthlyReportPreviewCard(
+            colorScheme: colorScheme,
+            children: [
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: context.l10n.netWorth,
+                title: context.l10n.currentBalance,
                 value: formatCurrency(
-                  report.netWorthTrend!.currentNetWorth,
+                  report.overview.currentBalance,
                   report.currencyCode,
                 ),
-                subtitle: context.l10n.amountFromLastSnapshot(
-                  _detailSignedCurrency(
-                    report.netWorthTrend!.change,
+                subtitle: context.l10n.forecastAmount(
+                  formatCurrency(
+                    report.overview.forecastedBalance,
                     report.currencyCode,
                   ),
                 ),
-                accent: report.netWorthTrend!.change >= 0
+                accent: statusColor,
+                visual: _MonthlyReportSparkline(
+                  colorScheme: colorScheme,
+                  values: report.cashFlowForecast
+                      .map((point) => point.balance)
+                      .toList(growable: false),
+                  accent: statusColor,
+                  height: 44,
+                ),
+              ),
+              if (report.netWorthTrend != null)
+                _MonthlyReportStaticRow(
+                  colorScheme: colorScheme,
+                  title: context.l10n.netWorth,
+                  value: formatCurrency(
+                    report.netWorthTrend!.currentNetWorth,
+                    report.currencyCode,
+                  ),
+                  subtitle: context.l10n.amountFromLastSnapshot(
+                    _detailSignedCurrency(
+                      report.netWorthTrend!.change,
+                      report.currencyCode,
+                    ),
+                  ),
+                  accent: report.netWorthTrend!.change >= 0
+                      ? colorScheme.success
+                      : colorScheme.warning,
+                ),
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: context.l10n.lowWater,
+                value: formatCurrency(
+                  report.cashFlowHealth.lowWaterBalance,
+                  report.currencyCode,
+                ),
+                subtitle: report.cashFlowHealth.lowWaterDate == null
+                    ? context.l10n.noProjectedLowDate
+                    : _detailShortDate(
+                        context,
+                        report.cashFlowHealth.lowWaterDate!,
+                      ),
+                accent: report.cashFlowHealth.lowWaterBalance < 0
+                    ? colorScheme.destructive
+                    : colorScheme.success,
+              ),
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: context.l10n.firstShortfall,
+                value: report.cashFlowHealth.firstNegativeDate == null
+                    ? context.l10n.none
+                    : _detailShortDate(
+                        context,
+                        report.cashFlowHealth.firstNegativeDate!,
+                      ),
+                subtitle: report.cashFlowHealth.firstNegativeDate == null
+                    ? context.l10n.billsAppearCovered
+                    : context.l10n.balanceMayGoNegative,
+                accent: report.cashFlowHealth.firstNegativeDate == null
                     ? colorScheme.success
-                    : colorScheme.warning,
+                    : colorScheme.destructive,
               ),
-            _MonthlyReportStaticRow(
-              colorScheme: colorScheme,
-              title: context.l10n.lowWater,
-              value: formatCurrency(
-                report.cashFlowHealth.lowWaterBalance,
-                report.currencyCode,
-              ),
-              subtitle: report.cashFlowHealth.lowWaterDate == null
-                  ? context.l10n.noProjectedLowDate
-                  : _detailShortDate(
-                      context,
-                      report.cashFlowHealth.lowWaterDate!,
-                    ),
-              accent: report.cashFlowHealth.lowWaterBalance < 0
-                  ? colorScheme.destructive
-                  : colorScheme.success,
-            ),
-            _MonthlyReportStaticRow(
-              colorScheme: colorScheme,
-              title: context.l10n.firstShortfall,
-              value: report.cashFlowHealth.firstNegativeDate == null
-                  ? context.l10n.none
-                  : _detailShortDate(
-                      context,
-                      report.cashFlowHealth.firstNegativeDate!,
-                    ),
-              subtitle: report.cashFlowHealth.firstNegativeDate == null
-                  ? context.l10n.billsAppearCovered
-                  : context.l10n.balanceMayGoNegative,
-              accent: report.cashFlowHealth.firstNegativeDate == null
-                  ? colorScheme.success
-                  : colorScheme.destructive,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildForecastTimeline(context, colorScheme, report, query),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildForecastTimeline(context, colorScheme, report, query),
+        ],
         const SizedBox(height: 12),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
@@ -1917,6 +2207,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
     MonthlyReportQuery query,
+    bool isCompletedPeriod,
   ) {
     final savingsRateProgress = _detailSavingsRateProgress(report);
     final accent = report.overview.savings >= 0
@@ -1951,8 +2242,10 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               : context.l10n.usingYourBufferThisMonth,
           body: report.overview.savings >= 0
               ? context.l10n.savingsBody
-              : context.l10n
-                  .negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst,
+              : isCompletedPeriod
+                  ? report.summary
+                  : context.l10n
+                      .negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst,
           accent: accent,
           icon: Icons.savings_rounded,
           visual: _MonthlyReportMiniBarChart(
@@ -1988,15 +2281,24 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: context.l10n.monthEndBuffer,
+              title: isCompletedPeriod
+                  ? context.l10n.monthlyReportClosingBalance
+                  : context.l10n.monthEndBuffer,
               value: formatCurrency(
-                report.overview.forecastedBalance,
+                isCompletedPeriod
+                    ? report.overview.currentBalance
+                    : report.overview.forecastedBalance,
                 report.currencyCode,
               ),
-              subtitle: report.overview.forecastedBalance >= 0
-                  ? context.l10n.positiveForecast
-                  : context.l10n.negativeForecast,
-              accent: report.overview.forecastedBalance >= 0
+              subtitle: isCompletedPeriod
+                  ? _localizedStatusLabel(context, report.overview.status)
+                  : report.overview.forecastedBalance >= 0
+                      ? context.l10n.positiveForecast
+                      : context.l10n.negativeForecast,
+              accent: (isCompletedPeriod
+                          ? report.overview.currentBalance
+                          : report.overview.forecastedBalance) >=
+                      0
                   ? colorScheme.success
                   : colorScheme.destructive,
             ),
@@ -2750,59 +3052,302 @@ String? _monthlyReportHouseholdId(HouseholdScope scope) {
   }
 }
 
-class _MonthlyReportPageTitle extends StatelessWidget {
-  const _MonthlyReportPageTitle({
-    required this.title,
-    required this.year,
-    required this.colorScheme,
+class MonthlyReportPeriodNavigator extends StatelessWidget {
+  const MonthlyReportPeriodNavigator({
+    super.key,
+    required this.query,
+    required this.currentQuery,
+    required this.now,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onSelectPeriod,
+    this.onReturnToCurrent,
     this.trailing,
   });
 
-  final String title;
-  final String year;
-  final ColorScheme colorScheme;
+  final MonthlyReportQuery query;
+  final MonthlyReportQuery currentQuery;
+  final DateTime now;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final VoidCallback onSelectPeriod;
+  final VoidCallback? onReturnToCurrent;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: _monthlyReportPageTitleFontSize,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.8,
+    final colorScheme = Theme.of(context).colorScheme;
+    final labels = monthlyReportDateRangeLabels(
+      MaterialLocalizations.of(context),
+      query,
+      now: now,
+    );
+    final isCurrent = query.normalized() == currentQuery.normalized();
+    final status = isMonthlyReportPeriodCompleted(query, now: now)
+        ? context.l10n.monthlyReportCompletedPeriod
+        : context.l10n.monthlyReportCurrentPeriod;
+
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            IconButton(
+              tooltip: context.l10n.monthlyReportPreviousPeriod,
+              onPressed: onPrevious,
+              icon: const Icon(Icons.chevron_left_rounded),
               color: colorScheme.foreground,
-              height: 1.05,
             ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                Text(
-                  year,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.mutedForeground,
-                    height: 1.2,
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: context.l10n.monthlyReportSelectPeriod,
+                child: InkWell(
+                  onTap: onSelectPeriod,
+                  borderRadius: BorderRadius.circular(14),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          labels.title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: _monthlyReportPageTitleFontSize,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.8,
+                            color: colorScheme.foreground,
+                            height: 1.05,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          labels.year,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                if (trailing != null) trailing!,
-              ],
+              ),
             ),
+            IconButton(
+              tooltip: context.l10n.monthlyReportNextPeriod,
+              onPressed: isCurrent ? null : onNext,
+              icon: const Icon(Icons.chevron_right_rounded),
+              color: colorScheme.foreground,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    status,
+                    style: TextStyle(
+                      color: colorScheme.mutedForeground,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (!isCurrent && onReturnToCurrent != null)
+                    InkWell(
+                      onTap: onReturnToCurrent,
+                      borderRadius: BorderRadius.circular(8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: 1,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              context.l10n.monthlyReportReturnToCurrent,
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class MonthlyReportArchiveSheet extends StatelessWidget {
+  const MonthlyReportArchiveSheet({
+    super.key,
+    required this.queries,
+    required this.selectedQuery,
+    required this.currentQuery,
+    required this.now,
+    required this.onSelected,
+  });
+
+  final List<MonthlyReportQuery> queries;
+  final MonthlyReportQuery selectedQuery;
+  final MonthlyReportQuery currentQuery;
+  final DateTime now;
+  final ValueChanged<MonthlyReportQuery> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final localizations = MaterialLocalizations.of(context);
+
+    return ListView(
+      shrinkWrap: true,
+      padding: EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        16 + MediaQuery.paddingOf(context).bottom,
+      ),
+      children: [
+        for (var index = 0; index < queries.length; index++) ...[
+          if (index == 0 ||
+              monthlyReportDateRangeLabels(
+                    localizations,
+                    queries[index - 1],
+                    now: now,
+                  ).year !=
+                  monthlyReportDateRangeLabels(
+                    localizations,
+                    queries[index],
+                    now: now,
+                  ).year) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+              child: Text(
+                monthlyReportDateRangeLabels(
+                  localizations,
+                  queries[index],
+                  now: now,
+                ).year,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+          _MonthlyReportArchiveRow(
+            label: monthlyReportDateRangeLabels(
+              localizations,
+              queries[index],
+              now: now,
+            ).title,
+            isCurrent: queries[index].normalized() == currentQuery.normalized(),
+            isSelected:
+                queries[index].normalized() == selectedQuery.normalized(),
+            colorScheme: colorScheme,
+            onTap: () => onSelected(queries[index]),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _MonthlyReportArchiveRow extends StatelessWidget {
+  const _MonthlyReportArchiveRow({
+    required this.label,
+    required this.isCurrent,
+    required this.isSelected,
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isCurrent;
+  final bool isSelected;
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.1)
+                : colorScheme.surface.withValues(alpha: 0),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? colorScheme.primary : colorScheme.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (isCurrent) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    context.l10n.monthlyReportCurrent,
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+              if (isSelected) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.check_rounded,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -4171,13 +4716,61 @@ MonthlySpendingPaceItem? _detailFindPaceItem(
 List<_HealthRingMetric> _buildDetailHealthRingMetrics(
   BuildContext context,
   ColorScheme colorScheme,
-  MonthlyFinancialReport report,
-) {
+  MonthlyFinancialReport report, {
+  required bool isCompletedPeriod,
+}) {
   final budgetPaceProgress = _detailBudgetPaceProgress(report);
+  final vibrantPalette = _detailVibrantRingPalette(colorScheme);
+
+  if (isCompletedPeriod) {
+    final previousIncome = report.trendSummary.previousIncome;
+    final incomeProgress = previousIncome <= 0
+        ? (report.overview.income > 0 ? 1.0 : 0.0)
+        : (report.overview.income / previousIncome).clamp(0.0, 1.0);
+    final savingsRate = report.trendSummary.savingsRate;
+    final netCashFlow = report.trendSummary.netCashFlow;
+    return [
+      _HealthRingMetric(
+        label: context.l10n.income,
+        value: formatCurrency(report.overview.income, report.currencyCode),
+        status: context.l10n.vsLastMonth(_detailSignedCurrency(
+          report.trendSummary.incomeChange,
+          report.currencyCode,
+        )),
+        progress: incomeProgress,
+        color: vibrantPalette[0],
+        icon: Icons.arrow_downward_rounded,
+      ),
+      _HealthRingMetric(
+        label: context.l10n.budget,
+        value: _detailPercent(_detailBudgetProgress(report)),
+        status: _detailPaceStatus(context, report),
+        progress: budgetPaceProgress,
+        color: vibrantPalette[1],
+        icon: Icons.track_changes_rounded,
+      ),
+      _HealthRingMetric(
+        label: context.l10n.savingsRate,
+        value: _detailPercent(savingsRate),
+        status: formatCurrency(report.overview.savings, report.currencyCode),
+        progress: savingsRate.clamp(0.0, 1.0),
+        color: savingsRate >= 0 ? vibrantPalette[2] : colorScheme.destructive,
+        icon: Icons.savings_rounded,
+      ),
+      _HealthRingMetric(
+        label: context.l10n.netCashFlow,
+        value: _detailSignedCurrency(netCashFlow, report.currencyCode),
+        status: _localizedStatusLabel(context, report.overview.status),
+        progress: netCashFlow > 0 ? 1 : 0.08,
+        color: netCashFlow >= 0 ? vibrantPalette[3] : colorScheme.destructive,
+        icon: Icons.swap_vert_rounded,
+      ),
+    ];
+  }
+
   final billsCoveredProgress = _detailBillsCoveredProgress(report);
   final savingsBufferProgress = _detailSavingsBufferProgress(report);
   final forecastIsPositive = report.overview.forecastedBalance >= 0;
-  final vibrantPalette = _detailVibrantRingPalette(colorScheme);
 
   return [
     _HealthRingMetric(

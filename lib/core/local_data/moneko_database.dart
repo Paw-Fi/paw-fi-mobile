@@ -492,6 +492,106 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  Future<void> writeOptimisticWalletTransfer({
+    required List<ExpenseEntry> entries,
+    required String clientMutationId,
+    required String entityId,
+    required Map<String, dynamic> payload,
+  }) async {
+    if (entries.isEmpty) return;
+    final touched = entries.map(_SummaryKey.fromEntry).toSet();
+
+    _runInTransaction(() {
+      for (final entry in entries) {
+        _upsertTransaction(
+          entry.copyWith(
+            clientRecordId: entry.id,
+            clientMutationId: clientMutationId,
+          ),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'wallet',
+        entityId: entityId,
+        operation: 'invoke_function',
+        payload: payload,
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+
+    _notifyChanged();
+  }
+
+  Future<void> replaceOptimisticWalletTransfer({
+    required Iterable<String> optimisticIds,
+    required List<ExpenseEntry> savedEntries,
+    required String clientMutationId,
+  }) async {
+    final ids = optimisticIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final touched = <_SummaryKey>{};
+
+    _runInTransaction(() {
+      for (final id in ids) {
+        final key = _summaryKeyForTransactionId(id);
+        if (key != null) touched.add(key);
+        _db.execute('DELETE FROM local_transactions WHERE id = ?', [id]);
+      }
+      for (final entry in savedEntries) {
+        _upsertTransaction(
+          entry,
+          syncStatus: localSyncStatusSynced,
+          preserveLocalPending: false,
+        );
+        touched.add(_SummaryKey.fromEntry(entry));
+      }
+      _markMutationStatus(
+        clientMutationId: clientMutationId,
+        status: localMutationStatusSynced,
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+
+    _notifyChanged();
+  }
+
+  Future<void> rollbackOptimisticWalletTransfer({
+    required Iterable<String> optimisticIds,
+    required String clientMutationId,
+    required Object error,
+  }) async {
+    final ids = optimisticIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final touched = <_SummaryKey>{};
+
+    _runInTransaction(() {
+      for (final id in ids) {
+        final key = _summaryKeyForTransactionId(id);
+        if (key != null) touched.add(key);
+        _db.execute('DELETE FROM local_transactions WHERE id = ?', [id]);
+      }
+      _markMutationCancelledRow(
+        clientMutationId: clientMutationId,
+        error: error,
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+
+    _notifyChanged();
+  }
+
   Future<void> writeOptimisticTransactionUpdate({
     required ExpenseEntry originalEntry,
     required ExpenseEntry updatedEntry,
@@ -3906,12 +4006,25 @@ _LocalFeedFilter _localFeedFilter(
           AND entity_id = local_transactions.id
           AND status IN (?, ?, ?)
       )
+      OR (
+        id LIKE 'transfer:%'
+        AND EXISTS (
+          SELECT 1
+          FROM local_mutation_outbox
+          WHERE entity_type = 'wallet'
+            AND client_mutation_id = local_transactions.client_mutation_id
+            AND status IN (?, ?, ?)
+        )
+      )
     )
     ''',
   ];
   final args = <Object?>[
     localScopeKey(userId: query.userId, householdId: query.householdId),
     localSyncStatusLocal,
+    localMutationStatusQueued,
+    localMutationStatusSyncing,
+    localMutationStatusFailed,
     localMutationStatusQueued,
     localMutationStatusSyncing,
     localMutationStatusFailed,

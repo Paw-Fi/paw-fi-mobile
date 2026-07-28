@@ -100,6 +100,43 @@ class MonthlyReportQuery {
   int get hashCode => Object.hash(monthStart, financialMonthStartDay, range);
 }
 
+MonthlyReportQuery shiftMonthlyReportQuery(
+  MonthlyReportQuery query,
+  int cycleDelta,
+) {
+  final normalized = query.normalized();
+  return MonthlyReportQuery(
+    monthStart: addFinancialCycles(
+      normalized.monthStart,
+      cycleDelta,
+      startDay: normalized.financialMonthStartDay,
+    ),
+    financialMonthStartDay: normalized.financialMonthStartDay,
+    range: normalized.range,
+  );
+}
+
+List<MonthlyReportQuery> monthlyReportArchiveQueries({
+  required MonthlyReportQuery currentQuery,
+  int previousPeriodCount = 12,
+}) {
+  final normalized = currentQuery.normalized();
+  return List<MonthlyReportQuery>.generate(
+    previousPeriodCount + 1,
+    (index) => shiftMonthlyReportQuery(normalized, -index),
+    growable: false,
+  );
+}
+
+bool isMonthlyReportPeriodCompleted(
+  MonthlyReportQuery query, {
+  required DateTime now,
+}) {
+  final period = resolveMonthlyReportPeriod(query.normalized(), now: now);
+  final today = DateTime(now.year, now.month, now.day);
+  return today.isAfter(period.end);
+}
+
 class MonthlyReportPeriod {
   const MonthlyReportPeriod({
     required this.start,
@@ -670,7 +707,7 @@ String _monthlyReportCacheKey({
   final month = formatFinancialPeriodDate(monthStart);
   final start = formatFinancialPeriodDate(periodStart);
   final end = formatFinancialPeriodDate(periodEnd);
-  return 'monthly-report:v7:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
+  return 'monthly-report:v8:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
 }
 
 String _currencySelectionCacheSegment(List<String>? currencies) {
@@ -719,6 +756,8 @@ MonthlyReportPeriod resolveMonthlyReportPeriod(
         compareMonthToDate: false,
       );
     case MonthlyReportRange.month:
+      final isCurrentPeriod =
+          !today.isBefore(monthStart) && !today.isAfter(monthEnd);
       return MonthlyReportPeriod(
         start: monthStart,
         end: monthEnd,
@@ -732,7 +771,7 @@ MonthlyReportPeriod resolveMonthlyReportPeriod(
           -6,
           startDay: financialMonthStartDay,
         ),
-        compareMonthToDate: true,
+        compareMonthToDate: isCurrentPeriod,
       );
     case MonthlyReportRange.sixMonths:
       final start = addFinancialCycles(

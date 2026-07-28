@@ -322,6 +322,21 @@ void main() {
         isArchived: false,
         currentBalanceCents: -620,
       ),
+      WalletEntity(
+        id: 'a2',
+        userId: 'u1',
+        householdId: null,
+        name: 'Off-books Reserve',
+        icon: 'savings',
+        color: '#6B7280',
+        openingBalanceCents: 50000,
+        goalAmountCents: null,
+        isDefault: false,
+        isSystem: false,
+        isArchived: false,
+        currentBalanceCents: 50000,
+        excludeFromAnalytics: true,
+      ),
     ];
 
     await tester.pumpWidget(
@@ -361,6 +376,8 @@ void main() {
 
     expect(find.text(r'$-6.20'), findsWidgets);
     expect(find.text(r'$-6.00'), findsNothing);
+    expect(find.text('Off-books Reserve'), findsWidgets);
+    expect(find.text('Excluded from analytics'), findsOneWidget);
   });
 
   testWidgets('connect bank option remains available from new wallet sheet',
