@@ -6,6 +6,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
@@ -13,6 +14,7 @@ import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolve
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
@@ -62,11 +64,16 @@ class WalletTransferResult {
   });
 }
 
+typedef WalletTransferSubmit = Future<void> Function(
+  WalletTransferResult result,
+);
+
 Future<WalletTransferResult?> showWalletTransferSheet(
   BuildContext context, {
   required List<WalletEntity> wallets,
   String? defaultFromWalletId,
   WalletTransfer? initialTransfer,
+  WalletTransferSubmit? onSubmit,
 }) {
   if (wallets.length < 2) {
     return Future.value(null);
@@ -82,6 +89,7 @@ Future<WalletTransferResult?> showWalletTransferSheet(
       wallets: wallets,
       defaultFromWalletId: defaultFromWalletId,
       initialTransfer: initialTransfer,
+      onSubmit: onSubmit,
     ),
   );
 }
@@ -91,11 +99,13 @@ class _WalletTransferSheet extends HookConsumerWidget {
     required this.wallets,
     this.defaultFromWalletId,
     this.initialTransfer,
+    this.onSubmit,
   });
 
   final List<WalletEntity> wallets;
   final String? defaultFromWalletId;
   final WalletTransfer? initialTransfer;
+  final WalletTransferSubmit? onSubmit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -262,20 +272,39 @@ class _WalletTransferSheet extends HookConsumerWidget {
         return;
       }
 
-      isSaving.value = true;
-
-      Navigator.of(context).pop(
-        WalletTransferResult(
-          fromAccountId: fromIdState.value,
-          toAccountId: toIdState.value,
-          amountCents: amountCents,
-          currency: fromWallet.currency,
-          date: selectedDate.value,
-          note: noteController.text.trim().isEmpty
-              ? null
-              : noteController.text.trim(),
-        ),
+      final result = WalletTransferResult(
+        fromAccountId: fromIdState.value,
+        toAccountId: toIdState.value,
+        amountCents: amountCents,
+        currency: fromWallet.currency,
+        date: selectedDate.value,
+        note: noteController.text.trim().isEmpty
+            ? null
+            : noteController.text.trim(),
       );
+      final submit = onSubmit;
+      if (submit == null) {
+        Navigator.of(context).pop(result);
+        return;
+      }
+
+      isSaving.value = true;
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.paywallProcessing,
+      );
+      try {
+        await WidgetsBinding.instance.endOfFrame;
+        await submit(result);
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+        Navigator.of(context).pop(result);
+      } catch (error) {
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+        isSaving.value = false;
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      }
     }
 
     Future<void> handleSelectFromWallet() async {

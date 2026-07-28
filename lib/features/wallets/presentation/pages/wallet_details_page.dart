@@ -785,31 +785,41 @@ class WalletDetailsPage extends HookConsumerWidget {
         return;
       }
 
+      OptimisticWalletTransferOperation? operation;
       final result = await showWalletTransferSheet(
         context,
         wallets: transferWallets,
         defaultFromWalletId: latestWallet.id,
+        onSubmit: (result) async {
+          operation = await actions.createTransfer(
+            fromAccountId: result.fromAccountId,
+            toAccountId: result.toAccountId,
+            amountCents: result.amountCents,
+            currency: result.currency,
+            date: result.date,
+            note: result.note,
+          );
+          final optimisticEntries = operation!.entries;
+          ref
+              .read(transactionsFeedProvider(walletFeedQuery).notifier)
+              .applyOptimisticEntries(optimisticEntries);
+          ref
+              .read(transactionsFeedProvider(monthFeedQuery).notifier)
+              .applyOptimisticEntries(optimisticEntries);
+        },
       );
       if (result == null) return;
 
-      try {
-        await actions.createTransfer(
-          fromAccountId: result.fromAccountId,
-          toAccountId: result.toAccountId,
-          amountCents: result.amountCents,
-          currency: result.currency,
-          date: result.date,
-          note: result.note,
-        );
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.save);
-        }
-        await refreshWalletDetails();
-      } catch (error) {
-        if (context.mounted) {
+      if (context.mounted) {
+        AppToast.success(context, context.l10n.save);
+      }
+      final completion = operation?.completion;
+      if (completion == null) return;
+      unawaited(completion.then((error) {
+        if (error != null && context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
         }
-      }
+      }));
     }
 
     final walletMenuItems = <AdaptivePopupMenuEntry>[
