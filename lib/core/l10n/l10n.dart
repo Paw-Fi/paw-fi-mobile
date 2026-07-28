@@ -28,6 +28,30 @@ extension HomeDashboardL10nX on AppLocalizations {
   String get netCashflow => 'Net cashflow';
 }
 
+extension MonthlyReportHistoryL10nX on AppLocalizations {
+  String get monthlyReportReports => 'Reports';
+  String get monthlyReportPreviousPeriod => 'Previous period';
+  String get monthlyReportNextPeriod => 'Next period';
+  String get monthlyReportSelectPeriod => 'Select report period';
+  String get monthlyReportCurrentPeriod => 'Current period';
+  String get monthlyReportCompletedPeriod => 'Completed period';
+  String get monthlyReportCurrent => 'Current';
+  String get monthlyReportReturnToCurrent => 'Return to current period';
+  String get monthlyReportClosingBalance => 'Closing balance';
+  String get monthlyReportCompletedSafeSpendUnavailable =>
+      'Safe to spend only applies to the current period.';
+  String get monthlyReportCompletedRecurringUnavailable =>
+      'Recurring schedules show current commitments and are not part of a completed report.';
+
+  String monthlyReportCompletedSummary(
+    String status,
+    String netCashFlow,
+    String closingBalance,
+    String currencyCode,
+  ) =>
+      'This period finished $status, with $netCashFlow $currencyCode in net cash flow and a closing balance of $closingBalance $currencyCode.';
+}
+
 extension ImportRecurringL10nX on AppLocalizations {
   String get importNotRecurringAction => 'Not recurring?';
   String get importReleaseSeriesTitle => 'Import as separate transactions?';

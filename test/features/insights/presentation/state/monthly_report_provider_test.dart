@@ -214,6 +214,26 @@ void main() {
     expect(period.historicalStart, DateTime(2026, 2, 28));
   });
 
+  test('completed monthly reports compare full financial periods', () {
+    final completed = monthlyReportPeriodForTesting(
+      MonthlyReportQuery(
+        monthStart: DateTime(2026, 6, 25),
+        financialMonthStartDay: 25,
+      ),
+      now: DateTime(2026, 7, 30),
+    );
+    final current = monthlyReportPeriodForTesting(
+      MonthlyReportQuery(
+        monthStart: DateTime(2026, 7, 25),
+        financialMonthStartDay: 25,
+      ),
+      now: DateTime(2026, 7, 30),
+    );
+
+    expect(completed.compareMonthToDate, isFalse);
+    expect(current.compareMonthToDate, isTrue);
+  });
+
   test('cached reports preserve recurring and drilldown source metadata', () {
     final report = buildMonthlyFinancialReport(
       MonthlyReportInput(

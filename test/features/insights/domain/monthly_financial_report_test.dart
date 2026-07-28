@@ -190,6 +190,56 @@ void main() {
       expect(report.safeToSpend.dailyAmount, 0);
     });
 
+    test('healthy closed periods are classified from completed outcomes', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 4),
+          periodStart: DateTime(2026, 4),
+          periodEnd: DateTime(2026, 4, 30),
+          now: DateTime(2026, 5, 10),
+          currencyCode: 'EUR',
+          currentBalance: 5000,
+          currentMonthTransactions: [
+            _tx('salary', DateTime(2026, 4, 1), 3000, type: 'income'),
+            _tx('food', DateTime(2026, 4, 3), 1000, category: 'Food'),
+          ],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: const [],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.overview.status, MonthlyReportStatus.onTrack);
+      expect(report.summary, isNot(contains('safe to spend')));
+      expect(report.summary, isNot(contains('forecast')));
+    });
+
+    test('closed periods with negative cash flow need attention', () {
+      final report = buildMonthlyFinancialReport(
+        MonthlyReportInput(
+          monthStart: DateTime(2026, 4),
+          periodStart: DateTime(2026, 4),
+          periodEnd: DateTime(2026, 4, 30),
+          now: DateTime(2026, 5, 10),
+          currencyCode: 'EUR',
+          currentBalance: 500,
+          currentMonthTransactions: [
+            _tx('salary', DateTime(2026, 4, 1), 1000, type: 'income'),
+            _tx('rent', DateTime(2026, 4, 2), 1500, category: 'Rent'),
+          ],
+          previousMonthTransactions: const [],
+          budgetItems: const [],
+          futureTransactions: const [],
+          recurringItems: const [],
+        ),
+      );
+
+      expect(report.overview.status, MonthlyReportStatus.needsAttention);
+      expect(report.summary, isNot(contains('safe to spend')));
+      expect(report.summary, isNot(contains('forecast')));
+    });
+
     test('summarizes budget plan and unbudgeted spending without placeholders',
         () {
       final report = buildMonthlyFinancialReport(
