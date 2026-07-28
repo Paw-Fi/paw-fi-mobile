@@ -3355,7 +3355,6 @@
   "paywallCommitmentSavings": "Tiết kiệm với gói năm mà không cần thanh toán toàn bộ số tiền trước.",
   "paywallCommitmentHowItWorksSemantics": "Tìm hiểu cách thanh toán hàng tháng của gói năm",
   "paywallCommitmentDetailsTitle": "Gói năm, thanh toán hàng tháng",
-  "paywallCommitmentDetailsIntro": "Thay vì trả trước {total}, bạn sẽ được tính phí {monthly} mỗi tháng trong thời hạn cam kết {months} tháng.",
   "paywallCommitmentBillingTitle": "Cách tính phí",
   "paywallCommitmentBillingBody": "Bạn sẽ được tính phí {monthly} mỗi tháng trong {months} tháng, tổng cộng {total} trong toàn bộ thời hạn cam kết. Bạn sẽ được sử dụng tất cả tính năng Plus trong suốt thời gian đăng ký.",
   "paywallCommitmentCancellationTitle": "Nếu bạn hủy",

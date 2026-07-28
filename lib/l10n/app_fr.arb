@@ -3356,7 +3356,6 @@
   "paywallCommitmentSavings": "Profitez des économies du forfait annuel sans payer la totalité à l'avance.",
   "paywallCommitmentHowItWorksSemantics": "Découvrez le fonctionnement des paiements mensuels du forfait annuel",
   "paywallCommitmentDetailsTitle": "Forfait annuel payé mensuellement",
-  "paywallCommitmentDetailsIntro": "Au lieu de payer {total} à l'avance, vous serez débité de {monthly} chaque mois pendant un engagement de {months} mois.",
   "paywallCommitmentBillingTitle": "Fonctionnement de la facturation",
   "paywallCommitmentBillingBody": "Vous serez débité de {monthly} chaque mois pendant {months} mois, soit {total} sur toute la durée de l'engagement. Vous profiterez de toutes les fonctionnalités Plus pendant votre abonnement.",
   "paywallCommitmentCancellationTitle": "En cas de résiliation",

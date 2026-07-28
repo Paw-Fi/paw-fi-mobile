@@ -3302,7 +3302,6 @@
   "paywallCommitmentSavings": "مکمل رقم پیشگی ادا کیے بغیر سالانہ پلان کی بچت سے فائدہ اٹھائیں۔",
   "paywallCommitmentHowItWorksSemantics": "جانیں کہ سالانہ پلان کی ماہانہ ادائیگیاں کیسے کام کرتی ہیں",
   "paywallCommitmentDetailsTitle": "سالانہ پلان، ماہانہ ادائیگی",
-  "paywallCommitmentDetailsIntro": "{total} پیشگی ادا کرنے کے بجائے، {months} ماہ کی مدت کے دوران ہر ماہ {monthly} وصول کیے جائیں گے۔",
   "paywallCommitmentBillingTitle": "بلنگ کیسے کام کرتی ہے",
   "paywallCommitmentBillingBody": "{months} ماہ تک ہر ماہ {monthly} وصول کیے جائیں گے، اور پوری مدت میں کل {total} ادا ہوں گے۔ سبسکرپشن کے دوران آپ Plus کی تمام خصوصیات استعمال کر سکیں گے۔",
   "paywallCommitmentCancellationTitle": "اگر آپ منسوخ کرتے ہیں",

@@ -3356,7 +3356,6 @@
   "paywallCommitmentSavings": "Profitiere vom Preisvorteil des Jahresplans, ohne den Gesamtbetrag im Voraus zu zahlen.",
   "paywallCommitmentHowItWorksSemantics": "So funktionieren die monatlichen Zahlungen des Jahresplans",
   "paywallCommitmentDetailsTitle": "Jahresplan mit monatlicher Zahlung",
-  "paywallCommitmentDetailsIntro": "Statt {total} im Voraus zu zahlen, werden dir über eine Laufzeit von {months} Monaten jeden Monat {monthly} berechnet.",
   "paywallCommitmentBillingTitle": "So funktioniert die Abrechnung",
   "paywallCommitmentBillingBody": "Dir werden {months} Monate lang jeden Monat {monthly} berechnet, insgesamt {total} über die gesamte Laufzeit. Während deines Abonnements kannst du alle Plus-Funktionen nutzen.",
   "paywallCommitmentCancellationTitle": "Wenn du kündigst",

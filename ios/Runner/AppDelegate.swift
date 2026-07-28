@@ -2997,9 +2997,13 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
 
           switch call.method {
           case "getTerms":
+            let totalCommitmentPriceValue = NSDecimalNumber(
+              decimal: terms.commitmentInfo.price
+            ).doubleValue
             let payload: [String: Any] = [
               "monthlyPrice": terms.billingDisplayPrice,
               "totalCommitmentPrice": terms.commitmentInfo.price.formatted(product.priceFormatStyle),
+              "totalCommitmentPriceValue": totalCommitmentPriceValue,
             ]
             await MainActor.run { result(payload) }
           case "purchase":

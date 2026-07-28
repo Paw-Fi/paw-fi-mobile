@@ -15,6 +15,24 @@ import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+int? calculatePlanSavingsPercent({
+  required num monthlyPrice,
+  required num yearlyTotal,
+}) {
+  if (!monthlyPrice.isFinite ||
+      !yearlyTotal.isFinite ||
+      monthlyPrice <= 0 ||
+      yearlyTotal <= 0) {
+    return null;
+  }
+
+  final regularYearlyTotal = monthlyPrice * 12;
+  final savings =
+      ((regularYearlyTotal - yearlyTotal) / regularYearlyTotal) * 100;
+  if (savings <= 0) return null;
+  return savings.round().clamp(1, 99);
+}
+
 bool shouldUseAppStoreCheckout({required bool forceStripeCheckout}) {
   return defaultTargetPlatform == TargetPlatform.iOS && !forceStripeCheckout;
 }
@@ -32,6 +50,10 @@ List<PlanOption> buildPlusPlanOptions({
       ? normalizedPricingCountry
       : resolveDeviceRegionalPricingCountry();
   final regionalMarket = regionalPricingForCountry(pricingCountry);
+  final regionalSavingsPercent = calculatePlanSavingsPercent(
+    monthlyPrice: regionalMarket.monthly,
+    yearlyTotal: (regionalMarket.yearly / 12).round() * 12,
+  );
 
   String priceFor(String plan, String? billingInterval) {
     final amount = regionalPriceForPlan(
@@ -119,6 +141,19 @@ List<PlanOption> buildPlusPlanOptions({
             ),
           ];
 
+    double? monthlyPriceForPlan(String plan) {
+      SubscriptionProduct? monthlyProduct;
+      for (final candidate in effectiveCatalogProducts) {
+        if (candidate.plan == plan && candidate.billingInterval == 'monthly') {
+          monthlyProduct = candidate;
+          break;
+        }
+      }
+      if (monthlyProduct == null) return null;
+      return storeDetailsById[monthlyProduct.storeProductId]?.rawPrice ??
+          monthlyProduct.displayPriceUsd;
+    }
+
     return effectiveCatalogProducts.map((product) {
       final details = storeDetailsById[product.storeProductId];
       final commitmentTerms = iapStateAsync
@@ -126,6 +161,21 @@ List<PlanOption> buildPlusPlanOptions({
       final isCommitment = product.billingInterval == 'yearly' &&
           commitmentTerms != null &&
           isCommitmentAvailableForCountry(pricingCountry);
+      final yearlyTotal = isCommitment
+          ? commitmentTerms.totalCommitmentPriceValue ??
+              details?.rawPrice ??
+              product.displayPriceUsd
+          : details?.rawPrice ?? product.displayPriceUsd;
+      final savingsPercent =
+          product.billingInterval == 'yearly' && yearlyTotal != null
+              ? calculatePlanSavingsPercent(
+                  monthlyPrice: monthlyPriceForPlan(product.plan) ??
+                      (product.originalPriceUsd != null
+                          ? product.originalPriceUsd! / 12
+                          : Constants.subscriptionMonthlyPrice),
+                  yearlyTotal: yearlyTotal,
+                )
+              : null;
       return PlanOption(
         id: product.optionId,
         serverPlanId: product.plan,
@@ -133,7 +183,7 @@ List<PlanOption> buildPlusPlanOptions({
         storeProductId: product.storeProductId,
         catalogProduct: product,
         name: product.billingInterval == 'yearly'
-            ? 'Annual Plan'
+            ? context.l10n.paywallCommitmentAnnualPlan
             : product.displayName,
         storePrice: isCommitment
             ? commitmentTerms.monthlyPrice
@@ -149,7 +199,9 @@ List<PlanOption> buildPlusPlanOptions({
                 ? 'Paid upfront for 12 months.'
                 : product.tagline,
         isPopular: product.isPopular,
-        badgeText: product.badgeText,
+        badgeText: savingsPercent == null
+            ? (product.billingInterval == 'yearly' ? null : product.badgeText)
+            : context.l10n.paywallBadgeSavePercent(savingsPercent),
         isCommitment: isCommitment,
         totalCommitmentPrice: commitmentTerms?.totalCommitmentPrice,
         upfrontYearlyPrice: product.billingInterval == 'yearly' && !isCommitment
@@ -174,26 +226,27 @@ List<PlanOption> buildPlusPlanOptions({
   }
 
   return [
-    if (isCommitmentAvailableForCountry(pricingCountry))
-      PlanOption(
-        id: 'plus_yearly',
-        serverPlanId: 'plus',
-        billingInterval: 'yearly',
-        name: 'Annual Plan',
-        storePrice: null,
-        regionalPrice: priceFor('plus', 'yearly'),
-        currencyCode: regionalMarket.currencyCode,
-        pricingCountry: pricingCountry,
-        displayPriceUsd: Constants.subscriptionYearlyPrice,
-        tagline: 'Billed monthly for 12 months.',
-        isPopular: true,
-        badgeText: context.l10n.paywallBadgeSave50,
-        isCommitment: true,
-        totalCommitmentPrice: formatRegionalPrice(
-          regionalMarket,
-          (regionalMarket.yearly / 12).round() * 12,
-        ),
+    PlanOption(
+      id: 'plus_yearly',
+      serverPlanId: 'plus',
+      billingInterval: 'yearly',
+      name: context.l10n.paywallCommitmentAnnualPlan,
+      storePrice: null,
+      regionalPrice: priceFor('plus', 'yearly'),
+      currencyCode: regionalMarket.currencyCode,
+      pricingCountry: pricingCountry,
+      displayPriceUsd: Constants.subscriptionYearlyPrice,
+      tagline: context.l10n.paywallCommitmentBilledMonthly(12),
+      isPopular: true,
+      badgeText: regionalSavingsPercent == null
+          ? null
+          : context.l10n.paywallBadgeSavePercent(regionalSavingsPercent),
+      isCommitment: true,
+      totalCommitmentPrice: formatRegionalPrice(
+        regionalMarket,
+        (regionalMarket.yearly / 12).round() * 12,
       ),
+    ),
     PlanOption(
       id: 'plus_monthly',
       serverPlanId: 'plus',

@@ -3300,7 +3300,6 @@
   "paywallCommitmentSavings": "無需一次支付全額，也能享有年度方案優惠。",
   "paywallCommitmentHowItWorksSemantics": "了解年度方案的月付方式",
   "paywallCommitmentDetailsTitle": "年度方案，按月付款",
-  "paywallCommitmentDetailsIntro": "無需預付 {total}，在 {months} 個月方案期間，每月將收取 {monthly}。",
   "paywallCommitmentBillingTitle": "計費方式",
   "paywallCommitmentBillingBody": "連續 {months} 個月，每月將收取 {monthly}，整個方案期間共計 {total}。訂閱期間，你可以使用所有 Plus 功能。",
   "paywallCommitmentCancellationTitle": "如果取消",

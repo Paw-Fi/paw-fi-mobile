@@ -9309,11 +9309,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallCommitmentDetailsTitle => 'แผนรายปี ชำระรายเดือน';
 
   @override
-  String paywallCommitmentDetailsIntro(Object monthly, Object months, Object total) {
-    return 'แทนที่จะชำระ $total ล่วงหน้า ระบบจะเรียกเก็บ $monthly ต่อเดือนตลอดระยะเวลาผูกพัน $months เดือน';
-  }
-
-  @override
   String get paywallCommitmentBillingTitle => 'วิธีการเรียกเก็บเงิน';
 
   @override

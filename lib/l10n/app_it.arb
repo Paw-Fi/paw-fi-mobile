@@ -3303,7 +3303,6 @@
   "paywallCommitmentSavings": "Approfitta del risparmio del piano annuale senza pagare l'intero importo in anticipo.",
   "paywallCommitmentHowItWorksSemantics": "Scopri come funzionano i pagamenti mensili del piano annuale",
   "paywallCommitmentDetailsTitle": "Piano annuale con pagamento mensile",
-  "paywallCommitmentDetailsIntro": "Invece di pagare {total} in anticipo, ti verranno addebitati {monthly} al mese per un impegno di {months} mesi.",
   "paywallCommitmentBillingTitle": "Come funziona la fatturazione",
   "paywallCommitmentBillingBody": "Ti verranno addebitati {monthly} al mese per {months} mesi, per un totale di {total} durante l'intero impegno. Avrai accesso a tutte le funzionalità Plus per tutta la durata dell'abbonamento.",
   "paywallCommitmentCancellationTitle": "Se annulli",

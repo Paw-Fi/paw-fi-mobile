@@ -3373,7 +3373,6 @@
   "paywallCommitmentSavings": "รับส่วนลดแบบรายปีโดยไม่ต้องชำระเงินเต็มจำนวนล่วงหน้า",
   "paywallCommitmentHowItWorksSemantics": "ดูวิธีการชำระรายเดือนของแผนรายปี",
   "paywallCommitmentDetailsTitle": "แผนรายปี ชำระรายเดือน",
-  "paywallCommitmentDetailsIntro": "แทนที่จะชำระ {total} ล่วงหน้า ระบบจะเรียกเก็บ {monthly} ต่อเดือนตลอดระยะเวลาผูกพัน {months} เดือน",
   "paywallCommitmentBillingTitle": "วิธีการเรียกเก็บเงิน",
   "paywallCommitmentBillingBody": "ระบบจะเรียกเก็บ {monthly} ต่อเดือนเป็นเวลา {months} เดือน รวมทั้งหมด {total} ตลอดระยะเวลาผูกพัน คุณจะใช้งานฟีเจอร์ Plus ทั้งหมดได้ตลอดการสมัคร",
   "paywallCommitmentCancellationTitle": "หากคุณยกเลิก",

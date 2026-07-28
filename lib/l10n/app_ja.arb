@@ -3356,7 +3356,6 @@
   "paywallCommitmentSavings": "全額を一括で支払うことなく、年間プランの割引を利用できます。",
   "paywallCommitmentHowItWorksSemantics": "年間プランの月払いについて確認する",
   "paywallCommitmentDetailsTitle": "月払いの年間プラン",
-  "paywallCommitmentDetailsIntro": "{total}を一括で支払う代わりに、{months}か月の契約期間中、毎月{monthly}が請求されます。",
   "paywallCommitmentBillingTitle": "請求の仕組み",
   "paywallCommitmentBillingBody": "{months}か月間、毎月{monthly}が請求され、契約期間全体の合計は{total}です。購読期間中は、すべてのPlus機能をご利用いただけます。",
   "paywallCommitmentCancellationTitle": "解約した場合",

@@ -3306,7 +3306,6 @@
   "paywallCommitmentSavings": "Экономьте с годовым планом, не оплачивая всю сумму заранее.",
   "paywallCommitmentHowItWorksSemantics": "Узнайте, как работает ежемесячная оплата годового плана",
   "paywallCommitmentDetailsTitle": "Годовой план с ежемесячной оплатой",
-  "paywallCommitmentDetailsIntro": "Вместо предоплаты {total} с вас будет ежемесячно списываться {monthly} в течение {months} месяцев.",
   "paywallCommitmentBillingTitle": "Как происходит оплата",
   "paywallCommitmentBillingBody": "В течение {months} месяцев с вас будет ежемесячно списываться {monthly}, всего {total} за весь период. На протяжении подписки вам будут доступны все функции Plus.",
   "paywallCommitmentCancellationTitle": "Если вы отмените подписку",

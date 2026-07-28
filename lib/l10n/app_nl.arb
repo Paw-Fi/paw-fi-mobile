@@ -3303,7 +3303,6 @@
   "paywallCommitmentSavings": "Profiteer van de besparing van een jaarabonnement zonder het volledige bedrag vooraf te betalen.",
   "paywallCommitmentHowItWorksSemantics": "Ontdek hoe maandelijkse betalingen voor het jaarabonnement werken",
   "paywallCommitmentDetailsTitle": "Jaarabonnement, maandelijks betaald",
-  "paywallCommitmentDetailsIntro": "In plaats van {total} vooraf te betalen, wordt gedurende een looptijd van {months} maanden elke maand {monthly} in rekening gebracht.",
   "paywallCommitmentBillingTitle": "Hoe de facturering werkt",
   "paywallCommitmentBillingBody": "Gedurende {months} maanden wordt elke maand {monthly} in rekening gebracht, in totaal {total} over de volledige looptijd. Tijdens je abonnement heb je toegang tot alle Plus-functies.",
   "paywallCommitmentCancellationTitle": "Als je opzegt",

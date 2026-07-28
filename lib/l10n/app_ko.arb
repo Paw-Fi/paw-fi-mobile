@@ -3169,7 +3169,6 @@
   "paywallCommitmentSavings": "전체 금액을 미리 결제하지 않고도 연간 요금제의 할인 혜택을 누리세요.",
   "paywallCommitmentHowItWorksSemantics": "연간 요금제의 월별 결제 방식 알아보기",
   "paywallCommitmentDetailsTitle": "월별 결제 연간 요금제",
-  "paywallCommitmentDetailsIntro": "{total} 선불 결제 대신, {months}개월 약정 기간 동안 매월 {monthly}씩 청구됩니다.",
   "paywallCommitmentBillingTitle": "결제 방식",
   "paywallCommitmentBillingBody": "{months}개월 동안 매월 {monthly}씩 청구되며, 전체 약정 금액은 {total}입니다. 구독 기간 내내 모든 Plus 기능을 이용할 수 있습니다.",
   "paywallCommitmentCancellationTitle": "해지하는 경우",

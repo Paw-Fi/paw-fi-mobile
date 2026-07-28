@@ -3348,7 +3348,6 @@
   "paywallCommitmentSavings": "Заощаджуйте з річним планом, не сплачуючи всю суму наперед.",
   "paywallCommitmentHowItWorksSemantics": "Дізнайтеся, як працює щомісячна оплата річного плану",
   "paywallCommitmentDetailsTitle": "Річний план зі щомісячною оплатою",
-  "paywallCommitmentDetailsIntro": "Замість передоплати {total} з вас щомісяця стягуватиметься {monthly} протягом {months} місяців.",
   "paywallCommitmentBillingTitle": "Як відбувається оплата",
   "paywallCommitmentBillingBody": "Протягом {months} місяців з вас щомісяця стягуватиметься {monthly}, усього {total} за весь період. Упродовж підписки вам будуть доступні всі функції Plus.",
   "paywallCommitmentCancellationTitle": "Якщо ви скасуєте підписку",

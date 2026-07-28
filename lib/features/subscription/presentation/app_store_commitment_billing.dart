@@ -4,15 +4,19 @@ class AppStoreCommitmentTerms {
   const AppStoreCommitmentTerms({
     required this.monthlyPrice,
     required this.totalCommitmentPrice,
+    this.totalCommitmentPriceValue,
   });
 
   final String monthlyPrice;
   final String totalCommitmentPrice;
+  final double? totalCommitmentPriceValue;
 
   factory AppStoreCommitmentTerms.fromMap(Map<Object?, Object?> map) {
     return AppStoreCommitmentTerms(
       monthlyPrice: map['monthlyPrice']?.toString() ?? '',
       totalCommitmentPrice: map['totalCommitmentPrice']?.toString() ?? '',
+      totalCommitmentPriceValue:
+          (map['totalCommitmentPriceValue'] as num?)?.toDouble(),
     );
   }
 }

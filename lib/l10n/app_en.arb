@@ -3393,7 +3393,6 @@
   "paywallCommitmentSavings": "Enjoy annual savings without paying the full amount upfront.",
   "paywallCommitmentHowItWorksSemantics": "Learn how Annual Plan monthly payments work",
   "paywallCommitmentDetailsTitle": "Annual Plan, paid monthly",
-  "paywallCommitmentDetailsIntro": "Instead of paying {total} upfront, you'll be charged {monthly} each month over a {months}-month commitment.",
   "paywallCommitmentBillingTitle": "How billing works",
   "paywallCommitmentBillingBody": "You'll be charged {monthly} each month for {months} months ({total} over the full commitment). You'll enjoy all Plus features throughout your subscription.",
   "paywallCommitmentCancellationTitle": "If you cancel",

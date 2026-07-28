@@ -65,9 +65,9 @@ class UnifiedPlanCard extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                constraints: BoxConstraints.tightFor(
+                constraints: const BoxConstraints.tightFor(
                   width: 188,
-                  height: plan.isCommitment ? 164 : 130,
+                  height: 130,
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -169,51 +169,57 @@ class UnifiedPlanCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                     ],
-                    if (plan.isCommitment && !isDisabled) ...[
-                      Text(
-                        context.l10n.paywallCommitmentSavings,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                    ],
-                    Text(
-                      supportingText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDisabled
-                            ? scheme.onSurface.withValues(alpha: 0.4)
-                            : scheme.mutedForeground,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
                     if (plan.isCommitment)
-                      Semantics(
-                        button: true,
-                        label:
-                            context.l10n.paywallCommitmentHowItWorksSemantics,
-                        child: GestureDetector(
-                          onTap: () => _showCommitmentDetails(context, plan),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 4),
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              context.l10n.howItWorksTitle,
+                              supportingText,
                               style: TextStyle(
-                                color: scheme.primary,
                                 fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
-                                decorationColor: scheme.primary,
+                                color: isDisabled
+                                    ? scheme.onSurface.withValues(alpha: 0.4)
+                                    : scheme.mutedForeground,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          IconButton(
+                            tooltip: context
+                                .l10n.paywallCommitmentHowItWorksSemantics,
+                            onPressed: () =>
+                                _showCommitmentDetails(context, plan),
+                            constraints: const BoxConstraints.tightFor(
+                              width: 28,
+                              height: 28,
+                            ),
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size.square(28),
+                              maximumSize: const Size.square(28),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: scheme.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        supportingText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDisabled
+                              ? scheme.onSurface.withValues(alpha: 0.4)
+                              : scheme.mutedForeground,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     const Spacer(),
                     FittedBox(
@@ -270,24 +276,18 @@ String _resolveSupportingText(
 
   if (plan.billingInterval == 'yearly') {
     if (plan.isCommitment) {
-      final total = plan.totalCommitmentPrice;
-      return total == null
-          ? context.l10n.paywallCommitmentBilledMonthly(_commitmentMonths)
-          : context.l10n.paywallCommitmentBilledMonthlyWithTotal(
-              total,
-              _commitmentMonths,
-            );
+      return context.l10n.paywallCommitmentBilledMonthlyShort;
     }
     final total = plan.upfrontYearlyPrice;
     return total == null
         ? context.l10n.paywallCommitmentPaidUpfront(_commitmentMonths)
         : context.l10n.paywallCommitmentPaidUpfrontWithTotal(
-            total,
             _commitmentMonths,
+            total,
           );
   }
 
-  return context.l10n.paywallFamilySharing;
+  return context.l10n.paywallCancelAnytime;
 }
 
 String _resolveMainPriceText(PlanOption plan) {
@@ -298,59 +298,38 @@ String _resolveMainPriceText(PlanOption plan) {
 }
 
 void _showCommitmentDetails(BuildContext context, PlanOption plan) {
-  final colorScheme = Theme.of(context).colorScheme;
   final monthlyPrice = plan.priceDisplay;
-  final totalPrice = plan.totalCommitmentPrice ?? '12 monthly payments';
+  const commitmentTermText = '$_commitmentMonths monthly payments';
 
   MonekoBottomSheet.show<void>(
     context: context,
     title: context.l10n.paywallCommitmentDetailsTitle,
-    onClose: () => Navigator.of(context).pop(),
     builder: (context) => SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            context.l10n.paywallCommitmentDetailsIntro(
-              monthlyPrice,
-              totalPrice,
-              _commitmentMonths,
-            ),
-            style: TextStyle(
-              color: colorScheme.mutedForeground,
-              fontSize: 15,
-              height: 1.45,
-            ),
+          _CommitmentHeroCard(
+            monthlyPrice: monthlyPrice,
+            commitmentMonths: _commitmentMonths,
           ),
-          const SizedBox(height: 24),
-          _CommitmentDetailSection(
+          const SizedBox(height: 12),
+          _CommitmentDetailCard(
             title: context.l10n.paywallCommitmentBillingTitle,
             body: context.l10n.paywallCommitmentBillingBody(
               monthlyPrice,
-              totalPrice,
               _commitmentMonths,
+              commitmentTermText,
             ),
           ),
-          const SizedBox(height: 18),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.2),
-              ),
-            ),
-            child: _CommitmentDetailSection(
-              title: context.l10n.paywallCommitmentCancellationTitle,
-              body: context.l10n
-                  .paywallCommitmentCancellationBody(_commitmentMonths),
-            ),
+          const SizedBox(height: 12),
+          _CommitmentDetailCard(
+            title: context.l10n.paywallCommitmentCancellationTitle,
+            body: context.l10n
+                .paywallCommitmentCancellationBody(_commitmentMonths),
           ),
-          const SizedBox(height: 18),
-          _CommitmentDetailSection(
+          const SizedBox(height: 12),
+          _CommitmentDetailCard(
             title:
                 context.l10n.paywallCommitmentRenewalTitle(_commitmentMonths),
             body: context.l10n.paywallCommitmentRenewalBody(_commitmentMonths),
@@ -361,8 +340,107 @@ void _showCommitmentDetails(BuildContext context, PlanOption plan) {
   );
 }
 
-class _CommitmentDetailSection extends StatelessWidget {
-  const _CommitmentDetailSection({required this.title, required this.body});
+class _CommitmentHeroCard extends StatelessWidget {
+  const _CommitmentHeroCard({
+    required this.monthlyPrice,
+    required this.commitmentMonths,
+  });
+
+  final String monthlyPrice;
+  final int commitmentMonths;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '12-MONTH PLAN',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MONTHLY RATE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$monthlyPrice / mo',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'DURATION',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$commitmentMonths Months',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommitmentDetailCard extends StatelessWidget {
+  const _CommitmentDetailCard({
+    required this.title,
+    required this.body,
+  });
 
   final String title;
   final String body;
@@ -370,27 +448,36 @@ class _CommitmentDetailSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          body,
-          style: TextStyle(
-            color: colorScheme.mutedForeground,
-            fontSize: 14,
-            height: 1.45,
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: TextStyle(
+              color: colorScheme.mutedForeground,
+              fontSize: 13.5,
+              height: 1.5,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

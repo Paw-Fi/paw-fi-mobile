@@ -78,8 +78,11 @@ extension PaywallCommitmentL10nX on AppLocalizations {
   String paywallCommitmentName(int months) => '$months-month commitment';
   String paywallCommitmentTerms(int months) =>
       'Pay monthly over a $months-month commitment. Cancel anytime to prevent the next commitment from starting.';
-  String get paywallCommitmentAnnualPlan => 'Annual Plan';
+  String get paywallCommitmentAnnualPlan => 'Yearly';
   String get paywallCommitmentHowItWorks => 'How it works';
+  String get paywallCommitmentBilledMonthlyShort => 'Billed monthly';
+  String get paywallCancelAnytime => 'Cancel anytime';
+  String paywallBadgeSavePercent(int percent) => 'SAVE $percent%';
   String paywallCommitmentBilledMonthly(int months) =>
       'Billed monthly for $months months';
   String paywallCommitmentBilledMonthlyWithTotal(String total, int months) =>
@@ -93,12 +96,6 @@ extension PaywallCommitmentL10nX on AppLocalizations {
   String get paywallCommitmentHowItWorksSemantics =>
       'Learn how Annual Plan monthly payments work';
   String get paywallCommitmentDetailsTitle => 'Annual Plan, paid monthly';
-  String paywallCommitmentDetailsIntro(
-    String monthly,
-    String total,
-    int months,
-  ) =>
-      "Instead of paying $total upfront, you'll be charged $monthly each month over a $months-month commitment.";
   String get paywallCommitmentBillingTitle => 'How billing works';
   String paywallCommitmentBillingBody(
     String monthly,
