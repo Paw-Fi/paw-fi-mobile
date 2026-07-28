@@ -132,6 +132,10 @@ WalletSnapshot buildWalletSnapshot({
   final walletsById = <String, WalletEntity>{
     for (final wallet in wallets) wallet.id: wallet,
   };
+  final excludedWalletIds = wallets
+      .where((wallet) => wallet.excludeFromAnalytics)
+      .map((wallet) => wallet.id)
+      .toSet();
 
   var totalIncomeCents = 0;
   var totalSpentCents = 0;
@@ -140,6 +144,10 @@ WalletSnapshot buildWalletSnapshot({
       transaction: expense,
       wallets: wallets,
     );
+    if (resolvedWalletId != null &&
+        excludedWalletIds.contains(resolvedWalletId)) {
+      continue;
+    }
     final sourceCurrency =
         expense.currency ?? walletsById[resolvedWalletId]?.currency;
     final convertedAmountCents = convertCents(
@@ -179,8 +187,10 @@ WalletSnapshot buildWalletSnapshot({
   }
 
   var netWorthCents = 0;
-  for (final value in walletBalances.values) {
-    netWorthCents += value;
+  for (final entry in walletBalances.entries) {
+    if (!excludedWalletIds.contains(entry.key)) {
+      netWorthCents += entry.value;
+    }
   }
 
   return WalletSnapshot(

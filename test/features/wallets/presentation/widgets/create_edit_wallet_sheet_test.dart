@@ -128,4 +128,71 @@ void main() {
 
     expect(find.text('1000'), findsOneWidget);
   });
+
+  testWidgets('edit wallet sheet explains and returns analytics exclusion',
+      (tester) async {
+    const wallet = WalletEntity(
+      id: 'w1',
+      userId: 'u1',
+      householdId: null,
+      name: 'Reserve',
+      icon: 'savings',
+      color: '#6B7280',
+      openingBalanceCents: 100000,
+      goalAmountCents: null,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 100000,
+    );
+    CreateEditWalletResult? result;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  result = await showCreateEditWalletSheet(
+                    context,
+                    initial: wallet,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Exclude from wallet analytics'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    final tooltip = tester.widget<Tooltip>(find.byType(Tooltip).last);
+    expect(
+      tooltip.message,
+      contains('balance, wallet-linked income and spending'),
+    );
+
+    await tester.tap(find.text('Exclude from wallet analytics'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+
+    expect(result?.excludeFromAnalytics, isTrue);
+  });
 }

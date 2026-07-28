@@ -671,6 +671,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         currency: latestWallet.currency,
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,
+        excludeFromAnalytics: result.excludeFromAnalytics,
         openingBalanceCents: result.openingBalanceCents,
         currentBalanceCents: retargetedCurrentBalanceCents,
       );
@@ -689,6 +690,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
           isDefault: result.isDefault,
+          excludeFromAnalytics: result.excludeFromAnalytics,
           invalidate: false,
         );
         if (context.mounted) {
@@ -1335,6 +1337,7 @@ WalletEntity _copyAccount(
   int? openingBalanceCents,
   int? goalAmountCents,
   bool? isDefault,
+  bool? excludeFromAnalytics,
   int? currentBalanceCents,
 }) {
   return WalletEntity(
@@ -1353,6 +1356,7 @@ WalletEntity _copyAccount(
     isArchived: source.isArchived,
     currentBalanceCents: currentBalanceCents ?? source.currentBalanceCents,
     linkedBankAccountId: source.linkedBankAccountId,
+    excludeFromAnalytics: excludeFromAnalytics ?? source.excludeFromAnalytics,
   );
 }
 

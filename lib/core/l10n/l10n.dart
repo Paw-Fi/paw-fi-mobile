@@ -28,6 +28,15 @@ extension HomeDashboardL10nX on AppLocalizations {
   String get netCashflow => 'Net cashflow';
 }
 
+extension WalletAnalyticsL10nX on AppLocalizations {
+  String get excludeFromWalletAnalytics => 'Exclude from wallet analytics';
+  String get excludeFromWalletAnalyticsDescription =>
+      'Keep this wallet visible without including it in Wallets totals.';
+  String get excludeFromWalletAnalyticsDetails =>
+      'Excludes this wallet\'s balance, wallet-linked income and spending from the Wallets net worth total, monthly summary, history, and chart. The wallet, its balance, and its transactions remain visible in the wallet card and details. No data is hidden or deleted.';
+  String get excludedFromAnalytics => 'Excluded from analytics';
+}
+
 extension MonthlyReportHistoryL10nX on AppLocalizations {
   String get monthlyReportReports => 'Reports';
   String get monthlyReportPreviousPeriod => 'Previous period';

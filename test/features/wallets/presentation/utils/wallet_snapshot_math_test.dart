@@ -12,6 +12,7 @@ void main() {
     required int opening,
     bool isDefault = false,
     bool isSystem = false,
+    bool excludeFromAnalytics = false,
   }) {
     return WalletEntity(
       id: id,
@@ -26,6 +27,7 @@ void main() {
       isSystem: isSystem,
       isArchived: false,
       currentBalanceCents: opening,
+      excludeFromAnalytics: excludeFromAnalytics,
     );
   }
 
@@ -226,6 +228,49 @@ void main() {
     expect(snapshot.walletBalances['sys'], 10000);
     expect(snapshot.walletBalances['d1'], 20000);
     expect(snapshot.netWorthCents, 30000);
+  });
+
+  test('buildWalletSnapshot excludes flagged wallet from all header metrics',
+      () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(id: 'included', opening: 10000),
+        wallet(
+          id: 'excluded',
+          opening: 50000,
+          excludeFromAnalytics: true,
+        ),
+      ],
+      transactions: [
+        tx(
+          id: 'included-income',
+          date: DateTime(2026, 4, 5),
+          cents: 3000,
+          type: 'income',
+          walletId: 'included',
+        ),
+        tx(
+          id: 'excluded-expense',
+          date: DateTime(2026, 4, 6),
+          cents: 2000,
+          type: 'expense',
+          walletId: 'excluded',
+        ),
+        tx(
+          id: 'unassigned-expense',
+          date: DateTime(2026, 4, 7),
+          cents: 500,
+          type: 'expense',
+        ),
+      ],
+      endExclusive: DateTime(2026, 5, 1),
+    );
+
+    expect(snapshot.totalIncomeCents, 3000);
+    expect(snapshot.totalSpentCents, 500);
+    expect(snapshot.walletBalances['included'], 13000);
+    expect(snapshot.walletBalances['excluded'], 48000);
+    expect(snapshot.netWorthCents, 13000);
   });
 
   test('retargetWalletBalance preserves transaction delta when opening changes',

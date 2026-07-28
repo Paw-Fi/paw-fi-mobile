@@ -1081,6 +1081,7 @@ class PreviewMockData {
       isSystem: wallet.isSystem,
       isArchived: wallet.isArchived,
       currentBalanceCents: wallet.currentBalanceCents,
+      excludeFromAnalytics: wallet.excludeFromAnalytics,
     );
   }
 }

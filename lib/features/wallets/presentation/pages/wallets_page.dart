@@ -421,6 +421,7 @@ class AccountsPage extends HookConsumerWidget {
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
+          excludeFromAnalytics: result.excludeFromAnalytics,
         );
         if (context.mounted) {
           AppToast.success(context, context.l10n.save);
@@ -507,212 +508,217 @@ class AccountsPage extends HookConsumerWidget {
         children: [
           SafeArea(
             child: Builder(builder: (context) {
-          final wallets = effectiveWallets;
-          final hasWalletsContent = walletsAsync.hasValue || wallets.isNotEmpty;
-          final hasOverviewContent = isPreviewMode || walletsPageState != null;
+              final wallets = effectiveWallets;
+              final hasWalletsContent =
+                  walletsAsync.hasValue || wallets.isNotEmpty;
+              final hasOverviewContent =
+                  isPreviewMode || walletsPageState != null;
 
-          if (!hasWalletsContent && !hasOverviewContent) {
-            final walletsError = walletsAsync.error;
-            final pageError = walletsPageStateAsync?.error;
-            if (walletsError != null || pageError != null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text((walletsError ?? pageError).toString()),
-                ),
-              );
-            }
-            return const _WalletsPageSkeleton();
-          }
-
-          final selectedMonth = activeCarouselMonth;
-          final currencyRates =
-              ref.watch(currencyRateTableProvider).valueOrNull ??
-                  const CurrencyRateTable(
-                    baseCurrency: 'USD',
-                    rates: CurrencyRates.rates,
-                    isStale: true,
-                  );
-          _AccountsSnapshot accountsSnapshotForMonth(
-            WalletsMonthSnapshot snapshot,
-          ) {
-            final isCurrentMonth = _normalizeWalletMonth(
-                  snapshot.monthStart,
-                  financialMonthStartDay: scopeQuery.financialMonthStartDay,
-                ) ==
-                _normalizeWalletMonth(
-                  scopeQuery.currentMonthStart,
-                  financialMonthStartDay: scopeQuery.financialMonthStartDay,
-                );
-            if (!isPreviewMode && isCurrentMonth && wallets.isNotEmpty) {
-              return _accountsSnapshotFromCurrentWalletBalances(
-                snapshot,
-                wallets,
-                targetCurrency: selectedCurrencyCode,
-                rates: currencyRates,
-              );
-            }
-            return _accountsSnapshotFromMonthSnapshot(snapshot);
-          }
-
-          final previewSelectedSnapshot = isPreviewMode
-              ? previewWalletsData?.snapshotForMonth(selectedMonth)
-              : null;
-          final rawSelectedSnapshot = previewSelectedSnapshot != null
-              ? accountsSnapshotForMonth(previewSelectedSnapshot)
-              : walletsPageState?.displayedSnapshot != null
-                  ? accountsSnapshotForMonth(
-                      walletsPageState!.displayedSnapshot!,
-                    )
-                  : _buildOpeningSnapshot(
-                      wallets,
-                      targetCurrency: selectedCurrencyCode,
-                      rates: currencyRates,
-                    );
-          final displayedSelectedSnapshot = rawSelectedSnapshot;
-
-          return RefreshIndicator(
-            onRefresh: onRefresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              children: [
-                RepaintBoundary(
-                  child: SizedBox(
-                    height: (!hasDismissedSwipeHintState.value &&
-                            availableMonths.length > 1)
-                        ? 290
-                        : 260,
-                    child: PageView.builder(
-                      itemCount: availableMonths.length,
-                      controller: monthPageController,
-                      reverse: true,
-                      onPageChanged: (index) {
-                        final monthStart = availableMonths[index];
-                        if (isPreviewMode) {
-                          previewSelectedMonthState.value = monthStart;
-                        } else {
-                          unawaited(ref
-                              .read(
-                                  walletsPageStateProvider(scopeQuery).notifier)
-                              .selectMonth(monthStart));
-                        }
-                        if (hasDismissedSwipeHintState.value) {
-                          return;
-                        }
-                        hasDismissedSwipeHintState.value = true;
-                        unawaited(prefs.setBool(swipeHintPrefKey, true));
-                      },
-                      itemBuilder: (context, index) {
-                        final monthStart = availableMonths[index];
-                        final isActive = selectedMonthIndex == index;
-                        final monthSnapshot = isPreviewMode
-                            ? previewWalletsData?.snapshotForMonth(monthStart)
-                            : walletsPageState
-                                ?.cachedSnapshotsByMonth[monthStart];
-                        final canUseCurrentWalletBalanceFallback =
-                            !isPreviewMode &&
-                                _normalizeWalletMonth(
-                                      monthStart,
-                                      financialMonthStartDay:
-                                          scopeQuery.financialMonthStartDay,
-                                    ) ==
-                                    _normalizeWalletMonth(
-                                      scopeQuery.currentMonthStart,
-                                      financialMonthStartDay:
-                                          scopeQuery.financialMonthStartDay,
-                                    ) &&
-                                wallets.isNotEmpty;
-                        final isOverviewLoading = !isPreviewMode &&
-                            isActive &&
-                            monthSnapshot == null &&
-                            !canUseCurrentWalletBalanceFallback &&
-                            (walletsPageState?.isSelectedMonthLoading ?? false);
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Container(
-                            key: isActive ? netWorthSpotlightKey : null,
-                            child: _WalletsOverviewCard(
-                              availableMonths: availableMonths,
-                              monthStart: monthStart,
-                              selectedMonthStart: selectedMonth,
-                              snapshot: monthSnapshot != null
-                                  ? accountsSnapshotForMonth(
-                                      monthSnapshot,
-                                    )
-                                  : displayedSelectedSnapshot,
-                              history: isPreviewMode
-                                  ? previewWalletsData?.history
-                                  : walletsPageState?.history,
-                              currencyCode: selectedCurrencyCode,
-                              hasDismissedSwipeHint:
-                                  hasDismissedSwipeHintState.value,
-                              error: !isPreviewMode && isActive
-                                  ? walletsPageState?.selectedMonthError
-                                  : null,
-                              isLoading: isOverviewLoading,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (!hasWalletsContent && walletsAsync.isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 24, top: 12),
-                    child: _WalletStackLoadingSection(),
-                  )
-                else if (wallets.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: colorScheme.sheetBackground,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: colorScheme.border),
-                    ),
-                    child: Text(
-                      context.l10n.noWalletsYet,
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  )
-                else
-                  RepaintBoundary(
-                    key: walletStackSpotlightKey,
+              if (!hasWalletsContent && !hasOverviewContent) {
+                final walletsError = walletsAsync.error;
+                final pageError = walletsPageStateAsync?.error;
+                if (walletsError != null || pageError != null) {
+                  return Center(
                     child: Padding(
-                      padding: const EdgeInsets.only(bottom: 24, top: 12),
-                      child: _WalletAccountStack(
-                        wallets: wallets,
-                        isPreviewMode: isPreviewMode,
+                      padding: const EdgeInsets.all(24),
+                      child: Text((walletsError ?? pageError).toString()),
+                    ),
+                  );
+                }
+                return const _WalletsPageSkeleton();
+              }
+
+              final selectedMonth = activeCarouselMonth;
+              final currencyRates =
+                  ref.watch(currencyRateTableProvider).valueOrNull ??
+                      const CurrencyRateTable(
+                        baseCurrency: 'USD',
+                        rates: CurrencyRates.rates,
+                        isStale: true,
+                      );
+              _AccountsSnapshot accountsSnapshotForMonth(
+                WalletsMonthSnapshot snapshot,
+              ) {
+                final isCurrentMonth = _normalizeWalletMonth(
+                      snapshot.monthStart,
+                      financialMonthStartDay: scopeQuery.financialMonthStartDay,
+                    ) ==
+                    _normalizeWalletMonth(
+                      scopeQuery.currentMonthStart,
+                      financialMonthStartDay: scopeQuery.financialMonthStartDay,
+                    );
+                if (!isPreviewMode && isCurrentMonth && wallets.isNotEmpty) {
+                  return _accountsSnapshotFromCurrentWalletBalances(
+                    snapshot,
+                    wallets,
+                    targetCurrency: selectedCurrencyCode,
+                    rates: currencyRates,
+                  );
+                }
+                return _accountsSnapshotFromMonthSnapshot(snapshot);
+              }
+
+              final previewSelectedSnapshot = isPreviewMode
+                  ? previewWalletsData?.snapshotForMonth(selectedMonth)
+                  : null;
+              final rawSelectedSnapshot = previewSelectedSnapshot != null
+                  ? accountsSnapshotForMonth(previewSelectedSnapshot)
+                  : walletsPageState?.displayedSnapshot != null
+                      ? accountsSnapshotForMonth(
+                          walletsPageState!.displayedSnapshot!,
+                        )
+                      : _buildOpeningSnapshot(
+                          wallets,
+                          targetCurrency: selectedCurrencyCode,
+                          rates: currencyRates,
+                        );
+              final displayedSelectedSnapshot = rawSelectedSnapshot;
+
+              return RefreshIndicator(
+                onRefresh: onRefresh,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    RepaintBoundary(
+                      child: SizedBox(
+                        height: (!hasDismissedSwipeHintState.value &&
+                                availableMonths.length > 1)
+                            ? 290
+                            : 260,
+                        child: PageView.builder(
+                          itemCount: availableMonths.length,
+                          controller: monthPageController,
+                          reverse: true,
+                          onPageChanged: (index) {
+                            final monthStart = availableMonths[index];
+                            if (isPreviewMode) {
+                              previewSelectedMonthState.value = monthStart;
+                            } else {
+                              unawaited(ref
+                                  .read(walletsPageStateProvider(scopeQuery)
+                                      .notifier)
+                                  .selectMonth(monthStart));
+                            }
+                            if (hasDismissedSwipeHintState.value) {
+                              return;
+                            }
+                            hasDismissedSwipeHintState.value = true;
+                            unawaited(prefs.setBool(swipeHintPrefKey, true));
+                          },
+                          itemBuilder: (context, index) {
+                            final monthStart = availableMonths[index];
+                            final isActive = selectedMonthIndex == index;
+                            final monthSnapshot = isPreviewMode
+                                ? previewWalletsData
+                                    ?.snapshotForMonth(monthStart)
+                                : walletsPageState
+                                    ?.cachedSnapshotsByMonth[monthStart];
+                            final canUseCurrentWalletBalanceFallback =
+                                !isPreviewMode &&
+                                    _normalizeWalletMonth(
+                                          monthStart,
+                                          financialMonthStartDay:
+                                              scopeQuery.financialMonthStartDay,
+                                        ) ==
+                                        _normalizeWalletMonth(
+                                          scopeQuery.currentMonthStart,
+                                          financialMonthStartDay:
+                                              scopeQuery.financialMonthStartDay,
+                                        ) &&
+                                    wallets.isNotEmpty;
+                            final isOverviewLoading = !isPreviewMode &&
+                                isActive &&
+                                monthSnapshot == null &&
+                                !canUseCurrentWalletBalanceFallback &&
+                                (walletsPageState?.isSelectedMonthLoading ??
+                                    false);
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Container(
+                                key: isActive ? netWorthSpotlightKey : null,
+                                child: _WalletsOverviewCard(
+                                  availableMonths: availableMonths,
+                                  monthStart: monthStart,
+                                  selectedMonthStart: selectedMonth,
+                                  snapshot: monthSnapshot != null
+                                      ? accountsSnapshotForMonth(
+                                          monthSnapshot,
+                                        )
+                                      : displayedSelectedSnapshot,
+                                  history: isPreviewMode
+                                      ? previewWalletsData?.history
+                                      : walletsPageState?.history,
+                                  currencyCode: selectedCurrencyCode,
+                                  hasDismissedSwipeHint:
+                                      hasDismissedSwipeHintState.value,
+                                  error: !isPreviewMode && isActive
+                                      ? walletsPageState?.selectedMonthError
+                                      : null,
+                                  isLoading: isOverviewLoading,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                Container(
-                  key: newWalletSpotlightKey,
-                  child: TextButton.icon(
-                    onPressed: onAddAccount,
-                    icon: Icon(Icons.add, color: colorScheme.primary),
-                    label: Text(
-                      context.l10n.newWallet,
-                      style: TextStyle(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(height: 16),
+                    if (!hasWalletsContent && walletsAsync.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 24, top: 12),
+                        child: _WalletStackLoadingSection(),
+                      )
+                    else if (wallets.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.sheetBackground,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: colorScheme.border),
+                        ),
+                        child: Text(
+                          context.l10n.noWalletsYet,
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )
+                    else
+                      RepaintBoundary(
+                        key: walletStackSpotlightKey,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 24, top: 12),
+                          child: _WalletAccountStack(
+                            wallets: wallets,
+                            isPreviewMode: isPreviewMode,
+                          ),
+                        ),
+                      ),
+                    Container(
+                      key: newWalletSpotlightKey,
+                      child: TextButton.icon(
+                        onPressed: onAddAccount,
+                        icon: Icon(Icons.add, color: colorScheme.primary),
+                        label: Text(
+                          context.l10n.newWallet,
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        }),
+              );
+            }),
+          ),
+        ],
       ),
-    ],
-  ),
-));
+    ));
   }
 }
 
@@ -1458,8 +1464,14 @@ _AccountsSnapshot _buildOpeningSnapshot(
       ),
   };
   var netWorthCents = 0;
-  for (final value in walletBalances.values) {
-    netWorthCents += value;
+  final excludedWalletIds = wallets
+      .where((wallet) => wallet.excludeFromAnalytics)
+      .map((wallet) => wallet.id)
+      .toSet();
+  for (final entry in walletBalances.entries) {
+    if (!excludedWalletIds.contains(entry.key)) {
+      netWorthCents += entry.value;
+    }
   }
   return _AccountsSnapshot(
     totalIncome: 0,
@@ -1485,8 +1497,14 @@ _AccountsSnapshot _accountsSnapshotFromCurrentWalletBalances(
       ),
   };
   var netWorthCents = 0;
-  for (final value in walletBalances.values) {
-    netWorthCents += value;
+  final excludedWalletIds = wallets
+      .where((wallet) => wallet.excludeFromAnalytics)
+      .map((wallet) => wallet.id)
+      .toSet();
+  for (final entry in walletBalances.entries) {
+    if (!excludedWalletIds.contains(entry.key)) {
+      netWorthCents += entry.value;
+    }
   }
   return _AccountsSnapshot(
     totalIncome: snapshot.incomeTotalCents / 100.0,

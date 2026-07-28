@@ -293,6 +293,7 @@ bool _walletOverrideMatchesServer(
       optimistic.openingBalanceCents == server.openingBalanceCents &&
       optimistic.goalAmountCents == server.goalAmountCents &&
       optimistic.isDefault == server.isDefault &&
+      optimistic.excludeFromAnalytics == server.excludeFromAnalytics &&
       optimistic.isArchived == server.isArchived &&
       optimistic.currentBalanceCents == server.currentBalanceCents;
 }
@@ -677,6 +678,7 @@ class WalletActions {
     int? goalAmountCents,
     required String currency,
     bool isDefault = false,
+    bool excludeFromAnalytics = false,
   }) async {
     final householdId = ref.read(walletScopeHouseholdIdProvider);
     final user = ref.read(authProvider);
@@ -698,6 +700,7 @@ class WalletActions {
       isSystem: false,
       isArchived: false,
       currentBalanceCents: openingBalanceCents,
+      excludeFromAnalytics: excludeFromAnalytics,
     );
     setOptimisticWallet(optimisticWallet);
     final requestBody = {
@@ -709,6 +712,7 @@ class WalletActions {
       'openingBalanceCents': openingBalanceCents,
       'goalAmountCents': goalAmountCents,
       'isDefault': isDefault,
+      'excludeFromAnalytics': excludeFromAnalytics,
       if (householdId != null) 'householdId': householdId,
     };
     final localDatabase = await _enqueueWalletMutation(
@@ -766,6 +770,7 @@ class WalletActions {
     bool includeGoalAmount = false,
     bool includeLogoUrl = false,
     bool? isDefault,
+    bool? excludeFromAnalytics,
     bool invalidate = true,
   }) async {
     final authHeaders = _requireAuthHeaders();
@@ -806,6 +811,8 @@ class WalletActions {
         isSystem: existingWallet.isSystem,
         isArchived: existingWallet.isArchived,
         currentBalanceCents: nextCurrentBalanceCents,
+        excludeFromAnalytics:
+            excludeFromAnalytics ?? existingWallet.excludeFromAnalytics,
       ));
     }
     debugPrint(
@@ -824,7 +831,19 @@ class WalletActions {
       if (includeGoalAmount || goalAmountCents != null)
         'goalAmountCents': goalAmountCents,
       if (isDefault != null) 'isDefault': isDefault,
+      if (excludeFromAnalytics != null)
+        'excludeFromAnalytics': excludeFromAnalytics,
     };
+    if (excludeFromAnalytics != null) {
+      final userId = ref.read(authProvider).uid;
+      if (userId.isNotEmpty) {
+        await clearWalletAnalyticsPageStateCachesForUser(
+          ref,
+          userId: userId,
+        );
+        clearWalletsPageStateMemoryCaches(ref);
+      }
+    }
     try {
       final localDatabase = await _enqueueWalletMutation(
         entityId: walletId,
@@ -1282,6 +1301,7 @@ class WalletActions {
         isSystem: existingWallet.isSystem,
         isArchived: existingWallet.isArchived,
         currentBalanceCents: targetBalanceCents,
+        excludeFromAnalytics: existingWallet.excludeFromAnalytics,
       ));
     }
     debugPrint(

@@ -57,4 +57,42 @@ void main() {
     expect(find.text('Checking'), findsOneWidget);
     expect(find.byIcon(Icons.chevron_right), findsNothing);
   });
+
+  testWidgets('marks wallets excluded from analytics', (tester) async {
+    const wallet = WalletEntity(
+      id: 'wallet-1',
+      userId: 'user-1',
+      householdId: null,
+      name: 'Reserve',
+      icon: 'savings',
+      color: '#3B82F6',
+      openingBalanceCents: 250000,
+      goalAmountCents: null,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 250000,
+      excludeFromAnalytics: true,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 260,
+            child: WalletStackCard(
+              wallet: wallet,
+              currencyCode: 'USD',
+              displayBalanceCents: 250000,
+              isExpanded: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Excluded from analytics'), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_off_rounded), findsWidgets);
+  });
 }

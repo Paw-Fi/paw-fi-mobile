@@ -27,6 +27,7 @@ void main() {
                 'goal_amount_cents': 150000,
                 'opening_balance_cents': 2500,
                 'is_default': true,
+                'exclude_from_analytics': true,
               },
             },
           ],
@@ -60,6 +61,7 @@ void main() {
       expect(account.providerAvailableBalanceCents, 120000);
       expect(account.providerDisplayBalanceCents, 125050);
       expect(account.isDefault, isTrue);
+      expect(account.excludeFromAnalytics, isTrue);
     });
 
     test('falls back to derived wallet defaults when no linked wallet exists',
@@ -89,6 +91,7 @@ void main() {
       expect(account.walletIcon, 'savings');
       expect(account.walletColor, startsWith('#'));
       expect(account.currency, 'EUR');
+      expect(account.excludeFromAnalytics, isFalse);
       expect(session.targetHouseholdId, 'household-1');
     });
 
