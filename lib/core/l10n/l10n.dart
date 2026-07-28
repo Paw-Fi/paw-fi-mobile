@@ -28,6 +28,19 @@ extension HomeDashboardL10nX on AppLocalizations {
   String get netCashflow => 'Net cashflow';
 }
 
+extension ImportRecurringL10nX on AppLocalizations {
+  String get importNotRecurringAction => 'Not recurring?';
+  String get importReleaseSeriesTitle => 'Import as separate transactions?';
+  String importReleaseSeriesDescription(int count) => count == 1
+      ? 'Moneko detected this transaction as recurring. Releasing it will import it as a regular transaction.'
+      : 'Moneko detected these $count transactions as a recurring series. Releasing them will import every occurrence as its own transaction.';
+  String importReleaseSeriesOverview(int count) =>
+      'Transactions in this series ($count)';
+  String importSeriesTransactionCount(int count) =>
+      count == 1 ? '1 transaction' : '$count transactions';
+  String get importReleaseSeriesConfirm => 'Release transactions';
+}
+
 extension PaywallCommitmentL10nX on AppLocalizations {
   String paywallCommitmentName(int months) => '$months-month commitment';
   String paywallCommitmentTerms(int months) =>

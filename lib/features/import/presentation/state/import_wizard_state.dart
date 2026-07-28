@@ -29,6 +29,7 @@ class ImportWizardState {
   final String? targetAccountId;
   final String? targetAccountCurrency;
   final Set<int> deletedRowIndices;
+  final Set<int> nonRecurringRowIndices;
 
   /// True when the map step was auto-skipped due to high confidence.
   final bool didAutoSkipMapping;
@@ -59,6 +60,7 @@ class ImportWizardState {
     this.targetAccountId,
     this.targetAccountCurrency,
     this.deletedRowIndices = const {},
+    this.nonRecurringRowIndices = const {},
     this.didAutoSkipMapping = false,
     this.availableSheets = const [],
     this.selectedSheetIndex = -1,
@@ -88,10 +90,12 @@ class ImportWizardState {
     String? targetAccountId,
     String? targetAccountCurrency,
     Set<int>? deletedRowIndices,
+    Set<int>? nonRecurringRowIndices,
     bool clearTargetHouseholdId = false,
     bool clearTargetAccountId = false,
     bool clearTargetAccountCurrency = false,
     bool clearDeletedRowIndices = false,
+    bool clearNonRecurringRowIndices = false,
     bool? didAutoSkipMapping,
     List<ImportSheetResult>? availableSheets,
     int? selectedSheetIndex,
@@ -130,6 +134,9 @@ class ImportWizardState {
       deletedRowIndices: clearDeletedRowIndices
           ? const {}
           : (deletedRowIndices ?? this.deletedRowIndices),
+      nonRecurringRowIndices: clearNonRecurringRowIndices
+          ? const {}
+          : (nonRecurringRowIndices ?? this.nonRecurringRowIndices),
       didAutoSkipMapping: didAutoSkipMapping ?? this.didAutoSkipMapping,
       availableSheets: availableSheets ?? this.availableSheets,
       selectedSheetIndex: selectedSheetIndex ?? this.selectedSheetIndex,
