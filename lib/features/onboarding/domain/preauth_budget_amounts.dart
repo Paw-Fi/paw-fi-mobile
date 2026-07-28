@@ -104,8 +104,10 @@ const Map<String, double> _currencyBaselines = {
   'CLP': 900000,
   'DOP': 150000,
   'LKR': 300000,
+  'MDL': 200000,
   'JMD': 1500000,
   'MWK': 20000000,
+  'MUR': 500000,
   'XOF': 6000000,
 };
 
@@ -162,7 +164,9 @@ const Map<String, double> _currencyRounding = {
   'CLP': 50000,
   'DOP': 5000,
   'LKR': 10000,
+  'MDL': 10000,
   'JMD': 50000,
   'MWK': 500000,
+  'MUR': 50000,
   'XOF': 5000,
 };

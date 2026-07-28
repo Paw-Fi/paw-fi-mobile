@@ -3,6 +3,11 @@ import 'package:moneko/core/utils/currency_rates.dart';
 
 void main() {
   group('CurrencyRateTable', () {
+    test('bundled fallback includes Moldovan and Mauritian rates', () {
+      expect(CurrencyRates.rates['MDL'], greaterThan(0));
+      expect(CurrencyRates.rates['MUR'], greaterThan(0));
+    });
+
     test('converts between currencies using live USD-based rates', () {
       const table = CurrencyRateTable(
         baseCurrency: 'USD',

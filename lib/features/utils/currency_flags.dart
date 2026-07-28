@@ -59,6 +59,8 @@ String? getCurrencyFlagPath(String currencyCode) {
     'PYG': 'paraguay',
     'UAH': 'ukraine',
     'LKR': 'sri_lanka',
+    'MDL': 'moldova',
+    'MUR': 'mauritius',
     'GTQ': 'guatemala',
     'CLP': 'chile',
     'RSD': 'serbia',
