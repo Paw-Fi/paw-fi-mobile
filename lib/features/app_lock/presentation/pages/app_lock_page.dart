@@ -10,6 +10,9 @@ import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_passcode_prompt.dart';
 import 'package:moneko/features/app_lock/presentation/widgets/app_lock_visual_shell.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -121,8 +124,7 @@ class AppLockPage extends HookConsumerWidget {
       final router = GoRouter.of(context);
       final originalLocation =
           router.routeInformationProvider.value.uri.toString();
-      final appLockController =
-          ref.read(appLockControllerProvider.notifier);
+      final appLockController = ref.read(appLockControllerProvider.notifier);
       final authController = ref.read(authProvider.notifier);
       var processingDialogOpen = false;
 
@@ -152,7 +154,17 @@ class AppLockPage extends HookConsumerWidget {
         }
 
         try {
-          await authController.signOut();
+          final userId = ref.read(authProvider).uid;
+          try {
+            await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+          } catch (_) {}
+          try {
+            await ref.read(appInitializationV2Provider.notifier).onLogout();
+          } catch (_) {}
+          await ref.read(userFinancialCacheCleanupProvider).clearForLogout(
+                userId: userId,
+                signOut: authController.signOut,
+              );
         } catch (error) {
           // Supabase removes the local session before attempting remote token
           // revocation. The user is safely signed out on this device even when

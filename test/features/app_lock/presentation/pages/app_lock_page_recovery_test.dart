@@ -5,11 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_page.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 void main() {
   testWidgets('forgot passcode waits for recovery and sign out before login',
@@ -18,6 +22,10 @@ void main() {
     final recoveryCompleter = Completer<void>();
     final appLockController = _RecoveryAppLockController(recoveryCompleter);
     final auth = _DelayedSignOutAuth(signOutCompleter);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
 
     final router = GoRouter(
       initialLocation: '/app-lock',
@@ -40,6 +48,8 @@ void main() {
         overrides: [
           appLockControllerProvider.overrideWith((ref) => appLockController),
           authProvider.overrideWith(() => auth),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          localDatabaseProvider.overrideWith((ref) async => database),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
@@ -55,6 +65,7 @@ void main() {
 
     recoveryCompleter.complete();
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     expect(auth.signOutCalled, isTrue);
     expect(find.text('Login page'), findsNothing);

@@ -128,6 +128,9 @@ Future<void> clearAllDashboardPersistedCachesForUser(
     'dashboard:recent:v1:$userId:',
     'dashboard:currency-summaries:v1:$userId:',
     'dashboard:currency-transaction-counts:v1:$userId:',
+    // Legacy daily-budget keys use a contact id, so they cannot be safely
+    // attributed to one auth user during logout. Clear all of them.
+    'dashboard:budgets:',
   ];
   final keys = prefs
       .getKeys()

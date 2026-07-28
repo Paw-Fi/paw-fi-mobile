@@ -402,6 +402,25 @@ Map<String, double> calculatePocketNativeSpentByEnvelopeId({
 
 final _pocketsMonthCache = _PocketsMonthCache();
 
+Future<void> clearPocketsCachesForUser(
+  Ref ref, {
+  required String userId,
+}) async {
+  if (userId.trim().isEmpty) {
+    _pocketsMonthCache.clear();
+    return;
+  }
+
+  _pocketsMonthCache.invalidateUser(userId);
+  final bypass = ref.read(pocketsPersistedCacheBypassCountProvider.notifier);
+  bypass.state++;
+  try {
+    await clearAllPersistedPocketsCachesForUser(ref, userId: userId);
+  } finally {
+    bypass.state = bypass.state > 0 ? bypass.state - 1 : 0;
+  }
+}
+
 void _invalidatePocketsCachesForUser(
   Ref ref,
   String userId, {
@@ -439,7 +458,7 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
     if (prevId != nextId) {
       _pocketsMonthCache.clear();
       if (prevId.isNotEmpty) {
-        _invalidatePocketsCachesForUser(ref, prevId);
+        unawaited(clearPocketsCachesForUser(ref, userId: prevId));
       }
       if (nextId.isNotEmpty) {
         _invalidatePocketsCachesForUser(ref, nextId);

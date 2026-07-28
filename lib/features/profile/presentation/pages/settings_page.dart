@@ -13,11 +13,11 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 
@@ -47,13 +47,8 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
-import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
-import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
@@ -748,16 +743,15 @@ class SettingsPage extends HookConsumerWidget {
           await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
         } catch (_) {}
 
-        try {
-          await ref.read(selectedHouseholdProvider.notifier).clearSelection();
-        } catch (_) {}
-
+        await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+        await ref.read(appInitializationV2Provider.notifier).onLogout();
+        await ref.read(userFinancialCacheCleanupProvider).clearForLogout(
+              userId: authState.uid,
+              signOut: ref.read(authProvider.notifier).signOut,
+            );
         if (authState.uid.isNotEmpty) {
-          ref.invalidate(userHouseholdsProvider(authState.uid));
           ref.invalidate(userProfileProvider(authState.uid));
         }
-
-        ref.read(appInitializationV2Provider.notifier).clearCacheAndReset();
         ref.invalidate(incomeSummaryProvider);
         ref.invalidate(incomeListProvider);
         ref.invalidate(goalsListProvider);
@@ -774,7 +768,6 @@ class SettingsPage extends HookConsumerWidget {
             }
             return;
           }
-          await ref.read(authProvider.notifier).signOut();
         } catch (_) {}
 
         if (dialogShown &&
@@ -899,61 +892,21 @@ class SettingsPage extends HookConsumerWidget {
         }
 
         await ref.read(appLockControllerProvider.notifier).clearForRecovery();
-        ref.read(appInitializationV2Provider.notifier).clearCacheAndReset();
-        ref.invalidate(analyticsProvider);
+        final initialization = ref.read(appInitializationV2Provider.notifier);
+        await initialization.onLogout();
+        await ref
+            .read(userFinancialCacheCleanupProvider)
+            .clearForFinancialDataReset(userId: authState.uid);
+        initialization.reset();
         ref.invalidate(incomeSummaryProvider);
         ref.invalidate(incomeListProvider);
         ref.invalidate(goalsListProvider);
         ref.invalidate(goalSummaryProvider);
         ref.invalidate(subscriptionManagementProvider);
-        ref.invalidate(recurringTransactionsProvider);
-        ref.invalidate(pocketsProvider);
-        ref.invalidate(scopedWalletsProvider);
-        ref.invalidate(archivedScopedAccountsProvider);
-        ref.invalidate(walletsPageStateProvider);
-        ref.invalidate(bankConnectionsProvider);
-        ref.invalidate(monthlyFinancialReportProvider);
-        ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
-            const {};
-
-        if (authState.uid.isNotEmpty) {
-          final walletCacheKeys = prefs
-              .getKeys()
-              .where(
-                (key) =>
-                    (key.startsWith('wallets:list:') ||
-                        key.startsWith('wallets:page-state:')) &&
-                    key.contains(':${authState.uid}:'),
-              )
-              .toList(growable: false);
-          for (final key in walletCacheKeys) {
-            await prefs.remove(key);
-          }
-        }
-
-        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-
-        try {
-          final database = await ref.read(localDatabaseProvider.future);
-          await database.clearAllLocalData();
-          await database.deleteJsonCacheByPrefix(
-            namespace: 'monthly_report',
-            cacheKeyPrefix: 'monthly-report:v3:${authState.uid}:',
-          );
-          await database.deleteJsonCacheByPrefix(
-            namespace: 'wallets_page_state',
-            cacheKeyPrefix: 'wallets:page-state:v4:${authState.uid}:',
-          );
-        } catch (_) {}
 
         // Intentionally do not clear SharedPreferences here.
         // Router onboarding/auth gates rely on persisted flags, and clearing
         // them would route authenticated users back into onboarding.
-
-        if (authState.uid.isNotEmpty) {
-          ref.read(analyticsProvider.notifier).refresh(authState.uid);
-        }
 
         if (dialogShown &&
             rootNavigator != null &&
@@ -2101,29 +2054,6 @@ class SettingsPage extends HookConsumerWidget {
                             '🧹 Clearing all user-specific Riverpod state before logout',
                           );
 
-                          await ref
-                              .read(selectedHouseholdProvider.notifier)
-                              .clearSelection();
-
-                          if (authState.uid.isNotEmpty) {
-                            ref.invalidate(
-                                userHouseholdsProvider(authState.uid));
-                          }
-
-                          // Centralized clean-up for app initialization + primary pages
-                          ref
-                              .read(appInitializationV2Provider.notifier)
-                              .clearCacheAndReset();
-
-                          ref.invalidate(incomeSummaryProvider);
-                          ref.invalidate(incomeListProvider);
-                          ref.invalidate(goalsListProvider);
-                          ref.invalidate(goalSummaryProvider);
-                          ref.invalidate(subscriptionManagementProvider);
-                          ref.invalidate(userProfileProvider);
-
-                          debugPrint('✅ All user-specific state cleared');
-
                           if (ref.read(previewModeProvider).isActive) {
                             if (context.mounted) {
                               AppToast.info(
@@ -2132,7 +2062,40 @@ class SettingsPage extends HookConsumerWidget {
                               );
                             }
                           } else {
-                            await ref.read(authProvider.notifier).signOut();
+                            await ref
+                                .read(selectedHouseholdProvider.notifier)
+                                .clearSelection();
+                            await ref
+                                .read(appInitializationV2Provider.notifier)
+                                .onLogout();
+                            await ref
+                                .read(userFinancialCacheCleanupProvider)
+                                .clearForLogout(
+                                  userId: authState.uid,
+                                  signOut:
+                                      ref.read(authProvider.notifier).signOut,
+                                );
+
+                            ref.invalidate(incomeSummaryProvider);
+                            ref.invalidate(incomeListProvider);
+                            ref.invalidate(goalsListProvider);
+                            ref.invalidate(goalSummaryProvider);
+                            ref.invalidate(subscriptionManagementProvider);
+                            ref.invalidate(userProfileProvider);
+
+                            debugPrint('✅ All user-specific state cleared');
+                          }
+                        } catch (error) {
+                          if (context.mounted) {
+                            final navigator = Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            );
+                            if (navigator.canPop()) navigator.pop();
+                            AppToast.error(
+                              context,
+                              ErrorHandler.getUserFriendlyMessage(error),
+                            );
                           }
                         } finally {
                           if (context.mounted) {

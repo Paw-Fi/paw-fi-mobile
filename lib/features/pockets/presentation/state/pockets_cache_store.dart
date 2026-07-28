@@ -105,13 +105,18 @@ Future<void> clearAllPersistedPocketsCachesForUser(
   Ref ref, {
   required String userId,
 }) async {
-  final prefix = 'pockets:month:v1:$userId:';
+  final prefixes = <String>[
+    'pockets:month:v1:$userId:',
+    'pockets:month:v2:$userId:',
+  ];
   try {
     final database = await ref.read(localDatabaseProvider.future);
-    await database.deleteJsonCacheByPrefix(
-      namespace: _pocketsCacheNamespace,
-      cacheKeyPrefix: prefix,
-    );
+    for (final prefix in prefixes) {
+      await database.deleteJsonCacheByPrefix(
+        namespace: _pocketsCacheNamespace,
+        cacheKeyPrefix: prefix,
+      );
+    }
   } catch (_) {}
 
   final prefs = _readPrefsOrNull(ref);
@@ -121,7 +126,10 @@ Future<void> clearAllPersistedPocketsCachesForUser(
 
   final keysToRemove = prefs
       .getKeys()
-      .where((String key) => key.startsWith(prefix))
+      .where(
+        (String key) =>
+            key.startsWith('pockets:month:') && key.contains(':$userId:'),
+      )
       .toList(growable: false);
 
   for (final key in keysToRemove) {

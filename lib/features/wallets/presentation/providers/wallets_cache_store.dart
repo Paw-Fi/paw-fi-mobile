@@ -223,6 +223,16 @@ Future<void> clearAllWalletsCachesForUser(
   ref.read(walletsListSessionCacheProvider.notifier).state = const {};
   ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
 
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    for (final version in const ['v4', 'v6']) {
+      await database.deleteJsonCacheByPrefix(
+        namespace: _walletsPageStateJsonCacheNamespace,
+        cacheKeyPrefix: 'wallets:page-state:$version:$userId:',
+      );
+    }
+  } catch (_) {}
+
   final prefs = _readPrefsOrNull(ref);
   if (prefs == null) {
     return;
@@ -243,14 +253,6 @@ Future<void> clearAllWalletsCachesForUser(
   for (final key in keysToRemove) {
     await prefs.remove(key);
   }
-
-  try {
-    final database = await ref.read(localDatabaseProvider.future);
-    await database.deleteJsonCacheByPrefix(
-      namespace: _walletsPageStateJsonCacheNamespace,
-      cacheKeyPrefix: 'wallets:page-state:v4:$userId:',
-    );
-  } catch (_) {}
 }
 
 Future<void> clearWalletAnalyticsPageStateCachesForUser(

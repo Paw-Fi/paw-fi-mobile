@@ -10,6 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
 
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
@@ -381,6 +382,8 @@ class MainShell extends HookConsumerWidget {
     final hasNetworkAccess =
         ref.watch(networkReachabilityProvider).valueOrNull ?? true;
     final auth = ref.watch(authProvider);
+    final isUserDataCleanupInProgress =
+        ref.watch(userFinancialCacheCleanupInProgressProvider);
     final walletAuthHeaders =
         previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
     final walletScopeHouseholdId = previewState.isActive
@@ -467,7 +470,9 @@ class MainShell extends HookConsumerWidget {
     }, [currentIndex]);
 
     useEffect(() {
-      if (previewState.isActive || auth.uid.isEmpty) {
+      if (previewState.isActive ||
+          auth.uid.isEmpty ||
+          isUserDataCleanupInProgress) {
         return null;
       }
       if (!hasNetworkAccess) {
@@ -482,11 +487,17 @@ class MainShell extends HookConsumerWidget {
         guard,
       );
       return guard.cancel;
-    }, [previewState.isActive, auth.uid, hasNetworkAccess]);
+    }, [
+      previewState.isActive,
+      auth.uid,
+      hasNetworkAccess,
+      isUserDataCleanupInProgress,
+    ]);
 
     useEffect(() {
       if (previewState.isActive ||
           auth.uid.isEmpty ||
+          isUserDataCleanupInProgress ||
           walletAuthHeaders == null ||
           walletScopeHouseholdId == null &&
               ref.read(walletScopeHouseholdIdProvider) != null) {
@@ -531,6 +542,7 @@ class MainShell extends HookConsumerWidget {
     }, [
       previewState.isActive,
       auth.uid,
+      isUserDataCleanupInProgress,
       walletAuthHeaders != null,
       walletScopeHouseholdId,
     ]);
@@ -546,6 +558,7 @@ class MainShell extends HookConsumerWidget {
           if (userId.isEmpty || ref.read(previewModeProvider).isActive) {
             return;
           }
+          if (ref.read(userFinancialCacheCleanupInProgressProvider)) return;
           if (ref.read(networkReachabilityProvider).valueOrNull == false) {
             return;
           }
@@ -568,7 +581,7 @@ class MainShell extends HookConsumerWidget {
         guard.cancel();
         WidgetsBinding.instance.removeObserver(observer);
       };
-    }, const []);
+    }, [isUserDataCleanupInProgress]);
 
     Future<void> clearPreviewDataCaches() async {
       // Always reset shell navigation first.
@@ -745,8 +758,8 @@ class MainShell extends HookConsumerWidget {
     ];
 
     final pages = List<Widget>.generate(pageBuilders.length, (index) {
-      final shouldBuildPage =
-          index == currentIndex || visitedTabs.value.contains(index);
+      final shouldBuildPage = !isUserDataCleanupInProgress &&
+          (index == currentIndex || visitedTabs.value.contains(index));
       if (!shouldBuildPage) {
         return const SizedBox.shrink();
       }
@@ -920,6 +933,7 @@ class MainShell extends HookConsumerWidget {
                   ),
                   NavigationDestination(
                     icon: NotificationDotIndicator(
+                      right: -10,
                       isVisible: hasUnconfirmedRecurringOccurrences,
                       child: const Icon(Icons.repeat),
                     ),

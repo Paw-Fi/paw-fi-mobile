@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
@@ -37,12 +39,14 @@ void main() {
   }
 
   group('Persisted cache clearing', () {
-    test('clearAllPersistedPocketsCachesForUser removes only matching keys',
+    test('clearAllPersistedPocketsCachesForUser removes current matching keys',
         () async {
       const userId = 'user-a';
       final container = await buildContainerWithPrefs({
-        'pockets:month:v1:$userId:personal:2026-04:USD:true:false': '{}',
-        'pockets:month:v1:user-b:personal:2026-04:USD:true:false': '{}',
+        'pockets:month:v2:$userId:personal:personal:2026-04:USD:USD:fmsd1:true:false':
+            '{}',
+        'pockets:month:v2:user-b:personal:personal:2026-04:USD:USD:fmsd1:true:false':
+            '{}',
       });
       addTearDown(container.dispose);
 
@@ -51,12 +55,12 @@ void main() {
       final prefs = container.read(sharedPreferencesProvider);
       expect(
         prefs.getString(
-            'pockets:month:v1:$userId:personal:2026-04:USD:true:false'),
+            'pockets:month:v2:$userId:personal:personal:2026-04:USD:USD:fmsd1:true:false'),
         isNull,
       );
       expect(
         prefs.getString(
-            'pockets:month:v1:user-b:personal:2026-04:USD:true:false'),
+            'pockets:month:v2:user-b:personal:personal:2026-04:USD:USD:fmsd1:true:false'),
         '{}',
       );
     });
@@ -67,6 +71,7 @@ void main() {
       final container = await buildContainerWithPrefs({
         'dashboard:calendar:v1:$userId:personal:USD:<none>:<none>': '{}',
         'dashboard:recent:v1:$userId:personal:USD:20': '{}',
+        'dashboard:budgets:v1:legacy-contact-id': '{}',
         'dashboard:calendar:v1:user-b:personal:USD:<none>:<none>': '{}',
       });
       addTearDown(container.dispose);
@@ -81,6 +86,10 @@ void main() {
       );
       expect(
         prefs.getString('dashboard:recent:v1:$userId:personal:USD:20'),
+        isNull,
+      );
+      expect(
+        prefs.getString('dashboard:budgets:v1:legacy-contact-id'),
         isNull,
       );
       expect(
@@ -109,6 +118,40 @@ void main() {
         isNull,
       );
       expect(prefs.getString('wallets:list:v2:user-b:personal'), '{}');
+    });
+
+    test('clearAllWalletsCachesForUser removes current local page-state cache',
+        () async {
+      const userId = 'user-a';
+      const cacheKey =
+          'wallets:page-state:v6:$userId:personal:USD:2026-04-01:fmsd1:default';
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      SharedPreferences.setMockInitialValues({cacheKey: '{}'});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          localDatabaseProvider.overrideWith((ref) async => database),
+        ],
+      );
+      addTearDown(container.dispose);
+      await database.upsertJsonCache(
+        namespace: 'wallets_page_state',
+        cacheKey: cacheKey,
+        payload: const {'total_net_worth': 42},
+      );
+
+      await container.read(_clearWalletsCachesProvider(userId).future);
+
+      expect(
+        await database.getJsonCache(
+          namespace: 'wallets_page_state',
+          cacheKey: cacheKey,
+        ),
+        isNull,
+      );
+      expect(prefs.getString(cacheKey), isNull);
     });
   });
 }
