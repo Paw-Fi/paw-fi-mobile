@@ -372,22 +372,5 @@
     "zh": "",
     "zh_TW": "",
     "vi": ""
-  },
-  "total": {
-    "de": "Gesamtbetrag",
-    "en": "Total",
-    "es": "Importe total",
-    "fr": "Montant total",
-    "it": "Importo totale",
-    "ja": "合計金額",
-    "ko": "총액",
-    "nl": "Totaalbedrag",
-    "ur": "کل رقم",
-    "ru": "Общая сумма",
-    "th": "ยอดรวม",
-    "uk": "Загальна сума",
-    "zh": "总金额",
-    "zh_TW": "總金額",
-    "vi": "Tổng số tiền"
   }
 }
