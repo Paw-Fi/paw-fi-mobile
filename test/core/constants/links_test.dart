@@ -16,5 +16,6 @@ void main() {
     expect(uri.scheme, 'https');
     expect(uri.host, 'moneko.io');
     expect(uri.path, '/changelog');
+    expect(uri.queryParameters['source'], 'mobile-changelog');
   });
 }

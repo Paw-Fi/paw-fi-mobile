@@ -3372,5 +3372,7 @@
   "aiMappings": "AI 對應",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "編輯對應",
-  "addMapping": "新增對應"
+  "addMapping": "新增對應",
+  "logExpenseWithSiri": "使用 Siri 記錄支出",
+  "siriNoSetupRequired": "無需事先設定，馬上就能使用 Siri。"
 }

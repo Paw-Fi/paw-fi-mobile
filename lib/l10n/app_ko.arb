@@ -3241,5 +3241,7 @@
   "aiMappings": "AI 매핑",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "매핑 수정",
-  "addMapping": "매핑 추가"
+  "addMapping": "매핑 추가",
+  "logExpenseWithSiri": "Siri로 지출 기록",
+  "siriNoSetupRequired": "별도 설정 없이 바로 Siri를 사용할 수 있어요."
 }

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -255,19 +256,12 @@ class SettingsPage extends HookConsumerWidget {
     final isAccountDeletionInProgress = useState(false);
     final isDataResetInProgress = useState(false);
     final isAppLockSetupInProgress = useState(false);
-    final siriStatusReloadKey = useState(0);
     final hasAcknowledgedRestrictedRegion = useState(false);
     final deviceCountryCode = _resolveDeviceCountryCode();
     final isDeviceInRestrictedRegion =
         _isDeviceInRestrictedRegion(countryCode: deviceCountryCode);
     final restrictedCountryName =
         _restrictedRegionDisplayName(deviceCountryCode, context);
-    final siriShortcutStatus = useFuture(
-      useMemoized(
-        () => SiriShortcutAuthService.instance.getStatus(),
-        [authState.uid, siriStatusReloadKey.value],
-      ),
-    );
     final nameReloadKey = useState(0);
     final deviceTimezoneFuture = useFuture(
       useMemoized(resolveCanonicalDeviceTimezone),
@@ -384,7 +378,6 @@ class SettingsPage extends HookConsumerWidget {
           userId: session?.user.id,
           expiresAt: session?.expiresAt,
         );
-        siriStatusReloadKey.value++;
         // Also sync Android notification capture credentials
         if (Platform.isAndroid) {
           try {
@@ -426,57 +419,14 @@ class SettingsPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> handleSiriShortcutSetup() async {
-      await syncSiriShortcutAuthContextNow();
-      if (!context.mounted) return;
-
-      final result = await MonekoAlertDialog.show(
+    Future<void> handleSiriExpenseTutorial() async {
+      await MonekoBottomSheet.show<void>(
         context: context,
-        title: context.l10n.siriShortcuts,
-        description: context.l10n.siriShortcutsDescription,
-        confirmLabel: context.l10n.siriShortcutsOpenShortcuts,
-        cancelLabel: context.l10n.cancel,
+        isScrollControlled: true,
+        title: context.l10n.logExpenseWithSiri,
+        onClose: () => Navigator.of(context).pop(),
+        builder: (_) => const _SiriExpenseTutorial(),
       );
-
-      if (result?.confirmed != true || !context.mounted) {
-        return;
-      }
-
-      try {
-        final launched = await launchUrl(
-          Uri.parse('shortcuts://'),
-          mode: LaunchMode.externalApplication,
-        );
-        if (!launched && context.mounted) {
-          AppToast.error(context, context.l10n.siriShortcutsOpenFailed);
-        }
-      } catch (_) {
-        if (context.mounted) {
-          AppToast.error(context, context.l10n.siriShortcutsOpenFailed);
-        }
-      }
-    }
-
-    String resolveSiriShortcutStatusText() {
-      final status = siriShortcutStatus.data;
-      if (status == null) {
-        return siriShortcutStatus.hasError
-            ? context.l10n.siriShortcutsSetupRequired
-            : context.l10n.siriShortcutsChecking;
-      }
-
-      final isReady = status['isReady'] == true;
-      final hasCredentials = status['hasCredentials'] == true;
-      final hasSupabaseConfig = status['hasSupabaseConfig'] == true;
-
-      if (isReady) return context.l10n.siriShortcutsReady;
-      if (hasSupabaseConfig && hasCredentials) {
-        return context.l10n.siriShortcutsReady;
-      }
-      if (hasSupabaseConfig || hasCredentials) {
-        return context.l10n.siriShortcutsNeedsRefresh;
-      }
-      return context.l10n.siriShortcutsSetupRequired;
     }
 
     Future<void> launchIntegrationUrl(
@@ -1508,9 +1458,8 @@ class SettingsPage extends HookConsumerWidget {
                     if (Platform.isIOS)
                       _SettingsTile(
                         icon: Icons.mic_rounded,
-                        label: context.l10n.siriShortcuts,
-                        value: resolveSiriShortcutStatusText(),
-                        onTap: handleSiriShortcutSetup,
+                        label: context.l10n.logExpenseWithSiri,
+                        onTap: handleSiriExpenseTutorial,
                       ),
                     if (Platform.isIOS)
                       _SettingsTile(
@@ -2172,6 +2121,112 @@ class SettingsPage extends HookConsumerWidget {
       debugPrint('Error checking email import enabled status: $e');
       return false;
     }
+  }
+}
+
+class _SiriExpenseTutorial extends HookWidget {
+  const _SiriExpenseTutorial();
+
+  static const _videoAsset = 'lib/assets/videos/log-expense-with-siri.mp4';
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = useMemoized(
+      () => VideoPlayerController.asset(_videoAsset),
+    );
+    final initialization = useMemoized(() async {
+      await controller.initialize();
+      await controller.setLooping(false);
+      await controller.play();
+    }, [controller]);
+    final initializationSnapshot = useFuture(initialization);
+
+    useEffect(() => controller.dispose, [controller]);
+
+    final isReady =
+        initializationSnapshot.connectionState == ConnectionState.done &&
+            !initializationSnapshot.hasError &&
+            controller.value.isInitialized;
+
+    Widget videoFrame({
+      required Key key,
+      required double aspectRatio,
+      required Widget child,
+    }) {
+      return AspectRatio(
+        key: key,
+        aspectRatio: aspectRatio,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              border: Border.all(color: colorScheme.sheetBorder),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: child,
+          ),
+        ),
+      );
+    }
+
+    return SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SizedBox(
+            height: constraints.maxHeight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.l10n.siriNoSetupRequired,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colorScheme.mutedForeground,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: isReady
+                            ? videoFrame(
+                                key: const ValueKey('siri-tutorial-video'),
+                                aspectRatio: controller.value.aspectRatio,
+                                child: VideoPlayer(controller),
+                              )
+                            : videoFrame(
+                                key: const ValueKey('siri-tutorial-loading'),
+                                aspectRatio: 9 / 16,
+                                child: Center(
+                                  child: initializationSnapshot.hasError
+                                      ? Icon(
+                                          Icons.videocam_off_rounded,
+                                          color: colorScheme.mutedForeground,
+                                          size: 32,
+                                        )
+                                      : CircularProgressIndicator(
+                                          color: colorScheme.primary,
+                                        ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

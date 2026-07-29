@@ -3420,5 +3420,7 @@
   "aiMappings": "Зіставлення ШІ",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Змінити зіставлення",
-  "addMapping": "Додати зіставлення"
+  "addMapping": "Додати зіставлення",
+  "logExpenseWithSiri": "Записати витрату за допомогою Siri",
+  "siriNoSetupRequired": "Нічого заздалегідь налаштовувати не потрібно. Siri можна використовувати одразу."
 }

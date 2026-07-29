@@ -3445,5 +3445,7 @@
   "aiMappings": "การจับคู่ด้วย AI",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "แก้ไขการจับคู่",
-  "addMapping": "เพิ่มการจับคู่"
+  "addMapping": "เพิ่มการจับคู่",
+  "logExpenseWithSiri": "บันทึกรายจ่ายด้วย Siri",
+  "siriNoSetupRequired": "ไม่ต้องตั้งค่าล่วงหน้า ใช้ Siri ได้ทันที"
 }

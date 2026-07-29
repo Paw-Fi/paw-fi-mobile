@@ -3428,5 +3428,7 @@
   "aiMappings": "AIマッピング",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "マッピングを編集",
-  "addMapping": "マッピングを追加"
+  "addMapping": "マッピングを追加",
+  "logExpenseWithSiri": "Siriで支出を記録",
+  "siriNoSetupRequired": "事前設定なしですぐにSiriを使えます。"
 }

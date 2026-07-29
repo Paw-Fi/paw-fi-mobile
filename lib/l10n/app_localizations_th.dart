@@ -9564,4 +9564,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get addMapping => 'เพิ่มการจับคู่';
+
+  @override
+  String get logExpenseWithSiri => 'บันทึกรายจ่ายด้วย Siri';
+
+  @override
+  String get siriNoSetupRequired => 'ไม่ต้องตั้งค่าล่วงหน้า ใช้ Siri ได้ทันที';
 }

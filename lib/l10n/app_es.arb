@@ -3430,5 +3430,7 @@
   "aiMappings": "Correspondencias de IA",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Editar correspondencia",
-  "addMapping": "Añadir correspondencia"
+  "addMapping": "Añadir correspondencia",
+  "logExpenseWithSiri": "Registra un gasto con Siri",
+  "siriNoSetupRequired": "No necesitas configurar nada. Usa Siri de inmediato."
 }

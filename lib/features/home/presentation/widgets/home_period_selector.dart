@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -109,6 +110,7 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
           ref.read(homePeriodVisiblePeriodsProvider.notifier).state = periods;
         },
         onDateSelected: (date) {
+          HapticFeedback.selectionClick();
           ref.read(homePeriodSelectionProvider(userId).notifier).select(date);
         },
       ),

@@ -3375,5 +3375,7 @@
   "aiMappings": "Mappature AI",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Modifica mappatura",
-  "addMapping": "Aggiungi mappatura"
+  "addMapping": "Aggiungi mappatura",
+  "logExpenseWithSiri": "Registra una spesa con Siri",
+  "siriNoSetupRequired": "Non serve alcuna configurazione. Usa subito Siri."
 }

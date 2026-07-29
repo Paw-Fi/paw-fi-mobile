@@ -13,7 +13,8 @@ abstract class Links {
       'https://www.reddit.com/r/monekobudget/';
 
   /// Product updates and release notes
-  static const String changelog = 'https://moneko.io/changelog';
+  static const String changelog =
+      'https://moneko.io/changelog?source=mobile-changelog';
 
   /// Support email address
   static const String supportEmail = 'mailto:hello@moneko.io';

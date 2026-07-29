@@ -3428,5 +3428,7 @@
   "aiMappings": "KI-Zuordnungen",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Zuordnung bearbeiten",
-  "addMapping": "Zuordnung hinzufügen"
+  "addMapping": "Zuordnung hinzufügen",
+  "logExpenseWithSiri": "Ausgabe mit Siri erfassen",
+  "siriNoSetupRequired": "Keine vorherige Einrichtung nötig. Du kannst Siri sofort verwenden."
 }

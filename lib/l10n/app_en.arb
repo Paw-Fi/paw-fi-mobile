@@ -3465,5 +3465,7 @@
   "aiMappings": "AI mappings",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Edit mapping",
-  "addMapping": "Add mapping"
+  "addMapping": "Add mapping",
+  "logExpenseWithSiri": "Log expense with Siri",
+  "siriNoSetupRequired": "No setup required. Use Siri right away."
 }

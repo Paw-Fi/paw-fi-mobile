@@ -3374,5 +3374,7 @@
   "aiMappings": "AI میپنگز",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "میپنگ میں ترمیم کریں",
-  "addMapping": "میپنگ شامل کریں"
+  "addMapping": "میپنگ شامل کریں",
+  "logExpenseWithSiri": "Siri کے ذریعے خرچ درج کریں",
+  "siriNoSetupRequired": "پہلے سے کسی سیٹ اپ کی ضرورت نہیں۔ Siri فوراً استعمال کریں۔"
 }

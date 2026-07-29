@@ -3424,5 +3424,7 @@
   "aiMappings": "AI 映射",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "编辑映射",
-  "addMapping": "添加映射"
+  "addMapping": "添加映射",
+  "logExpenseWithSiri": "使用 Siri 记录支出",
+  "siriNoSetupRequired": "无需提前设置，立即就能使用 Siri。"
 }

@@ -3378,5 +3378,7 @@
   "aiMappings": "Сопоставления ИИ",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Изменить сопоставление",
-  "addMapping": "Добавить сопоставление"
+  "addMapping": "Добавить сопоставление",
+  "logExpenseWithSiri": "Записать расход с помощью Siri",
+  "siriNoSetupRequired": "Ничего заранее настраивать не нужно. Siri можно использовать сразу."
 }

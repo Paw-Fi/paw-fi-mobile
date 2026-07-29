@@ -3427,5 +3427,7 @@
   "aiMappings": "Ánh xạ AI",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Chỉnh sửa ánh xạ",
-  "addMapping": "Thêm ánh xạ"
+  "addMapping": "Thêm ánh xạ",
+  "logExpenseWithSiri": "Ghi lại khoản chi bằng Siri",
+  "siriNoSetupRequired": "Không cần thiết lập trước. Bạn có thể dùng Siri ngay."
 }

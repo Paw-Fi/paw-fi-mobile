@@ -3375,5 +3375,7 @@
   "aiMappings": "AI-toewijzingen",
   "remapTitle": "{fromLabel} → {toLabel}",
   "editMapping": "Toewijzing bewerken",
-  "addMapping": "Toewijzing toevoegen"
+  "addMapping": "Toewijzing toevoegen",
+  "logExpenseWithSiri": "Uitgave registreren met Siri",
+  "siriNoSetupRequired": "Je hoeft niets vooraf in te stellen. Gebruik Siri meteen."
 }
