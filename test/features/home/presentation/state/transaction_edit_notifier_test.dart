@@ -11,6 +11,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
@@ -38,6 +39,7 @@ class _FakeAnalyticsNotifier extends AnalyticsNotifier {
   }
 
   String? loadedUserId;
+  Completer<void>? loadCompleter;
 
   @override
   Future<void> loadData(
@@ -46,6 +48,7 @@ class _FakeAnalyticsNotifier extends AnalyticsNotifier {
     bool forceReload = false,
   }) async {
     loadedUserId = userId;
+    await loadCompleter?.future;
   }
 }
 
@@ -266,6 +269,62 @@ void main() {
     });
 
     test(
+      'returns after backend commit without waiting for full analytics reload',
+      () async {
+        final successResponse = _MockFunctionResponse();
+        when(() => successResponse.data).thenReturn({
+          'success': true,
+          'data': {'category': 'groceries'},
+        });
+        when(
+          () => functionsClient.invoke(
+            'update-expense',
+            body: any(named: 'body'),
+          ),
+        ).thenAnswer((_) async => successResponse);
+
+        final container = createContainer(
+          supabaseClient: supabaseClient,
+          onAnalyticsNotifierCreated: (notifier) =>
+              analyticsNotifier = notifier,
+        );
+        addTearDown(container.dispose);
+
+        container.read(analyticsProvider);
+        final original = ExpenseEntry(
+          id: 'expense-1',
+          userId: 'user-1',
+          date: DateTime(2026, 4, 29),
+          amountCents: 1299,
+          category: 'food',
+          createdAt: DateTime(2026, 4, 29, 12),
+        );
+        analyticsNotifier!.state = AnalyticsData(
+          expenses: [original],
+          allExpenses: [original],
+        );
+        final analyticsReload = Completer<void>();
+        analyticsNotifier!.loadCompleter = analyticsReload;
+
+        final result = await container
+            .read(transactionEditProvider.notifier)
+            .updateExpense('expense-1', {'category': 'groceries'});
+
+        expect(result, isTrue);
+        expect(container.read(transactionEditProvider).isLoading, isFalse);
+        expect(analyticsNotifier!.loadedUserId, 'user-1');
+        expect(analyticsReload.isCompleted, isFalse);
+        expect(
+          container.read(analyticsProvider).allExpenses.single.category,
+          'groceries',
+        );
+
+        analyticsReload.complete();
+        await Future<void>.delayed(Duration.zero);
+      },
+    );
+
+    test(
       'updates cached receipt URL and refreshes transaction feed after receipt replacement',
       () async {
         final successResponse = _MockFunctionResponse();
@@ -312,6 +371,8 @@ void main() {
 
         final originalFeedSignal =
             container.read(transactionsFeedRefreshSignalProvider);
+        final originalDashboardSignal =
+            container.read(dashboardRefreshSignalProvider);
 
         final result = await container
             .read(transactionEditProvider.notifier)
@@ -327,6 +388,10 @@ void main() {
         expect(
           container.read(transactionsFeedRefreshSignalProvider),
           originalFeedSignal + 1,
+        );
+        expect(
+          container.read(dashboardRefreshSignalProvider),
+          greaterThan(originalDashboardSignal),
         );
       },
     );

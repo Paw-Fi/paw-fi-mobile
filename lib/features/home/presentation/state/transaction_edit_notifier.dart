@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
@@ -30,6 +32,9 @@ final RegExp _serverExpenseIdPattern = RegExp(
   r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
   caseSensitive: false,
 );
+
+const Duration _transactionUpdateRequestTimeout = Duration(seconds: 30);
+const Duration _localCommitReconciliationTimeout = Duration(seconds: 5);
 
 final activeTransactionCreateSyncIdsProvider = StateProvider<Set<String>>(
   (ref) => const <String>{},
@@ -168,10 +173,12 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         requestBody.addAll(extraBody);
       }
 
-      final response = await supabaseClient.functions.invoke(
-        'update-expense',
-        body: requestBody,
-      );
+      final response = await supabaseClient.functions
+          .invoke(
+            'update-expense',
+            body: requestBody,
+          )
+          .timeout(_transactionUpdateRequestTimeout);
 
       // Check response
       if (response.data == null) {
@@ -219,7 +226,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
                 'clientTimezoneOffsetMinutes':
                     DateTime.now().timeZoneOffset.inMinutes,
               },
-            );
+            ).timeout(_transactionUpdateRequestTimeout);
 
             final retryData = _responseMap(retryResponse.data);
             final retrySuccess = retryData?['success'] == true;
@@ -270,41 +277,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         if (confirmedExpense?.householdId?.trim().isNotEmpty == true)
           confirmedExpense!.householdId!.trim(),
       };
-      await Future.wait(
-        affectedHouseholdIds.map((householdId) async {
-          try {
-            await clearHouseholdPersistentCacheForHousehold(householdId);
-          } catch (error) {
-            _debugPrint('⚠️ Failed to clear household cache: $error');
-          }
-        }),
-      );
-      if (confirmedExpense != null) {
-        ref.read(transactionsFeedEditedEntryProvider.notifier).state =
-            confirmedExpense;
-      }
-      if (localDatabase != null && confirmedExpense != null) {
-        await localDatabase.markOptimisticTransactionUpdateSynced(
-          entry: confirmedExpense,
-          clientMutationId: mutationMetadata.clientMutationId,
-        );
-      } else if (localDatabase != null) {
-        await localDatabase.markMutationSynced(
-          mutationMetadata.clientMutationId,
-        );
-      }
 
-      // ═══════════════════════════════════════════════════════════════
-      // STEP 3: Reload data from backend to sync all providers
-      // ═══════════════════════════════════════════════════════════════
-      // After successful backend update, refresh all affected data:
-      //   1. Personal expenses (analyticsProvider)
-      //   2. Household expenses (householdExpensesProvider, etc.)
-      //
-      // This ensures UI shows the latest data from backend, including
-      // any transformations or calculations done server-side.
-      // ═══════════════════════════════════════════════════════════════
-      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      // The backend response is authoritative. Apply it before doing any broad
+      // refresh so a slow analytics reload cannot keep the save dialog open or
+      // temporarily replace the edited row with stale data.
       if (confirmedExpense != null) {
         final rollbackSource =
             originalForRollback ?? originalExpense ?? confirmedExpense;
@@ -314,44 +290,49 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           confirmedExpense,
           originalExpense: rollbackSource,
         );
-        if (localDatabase != null) {
-          await localDatabase.markOptimisticTransactionUpdateSynced(
-            entry: confirmedExpense,
-            clientMutationId: mutationMetadata.clientMutationId,
+      }
+
+      // Reconcile the durable outbox promptly, but never leave the user behind
+      // a blocking dialog indefinitely if device storage is unhealthy. The
+      // mutation is idempotent and remains safely retryable if reconciliation
+      // cannot finish within this small bound.
+      if (localDatabase != null) {
+        try {
+          final reconciliation = confirmedExpense != null
+              ? localDatabase.markOptimisticTransactionUpdateSynced(
+                  entry: confirmedExpense,
+                  clientMutationId: mutationMetadata.clientMutationId,
+                )
+              : localDatabase.markMutationSynced(
+                  mutationMetadata.clientMutationId,
+                );
+          await reconciliation.timeout(_localCommitReconciliationTimeout);
+        } catch (error) {
+          _debugPrint(
+            '⚠️ Backend update committed but local reconciliation was deferred: $error',
           );
         }
       }
-      // ⚠️ CRITICAL: Always invalidate household providers after update
-      // Even if the expense wasn't in analyticsProvider cache (household expense),
-      // we must refresh household data to show the updated expense.
-      //
-      // This was a bug fix: Previously, household expenses failed to update
-      // because they weren't in analyticsProvider and household providers
-      // weren't being refreshed.
-      _debugPrint('🔄 Invalidating household providers after expense update');
-      ref.invalidate(userHouseholdsProvider(user.uid));
-      ref.invalidate(householdExpensesProvider);
-      ref.invalidate(householdSplitsProvider);
-      ref.invalidate(householdBudgetsProvider);
-      ref.invalidate(householdMembersProvider);
-      ref.invalidate(cachedHouseholdExpensesProvider);
-      ref.invalidate(cachedHouseholdSplitsProvider);
-      ref.read(cacheInvalidatorProvider).invalidateAll();
-      _debugPrint('✅ Invalidated household providers');
 
-      // Keep other tabs in sync. Pockets reconciles from refresh signals
-      // without disposing its visible provider.
-      ref.invalidate(currencyTransactionCountsProvider);
-      ref
-          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
-          .state += 1;
-      ref.read(walletActionsProvider).refreshAccountData();
+      // Notify derived local-first consumers immediately. The edited-entry
+      // overlay already refreshes the transaction feed; the dashboard signal
+      // propagates the same committed row to pockets and summary surfaces.
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
       state = state.copyWith(
         isLoading: false,
         clearOptimisticUpdate: true,
         clearError: true,
       );
+
+      // A single-row edit must not wait for a full-history analytics download,
+      // SQLite recache, or household cache maintenance. The confirmed row above
+      // is already visible and durable; broad reconciliation is best-effort
+      // background maintenance.
+      unawaited(_refreshAfterCommittedUpdate(
+        userId: user.uid,
+        affectedHouseholdIds: affectedHouseholdIds,
+      ));
 
       return true;
     } catch (e) {
@@ -698,6 +679,44 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
     return null;
+  }
+
+  Future<void> _refreshAfterCommittedUpdate({
+    required String userId,
+    required Set<String> affectedHouseholdIds,
+  }) async {
+    try {
+      if (affectedHouseholdIds.isNotEmpty) {
+        await Future.wait(
+          affectedHouseholdIds.map(clearHouseholdPersistentCacheForHousehold),
+        );
+      }
+
+      _debugPrint('🔄 Invalidating providers after committed expense update');
+      ref.invalidate(userHouseholdsProvider(userId));
+      ref.invalidate(householdExpensesProvider);
+      ref.invalidate(householdSplitsProvider);
+      ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdMembersProvider);
+      ref.invalidate(cachedHouseholdExpensesProvider);
+      ref.invalidate(cachedHouseholdSplitsProvider);
+      ref.read(cacheInvalidatorProvider).invalidateAll();
+      ref.invalidate(currencyTransactionCountsProvider);
+      ref
+          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+          .state += 1;
+      ref.read(walletActionsProvider).refreshAccountData();
+
+      // This can legitimately be expensive for users with years of history.
+      // It is reconciliation only; the confirmed transaction is already in all
+      // immediate providers and the local database.
+      await ref.read(analyticsProvider.notifier).loadData(userId);
+      _debugPrint('✅ Background expense update reconciliation completed');
+    } catch (error) {
+      // The backend commit and confirmed local row remain authoritative. A
+      // later app/tab refresh will retry reconciliation naturally.
+      _debugPrint('⚠️ Background expense update reconciliation failed: $error');
+    }
   }
 
   Future<void> _refreshAfterTransactionMutation(String userId) async {

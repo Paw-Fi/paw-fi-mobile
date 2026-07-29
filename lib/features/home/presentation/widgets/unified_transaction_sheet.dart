@@ -4514,58 +4514,19 @@ class _UnifiedTransactionSheetV2State
 
         if (success) {
           if (replacedReceiptImageUrl != null) {
-            await ref
+            // Receipt cleanup is maintenance after the new URL is committed. A
+            // slow storage request must not keep the successful edit blocked.
+            unawaited(ref
                 .read(expenseSaveNotifierProvider.notifier)
-                .deleteReceiptImage(replacedReceiptImageUrl);
-            if (!mounted || !toastContext.mounted) {
-              closeDialog();
-              return;
-            }
+                .deleteReceiptImage(replacedReceiptImageUrl)
+                .catchError((Object error) {
+              debugPrint(' Failed to delete replaced receipt image: $error');
+            }));
           }
 
-          //
-          debugPrint(' Triggering comprehensive UI refresh...');
-
-          final editedHouseholdId = targetHouseholdId;
-
-          // Refresh the scope where the expense now exists.
-          if (editedHouseholdId != null) {
-            debugPrint(' Refreshing expense household UI');
-            await _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
-          } else {
-            debugPrint(' Refreshing expense personal UI');
-            _refreshPersonalUiAfterExpenseChange(user.uid);
-          }
-
-          // ALSO refresh the current view
-          final currentScope = ref.read(householdScopeProvider);
-          final currentHouseholdId = currentScope.selectedHouseholdId;
-
-          if (currentScope.isHouseholdView && currentHouseholdId != null) {
-            debugPrint(' Also refreshing CURRENT household view');
-            if (currentHouseholdId != editedHouseholdId) {
-              await _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
-            }
-          } else {
-            debugPrint(' Also refreshing CURRENT personal view');
-            _refreshPersonalUiAfterExpenseChange(user.uid);
-          }
-
-          if (originalHouseholdId != editedHouseholdId) {
-            if (originalHouseholdId != null &&
-                originalHouseholdId != currentHouseholdId &&
-                originalHouseholdId != editedHouseholdId) {
-              debugPrint(' Refreshing PREVIOUS household view');
-              await _refreshHouseholdUiAfterExpenseChange(originalHouseholdId);
-            } else if (originalHouseholdId == null &&
-                currentScope.isHouseholdView &&
-                editedHouseholdId != null) {
-              debugPrint(' Refreshing PREVIOUS personal view');
-              _refreshPersonalUiAfterExpenseChange(user.uid);
-            }
-          }
-
-          // Close the sheet so when user reopens it, they see fresh data
+          // TransactionEditNotifier has already applied the authoritative row
+          // and scheduled all broad provider/cache reconciliation. Do not run a
+          // second blocking refresh from the sheet.
           closeDialog();
 
           final remapToCategory = nextCategoryForRemap;
@@ -4601,8 +4562,11 @@ class _UnifiedTransactionSheetV2State
         } else {
           rollbackOptimisticSplitMutation();
           if (uploadedReplacementReceiptImageUrl != null) {
-            await expenseSaveNotifier
-                .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
+            unawaited(expenseSaveNotifier
+                .deleteReceiptImage(uploadedReplacementReceiptImageUrl)
+                .catchError((Object error) {
+              debugPrint(' Failed to clean up replacement receipt: $error');
+            }));
           }
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
@@ -4632,8 +4596,11 @@ class _UnifiedTransactionSheetV2State
       debugPrint(' Error saving expense: $error');
       rollbackOptimisticSplitMutation();
       if (uploadedReplacementReceiptImageUrl != null) {
-        await expenseSaveNotifier
-            .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
+        unawaited(expenseSaveNotifier
+            .deleteReceiptImage(uploadedReplacementReceiptImageUrl)
+            .catchError((Object cleanupError) {
+          debugPrint(' Failed to clean up replacement receipt: $cleanupError');
+        }));
       }
       if (!mounted || !toastContext.mounted) {
         closeDialog();
