@@ -2004,6 +2004,7 @@ class _BudgetStep extends HookConsumerWidget {
             onSave: () async => notifier.saveChanges(),
             currency: currency,
             onDateSelected: (_) {},
+            showSlider: true,
           ),
         ],
       ),

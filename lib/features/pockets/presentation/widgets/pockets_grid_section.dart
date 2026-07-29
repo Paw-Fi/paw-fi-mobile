@@ -8,6 +8,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/pages/pocket_details_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -67,6 +68,7 @@ class PocketsGridSection extends HookConsumerWidget {
     // Local state for Envelope Mode
     final envelopeMode = useState(true);
     final hasSeenEnvelopeModeHelp = useState(false);
+    final savingCurrencyBudget = useState<String?>(null);
 
     // View Mode & Ordering State
     final viewMode = useState('grid');
@@ -223,6 +225,95 @@ class PocketsGridSection extends HookConsumerWidget {
       (sum, e) => sum + e.getLimit(totalBudget),
     );
     final unallocatedBudget = totalBudget - totalAllocated;
+    final selectedCurrencyBudgets = <String, double>{
+      for (final currency
+          in scopeParams.normalizedSelectedCurrencies ?? const <String>[])
+        currency: state.nativeBudgetByCurrency[currency] ?? 0,
+    };
+
+    void openAddPocketSheet() {
+      if (isMultiCurrencySelection) {
+        AppToast.info(context, context.l10n.selectCurrencyFirst);
+        return;
+      }
+      if (totalBudget <= 0) {
+        AppToast.info(context, context.l10n.pleaseSetMonthlyBudgetFirst);
+        return;
+      }
+      EditPocketEnvelopeSheet.show(
+        context: context,
+        scopeParams: scopeParams,
+        budgetId: state.budgetId,
+        totalBudget: totalBudget,
+        unallocatedBudget: unallocatedBudget,
+        allPockets: state.editing,
+      );
+    }
+
+    Future<void> updateNativeCurrencyBudget(
+      String currency,
+      double amount,
+    ) async {
+      final normalizedCurrency = currency.trim().toUpperCase();
+      if (normalizedCurrency.isEmpty || savingCurrencyBudget.value != null) {
+        return;
+      }
+      if (ref.read(previewModeProvider).isActive) {
+        AppToast.info(context, context.l10n.previewMockUpdatesApplied);
+        return;
+      }
+
+      savingCurrencyBudget.value = normalizedCurrency;
+      try {
+        final nativeParams = PocketsScopeParams(
+          scope: scopeParams.scope,
+          householdId: scopeParams.householdId,
+          periodMonth: state.periodMonth,
+          currency: normalizedCurrency,
+          selectedCurrencies: null,
+          financialMonthStartDay: scopeParams.normalizedFinancialMonthStartDay,
+          isBootstrapCurrency: false,
+          includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
+        );
+        final nativeProvider = pocketsProvider(nativeParams);
+        final nativeNotifier = ref.read(nativeProvider.notifier);
+        await nativeNotifier.load();
+        final loadedNativeState = ref.read(nativeProvider);
+        if (loadedNativeState.error != null &&
+            !loadedNativeState.hasDisplayData) {
+          throw Exception(loadedNativeState.error);
+        }
+
+        nativeNotifier.updateTotalBudget(amount);
+        await nativeNotifier.saveChanges();
+        final savedNativeState = ref.read(nativeProvider);
+        if (savedNativeState.error != null) {
+          throw Exception(savedNativeState.error);
+        }
+
+        await notifier.applyNativeBudgetProjection(
+          normalizedCurrency,
+          amount,
+        );
+        if (context.mounted) {
+          AppToast.success(
+            context,
+            context.l10n.budgetUpdatedSuccessfully,
+          );
+        }
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            ErrorHandler.getUserFriendlyMessage(error),
+          );
+        }
+      } finally {
+        if (context.mounted) {
+          savingCurrencyBudget.value = null;
+        }
+      }
+    }
 
     return Skeletonizer(
       enabled: isLoading,
@@ -257,17 +348,22 @@ class PocketsGridSection extends HookConsumerWidget {
           ),
           PocketsHeaderCard(
             totalBudget: totalBudget,
-            totalAllocated: totalAllocated,
-            totalSpent: totalSpent,
             periodMonth: state.periodMonth,
             financialMonthStartDay: state.financialMonthStartDay,
-            previousBudget: state.previousBudget,
-            onReusePrevious: state.previousBudget > 0
-                ? () => notifier.reusePreviousBudget(state.previousBudget)
-                : null,
             colorScheme: colorScheme,
             onTotalChanged:
-                isMultiCurrencySelection ? (_) {} : notifier.updateTotalBudget,
+                isMultiCurrencySelection ? null : notifier.updateTotalBudget,
+            onBudgetEditBlocked: isMultiCurrencySelection
+                ? () => AppToast.info(
+                      context,
+                      context.l10n.selectCurrencyFirst,
+                    )
+                : null,
+            currencyBudgets:
+                isMultiCurrencySelection ? selectedCurrencyBudgets : const {},
+            onCurrencyBudgetChanged:
+                isMultiCurrencySelection ? updateNativeCurrencyBudget : null,
+            savingCurrency: savingCurrencyBudget.value,
             onSave: () async {
               if (isMultiCurrencySelection) {
                 AppToast.info(
@@ -430,21 +526,7 @@ class PocketsGridSection extends HookConsumerWidget {
                             key: const ValueKey('add_button'),
                             child: AddEnvelopeCard(
                               colorScheme: colorScheme,
-                              onTap: () {
-                                if (totalBudget <= 0) {
-                                  AppToast.info(context,
-                                      context.l10n.pleaseSetMonthlyBudgetFirst);
-                                  return;
-                                }
-                                EditPocketEnvelopeSheet.show(
-                                  context: context,
-                                  scopeParams: scopeParams,
-                                  budgetId: state.budgetId,
-                                  totalBudget: totalBudget,
-                                  unallocatedBudget: unallocatedBudget,
-                                  allPockets: state.editing,
-                                );
-                              },
+                              onTap: openAddPocketSheet,
                             ),
                           );
                         }
@@ -513,21 +595,7 @@ class PocketsGridSection extends HookConsumerWidget {
                             padding: const EdgeInsets.only(bottom: 16),
                             child: AddEnvelopeListTile(
                               colorScheme: colorScheme,
-                              onTap: () {
-                                if (totalBudget <= 0) {
-                                  AppToast.info(context,
-                                      context.l10n.pleaseSetMonthlyBudgetFirst);
-                                  return;
-                                }
-                                EditPocketEnvelopeSheet.show(
-                                  context: context,
-                                  scopeParams: scopeParams,
-                                  budgetId: state.budgetId,
-                                  totalBudget: totalBudget,
-                                  unallocatedBudget: unallocatedBudget,
-                                  allPockets: state.editing,
-                                );
-                              },
+                              onTap: openAddPocketSheet,
                             ),
                           );
                         }

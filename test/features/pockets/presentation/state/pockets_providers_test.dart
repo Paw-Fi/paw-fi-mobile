@@ -413,6 +413,126 @@ void main() {
       expect(restored.editing.single.budgetAmountCents, 1230);
     });
 
+    test('restores native currency budget totals from cache', () {
+      final state = PocketsState(
+        isLoading: false,
+        saved: const [],
+        editing: const [],
+        periodMonth: DateTime(2026, 7, 1),
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 1170,
+        savedTotalBudget: 1170,
+        nativeBudgetByCurrency: const {
+          'EUR': 1000,
+          'USD': 200,
+        },
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final restored = PocketsState.fromCacheJson(state.toCacheJson());
+
+      expect(restored.nativeBudgetByCurrency, const {
+        'EUR': 1000,
+        'USD': 200,
+      });
+    });
+
+    test('updates aggregate projection from one native currency budget', () {
+      final state = PocketsState(
+        isLoading: false,
+        saved: const [],
+        editing: const [],
+        periodMonth: DateTime(2026, 7, 1),
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 1100,
+        savedTotalBudget: 1100,
+        nativeBudgetByCurrency: const {
+          'EUR': 1000,
+          'USD': 200,
+        },
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final updated = applyNativeBudgetProjectionToState(
+        state: state,
+        currency: 'USD',
+        nativeAmount: 300,
+        rates: const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: {'USD': 1, 'EUR': 0.5},
+        ),
+      );
+
+      expect(updated.totalBudget, 1150);
+      expect(updated.savedTotalBudget, 1150);
+      expect(updated.nativeBudgetByCurrency, const {
+        'EUR': 1000,
+        'USD': 300,
+      });
+      expect(state.nativeBudgetByCurrency['USD'], 200);
+    });
+
+    test('never reuses a different-currency budget row for native edits', () {
+      expect(
+        canReusePocketBudgetRowForCurrency(
+          {'id': 'eur-budget', 'currency': 'EUR'},
+          'USD',
+        ),
+        isFalse,
+      );
+      expect(
+        canReusePocketBudgetRowForCurrency(
+          {'id': 'usd-budget', 'currency': 'usd'},
+          'USD',
+        ),
+        isTrue,
+      );
+      expect(
+        canReusePocketBudgetRowForCurrency(
+          {'id': 'legacy-budget', 'currency': null},
+          'USD',
+        ),
+        isTrue,
+      );
+    });
+
+    test('refuses mixed-currency envelopes in a native budget save', () {
+      final now = DateTime(2026, 7, 1);
+      final usdPocket = PocketEnvelope(
+        id: 'usd-pocket',
+        name: 'USD pocket',
+        budgetAmountCents: 10000,
+        spent: 0,
+        currency: 'USD',
+        lastUpdated: now,
+      );
+      final eurPocket = PocketEnvelope(
+        id: 'eur-pocket',
+        name: 'EUR pocket',
+        budgetAmountCents: 10000,
+        spent: 0,
+        currency: 'EUR',
+        lastUpdated: now,
+      );
+
+      expect(
+        pocketCurrenciesMatchWriteCurrency([usdPocket], 'USD'),
+        isTrue,
+      );
+      expect(
+        pocketCurrenciesMatchWriteCurrency([usdPocket, eurPocket], 'USD'),
+        isFalse,
+      );
+    });
+
     test('restores cached envelope category links for pocket details', () {
       final now = DateTime(2026, 1, 1);
       final state = PocketsState(

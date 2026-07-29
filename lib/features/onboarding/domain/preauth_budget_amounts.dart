@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:moneko/core/utils/money_parser.dart';
+
 class PreauthBudgetRange {
   const PreauthBudgetRange({
     required this.baseline,
@@ -13,6 +15,15 @@ class PreauthBudgetRange {
   final double max;
   final double rounding;
 }
+
+final manualPreauthBudgetInputPattern = RegExp(
+  r'^(?:'
+  r'[0-9]+'
+  r'|[0-9]+[.,][0-9]{1,2}'
+  r'|[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?'
+  r'|[0-9]{1,3}(?:\.[0-9]{3})+(?:,[0-9]{1,2})?'
+  r')$',
+);
 
 PreauthBudgetRange preauthBudgetRangeForCurrency(String currencyCode) {
   final normalized = currencyCode.trim().toUpperCase();
@@ -37,6 +48,21 @@ double roundBudgetForCurrency(double amount, String currencyCode) {
   }
   final rounded = (amount / range.rounding).round() * range.rounding;
   return rounded.clamp(range.min, range.max).toDouble();
+}
+
+double? parseManualPreauthBudgetAmount(String input) {
+  final normalized = input.trim();
+  if (!manualPreauthBudgetInputPattern.hasMatch(normalized)) return null;
+
+  final usesDotGroupingOnly =
+      RegExp(r'^[0-9]{1,3}(?:\.[0-9]{3})+$').hasMatch(normalized);
+  final cents = tryParseMoneyToCents(
+    usesDotGroupingOnly ? normalized.replaceAll('.', '') : normalized,
+  );
+  if (cents == null || cents <= 0) return null;
+
+  final amount = centsToAmount(cents);
+  return amount.isFinite ? amount : null;
 }
 
 double _niceNumber(double rawStep) {

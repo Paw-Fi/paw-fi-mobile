@@ -44,6 +44,19 @@ void main() {
     expect(derived.monthlyBudget, 4100);
   });
 
+  test('does not clamp an existing budget to the currency slider range', () {
+    final draft = OnboardingPreauthDraft.initial().copyWith(
+      monthlyBudget: 4000000,
+      selectedCurrency: 'CLP',
+      housingType: 'paid_off',
+      livingSituation: 'owning',
+    );
+
+    final derived = derivePreauthBudgetProfile(draft);
+
+    expect(derived.monthlyBudget, 4000000);
+  });
+
   test('student profile estimates a smaller budget than foodie profile', () {
     final student = estimateStarterMonthlyBudget(
       OnboardingPreauthDraft.initial().copyWith(

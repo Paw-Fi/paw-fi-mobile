@@ -29,7 +29,6 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
-import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -1811,8 +1810,8 @@ class _PreAuthStarterStep extends StatelessWidget {
           initialValue: totalBudget.toStringAsFixed(0),
           placeholder: '0',
           isRequired: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: false),
-          validationPattern: RegExp(r'^[0-9,]+$'),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          validationPattern: manualPreauthBudgetInputPattern,
           validationMessage:
               context.l10n.onboardingPreAuthAdjustBudgetValidation,
         ),
@@ -1822,13 +1821,12 @@ class _PreAuthStarterStep extends StatelessWidget {
         return;
       }
 
-      final cents = tryParseMoneyToCents(result.text!);
-      final parsed = cents != null ? centsToAmount(cents) : null;
+      final parsed = parseManualPreauthBudgetAmount(result.text!);
       if (parsed == null) {
         return;
       }
 
-      onBudgetChanged(roundBudgetForCurrency(parsed, currency));
+      onBudgetChanged(parsed);
     }
 
     return Padding(

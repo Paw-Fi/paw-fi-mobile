@@ -771,6 +771,64 @@ PocketsState applyRebalancedBudgetToPocketsState({
   );
 }
 
+@foundation.visibleForTesting
+PocketsState applyNativeBudgetProjectionToState({
+  required PocketsState state,
+  required String currency,
+  required double nativeAmount,
+  required CurrencyRateTable rates,
+}) {
+  final normalizedCurrency = currency.trim().toUpperCase();
+  if (normalizedCurrency.isEmpty ||
+      !nativeAmount.isFinite ||
+      nativeAmount < 0) {
+    return state;
+  }
+
+  final displayCurrency = state.currency.trim().toUpperCase();
+  final updatedNativeBudgets = Map<String, double>.from(
+    state.nativeBudgetByCurrency,
+  )..[normalizedCurrency] = nativeAmount;
+  final nextTotalBudget = updatedNativeBudgets.entries.fold<double>(
+    0,
+    (sum, entry) =>
+        sum +
+        (entry.key == displayCurrency
+            ? entry.value
+            : rates.convert(entry.value, entry.key, displayCurrency)),
+  );
+
+  return state.copyWith(
+    totalBudget: nextTotalBudget,
+    savedTotalBudget: nextTotalBudget,
+    nativeBudgetByCurrency: updatedNativeBudgets,
+    clearError: true,
+  );
+}
+
+@foundation.visibleForTesting
+bool canReusePocketBudgetRowForCurrency(
+  Map<String, dynamic>? row,
+  String currency,
+) {
+  if (row == null) return false;
+  final rowCurrency = (row['currency'] as String?)?.trim().toUpperCase() ?? '';
+  final normalizedCurrency = currency.trim().toUpperCase();
+  return rowCurrency.isEmpty || rowCurrency == normalizedCurrency;
+}
+
+@foundation.visibleForTesting
+bool pocketCurrenciesMatchWriteCurrency(
+  Iterable<PocketEnvelope> pockets,
+  String currency,
+) {
+  final normalizedCurrency = currency.trim().toUpperCase();
+  return pockets.every((pocket) {
+    final pocketCurrency = pocket.currency.trim().toUpperCase();
+    return pocketCurrency.isEmpty || pocketCurrency == normalizedCurrency;
+  });
+}
+
 bool _canUseSavedPocketBaseline(PocketsState state) {
   if (state.saved.length != state.editing.length) {
     return false;
@@ -1463,6 +1521,7 @@ class PocketsState {
     required this.currency,
     required this.totalBudget,
     required this.savedTotalBudget,
+    this.nativeBudgetByCurrency = const {},
     this.aggregateTotalSpent,
     this.aggregateSpentByEnvelopeId = const {},
     required this.unallocatedSpend,
@@ -1485,6 +1544,7 @@ class PocketsState {
   final String currency;
   final double totalBudget;
   final double savedTotalBudget; // Track original budget for change detection
+  final Map<String, double> nativeBudgetByCurrency;
   final double? aggregateTotalSpent;
   final Map<String, double> aggregateSpentByEnvelopeId;
   final double unallocatedSpend;
@@ -1552,6 +1612,7 @@ class PocketsState {
     String? currency,
     double? totalBudget,
     double? savedTotalBudget,
+    Map<String, double>? nativeBudgetByCurrency,
     double? aggregateTotalSpent,
     Map<String, double>? aggregateSpentByEnvelopeId,
     double? unallocatedSpend,
@@ -1578,6 +1639,8 @@ class PocketsState {
       currency: currency ?? this.currency,
       totalBudget: totalBudget ?? this.totalBudget,
       savedTotalBudget: savedTotalBudget ?? this.savedTotalBudget,
+      nativeBudgetByCurrency:
+          nativeBudgetByCurrency ?? this.nativeBudgetByCurrency,
       aggregateTotalSpent: aggregateTotalSpent ?? this.aggregateTotalSpent,
       aggregateSpentByEnvelopeId:
           aggregateSpentByEnvelopeId ?? this.aggregateSpentByEnvelopeId,
@@ -1633,6 +1696,7 @@ class PocketsState {
       'currency': currency,
       'total_budget': totalBudget,
       'saved_total_budget': savedTotalBudget,
+      'native_budget_by_currency': nativeBudgetByCurrency,
       'aggregate_total_spent': aggregateTotalSpent,
       'aggregate_spent_by_envelope_id': aggregateSpentByEnvelopeId,
       'unallocated_spend': unallocatedSpend,
@@ -1686,6 +1750,13 @@ class PocketsState {
       currency: currency,
       totalBudget: (json['total_budget'] as num?)?.toDouble() ?? 0,
       savedTotalBudget: (json['saved_total_budget'] as num?)?.toDouble() ?? 0,
+      nativeBudgetByCurrency:
+          ((json['native_budget_by_currency'] as Map?) ?? const {}).map(
+        (key, value) => MapEntry(
+          key.toString().trim().toUpperCase(),
+          (value as num?)?.toDouble() ?? 0,
+        ),
+      ),
       aggregateTotalSpent: (json['aggregate_total_spent'] as num?)?.toDouble(),
       aggregateSpentByEnvelopeId:
           ((json['aggregate_spent_by_envelope_id'] as Map?) ?? const {}).map(
@@ -2602,6 +2673,24 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               row['currency'] as String?,
             );
       });
+      final nativeBudgetByCurrency = <String, double>{};
+      for (final currency in selectedCurrencies ?? <String>[selectedCurrency]) {
+        final normalized = currency.trim().toUpperCase();
+        if (normalized.isNotEmpty) {
+          nativeBudgetByCurrency[normalized] = 0;
+        }
+      }
+      for (final row in budgetRows) {
+        final currency = (row['currency'] as String?)?.trim().toUpperCase();
+        if (currency == null || currency.isEmpty) continue;
+        final amount =
+            ((row['total_budget_cents'] as num?)?.toDouble() ?? 0) / 100.0;
+        nativeBudgetByCurrency.update(
+          currency,
+          (current) => current + amount,
+          ifAbsent: () => amount,
+        );
+      }
 
       final envRows = payloads
           .expand((payload) => ((payload['envelopes'] as List?) ?? const []))
@@ -3016,6 +3105,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: selectedCurrency,
         totalBudget: totalBudget / 100.0,
         savedTotalBudget: totalBudget / 100.0, // Initialize saved budget
+        nativeBudgetByCurrency: nativeBudgetByCurrency,
         aggregateTotalSpent: totalMonthlySpend,
         aggregateSpentByEnvelopeId: aggregateSpentById,
         unallocatedSpend: unallocatedSpend,
@@ -3308,6 +3398,41 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       newTotalBudget: newTotal,
     );
     _debugLog('After update - hasChanges: ${state.hasChanges}');
+  }
+
+  Future<void> applyNativeBudgetProjection(
+    String currency,
+    double nativeAmount,
+  ) async {
+    final normalizedCurrency = currency.trim().toUpperCase();
+    if (params.normalizedSelectedCurrencies == null ||
+        normalizedCurrency.isEmpty ||
+        !nativeAmount.isFinite ||
+        nativeAmount < 0) {
+      return;
+    }
+
+    final rates = await ref.read(currencyRateTableProvider.future);
+    state = applyNativeBudgetProjectionToState(
+      state: state,
+      currency: normalizedCurrency,
+      nativeAmount: nativeAmount,
+      rates: rates,
+    );
+
+    try {
+      final authUser = ref.read(authProvider);
+      await _persistCurrentStateSnapshot(
+        userId: authUser.uid,
+        scopeType: params.scope,
+        householdId: params.householdId,
+        periodMonth: _formatDate(state.periodMonth),
+        currency: state.currency,
+      );
+    } catch (error) {
+      _debugLog(
+          '[Pockets] Failed to persist aggregate budget projection: $error');
+    }
   }
 
   void reusePreviousBudget(double amount) {
@@ -4012,6 +4137,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (isScopedToHousehold && householdId == null) {
         throw Exception('No household selected for scoped budget save');
       }
+      if (!pocketCurrenciesMatchWriteCurrency(
+        state.editing,
+        selectedCurrency,
+      )) {
+        throw Exception('Pocket currencies do not match the selected budget');
+      }
 
       final optimisticSaved = _normalizePocketBudgetAmountsForCurrency(
         state.editing,
@@ -4046,7 +4177,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         periodMonth: periodMonth,
         currency: selectedCurrency,
-        budgetId: state.budgetId,
+        budgetId: null,
         totalBudgetCents: (state.totalBudget * 100).round(),
         pockets: optimisticSaved,
       );
@@ -4061,33 +4192,28 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'total_budget_cents': (state.totalBudget * 100).round(),
         'updated_at': nowIso,
       };
-      if (state.budgetId != null) {
-        budgetPayload['id'] = state.budgetId;
-      }
+      final existing = await _findBudgetRowForPeriod(
+        periodMonth: periodMonth,
+        isHousehold: isHousehold,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: selectedCurrency,
+      );
+      String? budgetId = existing?['id'] as String?;
+      _debugLog('[Pockets] saveChanges resolved existing budgetId: $budgetId');
 
-      String? budgetId = state.budgetId;
-
-      // Re-resolve budget id in case state was stale (e.g., mode switch)
       if (budgetId == null) {
-        final existing = await _findBudgetRowForPeriod(
+        final existingAnyCurrency = await _findBudgetRowForPeriod(
           periodMonth: periodMonth,
           isHousehold: isHousehold,
           householdId: householdId,
           userId: authUser.uid,
-          currency: selectedCurrency,
+          currency: null,
         );
-        budgetId = existing?['id'] as String?;
-        _debugLog(
-            '[Pockets] saveChanges resolved existing budgetId: $budgetId');
-
-        if (budgetId == null) {
-          final existingAnyCurrency = await _findBudgetRowForPeriod(
-            periodMonth: periodMonth,
-            isHousehold: isHousehold,
-            householdId: householdId,
-            userId: authUser.uid,
-            currency: null,
-          );
+        if (canReusePocketBudgetRowForCurrency(
+          existingAnyCurrency,
+          selectedCurrency,
+        )) {
           budgetId = existingAnyCurrency?['id'] as String?;
         }
       }
@@ -4101,7 +4227,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           userId: authUser.uid,
           allowAnyUser: true,
         );
-        budgetId = legacyRow?['id'] as String?;
+        if (canReusePocketBudgetRowForCurrency(legacyRow, selectedCurrency)) {
+          budgetId = legacyRow?['id'] as String?;
+        }
         if (budgetId != null) {
           _debugLog(
               '[Pockets] saveChanges found legacy personal budgetId: $budgetId');
@@ -4161,8 +4289,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               currency: null,
               allowAnyUser: scopeType == PocketsScopeType.personal,
             );
-            final fallbackAnyCurrencyId =
-                fallbackAnyCurrencyRow?['id'] as String?;
+            final fallbackAnyCurrencyId = canReusePocketBudgetRowForCurrency(
+              fallbackAnyCurrencyRow,
+              selectedCurrency,
+            )
+                ? (fallbackAnyCurrencyRow?['id'] as String?)
+                : null;
             if (fallbackAnyCurrencyId != null) {
               await supabase
                   .from('budgets')
