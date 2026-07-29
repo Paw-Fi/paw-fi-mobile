@@ -267,7 +267,7 @@ class RecurringOccurrenceConfirmationCommand {
   final DateTime scheduledOccurrenceDate;
   final DateTime paidDate;
   final int amountCents;
-  final String accountId;
+  final String? accountId;
   final String? merchant;
   final String? description;
   final Map<String, dynamic>? customSplits;
@@ -289,7 +289,8 @@ class RecurringOccurrenceConfirmationCommand {
         'scheduledOccurrenceDate': formatDateOnlyYmd(scheduledOccurrenceDate),
         'paidDate': formatDateOnlyYmd(paidDate),
         'amount': amountCents / 100,
-        'accountId': accountId,
+        if (accountId?.trim().isNotEmpty == true)
+          'accountId': accountId!.trim(),
         if (merchant?.trim().isNotEmpty == true) 'merchant': merchant!.trim(),
         if (description?.trim().isNotEmpty == true)
           'description': description!.trim(),
@@ -334,7 +335,8 @@ class RecurringOccurrenceUpdateCommand {
         if (!occurrence.isSettlementLocked) ...{
           'paidDate': formatDateOnlyYmd(paidDate),
           'amount': amountCents! / 100,
-          'accountId': accountId,
+          if (accountId?.trim().isNotEmpty == true)
+            'accountId': accountId!.trim(),
           'updateFutureAmount': updateFutureAmount,
         },
         'description': description?.trim() ?? '',
@@ -570,9 +572,9 @@ class RecurringOccurrenceUpdateController {
         (!_isNotesOnly(command) &&
             (command.amountCents == null ||
                 command.amountCents! <= 0 ||
-                command.accountId?.trim().isEmpty != false))) {
+                command.accountId?.trim().isEmpty == true))) {
       return const RecurringOccurrenceConfirmationResult.failure(
-        'A user, recurring transaction, wallet, and positive amount are required.',
+        'A user, recurring transaction, and positive amount are required.',
       );
     }
 
@@ -684,10 +686,10 @@ class RecurringOccurrenceConfirmationController {
     }
     if (command.userId.trim().isEmpty ||
         command.recurringTransaction.id.trim().isEmpty ||
-        command.accountId.trim().isEmpty ||
+        command.accountId?.trim().isEmpty == true ||
         command.amountCents <= 0) {
       return const RecurringOccurrenceConfirmationResult.failure(
-        'A user, recurring transaction, wallet, and positive amount are required.',
+        'A user, recurring transaction, and positive amount are required.',
       );
     }
 

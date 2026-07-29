@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class MonekoDisclosureRow extends StatelessWidget {
   final String label;
   final String value;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isFirst;
   final bool isLast;
   final bool multiline;
@@ -23,6 +23,7 @@ class MonekoDisclosureRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isEnabled = onTap != null;
 
     return InkWell(
       onTap: onTap,
@@ -41,7 +42,9 @@ class MonekoDisclosureRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface,
+                color: isEnabled
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
             const SizedBox(width: 16),
@@ -54,18 +57,20 @@ class MonekoDisclosureRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
-                  color: isValuePlaceholder
+                  color: isValuePlaceholder || !isEnabled
                       ? colorScheme.onSurface.withValues(alpha: 0.4)
                       : colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: colorScheme.onSurface.withValues(alpha: 0.2),
-            ),
+            if (isEnabled) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
+              ),
+            ],
           ],
         ),
       ),

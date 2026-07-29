@@ -45,6 +45,19 @@ void main() {
     });
   });
 
+  test('omits the wallet when confirming an unassigned occurrence', () {
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user-id',
+      recurringTransaction: recurringTransaction,
+      scheduledOccurrenceDate: DateTime(2026, 7, 1),
+      paidDate: DateTime(2026, 7, 1),
+      amountCents: 10000,
+      accountId: null,
+    );
+
+    expect(command.toRequestBody(), isNot(contains('accountId')));
+  });
+
   test('sends only notes for a settlement-locked occurrence', () {
     final command = RecurringOccurrenceUpdateCommand(
       userId: 'user-id',
@@ -67,6 +80,23 @@ void main() {
       'scheduledOccurrenceDate': '2026-07-01',
       'description': 'Corrected note',
     });
+  });
+
+  test('keeps an unlocked unassigned occurrence unassigned', () {
+    final command = RecurringOccurrenceUpdateCommand(
+      userId: 'user-id',
+      recurringTransaction: recurringTransaction,
+      occurrence: RecurringOccurrenceTimelineItem(
+        scheduledOccurrenceDate: DateTime(2026, 7, 1),
+        status: 'confirmed',
+      ),
+      paidDate: DateTime(2026, 7, 2),
+      amountCents: 12550,
+      accountId: null,
+      description: 'July rent',
+    );
+
+    expect(command.toRequestBody(), isNot(contains('accountId')));
   });
 
   test('builds an unconfirm request for a confirmed occurrence', () {

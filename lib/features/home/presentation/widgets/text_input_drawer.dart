@@ -200,7 +200,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   }
 
   String _walletLabel(List<WalletEntity> wallets) {
-    if (wallets.isEmpty) return context.l10n.tapToSet;
+    if (wallets.isEmpty) return context.l10n.noWallet;
     final selectedId = _selectedWalletId;
     if (selectedId != null) {
       for (final wallet in wallets) {
@@ -342,37 +342,46 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
             },
           ),
         ),
-        if (walletsAsync.isLoading || wallets.isNotEmpty) ...[
-          const SizedBox(width: 8),
-          Expanded(
-            child: AdaptivePopupMenuButton.widget(
-              child: _TargetPickerPill(
-                icon: Icons.account_balance_wallet_rounded,
-                value: walletsAsync.when(
-                  data: (_) => _walletLabel(wallets),
-                  loading: () => context.l10n.loading,
-                  error: (_, __) => context.l10n.tapToSet,
-                ),
-                isPlaceholder: wallets.isEmpty,
-              ),
-              items: wallets.reversed
-                  .map(
-                    (wallet) => AdaptivePopupMenuItem(
-                      label: wallet.name,
-                      icon: Icons.account_balance_wallet_rounded,
-                      value: wallet,
+        const SizedBox(width: 8),
+        Expanded(
+          child: wallets.isEmpty
+              ? _TargetPickerPill(
+                  icon: Icons.account_balance_wallet_rounded,
+                  value: walletsAsync.when(
+                    data: (_) => context.l10n.noWallet,
+                    loading: () => context.l10n.loading,
+                    error: (_, __) => context.l10n.tapToSet,
+                  ),
+                  isPlaceholder: true,
+                  isEnabled: false,
+                )
+              : AdaptivePopupMenuButton.widget(
+                  child: _TargetPickerPill(
+                    icon: Icons.account_balance_wallet_rounded,
+                    value: walletsAsync.when(
+                      data: (_) => _walletLabel(wallets),
+                      loading: () => context.l10n.loading,
+                      error: (_, __) => context.l10n.tapToSet,
                     ),
-                  )
-                  .toList(growable: false),
-              onSelected: (index, item) async {
-                final selected = item.value;
-                if (selected is! WalletEntity) return;
-                HapticFeedback.selectionClick();
-                await _applyWalletSelection(selected);
-              },
-            ),
-          ),
-        ],
+                    isPlaceholder: wallets.isEmpty,
+                  ),
+                  items: wallets.reversed
+                      .map(
+                        (wallet) => AdaptivePopupMenuItem(
+                          label: wallet.name,
+                          icon: Icons.account_balance_wallet_rounded,
+                          value: wallet,
+                        ),
+                      )
+                      .toList(growable: false),
+                  onSelected: (index, item) async {
+                    final selected = item.value;
+                    if (selected is! WalletEntity) return;
+                    HapticFeedback.selectionClick();
+                    await _applyWalletSelection(selected);
+                  },
+                ),
+        ),
       ],
     );
   }
@@ -847,12 +856,14 @@ class _TargetPickerPill extends StatelessWidget {
     required this.icon,
     this.onTap,
     this.isPlaceholder = false,
+    this.isEnabled = true,
   });
 
   final String value;
   final VoidCallback? onTap;
   final IconData icon;
   final bool isPlaceholder;
+  final bool isEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -879,7 +890,8 @@ class _TargetPickerPill extends StatelessWidget {
               Icon(
                 icon,
                 size: 14,
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                color: scheme.onSurfaceVariant
+                    .withValues(alpha: isEnabled ? 0.8 : 0.4),
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -890,18 +902,20 @@ class _TargetPickerPill extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isPlaceholder
-                        ? scheme.onSurfaceVariant
+                    color: isPlaceholder || !isEnabled
+                        ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
                         : scheme.onSurface,
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 14,
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
+              if (isEnabled) ...[
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
             ],
           ),
         ),

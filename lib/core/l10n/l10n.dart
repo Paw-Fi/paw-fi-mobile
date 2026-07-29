@@ -28,6 +28,10 @@ extension HomeDashboardL10nX on AppLocalizations {
   String get netCashflow => 'Net cashflow';
 }
 
+extension WalletPickerL10nX on AppLocalizations {
+  String get noWallet => 'No wallet';
+}
+
 extension WalletAnalyticsL10nX on AppLocalizations {
   String get excludeFromWalletAnalytics => 'Exclude from wallet analytics';
   String get excludeFromWalletAnalyticsDescription =>

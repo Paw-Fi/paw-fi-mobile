@@ -56,6 +56,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
         config.value.scopeId == 'personal' ? null : config.value.scopeId;
     final walletsAsync =
         ref.watch(walletsByHouseholdIdProvider(captureScopeHouseholdId));
+    final hasWalletOptions = walletsAsync.valueOrNull?.isNotEmpty == true;
+    final hasNoWalletOptions =
+        walletsAsync.hasValue && walletsAsync.valueOrNull?.isEmpty == true;
 
     String? resolveDefaultWalletId(List<WalletEntity> wallets) {
       for (final wallet in wallets) {
@@ -67,7 +70,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
     String selectedWalletLabel(AsyncValue<List<WalletEntity>> state) {
       return state.when(
         data: (wallets) {
-          if (wallets.isEmpty) return context.l10n.tapToSet;
+          if (wallets.isEmpty) return context.l10n.noWallet;
           final selectedId = config.value.accountId;
           if (selectedId != null) {
             for (final wallet in wallets) {
@@ -758,7 +761,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             GestureDetector(
-                              onTap: pickDestinationWallet,
+                              onTap: hasWalletOptions
+                                  ? pickDestinationWallet
+                                  : null,
                               behavior: HitTestBehavior.opaque,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -778,7 +783,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                     Icon(
                                       Icons.account_balance_wallet_rounded,
                                       size: 20,
-                                      color: colorScheme.foreground,
+                                      color: hasNoWalletOptions
+                                          ? colorScheme.mutedForeground
+                                          : colorScheme.foreground,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -787,15 +794,27 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
-                                          color: colorScheme.foreground,
+                                          color: hasNoWalletOptions
+                                              ? colorScheme.mutedForeground
+                                              : colorScheme.foreground,
                                         ),
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.keyboard_arrow_down_rounded,
-                                      size: 20,
-                                      color: colorScheme.foreground,
-                                    ),
+                                    if (walletsAsync.isLoading)
+                                      const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child:
+                                            CircularProgressIndicator.adaptive(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    else if (hasWalletOptions)
+                                      Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                        color: colorScheme.foreground,
+                                      ),
                                   ],
                                 ),
                               ),

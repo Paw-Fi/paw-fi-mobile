@@ -1,4 +1,21 @@
 {
+  "noWallet": {
+    "de": "",
+    "en": "No wallet",
+    "es": "",
+    "fr": "",
+    "it": "",
+    "ja": "",
+    "ko": "",
+    "nl": "",
+    "ur": "",
+    "ru": "",
+    "th": "",
+    "uk": "",
+    "zh": "",
+    "zh_TW": "",
+    "vi": ""
+  },
   "excludeFromWalletAnalytics": {
     "de": "",
     "en": "Exclude from wallet analytics",

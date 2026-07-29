@@ -52,6 +52,9 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         config.value.scopeId == 'personal' ? null : config.value.scopeId;
     final walletsAsync =
         ref.watch(walletsByHouseholdIdProvider(captureScopeHouseholdId));
+    final hasWalletOptions = walletsAsync.valueOrNull?.isNotEmpty == true;
+    final hasNoWalletOptions =
+        walletsAsync.hasValue && walletsAsync.valueOrNull?.isEmpty == true;
 
     WalletEntity? resolveDefaultWallet(List<WalletEntity> wallets) {
       for (final wallet in wallets) {
@@ -78,7 +81,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     String selectedWalletLabel(AsyncValue<List<WalletEntity>> state) {
       return state.when(
         data: (wallets) {
-          if (wallets.isEmpty) return context.l10n.tapToSet;
+          if (wallets.isEmpty) return context.l10n.noWallet;
           final wallet = resolveEffectiveWallet(wallets);
           return wallet == null ? context.l10n.tapToSet : walletLabel(wallet);
         },
@@ -702,7 +705,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                         iconBackgroundColor: colorScheme.primary,
                         title: context.l10n.wallet,
                         subtitle: selectedWalletLabel(walletsAsync),
-                        enabled: config.value.enabled,
+                        enabled: config.value.enabled && !hasNoWalletOptions,
                         trailing:
                             isUpdatingWallet.value || walletsAsync.isLoading
                                 ? const SizedBox(
@@ -711,15 +714,16 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                     child: CircularProgressIndicator.adaptive(
                                         strokeWidth: 2),
                                   )
-                                : Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: colorScheme.mutedForeground,
-                                    size: 20,
-                                  ),
+                                : hasWalletOptions
+                                    ? Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: colorScheme.mutedForeground,
+                                        size: 20,
+                                      )
+                                    : null,
                         onTap: (!config.value.enabled ||
                                 isUpdatingWallet.value ||
-                                walletsAsync.valueOrNull == null ||
-                                walletsAsync.valueOrNull!.isEmpty)
+                                !hasWalletOptions)
                             ? null
                             : pickDestinationWallet,
                         showDivider: false,

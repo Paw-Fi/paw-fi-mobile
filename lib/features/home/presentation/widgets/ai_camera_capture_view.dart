@@ -179,7 +179,7 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
   }
 
   String _walletLabel(List<WalletEntity> wallets) {
-    if (wallets.isEmpty) return context.l10n.tapToSet;
+    if (wallets.isEmpty) return context.l10n.noWallet;
     final selectedId = _selectedWalletId;
     if (selectedId != null) {
       for (final wallet in wallets) {
@@ -472,37 +472,46 @@ class _AiCameraCaptureViewState extends ConsumerState<AiCameraCaptureView>
                               },
                             ),
                           ),
-                          if (walletsAsync.isLoading || wallets.isNotEmpty) ...[
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: AdaptivePopupMenuButton.widget(
-                                child: CameraTargetChip(
-                                  icon: Icons.account_balance_wallet_rounded,
-                                  value: walletsAsync.when(
-                                    data: (_) => _walletLabel(wallets),
-                                    loading: () => context.l10n.loading,
-                                    error: (_, __) => context.l10n.tapToSet,
-                                  ),
-                                ),
-                                items: wallets.reversed
-                                    .map(
-                                      (wallet) => AdaptivePopupMenuItem(
-                                        label: wallet.name,
-                                        icon: Icons
-                                            .account_balance_wallet_rounded,
-                                        value: wallet,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: wallets.isEmpty
+                                ? CameraTargetChip(
+                                    icon: Icons.account_balance_wallet_rounded,
+                                    value: walletsAsync.when(
+                                      data: (_) => context.l10n.noWallet,
+                                      loading: () => context.l10n.loading,
+                                      error: (_, __) => context.l10n.tapToSet,
+                                    ),
+                                    isEnabled: false,
+                                  )
+                                : AdaptivePopupMenuButton.widget(
+                                    child: CameraTargetChip(
+                                      icon:
+                                          Icons.account_balance_wallet_rounded,
+                                      value: walletsAsync.when(
+                                        data: (_) => _walletLabel(wallets),
+                                        loading: () => context.l10n.loading,
+                                        error: (_, __) => context.l10n.tapToSet,
                                       ),
-                                    )
-                                    .toList(growable: false),
-                                onSelected: (index, item) async {
-                                  final selected = item.value;
-                                  if (selected is! WalletEntity) return;
-                                  HapticFeedback.selectionClick();
-                                  await _applyWalletSelection(selected);
-                                },
-                              ),
-                            ),
-                          ],
+                                    ),
+                                    items: wallets.reversed
+                                        .map(
+                                          (wallet) => AdaptivePopupMenuItem(
+                                            label: wallet.name,
+                                            icon: Icons
+                                                .account_balance_wallet_rounded,
+                                            value: wallet,
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                    onSelected: (index, item) async {
+                                      final selected = item.value;
+                                      if (selected is! WalletEntity) return;
+                                      HapticFeedback.selectionClick();
+                                      await _applyWalletSelection(selected);
+                                    },
+                                  ),
+                          ),
                         ],
                       ),
                       GestureDetector(
@@ -600,11 +609,13 @@ class CameraTargetChip extends StatelessWidget {
     required this.value,
     this.onTap,
     required this.icon,
+    this.isEnabled = true,
   });
 
   final String value;
   final VoidCallback? onTap;
   final IconData icon;
+  final bool isEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -642,7 +653,8 @@ class CameraTargetChip extends StatelessWidget {
                   Icon(
                     icon,
                     size: 21,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.84),
+                    color: colorScheme.onSurfaceVariant
+                        .withValues(alpha: isEnabled ? 0.84 : 0.4),
                   ),
                   const SizedBox(width: 10),
                   Flexible(
@@ -653,17 +665,23 @@ class CameraTargetChip extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface,
+                        color: isEnabled
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.5),
                         letterSpacing: -0.2,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.64),
-                  ),
+                  if (isEnabled) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.64),
+                    ),
+                  ],
                 ],
               ),
             ),

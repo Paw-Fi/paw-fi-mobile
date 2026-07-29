@@ -98,8 +98,9 @@ class _ConfirmRecurringOccurrenceFormState
         (widget.scheduledOccurrenceDate.isAfter(today)
             ? today
             : widget.scheduledOccurrenceDate);
-    _accountId = existing?.actualTransaction?.walletId ??
-        widget.recurringTransaction.accountId;
+    _accountId = existing?.actualTransaction != null
+        ? existing!.actualTransaction!.walletId
+        : widget.recurringTransaction.accountId;
   }
 
   @override
@@ -139,9 +140,36 @@ class _ConfirmRecurringOccurrenceFormState
           _error = 'This occurrence is not available for confirmation yet.');
       return;
     }
-    if (!_isSettlementLocked && (_accountId == null || _accountId!.isEmpty)) {
-      setState(() => _error = 'Choose a wallet in this currency.');
-      return;
+    if (!_isSettlementLocked) {
+      final walletsAsync = ref.read(walletsByCurrencyProvider(
+        WalletsCurrencyQuery(
+          householdId: widget.recurringTransaction.householdId,
+          currency: widget.recurringTransaction.currency,
+        ),
+      ));
+      final loadedWallets = walletsAsync.valueOrNull;
+      if (loadedWallets == null) {
+        setState(() => _error = walletsAsync.hasError
+            ? 'Unable to load wallets.'
+            : 'Wallets are still loading.');
+        return;
+      }
+      final activeWallets = loadedWallets
+          .where((wallet) => !wallet.isArchived)
+          .toList(growable: false);
+      if (activeWallets.isEmpty) {
+        _accountId = null;
+      } else if (_accountId != null &&
+          !activeWallets.any((wallet) => wallet.id == _accountId)) {
+        setState(() => _error = 'Choose a wallet in this currency.');
+        return;
+      }
+      if (!_isEditing &&
+          activeWallets.isNotEmpty &&
+          (_accountId == null || _accountId!.isEmpty)) {
+        setState(() => _error = 'Choose a wallet in this currency.');
+        return;
+      }
     }
     if (!_isSettlementLocked && _paidDate.isAfter(today)) {
       setState(() => _error = 'The paid date cannot be later than today.');
@@ -178,7 +206,7 @@ class _ConfirmRecurringOccurrenceFormState
               scheduledOccurrenceDate: widget.scheduledOccurrenceDate,
               paidDate: _paidDate,
               amountCents: amountCents!,
-              accountId: _accountId!,
+              accountId: _accountId,
               merchant: _merchant,
               description: _notesController.text,
               updateFutureAmount: _updateFutureAmount,
@@ -302,17 +330,27 @@ class _ConfirmRecurringOccurrenceFormState
         currency: transaction.currency,
       ),
     ));
-    final wallets = (walletsAsync.valueOrNull ?? const <WalletEntity>[])
+    final loadedWallets = walletsAsync.valueOrNull;
+    final wallets = (loadedWallets ?? const <WalletEntity>[])
         .where((wallet) => !wallet.isArchived)
         .toList(growable: false);
-    if (!wallets.any((wallet) => wallet.id == _accountId)) {
+    final existingWalletId =
+        widget.existingOccurrence?.actualTransaction?.walletId;
+    if (!wallets.any((wallet) => wallet.id == _accountId) &&
+        (!_isEditing || existingWalletId != null)) {
       _accountId = wallets.isEmpty ? null : wallets.first.id;
     }
     final amountChanged = !_isSettlementLocked &&
         _amountCents != null &&
         _amountCents != (transaction.amount * 100).round();
     final receivedLabel = transaction.type == 'income' ? 'received' : 'paid';
-    var walletName = 'Choose wallet';
+    var walletName = loadedWallets == null
+        ? (walletsAsync.hasError ? 'Wallets unavailable' : 'Loading wallets...')
+        : wallets.isEmpty
+            ? context.l10n.noWallet
+            : _isEditing && existingWalletId == null && _accountId == null
+                ? context.l10n.noWallet
+                : 'Choose wallet';
     for (final wallet in wallets) {
       if (wallet.id == _accountId) {
         walletName = wallet.name;
@@ -393,7 +431,7 @@ class _ConfirmRecurringOccurrenceFormState
                     isLast: true,
                     isValuePlaceholder: _accountId == null,
                     onTap: _isSubmitting || wallets.isEmpty
-                        ? () {}
+                        ? null
                         : () async {
                             final selected =
                                 await showTransactionSelectionSheet<

@@ -452,7 +452,8 @@ class PreviewStep extends ConsumerWidget {
       }
     }
 
-    final selectedLabel = selectedAccount?.name ?? context.l10n.tapToSet;
+    final selectedLabel = selectedAccount?.name ??
+        (accounts.isEmpty ? context.l10n.noWallet : context.l10n.tapToSet);
     final pillLabel = truncateMenuLabel(selectedLabel, maxLength: 18);
 
     final items = <AdaptivePopupMenuItem>[
@@ -502,61 +503,79 @@ class PreviewStep extends ConsumerWidget {
           ),
         ),
       ),
-      data: (_) => AdaptivePopupMenuButton.widget(
-        items: items,
-        onSelected: (index, item) {
-          HapticFeedback.selectionClick();
-          SystemSound.play(SystemSoundType.click);
-          if (item.value == 'create_account') {
-            _handleCreateAccount(context, ref);
-            return;
-          }
-
-          final raw = item.value;
-          if (raw is String && raw.startsWith('account:')) {
-            final accountId = raw.replaceFirst('account:', '').trim();
-            final selectedAccount = accounts.firstWhere(
-              (account) => account.id == accountId,
-            );
-            notifier.setTargetFinancialWallet(
-              accountId,
-              currency: selectedAccount.currency,
-            );
-          }
-        },
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
-          decoration: BoxDecoration(
-            color: scheme.cardSurface,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 150),
-                child: Text(
-                  pillLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.foreground,
-                  ),
+      data: (_) => accounts.isEmpty
+          ? Container(
+              height: 36,
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+              decoration: BoxDecoration(
+                color: scheme.cardSurface,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                context.l10n.noWallet,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.mutedForeground,
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: scheme.mutedForeground,
+            )
+          : AdaptivePopupMenuButton.widget(
+              items: items,
+              onSelected: (index, item) {
+                HapticFeedback.selectionClick();
+                SystemSound.play(SystemSoundType.click);
+                if (item.value == 'create_account') {
+                  _handleCreateAccount(context, ref);
+                  return;
+                }
+
+                final raw = item.value;
+                if (raw is String && raw.startsWith('account:')) {
+                  final accountId = raw.replaceFirst('account:', '').trim();
+                  final selectedAccount = accounts.firstWhere(
+                    (account) => account.id == accountId,
+                  );
+                  notifier.setTargetFinancialWallet(
+                    accountId,
+                    currency: selectedAccount.currency,
+                  );
+                }
+              },
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
+                decoration: BoxDecoration(
+                  color: scheme.cardSurface,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: Text(
+                        pillLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.foreground,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: scheme.mutedForeground,
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
 
     return Padding(

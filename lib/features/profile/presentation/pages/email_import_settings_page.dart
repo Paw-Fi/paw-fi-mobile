@@ -40,6 +40,9 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         settings.value?.scopeId == 'personal' ? null : settings.value?.scopeId;
     final walletsAsync =
         ref.watch(walletsByHouseholdIdProvider(selectedScopeHouseholdId));
+    final hasWalletOptions = walletsAsync.valueOrNull?.isNotEmpty == true;
+    final hasNoWalletOptions =
+        walletsAsync.hasValue && walletsAsync.valueOrNull?.isEmpty == true;
 
     useEffect(() {
       Future<void> loadSettings() async {
@@ -68,7 +71,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
     String selectedWalletLabel() {
       return walletsAsync.when(
         data: (wallets) {
-          if (wallets.isEmpty) return context.l10n.tapToSet;
+          if (wallets.isEmpty) return context.l10n.noWallet;
           final selectedId = settings.value?.accountId;
           if (selectedId != null) {
             for (final wallet in wallets) {
@@ -404,7 +407,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                           iconBackgroundColor: colorScheme.muted,
                           title: context.l10n.defaultWallet,
                           subtitle: selectedWalletLabel(),
-                          enabled: current.enabled,
+                          enabled: current.enabled && !hasNoWalletOptions,
                           trailing: walletsAsync.isLoading
                               ? const SizedBox(
                                   width: 20,
@@ -413,12 +416,16 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: colorScheme.mutedForeground,
-                                  size: 20,
-                                ),
-                          onTap: current.enabled && !isSaving.value
+                              : hasWalletOptions
+                                  ? Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: colorScheme.mutedForeground,
+                                      size: 20,
+                                    )
+                                  : null,
+                          onTap: current.enabled &&
+                                  !isSaving.value &&
+                                  hasWalletOptions
                               ? pickDestinationWallet
                               : null,
                           showDivider: false,

@@ -1503,6 +1503,8 @@ class _UnifiedTransactionSheetV2State
     List<WalletEntity> scopedAccounts,
   ) {
     final value = _accountDisplayValue(context, households);
+    final canSelectFinancialAccount =
+        scopedAccountsAsync.hasValue && scopedAccounts.isNotEmpty;
 
     return MonekoInput(
       child: Column(
@@ -1517,16 +1519,18 @@ class _UnifiedTransactionSheetV2State
           MonekoDisclosureRow(
             label: context.l10n.wallet,
             value: scopedAccountsAsync.when(
-              data: (_) => _selectedFinancialAccountLabel(
-                context,
-                scopedAccounts,
-              ),
+              data: (_) => scopedAccounts.isEmpty
+                  ? context.l10n.noWallet
+                  : _selectedFinancialAccountLabel(
+                      context,
+                      scopedAccounts,
+                    ),
               loading: () => context.l10n.loading,
               error: (_, __) => context.l10n.tapToSet,
             ),
-            onTap: () => _handleEditFinancialAccount(
-              scopedAccounts,
-            ),
+            onTap: canSelectFinancialAccount
+                ? () => _handleEditFinancialAccount(scopedAccounts)
+                : null,
             isValuePlaceholder: scopedAccounts.isEmpty,
             isLast: true,
           ),
@@ -1546,7 +1550,7 @@ class _UnifiedTransactionSheetV2State
     BuildContext context,
     List<WalletEntity> accounts,
   ) {
-    if (accounts.isEmpty) return context.l10n.tapToSet;
+    if (accounts.isEmpty) return context.l10n.noWallet;
 
     final selectedId = _selectedFinancialAccountId;
     if (selectedId != null) {

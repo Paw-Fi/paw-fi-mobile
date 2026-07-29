@@ -25,6 +25,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 
 class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
   _TestRecurringSaveNotifier(Ref ref) : super(ref);
@@ -566,6 +567,84 @@ void main() {
 
     expect(find.text('USD Spending'), findsOneWidget);
     expect(find.text('EUR Spending'), findsNothing);
+  });
+
+  testWidgets('Add mode disables the wallet row when no wallet exists',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: const [],
+      splits: const [],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(() => _MockAuth()),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          householdRepositoryProvider.overrideWithValue(householdRepository),
+          userHouseholdsProvider('user_1').overrideWith(
+            (ref) => UserHouseholdsNotifier(
+              householdRepository,
+              'user_1',
+              ref,
+              initialHouseholds: const [],
+            ),
+          ),
+          walletsByCurrencyProvider(
+            const WalletsCurrencyQuery(householdId: null, currency: 'USD'),
+          ).overrideWith((ref) async => []),
+          householdScopeProvider.overrideWith((ref) {
+            final viewMode = ref.watch(viewModeProvider).mode;
+            final selected = ref.watch(selectedHouseholdProvider);
+            return HouseholdScope(
+              viewMode: viewMode,
+              selected: selected,
+              portfolioHouseholdIds: const {},
+            );
+          }),
+          selectedHouseholdProvider.overrideWith(
+            (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+          ),
+          homeFilterProvider.overrideWith(
+            (ref) => HomeFilterNotifier()..setSelectedCurrency('USD'),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: AddRecurringSheet(type: 'expense')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final walletRow = find.ancestor(
+      of: find.text('No wallet'),
+      matching: find.byType(MonekoDisclosureRow),
+    );
+    expect(walletRow, findsOneWidget);
+    expect(
+      find.descendant(
+          of: walletRow, matching: find.byIcon(Icons.chevron_right)),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(of: walletRow, matching: find.byType(InkWell)),
+          )
+          .onTap,
+      isNull,
+    );
   });
 
   testWidgets(

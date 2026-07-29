@@ -400,6 +400,8 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
     final scopedAccounts =
         scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
+    final canSelectFinancialAccount =
+        scopedAccountsAsync.hasValue && scopedAccounts.isNotEmpty;
 
     useEffect(() {
       if (scopedAccounts.isEmpty) {
@@ -1752,50 +1754,53 @@ class AddRecurringSheet extends HookConsumerWidget {
                           _buildDetailCard(
                             colorScheme: colorScheme,
                             label: context.l10n.wallet,
-                            value: () {
-                              if (scopedAccountsAsync.isLoading) {
-                                return context.l10n.loading;
-                              }
-                              if (scopedAccounts.isEmpty) {
-                                return context.l10n.tapToSet;
-                              }
-                              final currentId =
-                                  selectedFinancialAccountId.value;
-                              if (currentId != null) {
-                                for (final account in scopedAccounts) {
-                                  if (account.id == currentId) {
-                                    return account.name;
+                            value: scopedAccountsAsync.when(
+                              data: (_) {
+                                if (scopedAccounts.isEmpty) {
+                                  return context.l10n.noWallet;
+                                }
+                                final currentId =
+                                    selectedFinancialAccountId.value;
+                                if (currentId != null) {
+                                  for (final account in scopedAccounts) {
+                                    if (account.id == currentId) {
+                                      return account.name;
+                                    }
                                   }
                                 }
-                              }
-                              for (final account in scopedAccounts) {
-                                if (account.isDefault) return account.name;
-                              }
-                              return context.l10n.tapToSet;
-                            }(),
+                                for (final account in scopedAccounts) {
+                                  if (account.isDefault) return account.name;
+                                }
+                                return context.l10n.tapToSet;
+                              },
+                              loading: () => context.l10n.loading,
+                              error: (_, __) => context.l10n.tapToSet,
+                            ),
                             isValuePlaceholder: scopedAccounts.isEmpty,
-                            onTap: () async {
-                              if (scopedAccounts.isEmpty) return;
-                              final currentId =
-                                  selectedFinancialAccountId.value;
-                              final initial = scopedAccounts.firstWhere(
-                                (account) => account.id == currentId,
-                                orElse: () => scopedAccounts.first,
-                              );
-                              final selected =
-                                  await showTransactionSelectionSheet<
-                                      WalletEntity>(
-                                context: context,
-                                items: scopedAccounts,
-                                getLabel: (account) => account.name,
-                                initial: initial,
-                              );
-                              if (selected != null) {
-                                selectedFinancialAccountId.value = selected.id;
-                                hasManuallySelectedFinancialAccount.value =
-                                    true;
-                              }
-                            },
+                            onTap: canSelectFinancialAccount
+                                ? () async {
+                                    final currentId =
+                                        selectedFinancialAccountId.value;
+                                    final initial = scopedAccounts.firstWhere(
+                                      (account) => account.id == currentId,
+                                      orElse: () => scopedAccounts.first,
+                                    );
+                                    final selected =
+                                        await showTransactionSelectionSheet<
+                                            WalletEntity>(
+                                      context: context,
+                                      items: scopedAccounts,
+                                      getLabel: (account) => account.name,
+                                      initial: initial,
+                                    );
+                                    if (selected != null) {
+                                      selectedFinancialAccountId.value =
+                                          selected.id;
+                                      hasManuallySelectedFinancialAccount
+                                          .value = true;
+                                    }
+                                  }
+                                : null,
                           ),
                           _buildDivider(colorScheme),
                           _buildDetailCard(
@@ -2355,7 +2360,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                               
                                 Text(
                                   isEditing
                                       ? context.l10n.updateRecurringTransaction
@@ -2439,7 +2443,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     required ColorScheme colorScheme,
     required String label,
     required String value,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     bool isValuePlaceholder = false,
     bool isFirst = false,
     bool isLast = false,
@@ -2791,8 +2795,7 @@ class _PaymentHistorySection extends HookConsumerWidget {
               );
             },
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
               child: Row(
                 children: [
                   Container(

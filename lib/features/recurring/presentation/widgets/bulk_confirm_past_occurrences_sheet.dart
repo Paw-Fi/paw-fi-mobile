@@ -61,7 +61,8 @@ class _BulkConfirmPastOccurrencesFormState
   @override
   void initState() {
     super.initState();
-    _accountId = widget.initialAccountId ?? widget.recurringTransaction.accountId;
+    _accountId =
+        widget.initialAccountId ?? widget.recurringTransaction.accountId;
   }
 
   Future<void> _submitBulk() async {
@@ -70,7 +71,31 @@ class _BulkConfirmPastOccurrencesFormState
       setState(() => _error = 'Sign in to confirm payments.');
       return;
     }
-    if (_accountId == null || _accountId!.isEmpty) {
+    final walletsAsync = ref.read(walletsByCurrencyProvider(
+      WalletsCurrencyQuery(
+        householdId: widget.recurringTransaction.householdId,
+        currency: widget.recurringTransaction.currency,
+      ),
+    ));
+    final loadedWallets = walletsAsync.valueOrNull;
+    if (loadedWallets == null) {
+      setState(() => _error = walletsAsync.hasError
+          ? 'Unable to load wallets.'
+          : 'Wallets are still loading.');
+      return;
+    }
+    final activeWallets = loadedWallets
+        .where((wallet) => !wallet.isArchived)
+        .toList(growable: false);
+    if (activeWallets.isEmpty) {
+      _accountId = null;
+    } else if (_accountId != null &&
+        !activeWallets.any((wallet) => wallet.id == _accountId)) {
+      setState(() => _error = 'Choose a wallet for confirmation.');
+      return;
+    }
+    if (activeWallets.isNotEmpty &&
+        (_accountId == null || _accountId!.isEmpty)) {
       setState(() => _error = 'Choose a wallet for confirmation.');
       return;
     }
@@ -91,7 +116,7 @@ class _BulkConfirmPastOccurrencesFormState
         scheduledOccurrenceDate: occurrence,
         paidDate: occurrence,
         amountCents: amountCents,
-        accountId: _accountId!,
+        accountId: _accountId,
         merchant: widget.recurringTransaction.merchant ?? '',
         description: widget.recurringTransaction.description ?? '',
         updateFutureAmount: false,
@@ -132,7 +157,8 @@ class _BulkConfirmPastOccurrencesFormState
         currency: transaction.currency,
       ),
     ));
-    final wallets = (walletsAsync.valueOrNull ?? const <WalletEntity>[])
+    final loadedWallets = walletsAsync.valueOrNull;
+    final wallets = (loadedWallets ?? const <WalletEntity>[])
         .where((wallet) => !wallet.isArchived)
         .toList(growable: false);
 
@@ -140,7 +166,11 @@ class _BulkConfirmPastOccurrencesFormState
       _accountId = wallets.isEmpty ? null : wallets.first.id;
     }
 
-    var walletName = 'Choose wallet';
+    var walletName = loadedWallets == null
+        ? (walletsAsync.hasError ? 'Wallets unavailable' : 'Loading wallets...')
+        : wallets.isEmpty
+            ? context.l10n.noWallet
+            : 'Choose wallet';
     for (final wallet in wallets) {
       if (wallet.id == _accountId) {
         walletName = wallet.name;
@@ -187,8 +217,8 @@ class _BulkConfirmPastOccurrencesFormState
               value: walletName,
               isFirst: true,
               isLast: true,
-              onTap: _isSubmitting
-                  ? () {}
+              onTap: _isSubmitting || wallets.isEmpty
+                  ? null
                   : () async {
                       if (wallets.length <= 1) return;
                       // Allow selecting wallet from available wallets
@@ -345,9 +375,8 @@ class _BulkConfirmPastOccurrencesFormState
 
           // Secondary CTA: Skip
           TextButton(
-            onPressed: _isSubmitting
-                ? null
-                : () => Navigator.of(context).pop(false),
+            onPressed:
+                _isSubmitting ? null : () => Navigator.of(context).pop(false),
             style: TextButton.styleFrom(
               minimumSize: const Size.fromHeight(44),
             ),
