@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -739,6 +740,8 @@ class AppTheme {
       onError: lightButtonText,
       outline: lightBorder,
       outlineVariant: lightBorder,
+      surfaceContainer: lightSheetBg,
+      surfaceContainerHigh: lightSheetBg,
     );
 
     return ThemeData(
@@ -764,6 +767,29 @@ class AppTheme {
         ),
       ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: false),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: lightBackground,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return monekoPrimary;
+          return lightCardBg;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return monekoPrimary.withValues(alpha: 0.35);
+          }
+          return lightBorder;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return Colors.transparent;
+          }
+          return lightBorder;
+        }),
+      ),
     );
   }
 
@@ -784,6 +810,8 @@ class AppTheme {
       onError: darkButtonText,
       outline: darkBorder,
       outlineVariant: darkBorderSubtle,
+      surfaceContainer: darkSheetBg,
+      surfaceContainerHigh: darkSheetBg,
     );
 
     return ThemeData(
@@ -800,6 +828,29 @@ class AppTheme {
         elevation: 0,
       ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: true),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: darkBackground,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return darkPrimary;
+          return darkCardBg;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return darkPrimary.withValues(alpha: 0.35);
+          }
+          return darkBorder;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return Colors.transparent;
+          }
+          return darkBorder;
+        }),
+      ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: darkSheetBg,
         modalBackgroundColor: darkSheetBg,
@@ -815,6 +866,38 @@ class AppTheme {
 
   // Helper to generate ColorScheme seed matching Moneko brand
   static Color get monekoSeed => monekoPrimary;
+
+  /// Cupertino light theme derived from the same color constants as [lightTheme].
+  static CupertinoThemeData cupertinoLightTheme() => const CupertinoThemeData(
+        brightness: Brightness.light,
+        applyThemeToAll: true,
+        primaryColor: monekoPrimary,
+        primaryContrastingColor: lightButtonText,
+        scaffoldBackgroundColor: lightBackground,
+        barBackgroundColor: lightBackground,
+        textTheme: CupertinoTextThemeData(
+          primaryColor: monekoPrimary,
+          navActionTextStyle: TextStyle(color: monekoPrimary),
+          navTitleTextStyle: TextStyle(color: lightForeground),
+          textStyle: TextStyle(color: lightForeground),
+        ),
+      );
+
+  /// Cupertino dark theme derived from the same color constants as [darkTheme].
+  static CupertinoThemeData cupertinoDarkTheme() => const CupertinoThemeData(
+        brightness: Brightness.dark,
+        applyThemeToAll: true,
+        primaryColor: darkPrimary,
+        primaryContrastingColor: darkButtonText,
+        scaffoldBackgroundColor: darkBackground,
+        barBackgroundColor: darkBackground,
+        textTheme: CupertinoTextThemeData(
+          primaryColor: darkPrimary,
+          navActionTextStyle: TextStyle(color: darkPrimary),
+          navTitleTextStyle: TextStyle(color: darkForeground),
+          textStyle: TextStyle(color: darkForeground),
+        ),
+      );
 }
 
 /// Extension on Material [ColorScheme] to add button text color and input styles

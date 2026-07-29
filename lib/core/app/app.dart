@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 
 import 'package:home_widget/home_widget.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
@@ -247,36 +246,8 @@ class _AppState extends ConsumerState<App> {
       themeMode: themeMode,
       materialLightTheme: AppTheme.lightTheme(),
       materialDarkTheme: AppTheme.darkTheme(),
-      cupertinoLightTheme: const CupertinoThemeData(
-        brightness: Brightness.light,
-        applyThemeToAll: true,
-        primaryColor: AppTheme.monekoPrimary,
-        primaryContrastingColor: AppTheme.lightButtonText,
-        // Match Material light background (near-white) for all iOS scaffolds
-        scaffoldBackgroundColor: AppTheme.lightBackground,
-        barBackgroundColor: AppTheme.lightBackground,
-        textTheme: CupertinoTextThemeData(
-          primaryColor: AppTheme.monekoPrimary,
-          navActionTextStyle: TextStyle(color: AppTheme.monekoPrimary),
-          navTitleTextStyle: TextStyle(color: AppTheme.lightForeground),
-          textStyle: TextStyle(color: AppTheme.lightForeground),
-        ),
-      ),
-      cupertinoDarkTheme: const CupertinoThemeData(
-        brightness: Brightness.dark,
-        applyThemeToAll: true,
-        primaryColor: AppTheme.darkPrimary,
-        primaryContrastingColor: AppTheme.darkButtonText,
-        // Match Material dark background so dark mode is consistently black-ish
-        scaffoldBackgroundColor: AppTheme.darkBackground,
-        barBackgroundColor: AppTheme.darkBackground,
-        textTheme: CupertinoTextThemeData(
-          primaryColor: AppTheme.darkPrimary,
-          navActionTextStyle: TextStyle(color: AppTheme.darkPrimary),
-          navTitleTextStyle: TextStyle(color: AppTheme.darkForeground),
-          textStyle: TextStyle(color: AppTheme.darkForeground),
-        ),
-      ),
+      cupertinoLightTheme: AppTheme.cupertinoLightTheme(),
+      cupertinoDarkTheme: AppTheme.cupertinoDarkTheme(),
       localizationsDelegates: localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
