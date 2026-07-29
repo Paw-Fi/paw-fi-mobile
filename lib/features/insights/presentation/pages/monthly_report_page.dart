@@ -480,7 +480,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     return MonekoBottomSheet.show<void>(
       context: context,
       isScrollControlled: true,
-      title: context.l10n.monthlyReportReports,
+      title: context.l10n.reports,
       onClose: () => Navigator.of(context).pop(),
       builder: (sheetContext) => MonthlyReportArchiveSheet(
         queries: monthlyReportArchiveQueries(currentQuery: currentQuery),
@@ -521,7 +521,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     return _MonthlyReportHeroCard(
       colorScheme: colorScheme,
       label: isCompletedPeriod
-          ? context.l10n.monthlyReportClosingBalance
+          ? context.l10n.closingBalance
           : context.l10n.financialHealth,
       title: _shortHealthHeadline(context, report.overview.status),
       value: formatCurrency(
@@ -1505,7 +1505,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
   ) {
     return _MonthlyReportAdviceCard(
       colorScheme: colorScheme,
-      label: context.l10n.monthlyReportCompletedPeriod,
+      label: context.l10n.completedPeriod,
       title: title,
       body: body,
       accent: colorScheme.info,
@@ -1536,7 +1536,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
           status: isCompletedPeriod
-              ? context.l10n.monthlyReportClosingBalance
+              ? context.l10n.closingBalance
               : context.l10n.financialHealth,
           title: _detailHealthHeadline(context, report.overview.status),
           value: formatCurrency(
@@ -2282,7 +2282,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
               title: isCompletedPeriod
-                  ? context.l10n.monthlyReportClosingBalance
+                  ? context.l10n.closingBalance
                   : context.l10n.monthEndBuffer,
               value: formatCurrency(
                 isCompletedPeriod
@@ -3084,8 +3084,8 @@ class MonthlyReportPeriodNavigator extends StatelessWidget {
     );
     final isCurrent = query.normalized() == currentQuery.normalized();
     final status = isMonthlyReportPeriodCompleted(query, now: now)
-        ? context.l10n.monthlyReportCompletedPeriod
-        : context.l10n.monthlyReportCurrentPeriod;
+        ? context.l10n.completedPeriod
+        : context.l10n.currentPeriod;
 
     return Column(
       children: [
@@ -3173,7 +3173,7 @@ class MonthlyReportPeriodNavigator extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
-                              context.l10n.monthlyReportReturnToCurrent,
+                              context.l10n.returnToCurrentPeriod,
                               style: TextStyle(
                                 color: colorScheme.primary,
                                 fontSize: 13,
@@ -3328,7 +3328,7 @@ class _MonthlyReportArchiveRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    context.l10n.monthlyReportCurrent,
+                    context.l10n.current,
                     style: TextStyle(
                       color: colorScheme.primary,
                       fontSize: 12,

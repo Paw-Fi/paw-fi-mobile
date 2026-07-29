@@ -9456,4 +9456,112 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get total => 'ยอดรวม';
+
+  @override
+  String get monthlySpend => 'ค่าใช้จ่ายรายเดือน';
+
+  @override
+  String get noWallet => 'ไม่มีกระเป๋าเงิน';
+
+  @override
+  String get excludeFromWalletAnalytics => 'ไม่นับรวมในการวิเคราะห์กระเป๋าเงิน';
+
+  @override
+  String get excludeFromWalletAnalyticsDescription => 'แสดงกระเป๋าเงินนี้ไว้โดยไม่นับรวมในยอดรวมของกระเป๋าเงิน';
+
+  @override
+  String get excludeFromWalletAnalyticsDetails => 'ไม่นับกระเป๋าเงินนี้รวมในมูลค่าสุทธิทั้งหมด ข้อมูลสรุป และกราฟ ข้อมูลของคุณยังคงปลอดภัยและแสดงอยู่ในการ์ดกระเป๋าเงิน';
+
+  @override
+  String get excludedFromAnalytics => 'ไม่นับรวมในการวิเคราะห์';
+
+  @override
+  String get reports => 'รายงาน';
+
+  @override
+  String get monthlyReportPreviousPeriod => 'ช่วงก่อนหน้า';
+
+  @override
+  String get monthlyReportNextPeriod => 'ช่วงถัดไป';
+
+  @override
+  String get monthlyReportSelectPeriod => 'เลือกช่วงเวลาของรายงาน';
+
+  @override
+  String get currentPeriod => 'ช่วงเวลาปัจจุบัน';
+
+  @override
+  String get completedPeriod => 'ช่วงเวลาที่สิ้นสุดแล้ว';
+
+  @override
+  String get returnToCurrentPeriod => 'กลับไปยังช่วงเวลาปัจจุบัน';
+
+  @override
+  String get closingBalance => 'ยอดคงเหลือปลายงวด';
+
+  @override
+  String get monthlyReportCompletedSafeSpendUnavailable => 'ยอดที่ใช้จ่ายได้อย่างปลอดภัยใช้ได้เฉพาะช่วงเวลาปัจจุบันเท่านั้น';
+
+  @override
+  String get monthlyReportCompletedRecurringUnavailable => 'กำหนดการของรายการประจำแสดงภาระผูกพันปัจจุบัน จึงไม่รวมอยู่ในรายงานของช่วงเวลาที่สิ้นสุดแล้ว';
+
+  @override
+  String monthlyReportCompletedSummary(Object closingBalance, Object currencyCode, Object netCashFlow, Object status) {
+    return 'ช่วงเวลานี้สิ้นสุดด้วยสถานะ $status โดยมีกระแสเงินสดสุทธิ $netCashFlow $currencyCode และยอดคงเหลือปลายงวด $closingBalance $currencyCode';
+  }
+
+  @override
+  String get importNotRecurringAction => 'ไม่ใช่รายการประจำใช่ไหม';
+
+  @override
+  String get importReleaseSeriesTitle => 'นำเข้าเป็นรายการแยกกันหรือไม่';
+
+  @override
+  String importReleaseSeriesDescription(Object count) {
+    return 'Moneko ตรวจพบรายการ $count รายการนี้เป็นชุดรายการประจำ เมื่อแยกรายการแล้ว แต่ละรายการจะถูกนำเข้าเป็นรายการแยก';
+  }
+
+  @override
+  String importReleaseSeriesOverview(Object count) {
+    return 'รายการในชุดนี้ ($count)';
+  }
+
+  @override
+  String get importReleaseSeriesConfirm => 'แยกรายการ';
+
+  @override
+  String importSeriesTransactionCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count รายการ',
+      one: '1 รายการ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get paywallCommitmentBilledMonthlyShort => 'เรียกเก็บเงินรายเดือน';
+
+  @override
+  String get paywallCancelAnytime => 'ยกเลิกได้ทุกเมื่อ';
+
+  @override
+  String paywallBadgeSavePercent(Object percent) {
+    return 'ประหยัด $percent%';
+  }
+
+  @override
+  String get aiMappings => 'การจับคู่ด้วย AI';
+
+  @override
+  String remapTitle(Object fromLabel, Object toLabel) {
+    return '$fromLabel → $toLabel';
+  }
+
+  @override
+  String get editMapping => 'แก้ไขการจับคู่';
+
+  @override
+  String get addMapping => 'เพิ่มการจับคู่';
 }

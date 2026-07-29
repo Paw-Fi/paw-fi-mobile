@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -403,7 +404,11 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AsyncDataSkeleton(
+                rowCount: 3,
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+              ),
               error: (error, _) => Center(
                 child: Text(
                   '${context.l10n.error}: $error',

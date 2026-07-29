@@ -4,6 +4,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 
 class HouseholdExpensesPage extends ConsumerWidget {
   final Household household;
@@ -15,8 +16,7 @@ class HouseholdExpensesPage extends ConsumerWidget {
         HouseholdExpensesParams(householdId: household.id, limit: 1000);
     final expensesAsync = ref.watch(householdExpensesProvider(params));
     return expensesAsync.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const Scaffold(body: AsyncDataSkeleton()),
       error: (e, st) => Scaffold(
         body: Center(
             child:

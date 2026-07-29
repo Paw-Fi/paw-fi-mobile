@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
 
@@ -442,9 +443,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               return dashboardAsync.when(
                 loading: () => const SliverToBoxAdapter(
-                    child: SizedBox(
-                        height: 200,
-                        child: Center(child: CircularProgressIndicator()))),
+                  child: SizedBox(
+                    height: 200,
+                    child: AsyncDataSkeleton(
+                      rowCount: 2,
+                      shrinkWrap: true,
+                    ),
+                  ),
+                ),
                 error: (e, st) => SliverToBoxAdapter(
                     child: Text('${context.l10n.errorLoadingDashboard}: $e')),
                 data: (configs) {

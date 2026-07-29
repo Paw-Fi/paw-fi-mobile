@@ -18,6 +18,8 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
@@ -420,6 +422,7 @@ class RecurringOccurrenceTimelineQuery {
 @immutable
 class RecurringOccurrenceTimelineItem {
   const RecurringOccurrenceTimelineItem({
+    this.occurrenceId,
     required this.scheduledOccurrenceDate,
     required this.status,
     this.actualTransaction,
@@ -431,6 +434,7 @@ class RecurringOccurrenceTimelineItem {
     this.isSettlementLocked = false,
   });
 
+  final String? occurrenceId;
   final DateTime scheduledOccurrenceDate;
   final String status;
   final ExpenseEntry? actualTransaction;
@@ -456,6 +460,7 @@ class RecurringOccurrenceTimelineItem {
     final paidDate = occurrence['paid_date'] as String?;
     final confirmedAt = occurrence['confirmed_at'] as String?;
     return RecurringOccurrenceTimelineItem(
+      occurrenceId: occurrence['id']?.toString(),
       scheduledOccurrenceDate: scheduledDate,
       status: occurrence['status']?.toString() ?? 'pending',
       actualTransaction: transaction is Map
@@ -578,19 +583,79 @@ class RecurringOccurrenceUpdateController {
       );
     }
 
-    try {
-      final response = await supabase.functions.invoke(
-        'update-recurring-occurrence',
-        body: command.toRequestBody(),
-      );
-      final payload = response.data;
-      if (payload is! Map || payload['success'] != true) {
-        return RecurringOccurrenceConfirmationResult.failure(
-          payload is Map && payload['error'] is String
-              ? payload['error'] as String
-              : 'Unable to update payment.',
+    final mutationId =
+        'update-recurring-occurrence:${command.recurringTransaction.id}:'
+        '${formatDateOnlyYmd(command.occurrence.scheduledOccurrenceDate)}:'
+        '${DateTime.now().microsecondsSinceEpoch}';
+    final occurrenceHandle = _ref
+        .read(recurringOccurrenceOptimisticProvider.notifier)
+        .upsert(
+          mutationId: mutationId,
+          occurrence: RecurringOccurrenceSummary(
+            id: command.occurrence.occurrenceId ?? mutationId,
+            recurringId: command.recurringTransaction.id,
+            scheduledOccurrenceDate: command.occurrence.scheduledOccurrenceDate,
+            status: command.occurrence.status,
+            confirmationSource: command.occurrence.confirmationSource,
+            actualTransactionId: command.occurrence.actualTransaction?.id,
+            paidDate: command.occurrence.isSettlementLocked
+                ? command.occurrence.paidDate
+                : command.paidDate,
+            amountCents: command.occurrence.isSettlementLocked
+                ? command.occurrence.amountCents
+                : command.amountCents,
+            currency: command.occurrence.currency ??
+                command.recurringTransaction.currency,
+            confirmedAt: command.occurrence.confirmedAt,
+            confirmedByUserId: command.userId,
+            createdAt: command.occurrence.confirmedAt,
+            updatedAt: DateTime.now(),
+          ),
         );
+    final seriesHandle =
+        command.updateFutureAmount && command.amountCents != null
+            ? _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                  mutationId: mutationId,
+                  transaction: command.recurringTransaction.copyWith(
+                    amount: command.amountCents! / 100,
+                  ),
+                )
+            : null;
+
+    try {
+      final original = command.occurrence.actualTransaction;
+      if (original == null) {
+        throw StateError('The confirmed transaction is unavailable.');
       }
+      final updated = original.copyWith(
+        date: command.occurrence.isSettlementLocked
+            ? original.date
+            : command.paidDate,
+        amountCents: command.occurrence.isSettlementLocked
+            ? original.amountCents
+            : command.amountCents,
+        accountId: command.occurrence.isSettlementLocked
+            ? original.walletId
+            : command.accountId,
+        merchant: command.occurrence.isSettlementLocked
+            ? original.merchant
+            : command.merchant,
+        rawText: command.description,
+        updatedAt: DateTime.now(),
+        clientMutationId: mutationId,
+      );
+      final database = await _ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: original,
+        updatedEntry: updated,
+        clientMutationId: mutationId,
+        operation: 'update_recurring_occurrence',
+        payload: {
+          'functionName': 'update-recurring-occurrence',
+          'requestBody': command.toRequestBody(),
+        },
+      );
+      _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       _ref.read(widgetSyncVersionProvider.notifier).state += 1;
@@ -599,11 +664,20 @@ class RecurringOccurrenceUpdateController {
       ));
       _ref.invalidate(pocketsProvider);
       _ref.invalidate(currencyTransactionCountsProvider);
+      unawaited(drainMobileOutbox(_ref));
       return RecurringOccurrenceConfirmationResult.queued(
         optimisticId: command.recurringTransaction.id,
-        idempotencyKey: command.recurringTransaction.id,
+        idempotencyKey: mutationId,
       );
     } catch (error) {
+      _ref
+          .read(recurringOccurrenceOptimisticProvider.notifier)
+          .rollback(occurrenceHandle);
+      if (seriesHandle != null) {
+        _ref
+            .read(recurringSeriesOptimisticProvider.notifier)
+            .rollback(seriesHandle);
+      }
       return RecurringOccurrenceConfirmationResult.failure(
         ErrorHandler.getUserFriendlyMessage(error),
       );
@@ -636,19 +710,45 @@ class RecurringOccurrenceUnconfirmController {
       );
     }
 
-    try {
-      final response = await supabase.functions.invoke(
-        'unconfirm-recurring-occurrence',
-        body: command.toRequestBody(),
-      );
-      final payload = response.data;
-      if (payload is! Map || payload['success'] != true) {
-        return RecurringOccurrenceConfirmationResult.failure(
-          payload is Map && payload['error'] is String
-              ? payload['error'] as String
-              : 'Unable to unconfirm payment.',
+    final mutationId =
+        'unconfirm-recurring-occurrence:${command.recurringTransaction.id}:'
+        '${formatDateOnlyYmd(command.occurrence.scheduledOccurrenceDate)}:'
+        '${DateTime.now().microsecondsSinceEpoch}';
+    final occurrenceHandle = _ref
+        .read(recurringOccurrenceOptimisticProvider.notifier)
+        .remove(
+          mutationId: mutationId,
+          recurringId: command.recurringTransaction.id,
+          scheduledOccurrenceDate: command.occurrence.scheduledOccurrenceDate,
         );
+    final seriesHandle =
+        _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+              mutationId: mutationId,
+              transaction: command.recurringTransaction.copyWith(
+                serverNextOccurrenceDate:
+                    command.occurrence.scheduledOccurrenceDate,
+                serverLatestActionableOccurrenceDate:
+                    command.occurrence.scheduledOccurrenceDate,
+              ),
+            );
+
+    try {
+      final original = command.occurrence.actualTransaction;
+      if (original == null) {
+        throw StateError('The confirmed transaction is unavailable.');
       }
+      final database = await _ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransactionDelete(
+        entries: [original],
+        clientMutationId: mutationId,
+        actingUserId: command.userId,
+        operation: 'unconfirm_recurring_occurrence',
+        payload: {
+          'functionName': 'unconfirm-recurring-occurrence',
+          'requestBody': command.toRequestBody(),
+        },
+      );
+      _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       _ref.read(widgetSyncVersionProvider.notifier).state += 1;
@@ -658,11 +758,18 @@ class RecurringOccurrenceUnconfirmController {
       ));
       _ref.invalidate(pocketsProvider);
       _ref.invalidate(currencyTransactionCountsProvider);
+      unawaited(drainMobileOutbox(_ref));
       return RecurringOccurrenceConfirmationResult.queued(
         optimisticId: command.recurringTransaction.id,
-        idempotencyKey: command.recurringTransaction.id,
+        idempotencyKey: mutationId,
       );
     } catch (error) {
+      _ref
+          .read(recurringOccurrenceOptimisticProvider.notifier)
+          .rollback(occurrenceHandle);
+      _ref
+          .read(recurringSeriesOptimisticProvider.notifier)
+          .rollback(seriesHandle);
       return RecurringOccurrenceConfirmationResult.failure(
         ErrorHandler.getUserFriendlyMessage(error),
       );
@@ -704,13 +811,18 @@ class RecurringOccurrenceConfirmationController {
       command.paidDate.day,
     );
     final now = DateTime.now();
-    final today = effectiveToday(
+    final userNow = effectiveNow(
       preferredTimezone:
           _ref.read(analyticsProvider).contact?.preferredTimezone,
     );
-    if (scheduledDate.isAfter(today) || paidDate.isAfter(today)) {
+    if (!canSubmitRecurringOccurrenceConfirmationAt(
+      transaction: command.recurringTransaction,
+      scheduledOccurrenceDate: scheduledDate,
+      paidDate: paidDate,
+      userNow: userNow,
+    )) {
       return const RecurringOccurrenceConfirmationResult.failure(
-        'Only current or overdue occurrences can be confirmed.',
+        'This occurrence is not available for confirmation yet.',
       );
     }
 
@@ -748,6 +860,34 @@ class RecurringOccurrenceConfirmationController {
           'requestBody': command.toRequestBody(),
         },
       );
+      final optimisticSeries = command.recurringTransaction.copyWith(
+        serverNextOccurrenceDate:
+            command.recurringTransaction.getNextOccurrence(scheduledDate),
+        clearServerLatestActionableOccurrenceDate: true,
+      );
+      _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+            mutationId: command.idempotencyKey,
+            transaction: optimisticSeries,
+          );
+      _ref.read(recurringOccurrenceOptimisticProvider.notifier).upsert(
+            mutationId: command.idempotencyKey,
+            occurrence: RecurringOccurrenceSummary(
+              id: command.optimisticId,
+              recurringId: command.recurringTransaction.id,
+              scheduledOccurrenceDate: scheduledDate,
+              status: 'confirmed',
+              confirmationSource: 'user',
+              actualTransactionId: command.optimisticId,
+              paidDate: paidDate,
+              amountCents: command.amountCents,
+              currency: command.recurringTransaction.currency,
+              confirmedAt: now,
+              confirmedByUserId: command.userId,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       _ref.read(widgetSyncVersionProvider.notifier).state += 1;
@@ -1169,8 +1309,9 @@ class RecurringTransactionsNotifier
   /// Delete transaction
   Future<DeleteRecurringResult> deleteRecurring(
     String userId,
-    String transactionId,
-  ) async {
+    String transactionId, {
+    RecurringTransaction? transaction,
+  }) async {
     if (_guardPreviewWrites()) {
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
@@ -1180,6 +1321,7 @@ class RecurringTransactionsNotifier
       clientRecordId: transactionId,
       operation: 'delete_recurring_transaction',
     );
+    RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
 
     try {
       // Optimistic update
@@ -1187,13 +1329,20 @@ class RecurringTransactionsNotifier
         return const DeleteRecurringResult.failure('Provider unmounted');
       }
       final currentTransactions = state.data.valueOrNull ?? const [];
-      final target = currentTransactions
-          .where((transaction) => transaction.id == transactionId)
-          .firstOrNull;
+      final target = transaction ??
+          currentTransactions
+              .where((entry) => entry.id == transactionId)
+              .firstOrNull;
       if (target != null) {
         deletedEntries = [
           _expenseEntryFromRecurringTransaction(target, userId),
         ];
+        lazyOptimisticHandle =
+            ref.read(recurringSeriesOptimisticProvider.notifier).remove(
+                  mutationId: mutationMetadata.clientMutationId,
+                  recurringId: transactionId,
+                  householdId: target.householdId,
+                );
       }
       state.data.whenData((transactions) {
         state = state.copyWith(
@@ -1234,6 +1383,13 @@ class RecurringTransactionsNotifier
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
+        final lazyHandle = lazyOptimisticHandle;
+        if (lazyHandle != null) {
+          ref
+              .read(recurringSeriesOptimisticProvider.notifier)
+              .commit(lazyHandle);
+        }
+        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
         await localDatabase?.markOptimisticTransactionDeleteSynced(
           clientMutationId: mutationMetadata.clientMutationId,
         );
@@ -1262,6 +1418,12 @@ class RecurringTransactionsNotifier
           error: errorMessage ?? 'Delete failed',
         );
       }
+      final lazyHandle = lazyOptimisticHandle;
+      if (lazyHandle != null) {
+        ref
+            .read(recurringSeriesOptimisticProvider.notifier)
+            .rollback(lazyHandle);
+      }
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
@@ -1278,6 +1440,12 @@ class RecurringTransactionsNotifier
           clientMutationId: mutationMetadata.clientMutationId,
           error: e,
         );
+      }
+      final lazyHandle = lazyOptimisticHandle;
+      if (lazyHandle != null) {
+        ref
+            .read(recurringSeriesOptimisticProvider.notifier)
+            .rollback(lazyHandle);
       }
       await refresh(userId);
       return DeleteRecurringResult.failure(
@@ -1303,6 +1471,8 @@ class RecurringTransactionsNotifier
       clientRecordId: transactionId,
       operation: 'skip_recurring_occurrence',
     );
+    RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
+    RecurringOccurrenceOptimisticHandle? occurrenceOptimisticHandle;
     try {
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
@@ -1344,8 +1514,36 @@ class RecurringTransactionsNotifier
       final updatedRule = rule.copyWith(excludedDates: updatedExcluded);
 
       // Optimistic update
-      final updatedTransaction = target!.copyWith(recurrenceRule: updatedRule);
+      final updatedTransaction = target!.copyWith(
+        recurrenceRule: updatedRule,
+        serverNextOccurrenceDate: target!.getNextOccurrence(dateToSkip),
+        clearServerLatestActionableOccurrenceDate: true,
+      );
       updateRecurring(updatedTransaction);
+      lazyOptimisticHandle =
+          ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                mutationId: mutationMetadata.clientMutationId,
+                transaction: updatedTransaction,
+              );
+      occurrenceOptimisticHandle =
+          ref.read(recurringOccurrenceOptimisticProvider.notifier).upsert(
+                mutationId: mutationMetadata.clientMutationId,
+                occurrence: RecurringOccurrenceSummary(
+                  id: 'optimistic-skip-${mutationMetadata.clientMutationId}',
+                  recurringId: transactionId,
+                  scheduledOccurrenceDate: dateToSkip,
+                  status: 'skipped',
+                  confirmationSource: 'user',
+                  actualTransactionId: null,
+                  paidDate: null,
+                  amountCents: null,
+                  currency: target!.currency,
+                  confirmedAt: null,
+                  confirmedByUserId: userId,
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+              );
       originalEntry = _expenseEntryFromRecurringTransaction(target!, userId);
       updatedEntry = _expenseEntryFromRecurringTransaction(
         updatedTransaction,
@@ -1388,6 +1586,13 @@ class RecurringTransactionsNotifier
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
+        final lazyHandle = lazyOptimisticHandle;
+        ref.read(recurringSeriesOptimisticProvider.notifier).commit(lazyHandle);
+        final occurrenceHandle = occurrenceOptimisticHandle;
+        ref
+            .read(recurringOccurrenceOptimisticProvider.notifier)
+            .commit(occurrenceHandle);
+        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
         await localDatabase.markMutationSynced(
           mutationMetadata.clientMutationId,
         );
@@ -1412,6 +1617,12 @@ class RecurringTransactionsNotifier
         clientMutationId: mutationMetadata.clientMutationId,
         error: errorMessage ?? 'Skip occurrence failed',
       );
+      final lazyHandle = lazyOptimisticHandle;
+      ref.read(recurringSeriesOptimisticProvider.notifier).rollback(lazyHandle);
+      final occurrenceHandle = occurrenceOptimisticHandle;
+      ref
+          .read(recurringOccurrenceOptimisticProvider.notifier)
+          .rollback(occurrenceHandle);
       updateRecurring(target!);
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
@@ -1432,6 +1643,18 @@ class RecurringTransactionsNotifier
       }
       if (target != null) {
         updateRecurring(target!);
+      }
+      final lazyHandle = lazyOptimisticHandle;
+      if (lazyHandle != null) {
+        ref
+            .read(recurringSeriesOptimisticProvider.notifier)
+            .rollback(lazyHandle);
+      }
+      final occurrenceHandle = occurrenceOptimisticHandle;
+      if (occurrenceHandle != null) {
+        ref
+            .read(recurringOccurrenceOptimisticProvider.notifier)
+            .rollback(occurrenceHandle);
       }
       await refresh(userId);
       return DeleteRecurringResult.failure(
@@ -1545,12 +1768,6 @@ bool _sameStringList(List<String>? left, List<String>? right) {
 /// [RecurringTransactionCard] so navigation badges match the visible CTA.
 final hasUnconfirmedRecurringOccurrencesProvider =
     Provider.family<bool, UpcomingRecurringScope>((ref, scope) {
-  final transactions = ref
-      .watch(recurringTransactionsProvider(scope.householdId))
-      .data
-      .valueOrNull;
-  if (transactions == null || transactions.isEmpty) return false;
-
   String? userId;
   try {
     userId = supabase.auth.currentUser?.id;
@@ -1558,59 +1775,21 @@ final hasUnconfirmedRecurringOccurrencesProvider =
     return false;
   }
   if (userId == null || userId.isEmpty) return false;
-
-  final currency = scope.currency?.trim().toUpperCase();
-  final currencies = scope.normalizedSelectedCurrencies;
-  final preferredTimezone =
-      ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-  final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-
-  for (final transaction in transactions) {
-    if (!transaction.isActive) continue;
-
-    final transactionCurrency = transaction.currency.trim().toUpperCase();
-    if (currencies != null && !currencies.contains(transactionCurrency)) {
-      continue;
-    }
-    if (currencies == null &&
-        currency != null &&
-        currency.isNotEmpty &&
-        transactionCurrency != currency) {
-      continue;
-    }
-
-    final eligibleOccurrences = getOccurrencesList(transaction, userNow)
-        .where((occurrence) =>
-            canConfirmOccurrenceAt(transaction, occurrence, userNow))
-        .toList(growable: false);
-    if (eligibleOccurrences.isEmpty) continue;
-
-    final historyStartDate =
-        transaction.recurrenceRule?.anchorDate ?? transaction.date;
-    final timeline = ref
-            .watch(recurringOccurrenceTimelineProvider(
-              RecurringOccurrenceTimelineQuery(
-                userId: userId,
-                householdId: transaction.householdId,
-                recurringId: transaction.id,
-                startDate: historyStartDate,
-                endDate: eligibleOccurrences.last,
-              ),
-            ))
-            .valueOrNull ??
-        const <RecurringOccurrenceTimelineItem>[];
-    final confirmedDates = <String>{
-      for (final item in timeline)
-        if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
-    };
-    if (eligibleOccurrences.any(
-      (occurrence) => !confirmedDates.contains(formatDateOnlyYmd(occurrence)),
-    )) {
-      return true;
-    }
-  }
-
-  return false;
+  final selectedCurrencies = scope.normalizedSelectedCurrencies;
+  final currencies = selectedCurrencies?.isNotEmpty == true
+      ? selectedCurrencies!
+      : <String>[scope.currency?.trim().toUpperCase() ?? 'USD'];
+  final summaries = ref
+      .watch(recurringSeriesPageProvider(RecurringSeriesPageQuery(
+        scope: RecurringReadScope(
+          userId: userId,
+          householdId: scope.householdId,
+          currencies: currencies,
+        ),
+      )))
+      .valueOrNull
+      ?.items;
+  return summaries?.any((item) => item.hasActionableOccurrence) == true;
 });
 
 class UpcomingRecurringTransaction {
@@ -1629,20 +1808,52 @@ class UpcomingRecurringTransaction {
 final upcomingRecurringTransactionProvider =
     Provider.family<UpcomingRecurringTransaction?, UpcomingRecurringScope>(
         (ref, scope) {
-  final allTransactions =
-      ref.watch(recurringTransactionsProvider(scope.householdId));
   final currency = scope.currency?.trim().toUpperCase();
   final currencies = scope.normalizedSelectedCurrencies;
-  final transactions = allTransactions.data.valueOrNull;
-  if (transactions == null) return null;
-
   final preferredTimezone =
       ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
   final userNow = effectiveNow(preferredTimezone: preferredTimezone);
   final today = DateTime(userNow.year, userNow.month, userNow.day);
+  String? userId;
+  try {
+    userId = supabase.auth.currentUser?.id;
+  } catch (_) {
+    // Provider tests and unauthenticated previews have no Supabase client.
+  }
+  final List<RecurringSeriesSummary> summaries;
+  if (userId == null || userId.isEmpty) {
+    final transactions = ref
+        .watch(recurringTransactionsProvider(scope.householdId))
+        .data
+        .valueOrNull;
+    if (transactions == null) return null;
+    summaries = transactions
+        .map((transaction) => RecurringSeriesSummary(
+              transaction: transaction,
+              nextOccurrenceDate: transaction.getNextOccurrence(userNow),
+              latestActionableOccurrenceDate: null,
+            ))
+        .toList(growable: false);
+  } else {
+    final selected = currencies?.isNotEmpty == true
+        ? currencies!
+        : <String>[currency ?? 'USD'];
+    summaries = ref
+            .watch(recurringSeriesPageProvider(RecurringSeriesPageQuery(
+              scope: RecurringReadScope(
+                userId: userId,
+                householdId: scope.householdId,
+                currencies: selected,
+              ),
+            )))
+            .valueOrNull
+            ?.items ??
+        const [];
+  }
   UpcomingRecurringTransaction? best;
 
-  for (final transaction in transactions) {
+  for (final summary in summaries) {
+    final transaction = summary.transaction;
     if (!transaction.isActive) continue;
     final transactionCurrency = transaction.currency.toUpperCase();
     if (currencies != null && !currencies.contains(transactionCurrency)) {
@@ -1655,39 +1866,8 @@ final upcomingRecurringTransactionProvider =
       continue;
     }
 
-    final generatedOccurrences = getOccurrencesList(transaction, userNow)
-        .where((occurrence) => !occurrence.isBefore(today))
-        .toList(growable: false);
-    if (generatedOccurrences.isEmpty) continue;
-
-    String? userId;
-    try {
-      userId = supabase.auth.currentUser?.id;
-    } catch (_) {
-      // Provider tests and unauthenticated previews have no Supabase client.
-    }
-    final timeline = userId == null || userId.isEmpty
-        ? const <RecurringOccurrenceTimelineItem>[]
-        : ref
-                .watch(recurringOccurrenceTimelineProvider(
-                  RecurringOccurrenceTimelineQuery(
-                    userId: userId,
-                    householdId: transaction.householdId,
-                    recurringId: transaction.id,
-                    startDate: today,
-                    endDate: generatedOccurrences.last,
-                  ),
-                ))
-                .valueOrNull ??
-            const <RecurringOccurrenceTimelineItem>[];
-    final confirmedDates = <String>{
-      for (final item in timeline)
-        if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
-    };
-    final nextDate = generatedOccurrences.firstWhere(
-      (occurrence) => !confirmedDates.contains(formatDateOnlyYmd(occurrence)),
-      orElse: () => generatedOccurrences.last,
-    );
+    final nextDate =
+        summary.nextOccurrenceDate ?? transaction.getNextOccurrence(userNow);
     final daysUntil = nextDate.difference(today).inDays;
 
     if (daysUntil < 0 || daysUntil > 3) continue;
@@ -1763,6 +1943,7 @@ class RecurringTransactionSaveNotifier
     TransactionMutationMetadata? mutationMetadata;
     MonekoDatabase? localDatabase;
     RecurringTransaction? committedTransaction;
+    RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
     var backendCommitted = false;
 
     try {
@@ -1874,6 +2055,11 @@ class RecurringTransactionSaveNotifier
       ref
           .read(recurringTransactionsProvider(householdId).notifier)
           .addRecurring(optimisticTransaction);
+      lazyOptimisticHandle =
+          ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                mutationId: mutationMetadata.clientMutationId,
+                transaction: optimisticTransaction,
+              );
       localDatabase = await _queueRecurringCreate(
         optimisticTransaction: optimisticTransaction,
         mutationMetadata: mutationMetadata,
@@ -1895,6 +2081,12 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(optimisticTransaction.id, expense);
+        final lazyHandle = lazyOptimisticHandle;
+        ref.read(recurringSeriesOptimisticProvider.notifier).commit(
+              lazyHandle,
+              canonicalTransaction: expense,
+            );
+        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
         await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticTransaction.id,
           savedEntry: _expenseEntryFromRecurringTransaction(expense, userId),
@@ -1909,6 +2101,10 @@ class RecurringTransactionSaveNotifier
 
         return expense;
       } else {
+        final lazyHandle = lazyOptimisticHandle;
+        ref
+            .read(recurringSeriesOptimisticProvider.notifier)
+            .rollback(lazyHandle);
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .removeRecurring(optimisticTransaction.id);
@@ -1957,6 +2153,12 @@ class RecurringTransactionSaveNotifier
           return optimistic;
         }
         if (optimistic != null) {
+          final lazyHandle = lazyOptimisticHandle;
+          if (lazyHandle != null) {
+            ref
+                .read(recurringSeriesOptimisticProvider.notifier)
+                .rollback(lazyHandle);
+          }
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
               .removeRecurring(optimistic.id);
@@ -2004,6 +2206,7 @@ class RecurringTransactionSaveNotifier
     MonekoDatabase? localDatabase;
     RecurringTransaction? committedTransaction;
     var backendCommitted = false;
+    RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -2054,6 +2257,11 @@ class RecurringTransactionSaveNotifier
       ref
           .read(recurringTransactionsProvider(householdId).notifier)
           .addRecurring(optimisticTransaction);
+      lazyOptimisticHandle =
+          ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                mutationId: mutationMetadata.clientMutationId,
+                transaction: optimisticTransaction,
+              );
 
       final requestBody = <String, dynamic>{
         ...mutationMetadata.toRequestJson(),
@@ -2098,6 +2306,12 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(optimisticTransaction.id, income);
+        final lazyHandle = lazyOptimisticHandle;
+        ref.read(recurringSeriesOptimisticProvider.notifier).commit(
+              lazyHandle,
+              canonicalTransaction: income,
+            );
+        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
         await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticTransaction.id,
           savedEntry: _expenseEntryFromRecurringTransaction(income, userId),
@@ -2112,6 +2326,10 @@ class RecurringTransactionSaveNotifier
 
         return income;
       } else {
+        final lazyHandle = lazyOptimisticHandle;
+        ref
+            .read(recurringSeriesOptimisticProvider.notifier)
+            .rollback(lazyHandle);
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .removeRecurring(optimisticTransaction.id);
@@ -2160,6 +2378,12 @@ class RecurringTransactionSaveNotifier
           return optimistic;
         }
         if (optimistic != null) {
+          final lazyHandle = lazyOptimisticHandle;
+          if (lazyHandle != null) {
+            ref
+                .read(recurringSeriesOptimisticProvider.notifier)
+                .rollback(lazyHandle);
+          }
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
               .removeRecurring(optimistic.id);
@@ -2431,9 +2655,16 @@ class RecurringTransactionSaveNotifier
     TransactionMutationMetadata? mutationMetadata;
     RecurringTransaction? committedTransaction;
     var backendCommitted = false;
+    RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
 
     void rollbackOptimisticExpense() {
       try {
+        final lazyHandle = lazyOptimisticHandle;
+        if (lazyHandle != null) {
+          ref
+              .read(recurringSeriesOptimisticProvider.notifier)
+              .rollback(lazyHandle);
+        }
         if (householdId != originalScopeKey) {
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
@@ -2603,6 +2834,12 @@ class RecurringTransactionSaveNotifier
         payerUserId: payerUserId,
         accountId: accountId,
       ).copyWith(id: expenseId);
+      lazyOptimisticHandle =
+          ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                mutationId: mutationMetadata.clientMutationId,
+                transaction: optimisticExpense,
+                sourceHouseholdId: originalScopeKey,
+              );
       try {
         if (previousHouseholdId != null && previousHouseholdId != householdId) {
           ref
@@ -2650,6 +2887,12 @@ class RecurringTransactionSaveNotifier
             response.data['data'] as Map<String, dynamic>);
         committedTransaction = updatedExpense;
         backendCommitted = true;
+        final lazyHandle = lazyOptimisticHandle;
+        ref.read(recurringSeriesOptimisticProvider.notifier).commit(
+              lazyHandle,
+              canonicalTransaction: updatedExpense,
+            );
+        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
         await localDatabase?.markOptimisticTransactionUpdateSynced(
           entry: _expenseEntryFromRecurringTransaction(updatedExpense, userId),
           clientMutationId: mutationMetadata.clientMutationId,
@@ -2780,9 +3023,16 @@ class RecurringTransactionSaveNotifier
     TransactionMutationMetadata? mutationMetadata;
     RecurringTransaction? committedTransaction;
     var backendCommitted = false;
+    RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
 
     void rollbackOptimisticIncome() {
       try {
+        final lazyHandle = lazyOptimisticHandle;
+        if (lazyHandle != null) {
+          ref
+              .read(recurringSeriesOptimisticProvider.notifier)
+              .rollback(lazyHandle);
+        }
         if (originalIncome != null) {
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
@@ -2858,6 +3108,15 @@ class RecurringTransactionSaveNotifier
         householdId: householdId,
         accountId: accountId,
       ).copyWith(id: expenseId);
+      mutationMetadata = buildTransactionMutationMetadataForRecord(
+        clientRecordId: expenseId,
+        operation: 'update_recurring_income',
+      );
+      lazyOptimisticHandle =
+          ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                mutationId: mutationMetadata.clientMutationId,
+                transaction: optimisticIncome,
+              );
       try {
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
@@ -2913,6 +3172,12 @@ class RecurringTransactionSaveNotifier
             response.data['data'] as Map<String, dynamic>);
         committedTransaction = updatedIncome;
         backendCommitted = true;
+        final lazyHandle = lazyOptimisticHandle;
+        ref.read(recurringSeriesOptimisticProvider.notifier).commit(
+              lazyHandle,
+              canonicalTransaction: updatedIncome,
+            );
+        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
         await localDatabase?.markOptimisticTransactionUpdateSynced(
           entry: _expenseEntryFromRecurringTransaction(updatedIncome, userId),
           clientMutationId: mutationMetadata.clientMutationId,

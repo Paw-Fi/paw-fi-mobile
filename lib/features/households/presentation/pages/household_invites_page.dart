@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -77,7 +78,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AsyncDataSkeleton(rowCount: 4)
           : RefreshIndicator(
               onRefresh: _loadInvites,
               child: ListView(

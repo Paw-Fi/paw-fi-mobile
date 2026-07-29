@@ -1,6 +1,7 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -10,7 +11,10 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
@@ -18,6 +22,117 @@ import 'package:moneko/features/home/presentation/state/user_categories_provider
 enum _CategoryScope {
   expense,
   income,
+}
+
+class _SheetCloseButton extends StatelessWidget {
+  const _SheetCloseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+        child: Icon(
+          PlatformInfo.isIOS ? CupertinoIcons.clear : Icons.close,
+          color: colorScheme.onSurface,
+          size: 16,
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                      color: colorScheme.foreground,
+                    ),
+              ),
+              const _SheetCloseButton(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 24),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: colorScheme.mutedForeground,
+          fontSize: 12,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.border.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
+    );
+  }
+}
+
+Widget _indentedDivider(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.only(left: 56),
+    child: Divider(height: 1, color: colorScheme.border.withValues(alpha: 0.5)),
+  );
 }
 
 class CategoryCustomizationSheet extends HookConsumerWidget {
@@ -136,57 +251,29 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
 
     Widget buildScopePicker() {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: SizedBox(
-          width: double.infinity,
-          child: CupertinoSegmentedControl<_CategoryScope>(
-            groupValue: scope.value,
-            selectedColor: colorScheme.primary,
-            unselectedColor: colorScheme.sheetElementBackground,
-            borderColor: Colors.transparent,
-            pressedColor: colorScheme.muted,
-            children: {
-              _CategoryScope.expense: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  context.l10n.expense,
-                  style: TextStyle(
-                    color: scope.value == _CategoryScope.expense
-                        ? colorScheme.primaryForeground
-                        : colorScheme.foreground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              _CategoryScope.income: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  context.l10n.income,
-                  style: TextStyle(
-                    color: scope.value == _CategoryScope.income
-                        ? colorScheme.primaryForeground
-                        : colorScheme.foreground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            },
-            onValueChanged: (value) {
-              scope.value = value;
-            },
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: MonekoSegmentedControl(
+          labels: [context.l10n.expense, context.l10n.income],
+          selectedIndex: scope.value == _CategoryScope.expense ? 0 : 1,
+          onValueChanged: (index) {
+            scope.value =
+                index == 0 ? _CategoryScope.expense : _CategoryScope.income;
+          },
+          height: 40,
         ),
       );
     }
 
     Widget buildSearchField() {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: colorScheme.sheetElementBackground,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
+            border:
+                Border.all(color: colorScheme.border.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -234,707 +321,608 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
       );
     }
 
-    return Material(
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        decoration: BoxDecoration(
-          color: colorScheme.sheetBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.l10n.category,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    InkWell(
-                      onTap: () => Navigator.of(context).pop(),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.sheetElementBackground,
-                          border: Border.all(
-                            color: colorScheme.border.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Icon(
-                          PlatformInfo.isIOS
-                              ? CupertinoIcons.clear
-                              : Icons.close,
-                          color: colorScheme.onSurface,
-                          size: 16,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SheetHeader(title: context.l10n.category),
+        buildScopePicker(),
+        const SizedBox(height: 16),
+        buildSearchField(),
+        const SizedBox(height: 8),
+        Expanded(
+          child: configAsync.when(
+            loading: () => const AsyncDataSkeleton(
+              rowCount: 5,
+              padding: EdgeInsets.zero,
+            ),
+            error: (e, _) => Center(
+              child: Text(
+                context.l10n.customCategoriesLoadFailed(e.toString()),
+                style: TextStyle(color: colorScheme.destructive),
+              ),
+            ),
+            data: (config) {
+              Widget buildCategoryList({required String type}) {
+                final isExpense = type == 'expense';
+                final builtinSet = isExpense
+                    ? getExpenseCategories().toSet()
+                    : getIncomeCategories().toSet();
+                final targetCategories = (isExpense
+                        ? config.visibleExpenseCategories
+                        : config.visibleIncomeCategories)
+                    .where((category) =>
+                        category.trim().toLowerCase() != 'other')
+                    .toList(growable: false);
+          
+                final groupsToDisplay = <String, List<String>>{};
+          
+                for (final entry in categoryGroups.entries) {
+                  final groupKey = entry.key;
+                  final cats = entry.value;
+          
+                  final validCats = cats.where((c) {
+                    if (!builtinSet.contains(c)) return false;
+          
+                    final normalized = c.trim().toLowerCase();
+                    if (normalized == 'other' ||
+                        normalized == 'uncategorized') {
+                      return false;
+                    }
+          
+                    if (query.isNotEmpty) {
+                      final localized = getCategoryTranslation(context, c)
+                          .toLowerCase();
+                      if (!c.toLowerCase().contains(query) &&
+                          !localized.contains(query)) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  }).toList();
+          
+                  if (validCats.isNotEmpty) {
+                    groupsToDisplay[groupKey] = validCats;
+                  }
+                }
+          
+                final customCats = config.customCategories.where((c) {
+                  if (isExpense && c.transactionType == 'income') {
+                    return false;
+                  }
+                  if (!isExpense && c.transactionType == 'expense') {
+                    return false;
+                  }
+          
+                  if (query.isNotEmpty &&
+                      !c.name.toLowerCase().contains(query)) {
+                    return false;
+                  }
+          
+                  return true;
+                }).toList();
+          
+                final remaps = (remapsAsync.valueOrNull ??
+                        const <UserCategoryRemapPreference>[])
+                    .where((remap) {
+                  if (remap.transactionType != type) return false;
+                  if (query.isEmpty) return true;
+                  final fromLabel =
+                      getCategoryTranslation(context, remap.fromCategory)
+                          .toLowerCase();
+                  final toLabel =
+                      getCategoryTranslation(context, remap.toCategory)
+                          .toLowerCase();
+                  return remap.fromCategory.contains(query) ||
+                      remap.toCategory.contains(query) ||
+                      fromLabel.contains(query) ||
+                      toLabel.contains(query);
+                }).toList(growable: false);
+          
+                if (groupsToDisplay.isEmpty &&
+                    customCats.isEmpty &&
+                    remaps.isEmpty &&
+                    query.isNotEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(
+                        context.l10n.noResultsFound,
+                        style: TextStyle(
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              buildScopePicker(),
-              const SizedBox(height: 16),
-              buildSearchField(),
-              const SizedBox(height: 16),
-
-              Expanded(
-                child: configAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(
-                    child: Text(
-                      context.l10n.customCategoriesLoadFailed(e.toString()),
-                      style: TextStyle(color: colorScheme.destructive),
-                    ),
-                  ),
-                  data: (config) {
-                    Widget buildCategoryList({required String type}) {
-                      final isExpense = type == 'expense';
-                      final builtinSet = isExpense
-                          ? getExpenseCategories().toSet()
-                          : getIncomeCategories().toSet();
-                      final targetCategories = (isExpense
-                              ? config.visibleExpenseCategories
-                              : config.visibleIncomeCategories)
-                          .where((category) =>
-                              category.trim().toLowerCase() != 'other')
-                          .toList(growable: false);
-
-                      final groupsToDisplay = <String, List<String>>{};
-
-                      for (final entry in categoryGroups.entries) {
-                        final groupKey = entry.key;
-                        final cats = entry.value;
-
-                        final validCats = cats.where((c) {
-                          if (!builtinSet.contains(c)) return false;
-
-                          final normalized = c.trim().toLowerCase();
-                          if (normalized == 'other' ||
-                              normalized == 'uncategorized') {
-                            return false;
-                          }
-
-                          if (query.isNotEmpty) {
-                            final localized = getCategoryTranslation(context, c)
-                                .toLowerCase();
-                            if (!c.toLowerCase().contains(query) &&
-                                !localized.contains(query)) {
-                              return false;
-                            }
-                          }
-                          return true;
-                        }).toList();
-
-                        if (validCats.isNotEmpty) {
-                          groupsToDisplay[groupKey] = validCats;
-                        }
-                      }
-
-                      final customCats = config.customCategories.where((c) {
-                        if (isExpense && c.transactionType == 'income') {
-                          return false;
-                        }
-                        if (!isExpense && c.transactionType == 'expense') {
-                          return false;
-                        }
-
-                        if (query.isNotEmpty &&
-                            !c.name.toLowerCase().contains(query)) {
-                          return false;
-                        }
-
-                        return true;
-                      }).toList();
-
-                      final remaps = (remapsAsync.valueOrNull ??
-                              const <UserCategoryRemapPreference>[])
-                          .where((remap) {
-                        if (remap.transactionType != type) return false;
-                        if (query.isEmpty) return true;
-                        final fromLabel =
-                            getCategoryTranslation(context, remap.fromCategory)
-                                .toLowerCase();
-                        final toLabel =
-                            getCategoryTranslation(context, remap.toCategory)
-                                .toLowerCase();
-                        return remap.fromCategory.contains(query) ||
-                            remap.toCategory.contains(query) ||
-                            fromLabel.contains(query) ||
-                            toLabel.contains(query);
-                      }).toList(growable: false);
-
-                      if (groupsToDisplay.isEmpty &&
-                          customCats.isEmpty &&
-                          remaps.isEmpty &&
-                          query.isNotEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Text(
-                              context.l10n.noResultsFound,
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      bool isHidden(String name) {
-                        final key = name.trim().toLowerCase();
-                        if (type == 'income') {
-                          return config.hiddenIncomeCategories.contains(key);
-                        }
-                        return config.hiddenExpenseCategories.contains(key);
-                      }
-
-                      Widget buildRemapSection() {
-                        if (query.isNotEmpty && remaps.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 4, bottom: 8, top: 8),
-                              child: Text(
-                                'AI mappings'.toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: colorScheme.sheetElementBackground,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  for (int i = 0; i < remaps.length; i++)
-                                    Builder(builder: (context) {
-                                      final remap = remaps[i];
-                                      final fromLabel = getCategoryTranslation(
-                                        context,
-                                        remap.fromCategory,
-                                      );
-                                      final toLabel = getCategoryTranslation(
-                                        context,
-                                        remap.toCategory,
-                                      );
-
-                                      return Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ListTile(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 4,
-                                            ),
-                                            leading: CircleAvatar(
-                                              radius: 18,
-                                              backgroundColor: colorScheme
-                                                  .primary
-                                                  .withValues(alpha: 0.12),
-                                              child: Icon(
-                                                Icons.route_outlined,
-                                                color: colorScheme.primary,
-                                                size: 20,
-                                              ),
-                                            ),
-                                            title: Text(
-                                              fromLabel,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: colorScheme.foreground,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            subtitle: Row(
-                                              children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    toLabel,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      color: colorScheme
-                                                          .mutedForeground,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Icon(
-                                                  PlatformInfo.isIOS
-                                                      ? CupertinoIcons
-                                                          .arrow_right
-                                                      : Icons.arrow_forward,
-                                                  size: 14,
-                                                  color: colorScheme
-                                                      .mutedForeground,
-                                                ),
-                                              ],
-                                            ),
-                                            trailing: IconButton(
-                                              icon: Icon(
-                                                PlatformInfo.isIOS
-                                                    ? CupertinoIcons.ellipsis
-                                                    : Icons.more_vert,
-                                                color:
-                                                    colorScheme.mutedForeground,
-                                              ),
-                                              onPressed: () async {
-                                                final l10n = context.l10n;
-                                                final action =
-                                                    await MonekoActionSheet
-                                                        .show<String>(
-                                                  context: context,
-                                                  title:
-                                                      '$fromLabel → $toLabel',
-                                                  actions: [
-                                                    MonekoActionSheetAction(
-                                                      label: l10n.edit,
-                                                      value: 'edit',
-                                                    ),
-                                                    MonekoActionSheetAction(
-                                                      label: l10n.delete,
-                                                      value: 'delete',
-                                                      isDestructive: true,
-                                                    ),
-                                                  ],
-                                                  cancelAction:
-                                                      MonekoActionSheetAction(
-                                                    label: l10n.cancel,
-                                                    value: 'cancel',
-                                                  ),
-                                                );
-
-                                                if (action == 'edit') {
-                                                  await showRemapSheet(
-                                                    title: 'Edit mapping',
-                                                    initialFromCategory:
-                                                        remap.fromCategory,
-                                                    initialToCategory:
-                                                        remap.toCategory,
-                                                    initialType:
-                                                        remap.transactionType,
-                                                    targetCategories:
-                                                        targetCategories,
-                                                  );
-                                                } else if (action == 'delete') {
-                                                  await deleteUserCategoryRemapPreference(
-                                                    ref: ref,
-                                                    fromCategory:
-                                                        remap.fromCategory,
-                                                    transactionType:
-                                                        remap.transactionType,
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          if (i < remaps.length - 1)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 60),
-                                              child: Divider(
-                                                height: 1,
-                                                color: colorScheme.border,
-                                              ),
-                                            ),
-                                        ],
-                                      );
-                                    }),
-                                  if (query.isEmpty)
-                                    ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 4,
-                                      ),
-                                      leading: CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: colorScheme.primary
-                                            .withValues(alpha: 0.1),
-                                        child: Icon(
-                                          Icons.add,
-                                          color: colorScheme.primary,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      title: Text(
-                                        'Add mapping',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                      onTap: () async {
-                                        await showRemapSheet(
-                                          title: 'Add mapping',
-                                          initialType: type,
-                                          targetCategories: targetCategories,
-                                        );
-                                      },
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
+                  );
+                }
+          
+                bool isHidden(String name) {
+                  final key = name.trim().toLowerCase();
+                  if (type == 'income') {
+                    return config.hiddenIncomeCategories.contains(key);
+                  }
+                  return config.hiddenExpenseCategories.contains(key);
+                }
+          
+                Widget buildRemapSection() {
+                  if (query.isNotEmpty && remaps.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+          
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _SectionLabel(context.l10n.aiMappings),
+                      _SectionCard(
                         children: [
-                          buildRemapSection(),
-
-                          // Custom Categories Group
-                          if (query.isEmpty || customCats.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 4, bottom: 8, top: 8),
-                              child: Text(
-                                context.l10n.custom.toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: colorScheme.sheetElementBackground,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
+                          for (int i = 0; i < remaps.length; i++)
+                            Builder(builder: (context) {
+                              final remap = remaps[i];
+                              final fromLabel = getCategoryTranslation(
+                                context,
+                                remap.fromCategory,
+                              );
+                              final toLabel = getCategoryTranslation(
+                                context,
+                                remap.toCategory,
+                              );
+          
+                              return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  for (int i = 0; i < customCats.length; i++)
-                                    Builder(builder: (context) {
-                                      final cat = customCats[i];
-                                      final name = cat.name;
-                                      final catType = cat.transactionType;
-                                      final hiddenNow = isHidden(name);
-
-                                      return Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ListTile(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 4,
-                                            ),
-                                            leading: CircleAvatar(
-                                              radius: 18,
-                                              backgroundColor: Color(cat
-                                                      .colorArgb ??
-                                                  computeFallbackCategoryColorArgb(
-                                                      name)),
-                                              child: Icon(
-                                                customCategoryIconForKey(
-                                                    cat.iconKey ?? 'tag'),
-                                                color: colorScheme
-                                                    .primaryForeground,
-                                                size: 20,
-                                              ),
-                                            ),
-                                            title: Text(
-                                              name,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                                color: colorScheme.foreground,
-                                                decoration: hiddenNow
-                                                    ? TextDecoration.lineThrough
-                                                    : null,
-                                              ),
-                                            ),
-                                            trailing: IconButton(
-                                              icon: Icon(
-                                                PlatformInfo.isIOS
-                                                    ? CupertinoIcons.ellipsis
-                                                    : Icons.more_vert,
-                                                color:
-                                                    colorScheme.mutedForeground,
-                                              ),
-                                              onPressed: () async {
-                                                final l10n = context.l10n;
-                                                final action =
-                                                    await MonekoActionSheet
-                                                        .show<String>(
-                                                  context: context,
-                                                  title: name,
-                                                  actions: [
-                                                    MonekoActionSheetAction(
-                                                      label: hiddenNow
-                                                          ? l10n.unhide
-                                                          : l10n.hide,
-                                                      value: 'hide_unhide',
-                                                    ),
-                                                    MonekoActionSheetAction(
-                                                      label: l10n.edit,
-                                                      value: 'edit',
-                                                    ),
-                                                    MonekoActionSheetAction(
-                                                      label: l10n.delete,
-                                                      value: 'delete',
-                                                      isDestructive: true,
-                                                    ),
-                                                  ],
-                                                  cancelAction:
-                                                      MonekoActionSheetAction(
-                                                    label: l10n.cancel,
-                                                    value: 'cancel',
-                                                  ),
-                                                );
-
-                                                if (action == 'hide_unhide') {
-                                                  await setUserCategoryHidden(
-                                                    ref: ref,
-                                                    categoryName: name,
-                                                    transactionType: type,
-                                                    hidden: !hiddenNow,
-                                                  );
-                                                } else if (action == 'edit') {
-                                                  await showUpsertSheet(
-                                                    title: l10n.editCategory,
-                                                    initialName: name,
-                                                    initialType: catType,
-                                                    initialColorArgb:
-                                                        cat.colorArgb,
-                                                    initialIconKey: cat.iconKey,
-                                                    onSubmit: (newName,
-                                                        newType,
-                                                        colorArgb,
-                                                        iconKey) async {
-                                                      final renamed =
-                                                          await renameUserCustomCategory(
-                                                        ref: ref,
-                                                        oldName: name,
-                                                        oldTransactionType:
-                                                            catType,
-                                                        newName: newName,
-                                                        newTransactionType:
-                                                            newType,
-                                                      );
-                                                      if (!renamed) {
-                                                        return false;
-                                                      }
-
-                                                      final styled =
-                                                          await setUserCustomCategoryStyle(
-                                                        ref: ref,
-                                                        name: newName,
-                                                        transactionType:
-                                                            newType,
-                                                        colorArgb: colorArgb,
-                                                        iconKey: iconKey,
-                                                      );
-                                                      return styled;
-                                                    },
-                                                  );
-                                                } else if (action == 'delete') {
-                                                  await confirmDelete(
-                                                    name: name,
-                                                    transactionType: catType,
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(left: 60),
-                                            child: Divider(
-                                              height: 1,
-                                              color: colorScheme.border,
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }),
                                   ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 4,
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 6,
                                     ),
-                                    tileColor: colorScheme.surface
-                                        .withValues(alpha: 0.0),
-                                    leading: CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: colorScheme.primary
-                                          .withValues(alpha: 0.1),
+                                    leading: Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primary
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
                                       child: Icon(
-                                        Icons.add,
+                                        Icons.route_outlined,
                                         color: colorScheme.primary,
-                                        size: 20,
+                                        size: 18,
                                       ),
                                     ),
                                     title: Text(
-                                      context.l10n.addCustomCategory,
+                                      fromLabel,
                                       style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.foreground,
+                                        fontSize: 15,
                                       ),
                                     ),
-                                    onTap: () async {
-                                      await showUpsertSheet(
-                                        title: context.l10n.addCustomCategory,
-                                        initialType: type,
-                                        onSubmit: (name, onSubmitType,
-                                            colorArgb, iconKey) async {
-                                          return upsertUserCustomCategory(
-                                            ref: ref,
-                                            name: name,
-                                            transactionType: onSubmitType,
-                                            colorArgb: colorArgb,
-                                            iconKey: iconKey,
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-
-                          // Built-in Groups
-                          for (final entry in groupsToDisplay.entries) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 4, bottom: 8, top: 24),
-                              child: Text(
-                                getCategoryGroupTranslation(context, entry.key)
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: colorScheme.sheetElementBackground,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  for (int i = 0;
-                                      i < entry.value.length;
-                                      i++) ...[
-                                    Builder(builder: (context) {
-                                      final name = entry.value[i];
-                                      final normalized =
-                                          name.trim().toLowerCase();
-                                      final hiddenNow = isHidden(normalized);
-
-                                      return Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ListTile(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 4,
-                                            ),
-                                            leading: CircleAvatar(
-                                              radius: 18,
-                                              backgroundColor:
-                                                  getCategoryColor(name, context),
-                                              child: Icon(
-                                                getCategoryIcon(name),
-                                                color: colorScheme
-                                                    .primaryForeground,
-                                                size: 20,
-                                              ),
-                                            ),
-                                            title: Text(
-                                              getCategoryTranslation(
-                                                  context, name),
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                                fontSize: 14,
-                                                color: colorScheme.foreground,
-                                              ),
-                                            ),
-                                            trailing: AdaptiveSwitch(
-                                              value: !hiddenNow,
-                                              onChanged: (value) async {
-                                                await setUserCategoryHidden(
-                                                  ref: ref,
-                                                  categoryName: name,
-                                                  transactionType: type,
-                                                  hidden: !value,
-                                                );
-                                              },
+                                    subtitle: Row(
+                                      children: [
+                                             Icon(
+                                          PlatformInfo.isIOS
+                                             ? CupertinoIcons.arrow_turn_down_right
+      : Icons.subdirectory_arrow_right_rounded,
+                                          size: 12,
+                                          color:
+                                              colorScheme.mutedForeground,
+                                        ),
+                                         const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            toLabel,
+                                            overflow:
+                                                TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: colorScheme
+                                                  .mutedForeground,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 13,
                                             ),
                                           ),
-                                          if (i < entry.value.length - 1)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 60),
-                                              child: Divider(
-                                                height: 1,
-                                                color: colorScheme.border,
-                                              ),
+                                        ),
+                                   
+                                      ],
+                                    ),
+                                    trailing: GestureDetector(
+                                      onTap: () async {
+                                        final l10n = context.l10n;
+                                        final action =
+                                            await MonekoActionSheet.show<
+                                                String>(
+                                          context: context,
+                                          title: context.l10n.remapTitle(fromLabel, toLabel),
+                                          actions: [
+                                            MonekoActionSheetAction(
+                                              label: l10n.edit,
+                                              value: 'edit',
                                             ),
-                                        ],
-                                      );
-                                    }),
-                                  ]
+                                            MonekoActionSheetAction(
+                                              label: l10n.delete,
+                                              value: 'delete',
+                                              isDestructive: true,
+                                            ),
+                                          ],
+                                          cancelAction:
+                                              MonekoActionSheetAction(
+                                            label: l10n.cancel,
+                                            value: 'cancel',
+                                          ),
+                                        );
+          
+                                        if (action == 'edit') {
+                                          await showRemapSheet(
+                                            title: context.l10n.editMapping,
+                                            initialFromCategory:
+                                                remap.fromCategory,
+                                            initialToCategory:
+                                                remap.toCategory,
+                                            initialType:
+                                                remap.transactionType,
+                                            targetCategories:
+                                                targetCategories,
+                                          );
+                                        } else if (action == 'delete') {
+                                          await deleteUserCategoryRemapPreference(
+                                            ref: ref,
+                                            fromCategory:
+                                                remap.fromCategory,
+                                            transactionType:
+                                                remap.transactionType,
+                                          );
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Icon(
+                                          PlatformInfo.isIOS
+                                              ? CupertinoIcons.ellipsis
+                                              : Icons.more_vert,
+                                          color:
+                                              colorScheme.mutedForeground,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (i < remaps.length - 1)
+                                    _indentedDivider(context),
                                 ],
+                              );
+                            }),
+                          if (query.isEmpty)
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              leading: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.add,
+                                  color: colorScheme.primary,
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(
+                                context.l10n.addMapping,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.primary,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              onTap: () async {
+                                await showRemapSheet(
+                                  title: context.l10n.addMapping,
+                                  initialType: type,
+                                  targetCategories: targetCategories,
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                }
+          
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  children: [
+                    buildRemapSection(),
+          
+                    // Custom Categories Group
+                    if (query.isEmpty || customCats.isNotEmpty) ...[
+                      _SectionLabel(context.l10n.custom),
+                      _SectionCard(
+                        children: [
+                          for (int i = 0; i < customCats.length; i++)
+                            Builder(builder: (context) {
+                              final cat = customCats[i];
+                              final name = cat.name;
+                              final catType = cat.transactionType;
+                              final hiddenNow = isHidden(name);
+          
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 6,
+                                    ),
+                                    leading: Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: Color(cat.colorArgb ??
+                                            computeFallbackCategoryColorArgb(
+                                                name)),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        customCategoryIconForKey(
+                                            cat.iconKey ?? 'tag'),
+                                        color:
+                                            colorScheme.primaryForeground,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 15,
+                                        color: colorScheme.foreground,
+                                        decoration: hiddenNow
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                      ),
+                                    ),
+                                    trailing: GestureDetector(
+                                      onTap: () async {
+                                        final l10n = context.l10n;
+                                        final action =
+                                            await MonekoActionSheet.show<
+                                                String>(
+                                          context: context,
+                                          title: name,
+                                          actions: [
+                                            MonekoActionSheetAction(
+                                              label: hiddenNow
+                                                  ? l10n.unhide
+                                                  : l10n.hide,
+                                              value: 'hide_unhide',
+                                            ),
+                                            MonekoActionSheetAction(
+                                              label: l10n.edit,
+                                              value: 'edit',
+                                            ),
+                                            MonekoActionSheetAction(
+                                              label: l10n.delete,
+                                              value: 'delete',
+                                              isDestructive: true,
+                                            ),
+                                          ],
+                                          cancelAction:
+                                              MonekoActionSheetAction(
+                                            label: l10n.cancel,
+                                            value: 'cancel',
+                                          ),
+                                        );
+          
+                                        if (action == 'hide_unhide') {
+                                          await setUserCategoryHidden(
+                                            ref: ref,
+                                            categoryName: name,
+                                            transactionType: type,
+                                            hidden: !hiddenNow,
+                                          );
+                                        } else if (action == 'edit') {
+                                          await showUpsertSheet(
+                                            title: l10n.editCategory,
+                                            initialName: name,
+                                            initialType: catType,
+                                            initialColorArgb:
+                                                cat.colorArgb,
+                                            initialIconKey: cat.iconKey,
+                                            onSubmit: (newName,
+                                                newType,
+                                                colorArgb,
+                                                iconKey) async {
+                                              final renamed =
+                                                  await renameUserCustomCategory(
+                                                ref: ref,
+                                                oldName: name,
+                                                oldTransactionType:
+                                                    catType,
+                                                newName: newName,
+                                                newTransactionType:
+                                                    newType,
+                                              );
+                                              if (!renamed) {
+                                                return false;
+                                              }
+          
+                                              final styled =
+                                                  await setUserCustomCategoryStyle(
+                                                ref: ref,
+                                                name: newName,
+                                                transactionType: newType,
+                                                colorArgb: colorArgb,
+                                                iconKey: iconKey,
+                                              );
+                                              return styled;
+                                            },
+                                          );
+                                        } else if (action == 'delete') {
+                                          await confirmDelete(
+                                            name: name,
+                                            transactionType: catType,
+                                          );
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Icon(
+                                          PlatformInfo.isIOS
+                                              ? CupertinoIcons.ellipsis
+                                              : Icons.more_vert,
+                                          color:
+                                              colorScheme.mutedForeground,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (i < customCats.length - 1)
+                                    _indentedDivider(context),
+                                ],
+                              );
+                            }),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.add,
+                                color: colorScheme.primary,
+                                size: 18,
                               ),
                             ),
-                          ],
+                            title: Text(
+                              context.l10n.addCustomCategory,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 15,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            onTap: () async {
+                              await showUpsertSheet(
+                                title: context.l10n.addCustomCategory,
+                                initialType: type,
+                                onSubmit: (name, onSubmitType, colorArgb,
+                                    iconKey) async {
+                                  return upsertUserCustomCategory(
+                                    ref: ref,
+                                    name: name,
+                                    transactionType: onSubmitType,
+                                    colorArgb: colorArgb,
+                                    iconKey: iconKey,
+                                  );
+                                },
+                              );
+                            },
+                          ),
                         ],
-                      );
-                    }
-
-                    switch (scope.value) {
-                      case _CategoryScope.expense:
-                        return buildCategoryList(type: 'expense');
-                      case _CategoryScope.income:
-                        return buildCategoryList(type: 'income');
-                    }
-                  },
-                ),
-              ),
-            ],
+                      ),
+                    ],
+          
+                    // Built-in Groups
+                    for (final entry in groupsToDisplay.entries) ...[
+                      _SectionLabel(getCategoryGroupTranslation(
+                          context, entry.key)),
+                      _SectionCard(
+                        children: [
+                          for (int i = 0;
+                              i < entry.value.length;
+                              i++) ...[
+                            Builder(builder: (context) {
+                              final name = entry.value[i];
+                              final normalized =
+                                  name.trim().toLowerCase();
+                              final hiddenNow = isHidden(normalized);
+          
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 6,
+                                    ),
+                                    leading: Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: getCategoryColor(
+                                            name, context),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        getCategoryIcon(name),
+                                        color:
+                                            colorScheme.primaryForeground,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      getCategoryTranslation(
+                                          context, name),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 15,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
+                                    trailing: AdaptiveSwitch(
+                                      value: !hiddenNow,
+                                      onChanged: (value) async {
+                                        await setUserCategoryHidden(
+                                          ref: ref,
+                                          categoryName: name,
+                                          transactionType: type,
+                                          hidden: !value,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  if (i < entry.value.length - 1)
+                                    _indentedDivider(context),
+                                ],
+                              );
+                            }),
+                          ]
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              }
+          
+              switch (scope.value) {
+                case _CategoryScope.expense:
+                  return buildCategoryList(type: 'expense');
+                case _CategoryScope.income:
+                  return buildCategoryList(type: 'income');
+              }
+            },
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -1011,6 +999,7 @@ class _CategoryRemapUpsertSheet extends HookWidget {
       decoration: BoxDecoration(
         color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
       ),
       child: SafeArea(
         top: false,
@@ -1018,148 +1007,96 @@ class _CategoryRemapUpsertSheet extends HookWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const ModalSheetHandle(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.sheetElementBackground,
-                        border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Icon(
-                        PlatformInfo.isIOS ? CupertinoIcons.clear : Icons.close,
-                        color: colorScheme.onSurface,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _SheetHeader(title: title),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.sheetElementBackground,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                  _SectionCard(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: TextField(
+                          controller: sourceController,
+                          decoration: InputDecoration(
+                            labelText:
+                                '${context.l10n.source} ${context.l10n.category}',
+                            labelStyle: TextStyle(
+                              color: colorScheme.mutedForeground,
+                            ),
+                            border: InputBorder.none,
                           ),
-                          child: TextField(
-                            controller: sourceController,
-                            decoration: InputDecoration(
-                              labelText:
-                                  '${context.l10n.source} ${context.l10n.category}',
-                              labelStyle: TextStyle(
+                          style: TextStyle(
+                            color: colorScheme.foreground,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textInputAction: TextInputAction.done,
+                        ),
+                      ),
+                      _indentedDivider(context),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Text(
+                              context.l10n.type,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              transactionType == 'income'
+                                  ? context.l10n.income
+                                  : context.l10n.expense,
+                              style: TextStyle(
                                 color: colorScheme.mutedForeground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
-                              border: InputBorder.none,
                             ),
-                            style: TextStyle(
-                              color: colorScheme.foreground,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textInputAction: TextInputAction.done,
-                          ),
+                          ],
                         ),
-                        Divider(height: 1, color: colorScheme.border),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Text(
-                                context.l10n.type,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                      ),
+                      _indentedDivider(context),
+                      MonekoDisclosureRow(
+                        label:
+                            '${context.l10n.target} ${context.l10n.category}',
+                        value: selectedTarget.value.isEmpty
+                            ? context.l10n.selectCategory
+                            : getCategoryTranslation(
+                                context,
+                                selectedTarget.value,
                               ),
-                              const Spacer(),
-                              Text(
-                                transactionType == 'income'
-                                    ? context.l10n.income
-                                    : context.l10n.expense,
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Divider(height: 1, color: colorScheme.border),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: DropdownButtonFormField<String>(
-                            initialValue: selectedTarget.value.isEmpty
-                                ? null
-                                : selectedTarget.value,
-                            isExpanded: true,
-                            dropdownColor: colorScheme.sheetElementBackground,
-                            decoration: InputDecoration(
-                              labelText:
-                                  '${context.l10n.target} ${context.l10n.category}',
-                              labelStyle: TextStyle(
-                                color: colorScheme.mutedForeground,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                            items: [
-                              for (final category in normalizedTargets)
-                                DropdownMenuItem(
-                                  value: category,
-                                  child: Text(
-                                    getCategoryTranslation(context, category),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                            onChanged: (value) {
-                              if (value == null) return;
-                              selectedTarget.value = value;
-                            },
-                          ),
-                        ),
+                        isLast: true,
+                        isValuePlaceholder: selectedTarget.value.isEmpty,
+                        onTap: () async {
+                          final result = await showCategoryPicker(
+                            context: context,
+                            currentCategory: selectedTarget.value,
+                            isIncome: transactionType == 'income',
+                            allCategories: normalizedTargets,
+                          );
+                          if (result != null) {
+                            selectedTarget.value = result;
+                          }
+                        },
+                      ),
                       ],
                     ),
-                  ),
                   const SizedBox(height: 24),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               child: PrimaryAdaptiveButton(
                 onPressed: !canSave
                     ? null
@@ -1288,6 +1225,7 @@ class _CategoryUpsertSheet extends HookWidget {
       decoration: BoxDecoration(
         color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
       ),
       child: SafeArea(
         top: false,
@@ -1295,132 +1233,74 @@ class _CategoryUpsertSheet extends HookWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Modal Sheet Drag Handle
-            const ModalSheetHandle(),
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.sheetElementBackground,
-                        border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Icon(
-                        PlatformInfo.isIOS ? CupertinoIcons.clear : Icons.close,
-                        color: colorScheme.onSurface,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _SheetHeader(title: title),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  // Form Fields Card
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.sheetElementBackground,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: TextField(
-                            controller: nameController,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.customCategoryNameLabel,
-                              labelStyle: TextStyle(
-                                color: colorScheme.mutedForeground,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                            style: TextStyle(
-                              color: colorScheme.foreground,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textInputAction: TextInputAction.done,
-                          ),
+                  _SectionCard(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
                         ),
-                        Divider(height: 1, color: colorScheme.border),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Text(
-                                context.l10n.type,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Spacer(),
-                              CupertinoSegmentedControl<String>(
-                                groupValue: transactionType.value,
-                                selectedColor: colorScheme.primary,
-                                unselectedColor:
-                                    colorScheme.sheetElementBackground,
-                                borderColor: colorScheme.border,
-                                pressedColor: colorScheme.muted,
-                                children: {
-                                  'expense': Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    child: Text(context.l10n.expense),
-                                  ),
-                                  'income': Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    child: Text(context.l10n.income),
-                                  ),
-                                },
-                                onValueChanged: (value) {
-                                  transactionType.value = value;
-                                },
-                              ),
-                            ],
+                        child: TextField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.customCategoryNameLabel,
+                            labelStyle: TextStyle(
+                              color: colorScheme.mutedForeground,
+                            ),
+                            border: InputBorder.none,
                           ),
+                          style: TextStyle(
+                            color: colorScheme.foreground,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textInputAction: TextInputAction.done,
                         ),
-                      ],
-                    ),
+                      ),
+                      _indentedDivider(context),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Text(
+                              context.l10n.type,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const Spacer(),
+                            SizedBox(
+                              height: 36,
+                              child: MonekoSegmentedControl(
+                                labels: [
+                                  context.l10n.expense,
+                                  context.l10n.income,
+                                ],
+                                selectedIndex:
+                                    transactionType.value == 'expense' ? 0 : 1,
+                                onValueChanged: (index) {
+                                  transactionType.value =
+                                      index == 0 ? 'expense' : 'income';
+                                },
+                                height: 36,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
 
-                  // Color Picker
-                  Text(
-                    context.l10n.color,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.mutedForeground,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
+                  _SectionLabel(context.l10n.color),
                   SizedBox(
                     height: 52,
                     child: ListView.separated(
@@ -1435,7 +1315,7 @@ class _CategoryUpsertSheet extends HookWidget {
                                       c.toARGB32() == selectedColorArgb.value);
                           final selectedColor = selectedColorArgb.value != null
                               ? Color(selectedColorArgb.value!)
-                              : Colors.transparent;
+                              : colorScheme.surface.withValues(alpha: 0.0);
 
                           return GestureDetector(
                             onTap: () {
@@ -1474,12 +1354,12 @@ class _CategoryUpsertSheet extends HookWidget {
                                   ? Icon(
                                       Icons.check,
                                       color: colorScheme.primaryForeground,
-                                      size: 24,
+                                      size: 22,
                                     )
                                   : Icon(
                                       Icons.colorize,
                                       color: colorScheme.primaryForeground,
-                                      size: 24,
+                                      size: 22,
                                     ),
                             ),
                           );
@@ -1512,7 +1392,7 @@ class _CategoryUpsertSheet extends HookWidget {
                                 ? Icon(
                                     Icons.check,
                                     color: colorScheme.primaryForeground,
-                                    size: 24,
+                                    size: 22,
                                   )
                                 : null,
                           ),
@@ -1522,15 +1402,7 @@ class _CategoryUpsertSheet extends HookWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Icon Picker
-                  Text(
-                    context.l10n.pocketIconLabel,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.mutedForeground,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
+                  _SectionLabel(context.l10n.pocketIconLabel),
                   SizedBox(
                     height: 52,
                     child: ListView.separated(
@@ -1578,7 +1450,7 @@ class _CategoryUpsertSheet extends HookWidget {
                                       : isSelected
                                           ? colorScheme.primary
                                           : colorScheme.mutedForeground,
-                              size: 24,
+                              size: 22,
                             ),
                           ),
                         );
@@ -1590,7 +1462,7 @@ class _CategoryUpsertSheet extends HookWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               child: PrimaryAdaptiveButton(
                 onPressed: (nameController.text.trim().isEmpty ||
                         selectedColorArgb.value == null ||

@@ -407,6 +407,16 @@ class LocalJsonCacheEntry {
   final DateTime cachedAt;
 }
 
+class LocalRecurringMutationOverlay {
+  const LocalRecurringMutationOverlay({
+    required this.upserts,
+    required this.deletedIds,
+  });
+
+  final List<ExpenseEntry> upserts;
+  final Set<String> deletedIds;
+}
+
 class MonekoDatabase {
   MonekoDatabase._(this._db) {
     _createSchema();
@@ -1392,6 +1402,50 @@ class MonekoDatabase {
     );
 
     return rows.map(_entryFromTransactionRow).toList(growable: false);
+  }
+
+  Future<LocalRecurringMutationOverlay> getPendingRecurringMutationOverlay({
+    required String userId,
+    required String? householdId,
+  }) async {
+    final scope = localScopeKey(userId: userId, householdId: householdId);
+    final upsertRows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE scope_key = ?
+        AND deleted_at IS NULL
+        AND sync_status = ?
+        AND is_recurring = 1
+      ORDER BY created_at ASC, id ASC
+      ''',
+      [scope, localSyncStatusLocal],
+    );
+    final deleteRows = _db.select(
+      '''
+      SELECT entity_id
+      FROM local_mutation_outbox
+      WHERE entity_type = 'transaction'
+        AND operation = 'delete_recurring_template'
+        AND status IN (?, ?, ?)
+      ''',
+      [
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+    return LocalRecurringMutationOverlay(
+      upserts: upsertRows.map(_entryFromTransactionRow).toList(growable: false),
+      deletedIds: deleteRows
+          .expand(
+            (row) => (row['entity_id']?.toString() ?? '')
+                .split(',')
+                .map((id) => id.trim()),
+          )
+          .where((id) => id.isNotEmpty)
+          .toSet(),
+    );
   }
 
   Future<LocalTransactionsFeedPage> getTransactionsFeedPage(

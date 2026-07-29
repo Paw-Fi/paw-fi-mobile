@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -92,11 +93,7 @@ class PocketDetailsPage extends HookConsumerWidget {
       return StatusBarOverlayRegion(
           child: AdaptiveScaffold(
         appBar: AdaptiveAppBar(title: context.l10n.loading),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(colorScheme.primary),
-          ),
-        ),
+        body: const AsyncDataSkeleton(rowCount: 6),
       ));
     }
 
@@ -2005,7 +2002,7 @@ class _StatsGrid extends StatelessWidget {
       children: [
         Expanded(
           child: _StatCard(
-            label: context.l10n.spentThisMonth,
+            label: context.l10n.monthlySpend,
             amount: spent,
             currencyCode: currency,
           ),

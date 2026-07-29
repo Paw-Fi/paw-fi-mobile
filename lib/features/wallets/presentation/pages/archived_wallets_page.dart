@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -55,7 +56,7 @@ class ArchivedWalletsPage extends ConsumerWidget {
         title: Text(context.l10n.archivedWallets),
       ),
       body: archivedAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AsyncDataSkeleton(),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

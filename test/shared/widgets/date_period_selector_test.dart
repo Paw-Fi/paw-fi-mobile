@@ -72,7 +72,7 @@ void main() {
 
     final state = tester.state(listFinder);
     final scrollPosition = (state as ScrollableState).position;
-    final pageExtent = 350.0; // 7 items * 50px
+    const pageExtent = 350.0; // 7 items * 50px
 
     final initialOffset = scrollPosition.pixels;
 
@@ -102,6 +102,51 @@ void main() {
   });
 
   testWidgets(
+      'new user stays on current period followed by six disabled periods',
+      (tester) async {
+    final now = DateTime(2026, 7, 26);
+    List<DateTime>? visiblePeriods;
+
+    Widget buildSelector(DateTime? minimumAvailableDate) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: DatePeriodSelector(
+              mode: HomePeriodMode.daily,
+              selectedDate: now,
+              now: now,
+              financialMonthStartDay: 1,
+              minimumAvailableDate: minimumAvailableDate,
+              onVisiblePeriodsChanged: (periods) => visiblePeriods = periods,
+              onDateSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+    }
+
+    // The minimum date can arrive after the selector has restored its initial
+    // position, as happens when returning to Home while user data refreshes.
+    await tester.pumpWidget(buildSelector(null));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(buildSelector(now));
+    await tester.pumpAndSettle();
+
+    expect(visiblePeriods, hasLength(7));
+    expect(visiblePeriods!.first, now);
+    expect(visiblePeriods!.last, DateTime(2026, 8, 1));
+
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    final settledOffset = scrollable.position.pixels;
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(scrollable.position.pixels, settledOffset);
+    expect(find.bySemanticsLabel('Jul 25'), findsNothing);
+  });
+
+  testWidgets(
       'monthly mode renders budget percentage status inside circle when status provided',
       (tester) async {
     await tester.pumpWidget(
@@ -124,6 +169,66 @@ void main() {
     );
 
     expect(find.text('70%'), findsWidgets);
+  });
+
+  testWidgets('monthly ring animates progress and color changes',
+      (tester) async {
+    var ringColor = Colors.amber;
+
+    Widget buildSelector() {
+      return MaterialApp(
+        home: Scaffold(
+          body: DatePeriodSelector(
+            mode: HomePeriodMode.monthly,
+            selectedDate: DateTime(2026, 7, 1),
+            now: DateTime(2026, 7, 26),
+            financialMonthStartDay: 1,
+            statusForPeriod: (_) => DatePeriodRingStatus(
+              progress: 0.7,
+              color: ringColor,
+              percentage: 70,
+            ),
+            onDateSelected: (_) {},
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildSelector());
+    await tester.pump(); // Complete the selector's initial post-frame scroll.
+    var indicator = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator).first,
+    );
+    expect(indicator.value, 0);
+
+    await tester.pump(const Duration(milliseconds: 225));
+    indicator = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator).first,
+    );
+    expect(indicator.value, greaterThan(0));
+    expect(indicator.value, lessThan(0.7));
+
+    await tester.pumpAndSettle();
+    indicator = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator).first,
+    );
+    expect(indicator.value, 0.7);
+    expect(indicator.color, Colors.amber);
+
+    ringColor = Colors.blue;
+    await tester.pumpWidget(buildSelector());
+    await tester.pump(const Duration(milliseconds: 225));
+    indicator = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator).first,
+    );
+    expect(indicator.color, isNot(Colors.amber));
+    expect(indicator.color, isNot(Colors.blue));
+
+    await tester.pumpAndSettle();
+    indicator = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator).first,
+    );
+    expect(indicator.color, Colors.blue);
   });
 
   testWidgets(

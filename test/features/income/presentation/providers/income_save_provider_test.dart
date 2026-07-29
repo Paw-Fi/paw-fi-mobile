@@ -12,6 +12,8 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 
 void main() {
   late Future<http.Response> Function(http.Request request) requestHandler;
@@ -30,6 +32,8 @@ void main() {
   });
 
   test('saveIncome sends household custom splits and payer user id', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
     Map<String, dynamic>? capturedSaveBody;
     requestHandler = (request) async {
       if (request.url.path.endsWith('/functions/v1/save-income')) {
@@ -119,6 +123,7 @@ void main() {
           portfolioHouseholdIds: {},
         ),
       ),
+      localDatabaseProvider.overrideWith((ref) async => database),
     ]);
     addTearDown(container.dispose);
 
@@ -140,7 +145,14 @@ void main() {
           payerUserId: 'user_2',
         );
 
-    expect(saved?.id, 'income_1');
+    expect(saved?.id, 'optimistic_income_1');
+    expect(
+      container.read(incomeListProvider).valueOrNull?.single.id,
+      'optimistic_income_1',
+    );
+    for (var attempt = 0; attempt < 20 && capturedSaveBody == null; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
     expect(capturedSaveBody, isNotNull);
     expect(capturedSaveBody!['householdId'], 'hh_1');
     expect(capturedSaveBody!['clientRecordId'], 'optimistic_income_1');
@@ -154,6 +166,6 @@ void main() {
         {'userId': 'user_2', 'amount': 40.0},
       ],
     });
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
   });
 }

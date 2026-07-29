@@ -1084,23 +1084,9 @@ class _UnifiedTransactionSheetV2State
                       ),
                     ),
                     actions: [
-                      IconButton(
-                        onPressed: _isSaving ? null : _handleSave,
-                        icon: _isSaving
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.onSurface),
-                                ),
-                              )
-                            : Icon(Icons.check, color: colorScheme.onSurface),
-                        style: IconButton.styleFrom(
-                          backgroundColor:
-                              colorScheme.onSurface.withValues(alpha: 0.1),
-                        ),
+                      MonekoSheetConfirmButton(
+                        onPressed: _handleSave,
+                        isLoading: _isSaving,
                       ),
                     ],
                     flexibleSpace: FlexibleSpaceBar(

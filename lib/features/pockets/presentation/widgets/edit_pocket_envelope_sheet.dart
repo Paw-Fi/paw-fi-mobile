@@ -32,7 +32,6 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
-import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
@@ -57,6 +56,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     this.allPockets = const [],
     this.onDeleteCompleted,
     this.onSaveOffline,
+    this.confirmController,
   });
 
   static Future<void> show({
@@ -72,13 +72,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     VoidCallback? onDeleteCompleted,
     ValueChanged<PocketTemplate>? onSaveOffline,
   }) {
-    return MonekoBottomSheet.show(
+    final confirmController = MonekoSheetConfirmController();
+    final sheet = MonekoBottomSheet.show<void>(
       context: context,
       title: existingEnvelope != null
           ? context.l10n.editPocket
           : context.l10n.addPocket,
       isScrollControlled: true,
       onClose: () => Navigator.pop(context),
+      confirmController: confirmController,
       builder: (context) => EditPocketEnvelopeSheet(
         scopeParams: scopeParams,
         existingEnvelope: existingEnvelope,
@@ -90,8 +92,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         allPockets: allPockets,
         onDeleteCompleted: onDeleteCompleted,
         onSaveOffline: onSaveOffline,
+        confirmController: confirmController,
       ),
     );
+    sheet.whenComplete(confirmController.dispose);
+    return sheet;
   }
 
   final PocketsScopeParams scopeParams;
@@ -104,6 +109,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   final List<PocketEnvelope> allPockets;
   final VoidCallback? onDeleteCompleted;
   final ValueChanged<PocketTemplate>? onSaveOffline;
+  final MonekoSheetConfirmController? confirmController;
 
   Future<bool?> _confirmDelete(
       BuildContext context, AppLocalizations l10n) async {
@@ -958,6 +964,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
     }
 
+    confirmController?.attach(handleSave);
+    useEffect(() => confirmController?.detach, [confirmController]);
+
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        confirmController?.setLoading(isLoading.value);
+      });
+      return null;
+    }, [confirmController, isLoading.value]);
+
     return PopScope(
       canPop: !isLoading.value,
       child: SafeArea(
@@ -967,6 +983,17 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (confirmController == null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: MonekoSheetConfirmButton(
+                      onPressed: handleSave,
+                      isLoading: isLoading.value,
+                    ),
+                  ),
+                ),
               Flexible(
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
@@ -1648,31 +1675,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             ? null
                             : (value) => rolloverNegative.value = value,
                       ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: PrimaryAdaptiveButton(
-                          onPressed: isLoading.value ? null : handleSave,
-                          child: isLoading.value
-                              ? SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(
-                                      colorScheme.primaryForeground,
-                                    ),
-                                  ),
-                                )
-                              : Text(
-                                  isEditing
-                                      ? context.l10n.saveChanges
-                                      : context.l10n.save,
-                                ),
-                        ),
-                      ),
                       if (isEditing) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
                           child: PlainAdaptiveButton(

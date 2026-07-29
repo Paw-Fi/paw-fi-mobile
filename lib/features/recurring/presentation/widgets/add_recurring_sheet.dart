@@ -11,6 +11,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -50,8 +51,8 @@ import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/utils/reminder_before_affixes.dart';
-import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/recurring/pages/recurring_history_page.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 // Prevent accidental PII/financial logging.
 // Enable explicitly with: --dart-define=MONEKO_DEBUG_LOGS=true
@@ -99,11 +100,13 @@ class _RecurringAccountOption {
 class AddRecurringSheet extends HookConsumerWidget {
   final String type; // 'expense' or 'income'
   final RecurringTransaction? existingTransaction; // For editing
+  final MonekoSheetConfirmController? confirmController;
 
   const AddRecurringSheet({
     super.key,
     required this.type,
     this.existingTransaction,
+    this.confirmController,
   });
 
   @override
@@ -115,10 +118,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     final isEditing = existingTransaction != null;
     // Ensure custom category style overrides are loaded for display widgets.
     ref.watch(userCategoryConfigProvider);
-
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
     final txn = existingTransaction;
     final amountText = txn != null
@@ -1496,11 +1495,13 @@ class AddRecurringSheet extends HookConsumerWidget {
             user.uid,
             existingTransaction!.id,
             nextDate,
+            transaction: existingTransaction,
           );
         } else {
           result = await notifier.deleteRecurring(
             user.uid,
             existingTransaction!.id,
+            transaction: existingTransaction,
           );
         }
 
@@ -1541,6 +1542,16 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
     }
 
+    confirmController?.attach(handleSave);
+    useEffect(() => confirmController?.detach, [confirmController]);
+
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        confirmController?.setLoading(isLoading.value);
+      });
+      return null;
+    }, [confirmController, isLoading.value]);
+
     return PopScope(
       canPop: !isLoading.value,
       child: GestureDetector(
@@ -1549,6 +1560,17 @@ class AddRecurringSheet extends HookConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (confirmController == null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: MonekoSheetConfirmButton(
+                    onPressed: handleSave,
+                    isLoading: isLoading.value,
+                  ),
+                ),
+              ),
             Flexible(
               child: SingleChildScrollView(
                 keyboardDismissBehavior:
@@ -1580,7 +1602,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                     if (isEditing && existingTransaction != null)
                       _PaymentHistorySection(
                         tx: existingTransaction!,
-                        userNow: userNow,
                       ),
 
                     // Detail cards grouped in single section
@@ -2314,73 +2335,16 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
 
+                    if (isEditing) ...[
+                      const SizedBox(height: 24),
+                      DestructiveAdaptiveButton(
+                        onPressed: isLoading.value ? null : handleDelete,
+                        child: Text(context.l10n.deleteRecurringTransaction),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                   ],
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 12,
-                bottom: 16,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isLoading.value
-                          ? null
-                          : () {
-                              handleSave();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.primaryForeground,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: isLoading.value
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.onPrimary,
-                                ),
-                              ),
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  isEditing
-                                      ? context.l10n.updateRecurringTransaction
-                                      : context.l10n.addRecurringTransaction,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                  if (isEditing) ...[
-                    const SizedBox(height: 12),
-                    DestructiveAdaptiveButton(
-                      onPressed: isLoading.value ? null : handleDelete,
-                      child: Text(context.l10n.deleteRecurringTransaction),
-                    ),
-                  ],
-                ],
               ),
             ),
           ],
@@ -2652,7 +2616,16 @@ class AddRecurringSheet extends HookConsumerWidget {
                 },
               );
             },
-            loading: () => const SizedBox.shrink(),
+            loading: () => const Skeletonizer(
+              enabled: true,
+              child: Column(
+                children: [
+                  Bone.text(words: 3, fontSize: 14),
+                  SizedBox(height: 12),
+                  Bone.multiText(lines: 3),
+                ],
+              ),
+            ),
             error: (_, __) => const SizedBox.shrink(),
           ),
       ],
@@ -2714,7 +2687,8 @@ Future<bool?> showAddRecurringSheet(
   required String type,
   RecurringTransaction? existingTransaction,
 }) {
-  return MonekoBottomSheet.show<bool>(
+  final confirmController = MonekoSheetConfirmController();
+  final sheet = MonekoBottomSheet.show<bool>(
     context: context,
     title: existingTransaction != null
         ? (type == 'expense'
@@ -2725,6 +2699,7 @@ Future<bool?> showAddRecurringSheet(
             : context.l10n.addRecurringIncome),
     isScrollControlled: true,
     onClose: () => Navigator.pop(context),
+    confirmController: confirmController,
     builder: (context) => Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -2732,54 +2707,221 @@ Future<bool?> showAddRecurringSheet(
       child: AddRecurringSheet(
         type: type,
         existingTransaction: existingTransaction,
+        confirmController: confirmController,
       ),
     ),
   );
+  sheet.whenComplete(confirmController.dispose);
+  return sheet;
 }
 
-class _PaymentHistorySection extends HookConsumerWidget {
-  final RecurringTransaction tx;
-  final DateTime userNow;
+Future<bool?> showLazyEditRecurringSheet(
+  BuildContext context, {
+  required RecurringTransaction summary,
+}) {
+  final confirmController = MonekoSheetConfirmController();
+  final sheet = MonekoBottomSheet.show<bool>(
+    context: context,
+    title: summary.type == 'expense'
+        ? context.l10n.editRecurringExpense
+        : context.l10n.editRecurringIncome,
+    isScrollControlled: true,
+    onClose: () => Navigator.pop(context),
+    confirmController: confirmController,
+    builder: (context) => _LazyRecurringEditor(
+      summary: summary,
+      confirmController: confirmController,
+    ),
+  );
+  sheet.whenComplete(confirmController.dispose);
+  return sheet;
+}
 
-  const _PaymentHistorySection({
-    required this.tx,
-    required this.userNow,
+Future<bool?> showLazyRecurringSheetById(
+  BuildContext context, {
+  required String userId,
+  required String recurringId,
+  String? recurringType,
+}) {
+  final confirmController = MonekoSheetConfirmController();
+  final sheet = MonekoBottomSheet.show<bool>(
+    context: context,
+    title: recurringType == 'income'
+        ? context.l10n.editRecurringIncome
+        : recurringType == 'expense'
+            ? context.l10n.editRecurringExpense
+            : context.l10n.recurring,
+    isScrollControlled: true,
+    onClose: () => Navigator.pop(context),
+    confirmController: confirmController,
+    builder: (_) => _LazyRecurringEditorById(
+      userId: userId,
+      recurringId: recurringId,
+      confirmController: confirmController,
+    ),
+  );
+  sheet.whenComplete(confirmController.dispose);
+  return sheet;
+}
+
+class _LazyRecurringEditorById extends ConsumerWidget {
+  const _LazyRecurringEditorById({
+    required this.userId,
+    required this.recurringId,
+    required this.confirmController,
   });
+
+  final String userId;
+  final String recurringId;
+  final MonekoSheetConfirmController confirmController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final historyToday = DateTime(userNow.year, userNow.month, userNow.day);
-    final nextOccurrence = tx.getNextOccurrence(
-      historyToday.subtract(const Duration(days: 1)),
+    final query = RecurringSeriesDetailQuery(
+      userId: userId,
+      recurringId: recurringId,
     );
-    final historyStartDate = tx.recurrenceRule?.anchorDate ?? tx.date;
+    final detail = ref.watch(recurringSeriesDetailProvider(query));
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: detail.when(
+        data: (transaction) => AddRecurringSheet(
+          key: const ValueKey('recurring-detail'),
+          type: transaction.type,
+          existingTransaction: transaction,
+          confirmController: confirmController,
+        ),
+        loading: () => const _RecurringEditorSkeleton(
+          key: ValueKey('recurring-detail-loading'),
+        ),
+        error: (_, __) => Center(
+          key: const ValueKey('recurring-detail-error'),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: OutlinedButton(
+              onPressed: () => ref.invalidate(
+                recurringSeriesDetailProvider(query),
+              ),
+              child: Text(context.l10n.retry),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LazyRecurringEditor extends ConsumerWidget {
+  const _LazyRecurringEditor({
+    required this.summary,
+    required this.confirmController,
+  });
+
+  final RecurringTransaction summary;
+  final MonekoSheetConfirmController confirmController;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(authProvider).uid;
-    final timeline = userId.isEmpty
-        ? const <RecurringOccurrenceTimelineItem>[]
-        : ref
-                .watch(recurringOccurrenceTimelineProvider(
-                  RecurringOccurrenceTimelineQuery(
-                    userId: userId,
-                    householdId: tx.householdId,
-                    recurringId: tx.id,
-                    startDate: historyStartDate,
-                    endDate: nextOccurrence,
-                  ),
-                ))
-                .valueOrNull ??
-            const <RecurringOccurrenceTimelineItem>[];
-    final historyOccurrencesByDate = <String, DateTime>{
-      for (final occurrence in getOccurrencesList(tx, userNow))
-        if (!occurrence.isAfter(nextOccurrence))
-          formatDateOnlyYmd(occurrence): occurrence,
-      for (final item in timeline)
-        formatDateOnlyYmd(item.scheduledOccurrenceDate):
-            item.scheduledOccurrenceDate,
-    };
-    final historyOccurrences = historyOccurrencesByDate.values.isEmpty
-        ? [nextOccurrence]
-        : historyOccurrencesByDate.values.toList(growable: false);
+    if (userId.isEmpty || ref.watch(previewModeProvider).isActive) {
+      return AddRecurringSheet(
+        type: summary.type,
+        existingTransaction: summary,
+        confirmController: confirmController,
+      );
+    }
+
+    final query = RecurringSeriesDetailQuery(
+      userId: userId,
+      recurringId: summary.id,
+    );
+    final detail = ref.watch(recurringSeriesDetailProvider(query));
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: detail.when(
+        data: (transaction) => Padding(
+          key: const ValueKey('recurring-detail'),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: AddRecurringSheet(
+            type: transaction.type,
+            existingTransaction: transaction,
+            confirmController: confirmController,
+          ),
+        ),
+        loading: () => const _RecurringEditorSkeleton(
+          key: ValueKey('recurring-detail-loading'),
+        ),
+        error: (_, __) => Center(
+          key: const ValueKey('recurring-detail-error'),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: OutlinedButton(
+              onPressed: () => ref.invalidate(
+                recurringSeriesDetailProvider(query),
+              ),
+              child: Text(context.l10n.retry),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecurringEditorSkeleton extends StatelessWidget {
+  const _RecurringEditorSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Skeletonizer(
+      enabled: true,
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Bone.text(words: 2),
+            SizedBox(height: 20),
+            Bone(
+                height: 56,
+                borderRadius: BorderRadius.all(Radius.circular(14))),
+            SizedBox(height: 12),
+            Bone(
+                height: 56,
+                borderRadius: BorderRadius.all(Radius.circular(14))),
+            SizedBox(height: 12),
+            Bone(
+                height: 56,
+                borderRadius: BorderRadius.all(Radius.circular(14))),
+            SizedBox(height: 20),
+            Bone(
+                height: 48,
+                borderRadius: BorderRadius.all(Radius.circular(14))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentHistorySection extends StatelessWidget {
+  final RecurringTransaction tx;
+
+  const _PaymentHistorySection({
+    required this.tx,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2827,28 +2969,6 @@ class _PaymentHistorySection extends HookConsumerWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.15),
-                      ),
-                    ),
-                    child: Text(
-                      '${historyOccurrences.length}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 20,

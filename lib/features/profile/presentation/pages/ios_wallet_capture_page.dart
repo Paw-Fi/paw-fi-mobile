@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -505,8 +506,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
               appBar: AdaptiveAppBar(title: context.l10n.applePayIntegration),
               body: Container(
                 color: colorScheme.appBackground,
-                child:
-                    const Center(child: CircularProgressIndicator.adaptive()),
+                child: const AsyncDataSkeleton(rowCount: 6),
               )));
     }
 

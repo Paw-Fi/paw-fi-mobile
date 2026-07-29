@@ -86,12 +86,6 @@ void main() {
 
     expect(
       find.text(
-        "Instead of paying 12 monthly payments upfront, you'll be charged \$6.67 each month over a 12-month commitment.",
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
         "You'll be charged \$6.67 each month for 12 months (12 monthly payments over the full commitment). You'll enjoy all Plus features throughout your subscription.",
       ),
       findsOneWidget,

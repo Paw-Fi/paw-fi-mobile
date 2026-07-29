@@ -22,6 +22,8 @@ import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
@@ -64,6 +66,8 @@ import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/notification_dot_indicator.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
@@ -405,15 +409,35 @@ class MainShell extends HookConsumerWidget {
       ActiveWalletType.portfolio => recurringScope.activeAccountHouseholdId,
       ActiveWalletType.household => recurringScope.selectedHouseholdId,
     };
-    final hasUnconfirmedRecurringOccurrences = ref.watch(
-      hasUnconfirmedRecurringOccurrencesProvider(
-        UpcomingRecurringScope(
-          householdId: recurringHouseholdId,
-          currency: selectedCurrency,
-          selectedCurrencies: selectedCurrencies,
-        ),
-      ),
+    final recurringCurrencies = selectedCurrencies?.isNotEmpty == true
+        ? selectedCurrencies!
+        : <String>[selectedCurrency?.toUpperCase() ?? 'USD'];
+    final recurringReadScope = RecurringReadScope(
+      userId: auth.uid,
+      householdId: recurringHouseholdId,
+      currencies: recurringCurrencies,
     );
+    final recurringBadge = previewState.isActive || auth.uid.isEmpty
+        ? const AsyncValue<bool>.data(false)
+        : ref.watch(recurringActionableBadgeProvider(recurringReadScope));
+    final hasUnconfirmedRecurringOccurrences =
+        recurringBadge.valueOrNull == true;
+    final isRecurringBadgeLoading =
+        recurringBadge.isLoading && !recurringBadge.hasValue;
+    ref.listen<AppMutationErrorEvent?>(appMutationErrorProvider,
+        (previous, next) {
+      if (next == null || previous?.id == next.id) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        AppToast.error(
+          context,
+          next.feature == 'recurring'
+              ? context.l10n.failedToSaveRecurringTransaction
+              : context.l10n.errorLoadingData,
+        );
+        ref.read(appMutationErrorProvider.notifier).state = null;
+      });
+    });
     final warmedWalletsKeyRef = useRef<String?>(null);
     final showNoNetworkBanner = !hasNetworkAccess;
 
@@ -901,6 +925,7 @@ class MainShell extends HookConsumerWidget {
                   BottomNavigationBarItem(
                     icon: NotificationDotIndicator(
                       isVisible: hasUnconfirmedRecurringOccurrences,
+                      isLoading: isRecurringBadgeLoading,
                       right: -10,
                       child: const Icon(CupertinoIcons.repeat),
                     ),
@@ -935,6 +960,7 @@ class MainShell extends HookConsumerWidget {
                     icon: NotificationDotIndicator(
                       right: -10,
                       isVisible: hasUnconfirmedRecurringOccurrences,
+                      isLoading: isRecurringBadgeLoading,
                       child: const Icon(Icons.repeat),
                     ),
                     label: context.l10n.recurring,

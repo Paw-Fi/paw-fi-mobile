@@ -762,11 +762,14 @@ class HouseholdInvitesNotifier
 
   Future<void> load() async {
     if (!mounted) return;
-    state = const AsyncValue.loading();
+    final previous = state;
+    state = previous.hasValue
+        ? const AsyncLoading<List<HouseholdInvite>>().copyWithPrevious(previous)
+        : const AsyncValue.loading();
     final result = await AsyncValue.guard(
         () => _repository.getHouseholdInvites(_householdId));
     if (!mounted) return;
-    state = result;
+    state = result.hasError && previous.hasValue ? previous : result;
   }
 
   Future<String> createInvite({
@@ -845,14 +848,17 @@ class SharingPrefsNotifier
 
   Future<void> load() async {
     if (!mounted) return;
-    state = const AsyncValue.loading();
+    final previous = state;
+    state = previous.hasValue
+        ? const AsyncLoading<SharingPreferences?>().copyWithPrevious(previous)
+        : const AsyncValue.loading();
     final result =
         await AsyncValue.guard(() => _repository.getSharingPreferences(
               userId: _userId,
               householdId: _householdId,
             ));
     if (!mounted) return;
-    state = result;
+    state = result.hasError && previous.hasValue ? previous : result;
   }
 
   Future<void> updatePreferences({

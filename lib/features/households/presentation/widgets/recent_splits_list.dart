@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../providers/household_providers.dart';
@@ -91,7 +92,11 @@ class RecentSplitsList extends ConsumerWidget {
           }).toList(),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const AsyncDataSkeleton(
+        rowCount: 3,
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+      ),
       error: (_, __) => Card(
         child: Padding(
           padding: const EdgeInsets.all(16),

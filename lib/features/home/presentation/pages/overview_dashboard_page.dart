@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -60,7 +61,7 @@ class OverviewDashboardPage extends ConsumerWidget {
           child: state.when(
             data: (data) {
               if (data.isLoading && data.allTransactions.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return const AsyncDataSkeleton(rowCount: 6);
               }
 
               final user = ref.watch(authProvider);
@@ -990,7 +991,7 @@ class OverviewDashboardPage extends ConsumerWidget {
             },
             error: (err, stack) =>
                 Center(child: Text(context.l10n.errorLoadingDashboard)),
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const AsyncDataSkeleton(rowCount: 6),
           ),
         ),
       ),

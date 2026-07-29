@@ -94,7 +94,7 @@ void _debugPrint(String? message) {
 }
 
 bool _asyncValueHasResolved<T>(AsyncValue<T> value) {
-  return value.hasValue || !value.isLoading;
+  return value.hasValue;
 }
 
 bool _hasRecurringExpense(AsyncValue<List<RecurringTransaction>> state) {

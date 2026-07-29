@@ -15,11 +15,31 @@ final homePeriodVisiblePeriodsProvider = StateProvider<List<DateTime>>(
   (ref) => const [],
 );
 
-class HomePeriodSelector extends ConsumerWidget {
-  const HomePeriodSelector({super.key});
+class HomePeriodSelector extends ConsumerStatefulWidget {
+  const HomePeriodSelector({
+    super.key,
+    required this.isActive,
+  });
+
+  final bool isActive;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePeriodSelector> createState() => _HomePeriodSelectorState();
+}
+
+class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
+  int _ringAnimationRevision = 0;
+
+  @override
+  void didUpdateWidget(covariant HomePeriodSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) {
+      _ringAnimationRevision++;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final userId = ref.watch(authProvider.select((user) => user.uid));
     if (userId.isEmpty) return const SizedBox.shrink();
     final state = ref.watch(homePeriodSelectionProvider(userId));
@@ -73,7 +93,7 @@ class HomePeriodSelector extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: DatePeriodSelector(
         mode: state.mode,
         selectedDate: state.selectedDate,
@@ -84,6 +104,7 @@ class HomePeriodSelector extends ConsumerWidget {
                 statusByPeriod[period] ?? _statusForProgress(context, 0)
             : null,
         minimumAvailableDate: accountCreatedAt,
+        ringAnimationRevision: _ringAnimationRevision,
         onVisiblePeriodsChanged: (periods) {
           ref.read(homePeriodVisiblePeriodsProvider.notifier).state = periods;
         },

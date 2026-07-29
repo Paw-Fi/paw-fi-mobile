@@ -12,6 +12,8 @@ import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/recurring/presentation/widgets/bulk_confirm_past_occurrences_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -22,6 +24,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Opens the single confirmation flow used by every recurring occurrence CTA.
 Future<void> showConfirmRecurringOccurrenceSheet({
@@ -44,8 +47,129 @@ Future<void> showConfirmRecurringOccurrenceSheet({
   );
 }
 
+Future<void> showLazyRecurringOccurrenceSheet({
+  required BuildContext context,
+  required RecurringTransaction recurringTransaction,
+  required RecurringOccurrenceTimelineItem occurrence,
+}) {
+  final occurrenceId = occurrence.occurrenceId;
+  if (!occurrence.isConfirmed || occurrenceId == null) {
+    return showConfirmRecurringOccurrenceSheet(
+      context: context,
+      recurringTransaction: recurringTransaction,
+      scheduledOccurrenceDate: occurrence.scheduledOccurrenceDate,
+      existingOccurrence: occurrence,
+    );
+  }
+  return MonekoBottomSheet.show<void>(
+    context: context,
+    title: 'Edit payment',
+    isScrollControlled: true,
+    onClose: () => Navigator.of(context).pop(),
+    builder: (_) => _LazyRecurringOccurrenceEditor(
+      recurringTransaction: recurringTransaction,
+      occurrenceId: occurrenceId,
+    ),
+  );
+}
+
+class _LazyRecurringOccurrenceEditor extends ConsumerWidget {
+  const _LazyRecurringOccurrenceEditor({
+    required this.recurringTransaction,
+    required this.occurrenceId,
+  });
+
+  final RecurringTransaction recurringTransaction;
+  final String occurrenceId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(authProvider).uid;
+    final query = RecurringOccurrenceDetailQuery(
+      userId: userId,
+      occurrenceId: occurrenceId,
+    );
+    final detail = ref.watch(recurringOccurrenceDetailProvider(query));
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: detail.when(
+        data: (value) {
+          final transaction = value.transaction;
+          return _ConfirmRecurringOccurrenceForm(
+            key: const ValueKey('recurring-occurrence-detail'),
+            recurringTransaction: recurringTransaction,
+            scheduledOccurrenceDate: value.occurrence.scheduledOccurrenceDate,
+            existingOccurrence: RecurringOccurrenceTimelineItem(
+              occurrenceId: value.occurrence.id,
+              scheduledOccurrenceDate: value.occurrence.scheduledOccurrenceDate,
+              status: value.occurrence.status,
+              actualTransaction: transaction == null
+                  ? null
+                  : ExpenseEntry.fromJson(transaction),
+              paidDate: value.occurrence.paidDate,
+              amountCents: value.occurrence.amountCents,
+              currency: value.occurrence.currency,
+              confirmedAt: value.occurrence.confirmedAt,
+              confirmationSource: value.occurrence.confirmationSource,
+              isSettlementLocked: value.isSettlementLocked,
+            ),
+          );
+        },
+        loading: () => const _RecurringOccurrenceEditorSkeleton(
+          key: ValueKey('recurring-occurrence-detail-loading'),
+        ),
+        error: (_, __) => Center(
+          key: const ValueKey('recurring-occurrence-detail-error'),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: OutlinedButton(
+              onPressed: () => ref.invalidate(
+                recurringOccurrenceDetailProvider(query),
+              ),
+              child: Text(context.l10n.retry),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecurringOccurrenceEditorSkeleton extends StatelessWidget {
+  const _RecurringOccurrenceEditorSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Skeletonizer(
+      enabled: true,
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Bone(height: 52),
+            SizedBox(height: 12),
+            Bone(height: 52),
+            SizedBox(height: 12),
+            Bone(height: 52),
+            SizedBox(height: 20),
+            Bone(height: 48),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ConfirmRecurringOccurrenceForm extends ConsumerStatefulWidget {
   const _ConfirmRecurringOccurrenceForm({
+    super.key,
     required this.recurringTransaction,
     required this.scheduledOccurrenceDate,
     this.existingOccurrence,
@@ -540,6 +664,9 @@ class _ConfirmRecurringOccurrenceFormState
                   )
                 : const SizedBox.shrink(),
           ),
+          const SizedBox(
+                    height: 18,
+                  ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: _error == null

@@ -1034,8 +1034,26 @@ class HomeHeaderSliver extends HookConsumerWidget {
             ],
           ),
         ),
-        if (ref.watch(mainShellTabIndexProvider) == 0)
-          const HomePeriodSelector(),
+        ClipRect(
+          child: AnimatedAlign(
+            alignment: Alignment.topCenter,
+            heightFactor: currentIndex == 0 ? 1 : 0,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            child: AnimatedOpacity(
+              opacity: currentIndex == 0 ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              child: IgnorePointer(
+                ignoring: currentIndex != 0,
+                child: TickerMode(
+                  enabled: currentIndex == 0,
+                  child: HomePeriodSelector(isActive: currentIndex == 0),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

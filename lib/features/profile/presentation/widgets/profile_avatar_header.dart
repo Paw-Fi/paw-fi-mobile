@@ -6,13 +6,25 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
   final colorScheme = Theme.of(context).colorScheme;
   final profileAsync = ref.watch(userProfileProvider(user.uid));
 
   return profileAsync.when(
-    loading: () => const Center(child: CircularProgressIndicator()),
+    loading: () => const Skeletonizer(
+      enabled: true,
+      child: Column(
+        children: [
+          Bone.circle(size: 104),
+          SizedBox(height: 16),
+          Bone.text(words: 2, fontSize: 22),
+          SizedBox(height: 8),
+          Bone.text(words: 3, fontSize: 14),
+        ],
+      ),
+    ),
     error: (error, stack) =>
         Center(child: Text(context.l10n.errorLoadingProfile)),
     data: (profile) {

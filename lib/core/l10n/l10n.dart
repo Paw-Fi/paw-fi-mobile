@@ -42,15 +42,14 @@ extension WalletAnalyticsL10nX on AppLocalizations {
 }
 
 extension MonthlyReportHistoryL10nX on AppLocalizations {
-  String get monthlyReportReports => 'Reports';
+  String get reports => 'Reports';
   String get monthlyReportPreviousPeriod => 'Previous period';
   String get monthlyReportNextPeriod => 'Next period';
   String get monthlyReportSelectPeriod => 'Select report period';
-  String get monthlyReportCurrentPeriod => 'Current period';
-  String get monthlyReportCompletedPeriod => 'Completed period';
-  String get monthlyReportCurrent => 'Current';
-  String get monthlyReportReturnToCurrent => 'Return to current period';
-  String get monthlyReportClosingBalance => 'Closing balance';
+  String get currentPeriod => 'Current period';
+  String get completedPeriod => 'Completed period';
+  String get returnToCurrentPeriod => 'Return to current period';
+  String get closingBalance => 'Closing balance';
   String get monthlyReportCompletedSafeSpendUnavailable =>
       'Safe to spend only applies to the current period.';
   String get monthlyReportCompletedRecurringUnavailable =>

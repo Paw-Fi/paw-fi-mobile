@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -198,9 +199,9 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
                   ),
                 ),
               ),
-            _ => const Center(
+            _ => const AsyncDataSkeleton(
                 key: ValueKey('currency_rates_loading'),
-                child: CircularProgressIndicator(),
+                rowCount: 6,
               ),
           },
         ),

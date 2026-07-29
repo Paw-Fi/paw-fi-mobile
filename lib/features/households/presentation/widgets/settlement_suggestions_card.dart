@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -402,8 +403,12 @@ class _SettlementSuggestionsCardState
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: const Center(child: CircularProgressIndicator()),
+      padding: const EdgeInsets.all(12),
+      child: const AsyncDataSkeleton(
+        rowCount: 2,
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+      ),
     );
   }
 

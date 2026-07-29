@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -53,7 +54,11 @@ class _HouseholdMembersSectionState
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     if (membersAsync.isLoading) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const AsyncDataSkeleton(
+        rowCount: 3,
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+      );
     }
 
     // We handle errors gracefully or just show empty/loading

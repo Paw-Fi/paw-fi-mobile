@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -253,7 +254,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const AsyncDataSkeleton(rowCount: 6),
             error: (e, s) => Center(child: Text('${context.l10n.error}: $e')),
           ),
         ),

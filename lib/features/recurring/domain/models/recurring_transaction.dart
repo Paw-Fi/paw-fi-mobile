@@ -55,6 +55,8 @@ class RecurringTransaction {
   final bool analyticsIsFinal;
   final int? analyticsSpendingMultiplier;
   final bool? analyticsCountsTowardIncome;
+  final DateTime? serverNextOccurrenceDate;
+  final DateTime? serverLatestActionableOccurrenceDate;
 
   RecurringTransaction({
     required this.id,
@@ -82,6 +84,8 @@ class RecurringTransaction {
     this.analyticsIsFinal = true,
     this.analyticsSpendingMultiplier,
     this.analyticsCountsTowardIncome,
+    this.serverNextOccurrenceDate,
+    this.serverLatestActionableOccurrenceDate,
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
@@ -180,6 +184,11 @@ class RecurringTransaction {
           (json['analytics_spending_multiplier'] as num?)?.toInt(),
       analyticsCountsTowardIncome:
           json['analytics_counts_toward_income'] as bool?,
+      serverNextOccurrenceDate:
+          _parseRecurrenceCalendarDate(json['next_occurrence_date']),
+      serverLatestActionableOccurrenceDate: _parseRecurrenceCalendarDate(
+        json['latest_actionable_occurrence_date'],
+      ),
     );
   }
 
@@ -264,6 +273,13 @@ class RecurringTransaction {
       'analytics_is_final': analyticsIsFinal,
       'analytics_spending_multiplier': analyticsSpendingMultiplier,
       'analytics_counts_toward_income': analyticsCountsTowardIncome,
+      'next_occurrence_date': serverNextOccurrenceDate == null
+          ? null
+          : formatDateOnlyYmd(serverNextOccurrenceDate!),
+      'latest_actionable_occurrence_date':
+          serverLatestActionableOccurrenceDate == null
+              ? null
+              : formatDateOnlyYmd(serverLatestActionableOccurrenceDate!),
     };
   }
 
@@ -293,6 +309,10 @@ class RecurringTransaction {
     bool? analyticsIsFinal,
     int? analyticsSpendingMultiplier,
     bool? analyticsCountsTowardIncome,
+    DateTime? serverNextOccurrenceDate,
+    DateTime? serverLatestActionableOccurrenceDate,
+    bool clearServerNextOccurrenceDate = false,
+    bool clearServerLatestActionableOccurrenceDate = false,
   }) {
     return RecurringTransaction(
       id: id ?? this.id,
@@ -322,6 +342,14 @@ class RecurringTransaction {
           analyticsSpendingMultiplier ?? this.analyticsSpendingMultiplier,
       analyticsCountsTowardIncome:
           analyticsCountsTowardIncome ?? this.analyticsCountsTowardIncome,
+      serverNextOccurrenceDate: clearServerNextOccurrenceDate
+          ? null
+          : serverNextOccurrenceDate ?? this.serverNextOccurrenceDate,
+      serverLatestActionableOccurrenceDate:
+          clearServerLatestActionableOccurrenceDate
+              ? null
+              : serverLatestActionableOccurrenceDate ??
+                  this.serverLatestActionableOccurrenceDate,
     );
   }
 

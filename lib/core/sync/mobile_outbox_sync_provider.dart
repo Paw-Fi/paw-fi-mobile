@@ -8,6 +8,7 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -15,6 +16,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
@@ -209,6 +211,7 @@ Future<void> _dispatchMobileMutation(
           ),
           clientMutationId: mutation.clientMutationId,
         );
+        _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       }
       await _deleteQueuedLocalFile(payload['localReceiptImagePath']);
       return;
@@ -270,12 +273,14 @@ Future<void> _dispatchMobileMutation(
         entry: ExpenseEntry.fromJson(savedPayload),
         clientMutationId: mutation.clientMutationId,
       );
+      _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       return;
     case 'skip_recurring_occurrence':
       await _invokeMutationFunction(
         payload['functionName']?.toString(),
         _mapValue(payload['requestBody']),
       );
+      _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       return;
     case 'delete_transaction':
       await _invokeMutationFunction('delete-expense', {
@@ -296,6 +301,34 @@ Future<void> _dispatchMobileMutation(
       await database.markOptimisticTransactionDeleteSynced(
         clientMutationId: mutation.clientMutationId,
       );
+      _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
+      return;
+    case 'update_recurring_occurrence':
+      final responseBody = await _invokeMutationFunction(
+        payload['functionName']?.toString(),
+        _mapValue(payload['requestBody']),
+      );
+      final savedPayload = _extractRecurringOccurrenceTransaction(responseBody);
+      if (savedPayload == null) {
+        throw StateError(
+          'Recurring occurrence update sync succeeded without a transaction payload',
+        );
+      }
+      await database.markOptimisticTransactionUpdateSynced(
+        entry: ExpenseEntry.fromJson(savedPayload),
+        clientMutationId: mutation.clientMutationId,
+      );
+      _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
+      return;
+    case 'unconfirm_recurring_occurrence':
+      await _invokeMutationFunction(
+        payload['functionName']?.toString(),
+        _mapValue(payload['requestBody']),
+      );
+      await database.markOptimisticTransactionDeleteSynced(
+        clientMutationId: mutation.clientMutationId,
+      );
+      _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       return;
     case localRecurringOccurrenceConfirmationMutationOperation:
       final responseBody = await _invokeRecurringOccurrenceConfirmation(
@@ -318,11 +351,28 @@ Future<void> _dispatchMobileMutation(
         ),
         clientMutationId: mutation.clientMutationId,
       );
+      ref
+          .read(recurringSeriesOptimisticProvider.notifier)
+          .commitMutation(mutation.clientMutationId);
+      ref
+          .read(recurringOccurrenceOptimisticProvider.notifier)
+          .commitMutation(mutation.clientMutationId);
+      ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       return;
     default:
       throw UnsupportedError(
           'Unsupported local mutation: ${mutation.operation}');
   }
+}
+
+void _commitRecurringOptimisticMutation(Ref ref, String mutationId) {
+  ref
+      .read(recurringSeriesOptimisticProvider.notifier)
+      .commitMutation(mutationId);
+  ref
+      .read(recurringOccurrenceOptimisticProvider.notifier)
+      .commitMutation(mutationId);
+  ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
 }
 
 Future<void> _reconcileSyncedWalletMutation(
@@ -362,6 +412,19 @@ Future<void> _handleCancelledMobileMutation(
 ) async {
   if (mutation.entityType != 'wallet') {
     await database.markTransactionMutationExhausted(mutation: mutation);
+    ref
+        .read(recurringSeriesOptimisticProvider.notifier)
+        .rollbackMutation(mutation.clientMutationId);
+    ref
+        .read(recurringOccurrenceOptimisticProvider.notifier)
+        .rollbackMutation(mutation.clientMutationId);
+    ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
+    ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
+      id: mutation.clientMutationId,
+      feature: mutation.operation.contains('recurring')
+          ? 'recurring'
+          : 'transaction',
+    );
     return;
   }
   final payload = _decodePayload(mutation.payloadJson);

@@ -5,6 +5,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+
+Future<void> _tapConfirm(WidgetTester tester) async {
+  final button = find.byType(MonekoSheetConfirmButton);
+  expect(button, findsOneWidget);
+  await tester.tap(button);
+}
 
 void main() {
   testWidgets('choosing a built-in wallet icon clears custom logoUrl',
@@ -61,12 +68,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.groups_rounded));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Save Changes'),
-      300,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.tap(find.text('Save Changes'));
+    await _tapConfirm(tester);
     await tester.pumpAndSettle();
 
     expect(result?.icon, 'joint');
@@ -190,7 +192,7 @@ void main() {
 
     await tester.tap(find.text('Exclude from wallet analytics'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save Changes'));
+    await _tapConfirm(tester);
     await tester.pumpAndSettle();
 
     expect(result?.excludeFromAnalytics, isTrue);

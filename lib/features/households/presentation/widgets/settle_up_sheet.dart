@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../../../core/l10n/l10n.dart';
@@ -614,7 +615,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                           scheme: colorScheme,
                         );
                       },
-                      loading: () => const SizedBox(height: 80),
+                      loading: () => const SizedBox(
+                        height: 80,
+                        child: AsyncDataSkeleton(
+                          rowCount: 1,
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
 

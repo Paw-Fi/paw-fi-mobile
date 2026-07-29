@@ -26,6 +26,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
   _TestRecurringSaveNotifier(Ref ref) : super(ref);
@@ -115,12 +116,7 @@ class _MockAuth extends Auth {
 }
 
 Future<void> _tapUpdateRecurringButton(WidgetTester tester) async {
-  final context = tester.element(find.byType(AddRecurringSheet));
-  final l10n = AppLocalizations.of(context)!;
-  final button = find.widgetWithText(
-    ElevatedButton,
-    l10n.updateRecurringTransaction,
-  );
+  final button = find.byType(MonekoSheetConfirmButton);
   expect(button, findsOneWidget);
   await tester.tap(button);
 }
@@ -146,8 +142,9 @@ class _TestRecurringTransactionsNotifier extends RecurringTransactionsNotifier {
   @override
   Future<DeleteRecurringResult> deleteRecurring(
     String userId,
-    String transactionId,
-  ) async {
+    String transactionId, {
+    RecurringTransaction? transaction,
+  }) async {
     deleteCalled = true;
     deletedTransactionId = transactionId;
     return const DeleteRecurringResult.success();

@@ -1,10 +1,18 @@
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/domain/models/income_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
 /// Income list state provider
 final incomeListProvider =
@@ -45,7 +53,10 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
     String? householdId,
     int limit = 50,
   }) async {
-    state = const AsyncValue.loading();
+    final previous = state;
+    state = previous.hasValue
+        ? const AsyncLoading<List<IncomeEntry>>().copyWithPrevious(previous)
+        : const AsyncValue.loading();
 
     try {
       final response = await supabase.functions.invoke(
@@ -67,13 +78,16 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
             .toList();
         state = AsyncValue.data(incomeList);
       } else {
-        state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to load income',
-          StackTrace.current,
-        );
+        state = previous.hasValue
+            ? previous
+            : AsyncValue.error(
+                response.data['error'] ?? 'Failed to load income',
+                StackTrace.current,
+              );
       }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (!mounted) return;
+      state = previous.hasValue ? previous : AsyncValue.error(e, st);
     }
   }
 
@@ -115,7 +129,10 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
     DateTime? endDate,
     String? currency,
   }) async {
-    state = const AsyncValue.loading();
+    final previous = state;
+    state = previous.hasValue
+        ? const AsyncLoading<IncomeSummary>().copyWithPrevious(previous)
+        : const AsyncValue.loading();
 
     try {
       final response = await supabase.functions.invoke(
@@ -134,13 +151,16 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(summary);
       } else {
-        state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to load income summary',
-          StackTrace.current,
-        );
+        state = previous.hasValue
+            ? previous
+            : AsyncValue.error(
+                response.data['error'] ?? 'Failed to load income summary',
+                StackTrace.current,
+              );
       }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (!mounted) return;
+      state = previous.hasValue ? previous : AsyncValue.error(e, st);
     }
   }
 
@@ -204,6 +224,16 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
       final isPortfolio = householdId != null &&
           ref.read(householdScopeProvider).isPortfolioId(householdId);
       final accountingDate = DateTime(date.year, date.month, date.day);
+      final now = DateTime.now();
+      final optimisticId = clientRecordId?.trim().isNotEmpty == true
+          ? clientRecordId!.trim()
+          : 'optimistic-income-${now.microsecondsSinceEpoch}';
+      final mutationId = clientMutationId?.trim().isNotEmpty == true
+          ? clientMutationId!.trim()
+          : 'mobile:$optimisticId';
+      final effectiveIdempotencyKey = idempotencyKey?.trim().isNotEmpty == true
+          ? idempotencyKey!.trim()
+          : mutationId;
 
       final requestBody = <String, dynamic>{
         'userId': userId,
@@ -222,11 +252,9 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         if (householdId != null) 'isPortfolio': isPortfolio,
         'accountId': accountId?.trim().isEmpty == true ? null : accountId,
         if (fxRate != null) 'fxRate': fxRate,
-        if (clientRecordId != null && clientRecordId.isNotEmpty)
-          'clientRecordId': clientRecordId,
-        if (clientMutationId != null && clientMutationId.isNotEmpty)
-          'clientMutationId': clientMutationId,
-        if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
+        'clientRecordId': optimisticId,
+        'clientMutationId': mutationId,
+        'idempotencyKey': effectiveIdempotencyKey,
         if (attachments != null) 'attachments': attachments,
         'isRecurring': isRecurring,
         if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
@@ -269,37 +297,138 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         requestBody['payerUserId'] = payerUserId;
       }
 
-      final response = await supabase.functions.invoke(
-        'save-income',
-        body: requestBody,
+      final optimisticIncome = IncomeEntry(
+        id: optimisticId,
+        date: accountingDate,
+        category: category,
+        description: description,
+        source: source,
+        amount: amount,
+        currency: currency,
+        ownerType: ownerType,
+        privacyScope: privacyScope,
+        householdId: householdId,
+        isAcknowledged: false,
+        acknowledgedCount: 0,
+        fxRate: fxRate,
+        isRecurring: isRecurring,
+        recurrenceRule: recurrenceRule == null
+            ? null
+            : RecurrenceRule.fromJson(recurrenceRule),
+        attachments: const [],
+        createdAt: now,
+        privacyRedacted: false,
+      );
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransaction(
+        entry: ExpenseEntry(
+          id: optimisticId,
+          userId: userId,
+          householdId: householdId,
+          date: accountingDate,
+          amountCents: (amount * 100).round(),
+          currency: currency,
+          category: category,
+          createdAt: now,
+          rawText: description,
+          merchant: merchant,
+          walletId: accountId,
+          type: 'income',
+          isRecurring: isRecurring,
+          recurrenceRuleJson: recurrenceRule,
+          clientRecordId: optimisticId,
+          clientMutationId: mutationId,
+          idempotencyKey: effectiveIdempotencyKey,
+        ),
+        clientMutationId: mutationId,
+        operation: 'create',
+        payload: {
+          'functionName': 'save-income',
+          'requestBody': requestBody,
+        },
       );
 
-      if (response.data['success'] == true) {
-        final income =
-            IncomeEntry.fromJson(response.data['data'] as Map<String, dynamic>);
-        state = AsyncValue.data(income);
-
-        // Refresh income list
-        ref
-            .read(incomeListProvider.notifier)
-            .refresh(userId, householdId: householdId);
-
-        // Refresh income summary
-        ref
-            .read(incomeSummaryProvider.notifier)
-            .refresh(userId, householdId: householdId);
-
-        return income;
-      } else {
-        state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to save income',
-          StackTrace.current,
-        );
-        return null;
-      }
+      final currentIncome =
+          ref.read(incomeListProvider).valueOrNull ?? const <IncomeEntry>[];
+      ref.read(incomeListProvider.notifier).state = AsyncValue.data([
+        optimisticIncome,
+        ...currentIncome.where((entry) => entry.id != optimisticId),
+      ]);
+      _applyOptimisticIncomeSummary(optimisticIncome);
+      state = AsyncValue.data(optimisticIncome);
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      unawaited(_reconcileQueuedIncome(
+        database: database,
+        mutationId: mutationId,
+        userId: userId,
+        householdId: householdId,
+      ));
+      return optimisticIncome;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
+    }
+  }
+
+  void _applyOptimisticIncomeSummary(IncomeEntry income) {
+    final current = ref.read(incomeSummaryProvider).valueOrNull;
+    if (current == null ||
+        current.currency.toUpperCase() != income.currency.toUpperCase() ||
+        income.date.isBefore(current.period.startDate) ||
+        income.date.isAfter(current.period.endDate)) {
+      return;
+    }
+    ref.read(incomeSummaryProvider.notifier).state = AsyncValue.data(
+      IncomeSummary(
+        totalIncome: current.totalIncome + income.amount,
+        mtdIncome: current.mtdIncome == null
+            ? null
+            : current.mtdIncome! + income.amount,
+        ytdIncome: current.ytdIncome == null
+            ? null
+            : current.ytdIncome! + income.amount,
+        currency: current.currency,
+        categoryBreakdown: {
+          ...current.categoryBreakdown,
+          income.category:
+              (current.categoryBreakdown[income.category] ?? 0) + income.amount,
+        },
+        currencyBreakdown: current.currencyBreakdown,
+        memberBreakdown: current.memberBreakdown,
+        transactionCount: current.transactionCount + 1,
+        period: current.period,
+      ),
+    );
+  }
+
+  Future<void> _reconcileQueuedIncome({
+    required MonekoDatabase database,
+    required String mutationId,
+    required String userId,
+    required String? householdId,
+  }) async {
+    try {
+      await drainMobileOutbox(ref);
+      final mutations = await database.getOutboxMutations();
+      final matching = mutations.where(
+        (mutation) => mutation.clientMutationId == mutationId,
+      );
+      if (matching.isEmpty ||
+          !const {localMutationStatusSynced, localMutationStatusCancelled}
+              .contains(matching.single.status) ||
+          !mounted) {
+        return;
+      }
+      await ref
+          .read(incomeListProvider.notifier)
+          .refresh(userId, householdId: householdId);
+      if (!mounted) return;
+      await ref
+          .read(incomeSummaryProvider.notifier)
+          .refresh(userId, householdId: householdId);
+    } catch (_) {
+      // The outbox owns retry and terminal-error reporting.
     }
   }
 

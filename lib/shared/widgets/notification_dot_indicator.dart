@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Overlays a small, animated notification dot on a control.
 class NotificationDotIndicator extends StatelessWidget {
@@ -6,12 +7,14 @@ class NotificationDotIndicator extends StatelessWidget {
     super.key,
     required this.child,
     required this.isVisible,
+    this.isLoading = false,
     this.top = 4,
     this.right = 4,
   });
 
   final Widget child;
   final bool isVisible;
+  final bool isLoading;
   final double top;
   final double right;
 
@@ -28,17 +31,19 @@ class NotificationDotIndicator extends StatelessWidget {
           right: right,
           child: IgnorePointer(
             child: AnimatedScale(
-              scale: isVisible ? 1 : 0,
+              scale: isVisible || isLoading ? 1 : 0,
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
               child: AnimatedOpacity(
-                opacity: isVisible ? 1 : 0,
+                opacity: isVisible || isLoading ? 1 : 0,
                 duration: const Duration(milliseconds: 150),
                 child: Container(
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: colorScheme.error,
+                    color: isLoading
+                        ? colorScheme.skeletonBase
+                        : colorScheme.error,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: colorScheme.surface,

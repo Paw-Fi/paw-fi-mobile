@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/home/presentation/state/state.dart'
-    show analyticsProvider;
 import 'package:moneko/core/utils/date_formatter.dart';
-import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
-import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(
@@ -54,20 +47,24 @@ String getLocalizedFrequencyText(
 }
 
 /// Modern, Apple-inspired recurring transaction card with slidable actions
-class RecurringTransactionCard extends ConsumerWidget {
+class RecurringTransactionCard extends StatelessWidget {
   final RecurringTransaction transaction;
+  final DateTime? nextOccurrenceDate;
+  final DateTime? latestActionableOccurrenceDate;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
   const RecurringTransactionCard({
     super.key,
     required this.transaction,
+    this.nextOccurrenceDate,
+    this.latestActionableOccurrenceDate,
     this.onTap,
     this.onDelete,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isIncome = transaction.type == 'income';
     final description = transaction.description?.trim();
@@ -75,19 +72,8 @@ class RecurringTransactionCard extends ConsumerWidget {
     final localizedCategory =
         getCategoryTranslation(context, transaction.category);
 
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-    final userToday = DateTime(userNow.year, userNow.month, userNow.day);
-    final nextOccurrence = transaction.getNextOccurrence(userNow);
-    final historyStartDate =
-        transaction.recurrenceRule?.anchorDate ?? transaction.date;
-    final eligibleOccurrences = getOccurrencesList(transaction, userNow)
-        .where((occurrence) =>
-            canConfirmOccurrenceAt(transaction, occurrence, userNow))
-        .toList(growable: false);
-    final timelineEndDate =
-        eligibleOccurrences.isEmpty ? userToday : eligibleOccurrences.last;
+    final nextOccurrence =
+        nextOccurrenceDate ?? transaction.getNextOccurrence(DateTime.now());
 
     final categoryColor = getCategoryColor(transaction.category, context);
     final adaptedCategoryColor =
@@ -102,34 +88,7 @@ class RecurringTransactionCard extends ConsumerWidget {
     final currencySymbol = resolveCurrencySymbol(transaction.currency);
     final amountText = '$sign$currencySymbol$localizedNumber';
 
-    final userId = ref.watch(authProvider).uid;
-    final timeline = userId.isEmpty
-        ? const <RecurringOccurrenceTimelineItem>[]
-        : ref
-                .watch(recurringOccurrenceTimelineProvider(
-                  RecurringOccurrenceTimelineQuery(
-                    userId: userId,
-                    householdId: transaction.householdId,
-                    recurringId: transaction.id,
-                    startDate: historyStartDate,
-                    endDate: timelineEndDate,
-                  ),
-                ))
-                .valueOrNull ??
-            const <RecurringOccurrenceTimelineItem>[];
-    final confirmedDates = <String>{
-      for (final item in timeline)
-        if (item.isConfirmed) formatDateOnlyYmd(item.scheduledOccurrenceDate),
-    };
-    final latestUnconfirmedOccurrence = eligibleOccurrences
-        .where((occurrence) =>
-            !confirmedDates.contains(formatDateOnlyYmd(occurrence)))
-        .fold<DateTime?>(
-            null,
-            (latest, occurrence) => latest == null || occurrence.isAfter(latest)
-                ? occurrence
-                : latest);
-    final canConfirm = latestUnconfirmedOccurrence != null;
+    final canConfirm = latestActionableOccurrenceDate != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -301,7 +260,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                                     context: context,
                                     recurringTransaction: transaction,
                                     scheduledOccurrenceDate:
-                                        latestUnconfirmedOccurrence,
+                                        latestActionableOccurrenceDate!,
                                   ),
                                   borderRadius: BorderRadius.circular(100),
                                   child: Container(

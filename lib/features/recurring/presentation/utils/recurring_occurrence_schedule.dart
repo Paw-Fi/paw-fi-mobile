@@ -85,3 +85,16 @@ bool canConfirmOccurrenceAt(
     confirmationOpensAt(transaction, scheduledOccurrenceDate),
   );
 }
+
+bool canSubmitRecurringOccurrenceConfirmationAt({
+  required RecurringTransaction transaction,
+  required DateTime scheduledOccurrenceDate,
+  required DateTime paidDate,
+  required DateTime userNow,
+}) {
+  final userToday = DateTime(userNow.year, userNow.month, userNow.day);
+  final normalizedPaidDate =
+      DateTime(paidDate.year, paidDate.month, paidDate.day);
+  return !normalizedPaidDate.isAfter(userToday) &&
+      canConfirmOccurrenceAt(transaction, scheduledOccurrenceDate, userNow);
+}

@@ -403,4 +403,67 @@ void main() {
 
     expect(find.text(l10n.setupChecklist), findsOneWidget);
   });
+
+  testWidgets('does not treat a failed prerequisite lookup as false',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    const user = AppUser(uid: 'user-1', email: 'user@test.com');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          authProvider.overrideWith(() => _TestAuth(user)),
+          householdRepositoryProvider.overrideWithValue(
+            _FakeHouseholdRepository(),
+          ),
+          preloadedUserHouseholdsProvider(user.uid).overrideWith(
+            (ref) => <Household>[_householdFixture(user.uid)],
+          ),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          analyticsProvider.overrideWith((ref) {
+            return _FakeAnalyticsNotifier(ref, const <ExpenseEntry>[]);
+          }),
+          dashboardHasLoggedTransactionsProvider.overrideWith(
+            (ref) async => false,
+          ),
+          whatsAppBindingProvider.overrideWith(
+            () => _FakeWhatsAppBinding(false),
+          ),
+          telegramBindingProvider.overrideWith(
+            () => _FakeTelegramBinding(false),
+          ),
+          walletCaptureEnabledProvider.overrideWith(
+            (ref) async => throw StateError('lookup failed'),
+          ),
+          emailImportEnabledProvider.overrideWith((ref) async => false),
+          recurringTransactionsProvider(null).overrideWith(
+            (ref) => _LoadedRecurringTransactionsNotifier(
+              ref,
+              const <RecurringTransaction>[],
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: ConnectSocialBanner()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold));
+    expect(
+      find.text(AppLocalizations.of(context)!.setupChecklist),
+      findsNothing,
+    );
+  });
 }

@@ -45,6 +45,10 @@ class MonekoSwitch extends StatelessWidget {
       activeTrackColor: resolvedActiveTrack,
       inactiveThumbColor: resolvedInactiveThumb,
       inactiveTrackColor: resolvedInactiveTrack,
+      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.transparent;
+        return colorScheme.border;
+      }),
       thumbColor:
           thumbColor != null ? WidgetStateProperty.all(thumbColor) : null,
     );

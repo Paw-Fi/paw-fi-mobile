@@ -51,7 +51,7 @@ void main() {
 
     expect(find.text(categoryName), findsOneWidget);
 
-    await tester.tap(find.byType(IconButton).first);
+    await tester.tap(find.byIcon(Icons.more_vert).first);
     await tester.pumpAndSettle();
 
     expect(find.text(categoryName), findsWidgets);

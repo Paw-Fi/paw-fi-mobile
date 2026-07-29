@@ -17,8 +17,6 @@ import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_selector_button.dart';
-import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
-import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/rounded_logo_picker.dart';
 
 class CreateEditWalletResult {
@@ -49,19 +47,30 @@ Future<CreateEditWalletResult?> showCreateEditWalletSheet(
   BuildContext context, {
   WalletEntity? initial,
 }) {
-  return MonekoBottomSheet.show<CreateEditWalletResult>(
+  final confirmController = MonekoSheetConfirmController();
+  final sheet = MonekoBottomSheet.show<CreateEditWalletResult>(
     context: context,
     title: initial != null ? context.l10n.editWallet : context.l10n.addWallet,
     isScrollControlled: true,
     onClose: () => Navigator.pop(context),
-    builder: (context) => _CreateEditWalletSheet(initial: initial),
+    confirmController: confirmController,
+    builder: (context) => _CreateEditWalletSheet(
+      initial: initial,
+      confirmController: confirmController,
+    ),
   );
+  sheet.whenComplete(confirmController.dispose);
+  return sheet;
 }
 
 class _CreateEditWalletSheet extends HookConsumerWidget {
-  const _CreateEditWalletSheet({required this.initial});
+  const _CreateEditWalletSheet({
+    required this.initial,
+    required this.confirmController,
+  });
 
   final WalletEntity? initial;
+  final MonekoSheetConfirmController confirmController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -130,6 +139,9 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
         ),
       );
     }
+
+    confirmController.attach(handleSave);
+    useEffect(() => confirmController.detach, [confirmController]);
 
     return SafeArea(
       child: GestureDetector(
@@ -557,24 +569,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                 ),
                 onChanged: (value) => excludeFromAnalytics.value = value,
               ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: PrimaryAdaptiveButton(
-                  onPressed: handleSave,
-                  child: Text(
-                    isEditing ? context.l10n.saveChanges : context.l10n.save,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: PlainAdaptiveButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(context.l10n.cancel),
-                ),
-              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

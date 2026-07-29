@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -143,7 +144,11 @@ class _HouseholdSection extends ConsumerWidget {
     final selectedState = ref.watch(selectedHouseholdProvider);
 
     return householdsAsync.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => const AsyncDataSkeleton(
+        rowCount: 2,
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+      ),
       error: (_, __) => const SizedBox.shrink(),
       data: (households) {
         if (households.isEmpty) return const SizedBox.shrink();

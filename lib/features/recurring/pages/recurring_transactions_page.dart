@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,11 +8,13 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_page_command_provider.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -33,6 +36,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -63,15 +67,8 @@ class _RecurringTransactionsPageState
   bool _didInitRecurringTour = false;
 
   /// Force refresh (used by pull-to-refresh)
-  Future<void> _refresh(String? householdId) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    // Force refresh the unified list for current scope
-    await ref
-        .read(recurringTransactionsProvider(householdId).notifier)
-        .refresh(user.id);
-    await Future.delayed(const Duration(milliseconds: 500));
+  Future<void> _refresh(RecurringSeriesPageQuery query) async {
+    await ref.read(recurringSeriesPageProvider(query).notifier).refresh();
   }
 
   @override
@@ -166,44 +163,43 @@ class _RecurringTransactionsPageState
     _debugPrint('   HouseholdId: $householdId');
     _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Ensure data is loaded for this scope
-    final state = ref.watch(recurringTransactionsProvider(householdId));
-
-    _debugPrint('📊 [RecurringPage] Provider State:');
-    _debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
-    _debugPrint('   IsLoading: ${state.data.isLoading}');
-    _debugPrint('   HasValue: ${state.data.hasValue}');
-    _debugPrint('   HasError: ${state.data.hasError}');
-    if (state.data.hasValue) {
-      _debugPrint('   Data count: ${state.data.value?.length ?? 0}');
-    }
-
-    final shouldTriggerPreviewLoad =
-        preview.isActive && !state.hasLoadedOnce && !state.data.isLoading;
-
-    if ((user != null || shouldTriggerPreviewLoad) &&
-        !state.hasLoadedOnce &&
-        !state.data.isLoading) {
-      _debugPrint('🚀 [RecurringPage] Triggering initial load...');
-      Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(householdId).notifier)
-            .loadRecurringTransactions(
-                user?.id ?? PreviewMockData.contact.userId ?? 'preview-user');
-      });
-    } else {
-      _debugPrint(
-          '⏭️  [RecurringPage] Not triggering load (hasLoadedOnce=${state.hasLoadedOnce}, isLoading=${state.data.isLoading})');
-    }
-
-    // Watch the filtered providers (they derive from the unified provider)
-    final recurringExpenses = ref.watch(recurringExpensesProvider(householdId));
-    final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
     final filterState = ref.watch(homeFilterProvider);
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
     final selectedCurrencies = filterState.normalizedSelectedCurrencies;
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+    final effectiveCurrencies = selectedCurrencies?.isNotEmpty == true
+        ? selectedCurrencies!
+        : <String>[selectedCurrency ?? 'USD'];
+    final readScope = RecurringReadScope(
+      userId: user?.id ?? PreviewMockData.contact.userId ?? 'preview-user',
+      householdId: householdId,
+      currencies: effectiveCurrencies,
+    );
+    final seriesQuery = RecurringSeriesPageQuery(scope: readScope);
+    final AsyncValue<RecurringSeriesListState> recurringState = preview.isActive
+        ? AsyncData(RecurringSeriesListState(
+            items: PreviewMockData.recurringTransactions
+                .map((transaction) => RecurringSeriesSummary(
+                      transaction: transaction,
+                      nextOccurrenceDate:
+                          transaction.getNextOccurrence(userNow),
+                      latestActionableOccurrenceDate: null,
+                    ))
+                .toList(growable: false),
+            hasMore: false,
+            nextCursor: null,
+          ))
+        : user == null
+            ? const AsyncLoading()
+            : ref.watch(recurringSeriesPageProvider(seriesQuery));
+    final recurringExpenses = recurringState.whenData((state) => state.items
+        .where((item) => item.transaction.type == 'expense')
+        .toList(growable: false));
+    final recurringIncomes = recurringState.whenData((state) => state.items
+        .where((item) => item.transaction.type == 'income')
+        .toList(growable: false));
+    final isRefreshing = recurringState.valueOrNull?.isRefreshing == true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -236,6 +232,7 @@ class _RecurringTransactionsPageState
               onValueChanged: selectRecurringTab,
             ),
           ),
+          AsyncRefreshStrip(isRefreshing: isRefreshing),
           Expanded(
             child: PageView(
               controller: _pageController,
@@ -251,10 +248,11 @@ class _RecurringTransactionsPageState
                     selectedCurrency,
                     selectedCurrencies,
                     householdId,
+                    seriesQuery,
                     userNow,
                     rateTable,
                   ),
-                  householdId: householdId,
+                  seriesQuery: seriesQuery,
                   isLoading: recurringExpenses.isLoading,
                 ),
                 _buildRecurringTabView(
@@ -265,10 +263,11 @@ class _RecurringTransactionsPageState
                     selectedCurrency,
                     selectedCurrencies,
                     householdId,
+                    seriesQuery,
                     userNow,
                     rateTable,
                   ),
-                  householdId: householdId,
+                  seriesQuery: seriesQuery,
                   isLoading: recurringIncomes.isLoading,
                 ),
               ],
@@ -288,44 +287,23 @@ class _RecurringTransactionsPageState
       return;
     }
 
-    final notifier =
-        ref.read(recurringTransactionsProvider(householdId).notifier);
-    var state = ref.read(recurringTransactionsProvider(householdId));
-    if (!state.hasLoadedOnce || state.data.isLoading) {
-      await notifier.loadRecurringTransactions(user.id, forceRefresh: true);
-      state = ref.read(recurringTransactionsProvider(householdId));
-    }
-
-    final transactions =
-        state.data.valueOrNull ?? const <RecurringTransaction>[];
-    RecurringTransaction? transaction;
-    for (final entry in transactions) {
-      if (entry.id == command.recurringId) {
-        transaction = entry;
-        break;
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    if (transaction == null) {
-      AppToast.info(context, context.l10n.errorLoadingData);
-    } else {
-      _showTransactionDetails(transaction);
-    }
+    unawaited(showLazyRecurringSheetById(
+      context,
+      userId: user.id,
+      recurringId: command.recurringId,
+      recurringType: command.recurringType,
+    ));
     ref.read(recurringPageCommandProvider.notifier).state = null;
   }
 
   Widget _buildRecurringTabView({
     required ColorScheme colorScheme,
     required List<Widget> slivers,
-    required String? householdId,
+    required RecurringSeriesPageQuery seriesQuery,
     required bool isLoading,
   }) {
     return RefreshIndicator(
-      onRefresh: () => _refresh(householdId),
+      onRefresh: () => _refresh(seriesQuery),
       child: Skeletonizer(
         enabled: isLoading,
         effect: ShimmerEffect(
@@ -341,11 +319,12 @@ class _RecurringTransactionsPageState
   }
 
   List<Widget> _buildExpensesSlivers(
-    AsyncValue<List<dynamic>> recurringExpenses,
+    AsyncValue<List<RecurringSeriesSummary>> recurringExpenses,
     ColorScheme colorScheme,
     String? selectedCurrency,
     List<String>? selectedCurrencies,
     String? householdId,
+    RecurringSeriesPageQuery seriesQuery,
     DateTime userNow,
     CurrencyRateTable rateTable,
   ) {
@@ -355,16 +334,15 @@ class _RecurringTransactionsPageState
             _normalizedCurrencySet(
               selectedCurrency == null ? null : <String>[selectedCurrency],
             );
-        final filtered = (currencySet == null
-                ? expenses
-                : expenses
-                    .where((e) => currencySet.contains(
-                        (e as RecurringTransaction).currency.toUpperCase()))
-                    .toList())
-            .cast<RecurringTransaction>();
+        final filtered = currencySet == null
+            ? expenses
+            : expenses
+                .where((item) => currencySet
+                    .contains(item.transaction.currency.toUpperCase()))
+                .toList(growable: false);
 
         return _buildTabSlivers(
-          transactions: filtered,
+          summaries: filtered,
           colorScheme: colorScheme,
           type: 'expense',
           householdId: householdId,
@@ -372,6 +350,7 @@ class _RecurringTransactionsPageState
           baseCurrency: selectedCurrency ?? 'USD',
           rateTable: rateTable,
           userNow: userNow,
+          seriesQuery: seriesQuery,
         );
       },
       loading: () {
@@ -383,7 +362,13 @@ class _RecurringTransactionsPageState
         );
 
         return _buildTabSlivers(
-          transactions: fakeExpenses,
+          summaries: fakeExpenses
+              .map((transaction) => RecurringSeriesSummary(
+                    transaction: transaction,
+                    nextOccurrenceDate: transaction.getNextOccurrence(userNow),
+                    latestActionableOccurrenceDate: null,
+                  ))
+              .toList(growable: false),
           colorScheme: colorScheme,
           type: 'expense',
           householdId: householdId,
@@ -391,20 +376,22 @@ class _RecurringTransactionsPageState
           baseCurrency: currency,
           rateTable: rateTable,
           userNow: userNow,
+          seriesQuery: seriesQuery,
         );
       },
       error: (error, _) => [
-        _buildErrorSliver(error.toString(), context.l10n.expense),
+        _buildErrorSliver(error.toString(), seriesQuery),
       ],
     );
   }
 
   List<Widget> _buildIncomesSlivers(
-    AsyncValue<List<dynamic>> recurringIncomes,
+    AsyncValue<List<RecurringSeriesSummary>> recurringIncomes,
     ColorScheme colorScheme,
     String? selectedCurrency,
     List<String>? selectedCurrencies,
     String? householdId,
+    RecurringSeriesPageQuery seriesQuery,
     DateTime userNow,
     CurrencyRateTable rateTable,
   ) {
@@ -414,16 +401,15 @@ class _RecurringTransactionsPageState
             _normalizedCurrencySet(
               selectedCurrency == null ? null : <String>[selectedCurrency],
             );
-        final filtered = (currencySet == null
-                ? incomes
-                : incomes
-                    .where((e) => currencySet.contains(
-                        (e as RecurringTransaction).currency.toUpperCase()))
-                    .toList())
-            .cast<RecurringTransaction>();
+        final filtered = currencySet == null
+            ? incomes
+            : incomes
+                .where((item) => currencySet
+                    .contains(item.transaction.currency.toUpperCase()))
+                .toList(growable: false);
 
         return _buildTabSlivers(
-          transactions: filtered,
+          summaries: filtered,
           colorScheme: colorScheme,
           type: 'income',
           householdId: householdId,
@@ -431,6 +417,7 @@ class _RecurringTransactionsPageState
           baseCurrency: selectedCurrency ?? 'USD',
           rateTable: rateTable,
           userNow: userNow,
+          seriesQuery: seriesQuery,
         );
       },
       loading: () {
@@ -442,7 +429,13 @@ class _RecurringTransactionsPageState
         );
 
         return _buildTabSlivers(
-          transactions: fakeIncomes,
+          summaries: fakeIncomes
+              .map((transaction) => RecurringSeriesSummary(
+                    transaction: transaction,
+                    nextOccurrenceDate: transaction.getNextOccurrence(userNow),
+                    latestActionableOccurrenceDate: null,
+                  ))
+              .toList(growable: false),
           colorScheme: colorScheme,
           type: 'income',
           householdId: householdId,
@@ -450,16 +443,17 @@ class _RecurringTransactionsPageState
           baseCurrency: currency,
           rateTable: rateTable,
           userNow: userNow,
+          seriesQuery: seriesQuery,
         );
       },
       error: (error, _) => [
-        _buildErrorSliver(error.toString(), context.l10n.income),
+        _buildErrorSliver(error.toString(), seriesQuery),
       ],
     );
   }
 
   List<Widget> _buildTabSlivers({
-    required List<RecurringTransaction> transactions,
+    required List<RecurringSeriesSummary> summaries,
     required ColorScheme colorScheme,
     required String type,
     required String? householdId,
@@ -467,8 +461,9 @@ class _RecurringTransactionsPageState
     required String baseCurrency,
     required CurrencyRateTable rateTable,
     required DateTime userNow,
+    required RecurringSeriesPageQuery seriesQuery,
   }) {
-    if (!isLoading && transactions.isEmpty) {
+    if (!isLoading && summaries.isEmpty) {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -485,6 +480,8 @@ class _RecurringTransactionsPageState
       ];
     }
 
+    final transactions =
+        summaries.map((summary) => summary.transaction).toList(growable: false);
     final activeTransactions = transactions.where((t) => t.isActive).toList();
     final totalCommitted =
         _calculateTotalMonthlyCommitted(transactions, baseCurrency, rateTable);
@@ -518,14 +515,17 @@ class _RecurringTransactionsPageState
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final transaction = transactions[index];
+                final summary = summaries[index];
                 return RecurringTransactionCard(
-                  transaction: transaction,
+                  transaction: summary.transaction,
+                  nextOccurrenceDate: summary.nextOccurrenceDate,
+                  latestActionableOccurrenceDate:
+                      summary.latestActionableOccurrenceDate,
                   onTap: null,
                   onDelete: null,
                 );
               },
-              childCount: transactions.length,
+              childCount: summaries.length,
             ),
           ),
         ),
@@ -533,7 +533,7 @@ class _RecurringTransactionsPageState
     }
 
     // Group transactions
-    final groups = GroupedRecurringTransactions.fromList(transactions, userNow);
+    final groups = GroupedRecurringTransactions.fromList(summaries, userNow);
 
     final slivers = <Widget>[
       summaryCardSliver,
@@ -577,7 +577,7 @@ class _RecurringTransactionsPageState
     // Helper to add a group section
     void addGroupSection({
       required String title,
-      required List<RecurringTransaction> groupTransactions,
+      required List<RecurringSeriesSummary> groupTransactions,
     }) {
       if (groupTransactions.isEmpty) return;
       slivers.add(
@@ -591,9 +591,13 @@ class _RecurringTransactionsPageState
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final transaction = groupTransactions[index];
+                final summary = groupTransactions[index];
+                final transaction = summary.transaction;
                 return RecurringTransactionCard(
                   transaction: transaction,
+                  nextOccurrenceDate: summary.nextOccurrenceDate,
+                  latestActionableOccurrenceDate:
+                      summary.latestActionableOccurrenceDate,
                   onTap: () => _showTransactionDetails(transaction),
                   onDelete: () => _deleteTransaction(transaction, householdId),
                 );
@@ -619,6 +623,33 @@ class _RecurringTransactionsPageState
       title: context.l10n.dueLater,
       groupTransactions: groups.dueLater,
     );
+
+    final pagination = ref.watch(recurringSeriesPageProvider(seriesQuery));
+    final paginationState = pagination.valueOrNull;
+    if (paginationState?.hasMore == true) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Skeletonizer(
+              enabled: paginationState?.isLoadingMore == true,
+              effect: ShimmerEffect(
+                baseColor: colorScheme.skeletonBase,
+                highlightColor: colorScheme.skeletonHighlight,
+              ),
+              child: OutlinedButton(
+                onPressed: paginationState?.isLoadingMore == true
+                    ? null
+                    : () => ref
+                        .read(recurringSeriesPageProvider(seriesQuery).notifier)
+                        .loadMore(),
+                child: Text(context.l10n.moreOptions),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     // Bottom spacing
     slivers.add(
@@ -661,7 +692,6 @@ class _RecurringTransactionsPageState
             children: [
               Row(
                 children: [
-                 
                   Text(
                     label,
                     style: TextStyle(
@@ -782,15 +812,11 @@ class _RecurringTransactionsPageState
     );
   }
 
-  Widget _buildErrorSliver(String error, String type) {
+  Widget _buildErrorSliver(
+    String error,
+    RecurringSeriesPageQuery seriesQuery,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    final householdScope = ref.watch(householdScopeProvider);
-    final String? householdId = switch (householdScope.activeAccountType) {
-      ActiveWalletType.personal => null,
-      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveWalletType.household => householdScope.selectedHouseholdId,
-    };
 
     return SliverFillRemaining(
       hasScrollBody: false,
@@ -837,7 +863,7 @@ class _RecurringTransactionsPageState
               ),
               const SizedBox(height: 24),
               AdaptiveButton(
-                onPressed: () => _refresh(householdId),
+                onPressed: () => _refresh(seriesQuery),
                 label: context.l10n.retry,
               ),
             ],
@@ -909,10 +935,9 @@ class _RecurringTransactionsPageState
   }
 
   void _showTransactionDetails(RecurringTransaction transaction) {
-    showAddRecurringSheet(
+    showLazyEditRecurringSheet(
       context,
-      type: transaction.type,
-      existingTransaction: transaction,
+      summary: transaction,
     );
   }
 
@@ -1007,11 +1032,15 @@ class _RecurringTransactionsPageState
           user.uid,
           transaction.id,
           nextDate,
+          transaction: transaction,
         );
       } else {
         // Delete entire series
-        operationResult =
-            await notifier.deleteRecurring(user.uid, transaction.id);
+        operationResult = await notifier.deleteRecurring(
+          user.uid,
+          transaction.id,
+          transaction: transaction,
+        );
       }
 
       if (!mounted) return;
@@ -1095,9 +1124,9 @@ double _calculateTotalMonthlyCommitted(
 }
 
 class GroupedRecurringTransactions {
-  final List<RecurringTransaction> dueIn7Days;
-  final List<RecurringTransaction> dueThisMonth;
-  final List<RecurringTransaction> dueLater;
+  final List<RecurringSeriesSummary> dueIn7Days;
+  final List<RecurringSeriesSummary> dueThisMonth;
+  final List<RecurringSeriesSummary> dueLater;
 
   GroupedRecurringTransactions({
     required this.dueIn7Days,
@@ -1106,41 +1135,45 @@ class GroupedRecurringTransactions {
   });
 
   factory GroupedRecurringTransactions.fromList(
-    List<RecurringTransaction> list,
+    List<RecurringSeriesSummary> list,
     DateTime userNow,
   ) {
-    final listCopy = List<RecurringTransaction>.from(list)
+    DateTime nextDate(RecurringSeriesSummary summary) =>
+        summary.nextOccurrenceDate ??
+        summary.transaction.getNextOccurrence(userNow);
+
+    final listCopy = List<RecurringSeriesSummary>.from(list)
       ..sort((a, b) {
-        final nextA = a.getNextOccurrence(userNow);
-        final nextB = b.getNextOccurrence(userNow);
+        final nextA = nextDate(a);
+        final nextB = nextDate(b);
         return nextA.compareTo(nextB);
       });
 
-    final dueIn7Days = <RecurringTransaction>[];
-    final dueThisMonth = <RecurringTransaction>[];
-    final dueLater = <RecurringTransaction>[];
+    final dueIn7Days = <RecurringSeriesSummary>[];
+    final dueThisMonth = <RecurringSeriesSummary>[];
+    final dueLater = <RecurringSeriesSummary>[];
 
     final endOf7Days = DateTime(userNow.year, userNow.month, userNow.day)
         .add(const Duration(days: 7));
     final endOfThisMonth = DateTime(userNow.year, userNow.month + 1, 0);
 
-    for (final tx in listCopy) {
-      if (!tx.isActive) {
-        dueLater.add(tx);
+    for (final summary in listCopy) {
+      if (!summary.transaction.isActive) {
+        dueLater.add(summary);
         continue;
       }
-      final nextOccurrence = tx.getNextOccurrence(userNow);
+      final nextOccurrence = nextDate(summary);
       final nextDay = DateTime(
           nextOccurrence.year, nextOccurrence.month, nextOccurrence.day);
 
       if (nextDay.isBefore(endOf7Days) ||
           nextDay.isAtSameMomentAs(endOf7Days)) {
-        dueIn7Days.add(tx);
+        dueIn7Days.add(summary);
       } else if (nextDay.isBefore(endOfThisMonth) ||
           nextDay.isAtSameMomentAs(endOfThisMonth)) {
-        dueThisMonth.add(tx);
+        dueThisMonth.add(summary);
       } else {
-        dueLater.add(tx);
+        dueLater.add(summary);
       }
     }
 

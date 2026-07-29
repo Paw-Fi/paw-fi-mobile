@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -144,7 +145,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
         onRefresh: _refreshHistory,
         color: colorScheme.primary,
         child: membersAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const AsyncDataSkeleton(),
           error: (_, __) => Center(
             child: Material(
               child: SafeArea(
@@ -191,7 +192,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
             }
 
             return historyAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AsyncDataSkeleton(),
               error: (_, __) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

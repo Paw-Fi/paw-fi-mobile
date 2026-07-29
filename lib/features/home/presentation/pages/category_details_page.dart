@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -526,11 +527,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   (shouldLoadCompleteAggregateRows &&
                       allItemsAsync?.valueOrNull == null &&
                       (allItemsAsync?.isLoading ?? false)))
-                SliverFillRemaining(
-                  child: Center(
-                    child:
-                        CircularProgressIndicator(color: colorScheme.primary),
-                  ),
+                const SliverFillRemaining(
+                  child: AsyncDataSkeleton(rowCount: 5),
                 )
               else ...[
                 // Summary Block

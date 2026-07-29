@@ -81,4 +81,41 @@ void main() {
       isFalse,
     );
   });
+
+  test('allows submission inside reminder window with a non-future paid date',
+      () {
+    final transaction = _transaction(
+      reminderEnabled: true,
+      reminderValue: 3,
+      reminderUnit: 'days',
+    );
+
+    expect(
+      canSubmitRecurringOccurrenceConfirmationAt(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrence,
+        paidDate: DateTime(2026, 8, 23),
+        userNow: DateTime(2026, 8, 23, 9),
+      ),
+      isTrue,
+    );
+    expect(
+      canSubmitRecurringOccurrenceConfirmationAt(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrence,
+        paidDate: DateTime(2026, 8, 23),
+        userNow: DateTime(2026, 8, 22, 23, 59),
+      ),
+      isFalse,
+    );
+    expect(
+      canSubmitRecurringOccurrenceConfirmationAt(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrence,
+        paidDate: DateTime(2026, 8, 24),
+        userNow: DateTime(2026, 8, 23, 9),
+      ),
+      isFalse,
+    );
+  });
 }

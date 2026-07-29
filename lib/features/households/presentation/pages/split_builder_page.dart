@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -183,7 +184,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
             ],
           ),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AsyncDataSkeleton(),
         error: (error, stack) => Center(
           child: Text('${context.l10n.error}: $error',
               style: TextStyle(color: colorScheme.destructive)),

@@ -2,6 +2,75 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
+class MonekoSheetConfirmController extends ChangeNotifier {
+  VoidCallback? _onConfirm;
+  bool _isLoading = false;
+  bool _isDisposed = false;
+
+  bool get isLoading => _isLoading;
+
+  void attach(VoidCallback onConfirm) => _onConfirm = onConfirm;
+
+  void detach() => _onConfirm = null;
+
+  void confirm() => _onConfirm?.call();
+
+  void setLoading(bool value) {
+    if (_isDisposed || _isLoading == value) return;
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _onConfirm = null;
+    super.dispose();
+  }
+}
+
+class MonekoSheetConfirmButton extends StatelessWidget {
+  const MonekoSheetConfirmButton({
+    super.key,
+    required this.onPressed,
+    this.isLoading = false,
+  });
+
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
+      onPressed: isLoading ? null : onPressed,
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        child: isLoading
+            ? SizedBox(
+                key: const ValueKey('confirm-loading'),
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.onSurface,
+                  ),
+                ),
+              )
+            : Icon(
+                Icons.check,
+                key: const ValueKey('confirm-ready'),
+                color: colorScheme.onSurface,
+              ),
+      ),
+      style: IconButton.styleFrom(
+        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
+      ),
+    );
+  }
+}
+
 class MonekoBottomSheet {
   const MonekoBottomSheet._();
 
@@ -22,6 +91,7 @@ class MonekoBottomSheet {
     VoidCallback? onClose,
     VoidCallback? onConfirm,
     bool isConfirmLoading = false,
+    MonekoSheetConfirmController? confirmController,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -48,6 +118,7 @@ class MonekoBottomSheet {
           onClose: onClose,
           onConfirm: onConfirm,
           isConfirmLoading: isConfirmLoading,
+          confirmController: confirmController,
           colorScheme: colorScheme,
           backgroundColor: backgroundColor ?? colorScheme.sheetBackground,
         );
@@ -65,6 +136,7 @@ class _MonekoSheetContent extends StatelessWidget {
     this.onClose,
     this.onConfirm,
     this.isConfirmLoading = false,
+    this.confirmController,
   });
 
   final WidgetBuilder builder;
@@ -74,6 +146,7 @@ class _MonekoSheetContent extends StatelessWidget {
   final VoidCallback? onClose;
   final VoidCallback? onConfirm;
   final bool isConfirmLoading;
+  final MonekoSheetConfirmController? confirmController;
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +166,10 @@ class _MonekoSheetContent extends StatelessWidget {
           const ModalSheetHandle(),
 
           // Header with Circle Icons
-          if (title != null || onClose != null || onConfirm != null)
+          if (title != null ||
+              onClose != null ||
+              onConfirm != null ||
+              confirmController != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
@@ -129,25 +205,18 @@ class _MonekoSheetContent extends StatelessWidget {
                     ),
 
                   // Check Button
-                  if (onConfirm != null)
-                    IconButton(
-                      onPressed: isConfirmLoading ? null : onConfirm,
-                      icon: isConfirmLoading
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.onSurface,
-                                ),
-                              ),
-                            )
-                          : Icon(Icons.check, color: colorScheme.onSurface),
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.onSurface.withValues(alpha: 0.1),
+                  if (confirmController != null)
+                    AnimatedBuilder(
+                      animation: confirmController!,
+                      builder: (context, _) => MonekoSheetConfirmButton(
+                        onPressed: confirmController!.confirm,
+                        isLoading: confirmController!.isLoading,
                       ),
+                    )
+                  else if (onConfirm != null)
+                    MonekoSheetConfirmButton(
+                      onPressed: onConfirm,
+                      isLoading: isConfirmLoading,
                     )
                   else
                     const SizedBox(width: 48),

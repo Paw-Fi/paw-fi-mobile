@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/core.dart';
@@ -862,7 +863,11 @@ class _MultiTransactionReviewSheetState
                     ),
                   );
                 },
-                loading: () => const SizedBox(),
+                loading: () => const AsyncDataSkeleton(
+                  rowCount: 1,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                ),
                 error: (_, __) => const SizedBox(),
               ),
               const SizedBox(height: 12),
@@ -1462,18 +1467,23 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                         onTap: () async {
                           final currencyCode = _currency;
                           final symbol = resolveCurrencySymbol(currencyCode);
-                          final displayDescription = _descriptionController.text.trim();
-                          final effectiveTitle = displayDescription.isNotEmpty ? displayDescription : context.l10n.amount;
+                          final displayDescription =
+                              _descriptionController.text.trim();
+                          final effectiveTitle = displayDescription.isNotEmpty
+                              ? displayDescription
+                              : context.l10n.amount;
 
                           final header = Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
                               color: colorScheme.brightness == Brightness.dark
                                   ? Colors.white.withValues(alpha: 0.05)
                                   : Colors.black.withValues(alpha: 0.03),
                               borderRadius: BorderRadius.circular(100),
                               border: Border.all(
-                                color: colorScheme.outline.withValues(alpha: 0.08),
+                                color:
+                                    colorScheme.outline.withValues(alpha: 0.08),
                                 width: 1,
                               ),
                             ),

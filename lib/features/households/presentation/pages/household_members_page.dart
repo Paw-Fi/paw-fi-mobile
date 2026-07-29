@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:go_router/go_router.dart';
@@ -69,7 +70,7 @@ class HouseholdMembersPage extends ConsumerWidget {
             },
           ),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AsyncDataSkeleton(),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

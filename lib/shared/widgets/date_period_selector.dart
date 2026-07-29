@@ -101,6 +101,7 @@ class DatePeriodSelector extends StatefulWidget {
     this.statusForPeriod,
     this.minimumAvailableDate,
     this.onVisiblePeriodsChanged,
+    this.ringAnimationRevision = 0,
   });
 
   final HomePeriodMode mode;
@@ -111,6 +112,7 @@ class DatePeriodSelector extends StatefulWidget {
   final DatePeriodRingStatus? Function(DateTime period)? statusForPeriod;
   final DateTime? minimumAvailableDate;
   final ValueChanged<List<DateTime>>? onVisiblePeriodsChanged;
+  final int ringAnimationRevision;
 
   @override
   State<DatePeriodSelector> createState() => _DatePeriodSelectorState();
@@ -123,8 +125,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
   static const _selectedIndex = 5000;
   static const _pageAnchorIndex =
       4995; // selectedIndex - 5 (now is 6th item of page 0)
-  static const _itemCount =
-      5009; // _pageAnchorIndex + 2 * 7 (Page 1 is max future page)
+  static const _pageCount = 2; // Current page plus one future page.
   bool _hasInitialScrolled = false;
   List<DateTime>? _lastVisiblePeriods;
 
@@ -144,6 +145,10 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
       _hasInitialScrolled = false;
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _scrollToSelected(false));
+    } else if (oldWidget.minimumAvailableDate != widget.minimumAvailableDate) {
+      _lastVisiblePeriods = null;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToSelected(false));
     } else if (oldWidget.selectedDate != widget.selectedDate) {
       _ensureSelectedVisible();
     }
@@ -156,13 +161,21 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
   }
 
   double get _pageExtent => _itemExtent * 7.0;
-  double get _pageAnchorOffset => _pageAnchorIndex * _itemExtent;
 
-  double get _minimumScrollOffset {
+  int get _minimumAvailableIndex {
     final minimum = widget.minimumAvailableDate;
     if (minimum == null) return 0;
-    return _indexForDate(minimum).clamp(0, _itemCount - 1) * _itemExtent;
+    return _indexForDate(minimum).clamp(0, _selectedIndex);
   }
+
+  int get _firstPageIndex {
+    final minimumIndex = _minimumAvailableIndex;
+    return minimumIndex > _pageAnchorIndex ? minimumIndex : _pageAnchorIndex;
+  }
+
+  int get _itemCount => _firstPageIndex + _pageCount * 7;
+  double get _pageAnchorOffset => _firstPageIndex * _itemExtent;
+  double get _minimumScrollOffset => _minimumAvailableIndex * _itemExtent;
 
   int _indexForDate(DateTime date) {
     if (widget.mode == HomePeriodMode.daily) {
@@ -222,7 +235,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
 
   int _pageNumberForDate(DateTime date) {
     final itemIndex = _indexForDate(date);
-    return ((itemIndex - _pageAnchorIndex) / 7.0).floor();
+    return ((itemIndex - _firstPageIndex) / 7.0).floor();
   }
 
   void _ensureSelectedVisible() {
@@ -275,7 +288,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
     }
     final page =
         ((_scrollController.offset - _pageAnchorOffset) / _pageExtent).round();
-    final firstIndex = _pageAnchorIndex + page * 7;
+    final firstIndex = _firstPageIndex + page * 7;
     final periods = List<DateTime>.generate(
       7,
       (offset) => _periodAt(firstIndex + offset),
@@ -302,7 +315,9 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
         return Semantics(
           container: true,
           child: SizedBox(
-            height: 70,
+            // Keep dedicated space below each item so the selected period's
+            // blurred shadow remains inside the horizontal viewport.
+            height: 78,
             child: ScrollConfiguration(
               behavior: ScrollConfiguration.of(context).copyWith(
                 dragDevices: {
@@ -320,6 +335,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
                 child: ListView.builder(
                   controller: _scrollController,
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(bottom: 8),
                   physics: _DatePeriodSnapScrollPhysics(
                     pageExtent: _pageExtent,
                     pageAnchorOffset: _pageAnchorOffset,
@@ -343,6 +359,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
                                 widget.financialMonthStartDay,
                           ),
                       status: widget.statusForPeriod?.call(item),
+                      ringAnimationRevision: widget.ringAnimationRevision,
                       onTap: () => widget.onDateSelected(item),
                     );
                   },
@@ -378,6 +395,7 @@ class _PeriodItem extends StatelessWidget {
     required this.today,
     required this.enabled,
     required this.status,
+    required this.ringAnimationRevision,
     required this.onTap,
   });
 
@@ -387,6 +405,7 @@ class _PeriodItem extends StatelessWidget {
   final bool today;
   final bool enabled;
   final DatePeriodRingStatus? status;
+  final int ringAnimationRevision;
   final VoidCallback onTap;
 
   @override
@@ -529,16 +548,31 @@ class _PeriodItem extends StatelessWidget {
     }
 
     if (mode == HomePeriodMode.monthly && status != null) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween(end: status!.progress.clamp(0.0, 1.0)),
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeOutCubic,
-        builder: (context, progress, _) => CircularProgressIndicator(
-          value: progress,
-          strokeWidth: 2.5,
-          strokeCap: StrokeCap.round,
-          color: status!.color,
-          backgroundColor: colors.outline.withValues(alpha: 0.48),
+      final backgroundColor = colors.outline.withValues(alpha: 0.48);
+      return KeyedSubtree(
+        key: ValueKey(ringAnimationRevision),
+        child: TweenAnimationBuilder<Color?>(
+          tween: ColorTween(
+            begin: backgroundColor,
+            end: status!.color,
+          ),
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic,
+          builder: (context, ringColor, _) => TweenAnimationBuilder<double>(
+            tween: Tween<double>(
+              begin: 0,
+              end: status!.progress.clamp(0.0, 1.0),
+            ),
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeOutCubic,
+            builder: (context, progress, _) => CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 2.5,
+              strokeCap: StrokeCap.round,
+              color: ringColor,
+              backgroundColor: backgroundColor,
+            ),
+          ),
         ),
       );
     }
