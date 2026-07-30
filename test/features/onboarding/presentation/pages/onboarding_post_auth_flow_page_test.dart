@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -40,6 +42,22 @@ class _TestSubscriptionManagementNotifier
       ),
     );
   }
+}
+
+class _DelayedSubscriptionManagementNotifier
+    extends SubscriptionManagementNotifier {
+  _DelayedSubscriptionManagementNotifier(this.refreshCompleter);
+
+  final Completer<void> refreshCompleter;
+
+  @override
+  Future<SubscriptionDetails?> build() async => SubscriptionDetails(
+        subscription: _activeSubscription,
+        invoices: const [],
+      );
+
+  @override
+  Future<void> refresh() => refreshCompleter.future;
 }
 
 class _TestSubscriptionNotifier extends SubscriptionNotifier {
@@ -132,6 +150,48 @@ void main() {
 
     expect(find.text('Dashboard'), findsOneWidget);
     expect(prefs.getBool('onboarding_completed:u1'), true);
+  });
+
+  testWidgets(
+      'final action navigates without waiting for notification or subscription work',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsCompleter = Completer<void>();
+    final subscriptionRefreshCompleter = Completer<void>();
+
+    await _pumpPage(
+      tester,
+      prefs: prefs,
+      overrides: [
+        onboardingPostAuthNotificationsActionProvider.overrideWithValue(
+          (ref, uid) => notificationsCompleter.future,
+        ),
+        subscriptionManagementProvider.overrideWith(
+          () => _DelayedSubscriptionManagementNotifier(
+            subscriptionRefreshCompleter,
+          ),
+        ),
+      ],
+    );
+
+    final skipButton = find.text("I'll do this later");
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Turn on Notifications'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(prefs.getBool('onboarding_completed:u1'), true);
+    expect(notificationsCompleter.isCompleted, false);
+    expect(subscriptionRefreshCompleter.isCompleted, false);
+
+    notificationsCompleter.complete();
+    subscriptionRefreshCompleter.complete();
+    await tester.pump();
   });
 
   testWidgets('logging expense shows result before advancing', (tester) async {

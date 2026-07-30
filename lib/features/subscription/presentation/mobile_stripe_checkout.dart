@@ -108,9 +108,40 @@ Future<MobileStripeCheckoutResult> showMobileStripeCheckoutSheet({
   return result ?? const MobileStripeCheckoutResult.canceled();
 }
 
+MobileStripeCheckoutResult? mobileStripeCheckoutResultForNavigationUri(
+  Uri uri, {
+  String? checkoutBaseUrl,
+}) {
+  if (DeepLinks.isPaymentCallback(uri)) {
+    return MobileStripeCheckoutResult.fromCallbackUri(uri);
+  }
+
+  final configuredValue = (checkoutBaseUrl ?? Constants.checkoutBaseUrl).trim();
+  final configuredUri = Uri.tryParse(
+    configuredValue.contains('://')
+        ? configuredValue
+        : 'https://$configuredValue',
+  );
+  if (configuredUri == null ||
+      uri.host.toLowerCase() != configuredUri.host.toLowerCase() ||
+      (configuredUri.hasPort && uri.port != configuredUri.port) ||
+      uri.path != '/checkout' ||
+      uri.queryParameters['source'] != 'mobile' ||
+      uri.queryParameters['redirectUrl'] != DeepLinks.paymentCallback) {
+    return null;
+  }
+
+  final status = uri.queryParameters['status'];
+  if (status != 'success' && status != 'failed' && status != 'canceled') {
+    return null;
+  }
+  return MobileStripeCheckoutResult.fromCallbackUri(uri);
+}
+
 Future<bool> waitForMobileStripeSubscriptionActivation({
   required Future<void> Function() refreshSubscription,
   required bool Function() hasActiveSubscription,
+  Future<void> Function(Duration duration)? wait,
 }) async {
   for (var attempt = 0; attempt < 12; attempt++) {
     await refreshSubscription();
@@ -123,7 +154,12 @@ Future<bool> waitForMobileStripeSubscriptionActivation({
         : attempt < 7
             ? 2
             : 3;
-    await Future.delayed(Duration(seconds: delaySeconds));
+    final delay = Duration(seconds: delaySeconds);
+    if (wait != null) {
+      await wait(delay);
+    } else {
+      await Future.delayed(delay);
+    }
   }
 
   return false;
@@ -146,12 +182,25 @@ class _MobileStripeCheckoutSheetState
   InAppWebViewController? _controller;
   double _progress = 0;
   bool _hasLoadError = false;
+  bool _didComplete = false;
   String? _errorMessage;
 
   @override
   void dispose() {
     _controller = null;
     super.dispose();
+  }
+
+  bool _completeFromNavigationUri(Uri? uri) {
+    if (_didComplete || uri == null) return _didComplete;
+    final result = mobileStripeCheckoutResultForNavigationUri(uri);
+    if (result == null) return false;
+
+    _didComplete = true;
+    if (mounted) {
+      Navigator.of(context).pop(result);
+    }
+    return true;
   }
 
   Future<void> _reloadCheckout() async {
@@ -277,8 +326,18 @@ class _MobileStripeCheckoutSheetState
                           if (!mounted) return;
                           _controller = controller;
                         },
+                        onLoadStart: (_, url) {
+                          _completeFromNavigationUri(
+                            url == null ? null : Uri.tryParse(url.toString()),
+                          );
+                        },
+                        onUpdateVisitedHistory: (_, url, __) {
+                          _completeFromNavigationUri(
+                            url == null ? null : Uri.tryParse(url.toString()),
+                          );
+                        },
                         onProgressChanged: (_, progress) {
-                          if (!mounted) return;
+                          if (!mounted || _didComplete) return;
                           setState(() {
                             _progress = progress / 100;
                           });
@@ -294,13 +353,7 @@ class _MobileStripeCheckoutSheetState
                             return NavigationActionPolicy.ALLOW;
                           }
 
-                          if (DeepLinks.isPaymentCallback(uri)) {
-                            if (!mounted) {
-                              return NavigationActionPolicy.CANCEL;
-                            }
-                            Navigator.of(context).pop(
-                              MobileStripeCheckoutResult.fromCallbackUri(uri),
-                            );
+                          if (_completeFromNavigationUri(uri)) {
                             return NavigationActionPolicy.CANCEL;
                           }
 
@@ -314,8 +367,14 @@ class _MobileStripeCheckoutSheetState
 
                           return NavigationActionPolicy.ALLOW;
                         },
-                        onReceivedError: (_, __, error) {
-                          if (!mounted) return;
+                        onReceivedError: (_, request, error) {
+                          final uri = Uri.tryParse(request.url.toString());
+                          if (_completeFromNavigationUri(uri) ||
+                              !mounted ||
+                              _didComplete ||
+                              request.isForMainFrame == false) {
+                            return;
+                          }
                           setState(() {
                             _hasLoadError = true;
                             _errorMessage = error.description;

@@ -77,12 +77,12 @@ Future<bool?> _hasSubscriptionRow(String userId) async {
   }
 }
 
-Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
-  final userId = ref.read(authProvider).uid;
+Future<bool> _ensurePostAuthTrial(ProviderContainer container) async {
+  final userId = container.read(authProvider).uid;
   if (userId.isEmpty) return false;
 
   try {
-    await ref
+    await container
         .read(subscriptionManagementProvider.notifier)
         .refresh()
         .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
@@ -90,7 +90,7 @@ Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
         '[OnboardingPostAuth] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
       );
     });
-    await ref
+    await container
         .read(subscriptionNotifierProvider.notifier)
         .refresh()
         .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
@@ -100,7 +100,7 @@ Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
     });
 
     final subscriptionDetails =
-        ref.read(subscriptionManagementProvider).valueOrNull;
+        container.read(subscriptionManagementProvider).valueOrNull;
     if (subscriptionDetails?.hasActiveSubscription ?? false) {
       return true;
     }
@@ -112,22 +112,22 @@ Future<bool> _ensurePostAuthTrial(WidgetRef ref) async {
     debugPrint(
       '[OnboardingPostAuth] No subscription detected; retrying onboarding free trial activation',
     );
-    await ref
+    await container
         .read(subscriptionManagementProvider.notifier)
         .grantPaywallReturnTrial()
         .timeout(_kTrialGrantTimeout);
-    await ref
+    await container
         .read(subscriptionManagementProvider.notifier)
         .refresh()
         .timeout(_kSubscriptionRefreshTimeout);
-    await ref
+    await container
         .read(subscriptionNotifierProvider.notifier)
         .refresh()
         .timeout(_kSubscriptionRefreshTimeout);
 
     final granted = await _hasSubscriptionRow(userId) == true;
     if (granted) {
-      final prefs = ref.read(sharedPreferencesProvider);
+      final prefs = container.read(sharedPreferencesProvider);
       await prefs.setBool(trialWelcomePendingKey(userId), true);
     }
     return granted;
@@ -223,10 +223,15 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       notificationFlowStarted.value = true;
       final uid = ref.read(authProvider).uid;
       try {
-        await ref.read(onboardingPostAuthNotificationsActionProvider)(ref, uid);
-
-        if (!context.mounted) return;
-
+        final notificationsAction =
+            ref.read(onboardingPostAuthNotificationsActionProvider);
+        unawaited(
+          notificationsAction(ref, uid).catchError((error, stackTrace) {
+            debugPrint(
+              '[OnboardingPostAuth] Notification setup failed: $error\n$stackTrace',
+            );
+          }),
+        );
         notificationFlowCompleted.value = true;
         await showFinishPage();
       } finally {
@@ -441,21 +446,8 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   }
 
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
-      if (!fromSettings) {
-        final hasRequiredSubscription = await _ensurePostAuthTrial(ref);
-        if (!hasRequiredSubscription) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content:
-                      Text(context.l10n.onboardingPreparingBodyErrorRetry)),
-            );
-          }
-          return;
-        }
-      }
-
       await _markOnboardingCompleted(ref);
     } catch (error, stackTrace) {
       debugPrint(
@@ -475,6 +467,13 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       return;
     }
     context.go('/dashboard');
+    unawaited(_ensurePostAuthTrial(container).then((granted) {
+      if (!granted) {
+        debugPrint(
+          '[OnboardingPostAuth] Trial setup did not complete; subscription state will retry through normal app refreshes',
+        );
+      }
+    }));
   }
 }
 

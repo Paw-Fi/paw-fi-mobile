@@ -223,6 +223,7 @@ class PlusLockedSheet extends HookConsumerWidget {
             notActivatedMessage: context.l10n.paywallErrorNotActivated,
             refreshSubscription: () async {
               await ref.read(subscriptionManagementProvider.notifier).refresh();
+              await ref.read(subscriptionNotifierProvider.notifier).refresh();
             },
             hasActiveSubscription: () {
               final latestSubscription = ref

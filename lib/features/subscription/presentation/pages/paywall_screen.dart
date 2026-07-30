@@ -181,6 +181,12 @@ class PaywallScreen extends HookConsumerWidget {
           '| source=$source provider=$provider option=${option.id} '
           'mounted=${context.mounted}',
         );
+        if (provider == 'stripe') {
+          AppToast.success(
+            context,
+            context.l10n.paymentSuccessfulCheckingSubscription,
+          );
+        }
         context.go('/dashboard');
       } else {
         _debugLog(
@@ -760,6 +766,7 @@ class PaywallScreen extends HookConsumerWidget {
       final isActive = await waitForMobileStripeSubscriptionActivation(
         refreshSubscription: () async {
           await ref.read(subscriptionManagementProvider.notifier).refresh();
+          await ref.read(subscriptionNotifierProvider.notifier).refresh();
         },
         hasActiveSubscription: () {
           final subscriptionData = ref

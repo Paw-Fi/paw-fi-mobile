@@ -70,13 +70,13 @@ final onboardingPostAuthNotificationsActionProvider =
 
 Future<void> _defaultNotificationsAction(WidgetRef ref, String uid) async {
   final prefs = ref.read(sharedPreferencesProvider);
+  final deviceRegistration = ref.read(deviceRegistrationServiceProvider);
   final promptedKey = '$_kNotificationsPromptedPrefix$uid';
   final prompted = prefs.getBool(promptedKey) ?? false;
   if (!prompted) {
     await prefs.setBool(promptedKey, true);
   }
 
-  final deviceRegistration = ref.read(deviceRegistrationServiceProvider);
   try {
     await deviceRegistration.initialize();
   } catch (_) {}
