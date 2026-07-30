@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
@@ -41,7 +44,12 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
 
   @override
   Widget build(BuildContext context) {
-    final userId = ref.watch(authProvider.select((user) => user.uid));
+    final authenticatedUserId =
+        ref.watch(authProvider.select((user) => user.uid));
+    final previewMode = ref.watch(previewModeProvider);
+    final userId = previewMode.isActive
+        ? PreviewMockData.contact.userId ?? 'preview-user'
+        : authenticatedUserId;
     if (userId.isEmpty) return const SizedBox.shrink();
     final state = ref.watch(homePeriodSelectionProvider(userId));
     final now = ref.watch(homePeriodNowProvider);
@@ -54,9 +62,25 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
     );
     final includeRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
-    final accountCreatedAt = DateTime.tryParse(
-      ref.read(supabaseClientProvider).auth.currentUser?.createdAt ?? '',
-    )?.toLocal();
+    final accountCreatedAt = previewMode.isActive
+        ? null
+        : DateTime.tryParse(
+            ref.read(supabaseClientProvider).auth.currentUser?.createdAt ?? '',
+          )?.toLocal();
+    final previewCurrentCycle = financialCycleStartForDate(
+      now,
+      startDay: financialStartDay,
+    );
+    final previewFirstCycle = addFinancialCycles(
+      previewCurrentCycle,
+      -5,
+      startDay: financialStartDay,
+    );
+    final previewFutureCycle = addFinancialCycles(
+      previewCurrentCycle,
+      1,
+      startDay: financialStartDay,
+    );
     final visiblePeriods = ref.watch(homePeriodVisiblePeriodsProvider);
     final periodsToLoad = visiblePeriods.isEmpty
         ? homePeriodItems(
@@ -76,6 +100,16 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
           now: now,
           financialMonthStartDay: financialStartDay,
         )) {
+          continue;
+        }
+        if (previewMode.isActive) {
+          statusByPeriod[period] = _statusForProgress(
+            context,
+            PreviewMockData.dashboardBudgetProgressForPeriod(
+              period,
+              currentPeriod: previewCurrentCycle,
+            ),
+          );
           continue;
         }
         final pockets = ref.watch(pocketsProvider(_scopeParams(
@@ -104,7 +138,17 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
             ? (period) =>
                 statusByPeriod[period] ?? _statusForProgress(context, 0)
             : null,
-        minimumAvailableDate: accountCreatedAt,
+        minimumAvailableDate:
+            previewMode.isActive ? previewFirstCycle : accountCreatedAt,
+        // Use financial-cycle boundaries rather than calendar-day offsets.
+        // Otherwise, a future cycle beginning after today's day-of-month is
+        // incorrectly marked unavailable for users with custom cycle starts.
+        maximumAvailableDate: previewMode.isActive
+            ? financialCycleForMonth(
+                previewFutureCycle,
+                startDay: financialStartDay,
+              ).end
+            : null,
         ringAnimationRevision: _ringAnimationRevision,
         onVisiblePeriodsChanged: (periods) {
           ref.read(homePeriodVisiblePeriodsProvider.notifier).state = periods;

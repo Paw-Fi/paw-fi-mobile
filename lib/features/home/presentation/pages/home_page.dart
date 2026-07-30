@@ -301,8 +301,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedCurrencies = ref.watch(
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
-    final userId = ref.watch(authProvider.select((user) => user.uid));
+    final authenticatedUserId =
+        ref.watch(authProvider.select((user) => user.uid));
     final previewMode = ref.watch(previewModeProvider);
+    final userId = previewMode.isActive
+        ? PreviewMockData.contact.userId ?? 'preview-user'
+        : authenticatedUserId;
     final previewAnalyticsState = ref.watch(
       analyticsProvider.select(
         (state) => (

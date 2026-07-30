@@ -25,12 +25,16 @@ class _DatePeriodSnapScrollPhysics extends ScrollPhysics {
     required this.pageExtent,
     required this.pageAnchorOffset,
     required this.minimumScrollOffset,
+    required this.dragStartOffset,
     super.parent,
   });
 
   final double pageExtent;
   final double pageAnchorOffset;
   final double minimumScrollOffset;
+  final double? Function() dragStartOffset;
+
+  static const _pageChangeThreshold = 0.6;
 
   @override
   _DatePeriodSnapScrollPhysics applyTo(ScrollPhysics? ancestor) {
@@ -38,6 +42,7 @@ class _DatePeriodSnapScrollPhysics extends ScrollPhysics {
       pageExtent: pageExtent,
       pageAnchorOffset: pageAnchorOffset,
       minimumScrollOffset: minimumScrollOffset,
+      dragStartOffset: dragStartOffset,
       parent: buildParent(ancestor),
     );
   }
@@ -58,8 +63,11 @@ class _DatePeriodSnapScrollPhysics extends ScrollPhysics {
       tolerance: tolerance,
     );
     final endPixels = simulation.x(double.infinity);
-    final relativeEnd = endPixels - pageAnchorOffset;
-    final pageNumber = (relativeEnd / pageExtent).roundToDouble();
+    final startOffset = dragStartOffset();
+    final pageNumber = startOffset != null &&
+            (endPixels - startOffset).abs() < pageExtent * _pageChangeThreshold
+        ? ((startOffset - pageAnchorOffset) / pageExtent).roundToDouble()
+        : ((endPixels - pageAnchorOffset) / pageExtent).roundToDouble();
     final targetPixels = pageAnchorOffset + pageNumber * pageExtent;
 
     final clampedTarget = targetPixels.clamp(
@@ -100,6 +108,7 @@ class DatePeriodSelector extends StatefulWidget {
     required this.onDateSelected,
     this.statusForPeriod,
     this.minimumAvailableDate,
+    this.maximumAvailableDate,
     this.onVisiblePeriodsChanged,
     this.ringAnimationRevision = 0,
   });
@@ -111,6 +120,7 @@ class DatePeriodSelector extends StatefulWidget {
   final ValueChanged<DateTime> onDateSelected;
   final DatePeriodRingStatus? Function(DateTime period)? statusForPeriod;
   final DateTime? minimumAvailableDate;
+  final DateTime? maximumAvailableDate;
   final ValueChanged<List<DateTime>>? onVisiblePeriodsChanged;
   final int ringAnimationRevision;
 
@@ -128,6 +138,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
   static const _pageCount = 2; // Current page plus one future page.
   bool _hasInitialScrolled = false;
   List<DateTime>? _lastVisiblePeriods;
+  double? _dragStartOffset;
 
   @override
   void initState() {
@@ -145,7 +156,8 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
       _hasInitialScrolled = false;
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _scrollToSelected(false));
-    } else if (oldWidget.minimumAvailableDate != widget.minimumAvailableDate) {
+    } else if (oldWidget.minimumAvailableDate != widget.minimumAvailableDate ||
+        oldWidget.maximumAvailableDate != widget.maximumAvailableDate) {
       _lastVisiblePeriods = null;
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _scrollToSelected(false));
@@ -173,7 +185,13 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
     return minimumIndex > _pageAnchorIndex ? minimumIndex : _pageAnchorIndex;
   }
 
-  int get _itemCount => _firstPageIndex + _pageCount * 7;
+  int get _maximumAvailableIndex {
+    final maximum = widget.maximumAvailableDate;
+    if (maximum == null) return _firstPageIndex + _pageCount * 7 - 1;
+    return _indexForDate(maximum).clamp(_firstPageIndex, _selectedIndex + 9999);
+  }
+
+  int get _itemCount => _maximumAvailableIndex + 1;
   double get _pageAnchorOffset => _firstPageIndex * _itemExtent;
   double get _minimumScrollOffset => _minimumAvailableIndex * _itemExtent;
 
@@ -327,9 +345,15 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
                   PointerDeviceKind.stylus,
                 },
               ),
-              child: NotificationListener<ScrollEndNotification>(
-                onNotification: (_) {
-                  _notifyVisiblePeriods();
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification &&
+                      notification.dragDetails != null) {
+                    _dragStartOffset = notification.metrics.pixels;
+                  } else if (notification is ScrollEndNotification) {
+                    _notifyVisiblePeriods();
+                    _dragStartOffset = null;
+                  }
                   return false;
                 },
                 child: ListView.builder(
@@ -340,6 +364,7 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
                     pageExtent: _pageExtent,
                     pageAnchorOffset: _pageAnchorOffset,
                     minimumScrollOffset: _minimumScrollOffset,
+                    dragStartOffset: () => _dragStartOffset,
                   ),
                   itemExtent: _itemExtent,
                   itemCount: _itemCount,
@@ -374,16 +399,28 @@ class _DatePeriodSelectorState extends State<DatePeriodSelector> {
 
   bool _isAvailable(DateTime period) {
     final minimum = widget.minimumAvailableDate;
-    if (minimum == null) return true;
-    final firstAvailableDay = normalizeHomePeriodDate(minimum);
-    if (widget.mode == HomePeriodMode.daily) {
-      return !normalizeHomePeriodDate(period).isBefore(firstAvailableDay);
+    final maximum = widget.maximumAvailableDate;
+    final cycle = widget.mode == HomePeriodMode.monthly
+        ? financialCycleForMonth(
+            period,
+            startDay: widget.financialMonthStartDay,
+          )
+        : null;
+    if (minimum != null) {
+      final firstAvailableDay = normalizeHomePeriodDate(minimum);
+      final isBeforeMinimum = widget.mode == HomePeriodMode.daily
+          ? normalizeHomePeriodDate(period).isBefore(firstAvailableDay)
+          : cycle!.end.isBefore(firstAvailableDay);
+      if (isBeforeMinimum) return false;
     }
-    final cycle = financialCycleForMonth(
-      period,
-      startDay: widget.financialMonthStartDay,
-    );
-    return !cycle.end.isBefore(firstAvailableDay);
+    if (maximum != null) {
+      final lastAvailableDay = normalizeHomePeriodDate(maximum);
+      final isAfterMaximum = widget.mode == HomePeriodMode.daily
+          ? normalizeHomePeriodDate(period).isAfter(lastAvailableDay)
+          : cycle!.start.isAfter(lastAvailableDay);
+      if (isAfterMaximum) return false;
+    }
+    return true;
   }
 }
 

@@ -1,4 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -117,7 +119,12 @@ Map<String, double> calculateMomTrend({
 
 /// Month-over-month expense totals for the last 3 months
 final momTrendProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
-  final userId = ref.watch(authProvider.select((user) => user.uid));
+  final previewMode = ref.watch(previewModeProvider);
+  final authenticatedUserId =
+      ref.watch(authProvider.select((user) => user.uid));
+  final userId = previewMode.isActive
+      ? PreviewMockData.contact.userId ?? 'preview-user'
+      : authenticatedUserId;
   if (userId.isEmpty) {
     return const AsyncValue.data(<String, double>{});
   }
@@ -129,7 +136,9 @@ final momTrendProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
   final householdId = scope.activeAccountType == ActiveWalletType.personal
       ? null
       : scope.activeAccountHouseholdId;
-  final recurringExpensesAV = ref.watch(recurringExpensesProvider(householdId));
+  final recurringExpensesAV = previewMode.isActive
+      ? AsyncValue.data(PreviewMockData.recurringTransactions)
+      : ref.watch(recurringExpensesProvider(householdId));
 
   // Build last 3 financial-cycle keys.
   final now = periodSelection.selectedDate;

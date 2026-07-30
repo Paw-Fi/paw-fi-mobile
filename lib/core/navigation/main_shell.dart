@@ -1191,7 +1191,7 @@ class _PreviewModeBanner extends StatefulWidget {
 }
 
 class _PreviewModeBannerState extends State<_PreviewModeBanner> {
-  bool _expanded = true;
+  bool _expanded = false;
 
   @override
   void didUpdateWidget(covariant _PreviewModeBanner oldWidget) {

@@ -18,6 +18,68 @@ class PreviewMockData {
   static List<ExpenseEntry> get expenses =>
       _expenses.map((entry) => entry.copyWith()).toList(growable: false);
 
+  /// Six months of representative home data: five completed months and the
+  /// current month. The next month remains visible but disabled because future
+  /// transactions are not real, posted financial data. Generated IDs prevent a
+  /// period change from reusing a transaction from another mock month.
+  static List<ExpenseEntry> get dashboardExpenses => [
+        for (var monthOffset = -5; monthOffset <= 0; monthOffset++)
+          for (final entry in _expenses)
+            entry.copyWith(
+              id: '${entry.id}-month-$monthOffset',
+              date: _shiftMonthDate(entry.date, monthOffset),
+              createdAt: _shiftMonth(entry.createdAt, monthOffset),
+              updatedAt: entry.updatedAt == null
+                  ? null
+                  : _shiftMonth(entry.updatedAt!, monthOffset),
+            ),
+      ];
+
+  /// Budget consumption is deliberately varied across the preview months so
+  /// the period selector demonstrates its healthy, warning, and over-budget
+  /// states instead of rendering the same ring for every month.
+  static double dashboardBudgetProgressForPeriod(
+    DateTime period, {
+    required DateTime currentPeriod,
+  }) {
+    const progressByOffset = <int, double>{
+      -5: 0.28,
+      -4: 0.54,
+      -3: 0.79,
+      -2: 0.94,
+      -1: 0.43,
+      0: 0.68,
+    };
+    final offset = (period.year - currentPeriod.year) * 12 +
+        period.month -
+        currentPeriod.month;
+    return progressByOffset[offset] ?? 0;
+  }
+
+  static DateTime _shiftMonthDate(DateTime value, int monthOffset) {
+    final shifted = _shiftMonth(value, monthOffset);
+    return DateTime(shifted.year, shifted.month, shifted.day);
+  }
+
+  static DateTime _shiftMonth(DateTime value, int monthOffset) {
+    final firstOfTargetMonth = DateTime(value.year, value.month + monthOffset);
+    final lastDay = DateTime(
+      firstOfTargetMonth.year,
+      firstOfTargetMonth.month + 1,
+      0,
+    ).day;
+    return DateTime(
+      firstOfTargetMonth.year,
+      firstOfTargetMonth.month,
+      value.day > lastDay ? lastDay : value.day,
+      value.hour,
+      value.minute,
+      value.second,
+      value.millisecond,
+      value.microsecond,
+    );
+  }
+
   static List<DailyBudgetEntry> get budgets =>
       _budgets.map((entry) => entry.copyWith()).toList(growable: false);
 

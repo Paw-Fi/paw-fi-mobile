@@ -54,7 +54,7 @@ class PreviewDashboardDataService implements DashboardDataService {
   @override
   Future<DashboardSnapshotSummary> fetchSnapshot(
       DashboardScopeQuery query) async {
-    final expenses = PreviewMockData.expenses.where((entry) {
+    final expenses = PreviewMockData.dashboardExpenses.where((entry) {
       final matchesHousehold = query.householdId == null
           ? (entry.householdId == null || (entry.householdId?.isEmpty ?? false))
           : entry.householdId == query.householdId;
@@ -126,7 +126,7 @@ class PreviewDashboardDataService implements DashboardDataService {
   @override
   Future<List<ExpenseEntry>> fetchCalendarTransactions(
       DashboardScopeQuery query) async {
-    return PreviewMockData.expenses
+    return PreviewMockData.dashboardExpenses
         .where((entry) {
           final matchesHousehold = query.householdId == null
               ? (entry.householdId == null ||
@@ -1064,7 +1064,7 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
 ) async {
   final preview = ref.read(previewModeProvider);
   if (preview.isActive) {
-    return PreviewMockData.expenses.where((entry) {
+    return PreviewMockData.dashboardExpenses.where((entry) {
       return query.allowsCurrency(entry.currency) &&
           (query.startDate == null || !entry.date.isBefore(query.startDate!)) &&
           (query.endDate == null || !entry.date.isAfter(query.endDate!));

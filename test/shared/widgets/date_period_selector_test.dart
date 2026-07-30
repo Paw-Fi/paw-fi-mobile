@@ -47,7 +47,7 @@ void main() {
   });
 
   testWidgets(
-      'supports bidirectional dragging and snaps to 7-day page boundary',
+      'requires a deliberate drag before snapping to a 7-day page boundary',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -76,26 +76,32 @@ void main() {
 
     final initialOffset = scrollPosition.pixels;
 
-    // Drag right (swipe right) beyond half-page to snap to previous 7-day page
+    // A short drag beyond half a page remains on the current page.
     await tester.drag(listFinder, const Offset(200, 0));
+    await tester.pumpAndSettle();
+
+    expect(scrollPosition.pixels, initialOffset);
+
+    // A larger swipe advances to the previous 7-day page.
+    await tester.drag(listFinder, const Offset(250, 0));
     await tester.pumpAndSettle();
 
     expect(scrollPosition.pixels, initialOffset - pageExtent);
 
-    // Drag left (swipe left) beyond half-page to snap back to original 7-day page
-    await tester.drag(listFinder, const Offset(-200, 0));
+    // Drag left (swipe left) to snap back to the original 7-day page.
+    await tester.drag(listFinder, const Offset(-250, 0));
     await tester.pumpAndSettle();
 
     expect(scrollPosition.pixels, initialOffset);
 
     // Drag left (swipe left) to Page 1 (future 7 days)
-    await tester.drag(listFinder, const Offset(-200, 0));
+    await tester.drag(listFinder, const Offset(-250, 0));
     await tester.pumpAndSettle();
 
     expect(scrollPosition.pixels, initialOffset + pageExtent);
 
     // Attempting to drag left again cannot advance past Page 1 (maxScrollExtent)
-    await tester.drag(listFinder, const Offset(-200, 0));
+    await tester.drag(listFinder, const Offset(-250, 0));
     await tester.pumpAndSettle();
 
     expect(scrollPosition.pixels, initialOffset + pageExtent);
@@ -144,6 +150,45 @@ void main() {
 
     expect(scrollable.position.pixels, settledOffset);
     expect(find.bySemanticsLabel('Jul 25'), findsNothing);
+  });
+
+  testWidgets(
+      'preview range shows a disabled future month after five past and current months',
+      (tester) async {
+    final now = DateTime(2026, 7, 26);
+    List<DateTime>? visiblePeriods;
+    final selections = <DateTime>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DatePeriodSelector(
+            mode: HomePeriodMode.monthly,
+            selectedDate: now,
+            now: now,
+            financialMonthStartDay: 1,
+            minimumAvailableDate: DateTime(2026, 2, 26),
+            maximumAvailableDate: DateTime(2026, 8, 26),
+            onVisiblePeriodsChanged: (periods) => visiblePeriods = periods,
+            onDateSelected: selections.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(visiblePeriods, <DateTime>[
+      DateTime(2026, 2, 1),
+      DateTime(2026, 3, 1),
+      DateTime(2026, 4, 1),
+      DateTime(2026, 5, 1),
+      DateTime(2026, 6, 1),
+      DateTime(2026, 7, 1),
+      DateTime(2026, 8, 1),
+    ]);
+
+    await tester.tap(find.bySemanticsLabel('Aug, unavailable'));
+    expect(selections, isEmpty);
   });
 
   testWidgets(

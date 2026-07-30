@@ -40,7 +40,7 @@ Widget _buildDashboardSwitcher(Widget child) {
 }
 
 HomePeriodDateRange _selectedHomePeriodRange(WidgetRef ref) {
-  final userId = ref.watch(authProvider.select((user) => user.uid));
+  final userId = _dashboardUserId(ref);
   if (userId.isEmpty) {
     final now = DateTime.now();
     return HomePeriodDateRange(start: now, end: now);
@@ -278,8 +278,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     final selectedPeriod = _selectedHomePeriodRange(ref);
     final currentRange = (selectedPeriod.start, selectedPeriod.end);
     final selectedMode = ref.watch(
-      homePeriodSelectionProvider(
-              ref.watch(authProvider.select((user) => user.uid)))
+      homePeriodSelectionProvider(_dashboardUserId(ref))
           .select((value) => value.mode),
     );
     final previousRange = selectedMode == HomePeriodMode.daily

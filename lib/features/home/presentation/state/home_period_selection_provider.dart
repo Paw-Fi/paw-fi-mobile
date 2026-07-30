@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 
@@ -96,9 +97,11 @@ class HomePeriodSelectionNotifier
     required HomePeriodSelectionStore store,
     required DateTime Function() now,
     required int financialMonthStartDay,
+    required bool isPreviewMode,
   })  : _store = store,
         _now = now,
         _financialMonthStartDay = financialMonthStartDay,
+        _isPreviewMode = isPreviewMode,
         super(_defaultState(now(), financialMonthStartDay)) {
     _hydrate();
   }
@@ -107,6 +110,7 @@ class HomePeriodSelectionNotifier
   final HomePeriodSelectionStore _store;
   final DateTime Function() _now;
   final int _financialMonthStartDay;
+  final bool _isPreviewMode;
   bool _hasUserSelection = false;
 
   static HomePeriodSelectionState _defaultState(DateTime now, int startDay) {
@@ -123,6 +127,10 @@ class HomePeriodSelectionNotifier
   }
 
   Future<void> _hydrate() async {
+    if (_isPreviewMode) {
+      state = state.copyWith(isHydrated: true);
+      return;
+    }
     final stored = await _store.load(userId);
     if (_hasUserSelection) return;
     if (stored == null) {
@@ -176,7 +184,9 @@ class HomePeriodSelectionNotifier
     );
     _hasUserSelection = true;
     state = next;
-    await _store.save(userId, next);
+    if (!_isPreviewMode) {
+      await _store.save(userId, next);
+    }
   }
 }
 
@@ -189,6 +199,7 @@ final homePeriodSelectionProvider = StateNotifierProvider.family<
     store: ref.read(homePeriodSelectionStoreProvider),
     now: ref.read(homePeriodClockProvider),
     financialMonthStartDay: ref.watch(homePeriodFinancialMonthStartDayProvider),
+    isPreviewMode: ref.watch(previewModeProvider).isActive,
   );
 });
 
