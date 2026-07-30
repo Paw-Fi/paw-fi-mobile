@@ -213,6 +213,9 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
                     width: 240,
                     height: 240,
                     child: PieChart(
+                      key: ValueKey(Object.hashAll(
+                        categorySummaries.map((summary) => summary.category),
+                      )),
                       PieChartData(
                         pieTouchData: PieTouchData(
                           touchCallback: (event, response) {

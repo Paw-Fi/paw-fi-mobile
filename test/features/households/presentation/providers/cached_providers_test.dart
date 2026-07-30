@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/monitoring/performance_monitor.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -43,6 +44,27 @@ void main() {
   setUp(() {
     PerformanceMonitor.reset();
     CacheInvalidator().invalidateAll();
+  });
+
+  test('recognizes only missing recurring occurrence columns for fallback', () {
+    expect(
+      isMissingRecurringOccurrenceColumnError(
+        const PostgrestException(
+          message: 'column expenses.scheduled_occurrence_date does not exist',
+          code: '42703',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      isMissingRecurringOccurrenceColumnError(
+        const PostgrestException(
+          message: 'column expenses.category does not exist',
+          code: '42703',
+        ),
+      ),
+      isFalse,
+    );
   });
 
   test(

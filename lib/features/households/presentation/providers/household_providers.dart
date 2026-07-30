@@ -35,8 +35,21 @@ import 'household_optimistic_providers.dart';
 
 const _householdEntityCacheTtl = Duration(minutes: 30);
 const _householdTransactionCacheTtl = Duration(minutes: 10);
+const _householdExpenseSelectFields =
+    'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, scheduled_occurrence_date, recurring_confirmed_at, recurring_confirmation_source, type, is_recurring, account_id';
+const _legacyHouseholdExpenseSelectFields =
+    'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, type, is_recurring, account_id';
 
 final _householdBackgroundRefreshes = <String, Future<void>>{};
+
+bool isMissingRecurringOccurrenceColumnError(Object error) {
+  if (error is! PostgrestException || error.code != '42703') return false;
+  final message =
+      '${error.message} ${error.details} ${error.hint}'.toLowerCase();
+  return message.contains('scheduled_occurrence_date') ||
+      message.contains('recurring_confirmed_at') ||
+      message.contains('recurring_confirmation_source');
+}
 
 String _userHouseholdsCacheKey(String userId) =>
     'households:user-list:v1:$userId';
@@ -1422,13 +1435,10 @@ final householdExpensesProvider = FutureProvider.autoDispose
       // Fetch expenses (RLS allows: own or any with same household membership)
       // Include ALL expenses with this household_id, regardless of split_group_id.
       // Expenses logged via WhatsApp AI bot may not have a split group yet.
-      const expenseSelectFields =
-          'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, scheduled_occurrence_date, recurring_confirmed_at, recurring_confirmation_source, type, is_recurring, account_id';
-
-      dynamic buildExpensesQuery() {
+      dynamic buildExpensesQuery(String selectFields) {
         var query = supabase
             .from('expenses')
-            .select(expenseSelectFields)
+            .select(selectFields)
             .eq('household_id', params.householdId)
             .isFilter('deleted_at', null);
 
@@ -1442,51 +1452,61 @@ final householdExpensesProvider = FutureProvider.autoDispose
         return query;
       }
 
-      List<Map<String, dynamic>> expensesList;
-      if (params.limit <= 0) {
-        const pageSize = 1000;
-        const maxPages = 200;
-        final allRows = <Map<String, dynamic>>[];
-        var offset = 0;
-        var reachedMaxPages = true;
+      Future<List<Map<String, dynamic>>> fetchExpenses(
+          String selectFields) async {
+        if (params.limit <= 0) {
+          const pageSize = 1000;
+          const maxPages = 200;
+          final allRows = <Map<String, dynamic>>[];
+          var offset = 0;
+          var reachedMaxPages = true;
 
-        for (var page = 0; page < maxPages; page++) {
-          final response = await buildExpensesQuery()
-              .order('date', ascending: false)
-              .order('created_at', ascending: false)
-              .order('id', ascending: false)
-              .range(offset, offset + pageSize - 1)
-              .timeout(timeout);
-          final batch = (response as List).cast<Map<String, dynamic>>();
-          if (batch.isEmpty) {
-            reachedMaxPages = false;
-            break;
+          for (var page = 0; page < maxPages; page++) {
+            final response = await buildExpensesQuery(selectFields)
+                .order('date', ascending: false)
+                .order('created_at', ascending: false)
+                .order('id', ascending: false)
+                .range(offset, offset + pageSize - 1)
+                .timeout(timeout);
+            final batch = (response as List).cast<Map<String, dynamic>>();
+            if (batch.isEmpty) {
+              reachedMaxPages = false;
+              break;
+            }
+
+            allRows.addAll(batch);
+            if (batch.length < pageSize) {
+              reachedMaxPages = false;
+              break;
+            }
+            offset += pageSize;
           }
 
-          allRows.addAll(batch);
-          if (batch.length < pageSize) {
-            reachedMaxPages = false;
-            break;
+          if (reachedMaxPages && allRows.isNotEmpty) {
+            FirebaseCrashlytics.instance.log(
+              '⚠️ householdExpensesProvider reached max pages '
+              '(household=${params.householdId}, pages=$maxPages, pageSize=$pageSize)',
+            );
           }
-          offset += pageSize;
+
+          return allRows;
         }
 
-        if (reachedMaxPages && allRows.isNotEmpty) {
-          FirebaseCrashlytics.instance.log(
-            '⚠️ householdExpensesProvider reached max pages '
-            '(household=${params.householdId}, pages=$maxPages, pageSize=$pageSize)',
-          );
-        }
-
-        expensesList = allRows;
-      } else {
-        final response = await buildExpensesQuery()
+        final response = await buildExpensesQuery(selectFields)
             .order('date', ascending: false)
             .order('created_at', ascending: false)
             .order('id', ascending: false)
             .limit(params.limit)
             .timeout(timeout);
-        expensesList = (response as List).cast<Map<String, dynamic>>();
+        return (response as List).cast<Map<String, dynamic>>();
+      }
+
+      late final List<Map<String, dynamic>> expensesList;
+      try {
+        expensesList = await fetchExpenses(_householdExpenseSelectFields);
+      } on PostgrestException catch (error) {
+        if (!isMissingRecurringOccurrenceColumnError(error)) rethrow;
+        expensesList = await fetchExpenses(_legacyHouseholdExpenseSelectFields);
       }
 
       if (expensesList.isEmpty) {

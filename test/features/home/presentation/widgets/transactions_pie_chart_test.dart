@@ -263,4 +263,58 @@ void main() {
 
     expect(observer.pushedRoutes, hasLength(2));
   });
+
+  testWidgets('recreates the chart when the category structure changes',
+      (tester) async {
+    List<CategorySummary> summaries(int count) => [
+          for (var index = 0; index < count; index++)
+            CategorySummary(
+              category: 'category-$index',
+              amount: index + 1.0,
+              transactionCount: 1,
+              color: Colors.blue,
+            ),
+        ];
+
+    Widget buildChart(List<CategorySummary> summaries) => MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TransactionsPieChart(
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+              expenses: const [],
+              periodLabel: 'This month',
+              categorySummariesOverride: summaries,
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(buildChart(summaries(7)));
+    expect(
+      find.byKey(ValueKey(Object.hashAll([
+        'category-0',
+        'category-1',
+        'category-2',
+        'category-3',
+        'category-4',
+        'category-5',
+        'category-6',
+      ]))),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(buildChart(summaries(6)));
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(ValueKey(Object.hashAll([
+        'category-0',
+        'category-1',
+        'category-2',
+        'category-3',
+        'category-4',
+        'category-5',
+      ]))),
+      findsOneWidget,
+    );
+  });
 }
