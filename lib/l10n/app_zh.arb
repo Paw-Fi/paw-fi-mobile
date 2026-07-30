@@ -3253,7 +3253,7 @@
   "plusLockedWallets": "钱包",
   "plusLockedOnePrivateOneShared": "1 个私人 + 1 个共享",
   "plusLockedTwoWallets": "2 个钱包",
-  "expiredPlusBannerMessage": "您的 Plus 计划已过期。请订阅以继续享受 Plus 专属特权。",
+  "expiredPlusBannerMessage": "免费试用已结束。订阅低至每月 {price}。",
   "expiredSubscriptionMessage": "您的 Plus 计划已过期。请订阅以继续享受 Plus 专属特权。",
   "trialWelcomeTitle": "畅享 7 天免费 Plus 体验！",
   "trialWelcomeSubtitle": "在接下来的 7 天内免费享受所有 Plus 功能。您可以尝试：",
@@ -3426,5 +3426,11 @@
   "editMapping": "编辑映射",
   "addMapping": "添加映射",
   "logExpenseWithSiri": "使用 Siri 记录支出",
-  "siriNoSetupRequired": "无需提前设置，立即就能使用 Siri。"
+  "siriNoSetupRequired": "无需提前设置，立即就能使用 Siri。",
+  "paywallCommitmentAgreementTerms": "我同意按月支付 {price}，共支付 {months} 次。取消后不会开始下一期承诺，但当前承诺期内的剩余款项仍会继续收取。",
+  "monthlyPayments": "分 {months} 个月付款",
+  "monthlyRate": "每月价格",
+  "pricePerMo": "{price} / 月",
+  "duration": "期限",
+  "monthsCount": "{count} 个月"
 }

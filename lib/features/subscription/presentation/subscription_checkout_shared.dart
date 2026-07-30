@@ -51,7 +51,7 @@ List<PlanOption> buildPlusPlanOptions({
   final regionalMarket = regionalPricingForCountry(pricingCountry);
   final regionalSavingsPercent = calculatePlanSavingsPercent(
     monthlyPrice: regionalMarket.monthly,
-    yearlyTotal: (regionalMarket.yearly / 12).round() * 12,
+    yearlyTotal: regionalMarket.yearly,
   );
 
   String priceFor(String plan, String? billingInterval) {
@@ -192,9 +192,9 @@ List<PlanOption> buildPlusPlanOptions({
         displayPriceUsd: product.displayPriceUsd,
         originalPriceUsd: product.originalPriceUsd,
         tagline: isCommitment
-            ? 'Billed monthly for 12 months.'
+            ? '${context.l10n.paywallCommitmentBilledMonthly(12)}.'
             : product.billingInterval == 'yearly'
-                ? 'Paid upfront for 12 months.'
+                ? '${context.l10n.paywallCommitmentPaidUpfront(12)}.'
                 : product.tagline,
         isPopular: product.isPopular,
         badgeText: savingsPercent == null
@@ -228,22 +228,18 @@ List<PlanOption> buildPlusPlanOptions({
       id: 'plus_yearly',
       serverPlanId: 'plus',
       billingInterval: 'yearly',
-      name: context.l10n.paywallCommitmentAnnualPlan,
+      name: context.l10n.yearly,
       storePrice: null,
       regionalPrice: priceFor('plus', 'yearly'),
       currencyCode: regionalMarket.currencyCode,
       pricingCountry: pricingCountry,
       displayPriceUsd: Constants.subscriptionYearlyPrice,
-      tagline: context.l10n.paywallCommitmentBilledMonthly(12),
+      tagline: context.l10n.paywallCommitmentPaidUpfront(12),
       isPopular: true,
       badgeText: regionalSavingsPercent == null
           ? null
           : context.l10n.paywallBadgeSavePercent(regionalSavingsPercent),
-      isCommitment: true,
-      totalCommitmentPrice: formatRegionalPrice(
-        regionalMarket,
-        (regionalMarket.yearly / 12).round() * 12,
-      ),
+      upfrontYearlyPrice: yearlyPriceFor('plus'),
     ),
     PlanOption(
       id: 'plus_monthly',
@@ -312,7 +308,7 @@ Future<MobileStripeCheckoutResult?> startStripeCheckoutForOption({
   );
 
   if (result.isCanceled) {
-    throw Exception(paymentCanceledMessage);
+    throw PaymentCanceledException(paymentCanceledMessage);
   }
 
   if (result.isFailed) {

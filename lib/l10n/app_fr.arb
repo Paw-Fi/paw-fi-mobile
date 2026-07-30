@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "Portefeuilles",
   "plusLockedOnePrivateOneShared": "1 privé + 1 partagé",
   "plusLockedTwoWallets": "2 portefeuilles",
-  "expiredPlusBannerMessage": "Votre forfait Plus a expiré. Abonnez-vous pour continuer à profiter de ses avantages.",
+  "expiredPlusBannerMessage": "Votre essai gratuit est terminé. Abonnez-vous dès {price}/mois.",
   "expiredSubscriptionMessage": "Votre forfait Plus a expiré. Abonnez-vous pour continuer à profiter de ses avantages.",
   "trialWelcomeTitle": "Profitez de 7 jours de Plus — gratuits !",
   "trialWelcomeSubtitle": "Profitez de toutes les fonctionnalités Plus gratuitement pendant les 7 prochains jours. Voici ce que vous pouvez essayer :",
@@ -3430,5 +3430,11 @@
   "editMapping": "Modifier la correspondance",
   "addMapping": "Ajouter une correspondance",
   "logExpenseWithSiri": "Enregistrer une dépense avec Siri",
-  "siriNoSetupRequired": "Aucune configuration préalable. Utilisez Siri immédiatement."
+  "siriNoSetupRequired": "Aucune configuration préalable. Utilisez Siri immédiatement.",
+  "paywallCommitmentAgreementTerms": "J'accepte d'effectuer {months} paiements mensuels de {price}. La résiliation empêche uniquement le prochain engagement; les paiements restants de l'engagement en cours seront tout de même prélevés.",
+  "monthlyPayments": "{months} paiements mensuels",
+  "monthlyRate": "TARIF MENSUEL",
+  "pricePerMo": "{price} / mois",
+  "duration": "DURÉE",
+  "monthsCount": "{count} mois"
 }

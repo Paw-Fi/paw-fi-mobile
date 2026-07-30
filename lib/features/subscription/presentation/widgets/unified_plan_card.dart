@@ -299,7 +299,7 @@ String _resolveMainPriceText(PlanOption plan) {
 
 void _showCommitmentDetails(BuildContext context, PlanOption plan) {
   final monthlyPrice = plan.priceDisplay;
-  const commitmentTermText = '$_commitmentMonths monthly payments';
+  final commitmentTermText = context.l10n.monthlyPayments(_commitmentMonths);
 
   MonekoBottomSheet.show<void>(
     context: context,
@@ -380,7 +380,7 @@ class _CommitmentHeroCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'MONTHLY RATE',
+                      context.l10n.monthlyRate,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -390,7 +390,7 @@ class _CommitmentHeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$monthlyPrice / mo',
+                      context.l10n.pricePerMo(monthlyPrice),
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -407,7 +407,7 @@ class _CommitmentHeroCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'DURATION',
+                      context.l10n.duration,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -417,7 +417,7 @@ class _CommitmentHeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$commitmentMonths Months',
+                      context.l10n.monthsCount(commitmentMonths),
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,

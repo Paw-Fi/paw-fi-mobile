@@ -101,13 +101,15 @@ class SubscriptionDetails {
     }
 
     if (subscription!.status?.toLowerCase() == 'active' &&
-        subscription!.cancelAtPeriodEnd == true &&
-        subscription!.commitmentEnd != null) {
-      final daysLeft =
-          subscription!.commitmentEnd!.difference(DateTime.now()).inDays;
-      return daysLeft > 0
-          ? l10n.accessEndsInDays(daysLeft)
-          : l10n.subscriptionEnded;
+        subscription!.cancelAtPeriodEnd == true) {
+      final accessEnd =
+          subscription!.commitmentEnd ?? subscription!.currentPeriodEnd;
+      if (accessEnd != null) {
+        final daysLeft = accessEnd.difference(DateTime.now()).inDays;
+        return daysLeft > 0
+            ? l10n.accessEndsInDays(daysLeft)
+            : l10n.subscriptionEnded;
+      }
     }
 
     if (subscription!.status?.toLowerCase() == 'active' &&

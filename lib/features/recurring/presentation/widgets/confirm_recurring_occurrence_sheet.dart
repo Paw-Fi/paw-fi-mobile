@@ -112,6 +112,8 @@ class _LazyRecurringOccurrenceEditor extends ConsumerWidget {
               confirmedAt: value.occurrence.confirmedAt,
               confirmationSource: value.occurrence.confirmationSource,
               isSettlementLocked: value.isSettlementLocked,
+              wasSkippedBeforeConfirmation:
+                  value.occurrence.wasSkippedBeforeConfirmation,
             ),
           );
         },
@@ -665,8 +667,8 @@ class _ConfirmRecurringOccurrenceFormState
                 : const SizedBox.shrink(),
           ),
           const SizedBox(
-                    height: 18,
-                  ),
+            height: 18,
+          ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: _error == null

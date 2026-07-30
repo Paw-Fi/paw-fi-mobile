@@ -178,7 +178,7 @@ class TransactionListTile extends StatelessWidget {
           );
         }
         if (shouldShowCurrencyFlag) {
-          chips.add(_TransactionCurrencyFlagBadge(currencyCode: currency));
+          chips.add(TransactionCurrencyFlagBadge(currencyCode: currency));
         }
 
         Widget? subtitleNode;
@@ -295,8 +295,9 @@ class TransactionListTile extends StatelessWidget {
   }
 }
 
-class _TransactionCurrencyFlagBadge extends StatelessWidget {
-  const _TransactionCurrencyFlagBadge({
+class TransactionCurrencyFlagBadge extends StatelessWidget {
+  const TransactionCurrencyFlagBadge({
+    super.key,
     required this.currencyCode,
   });
 

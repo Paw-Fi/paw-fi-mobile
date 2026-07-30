@@ -3207,7 +3207,7 @@
   "plusLockedWallets": "Кошельки",
   "plusLockedOnePrivateOneShared": "1 личный + 1 общий",
   "plusLockedTwoWallets": "2 кошелька",
-  "expiredPlusBannerMessage": "Срок действия вашего плана Plus истек. Подпишитесь, чтобы продолжить пользоваться преимуществами Plus.",
+  "expiredPlusBannerMessage": "Бесплатный период завершён. Подписка от {price} в месяц.",
   "expiredSubscriptionMessage": "Срок действия вашего плана Plus истек. Подпишитесь, чтобы продолжить пользоваться преимуществами Plus.",
   "trialWelcomeTitle": "Вам доступно 7 дней Plus — бесплатно!",
   "trialWelcomeSubtitle": "Пользуйтесь всеми функциями Plus бесплатно в течение следующих 7 дней. Вот что можно попробовать:",
@@ -3380,5 +3380,11 @@
   "editMapping": "Изменить сопоставление",
   "addMapping": "Добавить сопоставление",
   "logExpenseWithSiri": "Записать расход с помощью Siri",
-  "siriNoSetupRequired": "Ничего заранее настраивать не нужно. Siri можно использовать сразу."
+  "siriNoSetupRequired": "Ничего заранее настраивать не нужно. Siri можно использовать сразу.",
+  "paywallCommitmentAgreementTerms": "Я соглашаюсь на {months} ежемесячных платежей по {price}. Отмена предотвратит только следующий период обязательств; все оставшиеся платежи за текущий период будут списаны.",
+  "monthlyPayments": "{months} ежемесячных платежей",
+  "monthlyRate": "ЕЖЕМЕСЯЧНАЯ СТАВКА",
+  "pricePerMo": "{price} / мес.",
+  "duration": "СРОК",
+  "monthsCount": "{count} месяцев"
 }

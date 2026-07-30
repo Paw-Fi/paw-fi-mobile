@@ -6,6 +6,15 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+class PaymentCanceledException implements Exception {
+  const PaymentCanceledException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 Future<MobileStripeCheckoutResult> startMobileStripeCheckout({
   required BuildContext context,
   required SupabaseClient supabaseClient,
@@ -86,7 +95,7 @@ Future<MobileStripeCheckoutResult> showMobileStripeCheckoutSheet({
     useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
-    enableDrag: true,
+    enableDrag: false,
     backgroundColor: scheme.surface.withValues(alpha: 0.0),
     builder: (_) => FractionallySizedBox(
       heightFactor: 0.96,

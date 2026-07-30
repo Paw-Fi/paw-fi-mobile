@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "Wallets",
   "plusLockedOnePrivateOneShared": "1 privat + 1 geteilt",
   "plusLockedTwoWallets": "2 Wallets",
-  "expiredPlusBannerMessage": "Dein Plus-Plan ist abgelaufen. Abonniere, um weiterhin die Plus-Vorteile zu genießen.",
+  "expiredPlusBannerMessage": "Dein kostenloser Testzeitraum ist abgelaufen. Ab {price}/Monat abonnieren.",
   "expiredSubscriptionMessage": "Dein Plus-Plan ist abgelaufen. Abonniere, um weiterhin die Plus-Vorteile zu genießen.",
   "trialWelcomeTitle": "Du erhältst 7 Tage Plus — kostenlos!",
   "trialWelcomeSubtitle": "Genieße in den nächsten 7 Tagen alle Plus-Funktionen kostenlos. Das kannst du ausprobieren:",
@@ -3430,5 +3430,11 @@
   "editMapping": "Zuordnung bearbeiten",
   "addMapping": "Zuordnung hinzufügen",
   "logExpenseWithSiri": "Ausgabe mit Siri erfassen",
-  "siriNoSetupRequired": "Keine vorherige Einrichtung nötig. Du kannst Siri sofort verwenden."
+  "siriNoSetupRequired": "Keine vorherige Einrichtung nötig. Du kannst Siri sofort verwenden.",
+  "paywallCommitmentAgreementTerms": "Ich stimme {months} monatlichen Zahlungen in Höhe von {price} zu. Eine Kündigung verhindert nur die nächste Laufzeit; alle verbleibenden Zahlungen der aktuellen Laufzeit werden weiterhin berechnet.",
+  "monthlyPayments": "{months} monatliche Zahlungen",
+  "monthlyRate": "MONATLICHER PREIS",
+  "pricePerMo": "{price} / Monat",
+  "duration": "LAUFZEIT",
+  "monthsCount": "{count} Monate"
 }

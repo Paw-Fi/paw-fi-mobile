@@ -135,6 +135,7 @@ class RecurringOccurrenceSummary {
     required this.confirmedByUserId,
     required this.createdAt,
     required this.updatedAt,
+    this.wasSkippedBeforeConfirmation = false,
   });
 
   final String id;
@@ -150,6 +151,7 @@ class RecurringOccurrenceSummary {
   final String? confirmedByUserId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final bool wasSkippedBeforeConfirmation;
 
   bool get isConfirmed => status == 'confirmed';
   bool get isSkipped => status == 'skipped';
@@ -170,6 +172,8 @@ class RecurringOccurrenceSummary {
       confirmedByUserId: json['confirmed_by_user_id']?.toString(),
       createdAt: _parseNullableDate(json['created_at']),
       updatedAt: _parseNullableDate(json['updated_at']),
+      wasSkippedBeforeConfirmation:
+          json['was_skipped_before_confirmation'] == true,
     );
   }
 }

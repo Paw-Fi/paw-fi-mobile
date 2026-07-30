@@ -23,16 +23,20 @@ String paywallAutoRenewTerms(
   required bool trialMode,
 }) {
   final period = paywallPeriodLabel(context, option);
+  final renewalPrice =
+      option.billingInterval == 'yearly' && !option.isCommitment
+          ? option.upfrontYearlyPrice ?? option.priceDisplay
+          : option.priceDisplay;
   if (trialMode && paywallPlanHasTrial(option)) {
-    return context.l10n.paywallTrialTerms(period, option.priceDisplay);
+    return context.l10n.paywallTrialTerms(period, renewalPrice);
   }
   if (option.isCommitment) {
-    return 'I agree to 12 monthly payments of ${option.priceDisplay} '
-        '(${option.totalCommitmentPrice ?? '12 payments'} total). Canceling '
-        'prevents the next commitment; all remaining payments in the current '
-        'commitment will still be charged.';
+    return context.l10n.paywallCommitmentAgreementTerms(
+      12,
+      option.priceDisplay,
+    );
   }
-  return context.l10n.paywallSubTerms(period, option.priceDisplay);
+  return context.l10n.paywallSubTerms(period, renewalPrice);
 }
 
 String paywallPrimaryActionLabel(

@@ -3274,7 +3274,7 @@
   "plusLockedWallets": "กระเป๋าเงิน",
   "plusLockedOnePrivateOneShared": "1 ส่วนตัว + 1 แชร์",
   "plusLockedTwoWallets": "2 กระเป๋าเงิน",
-  "expiredPlusBannerMessage": "แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป",
+  "expiredPlusBannerMessage": "ช่วงทดลองใช้ฟรีสิ้นสุดแล้ว สมัครได้ในราคาเริ่มต้น {price}/เดือน",
   "expiredSubscriptionMessage": "แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป",
   "trialWelcomeTitle": "รับไปเลย! ใช้งาน Plus ฟรี 7 วัน",
   "trialWelcomeSubtitle": "เพลิดเพลินกับทุกฟีเจอร์ของ Plus ได้ฟรีตลอด 7 วันนับจากนี้ นี่คือสิ่งที่คุณสามารถทดลองใช้ได้:",
@@ -3447,5 +3447,11 @@
   "editMapping": "แก้ไขการจับคู่",
   "addMapping": "เพิ่มการจับคู่",
   "logExpenseWithSiri": "บันทึกรายจ่ายด้วย Siri",
-  "siriNoSetupRequired": "ไม่ต้องตั้งค่าล่วงหน้า ใช้ Siri ได้ทันที"
+  "siriNoSetupRequired": "ไม่ต้องตั้งค่าล่วงหน้า ใช้ Siri ได้ทันที",
+  "paywallCommitmentAgreementTerms": "ฉันยอมรับการชำระเงินรายเดือนจำนวน {months} งวด งวดละ {price} การยกเลิกจะป้องกันเฉพาะการเริ่มข้อผูกมัดรอบถัดไป ส่วนยอดที่เหลือของรอบปัจจุบันยังคงถูกเรียกเก็บ",
+  "monthlyPayments": "ชำระรายเดือน {months} งวด",
+  "monthlyRate": "ราคารายเดือน",
+  "pricePerMo": "{price} / เดือน",
+  "duration": "ระยะเวลา",
+  "monthsCount": "{count} เดือน"
 }

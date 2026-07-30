@@ -1122,6 +1122,112 @@ void main() {
       expect(mutations.single.status, localMutationStatusCancelled);
     });
 
+    test('recurring occurrence updates make local summaries authoritative',
+        () async {
+      final original = _entry(
+        id: 'occurrence_1',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      await database.upsertTransactions([original]);
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: original,
+        updatedEntry: original.copyWith(amountCents: 1850),
+        clientMutationId: 'recurring:update_1',
+        operation: 'update_recurring_occurrence',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+
+      expect(await database.hasPendingTransactionUpdatesOrDeletes(), isTrue);
+      expect(await database.getPendingTransactionUpdateIds(), {'occurrence_1'});
+      final summary = await database.getMonthlySummary(
+        scopeKey: localScopeKey(userId: 'user_1', householdId: null),
+        month: DateTime(2026, 4),
+        currency: 'EUR',
+      );
+      expect(summary?.expenseCents, 1850);
+    });
+
+    test('terminal unconfirm restores actual and recurring template', () async {
+      final actual = _entry(
+        id: 'occurrence_actual',
+        userId: 'user_1',
+        amountCents: 2750,
+      );
+      final template = _entry(
+        id: 'recurring_template',
+        userId: 'user_1',
+        amountCents: 2000,
+      );
+      await database.upsertTransactions([actual, template]);
+      await database.writeOptimisticTransactionDelete(
+        entries: [actual],
+        clientMutationId: 'recurring:unconfirm_1',
+        operation: 'unconfirm_recurring_occurrence',
+        payload: const {
+          'requestBody': {'recurringId': 'recurring_template'},
+        },
+        relatedOriginalEntry: template,
+        relatedUpdatedEntry: template.copyWith(amountCents: 2200),
+      );
+
+      final mutation = (await database.getOutboxMutations()).single;
+      await database.markMutationCancelled(
+        clientMutationId: mutation.clientMutationId,
+        error: 'terminal rejection',
+      );
+      await database.markTransactionMutationExhausted(mutation: mutation);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      expect(
+        {for (final row in rows) row.id: row.amountCents},
+        {'occurrence_actual': 2750, 'recurring_template': 2000},
+      );
+    });
+
+    test('older recurring update failure cannot overwrite a newer edit',
+        () async {
+      final original = _entry(
+        id: 'overlapping_occurrence',
+        userId: 'user_1',
+        amountCents: 1000,
+      );
+      await database.upsertTransactions([original]);
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: original,
+        updatedEntry: original.copyWith(amountCents: 1500),
+        clientMutationId: 'recurring:update_old',
+        operation: 'update_recurring_occurrence',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: original.copyWith(amountCents: 1500),
+        updatedEntry: original.copyWith(amountCents: 1900),
+        clientMutationId: 'recurring:update_new',
+        operation: 'update_recurring_occurrence',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+
+      final oldMutation = (await database.getOutboxMutations()).firstWhere(
+          (mutation) => mutation.clientMutationId == 'recurring:update_old');
+      await database.markMutationCancelled(
+        clientMutationId: oldMutation.clientMutationId,
+        error: 'older terminal rejection',
+      );
+      await database.markTransactionMutationExhausted(mutation: oldMutation);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      expect(rows.single.amountCents, 1900);
+    });
+
     test('optimistic delete removes rows and can roll back', () async {
       final entry = _entry(
         id: 'expense_1',

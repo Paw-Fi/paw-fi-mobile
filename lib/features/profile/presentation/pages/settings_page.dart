@@ -1202,6 +1202,40 @@ class SettingsPage extends HookConsumerWidget {
                     ],
                   ),
 
+                  // Manage Membership
+                  _SettingsGroup(
+                    title: context.l10n.membership,
+                    children: [
+                      _SettingsTile(
+                        icon: Icons.star_outline_rounded,
+                        label: context.l10n.membership,
+                        value: subscriptionAsync.when(
+                          data: (d) {
+                            final status =
+                                d?.subscription?.status?.toLowerCase();
+                            if (status == 'trialing') {
+                              return context.l10n.trialStatus;
+                            }
+                            if (d?.hasActiveSubscription != true) {
+                              return context.l10n.free;
+                            }
+                            return d?.planDisplayName(context.l10n) ??
+                                context.l10n.plusPlan;
+                          },
+                          loading: () => '...',
+                          error: (_, __) => context.l10n.error('unknown'),
+                        ),
+                        onTap: () async {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const PlanSelectionPage(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+
                   _SettingsGroup(
                     title: context.l10n.security,
                     children: [
@@ -1720,41 +1754,6 @@ class SettingsPage extends HookConsumerWidget {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (context) => const ArchivedWalletsPage(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  // Subscription
-                  // Manage Membership
-                  _SettingsGroup(
-                    title: context.l10n.membership,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.star_outline_rounded,
-                        label: context.l10n.membership,
-                        value: subscriptionAsync.when(
-                          data: (d) {
-                            final status =
-                                d?.subscription?.status?.toLowerCase();
-                            if (status == 'trialing') {
-                              return context.l10n.trialStatus;
-                            }
-                            if (d?.hasActiveSubscription != true) {
-                              return context.l10n.free;
-                            }
-                            return d?.planDisplayName(context.l10n) ??
-                                context.l10n.plusPlan;
-                          },
-                          loading: () => '...',
-                          error: (_, __) => context.l10n.error('unknown'),
-                        ),
-                        onTap: () async {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const PlanSelectionPage(),
                             ),
                           );
                         },

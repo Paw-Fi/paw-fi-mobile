@@ -3201,7 +3201,7 @@
   "plusLockedWallets": "錢包",
   "plusLockedOnePrivateOneShared": "1 個私人 + 1 個共享",
   "plusLockedTwoWallets": "2 個錢包",
-  "expiredPlusBannerMessage": "您的 Plus 方案已過期。請訂閱以繼續享受 Plus 專屬特權。",
+  "expiredPlusBannerMessage": "免費試用已結束。訂閱最低每月 {price}。",
   "expiredSubscriptionMessage": "您的 Plus 方案已過期。請訂閱以繼續享受 Plus 專屬特權。",
   "trialWelcomeTitle": "暢享 7 天免費 Plus 體驗！",
   "trialWelcomeSubtitle": "在接下來的 7 天內免費享受所有 Plus 功能。您可以嘗試：",
@@ -3374,5 +3374,11 @@
   "editMapping": "編輯對應",
   "addMapping": "新增對應",
   "logExpenseWithSiri": "使用 Siri 記錄支出",
-  "siriNoSetupRequired": "無需事先設定，馬上就能使用 Siri。"
+  "siriNoSetupRequired": "無需事先設定，馬上就能使用 Siri。",
+  "paywallCommitmentAgreementTerms": "我同意每月支付 {price}，共支付 {months} 次。取消後不會開始下一期承諾，但目前承諾期內的剩餘款項仍會繼續收取。",
+  "monthlyPayments": "分 {months} 個月付款",
+  "monthlyRate": "每月費用",
+  "pricePerMo": "{price} / 月",
+  "duration": "期間",
+  "monthsCount": "{count} 個月"
 }

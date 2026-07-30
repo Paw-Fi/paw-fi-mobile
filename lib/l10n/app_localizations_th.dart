@@ -8999,7 +8999,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get plusLockedTwoWallets => '2 กระเป๋าเงิน';
 
   @override
-  String get expiredPlusBannerMessage => 'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
+  String expiredPlusBannerMessage(Object price) {
+    return 'ช่วงทดลองใช้ฟรีสิ้นสุดแล้ว สมัครได้ในราคาเริ่มต้น $price/เดือน';
+  }
 
   @override
   String get expiredSubscriptionMessage => 'แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป';
@@ -9570,4 +9572,30 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get siriNoSetupRequired => 'ไม่ต้องตั้งค่าล่วงหน้า ใช้ Siri ได้ทันที';
+
+  @override
+  String paywallCommitmentAgreementTerms(Object months, Object price) {
+    return 'ฉันยอมรับการชำระเงินรายเดือนจำนวน $months งวด งวดละ $price การยกเลิกจะป้องกันเฉพาะการเริ่มข้อผูกมัดรอบถัดไป ส่วนยอดที่เหลือของรอบปัจจุบันยังคงถูกเรียกเก็บ';
+  }
+
+  @override
+  String monthlyPayments(Object months) {
+    return 'ชำระรายเดือน $months งวด';
+  }
+
+  @override
+  String get monthlyRate => 'ราคารายเดือน';
+
+  @override
+  String pricePerMo(Object price) {
+    return '$price / เดือน';
+  }
+
+  @override
+  String get duration => 'ระยะเวลา';
+
+  @override
+  String monthsCount(Object count) {
+    return '$count เดือน';
+  }
 }

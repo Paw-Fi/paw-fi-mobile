@@ -42,14 +42,6 @@ class PlanOption {
     this.upfrontYearlyPrice,
   });
 
-  String get periodDisplay {
-    if (billingInterval == 'monthly') return '/month';
-    if (billingInterval == 'yearly') {
-      return '/month';
-    }
-    return 'once';
-  }
-
   String get priceDisplay {
     if (storePrice != null && storePrice!.isNotEmpty) {
       return storePrice!;

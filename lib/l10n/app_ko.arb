@@ -3060,7 +3060,7 @@
   "plusLockedWallets": "지갑",
   "plusLockedOnePrivateOneShared": "개인 1개 + 공유 1개",
   "plusLockedTwoWallets": "지갑 2개",
-  "expiredPlusBannerMessage": "Plus 요금제가 만료되었습니다. Plus 혜택을 계속 이용하려면 구독해 주세요.",
+  "expiredPlusBannerMessage": "무료 체험이 종료되었어요. 월 {price}부터 구독하세요.",
   "expiredSubscriptionMessage": "Plus 요금제가 만료되었습니다. Plus 혜택을 계속 이용하려면 구독해 주세요.",
   "trialWelcomeTitle": "7일간 Plus 혜택이 무료로 제공됩니다!",
   "trialWelcomeSubtitle": "앞으로 7일 동안 모든 Plus 기능을 무료로 즐겨보세요. 사용 가능한 기능은 다음과 같습니다:",
@@ -3243,5 +3243,11 @@
   "editMapping": "매핑 수정",
   "addMapping": "매핑 추가",
   "logExpenseWithSiri": "Siri로 지출 기록",
-  "siriNoSetupRequired": "별도 설정 없이 바로 Siri를 사용할 수 있어요."
+  "siriNoSetupRequired": "별도 설정 없이 바로 Siri를 사용할 수 있어요.",
+  "paywallCommitmentAgreementTerms": "매월 {price}씩 {months}회 결제하는 데 동의합니다. 취소하면 다음 약정은 시작되지 않지만, 현재 약정의 남은 금액은 계속 청구됩니다.",
+  "monthlyPayments": "월 {months}회 결제",
+  "monthlyRate": "월 요금",
+  "pricePerMo": "월 {price}",
+  "duration": "기간",
+  "monthsCount": "{count}개월"
 }

@@ -3256,7 +3256,7 @@
   "plusLockedWallets": "Ví",
   "plusLockedOnePrivateOneShared": "1 cá nhân + 1 chia sẻ",
   "plusLockedTwoWallets": "2 ví",
-  "expiredPlusBannerMessage": "Gói Plus của bạn đã hết hạn. Đăng ký để tiếp tục tận hưởng các quyền lợi Plus.",
+  "expiredPlusBannerMessage": "Thời gian dùng thử đã kết thúc. Đăng ký chỉ từ {price}/tháng.",
   "expiredSubscriptionMessage": "Gói Plus của bạn đã hết hạn. Đăng ký để tiếp tục tận hưởng các quyền lợi Plus.",
   "trialWelcomeTitle": "Tặng bạn 7 ngày dùng Plus — hoàn toàn miễn phí!",
   "trialWelcomeSubtitle": "Tận hưởng miễn phí mọi tính năng của Plus trong 7 ngày tới. Dưới đây là những gì bạn có thể thử nghiệm:",
@@ -3429,5 +3429,11 @@
   "editMapping": "Chỉnh sửa ánh xạ",
   "addMapping": "Thêm ánh xạ",
   "logExpenseWithSiri": "Ghi lại khoản chi bằng Siri",
-  "siriNoSetupRequired": "Không cần thiết lập trước. Bạn có thể dùng Siri ngay."
+  "siriNoSetupRequired": "Không cần thiết lập trước. Bạn có thể dùng Siri ngay.",
+  "paywallCommitmentAgreementTerms": "Tôi đồng ý thanh toán {months} tháng, mỗi tháng {price}. Việc hủy chỉ ngăn kỳ cam kết tiếp theo; các khoản còn lại trong kỳ hiện tại vẫn sẽ được tính phí.",
+  "monthlyPayments": "{months} khoản thanh toán hằng tháng",
+  "monthlyRate": "MỨC PHÍ HẰNG THÁNG",
+  "pricePerMo": "{price} / tháng",
+  "duration": "THỜI HẠN",
+  "monthsCount": "{count} tháng"
 }

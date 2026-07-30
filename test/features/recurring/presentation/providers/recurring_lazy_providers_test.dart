@@ -23,6 +23,18 @@ void main() {
     await database.close();
   });
 
+  test('occurrence summary preserves pre-confirmation skip provenance', () {
+    final occurrence = RecurringOccurrenceSummary.fromJson(const {
+      'id': 'occurrence-1',
+      'recurring_id': 'recurring-1',
+      'scheduled_occurrence_date': '2026-07-01',
+      'status': 'confirmed',
+      'was_skipped_before_confirmation': true,
+    });
+
+    expect(occurrence.wasSkippedBeforeConfirmation, isTrue);
+  });
+
   test('uncached series remains loading until the remote response resolves',
       () async {
     final response = Completer<dynamic>();

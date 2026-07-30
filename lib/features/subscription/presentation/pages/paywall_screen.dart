@@ -736,7 +736,7 @@ class PaywallScreen extends HookConsumerWidget {
       );
 
       if (result.isCanceled) {
-        throw Exception(paymentCanceledMessage);
+        throw PaymentCanceledException(paymentCanceledMessage);
       }
 
       if (result.isFailed) {
@@ -894,7 +894,8 @@ class PaywallScreen extends HookConsumerWidget {
 
           final raw = e.toString();
           final lower = raw.toLowerCase();
-          final isCanceled = lower.contains('cancel');
+          final isCanceled =
+              e is PaymentCanceledException || lower.contains('cancel');
           final isManagedInApp =
               lower.contains('subscription_managed_in_app') ||
                   lower.contains('managed through an in-app purchase');

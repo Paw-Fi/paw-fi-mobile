@@ -3249,7 +3249,7 @@
   "plusLockedWallets": "Гаманці",
   "plusLockedOnePrivateOneShared": "1 особистий + 1 спільний",
   "plusLockedTwoWallets": "2 гаманці",
-  "expiredPlusBannerMessage": "Термін дії вашого плану Plus закінчився. Оформіть підписку, щоб продовжити користуватися перевагами Plus.",
+  "expiredPlusBannerMessage": "Безкоштовний період завершено. Підписка від {price} на місяць.",
   "expiredSubscriptionMessage": "Термін дії вашого плану Plus закінчився. Оформіть підписку, щоб продовжити користуватися перевагами Plus.",
   "trialWelcomeTitle": "Отримайте 7 днів Plus — безкоштовно!",
   "trialWelcomeSubtitle": "Користуйтеся всіма функціями Plus безкоштовно протягом наступних 7 днів. Ось що ви можете спробувати:",
@@ -3422,5 +3422,11 @@
   "editMapping": "Змінити зіставлення",
   "addMapping": "Додати зіставлення",
   "logExpenseWithSiri": "Записати витрату за допомогою Siri",
-  "siriNoSetupRequired": "Нічого заздалегідь налаштовувати не потрібно. Siri можна використовувати одразу."
+  "siriNoSetupRequired": "Нічого заздалегідь налаштовувати не потрібно. Siri можна використовувати одразу.",
+  "paywallCommitmentAgreementTerms": "Я погоджуюся на {months} щомісячних платежів по {price}. Скасування запобігатиме лише наступному періоду зобов'язань; усі решта платежів за поточний період усе одно буде стягнуто.",
+  "monthlyPayments": "{months} щомісячних платежів",
+  "monthlyRate": "ЩОМІСЯЧНА ВАРТІСТЬ",
+  "pricePerMo": "{price} / міс.",
+  "duration": "ТРИВАЛІСТЬ",
+  "monthsCount": "{count} місяців"
 }

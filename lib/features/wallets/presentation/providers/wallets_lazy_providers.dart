@@ -39,20 +39,24 @@ final walletsRefreshSignalProvider = StateProvider<int>((ref) => 0);
 class _WalletsPageStateCacheGeneration {
   const _WalletsPageStateCacheGeneration({
     required this.wallets,
+    required this.recurringMutations,
   });
 
   final int wallets;
+  final int recurringMutations;
 
-  bool get isInitial => wallets == 0;
+  bool get isInitial => wallets == 0 && recurringMutations == 0;
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is _WalletsPageStateCacheGeneration && other.wallets == wallets;
+        other is _WalletsPageStateCacheGeneration &&
+            other.wallets == wallets &&
+            other.recurringMutations == recurringMutations;
   }
 
   @override
-  int get hashCode => wallets.hashCode;
+  int get hashCode => Object.hash(wallets, recurringMutations);
 }
 
 final _walletsPageStateSessionCacheGenerationsProvider =
@@ -73,6 +77,7 @@ void clearWalletsPageStateMemoryCaches(Ref ref) {
 _WalletsPageStateCacheGeneration _readWalletsPageStateCacheGeneration(Ref ref) {
   return _WalletsPageStateCacheGeneration(
     wallets: ref.read(walletsRefreshSignalProvider),
+    recurringMutations: ref.read(walletsRecurringMutationSignalProvider),
   );
 }
 
@@ -405,9 +410,11 @@ class WalletsPageStateNotifier
     _scheduleLocalDatabaseReadyRefresh();
     final cacheGeneration = _WalletsPageStateCacheGeneration(
       wallets: ref.watch(walletsRefreshSignalProvider),
+      recurringMutations: ref.watch(walletsRecurringMutationSignalProvider),
     );
     final bypassPersistedCache =
-        ref.watch(walletsPageStatePersistedCacheBypassProvider) > 0;
+        ref.watch(walletsPageStatePersistedCacheBypassProvider) > 0 ||
+            !cacheGeneration.isInitial;
     final shouldScheduleBackgroundRefresh =
         ref.read(dashboardRefreshSignalProvider) == 0 &&
             ref.read(transactionsFeedRefreshSignalProvider) == 0;
@@ -722,8 +729,11 @@ class WalletsPageStateNotifier
       lastResolvedSelectedMonthStart: selectedMonth,
       financialMonthStartDay: _query.financialMonthStartDay,
     );
-    final overlaidInitialState =
-        await _overlayPendingLocalWalletPageState(initialState);
+    final overlaidInitialState = await _overlayPendingLocalWalletPageState(
+      initialState,
+      includeDatabasePending:
+          ref.read(walletsRecurringMutationSignalProvider) == 0,
+    );
     _storePageState(initialState);
     trace.mark('initial-state-ready', {'snapshotCount': 1});
 
@@ -1085,12 +1095,14 @@ class WalletsPageStateNotifier
   Future<WalletsPageState> _overlayPendingLocalWalletPageState(
     WalletsPageState cachedState, {
     List<ExpenseEntry>? inMemoryOptimisticTransactions,
+    bool includeDatabasePending = true,
   }) async {
     final history = await _overlayPendingLocalWalletHistory(
       ref,
       _query,
       cachedState.history,
       inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
+      includeDatabasePending: includeDatabasePending,
     );
     final snapshots = <DateTime, WalletsMonthSnapshot>{};
     for (final entry in cachedState.cachedSnapshotsByMonth.entries) {
@@ -1099,6 +1111,7 @@ class WalletsPageStateNotifier
         WalletsMonthQuery(scope: _query, monthStart: entry.key),
         entry.value,
         inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
+        includeDatabasePending: includeDatabasePending,
       );
     }
     return cachedState.copyWith(
@@ -1431,6 +1444,7 @@ Future<List<RecurringTransaction>> _fetchScopedRecurringTransactions(
     userId: query.userId,
     scope: scope,
     householdId: query.householdId,
+    localDatabase: ref.read(localDatabaseProvider).valueOrNull,
   ).then((transactions) {
     trace.mark('recurring-fetch-success', {'count': transactions.length});
     return transactions;
@@ -1443,6 +1457,7 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
   DateTime? startDate,
   required DateTime endInclusive,
   List<ExpenseEntry>? inMemoryOptimisticTransactions,
+  bool includeDatabasePending = true,
 }) async {
   if (query.userId.trim().isEmpty) {
     return const <ExpenseEntry>[];
@@ -1451,6 +1466,8 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
   final List<ExpenseEntry> inMemoryOptimistic =
       inMemoryOptimisticTransactions ??
           ref.read(_walletsInMemoryOptimisticTransactionsProvider(query));
+
+  if (!includeDatabasePending) return inMemoryOptimistic;
 
   try {
     final database = ref.read(localDatabaseProvider).valueOrNull;
@@ -1515,6 +1532,7 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
   WalletsScopeQuery query,
   WalletsHistorySummary history, {
   List<ExpenseEntry>? inMemoryOptimisticTransactions,
+  bool includeDatabasePending = true,
 }) async {
   final now = _walletProjectionNow(ref);
   final pendingTransactions = await _loadPendingLocalWalletTransactions(
@@ -1522,6 +1540,7 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
     query,
     endInclusive: now,
     inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
+    includeDatabasePending: includeDatabasePending,
   );
   if (pendingTransactions.isEmpty) {
     return history;
@@ -1565,12 +1584,14 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   WalletsMonthQuery query,
   WalletsMonthSnapshot snapshot, {
   List<ExpenseEntry>? inMemoryOptimisticTransactions,
+  bool includeDatabasePending = true,
 }) async {
   final pendingTransactions = await _loadPendingLocalWalletTransactions(
     ref,
     query.scope,
     endInclusive: snapshot.monthEndExclusive.subtract(const Duration(days: 1)),
     inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
+    includeDatabasePending: includeDatabasePending,
   );
   if (pendingTransactions.isEmpty) {
     return snapshot;

@@ -3204,7 +3204,7 @@
   "plusLockedWallets": "Portemonnees",
   "plusLockedOnePrivateOneShared": "1 privé + 1 gedeeld",
   "plusLockedTwoWallets": "2 portemonnees",
-  "expiredPlusBannerMessage": "Je Plus-abonnement is verlopen. Abonneer je om te blijven genieten van Plus-voordelen.",
+  "expiredPlusBannerMessage": "Je gratis proefperiode is afgelopen. Abonneer je vanaf {price}/maand.",
   "expiredSubscriptionMessage": "Je Plus-abonnement is verlopen. Abonneer je om te blijven genieten van Plus-voordelen.",
   "trialWelcomeTitle": "Je hebt 7 dagen Plus gekregen — gratis!",
   "trialWelcomeSubtitle": "Geniet de komende 7 dagen kosteloos van alle Plus-functies. Dit is wat je kunt proberen:",
@@ -3377,5 +3377,11 @@
   "editMapping": "Toewijzing bewerken",
   "addMapping": "Toewijzing toevoegen",
   "logExpenseWithSiri": "Uitgave registreren met Siri",
-  "siriNoSetupRequired": "Je hoeft niets vooraf in te stellen. Gebruik Siri meteen."
+  "siriNoSetupRequired": "Je hoeft niets vooraf in te stellen. Gebruik Siri meteen.",
+  "paywallCommitmentAgreementTerms": "Ik ga akkoord met {months} maandelijkse betalingen van {price}. Opzeggen voorkomt alleen de volgende looptijd; alle resterende betalingen binnen de huidige looptijd worden nog in rekening gebracht.",
+  "monthlyPayments": "{months} maandelijkse betalingen",
+  "monthlyRate": "MAANDTARIEF",
+  "pricePerMo": "{price} / maand",
+  "duration": "LOOPTIJD",
+  "monthsCount": "{count} maanden"
 }

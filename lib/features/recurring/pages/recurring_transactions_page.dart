@@ -19,6 +19,7 @@ import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
@@ -485,6 +486,13 @@ class _RecurringTransactionsPageState
     final activeTransactions = transactions.where((t) => t.isActive).toList();
     final totalCommitted =
         _calculateTotalMonthlyCommitted(transactions, baseCurrency, rateTable);
+    final currencyTotals = _calculateMonthlyCommittedByCurrency(transactions);
+    final hasMultipleSelectedCurrencies =
+        (ref.read(homeFilterProvider).normalizedSelectedCurrencies?.length ??
+                0) >
+            1;
+    final shouldShowCurrencyBreakdown =
+        hasMultipleSelectedCurrencies && currencyTotals.isNotEmpty;
 
     // Build summary card
     final summaryCardSliver = SliverToBoxAdapter(
@@ -496,12 +504,9 @@ class _RecurringTransactionsPageState
           currencyCode: baseCurrency,
           activeCount: activeTransactions.length,
           isIncome: type == 'income',
-          hasMultipleCurrencies: (ref
-                      .read(homeFilterProvider)
-                      .normalizedSelectedCurrencies
-                      ?.length ??
-                  0) >
-              1,
+          currencyTotals: currencyTotals,
+          rateTable: rateTable,
+          showCurrencyBreakdown: shouldShowCurrencyBreakdown,
         ),
       ),
     );
@@ -521,6 +526,7 @@ class _RecurringTransactionsPageState
                   nextOccurrenceDate: summary.nextOccurrenceDate,
                   latestActionableOccurrenceDate:
                       summary.latestActionableOccurrenceDate,
+                  showCurrencyFlag: hasMultipleSelectedCurrencies,
                   onTap: null,
                   onDelete: null,
                 );
@@ -598,6 +604,7 @@ class _RecurringTransactionsPageState
                   nextOccurrenceDate: summary.nextOccurrenceDate,
                   latestActionableOccurrenceDate:
                       summary.latestActionableOccurrenceDate,
+                  showCurrencyFlag: hasMultipleSelectedCurrencies,
                   onTap: () => _showTransactionDetails(transaction),
                   onDelete: () => _deleteTransaction(transaction, householdId),
                 );
@@ -667,7 +674,9 @@ class _RecurringTransactionsPageState
     required String currencyCode,
     required int activeCount,
     required bool isIncome,
-    required bool hasMultipleCurrencies,
+    required List<TransactionsFeedCurrencyTypeTotal> currencyTotals,
+    required CurrencyRateTable rateTable,
+    required bool showCurrencyBreakdown,
   }) {
     final symbol = resolveCurrencySymbol(currencyCode);
     final normalized = double.parse(formatAmount(total));
@@ -703,33 +712,45 @@ class _RecurringTransactionsPageState
                   ),
                 ],
               ),
-              if (hasMultipleCurrencies)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted.withValues(alpha: 0.8),
+              if (showCurrencyBreakdown)
+                Semantics(
+                  button: true,
+                  label: label,
+                  child: InkWell(
+                    onTap: () => showMultiCurrencyTotalBreakdownSheet(
+                      context: context,
+                      colorScheme: colorScheme,
+                      currencyTypeTotals: currencyTotals,
+                      rates: rateTable,
+                      targetCurrency: currencyCode,
+                      totalSpent: total,
+                      title: label,
+                      allowSingleCurrency: true,
+                    ),
                     borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 10,
-                        color: colorScheme.mutedForeground,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 12,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'CONVERTED',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.mutedForeground,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'CONVERTED',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.mutedForeground,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
             ],
@@ -1121,6 +1142,36 @@ double _calculateTotalMonthlyCommitted(
     total += converted;
   }
   return total;
+}
+
+List<TransactionsFeedCurrencyTypeTotal> _calculateMonthlyCommittedByCurrency(
+  List<RecurringTransaction> transactions,
+) {
+  final amounts = <String, double>{};
+  final counts = <String, int>{};
+
+  for (final transaction in transactions) {
+    if (!transaction.isActive) continue;
+    final currency = transaction.currency.trim().toUpperCase();
+    if (currency.isEmpty) continue;
+    amounts.update(
+      currency,
+      (current) => current + _calculateMonthlyAmount(transaction),
+      ifAbsent: () => _calculateMonthlyAmount(transaction),
+    );
+    counts.update(currency, (current) => current + 1, ifAbsent: () => 1);
+  }
+
+  return amounts.entries
+      .map(
+        (entry) => TransactionsFeedCurrencyTypeTotal(
+          currency: entry.key,
+          expenseTotal: entry.value,
+          incomeTotal: 0,
+          transactionCount: counts[entry.key] ?? 0,
+        ),
+      )
+      .toList(growable: false);
 }
 
 class GroupedRecurringTransactions {

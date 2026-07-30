@@ -3295,7 +3295,7 @@
   "plusLockedWallets": "Wallets",
   "plusLockedOnePrivateOneShared": "1 private + 1 shared",
   "plusLockedTwoWallets": "2 wallets",
-  "expiredPlusBannerMessage": "Your Plus plan has expired. Subscribe to keep enjoying Plus benefits.",
+  "expiredPlusBannerMessage": "Your free trial has ended. Subscribe from just {price}/month.",
   "expiredSubscriptionMessage": "Your Plus plan has expired. Subscribe to keep enjoying Plus benefits.",
   "trialWelcomeTitle": "You've got 7 days of Plus — free!",
   "trialWelcomeSubtitle": "Enjoy all Plus features at no cost for the next 7 days. Here's what you can try:",
@@ -3467,5 +3467,11 @@
   "editMapping": "Edit mapping",
   "addMapping": "Add mapping",
   "logExpenseWithSiri": "Log expense with Siri",
-  "siriNoSetupRequired": "No setup required. Use Siri right away."
+  "siriNoSetupRequired": "No setup required. Use Siri right away.",
+  "paywallCommitmentAgreementTerms": "I agree to {months} monthly payments of {price}. Canceling prevents the next commitment; all remaining payments in the current commitment will still be charged.",
+  "monthlyPayments": "{months} monthly payments",
+  "monthlyRate": "MONTHLY RATE",
+  "pricePerMo": "{price} / mo",
+  "duration": "DURATION",
+  "monthsCount": "{count} Months"
 }

@@ -9,6 +9,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(
@@ -53,6 +54,7 @@ class RecurringTransactionCard extends StatelessWidget {
   final DateTime? latestActionableOccurrenceDate;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final bool showCurrencyFlag;
 
   const RecurringTransactionCard({
     super.key,
@@ -61,6 +63,7 @@ class RecurringTransactionCard extends StatelessWidget {
     this.latestActionableOccurrenceDate,
     this.onTap,
     this.onDelete,
+    this.showCurrencyFlag = false,
   });
 
   @override
@@ -231,6 +234,12 @@ class RecurringTransactionCard extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (showCurrencyFlag) ...[
+                                const SizedBox(width: 6),
+                                TransactionCurrencyFlagBadge(
+                                  currencyCode: transaction.currency,
+                                ),
+                              ],
                             ],
                           ),
                         ],

@@ -242,7 +242,8 @@ class PlusLockedSheet extends HookConsumerWidget {
       } catch (error) {
         if (!context.mounted) return;
         final raw = error.toString();
-        final isCanceled = raw.toLowerCase().contains('cancel');
+        final isCanceled = error is PaymentCanceledException ||
+            raw.toLowerCase().contains('cancel');
         if (isCanceled) {
           AppToast.info(context, context.l10n.paymentCanceled);
           return;
@@ -321,7 +322,7 @@ class PlusLockedSheet extends HookConsumerWidget {
                                     selectedPlanId.value = id,
                                 isCurrentPlan: isCurrentPlan,
                                 isNewUser: currentSubscription == null,
-                              ),                            
+                              ),
                               const SizedBox(height: 12),
                               if (effectiveActivePlanOption != null)
                                 PaywallCheckoutActionButton(
@@ -736,15 +737,9 @@ class _PremiumFeaturesList extends StatelessWidget {
               decoration: isHighlighted
                   ? BoxDecoration(
                       color: colorScheme.primary.withValues(alpha: 0.08),
-                      border: Border(
-                        left: BorderSide(
-                          color: colorScheme.primary,
-                          width: 3,
-                        ),
-                      ),
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
+                        topLeft: Radius.circular(32),
+                        topRight: Radius.circular(32),
                       ))
                   : null,
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),

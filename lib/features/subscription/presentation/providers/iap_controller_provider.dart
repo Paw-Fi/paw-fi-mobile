@@ -341,6 +341,17 @@ class IapController extends AsyncNotifier<IapState> {
       }
       print('✅ User check passed');
 
+      final managedSubscription =
+          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+      final hasActiveStripeSubscription =
+          managedSubscription?.provider?.toLowerCase() == 'stripe' &&
+              (managedSubscription?.isSubscribed ?? false);
+      if (hasActiveStripeSubscription) {
+        throw Exception(
+          'Your subscription is managed through Stripe. Cancel it before purchasing through the App Store.',
+        );
+      }
+
       print('🧭 buy() step 3: read state start');
       final current = state.valueOrNull;
       print('📊 Current state: ${current != null ? "has value" : "null"}');

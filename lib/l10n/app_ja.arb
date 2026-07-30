@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "ウォレット",
   "plusLockedOnePrivateOneShared": "個人用1 + 共有用1",
   "plusLockedTwoWallets": "2つのウォレット",
-  "expiredPlusBannerMessage": "Plusプランの有効期限が切れました。Plusの特典を引き続き楽しむには、定期購入してください。",
+  "expiredPlusBannerMessage": "無料トライアルが終了しました。月額{price}から利用できます。",
   "expiredSubscriptionMessage": "Plusプランの有効期限が切れました。Plusの特典を引き続き楽しむには、定期購入してください。",
   "trialWelcomeTitle": "7日間の無料Plusトライアルをプレゼント！",
   "trialWelcomeSubtitle": "今後7日間、すべてのPlus機能を無料でお楽しみいただけます。ぜひお試しください：",
@@ -3430,5 +3430,11 @@
   "editMapping": "マッピングを編集",
   "addMapping": "マッピングを追加",
   "logExpenseWithSiri": "Siriで支出を記録",
-  "siriNoSetupRequired": "事前設定なしですぐにSiriを使えます。"
+  "siriNoSetupRequired": "事前設定なしですぐにSiriを使えます。",
+  "paywallCommitmentAgreementTerms": "{price}の月額料金を{months}回支払うことに同意します。キャンセルすると次回の契約更新は停止されますが、現在の契約期間に残っている支払いは引き続き請求されます。",
+  "monthlyPayments": "月額払い全{months}回",
+  "monthlyRate": "月額料金",
+  "pricePerMo": "月額 {price}",
+  "duration": "期間",
+  "monthsCount": "{count}か月"
 }

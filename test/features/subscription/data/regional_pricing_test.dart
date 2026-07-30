@@ -12,7 +12,8 @@ import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
   for (final country in ['US', 'SG', 'AU']) {
-    testWidgets('Stripe commitment is available in $country', (tester) async {
+    testWidgets('Stripe yearly upfront plan is available in $country',
+        (tester) async {
       late List<PlanOption> plans;
 
       await tester.pumpWidget(
@@ -41,9 +42,17 @@ void main() {
       );
 
       final yearlyPlan = plans.singleWhere((plan) => plan.id == 'plus_yearly');
-      expect(yearlyPlan.isCommitment, isTrue);
+      expect(yearlyPlan.isCommitment, isFalse);
       expect(yearlyPlan.name, 'Yearly');
-      expect(yearlyPlan.periodDisplay, '/month');
+      final market = regionalPricingForCountry(country);
+      expect(
+        yearlyPlan.regionalPrice,
+        formatRegionalPrice(market, (market.yearly / 12).round()),
+      );
+      expect(
+        yearlyPlan.upfrontYearlyPrice,
+        formatRegionalPrice(market, market.yearly),
+      );
     });
   }
 
@@ -188,16 +197,15 @@ void main() {
       yearlyPlan.priceDisplay,
       formatRegionalPrice(market, (market.yearly / 12).round()),
     );
-    expect(yearlyPlan.isCommitment, isTrue);
+    expect(yearlyPlan.isCommitment, isFalse);
     expect(yearlyPlan.name, 'Yearly');
     expect(
       yearlyPlan.badgeText,
       'SAVE ${calculatePlanSavingsPercent(
         monthlyPrice: market.monthly.toDouble(),
-        yearlyTotal: (market.yearly / 12).round() * 12,
+        yearlyTotal: market.yearly,
       )}%',
     );
-    expect(yearlyPlan.periodDisplay, '/month');
     expect(
       lifetimePlan.priceDisplay,
       formatRegionalPrice(market, market.lifetime),
@@ -261,7 +269,6 @@ void main() {
     expect(yearlyPlan.priceDisplay, '€6.99');
     expect(yearlyPlan.totalCommitmentPrice, '€83.88');
     expect(yearlyPlan.badgeText, 'SAVE 36%');
-    expect(yearlyPlan.periodDisplay, '/month');
   });
 
   testWidgets('StoreKit commitment terms override the device pricing locale',
@@ -365,6 +372,5 @@ void main() {
     expect(yearlyPlan.isCommitment, isFalse);
     expect(yearlyPlan.name, 'Yearly');
     expect(yearlyPlan.upfrontYearlyPrice, isNotNull);
-    expect(yearlyPlan.periodDisplay, '/month');
   });
 }

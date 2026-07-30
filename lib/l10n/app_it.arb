@@ -3204,7 +3204,7 @@
   "plusLockedWallets": "Portafogli",
   "plusLockedOnePrivateOneShared": "1 privato + 1 condiviso",
   "plusLockedTwoWallets": "2 portafogli",
-  "expiredPlusBannerMessage": "Il tuo piano Plus è scaduto. Abbonati per continuare a godere dei vantaggi Plus.",
+  "expiredPlusBannerMessage": "La prova gratuita è terminata. Abbonati da {price}/mese.",
   "expiredSubscriptionMessage": "Il tuo piano Plus è scaduto. Abbonati per continuare a godere dei vantaggi Plus.",
   "trialWelcomeTitle": "Hai 7 giorni di Plus — gratis!",
   "trialWelcomeSubtitle": "Goditi tutte le funzionalità Plus a costo zero per i prossimi 7 giorni. Ecco cosa puoi provare:",
@@ -3377,5 +3377,11 @@
   "editMapping": "Modifica mappatura",
   "addMapping": "Aggiungi mappatura",
   "logExpenseWithSiri": "Registra una spesa con Siri",
-  "siriNoSetupRequired": "Non serve alcuna configurazione. Usa subito Siri."
+  "siriNoSetupRequired": "Non serve alcuna configurazione. Usa subito Siri.",
+  "paywallCommitmentAgreementTerms": "Accetto di effettuare {months} pagamenti mensili di {price}. La disdetta impedisce solo il rinnovo dell'impegno; i pagamenti rimanenti dell'impegno in corso verranno comunque addebitati.",
+  "monthlyPayments": "{months} pagamenti mensili",
+  "monthlyRate": "TARIFFA MENSILE",
+  "pricePerMo": "{price} / mese",
+  "duration": "DURATA",
+  "monthsCount": "{count} mesi"
 }

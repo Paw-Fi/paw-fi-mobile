@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' as foundation;
@@ -947,6 +948,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
   required String userId,
   required PocketsScopeType scope,
   required String? householdId,
+  MonekoDatabase? localDatabase,
   int limit = 250,
 }) async {
   if (scope != PocketsScopeType.personal &&
@@ -954,43 +956,93 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
     return const <RecurringTransaction>[];
   }
 
-  dynamic scopedQuery = supabase
-      .from('expenses')
-      .select(_recurringExpensesSelectFields)
-      .eq('is_recurring', true)
-      .isFilter('deleted_at', null)
-      .isFilter('provider', null)
-      .isFilter('bank_account_id', null);
-
-  switch (scope) {
-    case PocketsScopeType.personal:
-      scopedQuery =
-          scopedQuery.eq('user_id', userId).isFilter('household_id', null);
-      break;
-    case PocketsScopeType.portfolio:
-      scopedQuery =
-          scopedQuery.eq('user_id', userId).eq('household_id', householdId!);
-      break;
-    case PocketsScopeType.household:
-      scopedQuery = scopedQuery.eq('household_id', householdId!);
-      break;
-  }
-
-  final rows = await scopedQuery.order('date', ascending: false).limit(limit);
-  final enrichedRows = await _enrichRecurringRowsWithSplitPayer(
-    rows: rows.cast<Map<String, dynamic>>(),
-  );
-  final transactions = <RecurringTransaction>[];
-
-  for (final item in enrichedRows) {
+  final localTransactions = <RecurringTransaction>[];
+  final pendingRecurringIds = <String>{};
+  if (localDatabase != null) {
     try {
-      transactions.add(RecurringTransaction.fromJson(item));
-    } catch (error) {
-      _debugLog('[Pockets] Failed to parse recurring transaction: $error');
-    }
+      final localRows = await localDatabase.getRecurringTransactions(
+        userId: userId,
+        householdId: householdId,
+        limit: limit,
+      );
+      localTransactions.addAll(
+        localRows.map(recurringTransactionFromExpenseEntry),
+      );
+      final mutations = await localDatabase.getOutboxMutations();
+      for (final mutation in mutations) {
+        if (mutation.status == localMutationStatusSynced ||
+            mutation.status == localMutationStatusCancelled) {
+          continue;
+        }
+        if (!mutation.operation.contains('recurring_occurrence')) continue;
+        try {
+          final payload = jsonDecode(mutation.payloadJson);
+          final requestBody = payload is Map ? payload['requestBody'] : null;
+          final recurringId = requestBody is Map
+              ? requestBody['recurringId']?.toString()
+              : null;
+          if (recurringId != null && recurringId.isNotEmpty) {
+            pendingRecurringIds.add(recurringId);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
   }
 
-  return transactions;
+  try {
+    dynamic scopedQuery = supabase
+        .from('expenses')
+        .select(_recurringExpensesSelectFields)
+        .eq('is_recurring', true)
+        .isFilter('deleted_at', null)
+        .isFilter('provider', null)
+        .isFilter('bank_account_id', null);
+
+    switch (scope) {
+      case PocketsScopeType.personal:
+        scopedQuery =
+            scopedQuery.eq('user_id', userId).isFilter('household_id', null);
+        break;
+      case PocketsScopeType.portfolio:
+        scopedQuery =
+            scopedQuery.eq('user_id', userId).eq('household_id', householdId!);
+        break;
+      case PocketsScopeType.household:
+        scopedQuery = scopedQuery.eq('household_id', householdId!);
+        break;
+    }
+
+    final rows = await scopedQuery.order('date', ascending: false).limit(limit);
+    final enrichedRows = await _enrichRecurringRowsWithSplitPayer(
+      rows: rows.cast<Map<String, dynamic>>(),
+    );
+    final transactions = <RecurringTransaction>[];
+
+    for (final item in enrichedRows) {
+      try {
+        transactions.add(RecurringTransaction.fromJson(item));
+      } catch (error) {
+        _debugLog('[Pockets] Failed to parse recurring transaction: $error');
+      }
+    }
+    if (localTransactions.isEmpty || pendingRecurringIds.isEmpty) {
+      return transactions;
+    }
+    final localById = <String, RecurringTransaction>{
+      for (final transaction in localTransactions)
+        if (pendingRecurringIds.contains(transaction.id))
+          transaction.id: transaction,
+    };
+    return <RecurringTransaction>[
+      ...transactions.map(
+        (transaction) => localById.remove(transaction.id) ?? transaction,
+      ),
+      ...localById.values,
+    ];
+  } catch (_) {
+    if (localTransactions.isNotEmpty) return localTransactions;
+    rethrow;
+  }
 }
 
 // CRITICAL: keep account_id in this recurring select.
@@ -1084,6 +1136,7 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
   List<String>? selectedCurrencies,
   required bool includeUpcomingRecurring,
   required List<ExpenseEntry> actualExpenses,
+  MonekoDatabase? localDatabase,
 }) async {
   // CRITICAL: this projection is part of the pocket spend calculation for the
   // selected month, not only the current month.
@@ -1098,6 +1151,7 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     userId: userId,
     scope: scope,
     householdId: householdId,
+    localDatabase: localDatabase,
   );
   if (recurringTransactions.isEmpty) {
     return const <ExpenseEntry>[];
@@ -2829,6 +2883,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         selectedCurrencies: selectedCurrencies,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         actualExpenses: actualExpensesWithPending,
+        localDatabase: ref.read(localDatabaseProvider).valueOrNull,
       );
       trace.mark('projection-success', {
         'projectedRecurringCount': projectedRecurringExpenses.length,

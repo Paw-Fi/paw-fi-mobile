@@ -3203,7 +3203,7 @@
   "plusLockedWallets": "بٹوے",
   "plusLockedOnePrivateOneShared": "1 ذاتی + 1 مشترکہ",
   "plusLockedTwoWallets": "2 بٹوے",
-  "expiredPlusBannerMessage": "آپ کا پلس پلان ختم ہو گیا ہے۔ پلس کے فوائد سے لطف اندوز ہوتے رہنے کے لیے سبسکرائب کریں۔",
+  "expiredPlusBannerMessage": "آپ کی مفت آزمائش ختم ہو گئی ہے۔ صرف {price} ماہانہ سے سبسکرائب کریں۔",
   "expiredSubscriptionMessage": "آپ کا پلس پلان ختم ہو گیا ہے۔ پلس کے فوائد سے لطف اندوز ہوتے رہنے کے لیے سبسکرائب کریں۔",
   "trialWelcomeTitle": "آپ کو پلس کے 7 دن مفت مل گئے ہیں!",
   "trialWelcomeSubtitle": "اگلے 7 دنوں تک بغیر کسی قیمت کے تمام پلس خصوصیات سے لطف اندوز ہوں۔ یہاں وہ سب ہے جو آپ آزما سکتے ہیں:",
@@ -3376,5 +3376,11 @@
   "editMapping": "میپنگ میں ترمیم کریں",
   "addMapping": "میپنگ شامل کریں",
   "logExpenseWithSiri": "Siri کے ذریعے خرچ درج کریں",
-  "siriNoSetupRequired": "پہلے سے کسی سیٹ اپ کی ضرورت نہیں۔ Siri فوراً استعمال کریں۔"
+  "siriNoSetupRequired": "پہلے سے کسی سیٹ اپ کی ضرورت نہیں۔ Siri فوراً استعمال کریں۔",
+  "paywallCommitmentAgreementTerms": "میں {price} کی {months} ماہانہ ادائیگیوں سے اتفاق کرتا ہوں۔ منسوخ کرنے سے صرف اگلی مدت شروع نہیں ہوگی؛ موجودہ مدت کی باقی تمام ادائیگیاں پھر بھی وصول کی جائیں گی۔",
+  "monthlyPayments": "{months} ماہانہ ادائیگیاں",
+  "monthlyRate": "ماہانہ قیمت",
+  "pricePerMo": "{price} / ماہ",
+  "duration": "مدت",
+  "monthsCount": "{count} ماہ"
 }

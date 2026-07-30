@@ -15,6 +15,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
+import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
 import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
@@ -1009,7 +1010,8 @@ class PlanSelectionPage extends HookConsumerWidget {
 
           final raw = e.toString();
           final lower = raw.toLowerCase();
-          final isCanceled = lower.contains('cancel');
+          final isCanceled =
+              e is PaymentCanceledException || lower.contains('cancel');
           final isManagedInApp =
               lower.contains('subscription_managed_in_app') ||
                   lower.contains('managed through an in-app purchase');

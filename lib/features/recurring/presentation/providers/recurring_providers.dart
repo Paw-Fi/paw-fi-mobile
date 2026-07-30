@@ -25,6 +25,7 @@ import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dar
     show SplitType, MemberSplit;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -67,7 +68,7 @@ String _makeOptimisticRecurringId() {
   return 'optimistic-recurring-${DateTime.now().microsecondsSinceEpoch}';
 }
 
-RecurringTransaction _recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
+RecurringTransaction recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
   final description = entry.rawText?.trim();
   return RecurringTransaction(
     id: entry.id,
@@ -432,6 +433,7 @@ class RecurringOccurrenceTimelineItem {
     this.confirmedAt,
     this.confirmationSource,
     this.isSettlementLocked = false,
+    this.wasSkippedBeforeConfirmation = false,
   });
 
   final String? occurrenceId;
@@ -444,6 +446,7 @@ class RecurringOccurrenceTimelineItem {
   final DateTime? confirmedAt;
   final String? confirmationSource;
   final bool isSettlementLocked;
+  final bool wasSkippedBeforeConfirmation;
 
   bool get isConfirmed => status == 'confirmed';
   bool get isSkipped => status == 'skipped';
@@ -472,6 +475,8 @@ class RecurringOccurrenceTimelineItem {
       confirmedAt: confirmedAt == null ? null : DateTime.tryParse(confirmedAt),
       confirmationSource: occurrence['confirmation_source']?.toString(),
       isSettlementLocked: json['settlement_locked'] == true,
+      wasSkippedBeforeConfirmation:
+          occurrence['was_skipped_before_confirmation'] == true,
     );
   }
 
@@ -654,9 +659,25 @@ class RecurringOccurrenceUpdateController {
           'functionName': 'update-recurring-occurrence',
           'requestBody': command.toRequestBody(),
         },
+        relatedOriginalEntry: command.updateFutureAmount
+            ? _expenseEntryFromRecurringTransaction(
+                command.recurringTransaction,
+                command.userId,
+              )
+            : null,
+        relatedUpdatedEntry:
+            command.updateFutureAmount && command.amountCents != null
+                ? _expenseEntryFromRecurringTransaction(
+                    command.recurringTransaction.copyWith(
+                      amount: command.amountCents! / 100,
+                    ),
+                    command.userId,
+                  )
+                : null,
       );
       _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
       _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       _ref.read(widgetSyncVersionProvider.notifier).state += 1;
       _ref.invalidate(recurringTransactionsProvider(
@@ -721,15 +742,29 @@ class RecurringOccurrenceUnconfirmController {
           recurringId: command.recurringTransaction.id,
           scheduledOccurrenceDate: command.occurrence.scheduledOccurrenceDate,
         );
+    final existingRule = command.recurringTransaction.recurrenceRule;
+    final restoredRule =
+        existingRule == null || command.occurrence.wasSkippedBeforeConfirmation
+            ? existingRule
+            : existingRule.copyWith(
+                excludedDates: existingRule.excludedDates
+                    .where((date) =>
+                        formatDateOnlyYmd(date) !=
+                        formatDateOnlyYmd(
+                          command.occurrence.scheduledOccurrenceDate,
+                        ))
+                    .toList(growable: false),
+              );
+    final restoredRecurringTransaction = command.recurringTransaction.copyWith(
+      recurrenceRule: restoredRule,
+      serverNextOccurrenceDate: command.occurrence.scheduledOccurrenceDate,
+      serverLatestActionableOccurrenceDate:
+          command.occurrence.scheduledOccurrenceDate,
+    );
     final seriesHandle =
         _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
               mutationId: mutationId,
-              transaction: command.recurringTransaction.copyWith(
-                serverNextOccurrenceDate:
-                    command.occurrence.scheduledOccurrenceDate,
-                serverLatestActionableOccurrenceDate:
-                    command.occurrence.scheduledOccurrenceDate,
-              ),
+              transaction: restoredRecurringTransaction,
             );
 
     try {
@@ -747,9 +782,18 @@ class RecurringOccurrenceUnconfirmController {
           'functionName': 'unconfirm-recurring-occurrence',
           'requestBody': command.toRequestBody(),
         },
+        relatedOriginalEntry: _expenseEntryFromRecurringTransaction(
+          command.recurringTransaction,
+          command.userId,
+        ),
+        relatedUpdatedEntry: _expenseEntryFromRecurringTransaction(
+          restoredRecurringTransaction,
+          command.userId,
+        ),
       );
       _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
       _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       _ref.read(widgetSyncVersionProvider.notifier).state += 1;
       _ref.invalidate(recurringOccurrenceTimelineProvider);
@@ -850,6 +894,14 @@ class RecurringOccurrenceConfirmationController {
 
     try {
       final database = await _ref.read(localDatabaseProvider.future);
+      final optimisticSeries = command.recurringTransaction.copyWith(
+        amount: command.updateFutureAmount
+            ? command.amountCents / 100
+            : command.recurringTransaction.amount,
+        serverNextOccurrenceDate:
+            command.recurringTransaction.getNextOccurrence(scheduledDate),
+        clearServerLatestActionableOccurrenceDate: true,
+      );
       await database.writeOptimisticTransaction(
         entry: optimisticEntry,
         clientMutationId: command.idempotencyKey,
@@ -859,11 +911,18 @@ class RecurringOccurrenceConfirmationController {
           'clientMutationId': command.idempotencyKey,
           'requestBody': command.toRequestBody(),
         },
-      );
-      final optimisticSeries = command.recurringTransaction.copyWith(
-        serverNextOccurrenceDate:
-            command.recurringTransaction.getNextOccurrence(scheduledDate),
-        clearServerLatestActionableOccurrenceDate: true,
+        relatedOriginalEntry: command.updateFutureAmount
+            ? _expenseEntryFromRecurringTransaction(
+                command.recurringTransaction,
+                command.userId,
+              )
+            : null,
+        relatedUpdatedEntry: command.updateFutureAmount
+            ? _expenseEntryFromRecurringTransaction(
+                optimisticSeries,
+                command.userId,
+              )
+            : null,
       );
       _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
             mutationId: command.idempotencyKey,
@@ -889,6 +948,7 @@ class RecurringOccurrenceConfirmationController {
           );
       _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      _ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
       _ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       _ref.read(widgetSyncVersionProvider.notifier).state += 1;
       _ref.invalidate(recurringTransactionsProvider(
@@ -1177,7 +1237,7 @@ class RecurringTransactionsNotifier
       if (rows.isEmpty || !mounted) return false;
 
       final cachedTransactions = rows
-          .map(_recurringTransactionFromExpenseEntry)
+          .map(recurringTransactionFromExpenseEntry)
           .toList(growable: false);
       final hasMissingRecurrenceRules = cachedTransactions.any(
         (transaction) => transaction.recurrenceRule == null,
@@ -1593,10 +1653,11 @@ class RecurringTransactionsNotifier
             .read(recurringOccurrenceOptimisticProvider.notifier)
             .commit(occurrenceHandle);
         ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
-        await localDatabase.markMutationSynced(
-          mutationMetadata.clientMutationId,
+        await localDatabase.markOptimisticTransactionMetadataSynced(
+          clientMutationId: mutationMetadata.clientMutationId,
         );
         ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         ref.read(widgetSyncVersionProvider.notifier).state += 1;
         _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
@@ -1630,6 +1691,10 @@ class RecurringTransactionsNotifier
       _debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        ref.read(widgetSyncVersionProvider.notifier).state += 1;
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
         return const DeleteRecurringResult.success();

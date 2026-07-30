@@ -12,6 +12,9 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 
 String _trialReminderDismissedMilestoneKey({
   required String userId,
@@ -214,6 +217,8 @@ class ExpiredSubscriptionBannerGate extends HookConsumerWidget {
         ref.watch(subscriptionManagementProvider);
     final managedSubscription =
         subscriptionManagementAsync.valueOrNull?.subscription;
+    final productsAsync = ref.watch(subscriptionProductsProvider);
+    final iapStateAsync = ref.watch(iapControllerProvider);
 
     final expiredSubscription = hasExpiredSubscriptionAccess(subscription)
         ? subscription
@@ -276,9 +281,20 @@ class ExpiredSubscriptionBannerGate extends HookConsumerWidget {
     }
     final visibleDismissKey = dismissKey;
 
+    final useIap = shouldUseAppStoreCheckout(forceStripeCheckout: false);
+    final plans = buildPlusPlanOptions(
+      context: context,
+      useIap: useIap,
+      productsAsync: productsAsync,
+      iapStateAsync: iapStateAsync,
+    );
+    final yearlyPlan = plans.where((p) => p.billingInterval == 'yearly').firstOrNull;
+    final monthlyPrice = yearlyPlan?.priceDisplay;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: _ExpiredSubscriptionBanner(
+        monthlyPrice: monthlyPrice,
         onManageTap: () {
           unawaited(() async {
             await context.push('/plan-selection?mode=resubscribe');
@@ -376,10 +392,12 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
   const _ExpiredSubscriptionBanner({
     required this.onManageTap,
     required this.onDismissTap,
+    this.monthlyPrice,
   });
 
   final VoidCallback onManageTap;
   final VoidCallback onDismissTap;
+  final String? monthlyPrice;
 
   @override
   Widget build(BuildContext context) {
@@ -404,7 +422,7 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              context.l10n.expiredSubscriptionMessage,
+              context.l10n.expiredPlusBannerMessage(monthlyPrice ?? '…'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

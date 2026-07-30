@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
+import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
@@ -122,6 +123,48 @@ void main() {
     );
 
     expect(find.text('Yearly'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText && widget.text.toPlainText() == r'$6.67/month',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Paid upfront: \$79.99 for 12 months'), findsOneWidget);
+  });
+
+  testWidgets('yearly renewal terms use the upfront annual total',
+      (tester) async {
+    const plan = PlanOption(
+      id: 'plus_yearly',
+      serverPlanId: 'plus',
+      billingInterval: 'yearly',
+      name: 'Yearly',
+      storePrice: null,
+      regionalPrice: r'$6.67',
+      tagline: 'Paid upfront for 12 months.',
+      upfrontYearlyPrice: r'$79.99',
+    );
+    late String terms;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            terms = paywallAutoRenewTerms(
+              context,
+              option: plan,
+              trialMode: false,
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(terms, contains(r'$79.99'));
+    expect(terms, isNot(contains(r'$6.67')));
   });
 }

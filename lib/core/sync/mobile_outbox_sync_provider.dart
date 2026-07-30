@@ -280,6 +280,9 @@ Future<void> _dispatchMobileMutation(
         payload['functionName']?.toString(),
         _mapValue(payload['requestBody']),
       );
+      await database.markOptimisticTransactionMetadataSynced(
+        clientMutationId: mutation.clientMutationId,
+      );
       _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       return;
     case 'delete_transaction':
@@ -358,6 +361,8 @@ Future<void> _dispatchMobileMutation(
           .read(recurringOccurrenceOptimisticProvider.notifier)
           .commitMutation(mutation.clientMutationId);
       ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
       return;
     default:
       throw UnsupportedError(
@@ -373,6 +378,8 @@ void _commitRecurringOptimisticMutation(Ref ref, String mutationId) {
       .read(recurringOccurrenceOptimisticProvider.notifier)
       .commitMutation(mutationId);
   ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
+  ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
 }
 
 Future<void> _reconcileSyncedWalletMutation(
@@ -419,6 +426,8 @@ Future<void> _handleCancelledMobileMutation(
         .read(recurringOccurrenceOptimisticProvider.notifier)
         .rollbackMutation(mutation.clientMutationId);
     ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
     ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
       id: mutation.clientMutationId,
       feature: mutation.operation.contains('recurring')

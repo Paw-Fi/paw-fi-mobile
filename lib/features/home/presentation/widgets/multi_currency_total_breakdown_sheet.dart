@@ -5,6 +5,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
@@ -15,12 +16,17 @@ void showMultiCurrencyTotalBreakdownSheet({
   required CurrencyRateTable rates,
   required String targetCurrency,
   required double totalSpent,
+  String? title,
+  bool allowSingleCurrency = false,
 }) {
-  if (currencyTypeTotals.length <= 1) return;
+  if (currencyTypeTotals.isEmpty ||
+      (!allowSingleCurrency && currencyTypeTotals.length <= 1)) {
+    return;
+  }
 
   MonekoBottomSheet.show(
     context: context,
-    title: context.l10n.totalSpent,
+    title: title ?? context.l10n.totalSpent,
     isScrollControlled: true,
     builder: (context) {
       return Padding(
@@ -55,6 +61,7 @@ void showMultiCurrencyTotalBreakdownSheet({
                 targetCurrency,
               );
               final isTarget = typeTotal.currency == targetCurrency;
+              final flagPath = getCurrencyFlagPath(typeTotal.currency);
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -64,21 +71,28 @@ void showMultiCurrencyTotalBreakdownSheet({
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(8),
+                        shape: BoxShape.circle,
                         border: Border.all(
                           color: colorScheme.border.withValues(alpha: 0.5),
                         ),
                       ),
-                      child: Center(
-                        child: Text(
-                          resolveCurrencySymbol(typeTotal.currency),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
+                      child: ClipOval(
+                        child: flagPath == null
+                            ? _CurrencySymbolFallback(
+                                symbol: resolveCurrencySymbol(
+                                  typeTotal.currency,
+                                ),
+                              )
+                            : Image.asset(
+                                flagPath,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _CurrencySymbolFallback(
+                                  symbol: resolveCurrencySymbol(
+                                    typeTotal.currency,
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -122,4 +136,28 @@ void showMultiCurrencyTotalBreakdownSheet({
       );
     },
   );
+}
+
+class _CurrencySymbolFallback extends StatelessWidget {
+  const _CurrencySymbolFallback({required this.symbol});
+
+  final String symbol;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: colorScheme.muted,
+      child: Center(
+        child: Text(
+          symbol,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.foreground,
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -18,6 +18,9 @@ final walletsPersistedCacheBypassCountProvider = StateProvider<int>((ref) => 0);
 final walletsPageStatePersistedCacheBypassProvider =
     StateProvider<int>((ref) => 0);
 
+/// Invalidates wallet snapshots for recurring-occurrence ledger mutations.
+final walletsRecurringMutationSignalProvider = StateProvider<int>((ref) => 0);
+
 const _walletsPageStateJsonCacheNamespace = 'wallets_page_state';
 
 String walletsListCacheKey({

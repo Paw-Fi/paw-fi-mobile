@@ -22,6 +22,14 @@ const String localHouseholdSettlementMutationOperation =
 const String localRecurringOccurrenceConfirmationMutationOperation =
     'confirm_recurring_occurrence';
 
+bool _isTransactionUpdateOperation(String operation) =>
+    operation == 'update_transaction' ||
+    operation == 'update_recurring_occurrence' ||
+    operation == 'skip_recurring_occurrence';
+
+bool _isTransactionDeleteOperation(String operation) =>
+    operation == 'unconfirm_recurring_occurrence';
+
 const int _localDatabaseSchemaVersion = 9;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
@@ -476,6 +484,8 @@ class MonekoDatabase {
     required String clientMutationId,
     required String operation,
     required Map<String, dynamic> payload,
+    ExpenseEntry? relatedOriginalEntry,
+    ExpenseEntry? relatedUpdatedEntry,
   }) async {
     final entryWithMutationMetadata = entry.copyWith(
       clientRecordId: entry.clientRecordId ?? entry.id,
@@ -484,19 +494,33 @@ class MonekoDatabase {
           payload['idempotencyKey']?.toString() ??
           clientMutationId,
     );
+    final outboxPayload = <String, dynamic>{
+      ...payload,
+      if (relatedOriginalEntry != null)
+        'relatedOriginalEntry': relatedOriginalEntry.toJson(),
+    };
     _runInTransaction(() {
       _upsertTransaction(
         entryWithMutationMetadata,
         syncStatus: localSyncStatusLocal,
       );
+      if (relatedUpdatedEntry != null) {
+        _upsertTransaction(
+          relatedUpdatedEntry.copyWith(clientMutationId: clientMutationId),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
       _enqueueMutationRow(
         clientMutationId: clientMutationId,
         entityType: 'transaction',
         entityId: entryWithMutationMetadata.id,
         operation: operation,
-        payload: payload,
+        payload: outboxPayload,
       );
       _rebuildSummary(_SummaryKey.fromEntry(entryWithMutationMetadata));
+      if (relatedUpdatedEntry != null) {
+        _rebuildSummary(_SummaryKey.fromEntry(relatedUpdatedEntry));
+      }
     });
 
     _notifyChanged();
@@ -608,18 +632,35 @@ class MonekoDatabase {
     required String clientMutationId,
     required Map<String, dynamic> payload,
     String operation = 'update_transaction',
+    ExpenseEntry? relatedOriginalEntry,
+    ExpenseEntry? relatedUpdatedEntry,
   }) async {
     final outboxPayload = <String, dynamic>{
       ...payload,
       'originalEntry': originalEntry.toJson(),
+      if (relatedOriginalEntry != null)
+        'relatedOriginalEntry': relatedOriginalEntry.toJson(),
     };
     final touched = <_SummaryKey>{
       _SummaryKey.fromEntry(originalEntry),
       _SummaryKey.fromEntry(updatedEntry),
+      if (relatedOriginalEntry != null)
+        _SummaryKey.fromEntry(relatedOriginalEntry),
+      if (relatedUpdatedEntry != null)
+        _SummaryKey.fromEntry(relatedUpdatedEntry),
     };
 
     _runInTransaction(() {
-      _upsertTransaction(updatedEntry, syncStatus: localSyncStatusLocal);
+      _upsertTransaction(
+        updatedEntry.copyWith(clientMutationId: clientMutationId),
+        syncStatus: localSyncStatusLocal,
+      );
+      if (relatedUpdatedEntry != null) {
+        _upsertTransaction(
+          relatedUpdatedEntry.copyWith(clientMutationId: clientMutationId),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
       _enqueueMutationRow(
         clientMutationId: clientMutationId,
         entityType: 'transaction',
@@ -633,6 +674,26 @@ class MonekoDatabase {
       }
     });
 
+    _notifyChanged();
+  }
+
+  Future<void> markOptimisticTransactionMetadataSynced({
+    required String clientMutationId,
+  }) async {
+    _runInTransaction(() {
+      _markMutationStatus(
+        clientMutationId: clientMutationId,
+        status: localMutationStatusSynced,
+      );
+      _db.execute(
+        '''
+        UPDATE local_transactions
+        SET sync_status = ?
+        WHERE client_mutation_id = ?
+        ''',
+        [localSyncStatusSynced, clientMutationId],
+      );
+    });
     _notifyChanged();
   }
 
@@ -650,6 +711,14 @@ class MonekoDatabase {
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
       );
+      _db.execute(
+        '''
+        UPDATE local_transactions
+        SET sync_status = ?
+        WHERE client_mutation_id = ?
+        ''',
+        [localSyncStatusSynced, clientMutationId],
+      );
       _rebuildSummary(_SummaryKey.fromEntry(entry));
     });
 
@@ -666,19 +735,23 @@ class MonekoDatabase {
     if (updatedKey != null) touched.add(updatedKey);
 
     _runInTransaction(() {
-      _upsertTransaction(
-        originalEntry,
-        syncStatus: localSyncStatusSynced,
-        preserveLocalPending: false,
-      );
+      if (_transactionMutationStillOwnsEntry(
+        originalEntry.id,
+        clientMutationId,
+      )) {
+        _upsertTransaction(
+          originalEntry,
+          syncStatus: localSyncStatusSynced,
+          preserveLocalPending: false,
+        );
+        for (final key in touched) {
+          _rebuildSummary(key);
+        }
+      }
       _markMutationCancelledRow(
         clientMutationId: clientMutationId,
         error: error,
       );
-
-      for (final key in touched) {
-        _rebuildSummary(key);
-      }
     });
 
     _notifyChanged();
@@ -690,10 +763,24 @@ class MonekoDatabase {
     required Map<String, dynamic> payload,
     String? actingUserId,
     String operation = 'delete_transaction',
+    ExpenseEntry? relatedOriginalEntry,
+    ExpenseEntry? relatedUpdatedEntry,
   }) async {
     if (entries.isEmpty) return;
 
-    final touched = entries.map(_SummaryKey.fromEntry).toSet();
+    final outboxPayload = <String, dynamic>{
+      ...payload,
+      'originalEntries': entries.map((entry) => entry.toJson()).toList(),
+      if (relatedOriginalEntry != null)
+        'relatedOriginalEntry': relatedOriginalEntry.toJson(),
+    };
+    final touched = <_SummaryKey>{
+      ...entries.map(_SummaryKey.fromEntry),
+      if (relatedOriginalEntry != null)
+        _SummaryKey.fromEntry(relatedOriginalEntry),
+      if (relatedUpdatedEntry != null)
+        _SummaryKey.fromEntry(relatedUpdatedEntry),
+    };
     _runInTransaction(() {
       for (final entry in entries) {
         _upsertTransactionTombstone(
@@ -707,12 +794,18 @@ class MonekoDatabase {
           [entry.id],
         );
       }
+      if (relatedUpdatedEntry != null) {
+        _upsertTransaction(
+          relatedUpdatedEntry.copyWith(clientMutationId: clientMutationId),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
       _enqueueMutationRow(
         clientMutationId: clientMutationId,
         entityType: 'transaction',
         entityId: entries.map((entry) => entry.id).join(','),
         operation: operation,
-        payload: payload,
+        payload: outboxPayload,
       );
 
       for (final key in touched) {
@@ -732,6 +825,14 @@ class MonekoDatabase {
         status: localMutationStatusSynced,
       );
       _markTransactionTombstonesSynced(clientMutationId);
+      _db.execute(
+        '''
+        UPDATE local_transactions
+        SET sync_status = ?
+        WHERE client_mutation_id = ?
+        ''',
+        [localSyncStatusSynced, clientMutationId],
+      );
     });
   }
 
@@ -749,26 +850,71 @@ class MonekoDatabase {
 
     final touched = <_SummaryKey>{};
     _runInTransaction(() {
-      if (mutation.operation == 'delete_transaction' ||
-          mutation.operation == 'delete_recurring_template') {
-        _markTransactionTombstonesFailed(mutation.clientMutationId);
-        return;
-      }
-
-      if (mutation.operation == 'update_transaction') {
-        final originalEntry = _originalEntryFromMutationPayload(mutation);
-        if (originalEntry != null) {
-          final currentKey = _summaryKeyForTransactionId(originalEntry.id);
-          if (currentKey != null) touched.add(currentKey);
-          touched.add(_SummaryKey.fromEntry(originalEntry));
+      if (_isTransactionDeleteOperation(mutation.operation)) {
+        final originals = _originalEntriesFromMutationPayload(mutation);
+        final relatedOriginal =
+            _relatedOriginalEntryFromMutationPayload(mutation);
+        for (final original in originals) {
+          touched.add(_SummaryKey.fromEntry(original));
+          _deleteTransactionTombstone(original.id);
           _upsertTransaction(
-            originalEntry,
+            original,
             syncStatus: localSyncStatusSynced,
             preserveLocalPending: false,
           );
-          for (final key in touched) {
-            _rebuildSummary(key);
+        }
+        if (relatedOriginal != null &&
+            _transactionMutationStillOwnsEntry(
+              relatedOriginal.id,
+              mutation.clientMutationId,
+            )) {
+          touched.add(_SummaryKey.fromEntry(relatedOriginal));
+          _upsertTransaction(
+            relatedOriginal,
+            syncStatus: localSyncStatusSynced,
+            preserveLocalPending: false,
+          );
+        }
+        for (final key in touched) {
+          _rebuildSummary(key);
+        }
+        return;
+      }
+
+      if (_isTransactionUpdateOperation(mutation.operation)) {
+        final originalEntry = _originalEntryFromMutationPayload(mutation);
+        if (originalEntry != null) {
+          if (_transactionMutationStillOwnsEntry(
+            originalEntry.id,
+            mutation.clientMutationId,
+          )) {
+            final currentKey = _summaryKeyForTransactionId(originalEntry.id);
+            if (currentKey != null) touched.add(currentKey);
+            touched.add(_SummaryKey.fromEntry(originalEntry));
+            _upsertTransaction(
+              originalEntry,
+              syncStatus: localSyncStatusSynced,
+              preserveLocalPending: false,
+            );
+            final relatedOriginal =
+                _relatedOriginalEntryFromMutationPayload(mutation);
+            if (relatedOriginal != null &&
+                _transactionMutationStillOwnsEntry(
+                  relatedOriginal.id,
+                  mutation.clientMutationId,
+                )) {
+              touched.add(_SummaryKey.fromEntry(relatedOriginal));
+              _upsertTransaction(
+                relatedOriginal,
+                syncStatus: localSyncStatusSynced,
+                preserveLocalPending: false,
+              );
+            }
+            for (final key in touched) {
+              _rebuildSummary(key);
+            }
           }
+          // A newer mutation owns the row; never mark or overwrite it.
           return;
         }
       }
@@ -784,6 +930,20 @@ class MonekoDatabase {
           'DELETE FROM local_transactions WHERE id IN ($placeholders)',
           ids,
         );
+        final relatedOriginal =
+            _relatedOriginalEntryFromMutationPayload(mutation);
+        if (relatedOriginal != null &&
+            _transactionMutationStillOwnsEntry(
+              relatedOriginal.id,
+              mutation.clientMutationId,
+            )) {
+          touched.add(_SummaryKey.fromEntry(relatedOriginal));
+          _upsertTransaction(
+            relatedOriginal,
+            syncStatus: localSyncStatusSynced,
+            preserveLocalPending: false,
+          );
+        }
         for (final key in touched) {
           _rebuildSummary(key);
         }
@@ -811,6 +971,18 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  bool _transactionMutationStillOwnsEntry(
+    String entryId,
+    String clientMutationId,
+  ) {
+    final rows = _db.select(
+      'SELECT client_mutation_id FROM local_transactions WHERE id = ? LIMIT 1',
+      [entryId],
+    );
+    return rows.isNotEmpty &&
+        rows.first['client_mutation_id']?.toString() == clientMutationId;
+  }
+
   ExpenseEntry? _originalEntryFromMutationPayload(
     LocalMutationOutboxData mutation,
   ) {
@@ -820,6 +992,38 @@ class MonekoDatabase {
       final original = decoded['originalEntry'];
       if (original is! Map<String, dynamic>) return null;
       return ExpenseEntry.fromJson(original);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<ExpenseEntry> _originalEntriesFromMutationPayload(
+    LocalMutationOutboxData mutation,
+  ) {
+    try {
+      final decoded = jsonDecode(mutation.payloadJson);
+      if (decoded is! Map<String, dynamic>) return const [];
+      final originals = decoded['originalEntries'];
+      if (originals is! List) return const [];
+      return originals
+          .whereType<Map>()
+          .map((entry) =>
+              ExpenseEntry.fromJson(Map<String, dynamic>.from(entry)))
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  ExpenseEntry? _relatedOriginalEntryFromMutationPayload(
+    LocalMutationOutboxData mutation,
+  ) {
+    try {
+      final decoded = jsonDecode(mutation.payloadJson);
+      if (decoded is! Map<String, dynamic>) return null;
+      final original = decoded['relatedOriginalEntry'];
+      if (original is! Map) return null;
+      return ExpenseEntry.fromJson(Map<String, dynamic>.from(original));
     } catch (_) {
       return null;
     }
@@ -884,6 +1088,14 @@ class MonekoDatabase {
       _markMutationStatus(
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
+      );
+      _db.execute(
+        '''
+        UPDATE local_transactions
+        SET sync_status = ?
+        WHERE client_mutation_id = ?
+        ''',
+        [localSyncStatusSynced, clientMutationId],
       );
 
       for (final key in touched) {
@@ -1643,7 +1855,7 @@ class MonekoDatabase {
       SELECT entity_id
       FROM local_mutation_outbox
       WHERE entity_type = 'transaction'
-        AND operation = 'update_transaction'
+        AND operation IN ('update_transaction', 'update_recurring_occurrence', 'skip_recurring_occurrence')
         AND status IN (?, ?, ?)
       ''',
       [
@@ -1668,7 +1880,14 @@ class MonekoDatabase {
       SELECT 1
       FROM local_mutation_outbox
       WHERE entity_type = 'transaction'
-        AND operation IN ('update_transaction', 'delete_transaction', 'delete_recurring_template')
+        AND operation IN (
+          'update_transaction',
+          'update_recurring_occurrence',
+          'skip_recurring_occurrence',
+          'delete_transaction',
+          'delete_recurring_template',
+          'unconfirm_recurring_occurrence'
+        )
         AND status IN (?, ?, ?)
       LIMIT 1
       ''',
@@ -3670,17 +3889,6 @@ class MonekoDatabase {
         localMutationStatusSynced,
         _instant(now.subtract(const Duration(days: 3))),
       ],
-    );
-  }
-
-  void _markTransactionTombstonesFailed(String clientMutationId) {
-    _db.execute(
-      '''
-      UPDATE local_transaction_tombstones
-      SET status = ?, updated_at = ?
-      WHERE client_mutation_id = ?
-      ''',
-      [localMutationStatusFailed, _instant(DateTime.now()), clientMutationId],
     );
   }
 
