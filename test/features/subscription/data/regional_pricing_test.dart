@@ -5,20 +5,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/regional_pricing.dart';
-import 'package:moneko/features/subscription/data/commitment_availability.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/app_store_commitment_billing.dart';
 import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
-  test('App Store commitment is unavailable in the excluded countries', () {
-    for (final country in ['US', 'SG', 'AU']) {
-      expect(isCommitmentAvailableForCountry(country), isFalse);
-    }
-    expect(isCommitmentAvailableForCountry('CA'), isTrue);
-  });
-
   for (final country in ['US', 'SG', 'AU']) {
     testWidgets('Stripe commitment is available in $country', (tester) async {
       late List<PlanOption> plans;
@@ -272,8 +264,7 @@ void main() {
     expect(yearlyPlan.periodDisplay, '/month');
   });
 
-  testWidgets(
-      'excluded iOS countries retain yearly upfront when terms are available',
+  testWidgets('StoreKit commitment terms override the device pricing locale',
       (tester) async {
     late List<PlanOption> plans;
     const yearlyProduct = SubscriptionProduct(
@@ -323,9 +314,9 @@ void main() {
     );
 
     final yearlyPlan = plans.singleWhere((plan) => plan.id == 'plus_yearly');
-    expect(yearlyPlan.isCommitment, isFalse);
-    expect(yearlyPlan.upfrontYearlyPrice, isNotNull);
-    expect(yearlyPlan.priceDisplay, isNot(r'$6.67'));
+    expect(yearlyPlan.isCommitment, isTrue);
+    expect(yearlyPlan.upfrontYearlyPrice, isNull);
+    expect(yearlyPlan.priceDisplay, r'$6.67');
   });
 
   testWidgets('unsupported iOS devices retain the yearly upfront option',

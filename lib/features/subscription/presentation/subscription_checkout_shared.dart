@@ -9,7 +9,6 @@ import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
-import 'package:moneko/features/subscription/data/commitment_availability.dart';
 import 'package:moneko/features/subscription/data/regional_pricing.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
@@ -158,9 +157,8 @@ List<PlanOption> buildPlusPlanOptions({
       final details = storeDetailsById[product.storeProductId];
       final commitmentTerms = iapStateAsync
           .value?.commitmentTermsByProductId[product.storeProductId];
-      final isCommitment = product.billingInterval == 'yearly' &&
-          commitmentTerms != null &&
-          isCommitmentAvailableForCountry(pricingCountry);
+      final isCommitment =
+          product.billingInterval == 'yearly' && commitmentTerms != null;
       final yearlyTotal = isCommitment
           ? commitmentTerms.totalCommitmentPriceValue ??
               details?.rawPrice ??
