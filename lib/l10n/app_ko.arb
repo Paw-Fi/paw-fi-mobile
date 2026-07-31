@@ -3249,5 +3249,14 @@
   "monthlyRate": "월 요금",
   "pricePerMo": "월 {price}",
   "duration": "기간",
-  "monthsCount": "{count}개월"
+  "monthsCount": "{count}개월",
+  "transactionsAssignedToPocket": "포켓에 할당된 거래",
+  "bankConnections": "은행 연결",
+  "connected": "연결됨",
+  "bankConnectionDisconnecting": "연결 해제 중",
+  "bankConnectionRemoved": "삭제됨",
+  "bankConnectionNotAssigned": "지갑에 할당되지 않음",
+  "bankConnectionFinishSetup": "설정 완료",
+  "bankConnectionReconnect": "다시 연결",
+  "bankConnectionWalletCount": "연결된 지갑 {count}개"
 }

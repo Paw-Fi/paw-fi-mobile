@@ -3382,5 +3382,14 @@
   "monthlyRate": "ماہانہ قیمت",
   "pricePerMo": "{price} / ماہ",
   "duration": "مدت",
-  "monthsCount": "{count} ماہ"
+  "monthsCount": "{count} ماہ",
+  "transactionsAssignedToPocket": "پاکٹ کو تفویض کردہ ٹرانزیکشنز",
+  "bankConnections": "بینک کنکشنز",
+  "connected": "منسلک",
+  "bankConnectionDisconnecting": "کنکشن منقطع ہو رہا ہے",
+  "bankConnectionRemoved": "ہٹا دیا گیا",
+  "bankConnectionNotAssigned": "کسی والیٹ کو تفویض نہیں",
+  "bankConnectionFinishSetup": "سیٹ اپ مکمل کریں",
+  "bankConnectionReconnect": "دوبارہ منسلک کریں",
+  "bankConnectionWalletCount": "{count} منسلک والیٹس"
 }

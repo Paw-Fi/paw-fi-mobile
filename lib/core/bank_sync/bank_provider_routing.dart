@@ -66,6 +66,24 @@ BankProvider getProviderForCountry(String countryCode) {
   return BankProvider.comingSoon;
 }
 
+BankProvider resolveBankProviderForConnection({
+  required String? connectionId,
+  required String countryCode,
+}) =>
+    connectionId?.trim().isNotEmpty == true
+        ? BankProvider.plaid
+        : getProviderForCountry(countryCode);
+
+String? resolveBankConnectionId({
+  required String? requestedConnectionId,
+  required String? responseConnectionId,
+}) {
+  final responseId = responseConnectionId?.trim();
+  if (responseId != null && responseId.isNotEmpty) return responseId;
+  final requestedId = requestedConnectionId?.trim();
+  return requestedId == null || requestedId.isEmpty ? null : requestedId;
+}
+
 /// Returns whether the given country is supported by any bank provider.
 bool isCountrySupported(String countryCode) {
   final code = countryCode.toUpperCase();

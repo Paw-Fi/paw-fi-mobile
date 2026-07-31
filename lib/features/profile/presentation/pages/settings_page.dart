@@ -79,6 +79,7 @@ import 'package:moneko/features/profile/presentation/pages/financial_month_setti
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
+import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/app_lock/data/app_lock_config.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_setup_page.dart';
@@ -1151,6 +1152,15 @@ class SettingsPage extends HookConsumerWidget {
                             ),
                           );
                         },
+                      ),
+                      _SettingsTile(
+                        icon: Icons.account_balance_outlined,
+                        label: context.l10n.bankConnections,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const BankConnectionsPage(),
+                          ),
+                        ),
                       ),
                       FutureBuilder<Map<String, dynamic>?>(
                         key: ValueKey('name-${nameReloadKey.value}'),

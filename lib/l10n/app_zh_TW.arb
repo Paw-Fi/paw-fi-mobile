@@ -3380,5 +3380,14 @@
   "monthlyRate": "每月費用",
   "pricePerMo": "{price} / 月",
   "duration": "期間",
-  "monthsCount": "{count} 個月"
+  "monthsCount": "{count} 個月",
+  "transactionsAssignedToPocket": "已分配至口袋的交易",
+  "bankConnections": "銀行連線",
+  "connected": "已連線",
+  "bankConnectionDisconnecting": "正在中斷連線",
+  "bankConnectionRemoved": "已移除",
+  "bankConnectionNotAssigned": "尚未分配至錢包",
+  "bankConnectionFinishSetup": "完成設定",
+  "bankConnectionReconnect": "重新連線",
+  "bankConnectionWalletCount": "已連結 {count} 個錢包"
 }

@@ -3428,5 +3428,14 @@
   "monthlyRate": "ЩОМІСЯЧНА ВАРТІСТЬ",
   "pricePerMo": "{price} / міс.",
   "duration": "ТРИВАЛІСТЬ",
-  "monthsCount": "{count} місяців"
+  "monthsCount": "{count} місяців",
+  "transactionsAssignedToPocket": "Транзакції, призначені кишені",
+  "bankConnections": "Підключення до банків",
+  "connected": "Підключено",
+  "bankConnectionDisconnecting": "Відключення",
+  "bankConnectionRemoved": "Видалено",
+  "bankConnectionNotAssigned": "Не призначено гаманцю",
+  "bankConnectionFinishSetup": "Завершити налаштування",
+  "bankConnectionReconnect": "Підключити знову",
+  "bankConnectionWalletCount": "Пов'язаних гаманців: {count}"
 }

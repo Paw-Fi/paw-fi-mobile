@@ -3386,5 +3386,14 @@
   "monthlyRate": "ЕЖЕМЕСЯЧНАЯ СТАВКА",
   "pricePerMo": "{price} / мес.",
   "duration": "СРОК",
-  "monthsCount": "{count} месяцев"
+  "monthsCount": "{count} месяцев",
+  "transactionsAssignedToPocket": "Операции, назначенные карману",
+  "bankConnections": "Подключения к банкам",
+  "connected": "Подключено",
+  "bankConnectionDisconnecting": "Отключение",
+  "bankConnectionRemoved": "Удалено",
+  "bankConnectionNotAssigned": "Не назначено кошельку",
+  "bankConnectionFinishSetup": "Завершить настройку",
+  "bankConnectionReconnect": "Подключить снова",
+  "bankConnectionWalletCount": "Связанных кошельков: {count}"
 }

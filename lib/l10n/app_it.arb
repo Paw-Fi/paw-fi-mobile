@@ -3383,5 +3383,14 @@
   "monthlyRate": "TARIFFA MENSILE",
   "pricePerMo": "{price} / mese",
   "duration": "DURATA",
-  "monthsCount": "{count} mesi"
+  "monthsCount": "{count} mesi",
+  "transactionsAssignedToPocket": "Transazioni assegnate al salvadanaio",
+  "bankConnections": "Collegamenti bancari",
+  "connected": "Collegato",
+  "bankConnectionDisconnecting": "Disconnessione in corso",
+  "bankConnectionRemoved": "Rimosso",
+  "bankConnectionNotAssigned": "Non assegnato a un portafoglio",
+  "bankConnectionFinishSetup": "Completa la configurazione",
+  "bankConnectionReconnect": "Ricollega",
+  "bankConnectionWalletCount": "{count} portafogli collegati"
 }

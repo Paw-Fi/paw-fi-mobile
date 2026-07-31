@@ -3436,5 +3436,14 @@
   "monthlyRate": "MONATLICHER PREIS",
   "pricePerMo": "{price} / Monat",
   "duration": "LAUFZEIT",
-  "monthsCount": "{count} Monate"
+  "monthsCount": "{count} Monate",
+  "transactionsAssignedToPocket": "Dem Pocket zugewiesene Transaktionen",
+  "bankConnections": "Bankverbindungen",
+  "connected": "Verbunden",
+  "bankConnectionDisconnecting": "Verbindung wird getrennt",
+  "bankConnectionRemoved": "Entfernt",
+  "bankConnectionNotAssigned": "Keinem Wallet zugewiesen",
+  "bankConnectionFinishSetup": "Einrichtung abschließen",
+  "bankConnectionReconnect": "Erneut verbinden",
+  "bankConnectionWalletCount": "{count} verknüpfte Wallets"
 }

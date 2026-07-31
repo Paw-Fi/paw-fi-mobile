@@ -3435,5 +3435,14 @@
   "monthlyRate": "MỨC PHÍ HẰNG THÁNG",
   "pricePerMo": "{price} / tháng",
   "duration": "THỜI HẠN",
-  "monthsCount": "{count} tháng"
+  "monthsCount": "{count} tháng",
+  "transactionsAssignedToPocket": "Giao dịch được phân bổ vào túi",
+  "bankConnections": "Kết nối ngân hàng",
+  "connected": "Đã kết nối",
+  "bankConnectionDisconnecting": "Đang ngắt kết nối",
+  "bankConnectionRemoved": "Đã xóa",
+  "bankConnectionNotAssigned": "Chưa được gán vào ví",
+  "bankConnectionFinishSetup": "Hoàn tất thiết lập",
+  "bankConnectionReconnect": "Kết nối lại",
+  "bankConnectionWalletCount": "{count} ví đã liên kết"
 }

@@ -3383,5 +3383,14 @@
   "monthlyRate": "MAANDTARIEF",
   "pricePerMo": "{price} / maand",
   "duration": "LOOPTIJD",
-  "monthsCount": "{count} maanden"
+  "monthsCount": "{count} maanden",
+  "transactionsAssignedToPocket": "Transacties toegewezen aan de pocket",
+  "bankConnections": "Bankkoppelingen",
+  "connected": "Verbonden",
+  "bankConnectionDisconnecting": "Verbinding wordt verbroken",
+  "bankConnectionRemoved": "Verwijderd",
+  "bankConnectionNotAssigned": "Niet aan een wallet toegewezen",
+  "bankConnectionFinishSetup": "Instellen voltooien",
+  "bankConnectionReconnect": "Opnieuw verbinden",
+  "bankConnectionWalletCount": "{count} gekoppelde wallets"
 }

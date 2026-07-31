@@ -195,6 +195,24 @@ extension PocketAssignmentL10nX on AppLocalizations {
   String get transactionsAssignedToPocket => 'Transactions assigned to pocket';
 }
 
+/// Bank-connection recovery copy is intentionally kept in the translation
+/// catalog; English is the runtime fallback until the normal l10n export runs.
+extension BankConnectionsRecoveryL10nX on AppLocalizations {
+  String get bankConnections => 'Bank connections';
+  String get bankConnectionPersonal => 'Personal';
+  String get bankConnectionHousehold => 'Household';
+  String get bankConnectionConnected => 'Connected';
+  String get bankConnectionDisconnecting => 'Disconnecting';
+  String get bankConnectionRemoved => 'Removed';
+  String get bankConnectionNotAssigned => 'Not assigned to a wallet';
+  String get bankConnectionFinishSetup => 'Finish setup';
+  String get bankConnectionReconnect => 'Reconnect';
+  String get bankConnectionRoleGuidance =>
+      'A household owner or admin must manage this bank connection.';
+  String bankConnectionWalletCount(int count) =>
+      count == 1 ? '1 linked wallet' : '$count linked wallets';
+}
+
 extension PlaidClassificationReviewL10nX on AppLocalizations {
   String get failedToSyncTransactions =>
       'Bank transactions could not be synced. Try again before continuing.';

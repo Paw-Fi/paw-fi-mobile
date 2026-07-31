@@ -29,6 +29,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
+import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -715,6 +716,19 @@ class AccountsPage extends HookConsumerWidget {
                 ),
               );
             }),
+          ),
+          Positioned(
+            top: 8,
+            right: 12,
+            child: IconButton(
+              tooltip: context.l10n.bankConnections,
+              icon: const Icon(Icons.account_balance_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BankConnectionsPage(),
+                ),
+              ),
+            ),
           ),
         ],
       ),

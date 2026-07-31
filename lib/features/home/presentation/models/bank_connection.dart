@@ -11,6 +11,14 @@ class BankConnection {
     this.lastSuccessfulSyncAt,
     this.nextManualRefreshEligibleAt,
     this.scheduledRemovalAt,
+    this.linkedBankAccountCount = 0,
+    this.linkedWalletCount = 0,
+    this.canReconnect = false,
+    this.canDisconnect = false,
+    this.canReviewAccounts = false,
+    this.roleGuidance,
+    this.latestErrorCode,
+    this.reviewCompletedAt,
   });
 
   final String id;
@@ -24,6 +32,14 @@ class BankConnection {
   final DateTime? lastSuccessfulSyncAt;
   final DateTime? nextManualRefreshEligibleAt;
   final DateTime? scheduledRemovalAt;
+  final int linkedBankAccountCount;
+  final int linkedWalletCount;
+  final bool canReconnect;
+  final bool canDisconnect;
+  final bool canReviewAccounts;
+  final String? roleGuidance;
+  final String? latestErrorCode;
+  final DateTime? reviewCompletedAt;
 
   factory BankConnection.fromJson(Map<String, dynamic> json) {
     final metadata = _resolveMetadata(json['metadata']);
@@ -40,6 +56,14 @@ class BankConnection {
       nextManualRefreshEligibleAt:
           _nullableDateTime(json['next_manual_refresh_eligible_at']),
       scheduledRemovalAt: _nullableDateTime(json['scheduled_removal_at']),
+      linkedBankAccountCount: _intOrZero(json['linked_bank_account_count']),
+      linkedWalletCount: _intOrZero(json['linked_wallet_count']),
+      canReconnect: json['can_reconnect'] == true,
+      canDisconnect: json['can_disconnect'] == true,
+      canReviewAccounts: json['can_review_accounts'] == true,
+      roleGuidance: _nullableString(json['role_guidance']),
+      latestErrorCode: _nullableString(json['latest_error_code']),
+      reviewCompletedAt: _nullableDateTime(json['review_completed_at']),
     );
   }
 
@@ -85,7 +109,17 @@ class BankConnection {
 
   bool get canRequestManualRefresh =>
       isHealthy && !needsReconnect && !hasNewAccountsAvailable;
+
+  bool get isRemoved => itemStatus == 'removed' || status == 'disabled';
+  bool get needsFinishSetup =>
+      linkedWalletCount == 0 &&
+      !needsReconnect &&
+      !isPendingRemoval &&
+      !isRemoved &&
+      reviewCompletedAt == null;
 }
+
+int _intOrZero(dynamic value) => value is num ? value.toInt() : 0;
 
 String _stringOrEmpty(dynamic value) {
   if (value == null) return '';

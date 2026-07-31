@@ -3473,5 +3473,14 @@
   "monthlyRate": "MONTHLY RATE",
   "pricePerMo": "{price} / mo",
   "duration": "DURATION",
-  "monthsCount": "{count} Months"
+  "monthsCount": "{count} Months",
+  "transactionsAssignedToPocket": "Transactions assigned to pocket",
+  "bankConnections": "Bank connections",
+  "connected": "Connected",
+  "bankConnectionDisconnecting": "Disconnecting",
+  "bankConnectionRemoved": "Removed",
+  "bankConnectionNotAssigned": "Not assigned to a wallet",
+  "bankConnectionFinishSetup": "Finish setup",
+  "bankConnectionReconnect": "Reconnect",
+  "bankConnectionWalletCount": "{count} linked wallets"
 }

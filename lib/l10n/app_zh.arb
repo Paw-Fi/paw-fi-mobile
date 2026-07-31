@@ -3432,5 +3432,14 @@
   "monthlyRate": "每月价格",
   "pricePerMo": "{price} / 月",
   "duration": "期限",
-  "monthsCount": "{count} 个月"
+  "monthsCount": "{count} 个月",
+  "transactionsAssignedToPocket": "已分配到口袋的交易",
+  "bankConnections": "银行连接",
+  "connected": "已连接",
+  "bankConnectionDisconnecting": "正在断开连接",
+  "bankConnectionRemoved": "已移除",
+  "bankConnectionNotAssigned": "未分配到钱包",
+  "bankConnectionFinishSetup": "完成设置",
+  "bankConnectionReconnect": "重新连接",
+  "bankConnectionWalletCount": "已关联 {count} 个钱包"
 }

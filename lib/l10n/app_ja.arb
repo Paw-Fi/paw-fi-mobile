@@ -3436,5 +3436,14 @@
   "monthlyRate": "月額料金",
   "pricePerMo": "月額 {price}",
   "duration": "期間",
-  "monthsCount": "{count}か月"
+  "monthsCount": "{count}か月",
+  "transactionsAssignedToPocket": "ポケットに割り当てた取引",
+  "bankConnections": "銀行口座の接続",
+  "connected": "接続済み",
+  "bankConnectionDisconnecting": "接続を解除中",
+  "bankConnectionRemoved": "削除済み",
+  "bankConnectionNotAssigned": "ウォレットに未割り当て",
+  "bankConnectionFinishSetup": "設定を完了",
+  "bankConnectionReconnect": "再接続",
+  "bankConnectionWalletCount": "連携済みウォレット：{count}件"
 }

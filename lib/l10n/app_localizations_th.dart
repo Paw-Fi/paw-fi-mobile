@@ -9598,4 +9598,33 @@ class AppLocalizationsTh extends AppLocalizations {
   String monthsCount(Object count) {
     return '$count เดือน';
   }
+
+  @override
+  String get transactionsAssignedToPocket => 'รายการที่กำหนดให้กระเป๋าย่อย';
+
+  @override
+  String get bankConnections => 'การเชื่อมต่อธนาคาร';
+
+  @override
+  String get connected => 'เชื่อมต่อแล้ว';
+
+  @override
+  String get bankConnectionDisconnecting => 'กำลังยกเลิกการเชื่อมต่อ';
+
+  @override
+  String get bankConnectionRemoved => 'นำออกแล้ว';
+
+  @override
+  String get bankConnectionNotAssigned => 'ยังไม่ได้กำหนดให้กระเป๋าเงิน';
+
+  @override
+  String get bankConnectionFinishSetup => 'ตั้งค่าให้เสร็จ';
+
+  @override
+  String get bankConnectionReconnect => 'เชื่อมต่ออีกครั้ง';
+
+  @override
+  String bankConnectionWalletCount(Object count) {
+    return 'กระเป๋าเงินที่เชื่อมโยง $count รายการ';
+  }
 }

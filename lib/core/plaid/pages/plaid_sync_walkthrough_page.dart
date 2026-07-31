@@ -19,8 +19,8 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
+import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
-import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
@@ -129,7 +129,10 @@ class _PlaidSyncWalkthroughPageState
     if (!hasAccess || !mounted) return;
 
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
-    final provider = getProviderForCountry(selectedCountryCode);
+    final provider = resolveBankProviderForConnection(
+      connectionId: widget.connectionId,
+      countryCode: selectedCountryCode,
+    );
 
     // Handle coming soon countries
     if (provider == BankProvider.comingSoon) {
@@ -214,6 +217,10 @@ class _PlaidSyncWalkthroughPageState
     final linkData = linkTokenResponse.data as Map<String, dynamic>?;
     final linkToken = linkData?['linkToken'] as String?;
     final modeUsed = (linkData?['modeUsed'] as String?)?.trim();
+    final resolvedConnectionId = resolveBankConnectionId(
+      requestedConnectionId: connectionId,
+      responseConnectionId: linkData?['connectionId'] as String?,
+    );
     final linkCompletionNonce =
         (linkData?['linkCompletionNonce'] as String?)?.trim();
     final updateCompletionNonce =
@@ -236,14 +243,14 @@ class _PlaidSyncWalkthroughPageState
     });
     _startExchangeStatusTimer();
 
-    final isUpdateMode = connectionId != null && connectionId.isNotEmpty;
+    final isUpdateMode = resolvedConnectionId != null;
     final FunctionResponse exchangeResponse;
     if (isUpdateMode) {
       exchangeResponse = await client.functions.invoke(
         'plaid-item-control',
         body: {
           'action': 'update_mode_complete',
-          'connectionId': connectionId,
+          'connectionId': resolvedConnectionId,
           if (updateCompletionNonce != null && updateCompletionNonce.isNotEmpty)
             'updateCompletionNonce': updateCompletionNonce,
           if (widget.flowReason != null) 'reason': widget.flowReason,
@@ -302,7 +309,7 @@ class _PlaidSyncWalkthroughPageState
       if (exchangeResponse.status == 409 && mounted) {
         final duplicateCode = _extractFunctionErrorCode(exchangeResponse.data);
         if (duplicateCode == 'duplicate_item_accounts') {
-          await _handleDuplicateBankConnection();
+          await _handleDuplicateBankConnection(exchangeResponse.data);
           return;
         }
       }
@@ -376,18 +383,20 @@ class _PlaidSyncWalkthroughPageState
     Navigator.of(context).pop();
   }
 
-  Future<void> _handleDuplicateBankConnection() async {
+  Future<void> _handleDuplicateBankConnection([dynamic response]) async {
     if (!mounted) return;
     setState(() => _isConnecting = false);
-    await MonekoAlertDialog.show(
-        context: context,
-        title: context.l10n.bankAlreadyConnected,
-        description: context.l10n.duplicateBankConnectionDescription,
-        confirmLabel: context.l10n.backToWallets,
-        showCancelButton: false);
+    final data = response is Map ? response : const <String, dynamic>{};
+    final connectionId = data['existingConnectionId']?.toString().trim();
     ref.invalidate(bankConnectionsProvider);
     if (mounted) {
-      Navigator.of(context).pop();
+      await Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+        builder: (_) => BankConnectionsPage(
+          initialConnectionId: connectionId == null || connectionId.isEmpty
+              ? null
+              : connectionId,
+        ),
+      ));
     }
   }
 

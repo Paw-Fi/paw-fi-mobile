@@ -3453,5 +3453,14 @@
   "monthlyRate": "ราคารายเดือน",
   "pricePerMo": "{price} / เดือน",
   "duration": "ระยะเวลา",
-  "monthsCount": "{count} เดือน"
+  "monthsCount": "{count} เดือน",
+  "transactionsAssignedToPocket": "รายการที่กำหนดให้กระเป๋าย่อย",
+  "bankConnections": "การเชื่อมต่อธนาคาร",
+  "connected": "เชื่อมต่อแล้ว",
+  "bankConnectionDisconnecting": "กำลังยกเลิกการเชื่อมต่อ",
+  "bankConnectionRemoved": "นำออกแล้ว",
+  "bankConnectionNotAssigned": "ยังไม่ได้กำหนดให้กระเป๋าเงิน",
+  "bankConnectionFinishSetup": "ตั้งค่าให้เสร็จ",
+  "bankConnectionReconnect": "เชื่อมต่ออีกครั้ง",
+  "bankConnectionWalletCount": "กระเป๋าเงินที่เชื่อมโยง {count} รายการ"
 }
