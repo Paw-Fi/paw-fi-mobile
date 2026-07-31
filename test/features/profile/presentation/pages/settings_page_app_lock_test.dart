@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -17,8 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _TestAuth extends Auth {
   @override
-  AppUser build() =>
-      const AppUser(uid: 'user_1', email: 'user@example.com');
+  AppUser build() => const AppUser(uid: 'user_1', email: 'user@example.com');
 }
 
 class _TestAppLockStore implements AppLockKeyValueStore {
@@ -119,6 +117,13 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
+      await tester.scrollUntilVisible(
+        find.text('App Lock'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
       // Find the app lock switch
       final appLockSwitch = find.byType(AdaptiveSwitch).first;
       expect(appLockSwitch, findsOneWidget);
@@ -159,6 +164,13 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.scrollUntilVisible(
+        find.text('App Lock'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
 
       // Find the app lock switch
       final appLockSwitch = find.byType(AdaptiveSwitch).first;

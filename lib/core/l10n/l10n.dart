@@ -191,6 +191,10 @@ extension PocketRolloverL10nX on AppLocalizations {
       'Base $base - Rollover $rollover - Spent $spent';
 }
 
+extension PocketAssignmentL10nX on AppLocalizations {
+  String get transactionsAssignedToPocket => 'Transactions assigned to pocket';
+}
+
 extension PlaidClassificationReviewL10nX on AppLocalizations {
   String get failedToSyncTransactions =>
       'Bank transactions could not be synced. Try again before continuing.';

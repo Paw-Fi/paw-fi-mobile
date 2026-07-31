@@ -476,18 +476,21 @@ void main() {
       });
 
       final requestBodies = <Map<String, dynamic>>[];
+      final requestStarted = Completer<void>();
+      final responseCompleter = Completer<FunctionResponse>();
       when(
         () => functionsClient.invoke(
           'update-expense',
           body: any(named: 'body'),
         ),
-      ).thenAnswer((invocation) async {
+      ).thenAnswer((invocation) {
         requestBodies.add(
           Map<String, dynamic>.from(
             invocation.namedArguments[#body] as Map<String, dynamic>,
           ),
         );
-        return successResponse;
+        requestStarted.complete();
+        return responseCompleter.future;
       });
 
       final container = createContainer(
@@ -502,10 +505,26 @@ void main() {
         expenses: [original],
         allExpenses: [original],
       );
+      final originalFeedSignal =
+          container.read(transactionsFeedRefreshSignalProvider);
+      final originalDashboardSignal =
+          container.read(dashboardRefreshSignalProvider);
 
-      final result = await container
+      final updateFuture = container
           .read(transactionEditProvider.notifier)
           .updateExpense('expense-1', {'amount_cents': 1500});
+      await requestStarted.future;
+      expect(
+        container.read(transactionsFeedRefreshSignalProvider),
+        greaterThan(originalFeedSignal),
+      );
+      expect(
+        container.read(dashboardRefreshSignalProvider),
+        greaterThan(originalDashboardSignal),
+      );
+
+      responseCompleter.complete(successResponse);
+      final result = await updateFuture;
 
       final mutations = await database.getOutboxMutations();
       final localRows = await database.getRecentTransactions(
@@ -591,12 +610,17 @@ void main() {
       addTearDown(database.close);
       final response = _MockFunctionResponse();
       when(() => response.data).thenReturn({'success': true});
+      final requestStarted = Completer<void>();
+      final responseCompleter = Completer<FunctionResponse>();
       when(
         () => functionsClient.invoke(
           'delete-expense',
           body: any(named: 'body'),
         ),
-      ).thenAnswer((_) async => response);
+      ).thenAnswer((_) {
+        requestStarted.complete();
+        return responseCompleter.future;
+      });
       final original = ExpenseEntry(
         id: expenseId,
         userId: 'user-1',
@@ -619,10 +643,26 @@ void main() {
         expenses: [original],
         allExpenses: [original],
       );
+      final originalFeedSignal =
+          container.read(transactionsFeedRefreshSignalProvider);
+      final originalDashboardSignal =
+          container.read(dashboardRefreshSignalProvider);
 
-      final result = await container
+      final deleteFuture = container
           .read(transactionEditProvider.notifier)
           .deleteExpensesOptimistically([original]);
+      await requestStarted.future;
+      expect(
+        container.read(transactionsFeedRefreshSignalProvider),
+        greaterThan(originalFeedSignal),
+      );
+      expect(
+        container.read(dashboardRefreshSignalProvider),
+        greaterThan(originalDashboardSignal),
+      );
+
+      responseCompleter.complete(response);
+      final result = await deleteFuture;
       final deletedIds = await database.getActiveTransactionTombstoneIds(
         userId: 'user-1',
         householdId: householdId,

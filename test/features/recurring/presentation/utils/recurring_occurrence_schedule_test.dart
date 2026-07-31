@@ -36,6 +36,47 @@ RecurringTransaction _transaction({
 void main() {
   final scheduledOccurrence = DateTime(2026, 8, 26);
 
+  test('history dates do not duplicate a skipped future reference', () {
+    final staleFutureReference = DateTime(2026, 7, 27, 12);
+    final skippedDate = DateTime(2026, 7, 27, 8);
+
+    final dates = mergeRecurringHistoryOccurrenceDates(
+      futureReference: staleFutureReference,
+      occurrences: [
+        DateTime(2026, 3, 27),
+        DateTime(2026, 4, 27),
+        DateTime(2026, 5, 27),
+        DateTime(2026, 6, 27),
+        skippedDate,
+      ],
+    );
+
+    expect(dates, [
+      staleFutureReference,
+      DateTime(2026, 6, 27),
+      DateTime(2026, 5, 27),
+      DateTime(2026, 4, 27),
+      DateTime(2026, 3, 27),
+    ]);
+  });
+
+  test('history dates prepend a distinct future reference', () {
+    expect(
+      mergeRecurringHistoryOccurrenceDates(
+        futureReference: DateTime(2026, 8, 27),
+        occurrences: [
+          DateTime(2026, 6, 27),
+          DateTime(2026, 7, 27),
+        ],
+      ),
+      [
+        DateTime(2026, 8, 27),
+        DateTime(2026, 7, 27),
+        DateTime(2026, 6, 27),
+      ],
+    );
+  });
+
   test('opens confirmation on the configured reminder date', () {
     final transaction = _transaction(
       reminderEnabled: true,

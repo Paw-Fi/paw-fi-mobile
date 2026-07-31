@@ -56,10 +56,10 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
     final financialStartDay =
         ref.watch(homePeriodFinancialMonthStartDayProvider);
     final scope = ref.watch(householdScopeProvider);
+    final filterState = ref.watch(homeFilterProvider);
     final currency = ref.watch(selectedHomeCurrencyCodeProvider);
-    final selectedCurrencies = ref.watch(
-      homeFilterProvider.select((value) => value.normalizedSelectedCurrencies),
-    );
+    final selectedCurrencies = filterState.normalizedSelectedCurrencies;
+    final isBootstrapCurrency = !filterState.hasExplicitCurrency;
     final includeRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
     final accountCreatedAt = previewMode.isActive
@@ -119,6 +119,7 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
           selectedCurrencies: selectedCurrencies,
           financialMonthStartDay: financialStartDay,
           includeUpcomingRecurring: includeRecurring,
+          isBootstrapCurrency: isBootstrapCurrency,
         )));
         final ratio = pockets.totalBudget <= 0
             ? 0.0
@@ -187,22 +188,46 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
     required List<String>? selectedCurrencies,
     required int financialMonthStartDay,
     required bool includeUpcomingRecurring,
+    required bool isBootstrapCurrency,
   }) {
     final scopeType = switch (scope.activeAccountType) {
       ActiveWalletType.personal => PocketsScopeType.personal,
       ActiveWalletType.portfolio => PocketsScopeType.portfolio,
       ActiveWalletType.household => PocketsScopeType.household,
     };
-    return PocketsScopeParams(
-      scope: scopeType,
+    return buildHomePeriodPocketsScopeParams(
+      scopeType: scopeType,
       householdId: scopeType == PocketsScopeType.personal
           ? null
           : scope.activeAccountHouseholdId,
-      periodMonth: period,
+      period: period,
       currency: currency,
       selectedCurrencies: selectedCurrencies,
       financialMonthStartDay: financialMonthStartDay,
       includeUpcomingRecurring: includeUpcomingRecurring,
+      isBootstrapCurrency: isBootstrapCurrency,
     );
   }
+}
+
+PocketsScopeParams buildHomePeriodPocketsScopeParams({
+  required PocketsScopeType scopeType,
+  required String? householdId,
+  required DateTime period,
+  required String? currency,
+  required List<String>? selectedCurrencies,
+  required int financialMonthStartDay,
+  required bool includeUpcomingRecurring,
+  required bool isBootstrapCurrency,
+}) {
+  return PocketsScopeParams(
+    scope: scopeType,
+    householdId: householdId,
+    periodMonth: period,
+    currency: currency,
+    selectedCurrencies: selectedCurrencies,
+    financialMonthStartDay: financialMonthStartDay,
+    isBootstrapCurrency: isBootstrapCurrency,
+    includeUpcomingRecurring: includeUpcomingRecurring,
+  );
 }

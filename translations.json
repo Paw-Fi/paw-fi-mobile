@@ -100,5 +100,22 @@
     "zh": "{count} 个月",
     "zh_TW": "{count} 個月",
     "vi": "{count} tháng"
+  },
+  "transactionsAssignedToPocket": {
+    "de": "",
+    "en": "Transactions assigned to pocket",
+    "es": "",
+    "fr": "",
+    "it": "",
+    "ja": "",
+    "ko": "",
+    "nl": "",
+    "ur": "",
+    "ru": "",
+    "th": "",
+    "uk": "",
+    "zh": "",
+    "zh_TW": "",
+    "vi": ""
   }
 }

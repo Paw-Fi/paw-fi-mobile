@@ -741,6 +741,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   }
 
   Future<void> _refreshAfterLocalTransactionMutation(String userId) async {
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+
     ref.invalidate(userHouseholdsProvider(userId));
     ref.invalidate(householdExpensesProvider);
     ref.invalidate(householdSplitsProvider);

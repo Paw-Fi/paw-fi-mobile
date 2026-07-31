@@ -401,6 +401,19 @@ Map<String, double> calculatePocketNativeSpentByEnvelopeId({
   return spentById;
 }
 
+@foundation.visibleForTesting
+double resolvePocketMonthTotalSpend({
+  required bool hasTransactionData,
+  required Iterable<ExpenseEntry> transactionExpenses,
+  required double rpcTotalSpend,
+}) {
+  if (!hasTransactionData) return rpcTotalSpend;
+  return transactionExpenses.fold<double>(
+    0,
+    (sum, expense) => sum + expense.spendingEffect,
+  );
+}
+
 final _pocketsMonthCache = _PocketsMonthCache();
 
 Future<void> clearPocketsCachesForUser(
@@ -1954,6 +1967,216 @@ class UncategorizedCategory {
   }
 }
 
+@foundation.visibleForTesting
+PocketsState applyPocketCategoryAssignmentProjection({
+  required PocketsState state,
+  required String pocketId,
+  required String category,
+  List<String>? selectedCurrencies,
+}) {
+  final normalizedCategory = category.trim().toLowerCase();
+  final categoryIndex = state.uncategorized.indexWhere(
+    (item) => item.category.trim().toLowerCase() == normalizedCategory,
+  );
+  if (pocketId.trim().isEmpty || normalizedCategory.isEmpty) return state;
+
+  final categoryAmount =
+      categoryIndex < 0 ? 0.0 : state.uncategorized[categoryIndex].amount;
+  final categoryExpenseRows = <Map<String, dynamic>>[];
+  for (final entry in state.uncategorizedExpenses.entries) {
+    if (entry.key.trim().toLowerCase() == normalizedCategory) {
+      categoryExpenseRows.addAll(entry.value);
+    }
+  }
+  final categoryExpenses =
+      categoryExpenseRows.map(ExpenseEntry.fromJson).toList(growable: false);
+  final hasMultiCurrencySelection =
+      normalizePocketSelectedCurrencies(selectedCurrencies) != null;
+  PocketEnvelope? targetPocket;
+  for (final pocket in state.editing) {
+    if (pocket.id == pocketId) {
+      targetPocket = pocket;
+      break;
+    }
+  }
+  if (targetPocket == null) return state;
+  final targetPocketCurrency = targetPocket.currency.trim().toUpperCase();
+  final nativeAmount = hasMultiCurrencySelection
+      ? categoryExpenses
+          .where((expense) =>
+              expense.currency?.trim().toUpperCase() == targetPocketCurrency)
+          .fold<double>(0, (sum, expense) => sum + expense.spendingEffect)
+      : categoryAmount;
+
+  List<PocketEnvelope> updatePockets(List<PocketEnvelope> pockets) {
+    return pockets.map((pocket) {
+      if (pocket.id != pocketId || nativeAmount == 0) return pocket;
+      return pocket.copyWith(spent: pocket.spent + nativeAmount);
+    }).toList(growable: false);
+  }
+
+  final nextCategories = <String, List<String>>{
+    ...state.envelopeCategories,
+  };
+  nextCategories[pocketId] = {
+    ...(nextCategories[pocketId] ?? const <String>[])
+        .map((value) => value.trim().toLowerCase()),
+    normalizedCategory,
+  }.where((value) => value.isNotEmpty).toList(growable: false);
+  final baselineCategories = state.savedEnvelopeCategories.isEmpty
+      ? state.envelopeCategories
+      : state.savedEnvelopeCategories;
+  final nextSavedCategories = <String, List<String>>{
+    ...baselineCategories,
+  };
+  nextSavedCategories[pocketId] = {
+    ...(nextSavedCategories[pocketId] ?? const <String>[])
+        .map((value) => value.trim().toLowerCase()),
+    normalizedCategory,
+  }.where((value) => value.isNotEmpty).toList(growable: false);
+
+  return state.copyWith(
+    saved: updatePockets(state.saved),
+    editing: updatePockets(state.editing),
+    aggregateSpentByEnvelopeId: {
+      ...state.aggregateSpentByEnvelopeId,
+      pocketId:
+          (state.aggregateSpentByEnvelopeId[pocketId] ?? 0) + categoryAmount,
+    },
+    unallocatedSpend: math.max(0, state.unallocatedSpend - categoryAmount),
+    uncategorized: state.uncategorized
+        .where(
+            (item) => item.category.trim().toLowerCase() != normalizedCategory)
+        .toList(growable: false),
+    uncategorizedExpenses: Map<String, List<Map<String, dynamic>>>.fromEntries(
+      state.uncategorizedExpenses.entries.where(
+        (entry) => entry.key.trim().toLowerCase() != normalizedCategory,
+      ),
+    ),
+    envelopeCategories: nextCategories,
+    savedEnvelopeCategories: nextSavedCategories,
+    clearError: true,
+  );
+}
+
+@foundation.visibleForTesting
+PocketsState rollbackPocketCategoryAssignmentProjection({
+  required PocketsState current,
+  required PocketsState previous,
+  required String pocketId,
+  required String category,
+  List<String>? selectedCurrencies,
+}) {
+  final normalizedCategory = category.trim().toLowerCase();
+  final projected = applyPocketCategoryAssignmentProjection(
+    state: previous,
+    pocketId: pocketId,
+    category: normalizedCategory,
+    selectedCurrencies: selectedCurrencies,
+  );
+
+  double spentFor(List<PocketEnvelope> pockets) {
+    for (final pocket in pockets) {
+      if (pocket.id == pocketId) return pocket.spent;
+    }
+    return 0;
+  }
+
+  List<PocketEnvelope> rollbackPocketSpend(
+    List<PocketEnvelope> pockets,
+    double delta,
+  ) {
+    if (delta == 0) return pockets;
+    return pockets.map((pocket) {
+      if (pocket.id != pocketId) return pocket;
+      return pocket.copyWith(spent: math.max(0, pocket.spent - delta));
+    }).toList(growable: false);
+  }
+
+  Map<String, List<String>> rollbackCategories(
+    Map<String, List<String>> currentCategories,
+    Map<String, List<String>> previousCategories,
+  ) {
+    final previousValues = previousCategories[pocketId] ?? const <String>[];
+    final categoryPreviouslyExisted = previousValues.any(
+      (value) => value.trim().toLowerCase() == normalizedCategory,
+    );
+    final nextValues = (currentCategories[pocketId] ?? const <String>[])
+        .where((value) =>
+            categoryPreviouslyExisted ||
+            value.trim().toLowerCase() != normalizedCategory)
+        .toList(growable: false);
+    return {
+      ...currentCategories,
+      if (nextValues.isNotEmpty) pocketId: nextValues,
+    }..removeWhere(
+        (key, value) => key == pocketId && nextValues.isEmpty,
+      );
+  }
+
+  final editingSpentDelta =
+      spentFor(projected.editing) - spentFor(previous.editing);
+  final savedSpentDelta = spentFor(projected.saved) - spentFor(previous.saved);
+  final aggregateDelta = (projected.aggregateSpentByEnvelopeId[pocketId] ?? 0) -
+      (previous.aggregateSpentByEnvelopeId[pocketId] ?? 0);
+  final unallocatedDelta =
+      previous.unallocatedSpend - projected.unallocatedSpend;
+  final restoredUncategorized = current.uncategorized
+      .where((item) => item.category.trim().toLowerCase() != normalizedCategory)
+      .toList(growable: true);
+  restoredUncategorized.addAll(
+    previous.uncategorized.where(
+      (item) => item.category.trim().toLowerCase() == normalizedCategory,
+    ),
+  );
+  final restoredExpenses = <String, List<Map<String, dynamic>>>{
+    for (final entry in current.uncategorizedExpenses.entries)
+      if (entry.key.trim().toLowerCase() != normalizedCategory)
+        entry.key: entry.value,
+    for (final entry in previous.uncategorizedExpenses.entries)
+      if (entry.key.trim().toLowerCase() == normalizedCategory)
+        entry.key: entry.value,
+  };
+  final nextAggregateSpent = {
+    ...current.aggregateSpentByEnvelopeId,
+    pocketId: math.max(
+      0.0,
+      (current.aggregateSpentByEnvelopeId[pocketId] ?? 0) - aggregateDelta,
+    ),
+  }..removeWhere((key, value) => key == pocketId && value == 0);
+
+  return current.copyWith(
+    saved: rollbackPocketSpend(current.saved, savedSpentDelta),
+    editing: rollbackPocketSpend(current.editing, editingSpentDelta),
+    aggregateSpentByEnvelopeId: nextAggregateSpent,
+    unallocatedSpend: current.unallocatedSpend + unallocatedDelta,
+    uncategorized: restoredUncategorized,
+    uncategorizedExpenses: restoredExpenses,
+    envelopeCategories: rollbackCategories(
+      current.envelopeCategories,
+      previous.envelopeCategories,
+    ),
+    savedEnvelopeCategories: rollbackCategories(
+      current.savedEnvelopeCategories,
+      previous.savedEnvelopeCategories,
+    ),
+  );
+}
+
+class _PendingPocketCategoryAssignment {
+  const _PendingPocketCategoryAssignment({
+    required this.revision,
+    required this.pocketId,
+    required this.category,
+    required this.previousState,
+  });
+
+  final int revision;
+  final String pocketId;
+  final String category;
+  final PocketsState previousState;
+}
+
 class PocketsNotifier extends StateNotifier<PocketsState> {
   PocketsNotifier(this.ref, this.params) : super(PocketsState.initial()) {
     // Auto-load once when the notifier is created.
@@ -1995,8 +2218,26 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   bool _hasLoadedOnce = false;
   bool _hasPendingSilentReload = false;
   bool _isDrainingSilentReload = false;
+  bool _isSilentReloadScheduled = false;
   int _refreshRevision = 0;
+  int _categoryAssignmentMutationSequence = 0;
+  final Map<String, int> _categoryAssignmentRevisions = {};
+  final Map<String, _PendingPocketCategoryAssignment>
+      _pendingCategoryAssignments = {};
   bool get _isPreview => ref.read(previewModeProvider).isActive;
+
+  PocketsState _withPendingCategoryAssignments(PocketsState base) {
+    var projected = base;
+    for (final assignment in _pendingCategoryAssignments.values) {
+      projected = applyPocketCategoryAssignmentProjection(
+        state: projected,
+        pocketId: assignment.pocketId,
+        category: assignment.category,
+        selectedCurrencies: params.normalizedSelectedCurrencies,
+      );
+    }
+    return projected;
+  }
 
   void _scheduleSilentReload() {
     if (!mounted || state.hasChanges) return;
@@ -2009,7 +2250,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _pocketsMonthCache.clearInFlight(cacheKey);
     }
     if (state.isLoading && _hasLoadedOnce) return;
-    unawaited(_drainPendingSilentReload());
+    if (_isSilentReloadScheduled || _isDrainingSilentReload) return;
+    _isSilentReloadScheduled = true;
+    Future.microtask(() {
+      _isSilentReloadScheduled = false;
+      if (mounted) unawaited(_drainPendingSilentReload());
+    });
   }
 
   void _prepareFreshMutationReload() {
@@ -2382,7 +2628,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           });
           // Serve cached state immediately.
           if (!mounted) return;
-          state = cached.copyWith(isLoading: false, clearError: true);
+          state = _withPendingCategoryAssignments(
+            cached.copyWith(isLoading: false, clearError: true),
+          );
 
           // If stale, refresh in the background (deduped per key).
           if (!isFresh && !isOffline) {
@@ -2407,7 +2655,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   // Avoid clobbering local edits.
                   if (state.hasChanges) return;
                   if (_lastCacheKey != cacheKey) return;
-                  state = loaded;
+                  state = _withPendingCategoryAssignments(loaded);
                 }).catchError((Object error, StackTrace stackTrace) {
                   trace.mark('background-refresh-error', {'error': error});
                 }),
@@ -2443,7 +2691,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               });
               _pocketsMonthCache.set(cacheKey, persistedState, now);
               if (!mounted) return;
-              state = persistedState;
+              state = _withPendingCategoryAssignments(persistedState);
               if (!isFresh && !isOffline) {
                 final backgroundRefreshRevision = _refreshRevision;
                 Future<void>(() async {
@@ -2463,7 +2711,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                     if (_refreshRevision != backgroundRefreshRevision) return;
                     if (state.hasChanges) return;
                     if (_lastCacheKey != cacheKey) return;
-                    state = loaded;
+                    state = _withPendingCategoryAssignments(loaded);
                   } catch (error) {
                     trace.mark('background-refresh-error', {'error': error});
                   }
@@ -2530,7 +2778,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         trace.mark('load-superseded');
         return;
       }
-      state = loadedState;
+      state = _withPendingCategoryAssignments(loadedState);
       trace.mark('load-success', {
         'editingCount': loadedState.editing.length,
         'totalBudget': loadedState.totalBudget,
@@ -2955,18 +3203,29 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             )
           : const <String, double>{};
 
+      final rpcTotalMonthlySpend = payloads.fold<double>(0, (sum, payload) {
+        final sourceCurrency =
+            (payload['selected_currency'] as String?)?.toUpperCase();
+        return sum +
+            centsInSelectedCurrency(
+                  payload['total_spend_cents'] as num?,
+                  sourceCurrency,
+                ) /
+                100.0;
+      });
       final shouldComputeSpendFromTransactions =
-          monthlyExpenses.isNotEmpty || envIds.isNotEmpty;
+          actualExpensesWithPending.isNotEmpty;
       final spentById = <String, double>{};
       final aggregateSpentById = <String, double>{};
-      double totalMonthlySpend = 0.0;
+      final totalMonthlySpend = resolvePocketMonthTotalSpend(
+        hasTransactionData: shouldComputeSpendFromTransactions,
+        transactionExpenses: spendExpenses,
+        rpcTotalSpend: rpcTotalMonthlySpend,
+      );
 
       if (shouldComputeSpendFromTransactions) {
         // Preserve existing semantics: when projections are included, all spend
         // calculations include both actual + projected expenses.
-        for (final expense in spendExpenses) {
-          totalMonthlySpend += expense.spendingEffect;
-        }
         for (final envId in envIds) {
           final categories = categoriesByEnvelopeId[envId] ?? const <String>[];
           if (categories.isEmpty) {
@@ -2988,16 +3247,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               : totalSpent;
         }
       } else {
-        final spentRows = ((payload['spent_by_envelope'] as List?) ?? const [])
-            .cast<Map>()
-            .map((row) => Map<String, dynamic>.from(row))
-            .toList(growable: false);
-        for (final row in spentRows) {
-          final envId = row['envelope_id']?.toString();
-          if (envId == null || envId.isEmpty) continue;
-          spentById[envId] =
-              ((row['spent_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
-          aggregateSpentById[envId] = spentById[envId] ?? 0.0;
+        for (final payload in payloads) {
+          final sourceCurrency =
+              (payload['selected_currency'] as String?)?.toUpperCase();
+          final spentRows =
+              ((payload['spent_by_envelope'] as List?) ?? const [])
+                  .cast<Map>()
+                  .map((row) => Map<String, dynamic>.from(row));
+          for (final row in spentRows) {
+            final envId = row['envelope_id']?.toString();
+            if (envId == null || envId.isEmpty) continue;
+            final rawSpentCents =
+                (row['spent_cents'] as num?)?.toDouble() ?? 0.0;
+            spentById[envId] = rawSpentCents / 100.0;
+            aggregateSpentById[envId] =
+                centsInSelectedCurrency(rawSpentCents, sourceCurrency) / 100.0;
+          }
         }
 
         // Ensure empty envelopes still get 0 spent.
@@ -3005,9 +3270,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           spentById.putIfAbsent(envId, () => 0.0);
           aggregateSpentById.putIfAbsent(envId, () => 0.0);
         }
-
-        totalMonthlySpend =
-            ((payload['total_spend_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
       }
 
       final pockets = envRows.map((row) {
@@ -5029,30 +5291,59 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     return insertedCount;
   }
 
-  Future<void> assignCategoryToPocket(String pocketId, String category) async {
+  bool assignCategoryToPocket(String pocketId, String category) {
     if (_isPreview) {
       _showPreviewModeToast();
-      return;
+      return false;
     }
     final normalizedCategory = category.trim().toLowerCase();
-    if (pocketId.trim().isEmpty || normalizedCategory.isEmpty) return;
+    final hasPocket = state.editing.any((pocket) => pocket.id == pocketId);
+    if (pocketId.trim().isEmpty || normalizedCategory.isEmpty || !hasPocket) {
+      return false;
+    }
     final previousState = state;
-    final nextCategories = <String, List<String>>{
-      ...state.envelopeCategories,
-    };
-    final existing = nextCategories[pocketId] ?? const <String>[];
-    nextCategories[pocketId] = {
-      ...existing.map((value) => value.trim().toLowerCase()),
-      normalizedCategory,
-    }.where((value) => value.isNotEmpty).toList(growable: false);
-    state =
-        state.copyWith(envelopeCategories: nextCategories, clearError: true);
+    final entityKey = '$pocketId:$normalizedCategory';
+    final assignmentRevision =
+        (_categoryAssignmentRevisions[entityKey] ?? 0) + 1;
+    _categoryAssignmentRevisions[entityKey] = assignmentRevision;
+    final mutationSequence = ++_categoryAssignmentMutationSequence;
+    final createdAtMicros = DateTime.now().microsecondsSinceEpoch;
+    final mutationId =
+        'mobile:pockets_category_${pocketId}_${normalizedCategory}_${createdAtMicros}_$mutationSequence'
+            .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    _pendingCategoryAssignments[mutationId] = _PendingPocketCategoryAssignment(
+      revision: assignmentRevision,
+      pocketId: pocketId,
+      category: normalizedCategory,
+      previousState: previousState,
+    );
+    state = applyPocketCategoryAssignmentProjection(
+      state: state,
+      pocketId: pocketId,
+      category: normalizedCategory,
+      selectedCurrencies: params.normalizedSelectedCurrencies,
+    );
 
-    final mutationId = 'mobile:pockets_category_${pocketId}_$normalizedCategory'
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    unawaited(
+      _persistPocketCategoryAssignment(
+        pocketId: pocketId,
+        normalizedCategory: normalizedCategory,
+        mutationId: mutationId,
+      ),
+    );
+    return true;
+  }
+
+  Future<void> _persistPocketCategoryAssignment({
+    required String pocketId,
+    required String normalizedCategory,
+    required String mutationId,
+  }) async {
+    MonekoDatabase? database;
     try {
-      final database = await ref.read(localDatabaseProvider.future);
-      await database.enqueueMutation(
+      final resolvedDatabase = await ref.read(localDatabaseProvider.future);
+      database = resolvedDatabase;
+      await resolvedDatabase.enqueueMutation(
         clientMutationId: mutationId,
         entityType: 'pocket_category',
         entityId: '$pocketId:$normalizedCategory',
@@ -5074,9 +5365,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'category': normalizedCategory,
         'created_at': DateTime.now().toIso8601String(),
       }, onConflict: 'envelope_id,category');
-      await database.markMutationSynced(mutationId);
+      await resolvedDatabase.markMutationSynced(mutationId);
+      _pendingCategoryAssignments.remove(mutationId);
       _prepareFreshMutationReload();
-      await _load(bypassCache: true);
+      if (!state.hasChanges) {
+        await _load(bypassCache: true);
+      }
 
       if (!mounted) return;
 
@@ -5093,8 +5387,43 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         return;
       }
       if (!mounted) return;
-      state =
-          previousState.copyWith(error: ErrorHandler.getUserFriendlyMessage(e));
+      try {
+        await database?.markMutationCancelled(
+          clientMutationId: mutationId,
+          error: e,
+        );
+      } catch (_) {}
+      final failedAssignment = _pendingCategoryAssignments.remove(mutationId);
+      final message = ErrorHandler.getUserFriendlyMessage(e);
+      final failedEntityKey = failedAssignment == null
+          ? null
+          : '${failedAssignment.pocketId}:${failedAssignment.category}';
+      if (failedAssignment != null &&
+          _categoryAssignmentRevisions[failedEntityKey] ==
+              failedAssignment.revision) {
+        state = rollbackPocketCategoryAssignmentProjection(
+          current: state,
+          previous: failedAssignment.previousState,
+          pocketId: failedAssignment.pocketId,
+          category: failedAssignment.category,
+          selectedCurrencies: params.normalizedSelectedCurrencies,
+        ).copyWith(error: message);
+        unawaited(
+          _persistCurrentStateSnapshot(
+            userId: ref.read(authProvider).uid,
+            scopeType: params.scope,
+            householdId: params.householdId,
+            periodMonth: _formatDate(state.periodMonth),
+            currency: state.currency,
+          ),
+        );
+      } else {
+        state = state.copyWith(error: message);
+        _prepareFreshMutationReload();
+        if (!state.hasChanges) {
+          unawaited(_load(bypassCache: true));
+        }
+      }
     }
   }
 

@@ -287,6 +287,34 @@ void main() {
       expect(state.totalSpent, 205.43);
     });
 
+    test('uses RPC month spend when the transaction feed is empty', () {
+      final totalSpent = resolvePocketMonthTotalSpend(
+        hasTransactionData: false,
+        transactionExpenses: const [],
+        rpcTotalSpend: 2651,
+      );
+
+      expect(totalSpent, 2651);
+      expect((totalSpent / 11000 * 100).round(), 24);
+    });
+
+    test('keeps RPC month spend when only recurring projections are local', () {
+      final totalSpent = resolvePocketMonthTotalSpend(
+        hasTransactionData: false,
+        transactionExpenses: [
+          ExpenseEntry(
+            id: 'projected-recurring',
+            date: DateTime(2026, 7, 20),
+            amountCents: 10000,
+            createdAt: DateTime(2026, 7, 1),
+          ),
+        ],
+        rpcTotalSpend: 2651,
+      );
+
+      expect(totalSpent, 2651);
+    });
+
     test('preserves pocket shares when total budget increases', () {
       final result = rebalancePocketBudgetAmounts(
         currentAmountsCents: const [60000, 40000],
@@ -1644,6 +1672,195 @@ void main() {
       expect(updated.saved.single.spent, 10);
       expect(updated.editing.single.spent, 10);
       expect(updated.localOverlayExpenseIds, {'local-usd', 'local-eur'});
+    });
+  });
+
+  group('applyPocketCategoryAssignmentProjection', () {
+    test('moves unallocated spend into the selected pocket immediately', () {
+      final month = DateTime(2026, 5, 1);
+      final pocket = PocketEnvelope(
+        id: 'env-food',
+        name: 'Food',
+        budgetAmountCents: 10000,
+        spent: 15,
+        currency: 'USD',
+        budgetId: 'budget-1',
+        lastUpdated: month,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: month,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 100,
+        savedTotalBudget: 100,
+        aggregateTotalSpent: 40,
+        aggregateSpentByEnvelopeId: const {'env-food': 15},
+        unallocatedSpend: 25,
+        uncategorized: const [
+          UncategorizedCategory(category: 'groceries', amount: 25),
+        ],
+        uncategorizedExpenses: const {
+          'groceries': [
+            {
+              'id': 'expense-1',
+              'date': '2026-05-10',
+              'created_at': '2026-05-10T12:00:00Z',
+              'amount_cents': 2500,
+              'currency': 'USD',
+              'category': 'groceries',
+              'type': 'expense',
+            },
+          ],
+        },
+      );
+
+      final updated = applyPocketCategoryAssignmentProjection(
+        state: state,
+        pocketId: 'env-food',
+        category: 'groceries',
+      );
+
+      expect(updated.editing.single.spent, 40);
+      expect(updated.saved.single.spent, 40);
+      expect(updated.aggregateSpentByEnvelopeId['env-food'], 40);
+      expect(updated.unallocatedSpend, 0);
+      expect(updated.uncategorized, isEmpty);
+      expect(updated.uncategorizedExpenses, isEmpty);
+      expect(updated.envelopeCategories['env-food'], ['groceries']);
+      expect(updated.savedEnvelopeCategories['env-food'], ['groceries']);
+      expect(updated.hasChanges, isFalse);
+
+      final projectedAgain = applyPocketCategoryAssignmentProjection(
+        state: updated,
+        pocketId: 'env-food',
+        category: 'groceries',
+      );
+      expect(projectedAgain.editing.single.spent, 40);
+      expect(projectedAgain.aggregateSpentByEnvelopeId['env-food'], 40);
+
+      final invalidProjection = applyPocketCategoryAssignmentProjection(
+        state: state,
+        pocketId: 'missing-pocket',
+        category: 'groceries',
+      );
+      expect(identical(invalidProjection, state), isTrue);
+
+      final stateWithOtherUnsavedCategory = state.copyWith(
+        envelopeCategories: const {
+          'env-food': ['dining'],
+        },
+        savedEnvelopeCategories: const {
+          'env-food': ['bills'],
+        },
+      );
+      final projectedWithOtherUnsavedCategory =
+          applyPocketCategoryAssignmentProjection(
+        state: stateWithOtherUnsavedCategory,
+        pocketId: 'env-food',
+        category: 'groceries',
+      );
+      expect(
+        projectedWithOtherUnsavedCategory.envelopeCategories['env-food'],
+        ['dining', 'groceries'],
+      );
+      expect(
+        projectedWithOtherUnsavedCategory.savedEnvelopeCategories['env-food'],
+        ['bills', 'groceries'],
+      );
+      expect(projectedWithOtherUnsavedCategory.hasChanges, isTrue);
+
+      final currentWithLaterBudgetEdit =
+          projectedWithOtherUnsavedCategory.copyWith(
+        editing: [
+          projectedWithOtherUnsavedCategory.editing.single.copyWith(
+            budgetAmountCents: 12000,
+          ),
+        ],
+      );
+      final rolledBack = rollbackPocketCategoryAssignmentProjection(
+        current: currentWithLaterBudgetEdit,
+        previous: stateWithOtherUnsavedCategory,
+        pocketId: 'env-food',
+        category: 'groceries',
+      );
+      expect(rolledBack.editing.single.budgetAmountCents, 12000);
+      expect(rolledBack.editing.single.spent, 15);
+      expect(rolledBack.unallocatedSpend, 25);
+      expect(rolledBack.uncategorized.single.category, 'groceries');
+      expect(rolledBack.envelopeCategories['env-food'], ['dining']);
+      expect(rolledBack.savedEnvelopeCategories['env-food'], ['bills']);
+      expect(rolledBack.hasChanges, isTrue);
+    });
+
+    test('keeps pocket card spend in its native currency', () {
+      final month = DateTime(2026, 5, 1);
+      final pocket = PocketEnvelope(
+        id: 'env-food-usd',
+        name: 'Food',
+        budgetAmountCents: 10000,
+        spent: 0,
+        currency: 'USD',
+        budgetId: 'budget-1',
+        lastUpdated: month,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: month,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 100,
+        savedTotalBudget: 100,
+        aggregateTotalSpent: 30,
+        aggregateSpentByEnvelopeId: const {},
+        unallocatedSpend: 30,
+        uncategorized: const [
+          UncategorizedCategory(category: 'groceries', amount: 30),
+        ],
+        uncategorizedExpenses: const {
+          'groceries': [
+            {
+              'id': 'expense-usd',
+              'date': '2026-05-10',
+              'created_at': '2026-05-10T12:00:00Z',
+              'amount_cents': 1000,
+              'currency': 'USD',
+              'category': 'groceries',
+              'type': 'expense',
+            },
+            {
+              'id': 'expense-eur',
+              'date': '2026-05-11',
+              'created_at': '2026-05-11T12:00:00Z',
+              'amount_cents': 2000,
+              'currency': 'EUR',
+              'category': 'groceries',
+              'type': 'expense',
+            },
+          ],
+        },
+      );
+
+      final updated = applyPocketCategoryAssignmentProjection(
+        state: state,
+        pocketId: 'env-food-usd',
+        category: 'groceries',
+        selectedCurrencies: const ['USD', 'EUR'],
+      );
+
+      expect(updated.editing.single.spent, 10);
+      expect(updated.saved.single.spent, 10);
+      expect(updated.aggregateSpentByEnvelopeId['env-food-usd'], 30);
+      expect(updated.aggregateTotalSpent, 30);
+      expect(updated.unallocatedSpend, 0);
     });
   });
 

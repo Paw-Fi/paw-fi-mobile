@@ -187,7 +187,7 @@ void main() {
     final tooltip = tester.widget<Tooltip>(find.byType(Tooltip).last);
     expect(
       tooltip.message,
-      contains('balance, wallet-linked income and spending'),
+      contains('overall net worth, summaries, and charts'),
     );
 
     await tester.tap(find.text('Exclude from wallet analytics'));

@@ -55,6 +55,7 @@ class PocketsGridSection extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
+    final lastShownError = useRef<String?>(null);
     final effectiveCurrency = state.currency.trim().isNotEmpty
         ? state.currency.trim()
         : (scopeParams.currency?.trim().isNotEmpty == true
@@ -85,6 +86,20 @@ class PocketsGridSection extends HookConsumerWidget {
       });
       return null;
     }, []);
+
+    useEffect(() {
+      final error = state.error;
+      if (error == null || !state.hasDisplayData) {
+        lastShownError.value = null;
+        return null;
+      }
+      if (error == lastShownError.value) return null;
+      lastShownError.value = error;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) AppToast.error(context, error);
+      });
+      return null;
+    }, [state.error]);
 
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
 
@@ -340,7 +355,18 @@ class PocketsGridSection extends HookConsumerWidget {
                         uncategorized: uncategorized,
                         uncategorizedExpenses: uncategorizedExpenses,
                         availablePockets: pocketsForDisplay,
-                        onAssignCategory: notifier.assignCategoryToPocket,
+                        onAssignCategory: (pocketId, category) {
+                          final accepted = notifier.assignCategoryToPocket(
+                            pocketId,
+                            category,
+                          );
+                          if (accepted) {
+                            AppToast.success(
+                              context,
+                              context.l10n.transactionsAssignedToPocket,
+                            );
+                          }
+                        },
                       ),
                     )
                   : const SizedBox.shrink(),

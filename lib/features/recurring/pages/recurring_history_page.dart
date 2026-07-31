@@ -15,6 +15,7 @@ import 'package:moneko/features/home/presentation/state/state.dart'
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
+import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -167,10 +168,10 @@ class RecurringHistoryPage extends HookConsumerWidget {
     final totalCumulativeText =
         '$sign$currencySymbol${formatLocalizedNumber(context, double.parse(formatAmount(totalCumulativeAmount)))}';
 
-    final reversedOccurrences = [
-      if (futureReference != null) futureReference,
-      ...occurrences.reversed,
-    ];
+    final reversedOccurrences = mergeRecurringHistoryOccurrenceDates(
+      futureReference: futureReference,
+      occurrences: occurrences,
+    );
     final filteredList = reversedOccurrences.where((occurrence) {
       final dateString = formatDateOnlyYmd(occurrence);
       final item = timelineByDate[dateString];

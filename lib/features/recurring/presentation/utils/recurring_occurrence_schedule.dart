@@ -1,4 +1,25 @@
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+
+List<DateTime> mergeRecurringHistoryOccurrenceDates({
+  required Iterable<DateTime> occurrences,
+  DateTime? futureReference,
+}) {
+  final seenDates = <String>{};
+  final mergedDates = <DateTime>[];
+
+  void addIfMissing(DateTime occurrence) {
+    if (seenDates.add(formatDateOnlyYmd(occurrence))) {
+      mergedDates.add(occurrence);
+    }
+  }
+
+  if (futureReference != null) addIfMissing(futureReference);
+  for (final occurrence in occurrences.toList(growable: false).reversed) {
+    addIfMissing(occurrence);
+  }
+  return mergedDates;
+}
 
 List<DateTime> getOccurrencesList(
   RecurringTransaction transaction,
