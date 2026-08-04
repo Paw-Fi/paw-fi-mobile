@@ -269,6 +269,12 @@ class AccountsPage extends HookConsumerWidget {
     final hasPendingPlaidRemoval = scopedPlaidConnections.any(
       (connection) => connection.isPendingRemoval,
     );
+    final hasActivePlaidConnection = scopedPlaidConnections.any(
+      (connection) =>
+          connection.isHealthy &&
+          !connection.isRemoved &&
+          !connection.needsReconnect,
+    );
     Future<void> refreshWalletsAfterPlaidFlow() async {
       ref.invalidate(bankConnectionsProvider);
       ref.invalidate(bankAccountsProvider);
@@ -488,6 +494,7 @@ class AccountsPage extends HookConsumerWidget {
       final selectedOption = await showAddWalletOptionSheet(
         context,
         showBankConnectionOption: shouldShowConnectBankButton,
+        showBankConnectionsOption: hasActivePlaidConnection,
       );
       if (selectedOption == null || !context.mounted) {
         return;
@@ -499,6 +506,13 @@ class AccountsPage extends HookConsumerWidget {
           break;
         case AddWalletOption.bank:
           await onConnectBankAccount();
+          break;
+        case AddWalletOption.bankConnections:
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const BankConnectionsPage(),
+            ),
+          );
           break;
       }
     }
@@ -716,19 +730,6 @@ class AccountsPage extends HookConsumerWidget {
                 ),
               );
             }),
-          ),
-          Positioned(
-            top: 8,
-            right: 12,
-            child: IconButton(
-              tooltip: context.l10n.bankConnections,
-              icon: const Icon(Icons.account_balance_outlined),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const BankConnectionsPage(),
-                ),
-              ),
-            ),
           ),
         ],
       ),

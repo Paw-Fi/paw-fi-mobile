@@ -3,11 +3,12 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
-enum AddWalletOption { manual, bank }
+enum AddWalletOption { manual, bank, bankConnections }
 
 Future<AddWalletOption?> showAddWalletOptionSheet(
   BuildContext context, {
   required bool showBankConnectionOption,
+  required bool showBankConnectionsOption,
 }) {
   return MonekoBottomSheet.show<AddWalletOption>(
     context: context,
@@ -17,33 +18,47 @@ Future<AddWalletOption?> showAddWalletOptionSheet(
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                context.l10n.chooseHowYouWantToAddThisWallet,
-                style: TextStyle(
-                  color: colorScheme.mutedForeground,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.chooseHowYouWantToAddThisWallet,
+                  style: TextStyle(
+                    color: colorScheme.mutedForeground,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _AddWalletOptionTile(
-                icon: Icons.edit_note_rounded,
-                title: context.l10n.manualTrackingAccount,
-                subtitle: context.l10n.createWalletUpdateBalanceYourself,
-                onTap: () => Navigator.of(context).pop(AddWalletOption.manual),
-              ),
-              if (showBankConnectionOption) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _AddWalletOptionTile(
-                  icon: Icons.account_balance_rounded,
-                  title: context.l10n.connectBank,
-                  subtitle: context.l10n.connectBankAccountAutomaticSyncing,
-                  onTap: () => Navigator.of(context).pop(AddWalletOption.bank),
+                  icon: Icons.edit_note_rounded,
+                  title: context.l10n.manualTrackingAccount,
+                  subtitle: context.l10n.createWalletUpdateBalanceYourself,
+                  onTap: () =>
+                      Navigator.of(context).pop(AddWalletOption.manual),
                 ),
+                if (showBankConnectionOption) ...[
+                  const SizedBox(height: 8),
+                  _AddWalletOptionTile(
+                    icon: Icons.account_balance_rounded,
+                    title: context.l10n.connectBank,
+                    subtitle: context.l10n.connectBankAccountAutomaticSyncing,
+                    onTap: () =>
+                        Navigator.of(context).pop(AddWalletOption.bank),
+                  ),
+                ],
+                if (showBankConnectionsOption) ...[
+                  const SizedBox(height: 8),
+                  _AddWalletOptionTile(
+                    icon: Icons.link_rounded,
+                    title: context.l10n.bankConnections,
+                    subtitle: context.l10n.manualSyncPullsLatestTransactions,
+                    onTap: () => Navigator.of(context)
+                        .pop(AddWalletOption.bankConnections),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       );
