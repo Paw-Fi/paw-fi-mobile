@@ -261,6 +261,30 @@ class LocalMutationOutboxData {
   final DateTime? retryAfter;
 }
 
+/// A durable local transaction mutation that prevents household settlement
+/// until the server can authoritatively calculate the post-mutation balance.
+class LocalHouseholdTransactionMutationBlocker {
+  const LocalHouseholdTransactionMutationBlocker({
+    required this.source,
+    required this.entityId,
+    required this.clientMutationId,
+    required this.operation,
+    required this.status,
+    this.attemptCount,
+    this.lastError,
+    this.retryAfter,
+  });
+
+  final String source;
+  final String entityId;
+  final String clientMutationId;
+  final String operation;
+  final String status;
+  final int? attemptCount;
+  final String? lastError;
+  final DateTime? retryAfter;
+}
+
 class LocalHouseholdSettlementMutationPayload {
   const LocalHouseholdSettlementMutationPayload._({
     required this.householdId,
@@ -2129,9 +2153,15 @@ class MonekoDatabase {
 
   Future<bool> hasPendingHouseholdTransactionMutations(
     String householdId,
+  ) async =>
+      await getPendingHouseholdTransactionMutationBlocker(householdId) != null;
+
+  Future<LocalHouseholdTransactionMutationBlocker?>
+      getPendingHouseholdTransactionMutationBlocker(
+    String householdId,
   ) async {
     final normalizedHouseholdId = householdId.trim();
-    if (normalizedHouseholdId.isEmpty) return false;
+    if (normalizedHouseholdId.isEmpty) return null;
 
     _requeueExpiredSyncingMutations(DateTime.now().toUtc());
 
@@ -2141,7 +2171,7 @@ class MonekoDatabase {
     // failed tombstone must continue to block settlement until reconciled.
     final pendingDeleteRows = _db.select(
       '''
-      SELECT 1
+      SELECT transaction_id, client_mutation_id, status
       FROM local_transaction_tombstones
       WHERE household_id = ?
         AND status IN (?, ?, ?)
@@ -2154,11 +2184,20 @@ class MonekoDatabase {
         localMutationStatusFailed,
       ],
     );
-    if (pendingDeleteRows.isNotEmpty) return true;
+    if (pendingDeleteRows.isNotEmpty) {
+      final tombstone = pendingDeleteRows.first;
+      return LocalHouseholdTransactionMutationBlocker(
+        source: 'tombstone',
+        entityId: tombstone['transaction_id']?.toString() ?? '',
+        clientMutationId: tombstone['client_mutation_id']?.toString() ?? '',
+        operation: 'delete',
+        status: tombstone['status']?.toString() ?? '',
+      );
+    }
 
     final mutationRows = _db.select(
       '''
-      SELECT entity_type, entity_id, payload_json
+      SELECT *
       FROM local_mutation_outbox
       WHERE entity_type IN ('transaction', 'ai_input')
         AND status IN (?, ?, ?)
@@ -2177,7 +2216,7 @@ class MonekoDatabase {
         payloadJson,
         normalizedHouseholdId,
       )) {
-        return true;
+        return _householdTransactionMutationBlockerFromRow(mutation);
       }
 
       // Older queued transaction payloads were not required to embed their
@@ -2189,11 +2228,26 @@ class MonekoDatabase {
             mutation['entity_id']?.toString() ?? '',
             normalizedHouseholdId,
           )) {
-        return true;
+        return _householdTransactionMutationBlockerFromRow(mutation);
       }
     }
 
-    return false;
+    return null;
+  }
+
+  LocalHouseholdTransactionMutationBlocker
+      _householdTransactionMutationBlockerFromRow(Row row) {
+    final mutation = _mutationFromRow(row);
+    return LocalHouseholdTransactionMutationBlocker(
+      source: 'outbox',
+      entityId: mutation.entityId,
+      clientMutationId: mutation.clientMutationId,
+      operation: mutation.operation,
+      status: mutation.status,
+      attemptCount: mutation.attemptCount,
+      lastError: mutation.lastError,
+      retryAfter: mutation.retryAfter,
+    );
   }
 
   bool _mutationPayloadReferencesHousehold(

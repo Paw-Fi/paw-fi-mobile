@@ -144,6 +144,44 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   _PendingSettlementAttempt? _pendingSettlementAttempt;
   SettlementPaymentRecord? _pendingOptimisticPayment;
 
+  String _shortTraceId(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.length <= 8 ? normalized : normalized.substring(0, 8);
+  }
+
+  void _traceSettlementConfirmation(
+    String stage, {
+    String? memberId,
+    String? currencyCode,
+    int? remoteSplitCount,
+    int? drainedMutations,
+    bool? pendingTransactions,
+    bool? pendingSettlement,
+    String? transactionBlocker,
+    int? maxCents,
+    Object? error,
+  }) {
+    if (!kDebugMode) return;
+    String errorSummary() {
+      if (error == null) return '-';
+      final normalized = error.toString().replaceAll(RegExp(r'\s+'), ' ');
+      return normalized.length <= 160
+          ? normalized
+          : '${normalized.substring(0, 160)}…';
+    }
+
+    debugPrint(
+      '[SettlementConfirmationTrace] stage=$stage '
+      'household=${_shortTraceId(widget.householdId)} member=${_shortTraceId(memberId)} '
+      'currency=${currencyCode ?? '-'} remoteSplits=${remoteSplitCount ?? '-'} '
+      'drained=${drainedMutations ?? '-'} '
+      'pendingTx=${pendingTransactions ?? '-'} '
+      'pendingSettlement=${pendingSettlement ?? '-'} '
+      'txBlocker=${transactionBlocker ?? '-'} '
+      'maxCents=${maxCents ?? '-'} error=${errorSummary()}',
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -277,12 +315,13 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     late final List<SettlementPairwiseBalance> balances;
     try {
       balances = await balancesFuture;
-    } catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint(
-          '[SettleUpSheet] authoritative v2 recompute failed: $error\n$stackTrace',
-        );
-      }
+    } catch (error) {
+      _traceSettlementConfirmation(
+        'baseline-balance-error',
+        memberId: memberId,
+        currencyCode: currencyCode,
+        error: error,
+      );
       if (!_isCurrentBalanceRequest(
         requestGeneration: requestGeneration,
         memberId: memberId,
@@ -848,6 +887,12 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         currencyCode.isEmpty ||
         snapshotToken == null ||
         maxCents <= 0) {
+      _traceSettlementConfirmation(
+        'dialog-blocked',
+        memberId: memberId,
+        currencyCode: currencyCode,
+        maxCents: maxCents,
+      );
       if (mounted) {
         AppToast.info(context, context.l10n.tryAgain);
       }
@@ -926,10 +971,24 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       _fetchAuthoritativeSettlementSnapshot() async {
     final memberId = widget.specificMemberId ?? _selectedMemberId;
     final currencyCode = _currentCurrencyCode();
-    if (memberId == null || currencyCode.isEmpty) return null;
+    if (memberId == null || currencyCode.isEmpty) {
+      _traceSettlementConfirmation(
+        'preflight-missing-input',
+        memberId: memberId,
+        currencyCode: currencyCode,
+      );
+      return null;
+    }
+
+    _traceSettlementConfirmation(
+      'preflight-start',
+      memberId: memberId,
+      currencyCode: currencyCode,
+    );
 
     try {
-      await ref.read(mobileOutboxDrainerProvider).drain(maxMutations: 100);
+      final drainedMutations =
+          await ref.read(mobileOutboxDrainerProvider).drain(maxMutations: 100);
       final coordinator = await ref.read(
         mobileOutboxSyncCoordinatorProvider.future,
       );
@@ -945,31 +1004,48 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           .read(householdOptimisticSplitsProvider.notifier)
           .pruneIfInServer(widget.householdId, remoteSplits);
 
-      final hasPendingLocalMutation = await coordinator.database
-          .hasPendingHouseholdTransactionMutations(widget.householdId);
+      final transactionBlocker = await coordinator.database
+          .getPendingHouseholdTransactionMutationBlocker(widget.householdId);
+      final hasPendingLocalMutation = transactionBlocker != null;
       final hasPendingSettlement =
           await coordinator.database.hasPendingHouseholdSettlementMutations(
         householdId: widget.householdId,
         memberUserId: memberId,
         currency: currencyCode,
       );
-      final hasUnconfirmedOptimisticSplit =
-          (ref.read(householdOptimisticSplitsProvider)[widget.householdId] ??
-                  const <ExpenseSplitGroup>[])
-              .isNotEmpty;
       final optimisticDeletedExpenseIds = ref.read(
             householdOptimisticDeletedExpenseIdsProvider,
           )[widget.householdId] ??
           const <String>{};
 
-      if (hasPendingLocalMutation ||
-          hasPendingSettlement ||
-          hasUnconfirmedOptimisticSplit) {
+      if (hasPendingLocalMutation || hasPendingSettlement) {
+        _traceSettlementConfirmation(
+          'preflight-pending-mutation',
+          memberId: memberId,
+          currencyCode: currencyCode,
+          remoteSplitCount: remoteSplits.length,
+          drainedMutations: drainedMutations,
+          pendingTransactions: hasPendingLocalMutation,
+          pendingSettlement: hasPendingSettlement,
+          transactionBlocker: transactionBlocker == null
+              ? null
+              : '${transactionBlocker.source}:${transactionBlocker.operation}:'
+                  '${transactionBlocker.status}:attempt=${transactionBlocker.attemptCount ?? '-'}:'
+                  'id=${_shortTraceId(transactionBlocker.clientMutationId)}',
+          error: transactionBlocker?.lastError,
+        );
         if (mounted) {
           AppToast.info(context, context.l10n.tryAgain);
         }
         return null;
       }
+
+      // The in-memory split overlay is intentionally not a preflight gate.
+      // It can outlive a successfully drained local mutation while cached
+      // dashboard providers converge. The authoritative calculation below is
+      // fetched directly from the server, revalidated after the amount dialog,
+      // and checked again by the locked settlement RPC; therefore only
+      // durable pending mutations may prevent confirmation here.
 
       // The durable outbox/tombstone gate above is authoritative. Once it is
       // clear, any in-memory delete marker is stale (the delete either synced
@@ -994,6 +1070,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       if (!mounted ||
           memberId != (widget.specificMemberId ?? _selectedMemberId) ||
           currencyCode != _currentCurrencyCode()) {
+        _traceSettlementConfirmation(
+          'preflight-scope-changed',
+          memberId: memberId,
+          currencyCode: currencyCode,
+          remoteSplitCount: remoteSplits.length,
+          pendingTransactions: hasPendingLocalMutation,
+          pendingSettlement: hasPendingSettlement,
+        );
         return null;
       }
 
@@ -1002,6 +1086,18 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           calculation.householdId != widget.householdId ||
           calculation.memberUserId != memberId ||
           calculation.currency != currencyCode) {
+        _traceSettlementConfirmation(
+          'preflight-invalid-snapshot',
+          memberId: memberId,
+          currencyCode: currencyCode,
+          remoteSplitCount: remoteSplits.length,
+          pendingTransactions: hasPendingLocalMutation,
+          pendingSettlement: hasPendingSettlement,
+          error: 'token=${calculation.hasAuthoritativeSnapshotToken} '
+              'household=${calculation.householdId == widget.householdId} '
+              'member=${calculation.memberUserId == memberId} '
+              'currency=${calculation.currency == currencyCode}',
+        );
         throw const FormatException(
           'Settlement calculation did not include a matching server snapshot',
         );
@@ -1024,6 +1120,15 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       final currentUserOwes = widget.isExpressNetting
           ? balance.netCents >= 0
           : !widget.settleTheyOweYou;
+      _traceSettlementConfirmation(
+        'preflight-ready',
+        memberId: memberId,
+        currencyCode: currencyCode,
+        remoteSplitCount: remoteSplits.length,
+        pendingTransactions: hasPendingLocalMutation,
+        pendingSettlement: hasPendingSettlement,
+        maxCents: maxCents,
+      );
       return _AuthoritativeSettlementSnapshot(
         memberId: memberId,
         currencyCode: currencyCode,
@@ -1032,12 +1137,13 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         currentUserOwes: currentUserOwes,
         snapshotToken: calculation.snapshotToken!,
       );
-    } catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint(
-          '[SettleUpSheet] settlement preflight failed: $error\n$stackTrace',
-        );
-      }
+    } catch (error) {
+      _traceSettlementConfirmation(
+        'preflight-error',
+        memberId: memberId,
+        currencyCode: currencyCode,
+        error: error,
+      );
       if (mounted) {
         AppToast.info(context, context.l10n.tryAgain);
       }
