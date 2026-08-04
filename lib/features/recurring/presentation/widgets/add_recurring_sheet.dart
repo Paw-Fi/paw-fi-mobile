@@ -30,6 +30,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/utils/household_split_update_intent.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
@@ -226,7 +227,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     final selectedAccountHouseholdId =
         useState<String?>(initialAccountHouseholdId);
 
-    // Sharing + split state (expenses only)
+    // Sharing + split state
     final isSharedWithHousehold = useState<bool>(
       selectedAccountType.value == ActiveWalletType.household &&
           selectedAccountHouseholdId.value != null,
@@ -247,6 +248,10 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
     final customSplitType = useState<SplitType?>(null);
     final customSplits = useState<List<MemberSplit>?>(null);
+    final hasManuallyChangedPayer = useState(false);
+    final loadedSplitGroupId = useState<String?>(
+      existingTransaction?.splitGroupId,
+    );
     final initialSplitSignature = useRef<String?>(null);
 
     final householdsAsync = currentUserId != null
@@ -332,6 +337,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       customSplitType.value = null;
       customSplits.value = null;
       initialSplitSignature.value = null;
+      loadedSplitGroupId.value = null;
     }
 
     Future<void> handleEditSpace() async {
@@ -545,11 +551,11 @@ class AddRecurringSheet extends HookConsumerWidget {
       return null;
     }, [walletScopeHouseholdId]);
 
-    // When editing a shared recurring EXPENSE, load existing split configuration
+    // When editing a shared recurring transaction, load existing split configuration
     // from the household split groups so the inline split editor reflects the
     // latest backend state.
     useEffect(() {
-      if (!isEditing || !isExpense) {
+      if (!isEditing) {
         return null;
       }
       if (existingTransaction?.householdId == null) {
@@ -617,6 +623,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             (a, b) => b.createdAt.compareTo(a.createdAt),
           );
           final splitGroup = matchingGroups.first;
+          loadedSplitGroupId.value = splitGroup.id;
 
           _debugPrint(
               '✅ [RECURRING LOAD SPLIT] Using split group ${splitGroup.id} type=${splitGroup.splitType} lines=${splitGroup.splitLines?.length ?? 0}');
@@ -693,7 +700,6 @@ class AddRecurringSheet extends HookConsumerWidget {
       return null;
     }, [
       isEditing,
-      isExpense,
       existingTransaction?.id,
       existingTransaction?.householdId,
       selectedHouseholdId.value,
@@ -827,8 +833,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         return;
       }
 
-      if (isExpense &&
-          isSharedWithHousehold.value &&
+      if (isSharedWithHousehold.value &&
           customSplitType.value == SplitType.amount &&
           customSplits.value != null &&
           customSplits.value!.isNotEmpty) {
@@ -930,7 +935,8 @@ class AddRecurringSheet extends HookConsumerWidget {
         final sameSharedHousehold = shareWithHousehold &&
             originalHouseholdId != null &&
             originalHouseholdId == activeHouseholdId;
-        final existingSplitGroupId = existingTransaction?.splitGroupId;
+        final existingSplitGroupId =
+            existingTransaction?.splitGroupId ?? loadedSplitGroupId.value;
         final amountChanged = isEditing &&
             existingTransaction != null &&
             (existingTransaction!.amount - amount).abs() > 0.0001;
@@ -941,6 +947,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         final splitConfigChanged = initialSignature != null &&
             currentSplitSignature != null &&
             currentSplitSignature != initialSignature;
+        final payerChangedByUser = hasManuallyChangedPayer.value;
         final shouldCreateSplitGroup = shareWithHousehold &&
             hasSplitConfig &&
             (!sameSharedHousehold || existingSplitGroupId == null);
@@ -948,7 +955,10 @@ class AddRecurringSheet extends HookConsumerWidget {
             hasSplitConfig &&
             sameSharedHousehold &&
             existingSplitGroupId != null &&
-            (amountChanged || currencyChanged || splitConfigChanged);
+            (amountChanged ||
+                currencyChanged ||
+                splitConfigChanged ||
+                payerChangedByUser);
         _debugPrint(
             '💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
         _debugPrint('   Custom split type: ${customSplitType.value}');
@@ -991,6 +1001,11 @@ class AddRecurringSheet extends HookConsumerWidget {
                   payerUserId: shareWithHousehold
                       ? (selectedPayerUserId.value ?? userId)
                       : null,
+                  createSplitGroup: shouldCreateSplitGroup,
+                  reSplitRequested: isExplicitHouseholdReSplitRequested(
+                    splitChangedByUser: splitConfigChanged,
+                    payerChangedByUser: payerChangedByUser,
+                  ),
                   accountId: selectedAccountId,
                 );
           } else {
@@ -1077,6 +1092,23 @@ class AddRecurringSheet extends HookConsumerWidget {
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
                   householdId: activeHouseholdId,
+                  previousHouseholdId: existingTransaction?.householdId,
+                  customSplitType:
+                      (shouldCreateSplitGroup || shouldSendSplitUpdate)
+                          ? customSplitType.value
+                          : null,
+                  customSplits:
+                      (shouldCreateSplitGroup || shouldSendSplitUpdate)
+                          ? customSplits.value
+                          : null,
+                  payerUserId: shareWithHousehold
+                      ? (selectedPayerUserId.value ?? userId)
+                      : null,
+                  createSplitGroup: shouldCreateSplitGroup,
+                  reSplitRequested: isExplicitHouseholdReSplitRequested(
+                    splitChangedByUser: splitConfigChanged,
+                    payerChangedByUser: payerChangedByUser,
+                  ),
                   accountId: selectedAccountId,
                 );
           } else {
@@ -1102,6 +1134,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
                   householdId: activeHouseholdId,
+                  customSplitType:
+                      shareWithHousehold ? customSplitType.value : null,
+                  customSplits: shareWithHousehold ? customSplits.value : null,
+                  payerUserId: shareWithHousehold
+                      ? (selectedPayerUserId.value ?? userId)
+                      : null,
                   accountId: selectedAccountId,
                 );
             final providerContainer = ProviderScope.containerOf(
@@ -2231,8 +2269,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
 
-                    // Sharing section (for household expenses)
-                    if (canShowSharingSection && isExpense) ...[
+                    // Sharing section for household recurring transactions.
+                    if (canShowSharingSection) ...[
                       const SizedBox(height: 20),
                       if (!hasAmountForSplit)
                         Text(
@@ -2251,6 +2289,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           selectedHouseholdId: selectedHouseholdId,
                           membersAsync: membersAsync,
                           selectedPayerUserId: selectedPayerUserId,
+                          hasManuallyChangedPayer: hasManuallyChangedPayer,
                           customSplitType: customSplitType,
                           customSplits: customSplits,
                           amountController: amountController,
@@ -2432,7 +2471,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
   }
 
-  /// Full sharing + split editor section for recurring expenses
+  /// Full sharing + split editor section for recurring transactions
   Widget _buildSharingAndSplitSection({
     required BuildContext context,
     required ColorScheme colorScheme,
@@ -2441,6 +2480,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     required ValueNotifier<String?> selectedHouseholdId,
     required AsyncValue<List<HouseholdMember>> membersAsync,
     required ValueNotifier<String?> selectedPayerUserId,
+    required ValueNotifier<bool> hasManuallyChangedPayer,
     required ValueNotifier<SplitType?> customSplitType,
     required ValueNotifier<List<MemberSplit>?> customSplits,
     required TextEditingController amountController,
@@ -2602,7 +2642,10 @@ class AddRecurringSheet extends HookConsumerWidget {
               return GroupSplitEditorSection(
                 members: members,
                 selectedPayerUserId: selectedPayerUserId.value,
-                onPayerChanged: (v) => selectedPayerUserId.value = v,
+                onPayerChanged: (v) {
+                  selectedPayerUserId.value = v;
+                  hasManuallyChangedPayer.value = true;
+                },
                 totalAmount: totalAmount,
                 currencySymbol: currencySymbol,
                 initialSplitType: customSplitType.value,

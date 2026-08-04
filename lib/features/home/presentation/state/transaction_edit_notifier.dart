@@ -525,7 +525,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       await Future.wait(
         affectedHouseholdIds.map((householdId) async {
           try {
-            await clearHouseholdPersistentCacheForHousehold(householdId);
+            await clearHouseholdTransactionPersistentCacheForHousehold(
+              householdId,
+            );
           } catch (error) {
             _debugPrint('⚠️ Failed to clear household cache: $error');
           }
@@ -686,31 +688,22 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     required Set<String> affectedHouseholdIds,
   }) async {
     try {
-      if (affectedHouseholdIds.isNotEmpty) {
-        await Future.wait(
-          affectedHouseholdIds.map(clearHouseholdPersistentCacheForHousehold),
-        );
-      }
-
-      _debugPrint('🔄 Invalidating providers after committed expense update');
-      ref.invalidate(userHouseholdsProvider(userId));
-      ref.invalidate(householdExpensesProvider);
-      ref.invalidate(householdSplitsProvider);
-      ref.invalidate(householdBudgetsProvider);
-      ref.invalidate(householdMembersProvider);
-      ref.invalidate(cachedHouseholdExpensesProvider);
-      ref.invalidate(cachedHouseholdSplitsProvider);
-      ref.read(cacheInvalidatorProvider).invalidateAll();
-      ref.invalidate(currencyTransactionCountsProvider);
+      // `confirmedExpense` has already replaced the optimistic local row. Do
+      // not clear household SQLite snapshots or independently invalidate the
+      // expense and split providers here: their remote reads are not atomic,
+      // and doing so publishes a temporary payer-full view after every edit.
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       ref
           .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
           .state += 1;
-      ref.read(walletActionsProvider).refreshAccountData();
 
-      // This can legitimately be expensive for users with years of history.
-      // It is reconciliation only; the confirmed transaction is already in all
-      // immediate providers and the local database.
-      await ref.read(analyticsProvider.notifier).loadData(userId);
+      // Household rows do not belong to the personal analytics feed. Keep its
+      // expensive reload for a personal edit only; household reconciliation is
+      // performed by the normal outbox/resume delta sync.
+      if (affectedHouseholdIds.isEmpty) {
+        await ref.read(analyticsProvider.notifier).loadData(userId);
+      }
       _debugPrint('✅ Background expense update reconciliation completed');
     } catch (error) {
       // The backend commit and confirmed local row remain authoritative. A
@@ -722,11 +715,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   Future<void> _refreshAfterTransactionMutation(String userId) async {
     await ref.read(analyticsProvider.notifier).loadData(userId);
 
-    ref.invalidate(userHouseholdsProvider(userId));
     ref.invalidate(householdExpensesProvider);
     ref.invalidate(householdSplitsProvider);
-    ref.invalidate(householdBudgetsProvider);
-    ref.invalidate(householdMembersProvider);
     ref.invalidate(cachedHouseholdExpensesProvider);
     ref.invalidate(cachedHouseholdSplitsProvider);
     ref.invalidate(householdSettlementPaymentsProvider);
@@ -743,23 +733,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   Future<void> _refreshAfterLocalTransactionMutation(String userId) async {
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-
-    ref.invalidate(userHouseholdsProvider(userId));
-    ref.invalidate(householdExpensesProvider);
-    ref.invalidate(householdSplitsProvider);
-    ref.invalidate(householdBudgetsProvider);
-    ref.invalidate(householdMembersProvider);
-    ref.invalidate(cachedHouseholdExpensesProvider);
-    ref.invalidate(cachedHouseholdSplitsProvider);
-    ref.invalidate(householdSettlementPaymentsProvider);
-    ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
-    ref.invalidate(householdSettlementBreakdownV2Provider);
-    ref.read(cacheInvalidatorProvider).invalidateAll();
-
-    ref.invalidate(currencyTransactionCountsProvider);
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
         1;
-    ref.read(walletActionsProvider).refreshAccountData();
   }
 
   void _applyOptimisticDeleteToProviders(List<ExpenseEntry> entries) {

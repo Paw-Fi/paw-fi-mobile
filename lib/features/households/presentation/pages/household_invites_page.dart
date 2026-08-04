@@ -14,6 +14,7 @@ import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../utils/invite_link_utils.dart';
+import '../utils/household_member_permissions.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -62,6 +63,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentUserId = ref.watch(currentUserIdProvider);
+    final membersAsync =
+        ref.watch(householdMembersProvider(widget.householdId));
+    final currentUserMember = _currentUserMember(
+      membersAsync.valueOrNull,
+      currentUserId,
+    );
+    final canManageMembers = canManageHouseholdMembers(
+      currentUserId: currentUserId,
+      currentUserMember: currentUserMember,
+    );
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
@@ -84,19 +96,20 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Create Invite Button
-                  PrimaryAdaptiveButton(
-                    onPressed: () => _showCreateInviteDialog(context),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add),
-                        const SizedBox(width: 8),
-                        Text(context.l10n.createInvitation),
-                      ],
+                  if (canManageMembers) ...[
+                    PrimaryAdaptiveButton(
+                      onPressed: () => _showCreateInviteDialog(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add),
+                          const SizedBox(width: 8),
+                          Text(context.l10n.createInvitation),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Invites List
                   Text(
@@ -127,7 +140,13 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                         .map((invite) => _InviteCard(
                               invite: invite,
                               onCopy: () => _copyInviteLink(invite),
-                              onRevoke: () => _revokeInvite(invite),
+                              onRevoke: canRevokeHouseholdInvite(
+                                canManageMembers: canManageMembers,
+                                invite: invite,
+                                currentUserId: currentUserId,
+                              )
+                                  ? () => _revokeInvite(invite)
+                                  : null,
                             )),
 
                   const SizedBox(height: 24),
@@ -165,6 +184,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
               ),
             ),
     );
+  }
+
+  HouseholdMember? _currentUserMember(
+    List<HouseholdMember>? members,
+    String? currentUserId,
+  ) {
+    if (members == null || currentUserId == null) return null;
+    for (final member in members) {
+      if (member.userId == currentUserId) return member;
+    }
+    return null;
   }
 
   Future<void> _showCreateInviteDialog(BuildContext context) async {

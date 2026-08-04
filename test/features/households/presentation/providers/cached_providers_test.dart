@@ -8,6 +8,7 @@ import 'package:moneko/core/monitoring/performance_monitor.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 const _householdId = '00000000-0000-0000-0000-000000000001';
@@ -159,6 +160,71 @@ void main() {
         await container.read(cachedHouseholdSplitsProvider(params).future);
     expect(result3.map((e) => e.id).toList(), ['new']);
     expect(fetchCount, 2);
+  });
+
+  test(
+      'cachedHouseholdSplitsProvider does not prune an optimistic split returned by its merged source',
+      () async {
+    final provisional = _splitGroup(
+      'optimistic_split_optimistic-expense',
+      expenseId: 'optimistic-expense',
+    );
+    final container = ProviderContainer(
+      overrides: [
+        householdSplitsProvider.overrideWith((ref, params) async {
+          // The base provider intentionally overlays this same provisional
+          // group onto its remote/cache result.
+          return [provisional];
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const params = HouseholdSplitsParams(householdId: _householdId);
+    container
+        .read(householdOptimisticSplitsProvider.notifier)
+        .addSplitGroup(_householdId, provisional);
+
+    final result = await container.read(
+      cachedHouseholdSplitsProvider(params).future,
+    );
+
+    expect(result, [provisional]);
+    expect(
+      container.read(householdOptimisticSplitsProvider)[_householdId],
+      [provisional],
+    );
+  });
+
+  test(
+      'cachedHouseholdExpensesProvider does not prune an optimistic entry returned by its merged source',
+      () async {
+    final provisional = _expense('optimistic-expense');
+    final container = ProviderContainer(
+      overrides: [
+        householdExpensesProvider.overrideWith((ref, params) async {
+          // The base provider intentionally overlays this same provisional
+          // entry onto its remote/cache result.
+          return [provisional];
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const params = HouseholdExpensesParams(householdId: _householdId);
+    container
+        .read(householdOptimisticExpensesProvider.notifier)
+        .addExpense(_householdId, provisional);
+
+    final result = await container.read(
+      cachedHouseholdExpensesProvider(params).future,
+    );
+
+    expect(result, [provisional]);
+    expect(
+      container.read(householdOptimisticExpensesProvider)[_householdId],
+      [provisional],
+    );
   });
 
   test('cached providers exclude persisted transaction tombstones', () async {

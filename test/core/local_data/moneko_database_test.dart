@@ -755,7 +755,51 @@ void main() {
           memberUserId: 'member_2',
           currency: 'USD',
         ),
+        isFalse,
+      );
+
+      await database.enqueueHouseholdSettlementMutation(
+        householdId: 'household_1',
+        memberUserId: 'member_2',
+        mode: 'from_member',
+        amountCents: 2000,
+        currency: 'USD',
+        note: null,
+        expectedSnapshotToken: _settlementSnapshotToken('d'),
+        clientMutationId: 'settlement-4',
+      );
+      await database.markMutationSyncing('settlement-4');
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_2',
+          currency: 'USD',
+        ),
         isTrue,
+      );
+
+      await database.markMutationFailed(
+        clientMutationId: 'settlement-4',
+        error: 'retryable failure',
+        retryAfter: DateTime.now().toUtc().add(const Duration(minutes: 1)),
+      );
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_2',
+          currency: 'USD',
+        ),
+        isTrue,
+      );
+
+      await database.markMutationSynced('settlement-4');
+      expect(
+        await database.hasPendingHouseholdSettlementMutations(
+          householdId: 'household_1',
+          memberUserId: 'member_2',
+          currency: 'USD',
+        ),
+        isFalse,
       );
     });
 

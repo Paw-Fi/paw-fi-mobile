@@ -5,6 +5,15 @@ import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dar
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 
+final _canonicalSplitGroupIdPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89ab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+);
+
+/// Optimistic split IDs are process-local bridges. Only a backend UUID can be
+/// stored as the durable relationship on a synced transaction.
+bool isCanonicalHouseholdSplitGroupId(String? value) =>
+    _canonicalSplitGroupIdPattern.hasMatch(value?.trim() ?? '');
+
 ExpenseSplitGroup? buildOptimisticHouseholdSplitGroup({
   required String householdId,
   required String expenseId,

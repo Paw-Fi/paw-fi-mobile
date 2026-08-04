@@ -198,6 +198,26 @@ void main() {
       expect(copy.ownerId, original.ownerId);
       expect(copy.currency, original.currency);
     });
+
+    test('copyWith can explicitly clear auto split config', () {
+      final now = DateTime(2026, 1, 1);
+      final original = Household(
+        id: 'hh_1',
+        name: 'Home',
+        ownerId: 'user_1',
+        currency: 'USD',
+        autoSplitConfig: const {
+          'splitType': 'shares',
+          'memberSplits': [],
+        },
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final updated = original.copyWith(autoSplitConfig: null);
+
+      expect(updated.autoSplitConfig, isNull);
+    });
   });
 
   group('Household - Equality', () {

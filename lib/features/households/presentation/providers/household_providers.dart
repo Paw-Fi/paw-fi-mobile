@@ -23,6 +23,7 @@ import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/settlement_v2.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../domain/utils/settlement_net_calculator.dart';
+import '../utils/pending_settlement_payment.dart';
 import '../../domain/repositories/household_repository.dart';
 import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
@@ -178,6 +179,28 @@ Future<void> clearHouseholdPersistentCacheForHousehold(
     'households:settlement-payments:v1:$householdId:',
   ];
 
+  final keys = prefs.getKeys().where(
+        (key) => prefixes.any(key.startsWith),
+      );
+  await Future.wait(keys.map(prefs.remove));
+}
+
+/// Clears only data derived from household transactions.
+///
+/// Expense create/edit/delete cannot alter the household roster or its budget
+/// definitions. Keeping those independent caches intact is what lets their
+/// dashboard cards continue rendering during transaction reconciliation.
+Future<void> clearHouseholdTransactionPersistentCacheForHousehold(
+    String householdId) async {
+  final prefs = await _householdPrefsOrNull();
+  if (prefs == null) return;
+
+  final prefixes = [
+    'households:splits:v1:$householdId:',
+    'households:expenses:v1:$householdId:',
+    'households:summary:v1:$householdId:',
+    'households:settlement-payments:v1:$householdId:',
+  ];
   final keys = prefs.getKeys().where(
         (key) => prefixes.any(key.startsWith),
       );
@@ -1730,7 +1753,7 @@ final householdSettlementPaymentsProvider = FutureProvider.autoDispose
     return out;
   } catch (e) {
     if (cached != null) return cached.items;
-    return const <SettlementPaymentRecord>[];
+    rethrow;
   }
 });
 
@@ -1747,17 +1770,23 @@ class OptimisticSettlementPaymentsNotifier
 
   void removePayment(String householdId, SettlementPaymentRecord payment) {
     final existing = state[householdId] ?? const <SettlementPaymentRecord>[];
-    final updated = existing.where((candidate) {
-      return candidate.payerUserId != payment.payerUserId ||
-          candidate.participantUserId != payment.participantUserId ||
-          candidate.amountCents != payment.amountCents ||
-          (candidate.currency ?? '').toUpperCase() !=
+    final index = existing.lastIndexWhere((candidate) {
+      return candidate.payerUserId == payment.payerUserId &&
+          candidate.participantUserId == payment.participantUserId &&
+          candidate.amountCents == payment.amountCents &&
+          (candidate.currency ?? '').toUpperCase() ==
               (payment.currency ?? '').toUpperCase();
-    }).toList(growable: false);
+    });
+    if (index < 0) return;
+    final updated = [
+      ...existing.take(index),
+      ...existing.skip(index + 1),
+    ];
     state = {
-      ...state,
+      for (final entry in state.entries)
+        if (entry.key != householdId) entry.key: entry.value,
       if (updated.isNotEmpty) householdId: updated,
-    }..removeWhere((key, value) => value.isEmpty);
+    };
   }
 
   void clearHousehold(String householdId) {
@@ -1771,6 +1800,40 @@ final optimisticSettlementPaymentsProvider = StateNotifierProvider<
     Map<String, List<SettlementPaymentRecord>>>(
   (ref) => OptimisticSettlementPaymentsNotifier(),
 );
+
+/// Durable pending-settlement overlay. Unlike the in-memory notifier, this is
+/// rebuilt from SQLite after process death so a queued directional settlement
+/// cannot briefly reveal the pre-settlement balance on restart.
+final pendingHouseholdSettlementPaymentsProvider = FutureProvider.autoDispose
+    .family<List<SettlementPaymentRecord>, String>((ref, householdId) async {
+  ref.watch(householdRemoteMutationRefreshSignalProvider(householdId));
+  final currentUserId = ref.watch(authProvider).uid;
+  if (currentUserId.isEmpty) return const <SettlementPaymentRecord>[];
+  final database = await ref.watch(localDatabaseProvider.future);
+  final mutations = await database.getPendingHouseholdSettlementMutations(
+    householdId: householdId,
+  );
+  final payments = <SettlementPaymentRecord>[];
+  for (final mutation in mutations) {
+    try {
+      final payload = LocalHouseholdSettlementMutationPayload.fromJson(
+        jsonDecode(mutation.payloadJson) as Map<String, dynamic>,
+      );
+      final payment = pendingSettlementPaymentRecord(
+        currentUserId: currentUserId,
+        memberUserId: payload.memberUserId,
+        mode: payload.mode,
+        amountCents: payload.amountCents,
+        currency: payload.currency,
+      );
+      if (payment != null) payments.add(payment);
+    } catch (_) {
+      // The database layer still blocks a malformed durable attempt. Do not
+      // fabricate a payment direction that its payload cannot prove.
+    }
+  }
+  return payments;
+});
 
 // ============================================================================
 // HOUSEHOLD SETTLEMENT HISTORY (from household_settlement_events)

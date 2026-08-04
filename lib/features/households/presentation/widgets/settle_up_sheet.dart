@@ -14,12 +14,14 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_calculation_breakdown_page.dart';
 import 'package:moneko/features/households/presentation/utils/settlement_input_utils.dart';
+import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
 import '../providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
+import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -140,6 +142,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   bool _balanceRecomputeScheduled = false;
   _ConfirmedSettlementContext? _confirmedSettlementContext;
   _PendingSettlementAttempt? _pendingSettlementAttempt;
+  SettlementPaymentRecord? _pendingOptimisticPayment;
 
   @override
   void initState() {
@@ -1145,6 +1148,22 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           clientMutationId: attempt.clientMutationId,
         );
         attemptPersisted = true;
+        final pendingPayment = pendingSettlementPaymentRecord(
+          currentUserId: ref.read(authProvider).uid,
+          memberUserId: attempt.memberUserId,
+          mode: attempt.mode,
+          amountCents: attempt.amountCents,
+          currency: attempt.currency,
+        );
+        if (pendingPayment != null) {
+          ref
+              .read(optimisticSettlementPaymentsProvider.notifier)
+              .addPayment(attempt.householdId, pendingPayment);
+          _pendingOptimisticPayment = pendingPayment;
+        }
+        ref.invalidate(
+          pendingHouseholdSettlementPaymentsProvider(attempt.householdId),
+        );
         if (mounted) {
           setState(() => _pendingSettlementAttempt = attempt);
         } else {
@@ -1153,6 +1172,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       }
 
       final result = await _submitSettlementAttempt(attempt);
+      final pendingPayment = _pendingOptimisticPayment;
+      if (pendingPayment != null) {
+        ref
+            .read(optimisticSettlementPaymentsProvider.notifier)
+            .removePayment(attempt.householdId, pendingPayment);
+        _pendingOptimisticPayment = null;
+      }
+      ref.invalidate(
+        pendingHouseholdSettlementPaymentsProvider(attempt.householdId),
+      );
       if (!mounted) return;
       setState(() => _pendingSettlementAttempt = null);
       await _refreshSettlementData(attempt.currency);

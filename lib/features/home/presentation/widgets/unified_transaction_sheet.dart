@@ -3140,38 +3140,16 @@ class _UnifiedTransactionSheetV2State
   }
 
   Future<void> _refreshHouseholdUiAfterExpenseChange(String householdId) async {
-    debugPrint('🔄 [REFRESH] Starting household UI refresh');
-
-    await clearHouseholdPersistentCacheForHousehold(householdId);
-
-    // CRITICAL: Invalidate RequestDeduplicator cache FIRST
-    // This ensures fresh data is fetched, not the 30-second cached data
-    debugPrint('🗑️ [REFRESH] Invalidating RequestDeduplicator cache...');
-    ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
-
-    debugPrint(
-        '🗑️ [REFRESH] Invalidating ALL provider families (this catches all parameter combinations)...');
-    // CRITICAL: Invalidate the ENTIRE provider families, not just specific params
-    // This ensures ALL widgets watching these providers refresh, regardless of their parameters
-    ref.invalidate(householdExpensesProvider);
-    ref.invalidate(cachedHouseholdExpensesProvider);
-    ref.invalidate(householdSplitsProvider);
-    ref.invalidate(cachedHouseholdSplitsProvider);
-    ref.invalidate(householdBudgetsProvider);
-    ref.invalidate(householdMembersProvider);
-
-    debugPrint('🔄 [REFRESH] Pockets providers refresh from dashboard signal');
-    ref.invalidate(pocketDetailsProvider);
-    ref.read(walletActionsProvider).refreshAccountData();
-
-    // Keep currency selector counts up-to-date.
-    ref.invalidate(currencyTransactionCountsProvider);
+    // The SQLite mutation and optimistic household pair have already been
+    // applied before this method runs. Clearing their caches or invalidating
+    // the independent expense/split providers here recreates an avoidable
+    // transaction-only reconciliation frame. Consumers observe these signals
+    // and retain their local-first value while the normal outbox/resume sync
+    // reconciles remotely.
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
         1;
-
-    debugPrint(
-        '✅ [REFRESH] Household UI refresh complete - all provider families invalidated');
   }
 
   void _refreshPersonalUiAfterExpenseChange(String userId) {
@@ -3217,26 +3195,19 @@ class _UnifiedTransactionSheetV2State
     required String userId,
     required String? savedHouseholdId,
   }) {
-    container.read(analyticsProvider.notifier).refresh(userId);
+    final isHouseholdSave =
+        savedHouseholdId != null && savedHouseholdId.isNotEmpty;
+    if (!isHouseholdSave) {
+      container.read(analyticsProvider.notifier).refresh(userId);
+    }
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
     container
         .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
         .state += 1;
-    container.invalidate(pocketDetailsProvider);
-    container.invalidate(currencyTransactionCountsProvider);
-    container.read(walletActionsProvider).refreshAccountData();
-
-    if (savedHouseholdId != null && savedHouseholdId.isNotEmpty) {
-      container
-          .read(cacheInvalidatorProvider)
-          .invalidateHouseholdData(savedHouseholdId);
-      container.invalidate(householdExpensesProvider);
-      container.invalidate(householdSplitsProvider);
-      container.invalidate(householdBudgetsProvider);
-      container.invalidate(cachedHouseholdExpensesProvider);
-      container.invalidate(cachedHouseholdSplitsProvider);
-    }
+    // Keep the already-written household snapshot mounted. Invalidation here
+    // races the independent expense and split reads and was the remaining
+    // post-save source of a temporary payer-full state.
   }
 
   void _setTransactionCreateSyncActive({
@@ -3389,8 +3360,6 @@ class _UnifiedTransactionSheetV2State
     required List<MemberSplit>? customSplits,
     required String? payerUserId,
     required String? localImagePath,
-    required Household? activeHousehold,
-    required bool isEffectivePortfolio,
   }) async {
     final localDatabase = await localWrite;
     String? receiptUrl;
@@ -3473,39 +3442,23 @@ class _UnifiedTransactionSheetV2State
           throw Exception('Failed to save expense');
         }
 
-        var savedEntry = saved;
-        final savedSplitGroup = _buildOptimisticSplitGroupForSheet(
-          expenseId: saved.id,
-          householdId: householdId,
-          canUseHouseholdSplits: canUseHouseholdSplits,
-          totalAmount: saved.amount,
-          currency: saved.currency ?? expense.currency,
-          description: saved.rawText ?? expense.description,
-          household: activeHousehold,
-          splitGroupId: saved.splitGroupId,
-        );
-        final splitsNotifier = container.read(
-          householdOptimisticSplitsProvider.notifier,
-        );
-        splitsNotifier.removeSplitByExpenseIdAcrossHouseholds(optimisticId);
-        if (savedSplitGroup != null && householdId != null) {
-          splitsNotifier.addSplitGroup(householdId, savedSplitGroup);
-          if (savedEntry.splitGroupId?.trim() != savedSplitGroup.id) {
-            savedEntry = savedEntry.copyWith(splitGroupId: savedSplitGroup.id);
-          }
-        } else if (isEffectivePortfolio || householdId == null) {
-          splitsNotifier.removeSplitByExpenseIdAcrossHouseholds(saved.id);
-        }
-
-        replaceOptimisticTransactionWithContainer(
+        final savedEntry = replaceOptimisticTransactionWithContainer(
           container: container,
           optimisticId: optimisticId,
-          savedEntry: savedEntry,
+          savedEntry: saved,
           householdId: householdId,
         );
+        // `savedEntry` may carry a process-local optimistic split bridge when
+        // an older/partial response omitted the backend UUID. Keep that bridge
+        // in memory only; persisting it would make a restart load the expense
+        // without a resolvable split and fall back to payer-full attribution.
+        final durableSavedEntry =
+            isCanonicalHouseholdSplitGroupId(savedEntry.splitGroupId)
+                ? savedEntry
+                : savedEntry.copyWith(clearSplitGroupId: true);
         await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticId,
-          savedEntry: savedEntry,
+          savedEntry: durableSavedEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
       }
@@ -3776,8 +3729,6 @@ class _UnifiedTransactionSheetV2State
       localImagePath: expenseWithTime.localImagePath ??
           _localImagePath ??
           widget.localImagePath,
-      activeHousehold: activeHousehold,
-      isEffectivePortfolio: isEffectivePortfolio,
     ));
   }
 

@@ -82,22 +82,25 @@ Widget buildHouseholdMemberSpendingCard(
   final totalMemberSpent =
       memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
 
-  // Create a list of all members with their spending (0 if not in contributions)
-  final allMembers = (members ?? []).map((member) {
-    final contribution = memberContributions.firstWhere(
-      (c) => c.userId == member.userId,
-      orElse: () => MemberContribution(
-        userId: member.userId,
-        userName: member.userName,
-        userEmail: member.userEmail,
-        totalSpentCents: 0,
-        transactionCount: 0,
-        splitCount: 0,
-        balanceCents: balanceByUserId[member.userId] ?? 0,
-      ),
-    );
-    return contribution;
-  }).toList();
+  // The summary carries the same member metadata used to derive its totals.
+  // Keep that coherent snapshot visible while an optional member-list refresh
+  // is in progress instead of turning a loaded card into an empty one.
+  final allMembers = members == null
+      ? memberContributions
+      : members.map((member) {
+          return memberContributions.firstWhere(
+            (c) => c.userId == member.userId,
+            orElse: () => MemberContribution(
+              userId: member.userId,
+              userName: member.userName,
+              userEmail: member.userEmail,
+              totalSpentCents: 0,
+              transactionCount: 0,
+              splitCount: 0,
+              balanceCents: balanceByUserId[member.userId] ?? 0,
+            ),
+          );
+        }).toList();
 
   // Sort by spending amount (highest first)
   final sortedMembers = List<MemberContribution>.from(allMembers)
@@ -273,7 +276,7 @@ Widget _buildMemberRow(
     ),
   );
 
-  final name = memberData?.userName?.trim();
+  final name = memberData?.userName?.trim() ?? member.userName?.trim();
   final displayName = (name != null && name.isNotEmpty)
       ? name
       : (memberData?.userEmail ?? member.userEmail ?? 'Unknown');

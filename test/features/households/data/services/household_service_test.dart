@@ -183,6 +183,85 @@ void main() {
       expect(capturedUpdates, isNotNull);
       expect(capturedUpdates!['is_portfolio'], isFalse);
     });
+
+    test('persists percentage auto split config exactly', () async {
+      const config = {
+        'splitType': 'percentage',
+        'templateTotalAmount': 100,
+        'memberSplits': [
+          {'userId': 'u1', 'percentage': 40.0},
+          {'userId': 'u2', 'percentage': 60.0},
+        ],
+      };
+      Map<String, dynamic>? capturedUpdates;
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          capturedUpdates = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'id': 'hh_123',
+              'name': 'Home',
+              'owner_id': 'user_1',
+              'currency': 'USD',
+              'is_portfolio': false,
+              'ai_use_default_split': true,
+              'ai_default_split_config': config,
+              'created_at': '2026-01-01T00:00:00.000Z',
+              'updated_at': '2026-01-01T00:00:00.000Z',
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+
+      await HouseholdService(client).updateHousehold(
+        householdId: 'hh_123',
+        autoSplitEnabled: true,
+        autoSplitConfig: config,
+        updateAutoSplitConfig: true,
+      );
+
+      expect(capturedUpdates?['ai_use_default_split'], isTrue);
+      expect(capturedUpdates?['ai_default_split_config'], config);
+    });
+
+    test('omits auto split config without explicit update intent', () async {
+      Map<String, dynamic>? capturedUpdates;
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          capturedUpdates = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'id': 'hh_123',
+              'name': 'Home',
+              'owner_id': 'user_1',
+              'currency': 'USD',
+              'is_portfolio': false,
+              'ai_use_default_split': true,
+              'ai_default_split_config': null,
+              'created_at': '2026-01-01T00:00:00.000Z',
+              'updated_at': '2026-01-01T00:00:00.000Z',
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+
+      await HouseholdService(client).updateHousehold(
+        householdId: 'hh_123',
+        autoSplitConfig: const {'splitType': 'shares'},
+      );
+
+      expect(capturedUpdates?.containsKey('ai_default_split_config'), isFalse);
+    });
   });
 
   group('HouseholdService.deleteHousehold', () {

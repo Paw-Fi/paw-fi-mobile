@@ -1043,6 +1043,11 @@ Future<void> _persistAiTransactions(
   ) async {
     final cacheable = savedEntries
         .where((entry) => entry.userId?.trim().isNotEmpty == true)
+        .map(
+          (entry) => isCanonicalHouseholdSplitGroupId(entry.splitGroupId)
+              ? entry
+              : entry.copyWith(clearSplitGroupId: true),
+        )
         .toList(growable: false);
     if (cacheable.isEmpty) return;
 
@@ -1195,90 +1200,32 @@ Future<void> _persistAiTransactions(
           ? optimisticLocalReceiptPath
           : savedEntry.localReceiptImagePath,
     );
-    final savedHouseholdId = savedEntry.householdId?.trim();
-    if (savedHouseholdId != null &&
-        savedHouseholdId.isNotEmpty &&
-        !prepared.item.transaction.isIncome) {
-      final existingSplitGroupId = savedEntry.splitGroupId?.trim();
-      final optimisticSplitGroup = buildOptimisticHouseholdSplitGroup(
-        householdId: savedHouseholdId,
-        expenseId: savedEntry.id,
-        payerUserId: (prepared.batchRequestBody['payerUserId'] as String?)
-                    ?.trim()
-                    .isNotEmpty ==
-                true
-            ? (prepared.batchRequestBody['payerUserId'] as String).trim()
-            : userId,
-        totalAmount: savedEntry.amount,
-        currency: savedEntry.currency ?? prepared.item.transaction.currency,
-        members: autoSplitContext?.members ?? const <HouseholdMember>[],
-        autoSplitEnabled: autoSplitContext?.household.autoSplitEnabled ?? false,
-        autoSplitConfig: autoSplitContext?.household.autoSplitConfig,
-        rawCustomSplits: prepared.batchRequestBody['customSplits'],
-        description:
-            savedEntry.rawText ?? prepared.item.transaction.description,
-        splitGroupId: existingSplitGroupId?.isNotEmpty == true
-            ? existingSplitGroupId
-            : null,
-      );
-      if (optimisticSplitGroup != null) {
-        container
-            .read(householdOptimisticSplitsProvider.notifier)
-            .addSplitGroup(savedHouseholdId, optimisticSplitGroup);
-        if (existingSplitGroupId == null || existingSplitGroupId.isEmpty) {
-          entryToStore =
-              entryToStore.copyWith(splitGroupId: optimisticSplitGroup.id);
-        }
-      } else {
-        final optimisticSplitsNotifier =
-            container.read(householdOptimisticSplitsProvider.notifier);
-        optimisticSplitsNotifier.removeSplitByExpenseIdAcrossHouseholds(
-          optimisticId,
-        );
-        if (savedEntry.id.isNotEmpty) {
-          optimisticSplitsNotifier.removeSplitByExpenseIdAcrossHouseholds(
-            savedEntry.id,
-          );
-        }
-      }
-    }
     if (savedEntry.id.isNotEmpty) {
       container
           .read(householdOptimisticExpensesProvider.notifier)
           .removeExpenseByIdAcrossHouseholds(savedEntry.id);
     }
     final fromBucket = normalizeBucketId(householdId);
-    final toBucket = normalizeBucketId(entryToStore.householdId);
-
-    if (fromBucket == toBucket) {
-      await replaceLocalOptimisticTransaction(
-        optimisticId: optimisticId,
-        savedEntry: entryToStore,
-        metadata: prepared.metadata,
-      );
-      replaceOptimisticTransactionWithContainer(
-        container: container,
-        optimisticId: optimisticId,
-        savedEntry: entryToStore,
-        householdId: fromBucket,
-      );
-      return entryToStore;
-    }
+    entryToStore = replaceOptimisticTransactionWithContainer(
+      container: container,
+      optimisticId: optimisticId,
+      savedEntry: entryToStore,
+      householdId: fromBucket,
+    );
+    // The UI may temporarily use an `optimistic_split_*` ID to keep its
+    // in-memory transaction/split pair coherent. That identifier is not
+    // queryable after a restart, so never persist it as a synced relationship.
+    // The canonical split fetch below replaces this row once the backend UUID
+    // is available.
+    final durableEntryToStore =
+        isCanonicalHouseholdSplitGroupId(entryToStore.splitGroupId)
+            ? entryToStore
+            : entryToStore.copyWith(clearSplitGroupId: true);
 
     await replaceLocalOptimisticTransaction(
       optimisticId: optimisticId,
-      savedEntry: entryToStore,
+      savedEntry: durableEntryToStore,
       metadata: prepared.metadata,
-    );
-    removeOptimisticTransactionWithContainer(
-      container: container,
-      optimisticId: optimisticId,
-      householdId: fromBucket,
-    );
-    addOptimisticTransactionWithContainer(
-      container: container,
-      entry: entryToStore,
-      householdId: toBucket,
     );
     return entryToStore;
   }

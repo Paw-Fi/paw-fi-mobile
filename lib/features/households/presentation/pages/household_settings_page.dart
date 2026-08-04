@@ -31,6 +31,17 @@ import '../widgets/space_visibility_selector_card.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
+bool canEditHouseholdSettings({
+  required Household household,
+  required String? currentUserId,
+  required HouseholdMember? currentUserMember,
+}) {
+  if (currentUserId == null) return false;
+  return household.ownerId == currentUserId ||
+      currentUserMember?.role == HouseholdRole.owner ||
+      currentUserMember?.role == HouseholdRole.admin;
+}
+
 /// Household Settings Page
 /// Single page layout for managing household settings, members, and invitations.
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
@@ -65,6 +76,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
   bool _isSavingSettings = false;
   bool _isDeletingHousehold = false;
   bool _isNameInitialized = false;
+  bool _isAutoSplitDraftInitialized = false;
 
   @override
   void initState() {
@@ -101,7 +113,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         loadedHousehold != null ? _hasUnsavedChanges(loadedHousehold) : false;
 
     final colorScheme = Theme.of(context).colorScheme;
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     return PopScope(
       canPop: !hasUnsavedChanges,
@@ -149,11 +161,12 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                 ),
               );
 
-              final currentUserRole =
-                  currentUserMember?.role ?? HouseholdRole.member;
               final isOwner = household.ownerId == currentUserId;
-              final canEditSettings = currentUserRole == HouseholdRole.owner ||
-                  currentUserRole == HouseholdRole.admin;
+              final canEditSettings = canEditHouseholdSettings(
+                household: household,
+                currentUserId: currentUserId,
+                currentUserMember: currentUserMember,
+              );
 
               // Initialize controller if this is the first load
               if (!_isNameInitialized && !_isSavingSettings) {
@@ -171,21 +184,20 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
               if (_initialImageUrl == null && !_isSavingSettings) {
                 _initialImageUrl = household.coverImageUrl;
               }
-              if (_autoSplitEnabled == null && !_isSavingSettings) {
+              // A null config is a valid user draft: it explicitly clears a
+              // previously custom template back to equal splitting. Track
+              // initialization separately so a rebuild or pull-to-refresh
+              // cannot repopulate that unsaved null from the remote household.
+              if (!_isAutoSplitDraftInitialized && !_isSavingSettings) {
                 _autoSplitEnabled = household.autoSplitEnabled;
-              }
-              if (_initialAutoSplitEnabled == null && !_isSavingSettings) {
                 _initialAutoSplitEnabled = household.autoSplitEnabled;
-              }
-              if (_autoSplitConfig == null && !_isSavingSettings) {
                 _autoSplitConfig = household.autoSplitConfig == null
                     ? null
                     : Map<String, dynamic>.from(household.autoSplitConfig!);
-              }
-              if (_initialAutoSplitConfig == null && !_isSavingSettings) {
                 _initialAutoSplitConfig = household.autoSplitConfig == null
                     ? null
                     : Map<String, dynamic>.from(household.autoSplitConfig!);
+                _isAutoSplitDraftInitialized = true;
               }
               if (_isSharedSpace == null && !_isSavingSettings) {
                 _isSharedSpace = !household.isPortfolio;
@@ -439,13 +451,14 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                           );
                           return;
                         }
-                        final nextConfig = splitType == SplitType.equal ||
-                                _isEffectivelyEqualSplit(splitType, splits)
+                        final serializedConfig = serializeStoredSplitConfig(
+                          splitType: splitType,
+                          splits: splits,
+                        );
+                        final nextConfig = isStoredSplitConfigEffectivelyEqual(
+                                serializedConfig)
                             ? null
-                            : serializeStoredSplitConfig(
-                                splitType: splitType,
-                                splits: splits,
-                              );
+                            : serializedConfig;
                         final currentEncoded =
                             _encodeSplitConfigForComparison(_autoSplitConfig);
                         final nextEncoded =
@@ -717,36 +730,6 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     setState(() {
       _autoSplitEnabled = value;
     });
-  }
-
-  bool _isEffectivelyEqualSplit(
-    SplitType splitType,
-    List<MemberSplit> splits,
-  ) {
-    if (splits.isEmpty) return true;
-
-    bool closeTo(double actual, double expected) =>
-        (actual - expected).abs() <= 0.01;
-
-    switch (splitType) {
-      case SplitType.equal:
-        return true;
-      case SplitType.percentage:
-        final expected = 100 / splits.length;
-        return splits.every(
-          (split) =>
-              split.includedInPercentage &&
-              closeTo(split.percentage ?? 0, expected),
-        );
-      case SplitType.shares:
-        return splits.every((split) => (split.shares ?? 0) == 1);
-      case SplitType.amount:
-        final expected = 1 / splits.length;
-        return splits.every(
-          (split) =>
-              split.includedInAmount && closeTo(split.amount ?? 0, expected),
-        );
-    }
   }
 
   Future<void> _handleUnsavedBackNavigation() async {

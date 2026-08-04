@@ -12,6 +12,8 @@ import 'package:moneko/features/home/presentation/state/dashboard_snapshot_model
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/pages/daily_financial_details_page.dart';
+import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
@@ -343,11 +345,30 @@ class _FinancialCalendarWidgetState
           isStale: true,
         );
 
-    final resolvedTransactions = mergeDashboardTransactionsWithLocalOverlay(
-      base: transactionsAsync.valueOrNull ?? widget.transactions,
-      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
-      query: query,
-    );
+    final householdId = widget.householdId?.trim();
+    final resolvedTransactions = householdId == null || householdId.isEmpty
+        ? mergeDashboardTransactionsWithLocalOverlay(
+            base: transactionsAsync.valueOrNull ?? widget.transactions,
+            localOverlay:
+                ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+            query: query,
+          )
+        : mergeHouseholdDashboardExpenses(
+            base: transactionsAsync.valueOrNull ?? widget.transactions,
+            localOverlay:
+                ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+            query: query,
+            optimisticExpenses: ref.watch(
+              householdOptimisticExpensesProvider.select(
+                (state) => state[householdId] ?? const <ExpenseEntry>[],
+              ),
+            ),
+            deletedIds: ref.watch(
+              householdOptimisticDeletedExpenseIdsProvider.select(
+                (state) => state[householdId] ?? const <String>{},
+              ),
+            ),
+          );
     final selectedCurrencies = query.normalizedCurrencies;
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,
@@ -360,8 +381,9 @@ class _FinancialCalendarWidgetState
       transactions: resolvedTransactions,
       rates: rates,
     );
-    final isInitialLoading =
-        transactionsAsync.isLoading && !transactionsAsync.hasValue;
+    final isInitialLoading = transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        resolvedTransactions.isEmpty;
 
     return Skeletonizer(
       enabled: isInitialLoading,

@@ -175,6 +175,19 @@ void main() {
       });
     });
 
+    test('treats equal positive share weights as an equal split', () {
+      final config = serializeStoredSplitConfig(
+        splitType: SplitType.shares,
+        splits: [
+          MemberSplit(member: members[0], shares: 2),
+          MemberSplit(member: members[1], shares: 2),
+        ],
+      );
+
+      expect(isStoredSplitConfigEffectivelyEqual(config), isTrue);
+      expect(resolveStoredSplitType(config), SplitType.equal);
+    });
+
     test('round-trips equal and null config as default equal splits', () {
       final decoded = deserializeStoredSplitConfig(
         members: members,

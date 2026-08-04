@@ -13,9 +13,12 @@ import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
@@ -176,6 +179,23 @@ Future<void> _dispatchMobileMutation(
         mutation,
         payload,
       );
+      final settlementPayload =
+          LocalHouseholdSettlementMutationPayload.fromJson(payload);
+      final optimisticPayment = pendingSettlementPaymentRecord(
+        currentUserId: ref.read(authProvider).uid,
+        memberUserId: settlementPayload.memberUserId,
+        mode: settlementPayload.mode,
+        amountCents: settlementPayload.amountCents,
+        currency: settlementPayload.currency,
+      );
+      if (optimisticPayment != null) {
+        ref
+            .read(optimisticSettlementPaymentsProvider.notifier)
+            .removePayment(mutation.entityId, optimisticPayment);
+      }
+      ref.invalidate(
+        pendingHouseholdSettlementPaymentsProvider(mutation.entityId),
+      );
       ref
           .read(householdRemoteMutationRefreshSignalProvider(
             mutation.entityId,
@@ -200,17 +220,31 @@ Future<void> _dispatchMobileMutation(
             'Transaction create sync succeeded without a saved transaction payload',
           );
         }
+        final savedEntry = ExpenseEntry.fromJson(savedPayload).copyWith(
+          clientRecordId: mutation.entityId,
+          clientMutationId: mutation.clientMutationId,
+          idempotencyKey:
+              _metadataFromPayload(payload)['idempotencyKey']?.toString() ??
+                  mutation.clientMutationId,
+        );
         await database.replaceOptimisticTransaction(
           optimisticId: mutation.entityId,
-          savedEntry: ExpenseEntry.fromJson(savedPayload).copyWith(
-            clientRecordId: mutation.entityId,
-            clientMutationId: mutation.clientMutationId,
-            idempotencyKey:
-                _metadataFromPayload(payload)['idempotencyKey']?.toString() ??
-                    mutation.clientMutationId,
-          ),
+          savedEntry: savedEntry,
           clientMutationId: mutation.clientMutationId,
         );
+        final queuedTransaction = _mapValue(payload['transaction']);
+        reconcileSyncedHouseholdTransactionOverlays(
+          expensesNotifier:
+              ref.read(householdOptimisticExpensesProvider.notifier),
+          splitsNotifier: ref.read(householdOptimisticSplitsProvider.notifier),
+          optimisticId: mutation.entityId,
+          optimisticHouseholdId:
+              queuedTransaction?['household_id']?.toString() ??
+                  queuedTransaction?['householdId']?.toString(),
+          savedEntry: savedEntry,
+        );
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       }
       await _deleteQueuedLocalFile(payload['localReceiptImagePath']);

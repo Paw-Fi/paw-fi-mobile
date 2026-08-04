@@ -177,20 +177,29 @@ void removeOptimisticTransactionWithContainer({
       );
 }
 
-void replaceOptimisticTransactionWithContainer({
+ExpenseEntry replaceOptimisticTransactionWithContainer({
   required ProviderContainer container,
   required String optimisticId,
   required ExpenseEntry savedEntry,
   required String? householdId,
 }) {
   if (householdId != null && householdId.isNotEmpty) {
-    container
-        .read(householdOptimisticExpensesProvider.notifier)
-        .replaceExpense(householdId, optimisticId, savedEntry);
-    return;
+    // A household expense and its split group are one optimistic unit. Never
+    // replace only the expense here: a server response can arrive before the
+    // canonical split read and make split-aware cards fall back to payer-full.
+    return reconcileSyncedHouseholdTransactionOverlays(
+      expensesNotifier:
+          container.read(householdOptimisticExpensesProvider.notifier),
+      splitsNotifier:
+          container.read(householdOptimisticSplitsProvider.notifier),
+      optimisticId: optimisticId,
+      optimisticHouseholdId: householdId,
+      savedEntry: savedEntry,
+    );
   }
 
   container
       .read(analyticsProvider.notifier)
       .replaceOptimisticTransaction(optimisticId, savedEntry);
+  return savedEntry;
 }

@@ -3,9 +3,11 @@ import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:go_router/go_router.dart';
+import 'package:moneko/features/auth/auth.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../utils/household_ui_utils.dart';
+import '../utils/household_member_permissions.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -25,6 +27,7 @@ class HouseholdMembersPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(householdMembersProvider(householdId));
+    final currentUserId = ref.watch(currentUserIdProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -40,36 +43,61 @@ class HouseholdMembersPage extends ConsumerWidget {
             color: colorScheme.foreground,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.person_add, color: colorScheme.primary),
-            onPressed: () {
-              // Navigate to invites page
-              context.push('/households/$householdId/invites');
-            },
-            tooltip: context.l10n.inviteMember,
-          ),
-        ],
+        actions: membersAsync.valueOrNull == null
+            ? const <Widget>[]
+            : [
+                if (canManageHouseholdMembers(
+                  currentUserId: currentUserId,
+                  currentUserMember: _currentUserMember(
+                    membersAsync.value!,
+                    currentUserId,
+                  ),
+                ))
+                  IconButton(
+                    icon: Icon(Icons.person_add, color: colorScheme.primary),
+                    onPressed: () {
+                      context.push('/households/$householdId/invites');
+                    },
+                    tooltip: context.l10n.inviteMember,
+                  ),
+              ],
       ),
       body: membersAsync.when(
-        data: (members) => RefreshIndicator(
-          onRefresh: () =>
-              ref.read(householdMembersProvider(householdId).notifier).load(),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: members.length,
-            itemBuilder: (context, index) {
-              final member = members[index];
-              return _MemberCard(
-                member: member,
-                householdId: householdId,
-                onRemove: () => _confirmRemoveMember(context, ref, member),
-                onUpdateRole: (role) =>
-                    _updateMemberRole(context, ref, member, role),
-              );
-            },
-          ),
-        ),
+        data: (members) {
+          final currentUserMember = _currentUserMember(members, currentUserId);
+          final canManage = canManageHouseholdMembers(
+            currentUserId: currentUserId,
+            currentUserMember: currentUserMember,
+          );
+          final currentUserRole = currentUserMember?.role;
+
+          return RefreshIndicator(
+            onRefresh: () =>
+                ref.read(householdMembersProvider(householdId).notifier).load(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: members.length,
+              itemBuilder: (context, index) {
+                final member = members[index];
+                final canManageThisMember = canManage &&
+                    currentUserRole != null &&
+                    canManageHouseholdMember(
+                      currentUserRole: currentUserRole,
+                      member: member,
+                      currentUserId: currentUserId,
+                    );
+                return _MemberCard(
+                  member: member,
+                  householdId: householdId,
+                  canManage: canManageThisMember,
+                  onRemove: () => _confirmRemoveMember(context, ref, member),
+                  onUpdateRole: (role) =>
+                      _updateMemberRole(context, ref, member, role),
+                );
+              },
+            ),
+          );
+        },
         loading: () => const AsyncDataSkeleton(),
         error: (error, stack) => Center(
           child: Column(
@@ -95,6 +123,17 @@ class HouseholdMembersPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  HouseholdMember? _currentUserMember(
+    List<HouseholdMember> members,
+    String? currentUserId,
+  ) {
+    if (currentUserId == null) return null;
+    for (final member in members) {
+      if (member.userId == currentUserId) return member;
+    }
+    return null;
   }
 
   Future<void> _confirmRemoveMember(
@@ -131,12 +170,14 @@ class HouseholdMembersPage extends ConsumerWidget {
 class _MemberCard extends StatelessWidget {
   final HouseholdMember member;
   final String householdId;
+  final bool canManage;
   final VoidCallback onRemove;
   final Function(HouseholdRole) onUpdateRole;
 
   const _MemberCard({
     required this.member,
     required this.householdId,
+    required this.canManage,
     required this.onRemove,
     required this.onUpdateRole,
   });
@@ -196,7 +237,7 @@ class _MemberCard extends StatelessWidget {
             ),
 
             // Actions
-            if (!isOwner)
+            if (!isOwner && canManage)
               PopupMenuButton<String>(
                 onSelected: (value) {
                   if (value == 'remove') {

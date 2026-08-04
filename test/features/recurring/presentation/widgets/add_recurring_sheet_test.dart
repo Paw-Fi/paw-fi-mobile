@@ -57,6 +57,8 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    bool createSplitGroup = false,
+    bool reSplitRequested = false,
     String? accountId,
   }) async {
     updateCalled = true;
@@ -82,6 +84,8 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
       'customSplitType': customSplitType,
       'customSplits': customSplits,
       'payerUserId': payerUserId,
+      'createSplitGroup': createSplitGroup,
+      'reSplitRequested': reSplitRequested,
       'accountId': accountId,
     };
     return RecurringTransaction(
@@ -1087,6 +1091,8 @@ void main() {
 
     expect(saveNotifier, isNotNull);
     expect(saveNotifier!.updateCalled, isTrue);
+    expect(saveNotifier!.lastUpdateArgs?['createSplitGroup'], isFalse);
+    expect(saveNotifier!.lastUpdateArgs?['reSplitRequested'], isFalse);
     await tester.pump(const Duration(seconds: 5));
   });
 

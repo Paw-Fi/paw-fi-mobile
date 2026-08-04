@@ -306,6 +306,7 @@ class ExpenseEntry {
     String? localReceiptImagePath,
     List<String>? sharedMemberIds,
     String? splitGroupId,
+    bool clearSplitGroupId = false,
     String? parentRecurringId,
     DateTime? scheduledOccurrenceDate,
     DateTime? recurringConfirmedAt,
@@ -348,7 +349,8 @@ class ExpenseEntry {
       localReceiptImagePath:
           localReceiptImagePath ?? this.localReceiptImagePath,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
-      splitGroupId: splitGroupId ?? this.splitGroupId,
+      splitGroupId:
+          clearSplitGroupId ? null : splitGroupId ?? this.splitGroupId,
       parentRecurringId: parentRecurringId ?? this.parentRecurringId,
       scheduledOccurrenceDate:
           scheduledOccurrenceDate ?? this.scheduledOccurrenceDate,

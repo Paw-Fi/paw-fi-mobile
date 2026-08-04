@@ -2260,6 +2260,9 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    SplitType? customSplitType,
+    List<MemberSplit>? customSplits,
+    String? payerUserId,
     String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
@@ -2314,6 +2317,7 @@ class RecurringTransactionSaveNotifier
         ownerType: ownerType,
         privacyScope: privacyScope,
         householdId: householdId,
+        payerUserId: payerUserId,
         accountId: accountId,
       );
       mutationMetadata = buildTransactionMutationMetadata(
@@ -2350,6 +2354,40 @@ class RecurringTransactionSaveNotifier
         'recurrence_rule': recurrenceRule,
         'accountId': accountId,
       };
+      if (householdId != null) {
+        final isPortfolio =
+            ref.read(householdScopeProvider).isPortfolioId(householdId);
+        if (!isPortfolio &&
+            customSplitType != null &&
+            customSplits != null &&
+            customSplits.isNotEmpty) {
+          requestBody['customSplits'] = {
+            'splitType': customSplitType.name,
+            'memberSplits': customSplits.map((split) {
+              final memberData = <String, dynamic>{
+                'userId': split.member.userId,
+              };
+              switch (customSplitType) {
+                case SplitType.amount:
+                  memberData['amount'] = split.amount;
+                  break;
+                case SplitType.percentage:
+                  memberData['percentage'] = split.percentage;
+                  break;
+                case SplitType.shares:
+                  memberData['shares'] = split.shares;
+                  break;
+                case SplitType.equal:
+                  break;
+              }
+              return memberData;
+            }).toList(),
+          };
+        }
+        if (!isPortfolio && payerUserId?.isNotEmpty == true) {
+          requestBody['payerUserId'] = payerUserId;
+        }
+      }
       localDatabase = await _queueRecurringCreate(
         optimisticTransaction: optimisticTransaction,
         mutationMetadata: mutationMetadata,
@@ -2702,6 +2740,8 @@ class RecurringTransactionSaveNotifier
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    bool createSplitGroup = false,
+    bool reSplitRequested = false,
     String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
@@ -2709,7 +2749,7 @@ class RecurringTransactionSaveNotifier
     }
     state = const AsyncValue.loading();
 
-    final originalScopeKey = previousHouseholdId ?? householdId;
+    final originalScopeKey = previousHouseholdId;
     final originalExpense = ref
         .read(recurringTransactionsProvider(originalScopeKey))
         .data
@@ -2725,11 +2765,13 @@ class RecurringTransactionSaveNotifier
     void rollbackOptimisticExpense() {
       try {
         final lazyHandle = lazyOptimisticHandle;
+        var ownsCurrentRevision = true;
         if (lazyHandle != null) {
-          ref
+          ownsCurrentRevision = ref
               .read(recurringSeriesOptimisticProvider.notifier)
               .rollback(lazyHandle);
         }
+        if (!ownsCurrentRevision) return;
         if (householdId != originalScopeKey) {
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
@@ -2839,13 +2881,15 @@ class RecurringTransactionSaveNotifier
           // If the previous recurring expense was personal (no household),
           // we are converting personal -> group: mirror unified_transaction_sheet
           // by creating the initial split group via customSplits.
-          if (previousHouseholdId == null ||
+          if (createSplitGroup ||
+              previousHouseholdId == null ||
               previousHouseholdId != householdId) {
             requestBody['customSplits'] = splitsPayload;
           } else {
             // Existing group recurring expense: mirror unified_transaction_sheet
             // by sending splitUpdate to recompute the split lines.
             requestBody['splitUpdate'] = splitsPayload;
+            requestBody['reSplitRequested'] = reSplitRequested;
           }
         }
 
@@ -2906,9 +2950,9 @@ class RecurringTransactionSaveNotifier
                 sourceHouseholdId: originalScopeKey,
               );
       try {
-        if (previousHouseholdId != null && previousHouseholdId != householdId) {
+        if (originalScopeKey != householdId) {
           ref
-              .read(recurringTransactionsProvider(previousHouseholdId).notifier)
+              .read(recurringTransactionsProvider(originalScopeKey).notifier)
               .removeRecurring(expenseId);
         }
         ref
@@ -2934,6 +2978,8 @@ class RecurringTransactionSaveNotifier
                   'customSplits': requestBody['customSplits'],
                 if (requestBody.containsKey('splitUpdate'))
                   'splitUpdate': requestBody['splitUpdate'],
+                if (requestBody.containsKey('reSplitRequested'))
+                  'reSplitRequested': requestBody['reSplitRequested'],
                 if (requestBody.containsKey('payerUserId'))
                   'payerUserId': requestBody['payerUserId'],
               },
@@ -2993,6 +3039,14 @@ class RecurringTransactionSaveNotifier
 
         return updatedExpense;
       } else {
+        if (localDatabase != null && originalExpense != null) {
+          await localDatabase.rollbackOptimisticTransactionUpdate(
+            originalEntry:
+                _expenseEntryFromRecurringTransaction(originalExpense, userId),
+            clientMutationId: mutationMetadata.clientMutationId,
+            error: response.data,
+          );
+        }
         rollbackOptimisticExpense();
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
@@ -3071,6 +3125,12 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? previousHouseholdId,
+    SplitType? customSplitType,
+    List<MemberSplit>? customSplits,
+    String? payerUserId,
+    bool createSplitGroup = false,
+    bool reSplitRequested = false,
     String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
@@ -3078,8 +3138,9 @@ class RecurringTransactionSaveNotifier
     }
     state = const AsyncValue.loading();
 
+    final originalScopeKey = previousHouseholdId;
     final originalIncome = ref
-        .read(recurringTransactionsProvider(householdId))
+        .read(recurringTransactionsProvider(originalScopeKey))
         .data
         .valueOrNull
         ?.where((transaction) => transaction.id == expenseId)
@@ -3093,14 +3154,21 @@ class RecurringTransactionSaveNotifier
     void rollbackOptimisticIncome() {
       try {
         final lazyHandle = lazyOptimisticHandle;
+        var ownsCurrentRevision = true;
         if (lazyHandle != null) {
-          ref
+          ownsCurrentRevision = ref
               .read(recurringSeriesOptimisticProvider.notifier)
               .rollback(lazyHandle);
         }
-        if (originalIncome != null) {
+        if (!ownsCurrentRevision) return;
+        if (householdId != originalScopeKey) {
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
+              .removeRecurring(expenseId);
+        }
+        if (originalIncome != null) {
+          ref
+              .read(recurringTransactionsProvider(originalScopeKey).notifier)
               .replaceRecurring(expenseId, originalIncome);
         }
       } catch (_) {}
@@ -3149,6 +3217,9 @@ class RecurringTransactionSaveNotifier
           : null;
       updatesIncome['source'] =
           source != null && source.trim().isNotEmpty ? source.trim() : null;
+      if (householdId != null && payerUserId?.isNotEmpty == true) {
+        updatesIncome['payer_user_id'] = payerUserId;
+      }
 
       final optimisticIncome = _buildOptimisticRecurringTransaction(
         userId: userId,
@@ -3171,6 +3242,7 @@ class RecurringTransactionSaveNotifier
         ownerType: ownerType,
         privacyScope: privacyScope,
         householdId: householdId,
+        payerUserId: payerUserId,
         accountId: accountId,
       ).copyWith(id: expenseId);
       mutationMetadata = buildTransactionMutationMetadataForRecord(
@@ -3181,16 +3253,64 @@ class RecurringTransactionSaveNotifier
           ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
                 mutationId: mutationMetadata.clientMutationId,
                 transaction: optimisticIncome,
+                sourceHouseholdId: originalScopeKey,
               );
+      final requestBody = <String, dynamic>{
+        ...mutationMetadata.toRequestJson(),
+        'userId': userId,
+        'expenseId': expenseId,
+        'updates': updatesIncome,
+        if (householdId != null) 'householdId': householdId,
+        'clientTimezoneOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
+      };
+      if (householdId != null &&
+          customSplitType != null &&
+          customSplits != null &&
+          customSplits.isNotEmpty) {
+        final splitsPayload = {
+          'splitType': customSplitType.name,
+          'memberSplits': customSplits.map((split) {
+            final memberData = <String, dynamic>{
+              'userId': split.member.userId,
+            };
+            switch (customSplitType) {
+              case SplitType.amount:
+                memberData['amount'] = split.amount;
+                break;
+              case SplitType.percentage:
+                memberData['percentage'] = split.percentage;
+                break;
+              case SplitType.shares:
+                memberData['shares'] = split.shares;
+                break;
+              case SplitType.equal:
+                break;
+            }
+            return memberData;
+          }).toList(),
+        };
+        if (createSplitGroup ||
+            previousHouseholdId == null ||
+            previousHouseholdId != householdId) {
+          requestBody['customSplits'] = splitsPayload;
+        } else {
+          requestBody['splitUpdate'] = splitsPayload;
+          requestBody['reSplitRequested'] = reSplitRequested;
+        }
+      }
+      if (householdId != null && payerUserId?.isNotEmpty == true) {
+        requestBody['payerUserId'] = payerUserId;
+      }
       try {
+        if (originalScopeKey != householdId) {
+          ref
+              .read(recurringTransactionsProvider(originalScopeKey).notifier)
+              .removeRecurring(expenseId);
+        }
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(expenseId, optimisticIncome);
         if (originalIncome != null) {
-          mutationMetadata = buildTransactionMutationMetadataForRecord(
-            clientRecordId: expenseId,
-            operation: 'update_recurring_income',
-          );
           final database = await ref.read(localDatabaseProvider.future);
           localDatabase = database;
           await database.writeOptimisticTransactionUpdate(
@@ -3206,30 +3326,23 @@ class RecurringTransactionSaveNotifier
               'updates': updatesIncome,
               'extraBody': {
                 if (householdId != null) 'householdId': householdId,
+                if (requestBody.containsKey('customSplits'))
+                  'customSplits': requestBody['customSplits'],
+                if (requestBody.containsKey('splitUpdate'))
+                  'splitUpdate': requestBody['splitUpdate'],
+                if (requestBody.containsKey('reSplitRequested'))
+                  'reSplitRequested': requestBody['reSplitRequested'],
+                if (requestBody.containsKey('payerUserId'))
+                  'payerUserId': requestBody['payerUserId'],
               },
             },
           );
         }
       } catch (_) {}
 
-      mutationMetadata ??= buildTransactionMutationMetadataForRecord(
-        clientRecordId: expenseId,
-        operation: 'update_recurring_income',
-      );
-
       final response = await supabase.functions.invoke(
         'update-expense',
-        body: {
-          ...mutationMetadata.toRequestJson(),
-          'userId': userId,
-          'expenseId': expenseId,
-          'updates': updatesIncome,
-          if (householdId != null) 'householdId': householdId,
-          // Keep update-expense date validation aligned with the caller's
-          // local calendar day.
-          'clientTimezoneOffsetMinutes':
-              DateTime.now().timeZoneOffset.inMinutes,
-        },
+        body: requestBody,
       );
 
       if (response.data['success'] == true) {
@@ -3248,6 +3361,10 @@ class RecurringTransactionSaveNotifier
           clientMutationId: mutationMetadata.clientMutationId,
         );
         state = AsyncValue.data(updatedIncome);
+        ref
+            .read(recurringTransactionsProvider(updatedIncome.householdId)
+                .notifier)
+            .updateRecurring(updatedIncome);
 
         // Force refresh the list provider to show the updated transaction
         // Don't use optimistic update as we'll invalidate in the sheet
@@ -3256,6 +3373,14 @@ class RecurringTransactionSaveNotifier
 
         return updatedIncome;
       } else {
+        if (localDatabase != null && originalIncome != null) {
+          await localDatabase.rollbackOptimisticTransactionUpdate(
+            originalEntry:
+                _expenseEntryFromRecurringTransaction(originalIncome, userId),
+            clientMutationId: mutationMetadata.clientMutationId,
+            error: response.data,
+          );
+        }
         rollbackOptimisticIncome();
         final errorPayload = _buildFunctionErrorPayload(
           response.data,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,6 +15,40 @@ import 'package:moneko/features/households/presentation/widgets/settlement_sugge
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets(
+      'fresh hydration never exposes the stale pairwise settlement balance',
+      (tester) async {
+    var pairwiseReads = 0;
+    final hydration = Completer<List<SettlementPaymentRecord>>();
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD'],
+      pendingPaymentsFuture: hydration.future,
+      onPairwiseRead: () => pairwiseReads += 1,
+      balances: const [
+        SettlementPairwiseBalance(
+          otherUserId: 'alex',
+          currency: 'USD',
+          splitToCents: 1000,
+          splitFromCents: 0,
+          paidToCents: 0,
+          paidFromCents: 0,
+          netCents: 1000,
+        ),
+      ],
+      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+    );
+
+    expect(pairwiseReads, 1);
+    expect(find.text('\$10'), findsWidgets);
+
+    hydration.complete(const <SettlementPaymentRecord>[]);
+    await tester.pumpAndSettle();
+
+    expect(pairwiseReads, 1);
+    expect(find.text('\$10'), findsWidgets);
+  });
+
   testWidgets('multi-currency settlement rows display source amounts',
       (tester) async {
     await _pumpSettlementCard(
@@ -131,6 +167,20 @@ void main() {
     expect(find.textContaining('Error loading dashboard'), findsOneWidget);
   });
 
+  testWidgets(
+      'multi-currency payment read failure never shows a partial balance',
+      (tester) async {
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD', 'EUR'],
+      overviewError: StateError('payments unavailable'),
+      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+    );
+
+    expect(find.text('\$10'), findsNothing);
+    expect(find.textContaining('Error loading dashboard'), findsOneWidget);
+  });
+
   testWidgets('new empty shared space still fails closed when RPC fails',
       (tester) async {
     await _pumpSettlementCard(
@@ -228,6 +278,8 @@ Future<void> _pumpSettlementCard(
   VoidCallback? onPairwiseRead,
   VoidCallback? onOverviewRead,
   Object? pairwiseError,
+  Object? overviewError,
+  Future<List<SettlementPaymentRecord>>? pendingPaymentsFuture,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -239,22 +291,41 @@ Future<void> _pumpSettlementCard(
             isStale: false,
           ),
         ),
-        householdPairwiseSettlementBalancesV2Provider.overrideWith(
-          (ref, params) async {
+        householdSettlementSnapshotProvider.overrideWith(
+          (ref, params) {
             onPairwiseRead?.call();
-            if (pairwiseError != null) throw pairwiseError;
-            return balances;
+            if (pairwiseError != null) {
+              return AsyncValue.error(pairwiseError, StackTrace.current);
+            }
+            return AsyncValue.data(
+              HouseholdSettlementSnapshot(
+                balances: balances,
+                splits: splits,
+                payments: const <SettlementPaymentRecord>[],
+              ),
+            );
           },
         ),
         settlementOverviewProvider.overrideWith(
           (ref, householdId) {
             onOverviewRead?.call();
+            if (overviewError != null) {
+              return AsyncValue.error(overviewError, StackTrace.current);
+            }
             return AsyncValue.data(
               SettlementOverviewData(
                 splits: splits,
                 payments: const <SettlementPaymentRecord>[],
               ),
             );
+          },
+        ),
+        pendingHouseholdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) {
+            if (pendingPaymentsFuture != null) {
+              return pendingPaymentsFuture;
+            }
+            return const <SettlementPaymentRecord>[];
           },
         ),
       ],
@@ -274,6 +345,7 @@ Future<void> _pumpSettlementCard(
       ),
     ),
   );
+  await tester.pump();
 }
 
 HouseholdMember _member({required String userId, String? userName}) {

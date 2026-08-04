@@ -12,7 +12,6 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -47,6 +46,33 @@ class SettlementSuggestionsCard extends ConsumerStatefulWidget {
 
 class _SettlementSuggestionsCardState
     extends ConsumerState<SettlementSuggestionsCard> {
+  List<SettlementPaymentRecord>? _retainedDurablePendingPayments;
+  HouseholdSettlementSnapshot? _retainedSettlementSnapshot;
+  SettlementOverviewData? _retainedSettlementOverview;
+
+  @override
+  void didUpdateWidget(covariant SettlementSuggestionsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.householdId != widget.householdId ||
+        oldWidget.currency != widget.currency ||
+        oldWidget.currentUserId != widget.currentUserId ||
+        !_sameCurrencies(
+          oldWidget.selectedCurrencies,
+          widget.selectedCurrencies,
+        )) {
+      _retainedDurablePendingPayments = null;
+      _retainedSettlementSnapshot = null;
+      _retainedSettlementOverview = null;
+    }
+  }
+
+  bool _sameCurrencies(List<String>? left, List<String>? right) {
+    final normalizedLeft = _normalizeCurrencyFilters(left).toSet();
+    final normalizedRight = _normalizeCurrencyFilters(right).toSet();
+    return normalizedLeft.length == normalizedRight.length &&
+        normalizedLeft.containsAll(normalizedRight);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -85,39 +111,58 @@ class _SettlementSuggestionsCardState
             state[widget.householdId] ?? const <SettlementPaymentRecord>[],
       ),
     );
-    final optimisticSplits = ref.watch(
-      householdOptimisticSplitsProvider.select(
-        (state) => state[widget.householdId] ?? const <ExpenseSplitGroup>[],
-      ),
+    final durablePendingPaymentsAsync = ref.watch(
+      pendingHouseholdSettlementPaymentsProvider(widget.householdId),
     );
-    final needsLegacyOverview = hasMultiCurrencySelection ||
-        optimisticPayments.isNotEmpty ||
-        optimisticSplits.isNotEmpty;
-    final balancesAsync = needsLegacyOverview
-        ? const AsyncValue<List<SettlementPairwiseBalance>>.data(
-            <SettlementPairwiseBalance>[],
-          )
+    final resolvedDurablePendingPayments =
+        durablePendingPaymentsAsync.valueOrNull;
+    if (resolvedDurablePendingPayments != null) {
+      _retainedDurablePendingPayments = resolvedDurablePendingPayments;
+    }
+    final durablePendingPayments =
+        resolvedDurablePendingPayments ?? _retainedDurablePendingPayments;
+    final hasDurablePendingSettlement =
+        durablePendingPayments?.isNotEmpty ?? false;
+    final settlementSnapshotAsync = hasMultiCurrencySelection
+        ? null
         : ref.watch(
-            householdPairwiseSettlementBalancesV2Provider(
+            householdSettlementSnapshotProvider(
               PairwiseSettlementBalancesParams(
                 householdId: widget.householdId,
                 currency: selectedCurrency,
               ),
             ),
           );
+    // The pairwise provider has a complete split-aware optimistic branch for
+    // transaction mutations. Keeping it as the single-currency source avoids
+    // switching this card to a second, cold overview provider after an expense
+    // is logged. The full overview remains necessary for multiple currencies
+    // and pending settlement-payment mutations.
+    final needsLegacyOverview = hasMultiCurrencySelection ||
+        optimisticPayments.isNotEmpty ||
+        hasDurablePendingSettlement;
     final useLegacyOverview = needsLegacyOverview;
     final overviewAsync = useLegacyOverview
         ? ref.watch(settlementOverviewProvider(widget.householdId))
         : null;
+    final resolvedSnapshot = settlementSnapshotAsync?.valueOrNull;
+    if (resolvedSnapshot != null) {
+      _retainedSettlementSnapshot = resolvedSnapshot;
+    }
+    final resolvedOverview = overviewAsync?.valueOrNull;
+    if (resolvedOverview != null) {
+      _retainedSettlementOverview = resolvedOverview;
+    }
+    final snapshot = resolvedSnapshot ?? _retainedSettlementSnapshot;
+    final overview = resolvedOverview ?? _retainedSettlementOverview;
 
     // Never render a partial or client-reconstructed settlement amount. The
-    // common single-currency path fails closed when its authoritative RPC
-    // fails; only multi-currency and optimistic previews use the complete
-    // local overview. Cached authoritative values remain usable while their
-    // provider refreshes in the background.
+    // common single-currency path stays on the pairwise provider, whose
+    // optimistic branch waits for the complete canonical split/payment input.
+    // Only multi-currency and pending settlement payments need the full local
+    // overview. Cached authoritative values remain usable during refresh.
     if (useLegacyOverview) {
-      if ((overviewAsync?.hasError ?? false) &&
-          !(overviewAsync?.hasValue ?? false)) {
+      if ((overviewAsync?.hasError ?? false) && overview == null) {
         return _buildErrorCard(
           context,
           colorScheme,
@@ -125,16 +170,16 @@ class _SettlementSuggestionsCardState
               ref.invalidate(settlementOverviewProvider(widget.householdId)),
         );
       }
-      if (!(overviewAsync?.hasValue ?? false)) {
+      if (overview == null) {
         return _buildLoadingCard(context, colorScheme);
       }
     } else {
-      if (balancesAsync.hasError && !balancesAsync.hasValue) {
+      if (settlementSnapshotAsync!.hasError && snapshot == null) {
         return _buildErrorCard(
           context,
           colorScheme,
           onRetry: () => ref.invalidate(
-            householdPairwiseSettlementBalancesV2Provider(
+            householdSettlementSnapshotProvider(
               PairwiseSettlementBalancesParams(
                 householdId: widget.householdId,
                 currency: selectedCurrency,
@@ -143,13 +188,12 @@ class _SettlementSuggestionsCardState
           ),
         );
       }
-      if (!balancesAsync.hasValue) {
+      if (snapshot == null) {
         return _buildLoadingCard(context, colorScheme);
       }
     }
 
-    final balances = balancesAsync.valueOrNull;
-    final overview = overviewAsync?.valueOrNull;
+    final balances = snapshot?.balances;
 
     if (balances == null && overview == null) {
       return _buildLoadingCard(context, colorScheme);
@@ -179,16 +223,12 @@ class _SettlementSuggestionsCardState
           return fromMembers?.userEmail ?? context.l10n.member;
         }
 
-        final overviewSplits = optimisticSplits.isNotEmpty
-            ? mergeHouseholdSplits(
-                overview?.splits ?? const <ExpenseSplitGroup>[],
-                optimisticSplits,
-              )
-            : overview?.splits ?? widget.splits;
+        final overviewSplits =
+            overview?.splits ?? snapshot?.splits ?? widget.splits;
         final mySuggestions = !hasMultiCurrencySelection &&
                 balances != null &&
                 optimisticPayments.isEmpty &&
-                optimisticSplits.isEmpty
+                !hasDurablePendingSettlement
             ? _buildSuggestionsFromBalances(
                 balances,
                 currentUserId,

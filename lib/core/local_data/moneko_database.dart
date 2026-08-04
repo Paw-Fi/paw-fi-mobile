@@ -1958,14 +1958,16 @@ class MonekoDatabase {
         WHERE entity_type = ?
           AND operation = ?
           AND entity_id = ?
-          AND status != ?
+          AND status IN (?, ?, ?)
         LIMIT 1
         ''',
         [
           localHouseholdSettlementMutationEntityType,
           localHouseholdSettlementMutationOperation,
           payload.householdId,
-          localMutationStatusSynced,
+          localMutationStatusQueued,
+          localMutationStatusSyncing,
+          localMutationStatusFailed,
         ],
       );
       if (unresolvedRows.isNotEmpty) {
@@ -2051,14 +2053,16 @@ class MonekoDatabase {
       WHERE entity_type = ?
         AND operation = ?
         AND entity_id = ?
-        AND status != ?
+        AND status IN (?, ?, ?)
       ORDER BY created_at ASC
       ''',
       [
         localHouseholdSettlementMutationEntityType,
         localHouseholdSettlementMutationOperation,
         normalizedHouseholdId,
-        localMutationStatusSynced,
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
       ],
     );
 

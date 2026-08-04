@@ -247,8 +247,6 @@ Future<void> _refreshDeferredMainShellData(
 
     ref.invalidate(userHouseholdsProvider(userId));
     ref.invalidate(householdProvider);
-    ref.invalidate(householdMembersProvider);
-    ref.invalidate(householdBudgetsProvider);
     ref.invalidate(householdInvitesProvider);
     ref.invalidate(currencyTransactionCountsProvider);
 

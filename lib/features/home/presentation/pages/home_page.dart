@@ -593,8 +593,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref
                       .read(cacheInvalidatorProvider)
                       .invalidateHouseholdData(householdId);
-                  ref.invalidate(householdMembersProvider(householdId));
-                  ref.invalidate(householdBudgetsProvider(householdId));
+                  await Future.wait([
+                    ref
+                        .read(householdMembersProvider(householdId).notifier)
+                        .load(),
+                    ref
+                        .read(householdBudgetsProvider(householdId).notifier)
+                        .load(),
+                  ]);
                   ref.invalidate(householdHomeSplitGroupsProvider);
                 }
               }

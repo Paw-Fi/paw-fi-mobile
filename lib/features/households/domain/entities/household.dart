@@ -2,6 +2,8 @@ final RegExp _databaseHouseholdIdPattern = RegExp(
   r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
 );
 
+const _copyWithUnset = Object();
+
 bool isOptimisticHouseholdId(String? householdId) {
   final normalized = householdId?.trim() ?? '';
   return normalized.startsWith('optimistic-household-');
@@ -87,7 +89,7 @@ class Household {
     String? currency,
     bool? isPortfolio,
     bool? autoSplitEnabled,
-    Map<String, dynamic>? autoSplitConfig,
+    Object? autoSplitConfig = _copyWithUnset,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -100,7 +102,9 @@ class Household {
       currency: currency ?? this.currency,
       isPortfolio: isPortfolio ?? this.isPortfolio,
       autoSplitEnabled: autoSplitEnabled ?? this.autoSplitEnabled,
-      autoSplitConfig: autoSplitConfig ?? this.autoSplitConfig,
+      autoSplitConfig: identical(autoSplitConfig, _copyWithUnset)
+          ? this.autoSplitConfig
+          : autoSplitConfig as Map<String, dynamic>?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
@@ -9,6 +11,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/data/services/household_service.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:mocktail/mocktail.dart';
@@ -114,6 +117,225 @@ void main() {
     expect(balances.single.paidToCents, 10000);
   });
 
+  test('optimistic split updates pairwise balance before server refresh',
+      () async {
+    final container = _settlementContainer(
+      splits: const [],
+      deletedExpenseIds: const {},
+    );
+    addTearDown(container.dispose);
+    container
+        .read(householdOptimisticSplitsProvider.notifier)
+        .addSplitGroup(_householdId, _split('optimistic-expense', 4000));
+
+    final balances = await container.read(
+      householdPairwiseSettlementBalancesV2Provider(
+        PairwiseSettlementBalancesParams(
+          householdId: _householdId,
+          currency: 'USD',
+        ),
+      ).future,
+    );
+
+    expect(balances.single.otherUserId, 'alex');
+    expect(balances.single.netCents, 4000);
+  });
+
+  test('settlement overview includes and removes pending settlement payment',
+      () async {
+    final container = _settlementContainer(
+      splits: [_split('expense-1', 10000)],
+      deletedExpenseIds: const {},
+    );
+    addTearDown(container.dispose);
+    const pendingPayment = SettlementPaymentRecord(
+      payerUserId: 'alex',
+      participantUserId: 'me',
+      amountCents: 4000,
+      currency: 'USD',
+    );
+
+    container
+        .read(optimisticSettlementPaymentsProvider.notifier)
+        .addPayment(_householdId, pendingPayment);
+    final overviewSubscription = container.listen(
+      settlementOverviewProvider(_householdId),
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(overviewSubscription.close);
+    await Future.wait([
+      container.read(
+        cachedHouseholdSplitsProvider(
+          const HouseholdSplitsParams(householdId: _householdId),
+        ).future,
+      ),
+      container.read(householdSettlementPaymentsProvider(_householdId).future),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    final pendingOverview = overviewSubscription.read().requireValue;
+    final pendingNets = computeSettlementNets(
+      splits: pendingOverview.splits,
+      currentUserId: 'me',
+      currencyFilter: 'USD',
+      settlementPayments: pendingOverview.payments,
+    );
+
+    expect(pendingOverview.payments, contains(pendingPayment));
+    expect(pendingNets['alex']!.netCents, 6000);
+
+    container
+        .read(optimisticSettlementPaymentsProvider.notifier)
+        .removePayment(_householdId, pendingPayment);
+    await Future<void>.delayed(Duration.zero);
+    final restoredOverview = overviewSubscription.read().requireValue;
+    final restoredNets = computeSettlementNets(
+      splits: restoredOverview.splits,
+      currentUserId: 'me',
+      currencyFilter: 'USD',
+      settlementPayments: restoredOverview.payments,
+    );
+
+    expect(restoredOverview.payments, isEmpty);
+    expect(restoredNets['alex']!.netCents, 10000);
+  });
+
+  test(
+      'settlement overview keeps confirmed data while split refresh is pending',
+      () async {
+    final refreshGate = Completer<List<ExpenseSplitGroup>>();
+    var splitLoads = 0;
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(_TestAuth.new),
+        cachedHouseholdSplitsProvider.overrideWith((ref, params) async {
+          splitLoads += 1;
+          if (splitLoads == 1) return [_split('expense-1', 10000)];
+          return refreshGate.future;
+        }),
+        householdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) async => const <SettlementPaymentRecord>[],
+        ),
+        pendingHouseholdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) async => const <SettlementPaymentRecord>[],
+        ),
+      ],
+    );
+    addTearDown(() {
+      if (!refreshGate.isCompleted) refreshGate.complete(const []);
+      container.dispose();
+    });
+    final subscription = container.listen(
+      settlementOverviewProvider(_householdId),
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    await container.read(
+      cachedHouseholdSplitsProvider(
+        const HouseholdSplitsParams(householdId: _householdId),
+      ).future,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(subscription.read().requireValue.splits, hasLength(1));
+
+    container.invalidate(
+      cachedHouseholdSplitsProvider(
+        const HouseholdSplitsParams(householdId: _householdId),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final refreshing = subscription.read();
+    expect(refreshing.hasValue, isTrue);
+    expect(refreshing.requireValue.splits.single.expenseId, 'expense-1');
+  });
+
+  test('durable queued settlement is restored after a fresh provider container',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.enqueueHouseholdSettlementMutation(
+      householdId: _householdId,
+      memberUserId: 'alex',
+      mode: 'to_member',
+      amountCents: 2500,
+      currency: 'USD',
+      note: null,
+      expectedSnapshotToken:
+          'v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      clientMutationId: 'settlement-restart-1',
+    );
+    final freshContainer = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(_TestAuth.new),
+        localDatabaseProvider.overrideWith((ref) async => database),
+      ],
+    );
+    addTearDown(freshContainer.dispose);
+
+    final restored = await freshContainer.read(
+      pendingHouseholdSettlementPaymentsProvider(_householdId).future,
+    );
+
+    expect(restored, hasLength(1));
+    expect(restored.single.payerUserId, 'me');
+    expect(restored.single.participantUserId, 'alex');
+    expect(restored.single.amountCents, 2500);
+  });
+
+  test('settlement overview fails closed when payment data is unavailable',
+      () async {
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(_TestAuth.new),
+        cachedHouseholdSplitsProvider.overrideWith(
+          (ref, params) async => [_split('expense-1', 10000)],
+        ),
+        householdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) async => throw StateError('payments unavailable'),
+        ),
+        pendingHouseholdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) async => const <SettlementPaymentRecord>[],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final failedState = Completer<AsyncValue<SettlementOverviewData>>();
+    final subscription = container.listen(
+      settlementOverviewProvider(_householdId),
+      (_, next) {
+        if (next.hasError && !failedState.isCompleted) {
+          failedState.complete(next);
+        }
+      },
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    final result = await failedState.future.timeout(const Duration(seconds: 1));
+    expect(result.error, isA<StateError>());
+  });
+
+  test('removing a pending settlement preserves an identical newer payment',
+      () {
+    final notifier = OptimisticSettlementPaymentsNotifier();
+    const payment = SettlementPaymentRecord(
+      payerUserId: 'alex',
+      participantUserId: 'me',
+      amountCents: 4000,
+      currency: 'USD',
+    );
+    notifier.addPayment(_householdId, payment);
+    notifier.addPayment(_householdId, payment);
+
+    notifier.removePayment(_householdId, payment);
+
+    expect(notifier.state[_householdId], [payment]);
+  });
+
   test('atomic settlement provider filters optimistic deletion tombstones',
       () async {
     final service = _MockHouseholdService();
@@ -198,6 +420,9 @@ ProviderContainer _settlementContainer({
       ),
       householdSettlementPaymentsProvider.overrideWith(
         (ref, householdId) async => payments,
+      ),
+      pendingHouseholdSettlementPaymentsProvider.overrideWith(
+        (ref, householdId) async => const <SettlementPaymentRecord>[],
       ),
     ],
   );

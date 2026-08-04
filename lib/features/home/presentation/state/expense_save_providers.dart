@@ -708,25 +708,16 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     // reconcile from SQLite without disposing the visible page.
 
     if (invalidateHouseholdProviders && householdId != null) {
-      // Shared expense: refresh household data
+      // A household mutation has already been written to SQLite and its
+      // optimistic split pair is mounted. Invalidating these independent
+      // providers forces a remote expense read and a remote split read to race
+      // each other, which is precisely how the UI used to show payer-full in
+      // the middle of a valid split update. Normal transaction/dashboard
+      // signals above preserve the local-first snapshot; outbox/resume sync
+      // remains responsible for later remote reconciliation.
       _debugPrint(
-          '🔄 Invalidating household providers for household: $householdId');
-
-      // Clear RequestDeduplicator cache so cached providers don't serve stale data.
-      ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
-
-      // Invalidate family providers so all parameterized instances refresh
-      ref.invalidate(
-          householdExpensesProvider); // fix: refresh all limits (e.g., 500)
-      ref.invalidate(householdSplitsProvider);
-      ref.invalidate(householdBudgetsProvider);
-
-      // Invalidate cached family providers too (they do not depend on the base
-      // providers via ref.watch, so they must be invalidated explicitly).
-      ref.invalidate(cachedHouseholdExpensesProvider);
-      ref.invalidate(cachedHouseholdSplitsProvider);
-
-      _debugPrint('✅ Invalidated families: expenses, splits, budgets');
+        '✅ Preserved household local-first snapshot for $householdId',
+      );
     }
 
     _debugPrint('✅ Providers invalidated and ready for refresh');
@@ -740,7 +731,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     bool refreshTransactionFeed = true,
     bool emitDashboardRefresh = true,
     bool refreshWallets = true,
-    bool invalidateHouseholdProviders = true,
+    bool invalidateHouseholdProviders = false,
   }) async {
     await _invalidateProviders(
       userId,

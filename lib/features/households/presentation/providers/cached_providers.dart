@@ -175,12 +175,6 @@ final cachedHouseholdExpensesProvider =
       householdDeletedExpenseIdsProvider(params.householdId).future,
     );
 
-    if (optimistic.isNotEmpty) {
-      ref
-          .read(householdOptimisticExpensesProvider.notifier)
-          .pruneIfInServer(params.householdId, result);
-    }
-
     final merged = mergeHouseholdExpenses(
       result,
       optimistic,
@@ -234,12 +228,6 @@ final cachedHouseholdSplitsProvider =
     final deletedIds = await ref.watch(
       householdDeletedExpenseIdsProvider(params.householdId).future,
     );
-
-    if (optimistic.isNotEmpty) {
-      ref
-          .read(householdOptimisticSplitsProvider.notifier)
-          .pruneIfInServer(params.householdId, result);
-    }
 
     final merged = mergeHouseholdSplits(result, optimistic)
         .where((split) => !deletedIds.contains(split.expenseId))
