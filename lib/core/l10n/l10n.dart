@@ -292,3 +292,28 @@ extension RecurringPageL10nX on AppLocalizations {
   String get dueLater => 'Due Later';
   String get activeSchedules => 'Active Schedules';
 }
+
+extension CancelReasonL10nX on AppLocalizations {
+  String get manageMembershipTitle => 'Manage membership';
+  String get manageMembershipViewStatus => 'View membership status';
+  String get manageMembershipViewStatusDescription =>
+      'See your current plan, renewal date, and billing details.';
+  String get manageMembershipCancelPlan => 'Cancel my plan';
+  String get manageMembershipCancelPlanDescription =>
+      'We\'d love to know why you\'re leaving so we can improve.';
+  String get cancelReasonTitle => 'Why are you cancelling?';
+  String get cancelReasonSubtitle =>
+      'Help us improve Moneko. Your answer won\'t affect the cancellation.';
+  String get cancelReasonTooExpensive => 'Too expensive';
+  String get cancelReasonFoundAlternative => 'Found an alternative';
+  String get cancelReasonNotUsingEnough => 'Not using it enough';
+  String get cancelReasonAppIssue => 'App issue';
+  String get cancelReasonAppIssuePlaceholder =>
+      'Describe the issue you experienced';
+  String get cancelReasonMissingSpecificFeature => 'Missing a specific feature';
+  String get cancelReasonMissingSpecificFeaturePlaceholder =>
+      'Which feature were you looking for?';
+  String get cancelReasonOther => 'Other';
+  String get cancelReasonOtherPlaceholder => 'Tell us more';
+  String get cancelReasonContinue => 'Continue to cancel';
+}

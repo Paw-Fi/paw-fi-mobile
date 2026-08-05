@@ -23,6 +23,9 @@ import 'package:moneko/features/subscription/presentation/widgets/family_sharing
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
+import 'package:moneko/features/subscription/presentation/widgets/manage_membership_choice_sheet.dart';
+import 'package:moneko/features/subscription/presentation/widgets/cancel_reason_sheet.dart';
+import 'package:moneko/features/subscription/data/subscription_cancel_reason_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
@@ -793,11 +796,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> onManageMembership() async {
-      if (!canManageCurrentSubscription) {
-        return;
-      }
-
+    Future<void> redirectToManage() async {
       if (isStripeManagedSubscription) {
         await openMembershipDashboardOnWeb();
         return;
@@ -814,6 +813,43 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
 
       await openMembershipDashboardOnWeb();
+    }
+
+    /// Shared entry point for both the top "Manage" button and the bottom
+    /// "Manage subscription" store link. Presents a choice sheet, then a
+    /// cancel-reason form when the user chooses to cancel, then redirects to
+    /// the existing store/web management surface.
+    Future<void> manageMembershipWithCancelFlow() async {
+      final choice = await ManageMembershipChoiceSheet.show(context);
+      if (choice == null || !context.mounted) return;
+
+      if (choice == ManageMembershipChoice.viewStatus) {
+        await redirectToManage();
+        return;
+      }
+
+      // choice == cancelPlan
+      final submission = await CancelReasonSheet.show(context);
+      if (submission == null || !context.mounted) return;
+
+      // Persist reason (fire-and-forget; never blocks redirect)
+      unawaited(submitCancelReason(
+        CancelReasonSubmission(
+          reason: submission.reason,
+          reasonLabel: submission.reasonLabel,
+          detailText: submission.detailText,
+          provider: normalizedProvider,
+        ),
+      ));
+
+      await redirectToManage();
+    }
+
+    Future<void> onManageMembership() async {
+      if (!canManageCurrentSubscription) {
+        return;
+      }
+      await manageMembershipWithCancelFlow();
     }
 
     if (useIap && (productsAsync.hasError || plans.isEmpty)) {
@@ -854,10 +890,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     Future<void> onManageStoreSubscription() async {
       _debugLog('🧾 Open manage store subscription');
-      final uri = isAppStoreManagedSubscription
-          ? appStoreSubscriptionSettingsUri()
-          : playStoreSubscriptionSettingsUri();
-      await openStoreSubscriptionSettings(uri);
+      await manageMembershipWithCancelFlow();
     }
 
     Future<void> startStripeCheckout(PlanOption option) async {
