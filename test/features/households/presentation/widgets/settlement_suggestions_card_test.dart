@@ -291,19 +291,13 @@ Future<void> _pumpSettlementCard(
             isStale: false,
           ),
         ),
-        householdSettlementSnapshotProvider.overrideWith(
-          (ref, params) {
+        householdPairwiseSettlementBalancesV2Provider.overrideWith(
+          (ref, params) async {
             onPairwiseRead?.call();
             if (pairwiseError != null) {
-              return AsyncValue.error(pairwiseError, StackTrace.current);
+              throw pairwiseError;
             }
-            return AsyncValue.data(
-              HouseholdSettlementSnapshot(
-                balances: balances,
-                splits: splits,
-                payments: const <SettlementPaymentRecord>[],
-              ),
-            );
+            return balances;
           },
         ),
         settlementOverviewProvider.overrideWith(

@@ -47,7 +47,7 @@ class SettlementSuggestionsCard extends ConsumerStatefulWidget {
 class _SettlementSuggestionsCardState
     extends ConsumerState<SettlementSuggestionsCard> {
   List<SettlementPaymentRecord>? _retainedDurablePendingPayments;
-  HouseholdSettlementSnapshot? _retainedSettlementSnapshot;
+  List<SettlementPairwiseBalance>? _retainedPairwiseBalances;
   SettlementOverviewData? _retainedSettlementOverview;
 
   @override
@@ -61,7 +61,7 @@ class _SettlementSuggestionsCardState
           widget.selectedCurrencies,
         )) {
       _retainedDurablePendingPayments = null;
-      _retainedSettlementSnapshot = null;
+      _retainedPairwiseBalances = null;
       _retainedSettlementOverview = null;
     }
   }
@@ -123,10 +123,10 @@ class _SettlementSuggestionsCardState
         resolvedDurablePendingPayments ?? _retainedDurablePendingPayments;
     final hasDurablePendingSettlement =
         durablePendingPayments?.isNotEmpty ?? false;
-    final settlementSnapshotAsync = hasMultiCurrencySelection
+    final pairwiseBalancesAsync = hasMultiCurrencySelection
         ? null
         : ref.watch(
-            householdSettlementSnapshotProvider(
+            householdPairwiseSettlementBalancesV2Provider(
               PairwiseSettlementBalancesParams(
                 householdId: widget.householdId,
                 currency: selectedCurrency,
@@ -145,20 +145,22 @@ class _SettlementSuggestionsCardState
     final overviewAsync = useLegacyOverview
         ? ref.watch(settlementOverviewProvider(widget.householdId))
         : null;
-    final resolvedSnapshot = settlementSnapshotAsync?.valueOrNull;
-    if (resolvedSnapshot != null) {
-      _retainedSettlementSnapshot = resolvedSnapshot;
+    final resolvedPairwiseBalances = pairwiseBalancesAsync?.valueOrNull;
+    if (resolvedPairwiseBalances != null) {
+      _retainedPairwiseBalances = resolvedPairwiseBalances;
     }
     final resolvedOverview = overviewAsync?.valueOrNull;
     if (resolvedOverview != null) {
       _retainedSettlementOverview = resolvedOverview;
     }
-    final snapshot = resolvedSnapshot ?? _retainedSettlementSnapshot;
+    final pairwiseBalances =
+        resolvedPairwiseBalances ?? _retainedPairwiseBalances;
     final overview = resolvedOverview ?? _retainedSettlementOverview;
 
     // Never render a partial or client-reconstructed settlement amount. The
-    // common single-currency path stays on the pairwise provider, whose
-    // optimistic branch waits for the complete canonical split/payment input.
+    // common single-currency path uses the exact same pairwise provider as
+    // the settle-up sheet, whose optimistic branch waits for the complete
+    // canonical split/payment input.
     // Only multi-currency and pending settlement payments need the full local
     // overview. Cached authoritative values remain usable during refresh.
     if (useLegacyOverview) {
@@ -174,12 +176,12 @@ class _SettlementSuggestionsCardState
         return _buildLoadingCard(context, colorScheme);
       }
     } else {
-      if (settlementSnapshotAsync!.hasError && snapshot == null) {
+      if (pairwiseBalancesAsync!.hasError && pairwiseBalances == null) {
         return _buildErrorCard(
           context,
           colorScheme,
           onRetry: () => ref.invalidate(
-            householdSettlementSnapshotProvider(
+            householdPairwiseSettlementBalancesV2Provider(
               PairwiseSettlementBalancesParams(
                 householdId: widget.householdId,
                 currency: selectedCurrency,
@@ -188,12 +190,12 @@ class _SettlementSuggestionsCardState
           ),
         );
       }
-      if (snapshot == null) {
+      if (pairwiseBalances == null) {
         return _buildLoadingCard(context, colorScheme);
       }
     }
 
-    final balances = snapshot?.balances;
+    final balances = pairwiseBalances;
 
     if (balances == null && overview == null) {
       return _buildLoadingCard(context, colorScheme);
@@ -223,8 +225,7 @@ class _SettlementSuggestionsCardState
           return fromMembers?.userEmail ?? context.l10n.member;
         }
 
-        final overviewSplits =
-            overview?.splits ?? snapshot?.splits ?? widget.splits;
+        final overviewSplits = overview?.splits ?? widget.splits;
         final mySuggestions = !hasMultiCurrencySelection &&
                 balances != null &&
                 optimisticPayments.isEmpty &&

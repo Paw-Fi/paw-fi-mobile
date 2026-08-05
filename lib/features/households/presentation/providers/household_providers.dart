@@ -1929,6 +1929,40 @@ final householdDeletedExpenseIdsProvider = FutureProvider.autoDispose
   }
 });
 
+/// Deletes that still need a local financial overlay.
+///
+/// Synced tombstones remain in [householdDeletedExpenseIdsProvider] to keep
+/// stale cached feeds from showing a deleted transaction again. Settlement
+/// RPCs are authoritative and already exclude synced deletes, so applying
+/// those cache guards to their result would subtract the same obligation a
+/// second time.
+final householdPendingDeletedExpenseIdsProvider = FutureProvider.autoDispose
+    .family<Set<String>, String>((ref, householdId) async {
+  final optimisticIds = ref.watch(
+    householdOptimisticDeletedExpenseIdsProvider.select(
+      (state) => state[householdId] ?? const <String>{},
+    ),
+  );
+  String userId;
+  try {
+    userId = ref.watch(authProvider.select((user) => user.uid));
+  } catch (_) {
+    return optimisticIds;
+  }
+  if (userId.isEmpty) return optimisticIds;
+
+  try {
+    final database = await ref.watch(localDatabaseProvider.future);
+    final persistedIds = await database.getPendingTransactionTombstoneIds(
+      userId: userId,
+      householdId: householdId,
+    );
+    return {...persistedIds, ...optimisticIds};
+  } catch (_) {
+    return optimisticIds;
+  }
+});
+
 final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
     .family<List<SettlementPairwiseBalance>, PairwiseSettlementBalancesParams>(
   (ref, params) async {
@@ -1943,7 +1977,7 @@ final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
       ),
     );
     final deletedExpenseIds = await ref.watch(
-      householdDeletedExpenseIdsProvider(params.householdId).future,
+      householdPendingDeletedExpenseIdsProvider(params.householdId).future,
     );
 
     if (optimisticSplits.isNotEmpty || deletedExpenseIds.isNotEmpty) {
@@ -2027,7 +2061,7 @@ final householdSettlementCalculationV3Provider = FutureProvider.autoDispose
           currency: params.currency,
         ),
         ref.watch(
-          householdDeletedExpenseIdsProvider(params.householdId).future,
+          householdPendingDeletedExpenseIdsProvider(params.householdId).future,
         ),
       ],
       eagerError: true,

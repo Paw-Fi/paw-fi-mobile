@@ -64,6 +64,43 @@ void main() {
     expect(deletedIds, {'persisted-delete', 'in-memory-delete'});
   });
 
+  test('settlement overlays ignore synced cache-guard tombstones', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final deletedExpense = ExpenseEntry(
+      id: 'synced-delete',
+      userId: 'me',
+      householdId: _householdId,
+      date: DateTime(2026, 7, 13),
+      amountCents: 1000,
+      currency: 'USD',
+      createdAt: DateTime(2026, 7, 13),
+      type: 'expense',
+    );
+    await database.writeOptimisticTransactionDelete(
+      entries: [deletedExpense],
+      clientMutationId: 'delete-synced-1',
+      payload: const {},
+      actingUserId: 'me',
+    );
+    await database.markOptimisticTransactionDeleteSynced(
+      clientMutationId: 'delete-synced-1',
+    );
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(_TestAuth.new),
+        localDatabaseProvider.overrideWith((ref) async => database),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final pendingIds = await container.read(
+      householdPendingDeletedExpenseIdsProvider(_householdId).future,
+    );
+
+    expect(pendingIds, isEmpty);
+  });
+
   test('pairwise balance excludes locally deleted split obligations', () async {
     final container = _settlementContainer(
       splits: [
@@ -361,7 +398,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         householdServiceProvider.overrideWithValue(service),
-        householdDeletedExpenseIdsProvider.overrideWith(
+        householdPendingDeletedExpenseIdsProvider.overrideWith(
           (ref, householdId) async => const {'deleted-expense'},
         ),
       ],
@@ -412,7 +449,7 @@ ProviderContainer _settlementContainer({
   return ProviderContainer(
     overrides: [
       authProvider.overrideWith(_TestAuth.new),
-      householdDeletedExpenseIdsProvider.overrideWith(
+      householdPendingDeletedExpenseIdsProvider.overrideWith(
         (ref, householdId) async => deletedExpenseIds,
       ),
       cachedHouseholdSplitsProvider.overrideWith(

@@ -1833,6 +1833,54 @@ class MonekoDatabase {
         .toSet();
   }
 
+  /// Returns only transaction deletes that have not reached the backend yet.
+  ///
+  /// Confirmed tombstones deliberately remain available through
+  /// [getActiveTransactionTombstoneIds] for a short period so stale cached
+  /// feeds cannot resurrect a deleted transaction. They must not, however,
+  /// be applied to an authoritative financial calculation that already
+  /// excludes the deleted transaction.
+  Future<Set<String>> getPendingTransactionTombstoneIds({
+    required String userId,
+    String? householdId,
+  }) async {
+    final normalizedHouseholdId = householdId?.trim();
+    final conditions = <String>[
+      'status IN (?, ?, ?)',
+    ];
+    final args = <Object?>[
+      localMutationStatusQueued,
+      localMutationStatusSyncing,
+      localMutationStatusFailed,
+    ];
+    if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty) {
+      conditions.add('scope_key = ?');
+      args.add(
+        localScopeKey(
+          userId: userId,
+          householdId: normalizedHouseholdId,
+        ),
+      );
+    } else {
+      conditions.add('user_id = ?');
+      conditions.add("(household_id IS NULL OR TRIM(household_id) = '')");
+      args.add(userId);
+    }
+    final rows = _db.select(
+      '''
+      SELECT transaction_id
+      FROM local_transaction_tombstones
+      WHERE ${conditions.join(' AND ')}
+      ''',
+      args,
+    );
+    return rows
+        .map((row) => row['transaction_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
   Future<List<ExpenseEntry>> getSyncedTransactionsChangedSince({
     required String userId,
     required DateTime changedAfter,

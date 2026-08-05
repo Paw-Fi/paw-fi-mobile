@@ -12,7 +12,6 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
-import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
@@ -63,9 +62,9 @@ final _settlementOverviewRefreshCacheProvider =
   (ref) => _SettlementOverviewRefreshCache(),
 );
 
-/// Combined provider that watches both canonical splits and settlement
-/// payments for a household. This is the single source of truth for
-/// settlement UI (card + sheet). Keyed by householdId only.
+/// Combined local projection for multi-currency and pending-payment
+/// settlement UI. The normal single-currency card and settle-up sheet use
+/// [householdPairwiseSettlementBalancesV2Provider] directly.
 ///
 /// - Loading: when either input is loading with no cached value.
 /// - Error: when either input errors with no cached value.
@@ -155,142 +154,6 @@ final settlementOverviewProvider =
         ...payments,
       ],
     ));
-  },
-);
-
-/// A scope-stable single-currency settlement input for the Household Home
-/// card. Unlike a raw FutureProvider read, this provider keeps the last
-/// complete settlement visible while its split/payment sources reconcile.
-///
-/// It also computes from the exact same cached canonical rows plus optimistic
-/// split overlay that the dashboard uses. Therefore a newly logged split is
-/// reflected immediately instead of first replacing the card with a skeleton
-/// and later issuing an unrelated pairwise RPC.
-class HouseholdSettlementSnapshot {
-  const HouseholdSettlementSnapshot({
-    required this.balances,
-    required this.splits,
-    required this.payments,
-  });
-
-  final List<SettlementPairwiseBalance> balances;
-  final List<ExpenseSplitGroup> splits;
-  final List<SettlementPaymentRecord> payments;
-}
-
-class _HouseholdSettlementSnapshotRefreshCache {
-  final _entries = <String, HouseholdSettlementSnapshot>{};
-
-  HouseholdSettlementSnapshot? operator [](String key) => _entries[key];
-
-  void put(String key, HouseholdSettlementSnapshot snapshot) {
-    _entries[key] = snapshot;
-  }
-}
-
-final _householdSettlementSnapshotRefreshCacheProvider =
-    Provider<_HouseholdSettlementSnapshotRefreshCache>(
-  (ref) => _HouseholdSettlementSnapshotRefreshCache(),
-);
-
-final householdSettlementSnapshotProvider = Provider.autoDispose.family<
-    AsyncValue<HouseholdSettlementSnapshot>, PairwiseSettlementBalancesParams>(
-  (ref, params) {
-    final currentUserId = ref.watch(authProvider.select((user) => user.uid));
-    if (currentUserId.isEmpty || !isBackendHouseholdId(params.householdId)) {
-      return const AsyncValue.data(
-        HouseholdSettlementSnapshot(
-          balances: <SettlementPairwiseBalance>[],
-          splits: <ExpenseSplitGroup>[],
-          payments: <SettlementPaymentRecord>[],
-        ),
-      );
-    }
-
-    final cacheKey =
-        '${currentUserId}|${params.householdId}|${params.currency}';
-    final refreshCache = ref.read(
-      _householdSettlementSnapshotRefreshCacheProvider,
-    );
-    final retained = refreshCache[cacheKey];
-    final splitsAsync = ref.watch(
-      cachedHouseholdSplitsProvider(
-        HouseholdSplitsParams(householdId: params.householdId),
-      ),
-    );
-    final paymentsAsync = ref.watch(
-      householdSettlementPaymentsProvider(params.householdId),
-    );
-    final deletedIdsAsync = ref.watch(
-      householdDeletedExpenseIdsProvider(params.householdId),
-    );
-    final optimisticSplits = ref.watch(
-      householdOptimisticSplitsProvider.select(
-        (state) => state[params.householdId] ?? const <ExpenseSplitGroup>[],
-      ),
-    );
-
-    final canonicalSplits = splitsAsync.valueOrNull;
-    final payments = paymentsAsync.valueOrNull;
-    final deletedIds = deletedIdsAsync.valueOrNull;
-    if (canonicalSplits != null && payments != null && deletedIds != null) {
-      final splits = mergeHouseholdSplits(canonicalSplits, optimisticSplits)
-          .where((split) => !deletedIds.contains(split.expenseId))
-          .toList(growable: false);
-      final nets = computeSettlementNets(
-        splits: splits,
-        currentUserId: currentUserId,
-        currencyFilter: params.currency,
-        settlementPayments: payments,
-      );
-      final balances = nets.entries.map((entry) {
-        final result = entry.value;
-        return SettlementPairwiseBalance(
-          otherUserId: entry.key,
-          currency: params.currency ??
-              splits
-                  .map((split) => split.currency.trim().toUpperCase())
-                  .firstWhere(
-                    (currency) => currency.isNotEmpty,
-                    orElse: () => 'USD',
-                  ),
-          splitToCents: result.splitToCents,
-          splitFromCents: result.splitFromCents,
-          paidToCents: result.paidToCents,
-          paidFromCents: result.paidFromCents,
-          netCents: result.netCents,
-        );
-      }).toList(growable: false);
-      final snapshot = HouseholdSettlementSnapshot(
-        balances: balances,
-        splits: splits,
-        payments: payments,
-      );
-      refreshCache.put(cacheKey, snapshot);
-      return AsyncValue.data(snapshot);
-    }
-
-    if (retained != null) {
-      return AsyncValue.data(retained);
-    }
-    AsyncValue<Object?>? failed;
-    for (final candidate in <AsyncValue<Object?>>[
-      splitsAsync,
-      paymentsAsync,
-      deletedIdsAsync,
-    ]) {
-      if (candidate.hasError) {
-        failed = candidate;
-        break;
-      }
-    }
-    if (failed != null) {
-      return AsyncValue.error(
-        failed.error!,
-        failed.stackTrace ?? StackTrace.current,
-      );
-    }
-    return const AsyncValue.loading();
   },
 );
 

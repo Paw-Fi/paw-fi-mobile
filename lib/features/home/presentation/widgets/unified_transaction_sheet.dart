@@ -4137,7 +4137,13 @@ class _UnifiedTransactionSheetV2State
               trimmedMerchant.isEmpty ? null : trimmedMerchant;
         }
 
-        updates['account_id'] = selectedFinancialAccountId;
+        // Do not turn an unresolved wallet selector into an explicit request
+        // to clear the account. In particular, split edits are committed by
+        // an atomic backend RPC and require either the existing account or a
+        // backend-resolved default account for the target scope.
+        if (selectedFinancialAccountId != null) {
+          updates['account_id'] = selectedFinancialAccountId;
+        }
 
         // Handle date and time updates separately
         final finalDate = _editedDate ?? widget.existingExpense!.date;

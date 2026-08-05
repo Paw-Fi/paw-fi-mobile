@@ -328,6 +328,14 @@ Future<void> _dispatchMobileMutation(
       await database.markOptimisticTransactionDeleteSynced(
         clientMutationId: mutation.clientMutationId,
       );
+      // A synced tombstone remains as a short-lived cache guard, but it is no
+      // longer a local financial overlay. Re-evaluate mounted settlement
+      // surfaces against the authoritative server snapshot immediately.
+      ref.invalidate(householdPendingDeletedExpenseIdsProvider);
+      ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
+      ref.invalidate(householdSettlementCalculationV3Provider);
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       return;
     case 'delete_recurring_template':
       await _invokeMutationFunction('delete-recurring-template', {

@@ -1402,13 +1402,15 @@ Future<void> _persistAiTransactions(
           )
         : null;
     final effectiveCustomSplits = explicitCustomSplits ?? defaultCustomSplits;
-    _debugPrint(
-      '[AI Batch Save] Auto-split payload decision: household=$householdId '
-      'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
-      'sendPayer=${(autoSplitEnabled || explicitCustomSplits != null) && payerUserId != null} '
-      'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'} '
-      'rawCustomSplits=${jsonEncode(item.raw['customSplits'])} '
-      'effectiveCustomSplits=${jsonEncode(effectiveCustomSplits)}',
+    homeSpendTrace(
+      '[HouseholdDefaultSplitDecisionTrace] stage=mobile-request '
+      'trace=$batchTraceBase household=${householdId ?? '<personal>'} '
+      'amount=${tx.amount} type=${tx.isIncome ? 'income' : 'expense'} '
+      'localAutoEnabled=$autoSplitEnabled localConfig='
+      '${jsonEncode(autoSplitContext?.household.autoSplitConfig)} '
+      'aiCustomSplits=${jsonEncode(item.raw['customSplits'])} '
+      'requestCustomSplits=${jsonEncode(effectiveCustomSplits)} '
+      'payer=${payerUserId ?? '<caller>'}',
     );
 
     final resolvedAccountIdForTransaction = resolveAccountIdForCurrency(
