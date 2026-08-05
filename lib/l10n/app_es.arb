@@ -3447,5 +3447,22 @@
   "bankConnectionNotAssigned": "Sin asignar a una cartera",
   "bankConnectionFinishSetup": "Finalizar configuración",
   "bankConnectionReconnect": "Volver a conectar",
-  "bankConnectionWalletCount": "{count} carteras vinculadas"
+  "bankConnectionWalletCount": "{count} carteras vinculadas",
+  "manageMembershipTitle": "Gestionar la suscripción",
+  "manageMembershipViewStatus": "Ver el estado de la suscripción",
+  "manageMembershipViewStatusDescription": "Consulta tu plan actual, la fecha de renovación y los detalles de facturación.",
+  "manageMembershipCancelPlan": "Cancelar mi suscripción",
+  "manageMembershipCancelPlanDescription": "Cancela tu plan y evita futuras renovaciones.",
+  "cancelReasonTitle": "¿Por qué quieres cancelar?",
+  "cancelReasonSubtitle": "Ayúdanos a mejorar Moneko. Tu respuesta no afectará la cancelación.",
+  "cancelReasonTooExpensive": "Demasiado caro",
+  "cancelReasonFoundAlternative": "Encontré una alternativa",
+  "cancelReasonNotUsingEnough": "No lo uso lo suficiente",
+  "cancelReasonAppIssue": "Problema con la app",
+  "cancelReasonAppIssuePlaceholder": "Describe el problema que experimentaste",
+  "cancelReasonMissingSpecificFeature": "Falta una función específica",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "¿Qué función estabas buscando?",
+  "cancelReasonOther": "Otro",
+  "cancelReasonOtherPlaceholder": "Cuéntanos más",
+  "cancelReasonContinue": "Continuar con la cancelación"
 }

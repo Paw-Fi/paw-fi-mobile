@@ -3445,5 +3445,22 @@
   "bankConnectionNotAssigned": "ウォレットに未割り当て",
   "bankConnectionFinishSetup": "設定を完了",
   "bankConnectionReconnect": "再接続",
-  "bankConnectionWalletCount": "連携済みウォレット：{count}件"
+  "bankConnectionWalletCount": "連携済みウォレット：{count}件",
+  "manageMembershipTitle": "メンバーシップを管理",
+  "manageMembershipViewStatus": "メンバーシップ状況を確認",
+  "manageMembershipViewStatusDescription": "現在のプラン、更新日、お支払い情報を確認できます。",
+  "manageMembershipCancelPlan": "プランを解約する",
+  "manageMembershipCancelPlanDescription": "プランを解約し、今後の自動更新を停止します。",
+  "cancelReasonTitle": "解約する理由を教えてください",
+  "cancelReasonSubtitle": "Monekoの改善にご協力ください。回答内容が解約手続きに影響することはありません。",
+  "cancelReasonTooExpensive": "料金が高すぎる",
+  "cancelReasonFoundAlternative": "他のサービスを見つけた",
+  "cancelReasonNotUsingEnough": "あまり使っていない",
+  "cancelReasonAppIssue": "アプリの不具合",
+  "cancelReasonAppIssuePlaceholder": "発生した問題を教えてください",
+  "cancelReasonMissingSpecificFeature": "必要な機能がない",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "どの機能をお探しでしたか？",
+  "cancelReasonOther": "その他",
+  "cancelReasonOtherPlaceholder": "詳しく教えてください",
+  "cancelReasonContinue": "解約手続きを続ける"
 }

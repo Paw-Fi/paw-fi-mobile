@@ -396,30 +396,19 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       return;
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
-
     if (mounted) {
-      try {
-        final households = ref
-                .read(userHouseholdsProvider(ref.read(authProvider).uid))
-                .valueOrNull ??
-            const <Household>[];
-        await widget.onSubmit(
-          text,
-          _targetFromSelection(households, _currentWallets()),
-        );
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessing = false;
-          });
-        }
-      }
+      final households = ref
+              .read(userHouseholdsProvider(ref.read(authProvider).uid))
+              .valueOrNull ??
+          const <Household>[];
+      final target = _targetFromSelection(households, _currentWallets());
+
+      // The Home AI flow now owns its progress in a non-blocking top banner.
+      // Close this input surface first so the two loading experiences never
+      // overlap, then continue the request using the parent context.
+      setState(() => _isProcessing = true);
+      Navigator.of(context).pop();
+      await widget.onSubmit(text, target);
     }
   }
 
@@ -565,29 +554,18 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     if (widget.onSubmitAudio != null) {
-      setState(() {
-        _isProcessing = true;
-      });
-      try {
-        final households = ref
-                .read(userHouseholdsProvider(ref.read(authProvider).uid))
-                .valueOrNull ??
-            const <Household>[];
-        await widget.onSubmitAudio!(
-          bytes,
-          'audio/aac',
-          _targetFromSelection(households, _currentWallets()),
-        );
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessing = false;
-          });
-        }
-      }
+      final households = ref
+              .read(userHouseholdsProvider(ref.read(authProvider).uid))
+              .valueOrNull ??
+          const <Household>[];
+      final target = _targetFromSelection(households, _currentWallets());
+
+      // Keep one continuous loading story: input closes, then the persistent
+      // Home AI progress banner takes over.
+      if (!mounted) return;
+      setState(() => _isProcessing = true);
+      Navigator.of(context).pop();
+      await widget.onSubmitAudio!(bytes, 'audio/aac', target);
     }
   }
 

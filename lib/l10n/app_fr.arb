@@ -3445,5 +3445,22 @@
   "bankConnectionNotAssigned": "Non attribuée à un portefeuille",
   "bankConnectionFinishSetup": "Terminer la configuration",
   "bankConnectionReconnect": "Reconnecter",
-  "bankConnectionWalletCount": "{count} portefeuilles liés"
+  "bankConnectionWalletCount": "{count} portefeuilles liés",
+  "manageMembershipTitle": "Gérer l'abonnement",
+  "manageMembershipViewStatus": "Voir le statut de l'abonnement",
+  "manageMembershipViewStatusDescription": "Consultez votre offre actuelle, la date de renouvellement et les informations de facturation.",
+  "manageMembershipCancelPlan": "Résilier mon abonnement",
+  "manageMembershipCancelPlanDescription": "Résiliez votre abonnement et arrêtez les prochains renouvellements.",
+  "cancelReasonTitle": "Pourquoi résiliez-vous ?",
+  "cancelReasonSubtitle": "Aidez-nous à améliorer Moneko. Votre réponse n'aura aucun impact sur la résiliation.",
+  "cancelReasonTooExpensive": "Trop cher",
+  "cancelReasonFoundAlternative": "J'ai trouvé une alternative",
+  "cancelReasonNotUsingEnough": "Je ne l'utilise pas assez",
+  "cancelReasonAppIssue": "Problème avec l'application",
+  "cancelReasonAppIssuePlaceholder": "Décrivez le problème rencontré",
+  "cancelReasonMissingSpecificFeature": "Il manque une fonctionnalité",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Quelle fonctionnalité recherchiez-vous ?",
+  "cancelReasonOther": "Autre",
+  "cancelReasonOtherPlaceholder": "Dites-nous en plus",
+  "cancelReasonContinue": "Continuer la résiliation"
 }

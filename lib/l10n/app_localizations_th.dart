@@ -9627,4 +9627,55 @@ class AppLocalizationsTh extends AppLocalizations {
   String bankConnectionWalletCount(Object count) {
     return 'กระเป๋าเงินที่เชื่อมโยง $count รายการ';
   }
+
+  @override
+  String get manageMembershipTitle => 'จัดการการสมัครสมาชิก';
+
+  @override
+  String get manageMembershipViewStatus => 'ดูสถานะการสมัครสมาชิก';
+
+  @override
+  String get manageMembershipViewStatusDescription => 'ดูแพ็กเกจปัจจุบัน วันที่ต่ออายุ และรายละเอียดการเรียกเก็บเงิน';
+
+  @override
+  String get manageMembershipCancelPlan => 'ยกเลิกแพ็กเกจ';
+
+  @override
+  String get manageMembershipCancelPlanDescription => 'ยกเลิกแพ็กเกจและหยุดการต่ออายุในอนาคต';
+
+  @override
+  String get cancelReasonTitle => 'ทำไมคุณถึงต้องการยกเลิก?';
+
+  @override
+  String get cancelReasonSubtitle => 'ช่วยเราปรับปรุง Moneko คำตอบของคุณจะไม่ส่งผลต่อการยกเลิก';
+
+  @override
+  String get cancelReasonTooExpensive => 'ราคาแพงเกินไป';
+
+  @override
+  String get cancelReasonFoundAlternative => 'พบทางเลือกอื่น';
+
+  @override
+  String get cancelReasonNotUsingEnough => 'ใช้งานไม่บ่อย';
+
+  @override
+  String get cancelReasonAppIssue => 'ปัญหาเกี่ยวกับแอป';
+
+  @override
+  String get cancelReasonAppIssuePlaceholder => 'อธิบายปัญหาที่คุณพบ';
+
+  @override
+  String get cancelReasonMissingSpecificFeature => 'ขาดฟีเจอร์ที่ต้องการ';
+
+  @override
+  String get cancelReasonMissingSpecificFeaturePlaceholder => 'คุณกำลังมองหาฟีเจอร์อะไร?';
+
+  @override
+  String get cancelReasonOther => 'อื่น ๆ';
+
+  @override
+  String get cancelReasonOtherPlaceholder => 'บอกรายละเอียดเพิ่มเติม';
+
+  @override
+  String get cancelReasonContinue => 'ดำเนินการยกเลิกต่อ';
 }

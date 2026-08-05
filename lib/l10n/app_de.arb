@@ -3445,5 +3445,22 @@
   "bankConnectionNotAssigned": "Keinem Wallet zugewiesen",
   "bankConnectionFinishSetup": "Einrichtung abschließen",
   "bankConnectionReconnect": "Erneut verbinden",
-  "bankConnectionWalletCount": "{count} verknüpfte Wallets"
+  "bankConnectionWalletCount": "{count} verknüpfte Wallets",
+  "manageMembershipTitle": "Abo verwalten",
+  "manageMembershipViewStatus": "Abostatus anzeigen",
+  "manageMembershipViewStatusDescription": "Sieh dir deinen aktuellen Tarif, das Verlängerungsdatum und die Abrechnungsdetails an.",
+  "manageMembershipCancelPlan": "Abo kündigen",
+  "manageMembershipCancelPlanDescription": "Kündige dein Abo und stoppe zukünftige Verlängerungen.",
+  "cancelReasonTitle": "Warum kündigst du?",
+  "cancelReasonSubtitle": "Hilf uns, Moneko zu verbessern. Deine Antwort hat keinen Einfluss auf die Kündigung.",
+  "cancelReasonTooExpensive": "Zu teuer",
+  "cancelReasonFoundAlternative": "Alternative gefunden",
+  "cancelReasonNotUsingEnough": "Ich nutze es zu selten",
+  "cancelReasonAppIssue": "Problem mit der App",
+  "cancelReasonAppIssuePlaceholder": "Beschreibe das Problem",
+  "cancelReasonMissingSpecificFeature": "Bestimmte Funktion fehlt",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Welche Funktion hast du gesucht?",
+  "cancelReasonOther": "Sonstiges",
+  "cancelReasonOtherPlaceholder": "Erzähl uns mehr",
+  "cancelReasonContinue": "Mit Kündigung fortfahren"
 }

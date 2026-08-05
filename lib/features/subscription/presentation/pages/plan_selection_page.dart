@@ -177,6 +177,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isStoreManagedSubscription =
         isAppStoreManagedSubscription || isPlayStoreManagedSubscription;
     final canManageCurrentSubscription = currentPlanId != 'free' &&
+        currentStatus != 'trialing' &&
         !isHouseholdSharedSubscription &&
         !isFamilySharedSubscription;
 

@@ -3437,5 +3437,22 @@
   "bankConnectionNotAssigned": "Не призначено гаманцю",
   "bankConnectionFinishSetup": "Завершити налаштування",
   "bankConnectionReconnect": "Підключити знову",
-  "bankConnectionWalletCount": "Пов'язаних гаманців: {count}"
+  "bankConnectionWalletCount": "Пов'язаних гаманців: {count}",
+  "manageMembershipTitle": "Керування підпискою",
+  "manageMembershipViewStatus": "Переглянути статус підписки",
+  "manageMembershipViewStatusDescription": "Перегляньте поточний тариф, дату поновлення та платіжні дані.",
+  "manageMembershipCancelPlan": "Скасувати підписку",
+  "manageMembershipCancelPlanDescription": "Скасуйте підписку та вимкніть подальші поновлення.",
+  "cancelReasonTitle": "Чому ви скасовуєте підписку?",
+  "cancelReasonSubtitle": "Допоможіть нам покращити Moneko. Ваша відповідь не вплине на скасування підписки.",
+  "cancelReasonTooExpensive": "Занадто дорого",
+  "cancelReasonFoundAlternative": "Знайшовся інший варіант",
+  "cancelReasonNotUsingEnough": "Користуюся недостатньо",
+  "cancelReasonAppIssue": "Проблема із застосунком",
+  "cancelReasonAppIssuePlaceholder": "Опишіть проблему, з якою ви зіткнулися",
+  "cancelReasonMissingSpecificFeature": "Бракує потрібної функції",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Якої функції вам не вистачило?",
+  "cancelReasonOther": "Інше",
+  "cancelReasonOtherPlaceholder": "Розкажіть докладніше",
+  "cancelReasonContinue": "Продовжити скасування"
 }

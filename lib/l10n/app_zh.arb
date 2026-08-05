@@ -3441,5 +3441,22 @@
   "bankConnectionNotAssigned": "未分配到钱包",
   "bankConnectionFinishSetup": "完成设置",
   "bankConnectionReconnect": "重新连接",
-  "bankConnectionWalletCount": "已关联 {count} 个钱包"
+  "bankConnectionWalletCount": "已关联 {count} 个钱包",
+  "manageMembershipTitle": "管理订阅",
+  "manageMembershipViewStatus": "查看订阅状态",
+  "manageMembershipViewStatusDescription": "查看当前套餐、续费日期和账单详情。",
+  "manageMembershipCancelPlan": "取消我的订阅",
+  "manageMembershipCancelPlanDescription": "取消套餐并停止后续续费。",
+  "cancelReasonTitle": "您为什么要取消？",
+  "cancelReasonSubtitle": "帮助我们改进 Moneko。您的回答不会影响取消流程。",
+  "cancelReasonTooExpensive": "太贵了",
+  "cancelReasonFoundAlternative": "找到了其他选择",
+  "cancelReasonNotUsingEnough": "使用频率不高",
+  "cancelReasonAppIssue": "应用问题",
+  "cancelReasonAppIssuePlaceholder": "请描述您遇到的问题",
+  "cancelReasonMissingSpecificFeature": "缺少某项功能",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "您希望加入哪项功能？",
+  "cancelReasonOther": "其他",
+  "cancelReasonOtherPlaceholder": "请告诉我们更多",
+  "cancelReasonContinue": "继续取消订阅"
 }

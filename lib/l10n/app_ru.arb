@@ -3395,5 +3395,22 @@
   "bankConnectionNotAssigned": "Не назначено кошельку",
   "bankConnectionFinishSetup": "Завершить настройку",
   "bankConnectionReconnect": "Подключить снова",
-  "bankConnectionWalletCount": "Связанных кошельков: {count}"
+  "bankConnectionWalletCount": "Связанных кошельков: {count}",
+  "manageMembershipTitle": "Управление подпиской",
+  "manageMembershipViewStatus": "Посмотреть статус подписки",
+  "manageMembershipViewStatusDescription": "Посмотрите текущий тариф, дату продления и платёжные данные.",
+  "manageMembershipCancelPlan": "Отменить подписку",
+  "manageMembershipCancelPlanDescription": "Отмените подписку и отключите дальнейшие продления.",
+  "cancelReasonTitle": "Почему вы отменяете подписку?",
+  "cancelReasonSubtitle": "Помогите нам улучшить Moneko. Ваш ответ не повлияет на отмену подписки.",
+  "cancelReasonTooExpensive": "Слишком дорого",
+  "cancelReasonFoundAlternative": "Нашёлся другой вариант",
+  "cancelReasonNotUsingEnough": "Недостаточно пользуюсь",
+  "cancelReasonAppIssue": "Проблема с приложением",
+  "cancelReasonAppIssuePlaceholder": "Опишите возникшую проблему",
+  "cancelReasonMissingSpecificFeature": "Не хватает нужной функции",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Какой функции вам не хватило?",
+  "cancelReasonOther": "Другое",
+  "cancelReasonOtherPlaceholder": "Расскажите подробнее",
+  "cancelReasonContinue": "Продолжить отмену подписки"
 }

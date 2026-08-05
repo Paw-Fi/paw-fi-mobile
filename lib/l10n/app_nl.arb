@@ -3392,5 +3392,22 @@
   "bankConnectionNotAssigned": "Niet aan een wallet toegewezen",
   "bankConnectionFinishSetup": "Instellen voltooien",
   "bankConnectionReconnect": "Opnieuw verbinden",
-  "bankConnectionWalletCount": "{count} gekoppelde wallets"
+  "bankConnectionWalletCount": "{count} gekoppelde wallets",
+  "manageMembershipTitle": "Lidmaatschap beheren",
+  "manageMembershipViewStatus": "Lidmaatschapsstatus bekijken",
+  "manageMembershipViewStatusDescription": "Bekijk je huidige abonnement, verlengingsdatum en factureringsgegevens.",
+  "manageMembershipCancelPlan": "Mijn abonnement opzeggen",
+  "manageMembershipCancelPlanDescription": "Zeg je abonnement op en stop toekomstige verlengingen.",
+  "cancelReasonTitle": "Waarom zeg je op?",
+  "cancelReasonSubtitle": "Help ons Moneko te verbeteren. Je antwoord heeft geen invloed op de opzegging.",
+  "cancelReasonTooExpensive": "Te duur",
+  "cancelReasonFoundAlternative": "Een alternatief gevonden",
+  "cancelReasonNotUsingEnough": "Ik gebruik het niet genoeg",
+  "cancelReasonAppIssue": "Probleem met de app",
+  "cancelReasonAppIssuePlaceholder": "Beschrijf het probleem dat je hebt ervaren",
+  "cancelReasonMissingSpecificFeature": "Een specifieke functie ontbreekt",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Naar welke functie was je op zoek?",
+  "cancelReasonOther": "Anders",
+  "cancelReasonOtherPlaceholder": "Vertel ons meer",
+  "cancelReasonContinue": "Doorgaan met opzeggen"
 }

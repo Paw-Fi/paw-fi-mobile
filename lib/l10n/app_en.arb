@@ -3482,5 +3482,22 @@
   "bankConnectionNotAssigned": "Not assigned to a wallet",
   "bankConnectionFinishSetup": "Finish setup",
   "bankConnectionReconnect": "Reconnect",
-  "bankConnectionWalletCount": "{count} linked wallets"
+  "bankConnectionWalletCount": "{count} linked wallets",
+  "manageMembershipTitle": "Manage membership",
+  "manageMembershipViewStatus": "View membership status",
+  "manageMembershipViewStatusDescription": "See your current plan, renewal date, and billing details.",
+  "manageMembershipCancelPlan": "Cancel my plan",
+  "manageMembershipCancelPlanDescription": "Cancel your plan and stop future renewals.",
+  "cancelReasonTitle": "Why are you cancelling?",
+  "cancelReasonSubtitle": "Help us improve Moneko. Your answer won't affect the cancellation.",
+  "cancelReasonTooExpensive": "Too expensive",
+  "cancelReasonFoundAlternative": "Found an alternative",
+  "cancelReasonNotUsingEnough": "Not using it enough",
+  "cancelReasonAppIssue": "App issue",
+  "cancelReasonAppIssuePlaceholder": "Describe the issue you experienced",
+  "cancelReasonMissingSpecificFeature": "Missing a specific feature",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Which feature were you looking for?",
+  "cancelReasonOther": "Other",
+  "cancelReasonOtherPlaceholder": "Tell us more",
+  "cancelReasonContinue": "Continue to cancel"
 }

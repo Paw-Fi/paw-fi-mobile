@@ -3444,5 +3444,22 @@
   "bankConnectionNotAssigned": "Chưa được gán vào ví",
   "bankConnectionFinishSetup": "Hoàn tất thiết lập",
   "bankConnectionReconnect": "Kết nối lại",
-  "bankConnectionWalletCount": "{count} ví đã liên kết"
+  "bankConnectionWalletCount": "{count} ví đã liên kết",
+  "manageMembershipTitle": "Quản lý gói đăng ký",
+  "manageMembershipViewStatus": "Xem trạng thái gói đăng ký",
+  "manageMembershipViewStatusDescription": "Xem gói hiện tại, ngày gia hạn và thông tin thanh toán.",
+  "manageMembershipCancelPlan": "Hủy gói đăng ký",
+  "manageMembershipCancelPlanDescription": "Hủy gói và ngừng các lần gia hạn tiếp theo.",
+  "cancelReasonTitle": "Vì sao bạn muốn hủy?",
+  "cancelReasonSubtitle": "Hãy giúp chúng tôi cải thiện Moneko. Câu trả lời của bạn sẽ không ảnh hưởng đến việc hủy.",
+  "cancelReasonTooExpensive": "Quá đắt",
+  "cancelReasonFoundAlternative": "Đã tìm được lựa chọn khác",
+  "cancelReasonNotUsingEnough": "Không sử dụng thường xuyên",
+  "cancelReasonAppIssue": "Vấn đề với ứng dụng",
+  "cancelReasonAppIssuePlaceholder": "Hãy mô tả sự cố bạn gặp phải",
+  "cancelReasonMissingSpecificFeature": "Thiếu tính năng cần thiết",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "Bạn đang tìm tính năng nào?",
+  "cancelReasonOther": "Khác",
+  "cancelReasonOtherPlaceholder": "Hãy cho chúng tôi biết thêm",
+  "cancelReasonContinue": "Tiếp tục hủy"
 }

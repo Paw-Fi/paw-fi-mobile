@@ -2638,13 +2638,19 @@ Future<void> _processExpense(
   final useEnhancedDialog = shouldShowProcessingDialog &&
       (shouldStream || isPdfUpload || isLargeFile);
 
-  // Show enhanced processing modal with timeout handling for PDFs
+  // Keep progress visible without preventing people from continuing to browse.
+  // The controller and request flow below remain unchanged.
+  NonBlockingProcessingOverlay? processingOverlay;
   BlockingProcessingController? dialogController;
 
-  if (useEnhancedDialog) {
-    dialogController = showEnhancedBlockingDialog(
+  if (shouldShowProcessingDialog) {
+    processingOverlay = showNonBlockingProcessingOverlay(
       context: context,
-      message: context.l10n.analyzingReceipt,
+      message: useEnhancedDialog
+          ? context.l10n.analyzingReceipt
+          : imagePath != null
+              ? context.l10n.analyzingReceipt
+              : context.l10n.analyzingExpense,
       subMessage: isPdfUpload
           ? 'Processing PDF document...'
           : hasTextInput
@@ -2657,15 +2663,8 @@ Future<void> _processExpense(
                           ? 'Processing file...'
                           : 'Processing large file...',
       showElapsedTime: true,
-      enableCancelAfterSeconds: 0,
     );
-  } else if (shouldShowProcessingDialog) {
-    showBlockingProcessingDialog(
-      context: context,
-      message: imagePath != null
-          ? context.l10n.analyzingReceipt
-          : context.l10n.analyzingExpense,
-    );
+    dialogController = processingOverlay.controller;
   }
 
   try {
@@ -2756,26 +2755,27 @@ Future<void> _processExpense(
 
     // Check if user cancelled before making request
     if (dialogController?.isCancelled ?? false) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      processingOverlay?.dismiss();
       return;
     }
 
     final isOffline =
         ref.read(networkReachabilityProvider).valueOrNull == false;
     if (!preview.isActive && responseData == null && isOffline) {
-      if (shouldShowProcessingDialog && context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
       final queued = await queueCurrentAiInputForRetry();
       if (queued) {
-        if (context.mounted) {
-          AppToast.success(
-            context,
-            context.l10n.walletCaptureOfflineDescription,
-          );
+        if (!context.mounted) {
+          processingOverlay?.dismiss();
+          return;
         }
+        processingOverlay?.complete(
+          message: context.l10n.walletCaptureOfflineDescription,
+          outcome: ProcessingOverlayOutcome.info,
+        );
+        AppToast.success(
+          context,
+          context.l10n.walletCaptureOfflineDescription,
+        );
         return;
       }
     }
@@ -2837,12 +2837,8 @@ Future<void> _processExpense(
       ));
     }
 
-    // Close processing modal
-    if (shouldShowProcessingDialog && context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-
     if (!context.mounted) {
+      processingOverlay?.dismiss();
       return;
     }
 
@@ -3075,10 +3071,15 @@ Future<void> _processExpense(
               .toList();
 
           if (parsed.isEmpty) {
-            if (context.mounted) {
-              AppToast.info(
-                  context, context.l10n.noExpenseInformationExtracted);
+            if (!context.mounted) {
+              processingOverlay?.dismiss();
+              return;
             }
+            processingOverlay?.complete(
+              message: context.l10n.noExpenseInformationExtracted,
+              outcome: ProcessingOverlayOutcome.info,
+            );
+            AppToast.info(context, context.l10n.noExpenseInformationExtracted);
             return;
           }
 
@@ -3090,13 +3091,13 @@ Future<void> _processExpense(
           );
 
           if (context.mounted) {
-            AppToast.success(
-              context,
-              _formatAiLoggedToastMessage(
+            processingOverlay?.complete(
+              message: _formatAiLoggedToastMessage(
                 context,
                 items: parsed,
                 targetLabel: optimisticTargetLabel,
               ),
+              outcome: ProcessingOverlayOutcome.success,
             );
           }
 
@@ -3137,11 +3138,19 @@ Future<void> _processExpense(
             );
           }
         } else {
+          processingOverlay?.complete(
+            message: context.l10n.noExpenseInformationExtracted,
+            outcome: ProcessingOverlayOutcome.info,
+          );
           if (context.mounted) {
             AppToast.info(context, context.l10n.noExpenseInformationExtracted);
           }
         }
       } else {
+        processingOverlay?.complete(
+          message: context.l10n.failedToAnalyzeNoData,
+          outcome: ProcessingOverlayOutcome.info,
+        );
         if (context.mounted) {
           AppToast.info(context, context.l10n.failedToAnalyzeNoData);
         }
@@ -3157,12 +3166,18 @@ Future<void> _processExpense(
         try {
           final queued = await queueCurrentAiInputForRetry();
           if (queued) {
-            if (context.mounted) {
-              AppToast.success(
-                context,
-                context.l10n.walletCaptureOfflineDescription,
-              );
+            if (!context.mounted) {
+              processingOverlay?.dismiss();
+              return;
             }
+            processingOverlay?.complete(
+              message: context.l10n.walletCaptureOfflineDescription,
+              outcome: ProcessingOverlayOutcome.info,
+            );
+            AppToast.success(
+              context,
+              context.l10n.walletCaptureOfflineDescription,
+            );
             return;
           }
         } catch (queueError) {
@@ -3172,6 +3187,13 @@ Future<void> _processExpense(
         }
       }
       if (context.mounted) {
+        processingOverlay?.complete(
+          message: ErrorHandler.getUserFriendlyMessage(
+            errorPayload,
+            context: BackendErrorContext.analyzeExpense,
+          ),
+          outcome: ProcessingOverlayOutcome.error,
+        );
         AppToast.error(
           context,
           ErrorHandler.getUserFriendlyMessage(
@@ -3184,21 +3206,22 @@ Future<void> _processExpense(
   } catch (e) {
     _debugPrint('Error in analysis: $e');
 
-    // Close processing modal
-    if (shouldShowProcessingDialog && context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-
     if (!preview.isActive && shouldQueueAiInputForRetry(e)) {
       try {
         final queued = await queueCurrentAiInputForRetry();
         if (queued) {
-          if (context.mounted) {
-            AppToast.success(
-              context,
-              context.l10n.walletCaptureOfflineDescription,
-            );
+          if (!context.mounted) {
+            processingOverlay?.dismiss();
+            return;
           }
+          processingOverlay?.complete(
+            message: context.l10n.walletCaptureOfflineDescription,
+            outcome: ProcessingOverlayOutcome.info,
+          );
+          AppToast.success(
+            context,
+            context.l10n.walletCaptureOfflineDescription,
+          );
           return;
         }
       } catch (queueError) {
@@ -3208,6 +3231,13 @@ Future<void> _processExpense(
     }
 
     if (context.mounted) {
+      processingOverlay?.complete(
+        message: ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.analyzeExpense,
+        ),
+        outcome: ProcessingOverlayOutcome.error,
+      );
       AppToast.error(
         context,
         ErrorHandler.getUserFriendlyMessage(

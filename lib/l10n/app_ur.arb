@@ -3391,5 +3391,22 @@
   "bankConnectionNotAssigned": "کسی والیٹ کو تفویض نہیں",
   "bankConnectionFinishSetup": "سیٹ اپ مکمل کریں",
   "bankConnectionReconnect": "دوبارہ منسلک کریں",
-  "bankConnectionWalletCount": "{count} منسلک والیٹس"
+  "bankConnectionWalletCount": "{count} منسلک والیٹس",
+  "manageMembershipTitle": "رکنیت کا انتظام کریں",
+  "manageMembershipViewStatus": "رکنیت کی حیثیت دیکھیں",
+  "manageMembershipViewStatusDescription": "اپنا موجودہ پلان، تجدید کی تاریخ اور بلنگ کی تفصیلات دیکھیں۔",
+  "manageMembershipCancelPlan": "میرا پلان منسوخ کریں",
+  "manageMembershipCancelPlanDescription": "اپنا پلان منسوخ کریں اور آئندہ تجدید روک دیں۔",
+  "cancelReasonTitle": "آپ رکنیت کیوں منسوخ کر رہے ہیں؟",
+  "cancelReasonSubtitle": "Moneko کو بہتر بنانے میں ہماری مدد کریں۔ آپ کا جواب منسوخی پر اثر انداز نہیں ہوگا۔",
+  "cancelReasonTooExpensive": "بہت مہنگا",
+  "cancelReasonFoundAlternative": "کوئی متبادل مل گیا",
+  "cancelReasonNotUsingEnough": "زیادہ استعمال نہیں ہوتا",
+  "cancelReasonAppIssue": "ایپ کا مسئلہ",
+  "cancelReasonAppIssuePlaceholder": "درپیش آنے والا مسئلہ بیان کریں",
+  "cancelReasonMissingSpecificFeature": "ایک مخصوص فیچر موجود نہیں",
+  "cancelReasonMissingSpecificFeaturePlaceholder": "آپ کس فیچر کی تلاش میں تھے؟",
+  "cancelReasonOther": "دیگر",
+  "cancelReasonOtherPlaceholder": "مزید بتائیں",
+  "cancelReasonContinue": "منسوخی جاری رکھیں"
 }
