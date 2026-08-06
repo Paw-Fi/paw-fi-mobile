@@ -469,9 +469,17 @@ class MonekoDatabase {
 
   final Database _db;
   final StreamController<void> _changes = StreamController<void>.broadcast();
+  final StreamController<void> _transactionChanges =
+      StreamController<void>.broadcast();
+
+  /// Emits after a committed local transaction change. Consumers use this to
+  /// reconcile persisted transaction-derived snapshots without forcing a
+  /// remote reload.
+  Stream<void> get transactionChanges => _transactionChanges.stream;
 
   Future<void> close() async {
     await _changes.close();
+    await _transactionChanges.close();
     _db.dispose();
   }
 
@@ -1400,10 +1408,17 @@ class MonekoDatabase {
     final candidateConditions = <String>[
       filter.whereSql,
       'sync_status = ?',
+      // Exclude wallet transfer feed entries from reconciliation because:
+      // 1. Transfers are stored in a separate `wallet_transfers` table on the server
+      // 2. The transactions RPC doesn't return them as part of the authoritative feed
+      // 3. Without this exclusion, synced transfer entries would be deleted as "stale"
+      //    when the user refreshes the home/overview page
+      'id NOT LIKE ?',
     ];
     final candidateArgs = <Object?>[
       ...filter.args,
       localSyncStatusSynced,
+      'transfer:%',
     ];
 
     if (remoteHasMore) {
@@ -4229,6 +4244,9 @@ class MonekoDatabase {
   void _notifyChanged() {
     if (!_changes.isClosed) {
       _changes.add(null);
+    }
+    if (!_transactionChanges.isClosed) {
+      _transactionChanges.add(null);
     }
   }
 }

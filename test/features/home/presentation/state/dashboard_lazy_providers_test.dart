@@ -42,6 +42,8 @@ ExpenseEntry _entry(
   String? clientRecordId,
   String? clientMutationId,
   String? idempotencyKey,
+  String? parentRecurringId,
+  DateTime? scheduledOccurrenceDate,
 }) =>
     ExpenseEntry(
       id: id,
@@ -57,6 +59,8 @@ ExpenseEntry _entry(
       clientRecordId: clientRecordId,
       clientMutationId: clientMutationId,
       idempotencyKey: idempotencyKey,
+      parentRecurringId: parentRecurringId,
+      scheduledOccurrenceDate: scheduledOccurrenceDate,
     );
 
 class _FakeTransactionsFeedService extends TransactionsFeedService {
@@ -71,6 +75,7 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
   final List<ExpenseEntry> allPageEntries;
   final List<ExpenseEntry> pageEntries;
   Completer<TransactionsFeedPageResult>? pageCompleter;
+  Completer<List<ExpenseEntry>>? allPagesCompleter;
   int pageCallCount = 0;
   TransactionsFeedQuery? lastSummaryQuery;
   TransactionsFeedQuery? lastPageQuery;
@@ -103,6 +108,8 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
   @override
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
     lastAllPagesQuery = query;
+    final completer = allPagesCompleter;
+    if (completer != null) return completer.future;
     return allPageEntries;
   }
 
@@ -788,6 +795,83 @@ void main() {
     expect(result.single.id, 'range');
     expect(service.lastAllPagesQuery?.selectedCurrency, 'USD');
     expect(service.lastAllPagesQuery?.selectedCurrencies, ['EUR', 'USD']);
+  });
+
+  test(
+      'mounted calendar cache incorporates a later reconciled recurring occurrence without an explicit refresh',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final query = DashboardScopeQuery(
+      userId: 'user-1',
+      householdId: null,
+      selectedCurrency: 'SGD',
+      selectedCurrencies: const ['SGD'],
+      startDate: DateTime(2026, 4, 1),
+      endDate: DateTime(2026, 4, 30),
+    );
+    final cachedEntries = <ExpenseEntry>[
+      _entry('trash', DateTime(2026, 4, 4),
+          userId: 'user-1', amountCents: 8500, currency: 'SGD'),
+      _entry('prudential', DateTime(2026, 4, 7),
+          userId: 'user-1', amountCents: 16000, currency: 'SGD'),
+      _entry('electricity', DateTime(2026, 4, 11),
+          userId: 'user-1', amountCents: 23365, currency: 'SGD'),
+      _entry('phone', DateTime(2026, 4, 24),
+          userId: 'user-1', amountCents: 12790, currency: 'SGD'),
+    ];
+    await DashboardSqliteCache(
+      database,
+      now: () => DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+    ).writeCalendar(query, cachedEntries);
+    final service = _FakeTransactionsFeedService()
+      ..allPagesCompleter = Completer<List<ExpenseEntry>>();
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_TestAuth.new),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      transactionsFeedServiceProvider.overrideWithValue(service),
+      transactionsRemoteFeedServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    container.listen(dashboardCalendarTransactionsProvider(query), (_, __) {});
+    final initial = await container.read(
+      dashboardCalendarTransactionsProvider(query).future,
+    );
+    expect(
+        initial.fold<int>(0, (sum, entry) => sum + entry.amountCents), 60655);
+
+    await database.upsertTransactions([
+      _entry(
+        'iras-april',
+        DateTime(2026, 4, 7),
+        userId: 'user-1',
+        amountCents: 9850,
+        currency: 'SGD',
+        category: 'taxes',
+        parentRecurringId: 'iras-template',
+        scheduledOccurrenceDate: DateTime(2026, 4, 7),
+      ),
+    ]);
+
+    await Future<void>.delayed(Duration.zero);
+    final updated = container
+        .read(dashboardCalendarTransactionsProvider(query))
+        .valueOrNull;
+    expect(updated, isNotNull);
+    expect(
+        updated!.fold<int>(0, (sum, entry) => sum + entry.amountCents), 70505);
+
+    await database.deleteTransactionsByIds(['iras-april']);
+    await Future<void>.delayed(Duration.zero);
+    final afterDelete = container
+        .read(dashboardCalendarTransactionsProvider(query))
+        .valueOrNull;
+    expect(afterDelete, isNotNull);
+    expect(afterDelete!.fold<int>(0, (sum, entry) => sum + entry.amountCents),
+        60655);
+
+    service.allPagesCompleter!.complete(cachedEntries);
   });
 
   test('owned MoM range paginates beyond the PostgREST max_rows cap', () async {

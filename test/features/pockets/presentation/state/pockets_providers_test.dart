@@ -9,6 +9,17 @@ import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  test('pocket refresh signal invalidates every mounted period revision', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(pocketsRefreshSignalProvider), 0);
+
+    container.read(pocketsRefreshSignalProvider.notifier).state++;
+
+    expect(container.read(pocketsRefreshSignalProvider), 1);
+  });
+
   test('pockets refresh query targets the active household month', () {
     final query = buildPocketsTransactionsRefreshQuery(
       userId: 'viewer-1',

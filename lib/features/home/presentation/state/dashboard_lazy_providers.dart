@@ -1221,6 +1221,7 @@ Future<_DashboardFetchResult<T>> _loadCurrentDashboardGeneration<T>({
 final dashboardSummaryProvider = FutureProvider.autoDispose
     .family<DashboardSnapshotSummary, DashboardScopeQuery>(
   (ref, query) async {
+    ref.watch(localTransactionRevisionProvider);
     final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
     final transactionsRefresh =
         ref.watch(transactionsFeedRefreshSignalProvider);
@@ -1370,6 +1371,7 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
 final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, DashboardRecentTransactionsRequest>(
   (ref, request) async {
+    ref.watch(localTransactionRevisionProvider);
     final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
     final transactionsRefresh =
         ref.watch(transactionsFeedRefreshSignalProvider);
@@ -1553,6 +1555,7 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
 final dashboardCalendarTransactionsProvider =
     FutureProvider.autoDispose.family<List<ExpenseEntry>, DashboardScopeQuery>(
   (ref, query) async {
+    ref.watch(localTransactionRevisionProvider);
     final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
     final transactionsRefresh =
         ref.watch(transactionsFeedRefreshSignalProvider);
@@ -1717,6 +1720,7 @@ final dashboardCalendarTransactionsProvider =
 final dashboardOwnedRangeTransactionsProvider =
     FutureProvider.autoDispose.family<List<ExpenseEntry>, DashboardScopeQuery>(
   (ref, query) async {
+    ref.watch(localTransactionRevisionProvider);
     final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
     final transactionsRefresh =
         ref.watch(transactionsFeedRefreshSignalProvider);

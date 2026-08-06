@@ -8,3 +8,16 @@ final localDatabaseProvider = FutureProvider<MonekoDatabase>((ref) async {
   });
   return database;
 });
+
+/// Monotonic local transaction revision for transaction-derived surfaces.
+///
+/// This deliberately represents committed SQLite changes only. It lets a
+/// persisted dashboard snapshot merge a newer locally reconciled transaction
+/// while preserving stale-while-revalidate network behavior.
+final localTransactionRevisionProvider = StreamProvider<int>((ref) async* {
+  final database = await ref.watch(localDatabaseProvider.future);
+  var revision = 0;
+  await for (final _ in database.transactionChanges) {
+    yield ++revision;
+  }
+});

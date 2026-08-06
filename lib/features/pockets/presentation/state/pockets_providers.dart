@@ -416,6 +416,12 @@ double resolvePocketMonthTotalSpend({
 
 final _pocketsMonthCache = _PocketsMonthCache();
 
+/// Signals that a locally persisted pocket budget or envelope configuration
+/// changed. Visible Home period rings use [pocketsProvider] for each period,
+/// so every mounted period must recompute rather than only the Pockets page's
+/// active provider instance.
+final pocketsRefreshSignalProvider = StateProvider<int>((ref) => 0);
+
 Future<void> clearPocketsCachesForUser(
   Ref ref, {
   required String userId,
@@ -533,6 +539,19 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
       } else {
         _pocketsMonthCache.clear();
       }
+    }
+  });
+
+  // Budget edits do not change transactions, so they need their own signal.
+  // This keeps every mounted month provider (including Home's visible period
+  // rings) in sync with the optimistic persisted pocket snapshot.
+  ref.listen(pocketsRefreshSignalProvider, (previous, next) {
+    if (previous == null || previous == next) return;
+    final uid = ref.read(authProvider).uid;
+    if (uid.isNotEmpty) {
+      _invalidatePocketsCachesForUser(ref, uid);
+    } else {
+      _pocketsMonthCache.clear();
     }
   });
 });
@@ -2188,6 +2207,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _scheduleSilentReload();
     });
     ref.listen<int>(dashboardRefreshSignalProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      _scheduleSilentReload();
+    });
+    ref.listen<AsyncValue<int>>(localTransactionRevisionProvider,
+        (previous, next) {
+      final previousRevision = previous?.valueOrNull;
+      final nextRevision = next.valueOrNull;
+      if (previousRevision == null ||
+          nextRevision == null ||
+          previousRevision == nextRevision) {
+        return;
+      }
+      _scheduleSilentReload();
+    });
+    ref.listen<int>(pocketsRefreshSignalProvider, (previous, next) {
       if (previous == null || previous == next) return;
       _scheduleSilentReload();
     });
@@ -4498,6 +4532,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         totalBudgetCents: (state.totalBudget * 100).round(),
         pockets: optimisticSaved,
       );
+      // The saved snapshot is now available locally. Notify every mounted
+      // period provider so Home's date selector updates immediately instead
+      // of waiting for a later Pockets-page visit or remote refresh.
+      ref.read(pocketsRefreshSignalProvider.notifier).state++;
 
       // Persist/update the parent budget first
       final nowIso = DateTime.now().toIso8601String();
@@ -4733,6 +4771,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: selectedCurrency,
       ));
     }
+    ref.read(pocketsRefreshSignalProvider.notifier).state++;
   }
 
   Future<String> queueCurrentPocketsSnapshotForSync({
