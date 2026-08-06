@@ -385,13 +385,14 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserIdProvider) ?? '';
+    final selectedPeriod = _selectedHomePeriodRange(ref, userId);
     final query = DashboardScopeQuery(
       userId: userId,
       householdId: household.id,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: _selectedCurrencies(ref),
-      startDate: null,
-      endDate: null,
+      startDate: selectedPeriod.start,
+      endDate: selectedPeriod.end,
     );
     final recentAsync = ref.watch(
       dashboardRecentTransactionsProvider(
@@ -453,6 +454,10 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
             MaterialPageRoute(
               builder: (_) => TransactionsPage(
                 householdId: household.id,
+                enableDateFilter: true,
+                initialDateFilter: DateRangeFilter.custom,
+                initialStartDate: selectedPeriod.start,
+                initialEndDate: selectedPeriod.end,
               ),
             ),
           );
