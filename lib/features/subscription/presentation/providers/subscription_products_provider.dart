@@ -65,7 +65,7 @@ class SubscriptionProductsNotifier
         .toList();
 
     if (platform == 'ios') {
-      _mergeMissingFallbackProducts(products);
+      mergeMissingIosFallbackProducts(products);
     }
 
     final publicProducts = _publiclySelectableProducts(products);
@@ -93,7 +93,9 @@ class SubscriptionProductsNotifier
   }
 }
 
-void _mergeMissingFallbackProducts(List<SubscriptionProduct> products) {
+/// Keeps the full iOS purchase catalog available when the remotely managed
+/// catalog temporarily omits an individual public product.
+void mergeMissingIosFallbackProducts(List<SubscriptionProduct> products) {
   for (final fallback in _publiclySelectableProducts(_fallbackIosProducts)) {
     final exists = products.any(
       (product) =>
@@ -142,6 +144,20 @@ const _fallbackIosProducts = <SubscriptionProduct>[
     displayPriceUsd: Constants.subscriptionYearlyPrice,
     originalPriceUsd: Constants.subscriptionYearlyOriginalPrice,
     sortOrder: 10,
+  ),
+  SubscriptionProduct(
+    id: 'fallback_lifetime_ios',
+    platform: 'ios',
+    plan: 'lifetime',
+    billingInterval: null,
+    storeProductId: 'lifetime_earlybird',
+    displayName: 'Lifetime',
+    tagline: 'One payment. Lifetime access.',
+    badgeText: 'LIMITED',
+    isPopular: false,
+    displayPriceUsd: Constants.subscriptionLifetimePrice,
+    originalPriceUsd: null,
+    sortOrder: 40,
   ),
   SubscriptionProduct(
     id: 'fallback_premium_monthly_ios',

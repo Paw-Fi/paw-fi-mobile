@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -13,6 +15,18 @@ class PaymentCanceledException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// A checkout sheet cannot be presented until the server has returned its
+/// Stripe Checkout URL. Keep this bounded: a stalled Edge Function request
+/// must not leave the plan action permanently processing.
+const mobileStripeCheckoutSessionRequestTimeout = Duration(seconds: 30);
+
+Future<T> awaitMobileStripeCheckoutSession<T>(
+  Future<T> request, {
+  Duration timeout = mobileStripeCheckoutSessionRequestTimeout,
+}) {
+  return request.timeout(timeout);
 }
 
 Future<MobileStripeCheckoutResult> startMobileStripeCheckout({
@@ -47,17 +61,24 @@ Future<MobileStripeCheckoutResult> startMobileStripeCheckout({
     if (billingInterval != null) 'billing': billingInterval,
   }).toString();
 
-  final response = await supabaseClient.functions.invoke(
-    'create-checkout-session',
-    body: {
-      'plan': plan,
-      if (plan != 'lifetime') 'billingInterval': billingInterval,
-      if (countryCode != null) 'country': countryCode,
-      if (currencyCode != null) 'currency': currencyCode,
-      'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
-      'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
-    },
-  );
+  late final FunctionResponse response;
+  try {
+    response = await awaitMobileStripeCheckoutSession(
+      supabaseClient.functions.invoke(
+        'create-checkout-session',
+        body: {
+          'plan': plan,
+          if (plan != 'lifetime') 'billingInterval': billingInterval,
+          if (countryCode != null) 'country': countryCode,
+          if (currencyCode != null) 'currency': currencyCode,
+          'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
+          'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
+        },
+      ),
+    );
+  } on TimeoutException {
+    throw Exception(startCheckoutError);
+  }
 
   if (response.status >= 400) {
     final data = response.data;

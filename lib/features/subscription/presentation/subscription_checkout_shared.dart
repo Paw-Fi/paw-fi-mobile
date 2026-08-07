@@ -279,7 +279,16 @@ bool subscriptionMatchesPlanOption(
 
   final targetInterval = option.billingInterval?.toLowerCase().trim();
   if (targetInterval == null) return true;
-  return subscription?.billingInterval?.toLowerCase().trim() == targetInterval;
+  if (subscription?.billingInterval?.toLowerCase().trim() != targetInterval) {
+    return false;
+  }
+
+  if (targetInterval != 'yearly') return true;
+  final hasMonthlyCommitment =
+      subscription?.paymentInterval?.toLowerCase().trim() == 'monthly' &&
+          subscription?.commitmentMonths == 12 &&
+          (subscription?.commitmentEnd?.isAfter(DateTime.now()) ?? false);
+  return option.isCommitment == hasMonthlyCommitment;
 }
 
 Future<MobileStripeCheckoutResult?> startStripeCheckoutForOption({

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 
@@ -55,5 +57,18 @@ void main() {
 
     expect(isActive, isFalse);
     expect(refreshCount, 12);
+  });
+
+  test('times out a stalled checkout-session request', () async {
+    final pendingResponse = Completer<String>();
+
+    await expectLater(
+      awaitMobileStripeCheckoutSession(
+        pendingResponse.future,
+        timeout: Duration.zero,
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    pendingResponse.complete('ignored after timeout');
   });
 }

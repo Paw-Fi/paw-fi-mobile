@@ -130,6 +130,8 @@ class PaywallScreen extends HookConsumerWidget {
     final iapProcessing = iapStateAsync.valueOrNull?.isProcessing ?? false;
     final iapLastError = iapStateAsync.valueOrNull?.lastError ?? '';
     final iapLastErrorCode = iapStateAsync.valueOrNull?.lastErrorCode;
+    final iapLastCanceledProductId =
+        iapStateAsync.valueOrNull?.lastCanceledProductId;
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
     final didInitiateCheckout = useRef(false);
@@ -343,6 +345,20 @@ class PaywallScreen extends HookConsumerWidget {
           return;
         }
 
+        final previousCanceledProductId = prevState?.lastCanceledProductId;
+        final nextCanceledProductId = nextState?.lastCanceledProductId;
+        final hasNewCancellation = nextCanceledProductId != null &&
+            nextCanceledProductId != previousCanceledProductId;
+        if (hasNewCancellation && didInitiateCheckout.value) {
+          didInitiateCheckout.value = false;
+          checkoutPlanOption.value = null;
+          runAfterBuild(() {
+            dismissProcessingDialog('user cancelled StoreKit purchase');
+            AppToast.info(context, context.l10n.paymentCanceled);
+          });
+          return;
+        }
+
         final nextError = nextState?.lastError;
         final prevError = prevState?.lastError;
         _debugLog(
@@ -422,11 +438,22 @@ class PaywallScreen extends HookConsumerWidget {
       }
       if (!processingDialogOpen.value) return null;
 
+      if (iapLastCanceledProductId != null && didInitiateCheckout.value) {
+        didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
+        runAfterBuild(() {
+          dismissProcessingDialog('user cancelled StoreKit purchase');
+          AppToast.info(context, context.l10n.paymentCanceled);
+        });
+        return null;
+      }
+
       if (iapProcessing && !didSeeIapProcessing.value) {
         didSeeIapProcessing.value = true;
       }
 
-      if (iapLastError.isNotEmpty) {
+      if (iapLastError.isNotEmpty &&
+          (didInitiateCheckout.value || didInitiateRestore.value)) {
         runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
       }
@@ -441,6 +468,7 @@ class PaywallScreen extends HookConsumerWidget {
       iapProcessing,
       iapLastError,
       iapLastErrorCode,
+      iapLastCanceledProductId,
       processingDialogOpen.value,
       processingDialogKind.value,
     ]);
@@ -845,13 +873,16 @@ class PaywallScreen extends HookConsumerWidget {
           if (context.mounted) {
             print('🎬 Showing processing dialog...');
             lastIapErrorShown.value = null;
-            didSeeIapProcessing.value =
-                iapStateAsync.valueOrNull?.isProcessing ?? false;
+            // StoreKit can report a terminal result before Flutter renders
+            // the intermediate processing state. This dialog is owned by the
+            // checkout attempt, so treat it as pending immediately; the
+            // first terminal controller state will always dismiss it.
+            didSeeIapProcessing.value = true;
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
                 '🧾 Dialog open set to true (iap). plan=${activePlanOption.id} '
-                'initialDidSeeIapProcessing=${didSeeIapProcessing.value}');
+                'checkoutPending=${didSeeIapProcessing.value}');
             showBlockingProcessingDialog(
               context: context,
               message: processingPurchaseMessage,

@@ -199,6 +199,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     final iapProcessing = iapStateAsync.valueOrNull?.isProcessing ?? false;
     final iapLastError = iapStateAsync.valueOrNull?.lastError ?? '';
     final iapLastErrorCode = iapStateAsync.valueOrNull?.lastErrorCode;
+    final iapLastCanceledProductId =
+        iapStateAsync.valueOrNull?.lastCanceledProductId;
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
     final didInitiateCheckout = useRef(false);
@@ -302,9 +304,18 @@ class PlanSelectionPage extends HookConsumerWidget {
         final subscriptionData = subscriptionAsync.valueOrNull?.subscription;
         final isActive = subscriptionData?.isSubscribed ?? false;
         final expectedOption = checkoutPlanOption.value;
+        // The IAP controller emits its completion marker only after the
+        // backend has persisted the matching App Store entitlement. Keep this
+        // second check just as strict so an existing Moneko trial with the
+        // same Plus/yearly shape can never be mistaken for the new purchase.
         final hasExpectedPlan = expectedOption == null
             ? isActive
-            : subscriptionMatchesPlanOption(subscriptionData, expectedOption);
+            : expectedOption.catalogProduct == null
+                ? false
+                : subscriptionData?.confirmsAppStorePurchase(
+                      expectedOption.catalogProduct!.storeProductId,
+                    ) ==
+                    true;
 
         _debugLog(
           '📊 Checkout verification snapshot | trigger=$trigger '
@@ -421,6 +432,20 @@ class PlanSelectionPage extends HookConsumerWidget {
           return;
         }
 
+        final previousCanceledProductId = prevState?.lastCanceledProductId;
+        final nextCanceledProductId = nextState?.lastCanceledProductId;
+        final hasNewCancellation = nextCanceledProductId != null &&
+            nextCanceledProductId != previousCanceledProductId;
+        if (hasNewCancellation && didInitiateCheckout.value) {
+          didInitiateCheckout.value = false;
+          checkoutPlanOption.value = null;
+          runAfterBuild(() {
+            dismissProcessingDialog('user cancelled StoreKit purchase');
+            AppToast.info(context, context.l10n.paymentCanceled);
+          });
+          return;
+        }
+
         final nextError = nextState?.lastError;
         final prevError = prevState?.lastError;
         final nextErrorCode = nextState?.lastErrorCode;
@@ -469,21 +494,6 @@ class PlanSelectionPage extends HookConsumerWidget {
           _debugLog('⏳ IAP processing started');
           didSeeIapProcessing.value = true;
         }
-
-        if (prevProcessing &&
-            !nextProcessing &&
-            nextError == null &&
-            nextCompletedProductId == null) {
-          _debugLog(
-            '⚠️ IAP processing ended without error/completion marker; '
-            'dialogOpen=${processingDialogOpen.value} initiated=${nextState?.initiatedProductId}',
-          );
-          if (didInitiateCheckout.value) {
-            dismissProcessingDialog('iap processing ended without completion');
-            Future.microtask(() => verifySubscriptionAndCompleteCheckout(
-                'processing_ended_without_completion_marker'));
-          }
-        }
       });
     }
 
@@ -504,13 +514,24 @@ class PlanSelectionPage extends HookConsumerWidget {
         return null;
       }
 
+      if (iapLastCanceledProductId != null && didInitiateCheckout.value) {
+        didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
+        runAfterBuild(() {
+          dismissProcessingDialog('user cancelled StoreKit purchase');
+          AppToast.info(context, context.l10n.paymentCanceled);
+        });
+        return null;
+      }
+
       if (iapProcessing && !didSeeIapProcessing.value) {
         didSeeIapProcessing.value = true;
         _debugLog(
             '🧭 IAP dialog effect: recovered missing processing transition -> didSeeIapProcessing=true');
       }
 
-      if (iapLastError.isNotEmpty) {
+      if (iapLastError.isNotEmpty &&
+          (didInitiateCheckout.value || didInitiateRestore.value)) {
         _debugLog('🧭 IAP dialog effect: lastError present -> showIapError');
         runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
@@ -530,6 +551,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       iapProcessing,
       iapLastError,
       iapLastErrorCode,
+      iapLastCanceledProductId,
       processingDialogOpen.value,
       processingDialogKind.value,
     ]);
@@ -675,6 +697,11 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     useEffect(() {
       if (didCompletePlanSelectionFlow.value) return null;
+      // A StoreKit request is not a purchase. New users can already have an
+      // active Moneko trial, which must never cause this generic active-plan
+      // observer to dismiss the page or claim payment success. IAP checkout
+      // completes only from the matching purchase-stream completion marker.
+      if (useIap && didInitiateCheckout.value) return null;
       if (!hasActiveSubscription) return null;
       if (!didInitiateCheckout.value &&
           !didInitiateRestore.value &&
@@ -738,12 +765,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (!shouldBlockSamePlan) {
         return false;
       }
-
-      if (option.serverPlanId == currentPlanId &&
-          option.billingInterval == currentInterval) {
-        return true;
-      }
-      return false;
+      return subscriptionMatchesPlanOption(currentSubscription, option);
     }
 
     if (useIap && productsAsync.isLoading) {
@@ -816,10 +838,9 @@ class PlanSelectionPage extends HookConsumerWidget {
       await openMembershipDashboardOnWeb();
     }
 
-    /// Shared entry point for both the top "Manage" button and the bottom
-    /// "Manage subscription" store link. Presents a choice sheet, then a
-    /// cancel-reason form when the user chooses to cancel, then redirects to
-    /// the existing store/web management surface.
+    /// The single membership-management entry point. It presents a choice
+    /// sheet, then a cancel-reason form when the user chooses to cancel,
+    /// before redirecting to the existing store/web management surface.
     Future<void> manageMembershipWithCancelFlow() async {
       final choice = await ManageMembershipChoiceSheet.show(context);
       if (choice == null || !context.mounted) return;
@@ -889,11 +910,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       ));
     }
 
-    Future<void> onManageStoreSubscription() async {
-      _debugLog('🧾 Open manage store subscription');
-      await manageMembershipWithCancelFlow();
-    }
-
     Future<void> startStripeCheckout(PlanOption option) async {
       final result = await startStripeCheckoutForOption(
         context: context,
@@ -957,6 +973,28 @@ class PlanSelectionPage extends HookConsumerWidget {
         return;
       }
 
+      // Apple controls all subscription-group change timing, including the
+      // immediate and deferred rules for a 12-month commitment. Do not start
+      // a second Moneko purchase that could incorrectly promise an immediate
+      // change. Lifetime is a separate non-consumable and must wait until the
+      // recurring App Store entitlement has ended.
+      if (hasActiveSubscription && isAppStoreManagedSubscription) {
+        if (selectedPlan.serverPlanId == 'lifetime') {
+          AppToast.info(
+            context,
+            context.l10n.paywallLifetimeAvailableAfterSubscriptionEnds,
+          );
+        }
+        await openStoreSubscriptionSettings(appStoreSubscriptionSettingsUri());
+        return;
+      }
+
+      if (hasActiveSubscription &&
+          currentSubscription?.plan?.toLowerCase().trim() == 'lifetime') {
+        AppToast.info(context, context.l10n.paywallLifetimeAlreadyIncludesPlus);
+        return;
+      }
+
       _debugLog(
         '🧾 Confirmed selection | plan=${selectedPlan.id} serverPlan=${selectedPlan.serverPlanId} interval=${selectedPlan.billingInterval} useIap=$useIap',
       );
@@ -984,13 +1022,18 @@ class PlanSelectionPage extends HookConsumerWidget {
           if (context.mounted) {
             print('🎬 Showing processing dialog...');
             lastIapErrorShown.value = null;
-            didSeeIapProcessing.value =
-                iapStateAsync.valueOrNull?.isProcessing ?? false;
+            // A StoreKit terminal update can arrive between Flutter frames.
+            // This dialog belongs to the checkout attempt itself, so mark it
+            // as pending immediately rather than waiting to observe a
+            // separate `isProcessing == true` rebuild. Otherwise a rapid
+            // StoreKit cancellation can leave this non-dismissible dialog
+            // open forever.
+            didSeeIapProcessing.value = true;
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
                 '🧾 Dialog open set to true (iap). attempt=$attemptId plan=${selectedPlan.id} '
-                'initialDidSeeIapProcessing=${didSeeIapProcessing.value}');
+                'checkoutPending=${didSeeIapProcessing.value}');
             showBlockingProcessingDialog(
               context: context,
               message: context.l10n.paywallProcessingPurchase,
@@ -1060,7 +1103,7 @@ class PlanSelectionPage extends HookConsumerWidget {
               cancelLabel: context.l10n.cancel,
             );
             if (result?.confirmed == true) {
-              await onManageStoreSubscription();
+              await manageMembershipWithCancelFlow();
             }
             return;
           }
@@ -1317,27 +1360,6 @@ class PlanSelectionPage extends HookConsumerWidget {
                             includePrice: true,
                             onPressed: onMainAction,
                           ),
-                          if (currentPlanId != 'free' &&
-                              isStoreManagedSubscription &&
-                              !isFamilySharedSubscription) ...[
-                            const SizedBox(height: 16),
-                            GestureDetector(
-                              onTap: isProcessing
-                                  ? null
-                                  : onManageStoreSubscription,
-                              child: Text(
-                                context.l10n.paywallManageSubscriptionPlayStore,
-                                style: TextStyle(
-                                  color: colorScheme.primary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: colorScheme.primary
-                                      .withValues(alpha: 0.5),
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),

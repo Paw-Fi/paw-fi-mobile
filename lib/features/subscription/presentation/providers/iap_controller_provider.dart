@@ -41,6 +41,10 @@ class IapState {
   /// Set when a purchase matching initiatedProductId completes successfully.
   final String? lastCompletedProductId;
 
+  /// The product ID of the last user-cancelled purchase attempt. Cancellation
+  /// is a normal terminal outcome, not an error that should poison retries.
+  final String? lastCanceledProductId;
+
   const IapState({
     required this.storeAvailable,
     required this.productDetailsById,
@@ -50,6 +54,7 @@ class IapState {
     this.isProcessing = false,
     this.initiatedProductId,
     this.lastCompletedProductId,
+    this.lastCanceledProductId,
   });
 
   IapState copyWith({
@@ -61,8 +66,10 @@ class IapState {
     bool? isProcessing,
     String? initiatedProductId,
     String? lastCompletedProductId,
+    String? lastCanceledProductId,
     bool clearInitiatedProductId = false,
     bool clearLastCompletedProductId = false,
+    bool clearLastCanceledProductId = false,
   }) {
     return IapState(
       storeAvailable: storeAvailable ?? this.storeAvailable,
@@ -78,6 +85,9 @@ class IapState {
       lastCompletedProductId: clearLastCompletedProductId
           ? null
           : (lastCompletedProductId ?? this.lastCompletedProductId),
+      lastCanceledProductId: clearLastCanceledProductId
+          ? null
+          : (lastCanceledProductId ?? this.lastCanceledProductId),
     );
   }
 }
@@ -86,7 +96,6 @@ class IapController extends AsyncNotifier<IapState> {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _processingTimeout;
   Completer<void>? _restoreAttemptCompleter;
-  bool _didReceivePurchaseUpdateForCurrentAttempt = false;
 
   static const _processingTimeoutDuration = Duration(minutes: 2);
 
@@ -112,8 +121,10 @@ class IapController extends AsyncNotifier<IapState> {
     bool? isProcessing,
     String? initiatedProductId,
     String? lastCompletedProductId,
+    String? lastCanceledProductId,
     bool clearInitiatedProductId = false,
     bool clearLastCompletedProductId = false,
+    bool clearLastCanceledProductId = false,
   }) {
     final current = state.valueOrNull ?? _fallbackState();
     final next = current.copyWith(
@@ -124,14 +135,17 @@ class IapController extends AsyncNotifier<IapState> {
       isProcessing: isProcessing,
       initiatedProductId: initiatedProductId,
       lastCompletedProductId: lastCompletedProductId,
+      lastCanceledProductId: lastCanceledProductId,
       clearInitiatedProductId: clearInitiatedProductId,
       clearLastCompletedProductId: clearLastCompletedProductId,
+      clearLastCanceledProductId: clearLastCanceledProductId,
     );
 
     print('📊 _setState called: isProcessing=${next.isProcessing}, '
         'lastError=${next.lastError}, lastErrorCode=${next.lastErrorCode}, '
         'initiatedProductId=${next.initiatedProductId}, '
-        'lastCompletedProductId=${next.lastCompletedProductId}');
+        'lastCompletedProductId=${next.lastCompletedProductId}, '
+        'lastCanceledProductId=${next.lastCanceledProductId}');
 
     // Safety: never allow the UI to be stuck forever.
     if (next.isProcessing) {
@@ -277,6 +291,11 @@ class IapController extends AsyncNotifier<IapState> {
       _onPurchaseUpdated,
       onError: (Object error) {
         print('❌ Purchase stream error: $error');
+        final current = state.valueOrNull ?? _fallbackState();
+        if (!current.isProcessing && _restoreAttemptCompleter == null) {
+          print('Ignoring purchase stream error without an active attempt');
+          return;
+        }
         _setState(
           isProcessing: false,
           lastError: error.toString(),
@@ -344,8 +363,17 @@ class IapController extends AsyncNotifier<IapState> {
       final managedSubscription =
           ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
       final hasActiveStripeSubscription =
-          managedSubscription?.provider?.toLowerCase() == 'stripe' &&
-              (managedSubscription?.isSubscribed ?? false);
+          managedSubscription?.isActiveStripeManagedSubscription ?? false;
+      print(
+        '🧾 Stripe ownership guard | '
+        'provider=${managedSubscription?.provider} '
+        'plan=${managedSubscription?.plan} '
+        'status=${managedSubscription?.status} '
+        'stripeSubscriptionId=${managedSubscription?.stripeSubscriptionId} '
+        'stripeCustomerId=${managedSubscription?.stripeCustomerId} '
+        'systemGrantedTrial=${managedSubscription?.isSystemGrantedTrial} '
+        'blocksAppStorePurchase=$hasActiveStripeSubscription',
+      );
       if (hasActiveStripeSubscription) {
         throw Exception(
           'Your subscription is managed through Stripe. Cancel it before purchasing through the App Store.',
@@ -388,10 +416,11 @@ class IapController extends AsyncNotifier<IapState> {
       _setState(
         isProcessing: true,
         lastError: null,
+        lastErrorCode: null,
         initiatedProductId: product.storeProductId,
         clearLastCompletedProductId: true,
+        clearLastCanceledProductId: true,
       );
-      _didReceivePurchaseUpdateForCurrentAttempt = false;
       print(
           '✅ Processing state set to true, initiatedProductId=${product.storeProductId}');
 
@@ -403,7 +432,9 @@ class IapController extends AsyncNotifier<IapState> {
         if (commitmentPurchase.status == 'cancelled') {
           _setState(
             isProcessing: false,
-            lastError: 'Purchase cancelled.',
+            lastError: null,
+            lastErrorCode: null,
+            lastCanceledProductId: product.storeProductId,
             clearInitiatedProductId: true,
           );
           return;
@@ -443,8 +474,19 @@ class IapController extends AsyncNotifier<IapState> {
           throw Exception(error.message);
         }
 
-        await AppStoreCommitmentBilling.finish(transactionId);
         await ref.read(subscriptionManagementProvider.notifier).refresh();
+        final refreshedSubscription =
+            ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+        if (refreshedSubscription?.confirmsAppStorePurchase(
+              product.storeProductId,
+            ) !=
+            true) {
+          throw Exception(
+            'Purchase was received but subscription access was not activated. Please try Restore Purchases.',
+          );
+        }
+
+        await AppStoreCommitmentBilling.finish(transactionId);
         _setState(
           isProcessing: false,
           lastError: null,
@@ -506,33 +548,14 @@ class IapController extends AsyncNotifier<IapState> {
         throw Exception('Failed to start purchase');
       }
 
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-
-      final latestState = state.valueOrNull;
-      final isStillWaitingForSamePurchase = latestState?.isProcessing == true &&
-          latestState?.initiatedProductId == product.storeProductId &&
-          !_didReceivePurchaseUpdateForCurrentAttempt;
-
+      // `buyNonConsumable` only confirms that StoreKit accepted the purchase
+      // request. It does not mean the user has approved the StoreKit sheet.
+      // The purchase stream is the only completion authority: it can arrive
+      // after biometric/password confirmation, Ask to Buy approval, or an
+      // app resume. Keep the attempt pending until that stream reports a
+      // terminal state (or the bounded processing timeout fires).
       print(
-        '🔍 Post-purchase return check: '
-        'didReceivePurchaseUpdate=$_didReceivePurchaseUpdateForCurrentAttempt '
-        'isProcessing=${latestState?.isProcessing} '
-        'initiatedProductId=${latestState?.initiatedProductId}',
-      );
-
-      if (isStillWaitingForSamePurchase) {
-        print(
-            '🚫 No purchase update received after store sheet closed; treating as user cancellation');
-        _setState(
-          isProcessing: false,
-          lastError: 'Purchase cancelled.',
-          lastErrorCode: null,
-          clearInitiatedProductId: true,
-        );
-      }
-
-      print(
-          '✅ Purchase initiated successfully, waiting for purchase stream updates...');
+          '✅ Purchase request started; waiting for purchase stream confirmation...');
     } catch (error, stackTrace) {
       print('❌ buy() threw: $error');
       print('🧵 buy() stackTrace: $stackTrace');
@@ -562,6 +585,7 @@ class IapController extends AsyncNotifier<IapState> {
       lastError: null,
       lastErrorCode: null,
       clearLastCompletedProductId: true,
+      clearLastCanceledProductId: true,
     );
 
     final completer = Completer<void>();
@@ -594,9 +618,9 @@ class IapController extends AsyncNotifier<IapState> {
     var sawTerminalPurchaseUpdate = false;
 
     for (final purchase in purchases) {
+      var entitlementConfirmed = false;
       print(
           '📦 Processing purchase: id=${purchase.purchaseID}, productId=${purchase.productID}, status=${purchase.status}');
-      _didReceivePurchaseUpdateForCurrentAttempt = true;
 
       try {
         if (purchase.status == PurchaseStatus.pending) {
@@ -604,20 +628,40 @@ class IapController extends AsyncNotifier<IapState> {
           continue;
         }
 
-        sawTerminalPurchaseUpdate = true;
+        final currentState = state.valueOrNull;
+        final isCurrentPurchaseAttempt =
+            currentState?.initiatedProductId == purchase.productID;
+        final isRestoreAttempt = _restoreAttemptCompleter != null;
 
         if (purchase.status == PurchaseStatus.canceled) {
+          if (!isCurrentPurchaseAttempt) {
+            print(
+              'Ignoring cancellation for ${purchase.productID}; no matching '
+              'user-initiated purchase is active',
+            );
+            continue;
+          }
+          sawTerminalPurchaseUpdate = true;
           print('🚫 Purchase cancelled by store');
           _setState(
             isProcessing: false,
-            lastError: 'Purchase cancelled.',
+            lastError: null,
             lastErrorCode: null,
+            lastCanceledProductId: purchase.productID,
             clearInitiatedProductId: true,
           );
           continue;
         }
 
         if (purchase.status == PurchaseStatus.error) {
+          if (!isCurrentPurchaseAttempt && !isRestoreAttempt) {
+            print(
+              'Ignoring purchase error for ${purchase.productID}; no matching '
+              'purchase or restore attempt is active',
+            );
+            continue;
+          }
+          sawTerminalPurchaseUpdate = true;
           print('❌ Purchase error: ${purchase.error?.message}');
           _setState(
             isProcessing: false,
@@ -630,6 +674,7 @@ class IapController extends AsyncNotifier<IapState> {
 
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
+          sawTerminalPurchaseUpdate = true;
           print(
               '✅ Purchase ${purchase.status == PurchaseStatus.purchased ? "completed" : "restored"}');
 
@@ -747,6 +792,23 @@ class IapController extends AsyncNotifier<IapState> {
               'currentPeriodEnd=${refreshedSubscription?.currentPeriodEnd} '
               'isSubscribed=${refreshedSubscription?.isSubscribed}',
             );
+            if (refreshedSubscription?.confirmsAppStorePurchase(
+                  catalog.storeProductId,
+                ) !=
+                true) {
+              print(
+                '❌ Backend returned without activating the matching App Store entitlement',
+              );
+              _setState(
+                isProcessing: false,
+                lastError:
+                    'Purchase was received but subscription access was not activated. Please try Restore Purchases.',
+                lastErrorCode: null,
+                clearInitiatedProductId: true,
+              );
+              continue;
+            }
+            entitlementConfirmed = true;
 
             // Clear processing state and set lastCompletedProductId only if:
             // 1. This was user-initiated (product ID matches what user clicked to buy)
@@ -827,12 +889,17 @@ class IapController extends AsyncNotifier<IapState> {
           clearInitiatedProductId: true,
         );
       } finally {
-        if (purchase.pendingCompletePurchase) {
+        if (purchase.pendingCompletePurchase && entitlementConfirmed) {
           try {
             await InAppPurchase.instance.completePurchase(purchase);
           } catch (_) {
             // Ignore completion errors; store will retry.
           }
+        } else if (purchase.pendingCompletePurchase) {
+          print(
+            '⏸️ Leaving StoreKit transaction pending until the matching '
+            'App Store entitlement is confirmed',
+          );
         }
       }
     }

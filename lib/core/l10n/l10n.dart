@@ -117,6 +117,10 @@ extension PaywallCommitmentL10nX on AppLocalizations {
   String paywallCommitmentRenewalTitle(int months) => 'After $months months';
   String paywallCommitmentRenewalBody(int months) =>
       'Your subscription renews for another $months-month commitment unless you cancel before the renewal date.';
+  String get paywallLifetimeAvailableAfterSubscriptionEnds =>
+      'Cancel your App Store subscription first. You can buy Lifetime after your current access ends.';
+  String get paywallLifetimeAlreadyIncludesPlus =>
+      'Lifetime already includes Plus access. No other subscription is needed.';
 }
 
 extension PocketRolloverL10nX on AppLocalizations {

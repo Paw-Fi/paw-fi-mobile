@@ -19,6 +19,7 @@ class Subscription {
   final String? paymentInterval;
   final int? commitmentMonths;
   final DateTime? commitmentEnd;
+  final bool isSystemGrantedTrial;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -41,6 +42,7 @@ class Subscription {
     this.paymentInterval,
     this.commitmentMonths,
     this.commitmentEnd,
+    this.isSystemGrantedTrial = false,
     required this.createdAt,
     this.updatedAt,
   });
@@ -72,6 +74,11 @@ class Subscription {
       commitmentEnd: json['commitment_end'] != null
           ? DateTime.tryParse(json['commitment_end'].toString())
           : null,
+      // `get-subscription` is the authoritative source for this flag. Older
+      // deployed Edge Function versions did not include it, however. Preserve
+      // the same exact identifier-free trial classification only for those
+      // omitted-field responses; an explicit `false` remains fail-closed.
+      isSystemGrantedTrial: _isSystemGrantedTrialJson(json),
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -79,6 +86,27 @@ class Subscription {
           ? DateTime.tryParse(json['updated_at'].toString())
           : null,
     );
+  }
+
+  static bool _isSystemGrantedTrialJson(Map<String, dynamic> json) {
+    if (json.containsKey('is_system_granted_trial')) {
+      return json['is_system_granted_trial'] == true;
+    }
+
+    String normalized(Object? value) => value is String
+        ? value.trim().toLowerCase()
+        : value?.toString().trim().toLowerCase() ?? '';
+    bool hasIdentifier(Object? value) =>
+        value is String && value.trim().isNotEmpty;
+
+    return normalized(json['provider']) == 'stripe' &&
+        normalized(json['plan']) == 'plus' &&
+        normalized(json['status']) == 'trialing' &&
+        !hasIdentifier(json['stripe_subscription_id']) &&
+        !hasIdentifier(json['stripe_customer_id']) &&
+        !hasIdentifier(json['store_product_id']) &&
+        !hasIdentifier(json['bound_to_user_id']) &&
+        !hasIdentifier(json['bound_to_household_id']);
   }
 
   Map<String, dynamic> toJson() {
@@ -101,6 +129,7 @@ class Subscription {
       'payment_interval': paymentInterval,
       'commitment_months': commitmentMonths,
       'commitment_end': commitmentEnd?.toIso8601String(),
+      'is_system_granted_trial': isSystemGrantedTrial,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -198,6 +227,18 @@ class Subscription {
     appLog('No matching access-granting subscription - subscribed=false (FREE)',
         name: 'Subscription');
     return false;
+  }
+
+  bool get isActiveStripeManagedSubscription {
+    return provider?.trim().toLowerCase() == 'stripe' &&
+        isSubscribed &&
+        !isSystemGrantedTrial;
+  }
+
+  bool confirmsAppStorePurchase(String expectedStoreProductId) {
+    return provider?.trim().toLowerCase() == 'app_store' &&
+        storeProductId?.trim() == expectedStoreProductId.trim() &&
+        isSubscribed;
   }
 
   /// Helper to check if user is on free plan

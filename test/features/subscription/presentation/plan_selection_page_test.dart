@@ -52,9 +52,15 @@ class _FakeSubscriptionProductsNotifier extends SubscriptionProductsNotifier {
 }
 
 class _FakeIapController extends IapController {
-  _FakeIapController(this.initialState);
+  _FakeIapController(
+    this.initialState, {
+    this.completesPurchase = true,
+    this.cancelsFirstPurchase = false,
+  });
 
   final IapState initialState;
+  final bool completesPurchase;
+  final bool cancelsFirstPurchase;
   var buyCallCount = 0;
   var restoreCallCount = 0;
 
@@ -79,6 +85,24 @@ class _FakeIapController extends IapController {
     );
 
     await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    if (cancelsFirstPurchase && buyCallCount == 1) {
+      state = AsyncValue.data(
+        IapState(
+          storeAvailable: true,
+          productDetailsById: const {},
+          lastError: null,
+          lastErrorCode: null,
+          isProcessing: false,
+          lastCanceledProductId: product.storeProductId,
+        ),
+      );
+      return;
+    }
+
+    if (!completesPurchase) {
+      return;
+    }
 
     state = AsyncValue.data(
       IapState(
@@ -347,6 +371,155 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeIapController.buyCallCount, 1);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
+
+  testWidgets(
+    'does not complete checkout from an existing automatic trial before StoreKit confirms',
+    (tester) async {
+      final fakeIapController = _FakeIapController(
+        const IapState(
+          storeAvailable: true,
+          productDetailsById: {},
+          lastError: null,
+          lastErrorCode: null,
+        ),
+        completesPurchase: false,
+      );
+      final automaticTrial = SubscriptionDetails(
+        subscription: Subscription(
+          id: 'trial_1',
+          userId: 'user_1',
+          provider: 'stripe',
+          plan: 'plus',
+          status: 'trialing',
+          billingInterval: 'yearly',
+          currentPeriodEnd: DateTime.now().add(const Duration(days: 7)),
+          createdAt: DateTime.now(),
+        ),
+        invoices: const [],
+      );
+      final router = GoRouter(
+        navigatorKey: rootNavigatorKey,
+        initialLocation: '/plans',
+        routes: [
+          GoRoute(
+            path: '/plans',
+            builder: (_, __) => const PlanSelectionPage(),
+          ),
+          GoRoute(
+            path: '/dashboard',
+            builder: (_, __) => const Scaffold(
+              body: Center(child: Text('Dashboard')),
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            subscriptionManagementProvider.overrideWith(
+              () => _FakeSubscriptionManagementNotifier(
+                initialValue: automaticTrial,
+                refreshedValue: automaticTrial,
+              ),
+            ),
+            subscriptionProductsProvider.overrideWith(
+              () => _FakeSubscriptionProductsNotifier(const [monthlyProduct]),
+            ),
+            iapControllerProvider.overrideWith(() => fakeIapController),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: AppTheme.lightTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Monthly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Subscribe'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(fakeIapController.buyCallCount, 1);
+      expect(find.text('Dashboard'), findsNothing);
+      expect(find.textContaining('Payment successful'), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
+
+  testWidgets(
+    'shows cancellation once for the active StoreKit attempt and allows retry',
+    (tester) async {
+      final fakeIapController = _FakeIapController(
+        const IapState(
+          storeAvailable: true,
+          productDetailsById: {},
+          lastError: null,
+          lastErrorCode: null,
+        ),
+        completesPurchase: false,
+        cancelsFirstPurchase: true,
+      );
+      final router = GoRouter(
+        navigatorKey: rootNavigatorKey,
+        initialLocation: '/plans',
+        routes: [
+          GoRoute(
+            path: '/plans',
+            builder: (_, __) => const PlanSelectionPage(),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            subscriptionManagementProvider.overrideWith(
+              () => _FakeSubscriptionManagementNotifier(
+                initialValue: inactiveSubscription,
+                refreshedValue: inactiveSubscription,
+              ),
+            ),
+            subscriptionProductsProvider.overrideWith(
+              () => _FakeSubscriptionProductsNotifier(const [monthlyProduct]),
+            ),
+            iapControllerProvider.overrideWith(() => fakeIapController),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: AppTheme.lightTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Monthly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Subscribe'));
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pumpAndSettle();
+
+      expect(fakeIapController.buyCallCount, 1);
+      expect(find.text('Payment canceled'), findsOneWidget);
+
+      await tester.tap(find.textContaining('Subscribe'));
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(fakeIapController.buyCallCount, 2);
+      await tester.pump(const Duration(seconds: 7));
       debugDefaultTargetPlatformOverride = null;
     },
   );

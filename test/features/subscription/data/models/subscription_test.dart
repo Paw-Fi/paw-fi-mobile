@@ -17,6 +17,7 @@ void main() {
       expect(subscription.stripeSubscriptionId, null);
       expect(subscription.plan, null);
       expect(subscription.status, null);
+      expect(subscription.isSystemGrantedTrial, false);
     });
 
     test('creates subscription with all optional fields', () {
@@ -66,6 +67,7 @@ void main() {
         'cancel_at_period_end': false,
         'bound_to_user_id': 'user_2',
         'bound_to_household_id': 'hh_1',
+        'is_system_granted_trial': true,
         'created_at': '2024-01-01T00:00:00.000Z',
         'updated_at': '2024-01-01T00:00:00.000Z',
       };
@@ -80,6 +82,7 @@ void main() {
       expect(subscription.currentPeriodEnd, DateTime.utc(2024, 2, 1));
       expect(subscription.nextPaymentDate, DateTime.utc(2024, 2, 1));
       expect(subscription.cancelAtPeriodEnd, false);
+      expect(subscription.isSystemGrantedTrial, true);
     });
 
     test('fromJson handles null optional fields', () {
@@ -98,6 +101,49 @@ void main() {
       expect(subscription.nextPaymentDate, null);
       expect(subscription.cancelAtPeriodEnd, null);
       expect(subscription.updatedAt, null);
+      expect(subscription.isSystemGrantedTrial, false);
+    });
+
+    test(
+        'classifies the exact legacy automatic trial when the server flag is omitted',
+        () {
+      final subscription = Subscription.fromJson({
+        'id': 'sub_1',
+        'user_id': 'user_1',
+        'provider': 'stripe',
+        'plan': 'plus',
+        'status': 'trialing',
+        'stripe_subscription_id': null,
+        'stripe_customer_id': null,
+        'store_product_id': null,
+        'bound_to_user_id': null,
+        'bound_to_household_id': null,
+        'created_at': '2024-01-01T00:00:00.000Z',
+      });
+
+      expect(subscription.isSystemGrantedTrial, true);
+      expect(subscription.isActiveStripeManagedSubscription, false);
+    });
+
+    test('keeps an explicit server false fail-closed', () {
+      final subscription = Subscription.fromJson({
+        'id': 'sub_1',
+        'user_id': 'user_1',
+        'provider': 'stripe',
+        'plan': 'plus',
+        'status': 'trialing',
+        'current_period_end': '2030-01-08T00:00:00.000Z',
+        'is_system_granted_trial': false,
+        'stripe_subscription_id': null,
+        'stripe_customer_id': null,
+        'store_product_id': null,
+        'bound_to_user_id': null,
+        'bound_to_household_id': null,
+        'created_at': '2024-01-01T00:00:00.000Z',
+      });
+
+      expect(subscription.isSystemGrantedTrial, false);
+      expect(subscription.isActiveStripeManagedSubscription, true);
     });
 
     test('fromJson handles invalid date strings gracefully', () {
@@ -158,6 +204,142 @@ void main() {
       expect(json['status'], 'active');
       expect(json['current_period_end'], '2024-02-01T00:00:00.000');
       expect(json['cancel_at_period_end'], false);
+      expect(json['is_system_granted_trial'], false);
+    });
+  });
+
+  group('Subscription - Stripe purchase guard', () {
+    test('allows App Store checkout for the verified system-granted trial', () {
+      final now = DateTime.now();
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'stripe',
+        plan: 'plus',
+        status: 'trialing',
+        currentPeriodEnd: now.add(const Duration(days: 7)),
+        isSystemGrantedTrial: true,
+        createdAt: now,
+      );
+
+      expect(subscription.isSystemGrantedTrial, true);
+      expect(subscription.isActiveStripeManagedSubscription, false);
+    });
+
+    test('blocks a genuine Stripe trial', () {
+      final now = DateTime.now();
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'stripe',
+        plan: 'plus',
+        status: 'trialing',
+        stripeSubscriptionId: 'sub_paid',
+        stripeCustomerId: 'cus_paid',
+        currentPeriodEnd: now.add(const Duration(days: 7)),
+        isSystemGrantedTrial: false,
+        createdAt: now,
+      );
+
+      expect(subscription.isSystemGrantedTrial, false);
+      expect(subscription.isActiveStripeManagedSubscription, true);
+    });
+
+    test('blocks an unclassified Stripe trial', () {
+      final now = DateTime.now();
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'stripe',
+        plan: 'plus',
+        status: 'trialing',
+        currentPeriodEnd: now.add(const Duration(days: 7)),
+        createdAt: now,
+      );
+
+      expect(subscription.isSystemGrantedTrial, false);
+      expect(subscription.isActiveStripeManagedSubscription, true);
+    });
+
+    test('does not exempt household-bound access', () {
+      final now = DateTime.now();
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'stripe',
+        plan: 'plus',
+        status: 'trialing',
+        boundToUserId: 'owner_1',
+        boundToHouseholdId: 'household_1',
+        currentPeriodEnd: now.add(const Duration(days: 7)),
+        isSystemGrantedTrial: false,
+        createdAt: now,
+      );
+
+      expect(subscription.isSystemGrantedTrial, false);
+      expect(subscription.isActiveStripeManagedSubscription, true);
+    });
+  });
+
+  group('Subscription - App Store purchase confirmation', () {
+    test('confirms the matching active App Store product', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        storeProductId: 'yearly',
+        plan: 'plus',
+        status: 'active',
+        currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.confirmsAppStorePurchase('yearly'), true);
+    });
+
+    test('rejects an unchanged automatic trial', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'stripe',
+        plan: 'plus',
+        status: 'trialing',
+        currentPeriodEnd: DateTime.now().add(const Duration(days: 7)),
+        isSystemGrantedTrial: true,
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.confirmsAppStorePurchase('yearly'), false);
+    });
+
+    test('rejects a different App Store product', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        storeProductId: 'monthly',
+        plan: 'plus',
+        status: 'active',
+        currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.confirmsAppStorePurchase('yearly'), false);
+    });
+
+    test('rejects an expired matching App Store product', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        storeProductId: 'yearly',
+        plan: 'plus',
+        status: 'active',
+        currentPeriodEnd: DateTime.now().subtract(const Duration(minutes: 1)),
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.confirmsAppStorePurchase('yearly'), false);
     });
   });
 

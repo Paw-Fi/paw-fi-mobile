@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
+import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/regional_pricing.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
@@ -11,6 +12,42 @@ import 'package:moneko/features/subscription/presentation/subscription_checkout_
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  test('distinguishes an active monthly commitment from yearly upfront', () {
+    final subscription = Subscription(
+      id: 'app-store-subscription',
+      userId: 'user',
+      provider: 'app_store',
+      plan: 'plus',
+      status: 'active',
+      billingInterval: 'yearly',
+      paymentInterval: 'monthly',
+      commitmentMonths: 12,
+      commitmentEnd: DateTime.now().add(const Duration(days: 30)),
+      currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
+      createdAt: DateTime.now(),
+    );
+    const commitment = PlanOption(
+      id: 'plus_yearly_commitment',
+      serverPlanId: 'plus',
+      billingInterval: 'yearly',
+      name: 'Yearly',
+      storePrice: null,
+      tagline: '',
+      isCommitment: true,
+    );
+    const upfront = PlanOption(
+      id: 'plus_yearly_upfront',
+      serverPlanId: 'plus',
+      billingInterval: 'yearly',
+      name: 'Yearly',
+      storePrice: null,
+      tagline: '',
+    );
+
+    expect(subscriptionMatchesPlanOption(subscription, commitment), isTrue);
+    expect(subscriptionMatchesPlanOption(subscription, upfront), isFalse);
+  });
+
   for (final country in ['US', 'SG', 'AU']) {
     testWidgets('Stripe yearly upfront plan is available in $country',
         (tester) async {
