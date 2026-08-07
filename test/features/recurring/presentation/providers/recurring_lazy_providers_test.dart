@@ -172,6 +172,28 @@ void main() {
         'Original');
   });
 
+  test('series overlay applies a current-month confirmation delta', () {
+    final notifier = RecurringSeriesOptimisticNotifier();
+    final base = [
+      RecurringSeriesSummary(
+        transaction: _transaction('Original'),
+        nextOccurrenceDate: DateTime(2026, 8, 15),
+        latestActionableOccurrenceDate: null,
+      ),
+    ];
+
+    notifier.upsert(
+      mutationId: 'confirm-current-month',
+      transaction: _transaction('Original'),
+      currentMonthConfirmedAmountDeltaCents: -500,
+    );
+
+    expect(
+      notifier.apply(_scope, base).single.currentMonthConfirmedAmountDeltaCents,
+      -500,
+    );
+  });
+
   test('older failed occurrence mutation cannot overwrite a newer state', () {
     final notifier = RecurringOccurrenceOptimisticNotifier();
     final first = notifier.upsert(

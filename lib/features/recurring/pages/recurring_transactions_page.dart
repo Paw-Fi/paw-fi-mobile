@@ -15,6 +15,7 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
+import 'package:moneko/features/recurring/domain/recurring_month_summary.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -481,12 +482,12 @@ class _RecurringTransactionsPageState
       ];
     }
 
-    final transactions =
-        summaries.map((summary) => summary.transaction).toList(growable: false);
-    final activeTransactions = transactions.where((t) => t.isActive).toList();
+    final activeTransactions = summaries
+        .where((summary) => summary.transaction.isActive)
+        .toList(growable: false);
     final totalCommitted =
-        _calculateTotalMonthlyCommitted(transactions, baseCurrency, rateTable);
-    final currencyTotals = _calculateMonthlyCommittedByCurrency(transactions);
+        _calculateTotalMonthlyCommitted(summaries, baseCurrency, rateTable);
+    final currencyTotals = _calculateMonthlyCommittedByCurrency(summaries);
     final hasMultipleSelectedCurrencies =
         (ref.read(homeFilterProvider).normalizedSelectedCurrencies?.length ??
                 0) >
@@ -1103,40 +1104,18 @@ class _RecurringTransactionsPageState
   }
 }
 
-double _calculateMonthlyAmount(RecurringTransaction tx) {
-  if (tx.recurrenceRule == null) return 0.0;
-  final rule = tx.recurrenceRule!;
-  final interval = rule.interval ?? 1;
-  final effectiveInterval = interval <= 0 ? 1 : interval;
-
-  switch (rule.frequency) {
-    case 'daily':
-      return tx.amount * (30.0 / effectiveInterval);
-    case 'weekly':
-      return tx.amount * (4.333333333333333 / effectiveInterval);
-    case 'biweekly':
-      return tx.amount * (2.1666666666666667 / effectiveInterval);
-    case 'monthly':
-      return tx.amount / effectiveInterval;
-    case 'yearly':
-      return tx.amount / (12.0 * effectiveInterval);
-    default:
-      return 0.0;
-  }
-}
-
 double _calculateTotalMonthlyCommitted(
-  List<RecurringTransaction> transactions,
+  List<RecurringSeriesSummary> summaries,
   String baseCurrency,
   CurrencyRateTable rateTable,
 ) {
   double total = 0.0;
-  for (final tx in transactions) {
-    if (!tx.isActive) continue;
-    final monthlyAmount = _calculateMonthlyAmount(tx);
+  for (final summary in summaries) {
+    final transaction = summary.transaction;
+    if (!transaction.isActive) continue;
     final converted = rateTable.convert(
-      monthlyAmount,
-      tx.currency.toUpperCase(),
+      calculateRecurringMonthlyCommittedAmount(summary),
+      transaction.currency.toUpperCase(),
       baseCurrency.toUpperCase(),
     );
     total += converted;
@@ -1145,19 +1124,20 @@ double _calculateTotalMonthlyCommitted(
 }
 
 List<TransactionsFeedCurrencyTypeTotal> _calculateMonthlyCommittedByCurrency(
-  List<RecurringTransaction> transactions,
+  List<RecurringSeriesSummary> summaries,
 ) {
   final amounts = <String, double>{};
   final counts = <String, int>{};
 
-  for (final transaction in transactions) {
+  for (final summary in summaries) {
+    final transaction = summary.transaction;
     if (!transaction.isActive) continue;
     final currency = transaction.currency.trim().toUpperCase();
     if (currency.isEmpty) continue;
     amounts.update(
       currency,
-      (current) => current + _calculateMonthlyAmount(transaction),
-      ifAbsent: () => _calculateMonthlyAmount(transaction),
+      (current) => current + calculateRecurringMonthlyCommittedAmount(summary),
+      ifAbsent: () => calculateRecurringMonthlyCommittedAmount(summary),
     );
     counts.update(currency, (current) => current + 1, ifAbsent: () => 1);
   }

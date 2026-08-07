@@ -23,6 +23,7 @@ class RecurringSeriesOptimisticEntry {
     required this.recurringId,
     required this.sourceHouseholdId,
     required this.transaction,
+    this.currentMonthConfirmedAmountDeltaCents,
     this.isCommitted = false,
   });
 
@@ -32,10 +33,12 @@ class RecurringSeriesOptimisticEntry {
   final String recurringId;
   final String? sourceHouseholdId;
   final RecurringTransaction? transaction;
+  final int? currentMonthConfirmedAmountDeltaCents;
   final bool isCommitted;
 
   RecurringSeriesOptimisticEntry copyWith({
     RecurringTransaction? transaction,
+    int? currentMonthConfirmedAmountDeltaCents,
     bool? isCommitted,
   }) {
     return RecurringSeriesOptimisticEntry(
@@ -45,6 +48,9 @@ class RecurringSeriesOptimisticEntry {
       recurringId: transaction?.id ?? recurringId,
       sourceHouseholdId: sourceHouseholdId,
       transaction: transaction ?? this.transaction,
+      currentMonthConfirmedAmountDeltaCents:
+          currentMonthConfirmedAmountDeltaCents ??
+              this.currentMonthConfirmedAmountDeltaCents,
       isCommitted: isCommitted ?? this.isCommitted,
     );
   }
@@ -74,6 +80,7 @@ class RecurringSeriesOptimisticNotifier
     required String mutationId,
     required RecurringTransaction transaction,
     String? sourceHouseholdId,
+    int? currentMonthConfirmedAmountDeltaCents,
   }) {
     return _begin(
       mutationId: mutationId,
@@ -81,6 +88,8 @@ class RecurringSeriesOptimisticNotifier
       kind: RecurringSeriesMutationKind.upsert,
       sourceHouseholdId: sourceHouseholdId ?? transaction.householdId,
       transaction: transaction,
+      currentMonthConfirmedAmountDeltaCents:
+          currentMonthConfirmedAmountDeltaCents,
     );
   }
 
@@ -140,6 +149,8 @@ class RecurringSeriesOptimisticNotifier
         recurringId: canonicalTransaction.id,
         sourceHouseholdId: current.sourceHouseholdId,
         transaction: canonicalTransaction,
+        currentMonthConfirmedAmountDeltaCents:
+            current.currentMonthConfirmedAmountDeltaCents,
         isCommitted: true,
       );
     } else {
@@ -180,10 +191,11 @@ class RecurringSeriesOptimisticNotifier
     };
     for (final entry in state.values) {
       if (!_affectsScope(entry, scope)) continue;
+      final transaction = entry.transaction;
+      final previous = transaction == null ? null : byId[transaction.id];
       if (entry.sourceHouseholdId == scope.householdId) {
         byId.remove(entry.recurringId);
       }
-      final transaction = entry.transaction;
       if (entry.kind == RecurringSeriesMutationKind.upsert &&
           transaction != null &&
           transaction.householdId == scope.householdId &&
@@ -193,9 +205,17 @@ class RecurringSeriesOptimisticNotifier
         byId[transaction.id] = RecurringSeriesSummary(
           transaction: transaction,
           nextOccurrenceDate: transaction.serverNextOccurrenceDate ??
+              previous?.nextOccurrenceDate ??
               transaction.getNextOccurrence(DateTime.now()),
           latestActionableOccurrenceDate:
-              transaction.serverLatestActionableOccurrenceDate,
+              entry.currentMonthConfirmedAmountDeltaCents == null
+                  ? transaction.serverLatestActionableOccurrenceDate
+                  : transaction.serverLatestActionableOccurrenceDate ??
+                      previous?.latestActionableOccurrenceDate,
+          actionableCount: previous?.actionableCount ?? 0,
+          currentMonthConfirmedAmountDeltaCents:
+              (previous?.currentMonthConfirmedAmountDeltaCents ?? 0) +
+                  (entry.currentMonthConfirmedAmountDeltaCents ?? 0),
         );
       }
     }
@@ -208,6 +228,7 @@ class RecurringSeriesOptimisticNotifier
     required RecurringSeriesMutationKind kind,
     required String? sourceHouseholdId,
     required RecurringTransaction? transaction,
+    int? currentMonthConfirmedAmountDeltaCents,
   }) {
     final revision = (_revisions[recurringId] ?? 0) + 1;
     _revisions[recurringId] = revision;
@@ -221,6 +242,8 @@ class RecurringSeriesOptimisticNotifier
         recurringId: recurringId,
         sourceHouseholdId: sourceHouseholdId,
         transaction: transaction,
+        currentMonthConfirmedAmountDeltaCents:
+            currentMonthConfirmedAmountDeltaCents,
       ),
     };
     final handle = RecurringSeriesOptimisticHandle(

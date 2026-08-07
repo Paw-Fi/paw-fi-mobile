@@ -927,6 +927,12 @@ class RecurringOccurrenceConfirmationController {
       _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
             mutationId: command.idempotencyKey,
             transaction: optimisticSeries,
+            currentMonthConfirmedAmountDeltaCents:
+                scheduledDate.year == userNow.year &&
+                        scheduledDate.month == userNow.month
+                    ? command.amountCents -
+                        (command.recurringTransaction.amount * 100).round()
+                    : null,
           );
       _ref.read(recurringOccurrenceOptimisticProvider.notifier).upsert(
             mutationId: command.idempotencyKey,

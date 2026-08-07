@@ -64,12 +64,14 @@ class RecurringSeriesSummary {
     required this.nextOccurrenceDate,
     required this.latestActionableOccurrenceDate,
     this.actionableCount = 0,
+    this.currentMonthConfirmedAmountDeltaCents = 0,
   });
 
   final RecurringTransaction transaction;
   final DateTime? nextOccurrenceDate;
   final DateTime? latestActionableOccurrenceDate;
   final int actionableCount;
+  final int currentMonthConfirmedAmountDeltaCents;
 
   bool get hasActionableOccurrence => latestActionableOccurrenceDate != null;
 
@@ -81,6 +83,10 @@ class RecurringSeriesSummary {
           _parseNullableDate(json['latest_actionable_occurrence_date']),
       actionableCount:
           ((json['actionable_count'] as num?)?.round() ?? 0).clamp(0, 1000000),
+      currentMonthConfirmedAmountDeltaCents:
+          (json['current_month_confirmed_amount_delta_cents'] as num?)
+                  ?.round() ??
+              0,
     );
   }
 }

@@ -49,6 +49,7 @@ void main() {
     expect(fetched.items.single.latestActionableOccurrenceDate,
         DateTime(2026, 7, 15));
     expect(fetched.items.single.actionableCount, 2);
+    expect(fetched.items.single.currentMonthConfirmedAmountDeltaCents, -500);
     expect(fetched.hasMore, isTrue);
     expect(cached?.items.single.transaction.attachments, isEmpty);
     expect(cached?.nextCursor?.id, _seriesId);
@@ -280,6 +281,7 @@ const _seriesSummaryJson = <String, dynamic>{
   'next_occurrence_date': '2026-08-15',
   'latest_actionable_occurrence_date': '2026-07-15',
   'actionable_count': 2,
+  'current_month_confirmed_amount_delta_cents': -500,
 };
 
 const _occurrenceSummaryJson = <String, dynamic>{
