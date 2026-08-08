@@ -134,6 +134,29 @@ class DeepLinks {
     return false;
   }
 
+  /// Validates the one HTTPS review link used by email, web, and native apps.
+  static bool isImportReview(Uri uri) {
+    if (uri.scheme != 'https' ||
+        (uri.host != 'moneko.io' && uri.host != 'www.moneko.io') ||
+        uri.pathSegments.length != 2 ||
+        uri.pathSegments.first != 'import-review') {
+      return false;
+    }
+    return _uuidPattern.hasMatch(uri.pathSegments[1]) &&
+        uri.fragment.isNotEmpty;
+  }
+
+  static String? importReviewId(Uri uri) =>
+      isImportReview(uri) ? uri.pathSegments[1] : null;
+
+  static String? importReviewSecret(Uri uri) =>
+      isImportReview(uri) ? uri.fragment : null;
+
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    caseSensitive: false,
+  );
+
   /// Check if a URI is an expense deep link
   /// Format: moneko://expense/{expense_id}
   static bool isExpenseLink(Uri uri) {

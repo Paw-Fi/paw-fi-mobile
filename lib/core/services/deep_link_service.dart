@@ -40,6 +40,8 @@ class DeepLinkService {
   final AppLinks _appLinks = AppLinks();
   final NotificationIntentParser _intentParser = NotificationIntentParser();
   StreamSubscription<Uri>? _linkSubscription;
+  Uri? _pendingImportReview;
+  String? _consumedImportReviewKey;
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
@@ -109,6 +111,11 @@ class DeepLinkService {
       if (navCtx?.mounted ?? false) {
         navCtx!.go('/auth/callback');
       }
+      return;
+    }
+
+    if (DeepLinks.isImportReview(uri)) {
+      _queueImportReview(uri);
       return;
     }
 
@@ -361,6 +368,36 @@ class DeepLinkService {
       });
       return;
     }
+  }
+
+  void _queueImportReview(Uri uri) {
+    final reviewId = DeepLinks.importReviewId(uri);
+    final secret = DeepLinks.importReviewSecret(uri);
+    if (reviewId == null || secret == null) return;
+    final key = '$reviewId:$secret';
+    if (_consumedImportReviewKey == key) return;
+    _pendingImportReview = uri;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _consumeImportReview());
+  }
+
+  void _consumeImportReview() {
+    final pending = _pendingImportReview;
+    if (pending == null) return;
+    final reviewId = DeepLinks.importReviewId(pending);
+    final secret = DeepLinks.importReviewSecret(pending);
+    final context = rootNavigatorKey.currentContext;
+    if (reviewId == null ||
+        secret == null ||
+        context == null ||
+        !context.mounted) {
+      return;
+    }
+    final key = '$reviewId:$secret';
+    if (_consumedImportReviewKey == key) return;
+    _pendingImportReview = null;
+    _consumedImportReviewKey = key;
+    _debugPrint('Import review link received');
+    context.go('/import-review/$reviewId', extra: secret);
   }
 
   /// Handle Tink callback - sync transactions using credentialsId
