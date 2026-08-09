@@ -41,7 +41,8 @@ class DeepLinkService {
   final NotificationIntentParser _intentParser = NotificationIntentParser();
   StreamSubscription<Uri>? _linkSubscription;
   Uri? _pendingImportReview;
-  String? _consumedImportReviewKey;
+  bool _isImportReviewConsumptionScheduled = false;
+  bool _isDisposed = false;
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
@@ -374,15 +375,26 @@ class DeepLinkService {
     final reviewId = DeepLinks.importReviewId(uri);
     final secret = DeepLinks.importReviewSecret(uri);
     if (reviewId == null || secret == null) return;
-    final key = '$reviewId:$secret';
-    if (_consumedImportReviewKey == key) return;
     _pendingImportReview = uri;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _consumeImportReview());
+    _scheduleImportReviewConsumption();
   }
 
-  void _consumeImportReview() {
+  void _scheduleImportReviewConsumption() {
+    if (_isDisposed ||
+        _pendingImportReview == null ||
+        _isImportReviewConsumptionScheduled) {
+      return;
+    }
+    _isImportReviewConsumptionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isImportReviewConsumptionScheduled = false;
+      if (!_consumeImportReview()) _scheduleImportReviewConsumption();
+    });
+  }
+
+  bool _consumeImportReview() {
     final pending = _pendingImportReview;
-    if (pending == null) return;
+    if (pending == null) return true;
     final reviewId = DeepLinks.importReviewId(pending);
     final secret = DeepLinks.importReviewSecret(pending);
     final context = rootNavigatorKey.currentContext;
@@ -390,14 +402,12 @@ class DeepLinkService {
         secret == null ||
         context == null ||
         !context.mounted) {
-      return;
+      return false;
     }
-    final key = '$reviewId:$secret';
-    if (_consumedImportReviewKey == key) return;
     _pendingImportReview = null;
-    _consumedImportReviewKey = key;
     _debugPrint('Import review link received');
     context.go('/import-review/$reviewId', extra: secret);
+    return true;
   }
 
   /// Handle Tink callback - sync transactions using credentialsId
@@ -532,6 +542,8 @@ class DeepLinkService {
 
   /// Dispose the subscription
   void dispose() {
+    _isDisposed = true;
+    _pendingImportReview = null;
     _linkSubscription?.cancel();
   }
 }

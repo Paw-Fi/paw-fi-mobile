@@ -1,11 +1,26 @@
 import 'package:moneko/features/import_review/domain/import_review_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ImportReviewRepository {
-  const ImportReviewRepository(this._client);
+abstract interface class ImportReviewRepository {
+  Future<ImportReview> inspect({
+    required String reviewId,
+    required String token,
+  });
+
+  Future<ImportReview> submit({
+    required String reviewId,
+    required String token,
+    required int version,
+    required Map<String, List<String>?> selections,
+  });
+}
+
+class SupabaseImportReviewRepository implements ImportReviewRepository {
+  const SupabaseImportReviewRepository(this._client);
 
   final SupabaseClient _client;
 
+  @override
   Future<ImportReview> inspect(
       {required String reviewId, required String token}) async {
     final response = await _client.functions.invoke(
@@ -16,11 +31,12 @@ class ImportReviewRepository {
         Map<String, dynamic>.from(response.data as Map));
   }
 
+  @override
   Future<ImportReview> submit({
     required String reviewId,
     required String token,
     required int version,
-    required Map<String, List<String>> selections,
+    required Map<String, List<String>?> selections,
   }) async {
     final response = await _client.functions.invoke(
       'email-import-review-submit',
@@ -29,7 +45,13 @@ class ImportReviewRepository {
         'token': token,
         'version': version,
         'decisions': selections.entries
-            .map((entry) => {'itemId': entry.key, 'optionIds': entry.value})
+            .map((entry) => {
+                  'itemId': entry.key,
+                  if (entry.value == null)
+                    'decline': true
+                  else
+                    'optionIds': entry.value,
+                })
             .toList(growable: false),
       },
     );

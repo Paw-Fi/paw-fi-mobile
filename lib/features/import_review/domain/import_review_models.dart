@@ -4,12 +4,32 @@ class ImportReview {
     required this.version,
     required this.expiresAt,
     required this.items,
+    this.isSubmitting = false,
+    this.submissionError,
   });
 
   final String status;
   final int version;
   final DateTime? expiresAt;
   final List<ImportReviewItem> items;
+  final bool isSubmitting;
+  final String? submissionError;
+
+  ImportReview copyWith({
+    bool? isSubmitting,
+    String? submissionError,
+    bool clearSubmissionError = false,
+  }) =>
+      ImportReview(
+        status: status,
+        version: version,
+        expiresAt: expiresAt,
+        items: items,
+        isSubmitting: isSubmitting ?? this.isSubmitting,
+        submissionError: clearSubmissionError
+            ? null
+            : submissionError ?? this.submissionError,
+      );
 
   factory ImportReview.fromJson(Map<String, dynamic> json) => ImportReview(
         status: json['status'] as String? ?? 'invalid',

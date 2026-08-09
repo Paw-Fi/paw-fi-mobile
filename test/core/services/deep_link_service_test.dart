@@ -47,29 +47,41 @@ void main() {
 
   group('DeepLinkService - Email Import Review Deep Links', () {
     const reviewId = '11111111-1111-4111-8111-111111111111';
+    const token = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
     test('accepts an HTTPS Moneko review link with a fragment secret', () {
-      final uri = Uri.parse('https://moneko.io/import-review/$reviewId#secret');
+      final uri = Uri.parse('https://moneko.io/import-review/$reviewId#$token');
       expect(DeepLinks.isImportReview(uri), true);
       expect(DeepLinks.importReviewId(uri), reviewId);
+      expect(DeepLinks.importReviewSecret(uri), token);
+      expect(DeepLinks.isValidImportReviewId(reviewId), true);
+      expect(DeepLinks.isValidImportReviewId('not-a-uuid'), false);
     });
 
     test('rejects non-HTTPS, malformed, and secret-less review links', () {
       expect(
           DeepLinks.isImportReview(
-              Uri.parse('http://moneko.io/import-review/$reviewId#secret')),
+              Uri.parse('http://moneko.io/import-review/$reviewId#$token')),
           false);
       expect(
           DeepLinks.isImportReview(
-              Uri.parse('https://example.com/import-review/$reviewId#secret')),
+              Uri.parse('https://example.com/import-review/$reviewId#$token')),
           false);
       expect(
           DeepLinks.isImportReview(
-              Uri.parse('https://moneko.io/import-review/not-a-uuid#secret')),
+              Uri.parse('https://moneko.io/import-review/not-a-uuid#$token')),
           false);
       expect(
           DeepLinks.isImportReview(
               Uri.parse('https://moneko.io/import-review/$reviewId')),
+          false);
+      expect(
+          DeepLinks.isImportReview(
+              Uri.parse('https://moneko.io/import-review/$reviewId#short')),
+          false);
+      expect(
+          DeepLinks.isImportReview(Uri.parse(
+              'https://moneko.io/import-review/$reviewId#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!')),
           false);
     });
   });

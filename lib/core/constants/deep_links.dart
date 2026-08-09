@@ -142,9 +142,15 @@ class DeepLinks {
         uri.pathSegments.first != 'import-review') {
       return false;
     }
-    return _uuidPattern.hasMatch(uri.pathSegments[1]) &&
-        uri.fragment.isNotEmpty;
+    return isValidImportReviewId(uri.pathSegments[1]) &&
+        isValidImportReviewSecret(uri.fragment);
   }
+
+  static bool isValidImportReviewId(String value) =>
+      _uuidPattern.hasMatch(value);
+
+  static bool isValidImportReviewSecret(String value) =>
+      _reviewTokenPattern.hasMatch(value);
 
   static String? importReviewId(Uri uri) =>
       isImportReview(uri) ? uri.pathSegments[1] : null;
@@ -156,6 +162,7 @@ class DeepLinks {
     r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
     caseSensitive: false,
   );
+  static final RegExp _reviewTokenPattern = RegExp(r'^[A-Za-z0-9_-]{43}$');
 
   /// Check if a URI is an expense deep link
   /// Format: moneko://expense/{expense_id}
