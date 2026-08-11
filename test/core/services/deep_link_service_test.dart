@@ -58,6 +58,13 @@ void main() {
       expect(DeepLinks.isValidImportReviewId('not-a-uuid'), false);
     });
 
+    test('accepts a custom-scheme review link with a fragment secret', () {
+      final uri = Uri.parse('moneko://import-review/$reviewId#$token');
+      expect(DeepLinks.isImportReview(uri), true);
+      expect(DeepLinks.importReviewId(uri), reviewId);
+      expect(DeepLinks.importReviewSecret(uri), token);
+    });
+
     test('rejects non-HTTPS, malformed, and secret-less review links', () {
       expect(
           DeepLinks.isImportReview(

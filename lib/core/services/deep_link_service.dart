@@ -406,7 +406,7 @@ class DeepLinkService {
     }
     _pendingImportReview = null;
     _debugPrint('Import review link received');
-    context.go('/import-review/$reviewId', extra: secret);
+    context.push('/import-review/$reviewId', extra: secret);
     return true;
   }
 

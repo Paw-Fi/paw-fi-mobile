@@ -15,6 +15,24 @@ void main() {
     items: [],
   );
 
+  test('supports a launch override in a child provider scope', () async {
+    final repository = _FakeImportReviewRepository();
+    final parent = ProviderContainer(overrides: [
+      importReviewRepositoryProvider.overrideWithValue(repository),
+    ]);
+    final child = ProviderContainer(
+      parent: parent,
+      overrides: [importReviewLaunchProvider.overrideWithValue(launch)],
+    );
+    addTearDown(child.dispose);
+    addTearDown(parent.dispose);
+
+    final review = await child.read(importReviewProvider.future);
+
+    expect(review.status, 'pending');
+    expect(repository.inspectCount, 1);
+  });
+
   test('submission stays visible, prevents repeats, and preserves retry state',
       () async {
     final repository = _FakeImportReviewRepository();

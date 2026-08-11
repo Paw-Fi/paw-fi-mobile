@@ -14,6 +14,7 @@ final importReviewLaunchProvider = Provider<ImportReviewLaunch>(
 final importReviewProvider =
     AsyncNotifierProvider.autoDispose<ImportReviewNotifier, ImportReview>(
   ImportReviewNotifier.new,
+  dependencies: [importReviewLaunchProvider],
 );
 
 class ImportReviewLaunch {

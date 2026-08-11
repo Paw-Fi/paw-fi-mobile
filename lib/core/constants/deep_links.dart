@@ -134,15 +134,21 @@ class DeepLinks {
     return false;
   }
 
-  /// Validates the one HTTPS review link used by email, web, and native apps.
+  /// Validates HTTPS review links and the web fallback's custom app link.
   static bool isImportReview(Uri uri) {
-    if (uri.scheme != 'https' ||
-        (uri.host != 'moneko.io' && uri.host != 'www.moneko.io') ||
-        uri.pathSegments.length != 2 ||
-        uri.pathSegments.first != 'import-review') {
+    final isHttpsReview = uri.scheme == 'https' &&
+        (uri.host == 'moneko.io' || uri.host == 'www.moneko.io') &&
+        uri.pathSegments.length == 2 &&
+        uri.pathSegments.first == 'import-review';
+    final isCustomReview = uri.scheme == appScheme &&
+        uri.host == 'import-review' &&
+        uri.pathSegments.length == 1;
+    if (!isHttpsReview && !isCustomReview) {
       return false;
     }
-    return isValidImportReviewId(uri.pathSegments[1]) &&
+    final reviewId =
+        isCustomReview ? uri.pathSegments.first : uri.pathSegments[1];
+    return isValidImportReviewId(reviewId) &&
         isValidImportReviewSecret(uri.fragment);
   }
 
@@ -152,8 +158,12 @@ class DeepLinks {
   static bool isValidImportReviewSecret(String value) =>
       _reviewTokenPattern.hasMatch(value);
 
-  static String? importReviewId(Uri uri) =>
-      isImportReview(uri) ? uri.pathSegments[1] : null;
+  static String? importReviewId(Uri uri) {
+    if (!isImportReview(uri)) return null;
+    return uri.scheme == appScheme
+        ? uri.pathSegments.first
+        : uri.pathSegments[1];
+  }
 
   static String? importReviewSecret(Uri uri) =>
       isImportReview(uri) ? uri.fragment : null;

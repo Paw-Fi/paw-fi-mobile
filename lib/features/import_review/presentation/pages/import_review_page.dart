@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/features/import_review/presentation/providers/import_review_provider.dart';
 import 'package:moneko/features/import_review/domain/import_review_models.dart';
+import 'package:moneko/features/import_review/presentation/widgets/import_review_completed_view.dart';
+import 'package:moneko/features/import_review/presentation/widgets/import_review_source_card.dart';
+import 'package:moneko/features/import_review/presentation/widgets/import_review_transaction_card.dart';
 
 class ImportReviewPage extends StatelessWidget {
   const ImportReviewPage(
@@ -46,22 +50,27 @@ class _ImportReviewContent extends ConsumerWidget {
         duration: const Duration(milliseconds: 300),
         child: review.when(
           loading: () => const _ReviewSkeleton(),
-          error: (_, __) => const _MessageView(
+          error: (_, __) => _MessageView(
             icon: Icons.error_outline_rounded,
             title: 'Link Unavailable',
             message: 'This review link is unavailable or has expired.',
+            color: scheme.error,
           ),
-          data: (value) => value.status == 'pending'
-              ? const _PendingReview()
-              : _MessageView(
-                  icon: value.status == 'completed'
-                      ? Icons.check_circle_outline_rounded
-                      : (value.status == 'declined'
-                          ? Icons.cancel_outlined
-                          : Icons.info_outline_rounded),
-                  title: _resultTitle(value.status),
-                  message: _resultText(value.status),
-                ),
+          data: (value) => switch (value.status) {
+            'pending' => const _PendingReview(),
+            'completed' => ImportReviewCompletedView(
+                review: value,
+                onClose: () => _closeImportReview(context),
+              ),
+            _ => _MessageView(
+                icon: value.status == 'declined'
+                    ? Icons.cancel_outlined
+                    : Icons.info_outline_rounded,
+                title: _resultTitle(value.status),
+                message: _resultText(value.status),
+                color: scheme.foreground,
+              ),
+          },
         ),
       ),
     );
@@ -96,21 +105,24 @@ class _PendingReview extends ConsumerWidget {
         CustomScrollView(
           slivers: [
             SliverAppBar.large(
+              automaticallyImplyLeading: false,
               title: Text(
                 'Review Import',
                 style: TextStyle(
                   color: scheme.foreground,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
+                  fontSize: 34,
                 ),
               ),
               backgroundColor: scheme.appBackground,
               surfaceTintColor: scheme.surface.withValues(alpha: 0.0),
               floating: true,
               pinned: true,
+              expandedHeight: 120,
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 140),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   Padding(
@@ -119,32 +131,65 @@ class _PendingReview extends ConsumerWidget {
                       'We found some items that need your attention. Please select the correct values to proceed.',
                       style: TextStyle(
                         color: scheme.mutedForeground,
-                        fontSize: 16,
-                        height: 1.4,
+                        fontSize: 17,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  for (var i = 0; i < review.items.length; i++) ...[
-                    if (i > 0)
-                      Divider(
-                        height: 48,
-                        thickness: 1,
-                        color: scheme.surfaceBorder,
-                      ),
-                    _ReviewItemSection(item: review.items[i]),
-                  ],
-                  if (review.submissionError != null) ...[
-                    const SizedBox(height: 16),
+                  if (review.source.hasDetails) ...[
+                    const SizedBox(height: 32),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(
-                        review.submissionError!,
-                        style: TextStyle(color: scheme.error),
+                      child: ImportReviewSourceCard(source: review.source),
+                    ),
+                  ],
+                  const SizedBox(height: 40),
+                  for (var i = 0; i < review.items.length; i++) ...[
+                    if (i > 0)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                        child: Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: scheme.surfaceBorder,
+                        ),
+                      ),
+                    _ReviewItemSection(
+                      item: review.items[i], 
+                      index: i,
+                      total: review.items.length,
+                    ),
+                  ],
+                  if (review.submissionError != null) ...[
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: scheme.errorSurface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: scheme.errorBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline_rounded, color: scheme.errorAccent),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                review.submissionError!,
+                                style: TextStyle(
+                                  color: scheme.foreground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
                 ]),
               ),
             ),
@@ -175,8 +220,10 @@ class _PendingReview extends ConsumerWidget {
 
 class _ReviewItemSection extends ConsumerWidget {
   final ImportReviewItem item;
+  final int index;
+  final int total;
 
-  const _ReviewItemSection({required this.item});
+  const _ReviewItemSection({required this.item, required this.index, required this.total});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -187,22 +234,51 @@ class _ReviewItemSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceBorder,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'ITEM ${index + 1} OF $total',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: scheme.mutedForeground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Text(
             item.summary,
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
               color: scheme.foreground,
-              letterSpacing: -0.5,
-              height: 1.2,
+              letterSpacing: -0.8,
+              height: 1.15,
             ),
           ),
-          const SizedBox(height: 28),
+          if (item.transaction.hasDetails) ...[
+            const SizedBox(height: 24),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: isDeclined ? 0.4 : 1.0,
+              child: ImportReviewTransactionCard(transaction: item.transaction),
+            ),
+          ],
+          const SizedBox(height: 32),
           for (var i = 0; i < item.issues.length; i++) ...[
             if (i > 0) const SizedBox(height: 32),
             _IssueSection(issue: item.issues[i], itemId: item.id),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           InkWell(
             onTap: () {
               final newValue = !isDeclined;
@@ -216,18 +292,18 @@ class _ReviewItemSection extends ConsumerWidget {
                 }
               }
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
               decoration: BoxDecoration(
                 color: isDeclined
                     ? scheme.destructive.withValues(alpha: 0.1)
-                    : scheme.surface.withValues(alpha: 0.0),
-                borderRadius: BorderRadius.circular(12),
+                    : scheme.appBackground,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isDeclined
-                      ? scheme.destructive.withValues(alpha: 0.3)
+                      ? scheme.destructive.withValues(alpha: 0.2)
                       : scheme.surfaceBorder,
                   width: 1,
                 ),
@@ -245,29 +321,28 @@ class _ReviewItemSection extends ConsumerWidget {
                       key: ValueKey(isDeclined),
                       color: isDeclined
                           ? scheme.destructive
-                          : scheme.mutedForeground.withValues(alpha: 0.5),
-                      size: 20,
+                          : scheme.mutedForeground,
+                      size: 24,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Skip this transaction',
+                          isDeclined ? 'Skipping transaction' : 'Skip this transaction',
                           style: TextStyle(
                             color: isDeclined
                                 ? scheme.destructive
                                 : scheme.foreground,
-                            fontWeight:
-                                isDeclined ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
-                          'Exclude this from the import',
+                          isDeclined ? 'This will not be imported' : 'Exclude this from the import',
                           style: TextStyle(
                             color: isDeclined
                                 ? scheme.destructive.withValues(alpha: 0.8)
@@ -304,59 +379,65 @@ class _IssueSection extends ConsumerWidget {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: isDeclined ? 0.4 : 1.0,
-      child: IgnorePointer(
-        ignoring: isDeclined,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
                   _iconForField(issue.field),
                   size: 16,
                   color: scheme.primary,
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  _titleForField(issue.field).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: scheme.primary,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: scheme.surfaceBorder,
-                    width: 1,
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _titleForField(issue.field).toUpperCase(),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: scheme.primary,
+                  letterSpacing: 1.2,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: issue.choices.map((choice) {
-                  final isSelected = selectedValue == choice.id;
-                  return _ChoiceRow(
-                    choice: choice,
-                    isSelected: isSelected,
-                    onTap: () {
-                      if (isDeclined) return;
-                      ref
-                          .read(_selectionProvider(selectionKey).notifier)
-                          .state = [choice.id];
-                    },
-                  );
-                }).toList(growable: false),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: scheme.surfaceBorder,
+                  width: 2,
+                ),
               ),
             ),
-          ],
-        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: issue.choices.map((choice) {
+                final isSelected = selectedValue == choice.id;
+                return _ChoiceRow(
+                  choice: choice,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (isDeclined) {
+                      ref.read(_declineProvider(itemId).notifier).state = false;
+                    }
+                    ref
+                        .read(_selectionProvider(selectionKey).notifier)
+                        .state = [choice.id];
+                  },
+                );
+              }).toList(growable: false),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -405,48 +486,79 @@ class _ChoiceRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
-          // Indicator line
           Positioned(
-            left: -1,
+            left: -2,
             top: 0,
             bottom: 0,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 3,
-              color: isSelected
-                  ? scheme.primary
-                  : scheme.surface.withValues(alpha: 0.0),
+              width: 4,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? scheme.primary
+                    : scheme.surface.withValues(alpha: 0.0),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            child: Column(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                    color:
-                        isSelected ? scheme.foreground : scheme.mutedForeground,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                          color: isSelected ? scheme.foreground : scheme.mutedForeground,
+                          letterSpacing: isSelected ? -0.3 : 0,
+                        ),
+                        child: Text(choice.label),
+                      ),
+                      if (choice.evidence.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 200),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: isSelected
+                                ? scheme.mutedForeground
+                                : scheme.mutedForeground.withValues(alpha: 0.6),
+                            height: 1.4,
+                          ),
+                          child: Text(choice.evidence),
+                        ),
+                      ],
+                    ],
                   ),
-                  child: Text(choice.label),
                 ),
-                if (choice.evidence.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isSelected
-                          ? scheme.mutedForeground
-                          : scheme.mutedForeground.withValues(alpha: 0.5),
-                      height: 1.4,
+                const SizedBox(width: 16),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? scheme.primary : scheme.appBackground,
+                    border: Border.all(
+                      color: isSelected ? scheme.primary : scheme.surfaceBorder,
+                      width: 2,
                     ),
-                    child: Text(choice.evidence),
                   ),
-                ],
+                  child: isSelected
+                      ? Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: scheme.appBackground,
+                        )
+                      : null,
+                ),
               ],
             ),
           ),
@@ -454,6 +566,15 @@ class _ChoiceRow extends StatelessWidget {
       ),
     );
   }
+}
+
+void _closeImportReview(BuildContext context) {
+  final navigator = Navigator.of(context);
+  if (navigator.canPop()) {
+    navigator.pop();
+    return;
+  }
+  context.go('/');
 }
 
 class _BottomActionBar extends StatelessWidget {
@@ -492,23 +613,31 @@ class _BottomActionBar extends StatelessWidget {
           child: FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: scheme.primary,
-              disabledBackgroundColor: scheme.primary.withValues(alpha: 0.15),
+              backgroundColor: scheme.foreground,
+              foregroundColor: scheme.appBackground,
+              disabledBackgroundColor: scheme.muted,
+              disabledForegroundColor: scheme.mutedForeground,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
               ),
               elevation: 0,
             ),
-            child: Text(
-              isSubmitting ? 'Importing...' : 'Confirm and import',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: complete
-                    ? scheme.buttonText
-                    : scheme.primary.withValues(alpha: 0.5),
-              ),
-            ),
+            child: isSubmitting
+                ? SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: scheme.appBackground,
+                    ),
+                  )
+                : Text(
+                    complete ? 'Submit Review' : 'Complete all items to submit',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ),
       ),
@@ -522,31 +651,47 @@ class _ReviewSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return CustomScrollView(
+      physics: const NeverScrollableScrollPhysics(),
       slivers: [
         SliverAppBar.large(
+          automaticallyImplyLeading: false,
           title: Text(
             'Review Import',
             style: TextStyle(
               color: scheme.foreground,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
+              fontSize: 34,
             ),
           ),
           backgroundColor: scheme.appBackground,
+          expandedHeight: 120,
         ),
         SliverPadding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              const _ShimmerBox(height: 20, width: 200),
-              const SizedBox(height: 32),
-              const _ShimmerBox(height: 24, width: 150),
-              const SizedBox(height: 16),
-              const _ShimmerBox(height: 16, width: 100),
+              const _ShimmerBox(height: 24, width: double.infinity),
+              const SizedBox(height: 8),
+              const _ShimmerBox(height: 24, width: 200),
+              const SizedBox(height: 48),
+              
+              const _ShimmerBox(height: 28, width: 140),
+              const SizedBox(height: 24),
+              const _ShimmerBox(height: 100, width: double.infinity, borderRadius: 20),
+              const SizedBox(height: 40),
+              
+              Row(
+                children: [
+                  const _ShimmerBox(height: 32, width: 32, borderRadius: 16),
+                  const SizedBox(width: 16),
+                  const _ShimmerBox(height: 16, width: 120),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const _ShimmerBox(height: 80, width: double.infinity, borderRadius: 16),
               const SizedBox(height: 12),
-              const _ShimmerBox(height: 80, width: double.infinity),
-              const SizedBox(height: 12),
-              const _ShimmerBox(height: 80, width: double.infinity),
+              const _ShimmerBox(height: 80, width: double.infinity, borderRadius: 16),
             ]),
           ),
         ),
@@ -558,7 +703,12 @@ class _ReviewSkeleton extends StatelessWidget {
 class _ShimmerBox extends StatelessWidget {
   final double height;
   final double width;
-  const _ShimmerBox({required this.height, required this.width});
+  final double borderRadius;
+  const _ShimmerBox({
+    required this.height, 
+    required this.width,
+    this.borderRadius = 8,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -568,7 +718,7 @@ class _ShimmerBox extends StatelessWidget {
       width: width,
       decoration: BoxDecoration(
         color: scheme.surfaceBorder,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
   }
@@ -579,51 +729,86 @@ class _MessageView extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
+    this.color,
   });
   final IconData icon;
   final String title;
   final String message;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar.large(
-          title: Text(
-            title,
-            style: TextStyle(
-              color: scheme.foreground,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-            ),
-          ),
-          backgroundColor: scheme.appBackground,
-        ),
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 64, color: scheme.mutedForeground),
-                const SizedBox(height: 24),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: scheme.mutedForeground,
-                    height: 1.5,
+    final displayColor = color ?? scheme.mutedForeground;
+    
+    return Scaffold(
+      backgroundColor: scheme.appBackground,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: displayColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 64, color: displayColor),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: scheme.foreground,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  color: scheme.mutedForeground,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 48),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => _closeImportReview(context),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: scheme.foreground,
+                    foregroundColor: scheme.appBackground,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Go Back',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 64),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
