@@ -511,6 +511,22 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  Future<ExpenseEntry?> getTransactionByIdOrClientRecordId(String id) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) return null;
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE id = ? OR client_record_id = ?
+      ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+      LIMIT 1
+      ''',
+      [normalizedId, normalizedId, normalizedId],
+    );
+    return rows.isEmpty ? null : _entryFromTransactionRow(rows.first);
+  }
+
   Future<void> writeOptimisticTransaction({
     required ExpenseEntry entry,
     required String clientMutationId,

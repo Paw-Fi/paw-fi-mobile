@@ -353,6 +353,26 @@ void main() {
       expect(rows.single.clientMutationId, 'mobile:optimistic_1');
     });
 
+    test('resolves an optimistic client record ID to its canonical row',
+        () async {
+      await database.writeOptimisticTransaction(
+        entry: _entry(id: 'optimistic_1', userId: 'user_1'),
+        clientMutationId: 'mobile:optimistic_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.replaceOptimisticTransaction(
+        optimisticId: 'optimistic_1',
+        savedEntry: _entry(id: 'server_1', userId: 'user_1'),
+        clientMutationId: 'mobile:optimistic_1',
+      );
+
+      final resolved =
+          await database.getTransactionByIdOrClientRecordId('optimistic_1');
+
+      expect(resolved?.id, 'server_1');
+    });
+
     test('returns only retryable outbox rows in creation order', () async {
       final now = DateTime.utc(2026, 4, 6, 12);
 
