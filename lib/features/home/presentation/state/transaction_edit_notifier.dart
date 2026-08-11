@@ -69,11 +69,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     Map<String, dynamic>? extraBody,
     ExpenseEntry? originalExpense,
   }) async {
-    if (state.isLoading) {
-      _debugPrint('⚠️ Update already in progress, ignoring');
-      return false;
-    }
-
     state = state.copyWith(
       isLoading: true,
       editingExpenseId: expenseId,
@@ -148,6 +143,17 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         // This is NOT an error, just skip optimistic update
         _debugPrint(
             '💾 Expense not in local cache; skipping optimistic update');
+      }
+
+      if (localDatabase != null &&
+          await localDatabase
+              .hasPendingOptimisticTransactionCreate(expenseId)) {
+        state = state.copyWith(
+          isLoading: false,
+          clearOptimisticUpdate: true,
+          clearError: true,
+        );
+        return true;
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -281,7 +287,12 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // The backend response is authoritative. Apply it before doing any broad
       // refresh so a slow analytics reload cannot keep the save dialog open or
       // temporarily replace the edited row with stale data.
-      if (confirmedExpense != null) {
+      final mutationStillOwnsEntry = localDatabase == null ||
+          await localDatabase.transactionMutationStillOwnsEntry(
+            entryId: expenseId,
+            clientMutationId: mutationMetadata.clientMutationId,
+          );
+      if (confirmedExpense != null && mutationStillOwnsEntry) {
         final rollbackSource =
             originalForRollback ?? originalExpense ?? confirmedExpense;
         ref.read(transactionsFeedEditedEntryProvider.notifier).state =
@@ -445,27 +456,28 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         .toList(growable: false);
 
     if (localTargets.isNotEmpty) {
-      final activeCreateSyncIds =
-          ref.read(activeTransactionCreateSyncIdsProvider);
-      final hasActiveCreateSync = localTargets.any(
-        (entry) => activeCreateSyncIds.contains(entry.id.trim()),
-      );
-      if (hasActiveCreateSync) {
-        state = state.copyWith(
-          error:
-              'This transaction is still syncing. Please try again in a moment.',
-        );
-        return false;
-      }
-
       final cancelledLocalCreates =
           await _cancelQueuedLocalCreateTransactions(localTargets);
       if (!cancelledLocalCreates) {
-        state = state.copyWith(
-          error:
-              'This transaction is still syncing. Please try again in a moment.',
+        final mutationMetadata = buildTransactionMutationMetadataForRecord(
+          clientRecordId: localTargets.map((entry) => entry.id).join('_'),
+          operation: 'delete_transaction',
         );
-        return false;
+        final database = await _writeOptimisticDeleteToLocalStore(
+          entries: localTargets,
+          mutationMetadata: mutationMetadata,
+          payload: {
+            ...mutationMetadata.toRequestJson(),
+            'userId': user.uid,
+            'expenseIds': localTargets.map((entry) => entry.id).join(','),
+          },
+        );
+        if (database == null) {
+          state = state.copyWith(
+            error: 'Unable to delete the pending transaction locally.',
+          );
+          return false;
+        }
       }
 
       _removeLocalOptimisticTransactionsFromProviders(localTargets);

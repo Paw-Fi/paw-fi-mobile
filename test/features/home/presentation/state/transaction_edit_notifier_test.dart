@@ -540,6 +540,112 @@ void main() {
     });
 
     test(
+        'updates a pending optimistic create locally without invoking update-expense against its local id',
+        () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final optimistic = ExpenseEntry(
+        id: 'optimistic_1',
+        userId: 'user-1',
+        date: DateTime(2026, 5, 7),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime(2026, 5, 7, 10),
+        type: 'expense',
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+      container.read(analyticsProvider);
+      analyticsNotifier!.state = AnalyticsData(
+        expenses: [optimistic],
+        allExpenses: [optimistic],
+      );
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .updateExpense(optimistic.id, {'amount_cents': 1500});
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user-1',
+        householdId: null,
+      );
+      expect(result, isTrue);
+      expect(rows.single.amountCents, 1500);
+      verifyNever(
+        () =>
+            functionsClient.invoke('update-expense', body: any(named: 'body')),
+      );
+    });
+
+    test('deletes an actively syncing optimistic create locally', () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final optimistic = ExpenseEntry(
+        id: 'optimistic_1',
+        userId: 'user-1',
+        date: DateTime(2026, 5, 7),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime(2026, 5, 7, 10),
+        type: 'expense',
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.markMutationSyncing('mobile:create_1');
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+      container.read(analyticsProvider);
+      analyticsNotifier!.state = AnalyticsData(
+        expenses: [optimistic],
+        allExpenses: [optimistic],
+      );
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically([optimistic]);
+
+      final mutations = await database.getOutboxMutations();
+      expect(result, isTrue);
+      expect(
+        await database.getRecentTransactions(
+            userId: 'user-1', householdId: null),
+        isEmpty,
+      );
+      expect(
+        mutations
+            .singleWhere(
+              (mutation) => mutation.operation == 'delete_transaction',
+            )
+            .status,
+        localMutationStatusQueued,
+      );
+      verifyNever(
+        () =>
+            functionsClient.invoke('delete-expense', body: any(named: 'body')),
+      );
+    });
+
+    test(
         'delete removes personal transaction immediately and rolls back on failure',
         () async {
       const expenseId = '11111111-1111-4111-8111-111111111111';

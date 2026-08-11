@@ -227,22 +227,25 @@ Future<void> _dispatchMobileMutation(
               _metadataFromPayload(payload)['idempotencyKey']?.toString() ??
                   mutation.clientMutationId,
         );
-        await database.replaceOptimisticTransaction(
+        final reconciledEntry = await database.replaceOptimisticTransaction(
           optimisticId: mutation.entityId,
           savedEntry: savedEntry,
           clientMutationId: mutation.clientMutationId,
         );
         final queuedTransaction = _mapValue(payload['transaction']);
-        reconcileSyncedHouseholdTransactionOverlays(
-          expensesNotifier:
-              ref.read(householdOptimisticExpensesProvider.notifier),
-          splitsNotifier: ref.read(householdOptimisticSplitsProvider.notifier),
-          optimisticId: mutation.entityId,
-          optimisticHouseholdId:
-              queuedTransaction?['household_id']?.toString() ??
-                  queuedTransaction?['householdId']?.toString(),
-          savedEntry: savedEntry,
-        );
+        if (reconciledEntry != null) {
+          reconcileSyncedHouseholdTransactionOverlays(
+            expensesNotifier:
+                ref.read(householdOptimisticExpensesProvider.notifier),
+            splitsNotifier:
+                ref.read(householdOptimisticSplitsProvider.notifier),
+            optimisticId: mutation.entityId,
+            optimisticHouseholdId:
+                queuedTransaction?['household_id']?.toString() ??
+                    queuedTransaction?['householdId']?.toString(),
+            savedEntry: reconciledEntry,
+          );
+        }
         ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);

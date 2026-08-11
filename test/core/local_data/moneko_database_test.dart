@@ -1077,6 +1077,133 @@ void main() {
       expect(mutations.single.status, localMutationStatusSynced);
     });
 
+    test(
+        'preserves a newer local edit and retargets its outbox mutation when a create is reconciled',
+        () async {
+      final optimistic = _entry(
+        id: 'optimistic_1',
+        userId: 'user_1',
+        amountCents: 1800,
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: optimistic,
+        updatedEntry: optimistic.copyWith(amountCents: 2200),
+        clientMutationId: 'mobile:update_1',
+        payload: const {
+          'expenseId': 'optimistic_1',
+          'updates': {'amount_cents': 2200},
+        },
+      );
+
+      await database.replaceOptimisticTransaction(
+        optimisticId: optimistic.id,
+        savedEntry: _entry(
+          id: 'server_1',
+          userId: 'user_1',
+          amountCents: 1800,
+        ),
+        clientMutationId: 'mobile:create_1',
+      );
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      final mutations = await database.getOutboxMutations();
+      final update = mutations.singleWhere(
+        (mutation) => mutation.clientMutationId == 'mobile:update_1',
+      );
+      final updatePayload = jsonDecode(update.payloadJson) as Map;
+
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'server_1');
+      expect(rows.single.amountCents, 2200);
+      expect(update.entityId, 'server_1');
+      expect(updatePayload['expenseId'], 'server_1');
+      expect(update.status, localMutationStatusQueued);
+    });
+
+    test(
+        'does not resurrect a pending create deleted while its create mutation is syncing',
+        () async {
+      final optimistic = _entry(
+        id: 'optimistic_1',
+        userId: 'user_1',
+        amountCents: 1800,
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.markMutationSyncing('mobile:create_1');
+      await database.writeOptimisticTransactionDelete(
+        entries: [optimistic],
+        clientMutationId: 'mobile:delete_1',
+        payload: const {'expenseIds': 'optimistic_1'},
+      );
+
+      await database.replaceOptimisticTransaction(
+        optimisticId: optimistic.id,
+        savedEntry: _entry(
+          id: 'server_1',
+          userId: 'user_1',
+          amountCents: 1800,
+        ),
+        clientMutationId: 'mobile:create_1',
+      );
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      final delete = (await database.getOutboxMutations()).singleWhere(
+        (mutation) => mutation.clientMutationId == 'mobile:delete_1',
+      );
+      final deletePayload = jsonDecode(delete.payloadJson) as Map;
+
+      expect(rows, isEmpty);
+      expect(delete.entityId, 'server_1');
+      expect(deletePayload['expenseIds'], 'server_1');
+      expect(delete.status, localMutationStatusQueued);
+    });
+
+    test('retargets the reconciled ID inside a pending batch delete', () async {
+      final first = _entry(id: 'optimistic_1', userId: 'user_1');
+      final second = _entry(id: 'optimistic_2', userId: 'user_1');
+      await database.writeOptimisticTransaction(
+        entry: first,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.writeOptimisticTransactionDelete(
+        entries: [first, second],
+        clientMutationId: 'mobile:delete_1',
+        payload: const {'expenseIds': 'optimistic_1,optimistic_2'},
+      );
+
+      await database.replaceOptimisticTransaction(
+        optimisticId: first.id,
+        savedEntry: _entry(id: 'server_1', userId: 'user_1'),
+        clientMutationId: 'mobile:create_1',
+      );
+
+      final delete = (await database.getOutboxMutations()).singleWhere(
+        (mutation) => mutation.clientMutationId == 'mobile:delete_1',
+      );
+      final payload = jsonDecode(delete.payloadJson) as Map;
+      expect(delete.entityId, 'server_1,optimistic_2');
+      expect(payload['expenseIds'], 'server_1,optimistic_2');
+    });
+
     test('removes failed optimistic transaction and cancels mutation',
         () async {
       await database.writeOptimisticTransaction(
