@@ -73,11 +73,11 @@ class ImportReviewCompletedView extends StatelessWidget {
           ),
         ],
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             24,
             32,
             24,
-            120 + MediaQuery.paddingOf(context).bottom,
+            24 ,
           ),
           sliver: SliverList.list(
             children: [
