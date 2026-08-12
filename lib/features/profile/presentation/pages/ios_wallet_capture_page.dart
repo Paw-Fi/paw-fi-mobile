@@ -641,7 +641,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'No internet while paying with Apple Pay?',
+                                context.l10n.noInternetWhilePayingWithApplePay,
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -650,7 +650,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Don\'t worry. Moneko saves the transaction on your iPhone and automatically syncs it the next time you open the app with internet.',
+                                context.l10n.applePayOfflineSyncDescription,
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: colorScheme.mutedForeground,

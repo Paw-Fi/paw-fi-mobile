@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -67,7 +68,7 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final direction = _WalletTransferDirection.fromExpense(transferExpense);
     final transferFuture = useMemoized(
-      () => _loadTransferDetails(transferExpense.id),
+      () => _loadTransferDetails(ref, transferExpense.id),
       [transferExpense.id],
     );
     final transferSnapshot = useFuture(transferFuture);
@@ -131,7 +132,7 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
         if (!context.mounted) {
           return;
         }
-        AppToast.success(context, context.l10n.saveChanges);
+        AppToast.success(context, context.l10n.transferUpdatedSuccessfully);
         Navigator.of(context).pop(true);
       } catch (error) {
         if (context.mounted) {
@@ -164,7 +165,7 @@ class _WalletTransferDetailsSheet extends HookConsumerWidget {
         if (!context.mounted) {
           return;
         }
-        AppToast.success(context, context.l10n.delete);
+        AppToast.success(context, context.l10n.transferDeletedSuccessfully);
         Navigator.of(context).pop(true);
       } catch (error) {
         if (context.mounted) {
@@ -441,7 +442,10 @@ class _TransferWalletCard extends StatelessWidget {
   }
 }
 
-Future<WalletTransfer?> _loadTransferDetails(String transferExpenseId) async {
+Future<WalletTransfer?> _loadTransferDetails(
+  WidgetRef ref,
+  String transferExpenseId,
+) async {
   final transferId = extractWalletTransferIdFromExpenseId(transferExpenseId);
   if (transferId == null) {
     return null;
@@ -456,14 +460,32 @@ Future<WalletTransfer?> _loadTransferDetails(String transferExpenseId) async {
         .eq('id', transferId)
         .maybeSingle();
 
-    if (row is! Map<String, dynamic>) {
-      return null;
+    if (row is Map<String, dynamic>) {
+      return WalletTransfer.fromJson(row);
     }
-
-    return WalletTransfer.fromJson(row);
   } catch (_) {
+    // A locally queued transfer has no server row yet.
+  }
+
+  final database = await ref.read(localDatabaseProvider.future);
+  final outgoing = await database.getTransactionByIdOrClientRecordId(
+    'transfer:$transferId:out',
+  );
+  final incoming = await database.getTransactionByIdOrClientRecordId(
+    'transfer:$transferId:in',
+  );
+  if (outgoing?.walletId == null || incoming?.walletId == null) {
     return null;
   }
+  return WalletTransfer(
+    id: transferId,
+    fromAccountId: outgoing!.walletId!,
+    toAccountId: incoming!.walletId!,
+    amountCents: outgoing.amountCents,
+    currency: outgoing.currency ?? incoming.currency ?? 'USD',
+    date: outgoing.date,
+    note: _resolvedTransferNote(outgoing.rawText),
+  );
 }
 
 WalletEntity? _walletById(List<WalletEntity> wallets, String? walletId) {

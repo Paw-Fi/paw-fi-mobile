@@ -1151,7 +1151,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
   String _splitTypeLabel(BuildContext context, SplitType type) {
     return switch (type) {
-      SplitType.equal => 'Equal',
+      SplitType.equal => context.l10n.equal,
       SplitType.amount => context.l10n.amount,
       SplitType.percentage => context.l10n.percent,
       SplitType.shares => context.l10n.splitShare,

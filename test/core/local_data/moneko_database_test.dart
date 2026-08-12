@@ -1915,6 +1915,86 @@ void main() {
       expect(rows.single.isRecurring, isTrue);
     });
 
+    test('transaction feed excludes recurring templates', () async {
+      await database.upsertTransactions([
+        _entry(
+          id: 'salary-template',
+          userId: 'user_1',
+          amountCents: 100000,
+          type: 'income',
+          isRecurring: true,
+        ),
+        _entry(
+          id: 'salary-occurrence',
+          userId: 'user_1',
+          amountCents: 80000,
+          type: 'income',
+        ),
+      ]);
+
+      const query = LocalTransactionsFeedQuery(
+        userId: 'user_1',
+        householdId: null,
+        currency: 'EUR',
+        type: 'all',
+      );
+      final rows = await database.getTransactionsFeedItems(query);
+      final summary = await database.getTransactionsFeedSummary(query);
+
+      expect(rows.map((entry) => entry.id), ['salary-occurrence']);
+      expect(summary.transactionCount, 1);
+      expect(summary.incomeTotalCents, 80000);
+    });
+
+    test('recurring occurrence provenance survives canonical reconciliation',
+        () async {
+      final optimistic = _entry(
+        id: 'optimistic-occurrence',
+        userId: 'user_1',
+        amountCents: 80000,
+        type: 'income',
+        date: DateTime(2026, 8, 12),
+      ).copyWith(
+        parentRecurringId: 'salary-template',
+        scheduledOccurrenceDate: DateTime(2026, 8, 12),
+        recurringConfirmedAt: DateTime.utc(2026, 8, 12, 9),
+        recurringConfirmationSource: 'user',
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'confirm-salary',
+        operation: localRecurringOccurrenceConfirmationMutationOperation,
+        payload: const {'requestBody': {}},
+      );
+
+      final canonicalWithoutProvenance = _entry(
+        id: 'canonical-occurrence',
+        userId: 'user_1',
+        amountCents: 80000,
+        type: 'income',
+        date: DateTime(2026, 8, 12),
+      );
+      await database.replaceOptimisticTransaction(
+        optimisticId: optimistic.id,
+        savedEntry: canonicalWithoutProvenance,
+        clientMutationId: 'confirm-salary',
+      );
+      await database.upsertTransactions([canonicalWithoutProvenance]);
+
+      final rows = await database.getTransactionsFeedItems(
+        const LocalTransactionsFeedQuery(
+          userId: 'user_1',
+          householdId: null,
+          currency: 'EUR',
+          type: 'all',
+        ),
+      );
+
+      expect(rows.single.parentRecurringId, 'salary-template');
+      expect(rows.single.scheduledOccurrenceDate, DateTime(2026, 8, 12));
+      expect(rows.single.recurringConfirmedAt, DateTime.utc(2026, 8, 12, 9));
+    });
+
     test('replaces recurring rows for scope including empty server results',
         () async {
       await database.replaceRecurringTransactionsForScope(

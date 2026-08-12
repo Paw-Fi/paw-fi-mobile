@@ -36,7 +36,7 @@ Future<void> showConfirmRecurringOccurrenceSheet({
   final isEditing = existingOccurrence?.isConfirmed == true;
   return MonekoBottomSheet.show<void>(
     context: context,
-    title: isEditing ? 'Edit payment' : context.l10n.confirmPayment,
+    title: isEditing ? context.l10n.editPayment : context.l10n.confirmPayment,
     isScrollControlled: true,
     onClose: () => Navigator.of(context).pop(),
     builder: (_) => _ConfirmRecurringOccurrenceForm(
@@ -63,7 +63,7 @@ Future<void> showLazyRecurringOccurrenceSheet({
   }
   return MonekoBottomSheet.show<void>(
     context: context,
-    title: 'Edit payment',
+    title: context.l10n.editPayment,
     isScrollControlled: true,
     onClose: () => Navigator.of(context).pop(),
     builder: (_) => _LazyRecurringOccurrenceEditor(
@@ -250,7 +250,7 @@ class _ConfirmRecurringOccurrenceFormState
       preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
     );
     if (!_isSettlementLocked && amountCents == null) {
-      setState(() => _error = 'Enter an amount greater than zero.');
+      setState(() => _error = context.l10n.recurringOccurrenceEnterAmount);
       return;
     }
     if (!_isEditing &&
@@ -263,7 +263,7 @@ class _ConfirmRecurringOccurrenceFormState
           ),
         )) {
       setState(() =>
-          _error = 'This occurrence is not available for confirmation yet.');
+          _error = context.l10n.recurringOccurrenceNotAvailable);
       return;
     }
     if (!_isSettlementLocked) {
@@ -276,8 +276,8 @@ class _ConfirmRecurringOccurrenceFormState
       final loadedWallets = walletsAsync.valueOrNull;
       if (loadedWallets == null) {
         setState(() => _error = walletsAsync.hasError
-            ? 'Unable to load wallets.'
-            : 'Wallets are still loading.');
+            ? context.l10n.recurringOccurrenceUnableToLoadWallets
+            : context.l10n.recurringOccurrenceWalletsLoading);
         return;
       }
       final activeWallets = loadedWallets
@@ -287,22 +287,22 @@ class _ConfirmRecurringOccurrenceFormState
         _accountId = null;
       } else if (_accountId != null &&
           !activeWallets.any((wallet) => wallet.id == _accountId)) {
-        setState(() => _error = 'Choose a wallet in this currency.');
+        setState(() => _error = context.l10n.recurringOccurrenceChooseWalletInCurrency);
         return;
       }
       if (!_isEditing &&
           activeWallets.isNotEmpty &&
           (_accountId == null || _accountId!.isEmpty)) {
-        setState(() => _error = 'Choose a wallet in this currency.');
+        setState(() => _error = context.l10n.recurringOccurrenceChooseWalletInCurrency);
         return;
       }
     }
     if (!_isSettlementLocked && _paidDate.isAfter(today)) {
-      setState(() => _error = 'The paid date cannot be later than today.');
+      setState(() => _error = context.l10n.recurringOccurrencePaidDateAfterToday);
       return;
     }
     if (userId.isEmpty) {
-      setState(() => _error = 'Sign in to confirm this payment.');
+      setState(() => _error = context.l10n.recurringOccurrenceSignInToConfirm);
       return;
     }
 
@@ -343,8 +343,8 @@ class _ConfirmRecurringOccurrenceFormState
         _isSubmitting = false;
         _error = result.error ??
             (_isEditing
-                ? 'Unable to update payment.'
-                : 'Unable to confirm payment.');
+                ? context.l10n.recurringOccurrenceUnableToUpdate
+                : context.l10n.recurringOccurrenceUnableToConfirm);
       });
       return;
     }
@@ -404,7 +404,7 @@ class _ConfirmRecurringOccurrenceFormState
     } else {
       AppToast.success(
         context,
-        _isEditing ? 'Payment update saved.' : 'Payment confirmation saved.',
+        _isEditing ? context.l10n.recurringOccurrenceUpdateSaved : context.l10n.recurringOccurrenceConfirmationSaved,
       );
     }
   }
@@ -415,9 +415,9 @@ class _ConfirmRecurringOccurrenceFormState
     if (userId.isEmpty || occurrence == null) return;
     final confirmation = await MonekoAlertDialog.show(
       context: context,
-      title: 'Unconfirm payment?',
-      description: 'The payment will be removed and the occurrence restored.',
-      confirmLabel: 'Unconfirm',
+      title: context.l10n.recurringOccurrenceUnconfirmQuestion,
+      description: context.l10n.recurringOccurrenceUnconfirmDescription,
+      confirmLabel: context.l10n.recurringOccurrenceUnconfirm,
       cancelLabel: context.l10n.cancel,
       isDestructive: true,
     );
@@ -438,12 +438,12 @@ class _ConfirmRecurringOccurrenceFormState
     if (!result.isQueued) {
       setState(() {
         _isSubmitting = false;
-        _error = result.error ?? 'Unable to unconfirm payment.';
+        _error = result.error ?? context.l10n.recurringOccurrenceUnableToUnconfirm;
       });
       return;
     }
     Navigator.of(context).pop();
-    AppToast.success(context, 'Payment unconfirmed.');
+    AppToast.success(context, context.l10n.recurringOccurrenceUnconfirmed);
   }
 
   @override
@@ -469,14 +469,18 @@ class _ConfirmRecurringOccurrenceFormState
     final amountChanged = !_isSettlementLocked &&
         _amountCents != null &&
         _amountCents != (transaction.amount * 100).round();
-    final receivedLabel = transaction.type == 'income' ? 'received' : 'paid';
+    final dateLabel = transaction.type == 'income'
+        ? context.l10n.recurringOccurrenceDateReceived
+        : context.l10n.recurringOccurrenceDatePaid;
     var walletName = loadedWallets == null
-        ? (walletsAsync.hasError ? 'Wallets unavailable' : 'Loading wallets...')
+        ? (walletsAsync.hasError
+            ? context.l10n.recurringOccurrenceWalletsUnavailable
+            : context.l10n.recurringOccurrenceLoadingWallets)
         : wallets.isEmpty
             ? context.l10n.noWallet
             : _isEditing && existingWalletId == null && _accountId == null
                 ? context.l10n.noWallet
-                : 'Choose wallet';
+                : context.l10n.recurringOccurrenceChooseWallet;
     for (final wallet in wallets) {
       if (wallet.id == _accountId) {
         walletName = wallet.name;
@@ -496,7 +500,7 @@ class _ConfirmRecurringOccurrenceFormState
         children: [
           MonekoInput(
             child: _ReadOnlyRow(
-              label: 'Scheduled date',
+              label: context.l10n.recurringOccurrenceScheduledDate,
               value:
                   formatLocalizedDate(context, widget.scheduledOccurrenceDate),
             ),
@@ -507,7 +511,7 @@ class _ConfirmRecurringOccurrenceFormState
               child: Column(
                 children: [
                   MonekoDisclosureRow(
-                    label: 'Date $receivedLabel',
+                    label: dateLabel,
                     value: formatLocalizedDate(context, _paidDate),
                     isFirst: true,
                     onTap: _isSubmitting
@@ -530,7 +534,7 @@ class _ConfirmRecurringOccurrenceFormState
                   ),
                   const Divider(height: 1),
                   MonekoDisclosureRow(
-                    label: 'Actual amount',
+                    label: context.l10n.recurringOccurrenceActualAmount,
                     value:
                         '${resolveCurrencySymbol(transaction.currency)}${_amountController.text}',
                     onTap: _isSubmitting
@@ -552,7 +556,7 @@ class _ConfirmRecurringOccurrenceFormState
                   ),
                   const Divider(height: 1),
                   MonekoDisclosureRow(
-                    label: 'Wallet',
+                    label: context.l10n.wallet,
                     value: walletName,
                     isLast: true,
                     isValuePlaceholder: _accountId == null,
@@ -648,7 +652,7 @@ class _ConfirmRecurringOccurrenceFormState
           if (_isSettlementLocked) ...[
             const SizedBox(height: 12),
             Text(
-              'This payment has settlement activity. Only notes can be edited.',
+              context.l10n.recurringOccurrenceSettlementLocked,
               style: TextStyle(color: colorScheme.mutedForeground),
             ),
           ],
@@ -662,7 +666,7 @@ class _ConfirmRecurringOccurrenceFormState
                         ? null
                         : (value) => setState(
                             () => _updateFutureAmount = value ?? false),
-                    title: const Text('Update future default amount'),
+                    title: Text(context.l10n.recurringOccurrenceUpdateFutureAmount),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -692,14 +696,18 @@ class _ConfirmRecurringOccurrenceFormState
                   )
                 : const Icon(Icons.check_rounded),
             label: Text(_isSubmitting
-                ? (_isEditing ? 'Saving...' : 'Confirming...')
-                : (_isEditing ? 'Save changes' : context.l10n.confirmPayment)),
+                ? (_isEditing
+                    ? context.l10n.saving
+                    : context.l10n.recurringOccurrenceConfirming)
+                : (_isEditing
+                    ? context.l10n.saveChanges
+                    : context.l10n.confirmPayment)),
           ),
           if (_isEditing && !_isSettlementLocked) ...[
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _isSubmitting ? null : _unconfirm,
-              child: const Text('Unconfirm payment'),
+              child: Text(context.l10n.recurringOccurrenceUnconfirmPayment),
             ),
           ],
         ],

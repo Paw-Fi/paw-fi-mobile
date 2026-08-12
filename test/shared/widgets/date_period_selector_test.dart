@@ -191,6 +191,31 @@ void main() {
     expect(selections, isEmpty);
   });
 
+  testWidgets('handles an unavailable range without throwing', (tester) async {
+    final now = DateTime(2026, 7, 26);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: DatePeriodSelector(
+              mode: HomePeriodMode.daily,
+              selectedDate: now,
+              now: now,
+              financialMonthStartDay: 1,
+              minimumAvailableDate: now.add(const Duration(days: 1)),
+              maximumAvailableDate: now,
+              onDateSelected: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'monthly mode renders budget percentage status inside circle when status provided',
       (tester) async {

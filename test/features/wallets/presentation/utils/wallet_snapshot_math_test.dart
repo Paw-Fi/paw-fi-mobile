@@ -97,6 +97,47 @@ void main() {
     expect(snapshot.netWorthCents, 13000);
   });
 
+  test(
+      'wallet balance applies bound expenses, income, and recurring occurrences',
+      () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [wallet(id: 'w1', opening: 500000, isDefault: true)],
+      transactions: [
+        tx(
+          id: 'expense-10',
+          date: DateTime(2026, 8, 1),
+          cents: 1000,
+          type: 'expense',
+          walletId: 'w1',
+        ),
+        tx(
+          id: 'projected-recurring-200',
+          date: DateTime(2026, 8, 2),
+          cents: 20000,
+          type: 'expense',
+          walletId: 'w1',
+        ),
+        tx(
+          id: 'income-50',
+          date: DateTime(2026, 8, 3),
+          cents: 5000,
+          type: 'income',
+          walletId: 'w1',
+        ),
+        tx(
+          id: 'other-wallet',
+          date: DateTime(2026, 8, 3),
+          cents: 9000,
+          type: 'expense',
+          walletId: 'w2',
+        ),
+      ],
+      endExclusive: DateTime(2026, 8, 4),
+    );
+
+    expect(snapshot.walletBalances['w1'], 484000);
+  });
+
   test('buildWalletSnapshot limits income and spend to selected cycle', () {
     final wallets = [wallet(id: 'w1', opening: 10000, isDefault: true)];
     final transactions = [

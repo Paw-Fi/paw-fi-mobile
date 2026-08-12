@@ -49,6 +49,16 @@ void _homeSpendTrace(String message) {
   }());
 }
 
+void _publishRecurringMutation(Ref ref) {
+  ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
+  ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+  ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
+  ref.read(widgetSyncVersionProvider.notifier).state += 1;
+  ref.invalidate(pocketsProvider);
+  ref.invalidate(currencyTransactionCountsProvider);
+}
+
 String _buildAnchorDateYmd(DateTime startDate) {
   return formatDateOnlyYmd(
     DateTime(startDate.year, startDate.month, startDate.day),
@@ -263,6 +273,11 @@ class RecurringOccurrenceConfirmationCommand {
     this.customSplits,
     this.payerUserId,
     this.updateFutureAmount = false,
+    this.functionName = 'confirm-recurring-occurrence',
+    this.allowUnassignedAccount = false,
+    this.category,
+    this.currency,
+    this.source,
   });
 
   final String userId;
@@ -276,6 +291,11 @@ class RecurringOccurrenceConfirmationCommand {
   final Map<String, dynamic>? customSplits;
   final String? payerUserId;
   final bool updateFutureAmount;
+  final String functionName;
+  final bool allowUnassignedAccount;
+  final String? category;
+  final String? currency;
+  final String? source;
 
   String get idempotencyKey => recurringOccurrenceIdempotencyKey(
         userId: userId,
@@ -299,6 +319,9 @@ class RecurringOccurrenceConfirmationCommand {
           'description': description!.trim(),
         if (customSplits != null) 'customSplits': customSplits,
         if (payerUserId?.trim().isNotEmpty == true) 'payerUserId': payerUserId,
+        if (category?.trim().isNotEmpty == true) 'category': category!.trim(),
+        if (currency?.trim().isNotEmpty == true) 'currency': currency!.trim(),
+        if (source?.trim().isNotEmpty == true) 'source': source!.trim(),
         'updateFutureAmount': updateFutureAmount,
         'clientMutationId': idempotencyKey,
         'idempotencyKey': idempotencyKey,
@@ -617,20 +640,44 @@ class RecurringOccurrenceUpdateController {
             updatedAt: DateTime.now(),
           ),
         );
-    final seriesHandle =
-        command.updateFutureAmount && command.amountCents != null
-            ? _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
-                  mutationId: mutationId,
-                  transaction: command.recurringTransaction.copyWith(
-                    amount: command.amountCents! / 100,
-                  ),
-                )
-            : null;
+    RecurringSeriesOptimisticHandle? seriesHandle;
 
     try {
       final original = command.occurrence.actualTransaction;
       if (original == null) {
         throw StateError('The confirmed transaction is unavailable.');
+      }
+      final scheduledDate = command.occurrence.scheduledOccurrenceDate;
+      final userNow = effectiveNow(
+        preferredTimezone:
+            _ref.read(analyticsProvider).contact?.preferredTimezone,
+      );
+      final isCurrentMonth = scheduledDate.year == userNow.year &&
+          scheduledDate.month == userNow.month;
+      final originalTemplateAmountCents =
+          (command.recurringTransaction.amount * 100).round();
+      final updatedTemplateAmountCents = command.updateFutureAmount
+          ? command.amountCents!
+          : originalTemplateAmountCents;
+      // The server summary already contains this occurrence's old delta. Add
+      // only the replacement delta so the recurring header moves from the old
+      // confirmed amount to the edited one without double counting it.
+      final currentMonthDeltaAdjustmentCents = isCurrentMonth
+          ? (command.amountCents! - updatedTemplateAmountCents) -
+              (original.amountCents - originalTemplateAmountCents)
+          : null;
+      final optimisticSeries = command.recurringTransaction.copyWith(
+        amount: updatedTemplateAmountCents / 100,
+      );
+      if (command.updateFutureAmount ||
+          currentMonthDeltaAdjustmentCents != null) {
+        seriesHandle =
+            _ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
+                  mutationId: mutationId,
+                  transaction: optimisticSeries,
+                  currentMonthConfirmedAmountDeltaCents:
+                      currentMonthDeltaAdjustmentCents,
+                );
       }
       final updated = original.copyWith(
         date: command.occurrence.isSettlementLocked
@@ -837,7 +884,8 @@ class RecurringOccurrenceConfirmationController {
     }
     if (command.userId.trim().isEmpty ||
         command.recurringTransaction.id.trim().isEmpty ||
-        command.accountId?.trim().isEmpty == true ||
+        (command.accountId?.trim().isEmpty == true &&
+            !command.allowUnassignedAccount) ||
         command.amountCents <= 0) {
       return const RecurringOccurrenceConfirmationResult.failure(
         'A user, recurring transaction, and positive amount are required.',
@@ -876,8 +924,8 @@ class RecurringOccurrenceConfirmationController {
       householdId: command.recurringTransaction.householdId,
       date: paidDate,
       amountCents: command.amountCents,
-      currency: command.recurringTransaction.currency,
-      category: command.recurringTransaction.category,
+      currency: command.currency ?? command.recurringTransaction.currency,
+      category: command.category ?? command.recurringTransaction.category,
       createdAt: now,
       rawText: command.description ?? command.recurringTransaction.description,
       merchant: command.merchant ?? command.recurringTransaction.merchant,
@@ -909,6 +957,8 @@ class RecurringOccurrenceConfirmationController {
         payload: {
           'idempotencyKey': command.idempotencyKey,
           'clientMutationId': command.idempotencyKey,
+          if (command.functionName != 'confirm-recurring-occurrence')
+            'functionName': command.functionName,
           'requestBody': command.toRequestBody(),
         },
         relatedOriginalEntry: command.updateFutureAmount
@@ -945,7 +995,8 @@ class RecurringOccurrenceConfirmationController {
               actualTransactionId: command.optimisticId,
               paidDate: paidDate,
               amountCents: command.amountCents,
-              currency: command.recurringTransaction.currency,
+              currency:
+                  command.currency ?? command.recurringTransaction.currency,
               confirmedAt: now,
               confirmedByUserId: command.userId,
               createdAt: now,
@@ -1432,6 +1483,7 @@ class RecurringTransactionsNotifier
           },
           operation: 'delete_recurring_template',
         );
+        _publishRecurringMutation(ref);
       }
 
       // Backend call
@@ -1490,6 +1542,7 @@ class RecurringTransactionsNotifier
             .read(recurringSeriesOptimisticProvider.notifier)
             .rollback(lazyHandle);
       }
+      _publishRecurringMutation(ref);
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
@@ -1513,6 +1566,7 @@ class RecurringTransactionsNotifier
             .read(recurringSeriesOptimisticProvider.notifier)
             .rollback(lazyHandle);
       }
+      _publishRecurringMutation(ref);
       await refresh(userId);
       return DeleteRecurringResult.failure(
           ErrorHandler.getUserFriendlyMessage(e));
@@ -1636,6 +1690,7 @@ class RecurringTransactionsNotifier
         },
         operation: 'skip_recurring_occurrence',
       );
+      _publishRecurringMutation(ref);
 
       // Backend skip is atomic: ledger state, legacy exclusion, and reminder.
       final response = await supabase.functions.invoke(
@@ -1691,6 +1746,7 @@ class RecurringTransactionsNotifier
           .read(recurringOccurrenceOptimisticProvider.notifier)
           .rollback(occurrenceHandle);
       updateRecurring(target!);
+      _publishRecurringMutation(ref);
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
@@ -1727,6 +1783,7 @@ class RecurringTransactionsNotifier
             .read(recurringOccurrenceOptimisticProvider.notifier)
             .rollback(occurrenceHandle);
       }
+      _publishRecurringMutation(ref);
       await refresh(userId);
       return DeleteRecurringResult.failure(
           ErrorHandler.getUserFriendlyMessage(e));
@@ -2138,6 +2195,7 @@ class RecurringTransactionSaveNotifier
         requestBody: requestBody,
         fallbackUserId: userId,
       );
+      _publishRecurringMutation(ref);
 
       final response = await supabase.functions.invoke(
         'save-expense',
@@ -2184,6 +2242,7 @@ class RecurringTransactionSaveNotifier
           clientMutationId: mutationMetadata.clientMutationId,
           error: response.data,
         );
+        _publishRecurringMutation(ref);
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to save recurring expense',
@@ -2240,6 +2299,7 @@ class RecurringTransactionSaveNotifier
               error: e,
             );
           }
+          _publishRecurringMutation(ref);
         }
       } catch (_) {}
       state = AsyncValue.error(e, st);
@@ -2401,6 +2461,7 @@ class RecurringTransactionSaveNotifier
         requestBody: requestBody,
         fallbackUserId: userId,
       );
+      _publishRecurringMutation(ref);
 
       final response = await supabase.functions.invoke(
         'save-income',
@@ -2526,114 +2587,25 @@ class RecurringTransactionSaveNotifier
     String? payerUserId,
     String? accountId,
   }) async {
-    if (_guardPreviewWrites()) {
-      return null;
-    }
-    state = const AsyncValue.loading();
-
-    try {
-      final dateFormatter = DateFormat('yyyy-MM-dd');
-      final formattedAccountingDate = dateFormatter.format(date);
-
-      final requestBody = <String, dynamic>{
-        'userId': userId,
-        'amount': amount,
-        'category': category,
-        'currency': currency,
-        'date': formattedAccountingDate,
-        'clientCreatedAt': _buildClientCreatedAtIso(ref),
-        if (description != null && description.trim().isNotEmpty)
-          'description': description.trim(),
-        if (merchant != null && merchant.trim().isNotEmpty)
-          'merchant': merchant.trim(),
-        'ownerType': recurringSeries.ownerType,
-        'privacyScope': recurringSeries.privacyScope,
-        'isRecurring': false,
-        'accountId': accountId,
-      };
-
-      if (householdId != null) {
-        final isPortfolio =
-            ref.read(householdScopeProvider).isPortfolioId(householdId);
-        requestBody['householdId'] = householdId;
-        requestBody['isPortfolio'] = isPortfolio;
-
-        if (!isPortfolio &&
-            customSplitType != null &&
-            customSplits != null &&
-            customSplits.isNotEmpty) {
-          final splitTypeStr = customSplitType.toString().split('.').last;
-          requestBody['customSplits'] = {
-            'splitType': splitTypeStr,
-            'memberSplits': customSplits.map((split) {
-              final memberData = <String, dynamic>{
-                'userId': split.member.userId,
-              };
-
-              switch (customSplitType) {
-                case SplitType.amount:
-                  memberData['amount'] = split.amount;
-                  break;
-                case SplitType.percentage:
-                  memberData['percentage'] = split.percentage;
-                  break;
-                case SplitType.shares:
-                  memberData['shares'] = split.shares;
-                  break;
-                case SplitType.equal:
-                  break;
-              }
-              return memberData;
-            }).toList(),
-          };
-        }
-
-        if (!isPortfolio && payerUserId != null && payerUserId.isNotEmpty) {
-          requestBody['payerUserId'] = payerUserId;
-        }
-      }
-
-      final createResponse = await supabase.functions.invoke(
-        'save-expense',
-        body: requestBody,
-      );
-
-      if (createResponse.data['success'] != true) {
-        final errorPayload = _buildFunctionErrorPayload(
-          createResponse.data,
-          fallback: 'Failed to save single expense occurrence',
-        );
-        state = AsyncValue.error(errorPayload, StackTrace.current);
-        return null;
-      }
-
-      final created = RecurringTransaction.fromJson(
-          createResponse.data['data'] as Map<String, dynamic>);
-
-      final skipSucceeded = await _excludeOccurrenceFromSeries(
-        userId: userId,
-        recurringSeries: recurringSeries,
-        occurrenceDateToSkip: occurrenceDateToSkip,
-      );
-
-      if (!skipSucceeded) {
-        await _deleteExpenseById(userId: userId, expenseId: created.id);
-        state = AsyncValue.error(
-          const {
-            'error': 'Failed to update recurring series for single occurrence',
-            'code': 'SERIES_UPDATE_FAILED',
-          },
-          StackTrace.current,
-        );
-        return null;
-      }
-
-      state = AsyncValue.data(created);
-      return created;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      return null;
-    }
+    return _queueSingleOccurrenceOverride(
+      userId: userId,
+      recurringSeries: recurringSeries,
+      occurrenceDate: occurrenceDateToSkip,
+      amount: amount,
+      category: category,
+      currency: currency,
+      date: date,
+      description: description,
+      merchant: merchant,
+      householdId: householdId,
+      customSplits: _customSplitsPayload(
+        householdId: householdId,
+        splitType: customSplitType,
+        splits: customSplits,
+      ),
+      payerUserId: payerUserId,
+      accountId: accountId,
+    );
   }
 
   Future<RecurringTransaction?> updateSingleIncomeOccurrence({
@@ -2650,77 +2622,109 @@ class RecurringTransactionSaveNotifier
     String? householdId,
     String? accountId,
   }) async {
-    if (_guardPreviewWrites()) {
-      return null;
-    }
-    state = const AsyncValue.loading();
+    return _queueSingleOccurrenceOverride(
+      userId: userId,
+      recurringSeries: recurringSeries,
+      occurrenceDate: occurrenceDateToSkip,
+      amount: amount,
+      category: category,
+      currency: currency,
+      date: date,
+      description: description,
+      merchant: merchant,
+      householdId: householdId,
+      customSplits: null,
+      payerUserId: null,
+      accountId: accountId,
+      source: source,
+    );
+  }
 
-    try {
-      final dateFormatter = DateFormat('yyyy-MM-dd');
-      final formattedAccountingDate = dateFormatter.format(date);
+  Future<RecurringTransaction?> _queueSingleOccurrenceOverride({
+    required String userId,
+    required RecurringTransaction recurringSeries,
+    required DateTime occurrenceDate,
+    required double amount,
+    required String category,
+    required String currency,
+    required DateTime date,
+    required String? description,
+    required String? merchant,
+    required String? householdId,
+    required Map<String, dynamic>? customSplits,
+    required String? payerUserId,
+    required String? accountId,
+    String? source,
+  }) async {
+    if (_guardPreviewWrites()) return null;
 
-      final createResponse = await supabase.functions.invoke(
-        'save-income',
-        body: {
-          'userId': userId,
-          'amount': amount,
-          'category': category,
-          'currency': currency,
-          'date': formattedAccountingDate,
-          'clientCreatedAt': _buildClientCreatedAtIso(ref),
-          if (description != null && description.trim().isNotEmpty)
-            'description': description.trim(),
-          if (merchant != null && merchant.trim().isNotEmpty)
-            'merchant': merchant.trim(),
-          if (source != null && source.trim().isNotEmpty)
-            'source': source.trim(),
-          'ownerType': recurringSeries.ownerType,
-          'privacyScope': recurringSeries.privacyScope,
-          if (householdId != null) 'householdId': householdId,
-          if (householdId != null)
-            'isPortfolio':
-                ref.read(householdScopeProvider).isPortfolioId(householdId),
-          'isRecurring': false,
-          'accountId': accountId,
-        },
-      );
-
-      if (createResponse.data['success'] != true) {
-        final errorPayload = _buildFunctionErrorPayload(
-          createResponse.data,
-          fallback: 'Failed to save single income occurrence',
-        );
-        state = AsyncValue.error(errorPayload, StackTrace.current);
-        return null;
-      }
-
-      final created = RecurringTransaction.fromJson(
-          createResponse.data['data'] as Map<String, dynamic>);
-
-      final skipSucceeded = await _excludeOccurrenceFromSeries(
+    final result = await RecurringOccurrenceConfirmationController(ref).confirm(
+      RecurringOccurrenceConfirmationCommand(
         userId: userId,
-        recurringSeries: recurringSeries,
-        occurrenceDateToSkip: occurrenceDateToSkip,
-      );
+        recurringTransaction: recurringSeries,
+        scheduledOccurrenceDate: occurrenceDate,
+        paidDate: date,
+        amountCents: (amount * 100).round(),
+        accountId: accountId,
+        merchant: merchant,
+        description: description,
+        customSplits: customSplits,
+        payerUserId: payerUserId,
+        functionName: 'save-recurring-occurrence-override',
+        allowUnassignedAccount: true,
+        category: category,
+        currency: currency,
+        source: source,
+      ),
+    );
+    if (!result.isQueued) return null;
 
-      if (!skipSucceeded) {
-        await _deleteExpenseById(userId: userId, expenseId: created.id);
-        state = AsyncValue.error(
-          const {
-            'error': 'Failed to update recurring series for single occurrence',
-            'code': 'SERIES_UPDATE_FAILED',
-          },
-          StackTrace.current,
-        );
-        return null;
-      }
+    return recurringSeries.copyWith(
+      date: date,
+      amount: amount,
+      category: category,
+      currency: currency,
+      description: description,
+      merchant: merchant,
+      source: source,
+      householdId: householdId,
+      accountId: accountId,
+    );
+  }
 
-      state = AsyncValue.data(created);
-      return created;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+  Map<String, dynamic>? _customSplitsPayload({
+    required String? householdId,
+    required SplitType? splitType,
+    required List<MemberSplit>? splits,
+  }) {
+    if (householdId == null ||
+        ref.read(householdScopeProvider).isPortfolioId(householdId) ||
+        splitType == null ||
+        splits == null ||
+        splits.isEmpty) {
       return null;
     }
+
+    return {
+      'splitType': splitType.toString().split('.').last,
+      'memberSplits': splits.map((split) {
+        final member = <String, dynamic>{'userId': split.member.userId};
+        switch (splitType) {
+          case SplitType.amount:
+            member['amount'] = split.amount;
+            break;
+          case SplitType.percentage:
+            member['percentage'] = split.percentage;
+            break;
+          case SplitType.shares:
+            member['shares'] = split.shares;
+            break;
+          case SplitType.equal:
+            break;
+        }
+        return member;
+      }).toList(),
+    };
   }
 
   /// Update recurring expense
@@ -2788,6 +2792,7 @@ class RecurringTransactionSaveNotifier
               .read(recurringTransactionsProvider(originalScopeKey).notifier)
               .replaceRecurring(expenseId, originalExpense);
         }
+        _publishRecurringMutation(ref);
       } catch (_) {}
     }
 
@@ -2991,6 +2996,7 @@ class RecurringTransactionSaveNotifier
               },
             },
           );
+          _publishRecurringMutation(ref);
         }
       } catch (_) {}
 
@@ -3177,6 +3183,7 @@ class RecurringTransactionSaveNotifier
               .read(recurringTransactionsProvider(originalScopeKey).notifier)
               .replaceRecurring(expenseId, originalIncome);
         }
+        _publishRecurringMutation(ref);
       } catch (_) {}
     }
 
@@ -3343,6 +3350,7 @@ class RecurringTransactionSaveNotifier
               },
             },
           );
+          _publishRecurringMutation(ref);
         }
       } catch (_) {}
 
@@ -3445,78 +3453,6 @@ class RecurringTransactionSaveNotifier
 
   void reset() {
     state = const AsyncValue.data(null);
-  }
-
-  Future<bool> _excludeOccurrenceFromSeries({
-    required String userId,
-    required RecurringTransaction recurringSeries,
-    required DateTime occurrenceDateToSkip,
-  }) async {
-    final rule = recurringSeries.recurrenceRule;
-    if (rule == null) {
-      return false;
-    }
-
-    final skipDate = DateTime(
-      occurrenceDateToSkip.year,
-      occurrenceDateToSkip.month,
-      occurrenceDateToSkip.day,
-    );
-
-    final alreadyExcluded = rule.excludedDates.any(
-      (entry) =>
-          entry.year == skipDate.year &&
-          entry.month == skipDate.month &&
-          entry.day == skipDate.day,
-    );
-
-    final updatedExcludedDates = alreadyExcluded
-        ? rule.excludedDates
-        : [...rule.excludedDates, skipDate];
-
-    final updatedRule = rule.copyWith(excludedDates: updatedExcludedDates);
-
-    final response = await supabase.functions.invoke(
-      'update-expense',
-      body: {
-        'userId': userId,
-        'expenseId': recurringSeries.id,
-        'updates': {
-          'recurrence_rule': updatedRule.toJson(),
-        },
-      },
-    );
-
-    if (response.data is! Map<String, dynamic> ||
-        (response.data as Map<String, dynamic>)['success'] != true) {
-      return false;
-    }
-
-    try {
-      ref
-          .read(recurringTransactionsProvider(recurringSeries.householdId)
-              .notifier)
-          .updateRecurring(
-            recurringSeries.copyWith(recurrenceRule: updatedRule),
-          );
-    } catch (_) {}
-
-    return true;
-  }
-
-  Future<void> _deleteExpenseById({
-    required String userId,
-    required String expenseId,
-  }) async {
-    try {
-      await supabase.functions.invoke(
-        'delete-expense',
-        body: {
-          'userId': userId,
-          'expenseIds': expenseId,
-        },
-      );
-    } catch (_) {}
   }
 
   Map<String, dynamic> _buildFunctionErrorPayload(

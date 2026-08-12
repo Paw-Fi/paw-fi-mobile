@@ -67,7 +67,7 @@ enum ProcessingOverlayOutcome { success, info, error }
 class NonBlockingProcessingOverlay {
   NonBlockingProcessingOverlay._({
     required this.controller,
-    required OverlayEntry entry,
+    OverlayEntry? entry,
     required GlobalKey<_NonBlockingProcessingBannerState> bannerKey,
   })  : _entry = entry,
         _bannerKey = bannerKey;
@@ -123,6 +123,13 @@ NonBlockingProcessingOverlay showNonBlockingProcessingOverlay({
     subMessage: subMessage,
   )..markStarted();
   final entryKey = GlobalKey<_NonBlockingProcessingBannerState>();
+  final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlayState == null) {
+    return NonBlockingProcessingOverlay._(
+      controller: controller,
+      bannerKey: entryKey,
+    );
+  }
   late final NonBlockingProcessingOverlay overlay;
   final entry = OverlayEntry(
     builder: (_) => _NonBlockingProcessingBanner(
@@ -137,7 +144,7 @@ NonBlockingProcessingOverlay showNonBlockingProcessingOverlay({
     entry: entry,
     bannerKey: entryKey,
   );
-  Overlay.of(context, rootOverlay: true).insert(entry);
+  overlayState.insert(entry);
   return overlay;
 }
 

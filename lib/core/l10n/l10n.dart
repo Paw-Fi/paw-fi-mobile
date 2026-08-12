@@ -35,6 +35,14 @@ extension SiriExpenseTutorialL10nX on AppLocalizations {
 
 extension WalletPickerL10nX on AppLocalizations {
   String get noWallet => 'No wallet';
+  String get walletCreatedSuccessfully => 'Wallet created successfully.';
+  String get walletUpdatedSuccessfully => 'Wallet updated successfully.';
+  String get transferCompletedSuccessfully =>
+      'Transfer completed successfully.';
+  String get transferUpdatedSuccessfully =>
+      'Transfer updated successfully.';
+  String get transferDeletedSuccessfully =>
+      'Transfer deleted successfully.';
 }
 
 extension WalletAnalyticsL10nX on AppLocalizations {
@@ -295,6 +303,11 @@ extension RecurringPageL10nX on AppLocalizations {
   String get dueThisMonth => 'Due This Month';
   String get dueLater => 'Due Later';
   String get activeSchedules => 'Active Schedules';
+  String activePaycheckCount(int count) => count == 1
+      ? '1 active paycheck'
+      : '$count active paychecks';
+  String activeBillCount(int count) =>
+      count == 1 ? '1 active bill' : '$count active bills';
 }
 
 extension CancelReasonL10nX on AppLocalizations {
@@ -320,4 +333,117 @@ extension CancelReasonL10nX on AppLocalizations {
   String get cancelReasonOther => 'Other';
   String get cancelReasonOtherPlaceholder => 'Tell us more';
   String get cancelReasonContinue => 'Continue to cancel';
+}
+
+/// Recurring occurrence confirmation sheet copy. English is the runtime
+/// fallback until the keys are promoted into generated ARB files.
+extension RecurringOccurrenceL10nX on AppLocalizations {
+  String get editPayment => 'Edit payment';
+  String get recurringOccurrenceEnterAmount =>
+      'Enter an amount greater than zero.';
+  String get recurringOccurrenceNotAvailable =>
+      'This occurrence is not available for confirmation yet.';
+  String get recurringOccurrenceUnableToLoadWallets =>
+      'Unable to load wallets.';
+  String get recurringOccurrenceWalletsLoading =>
+      'Wallets are still loading.';
+  String get recurringOccurrenceChooseWalletInCurrency =>
+      'Choose a wallet in this currency.';
+  String get recurringOccurrencePaidDateAfterToday =>
+      'The paid date cannot be later than today.';
+  String get recurringOccurrenceSignInToConfirm =>
+      'Sign in to confirm this payment.';
+  String get recurringOccurrenceUnableToUpdate =>
+      'Unable to update payment.';
+  String get recurringOccurrenceUnableToConfirm =>
+      'Unable to confirm payment.';
+  String get recurringOccurrenceUpdateSaved => 'Payment update saved.';
+  String get recurringOccurrenceConfirmationSaved =>
+      'Payment confirmation saved.';
+  String get recurringOccurrenceUnconfirmQuestion => 'Unconfirm payment?';
+  String get recurringOccurrenceUnconfirmDescription =>
+      'The payment will be removed and the occurrence restored.';
+  String get recurringOccurrenceUnconfirm => 'Unconfirm';
+  String get recurringOccurrenceUnableToUnconfirm =>
+      'Unable to unconfirm payment.';
+  String get recurringOccurrenceUnconfirmed => 'Payment unconfirmed.';
+  String get recurringOccurrenceWalletsUnavailable => 'Wallets unavailable';
+  String get recurringOccurrenceLoadingWallets => 'Loading wallets...';
+  String get recurringOccurrenceChooseWallet => 'Choose wallet';
+  String get recurringOccurrenceDateReceived => 'Date received';
+  String get recurringOccurrenceDatePaid => 'Date paid';
+  String get recurringOccurrenceActualAmount => 'Actual amount';
+  String get recurringOccurrenceSettlementLocked =>
+      'This payment has settlement activity. Only notes can be edited.';
+  String get recurringOccurrenceUpdateFutureAmount =>
+      'Update future default amount';
+  String get recurringOccurrenceConfirming => 'Confirming...';
+  String get recurringOccurrenceUnconfirmPayment => 'Unconfirm payment';
+  String get signInToConfirmPayments => 'Sign in to confirm payments.';
+  String get chooseAWalletForConfirmation =>
+      'Choose a wallet for confirmation.';
+  String get unableToConfirmRemainingPayments =>
+      'Unable to confirm remaining past payments.';
+  String successfullyConfirmedPastPayments(int count) =>
+      'Successfully confirmed $count past payments.';
+  String get depositWithdrawWallet => 'Deposit/Withdraw Wallet';
+  String get importedPayment => 'Imported payment';
+  String get skipped => 'Skipped';
+  String get unableToSkipOccurrence => 'Unable to skip occurrence.';
+}
+
+/// Unsaved-changes navigation copy. English is the runtime fallback until
+/// the keys are promoted into generated ARB files.
+extension UnsavedChangesL10nX on AppLocalizations {
+  String get unsavedChanges => 'Unsaved changes';
+  String get leaveWithoutSavingChanges =>
+      'Leave without saving your changes?';
+  String get leave => 'Leave';
+  String get equal => 'Equal';
+  String get replaceReceiptPhoto => 'Replace receipt photo';
+  String expiresInDays(int count) => count == 1
+      ? 'Expires in 1 day'
+      : 'Expires in $count days';
+  String expiresInHours(int count) => count == 1
+      ? 'Expires in 1 hour'
+      : 'Expires in $count hours';
+  String expiredDaysAgo(int count) =>
+      count == 1 ? 'Expired 1 day ago' : 'Expired $count days ago';
+  String get noInternetWhilePayingWithApplePay =>
+      'No internet while paying with Apple Pay?';
+  String get applePayOfflineSyncDescription =>
+      'Don\'t worry. Moneko saves the transaction on your iPhone and automatically syncs it the next time you open the app with internet.';
+  String dayOfTotal(int current, int total) => 'Day $current of $total';
+}
+
+/// AI processing progress and status messages. English is the runtime
+/// fallback until the keys are promoted into generated ARB files.
+extension AiProgressL10nX on AppLocalizations {
+  String get aiProgressGettingThingsReady => 'Getting things ready...';
+  String get aiProgressReadingTheDetails => 'Reading the details...';
+  String get aiProgressLookingThroughReceipt =>
+      'Looking through your receipt...';
+  String get aiProgressReviewingTransactions => 'Reviewing transactions...';
+  String get aiProgressFinishingUp => 'Finishing up...';
+  String get aiProgressWorkingOnIt => 'Working on it...';
+  String get aiProcessingPdfDocument => 'Processing PDF document...';
+  String get aiReadingWhatYouTyped => 'Reading what you typed...';
+  String get aiLookingThroughYourImage => 'Looking through your image...';
+  String get aiListeningToYourRecording => 'Listening to your recording...';
+  String get aiProcessingFile => 'Processing file...';
+  String get aiProcessingLargeFile => 'Processing large file...';
+  String get aiExtractingTransactionsFromPdf =>
+      'Extracting transactions from PDF...';
+  String get aiFileTooLargeToAnalyze =>
+      'File is too large to analyze. Keep it under 20MB or split it into smaller files.';
+  String get whereDidYouHearAboutUs => 'Where did you hear about us?';
+  String get heardAboutSubtitle =>
+      'Pick the option that fits best. If it was somewhere else, choose Other.';
+  String get tellUsWhere => 'Tell us where';
+  String get importAndContinue => 'Import and continue';
+  String get areYouCurrentlyUsingOtherApp =>
+      'Are you currently using other app?';
+  String get pickYourSourceSubtitle =>
+      'Pick your source to see exactly which file to upload. We import into your personal account in the next step.';
+  String get friendOrFamily => 'Friend or family';
 }

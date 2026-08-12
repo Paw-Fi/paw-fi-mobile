@@ -448,13 +448,13 @@ class _HouseholdMembersSectionState
     final difference = date.difference(now);
 
     if (difference.inDays > 0) {
-      return 'Expires in ${difference.inDays} day${difference.inDays > 1 ? 's' : ''}';
+      return context.l10n.expiresInDays(difference.inDays);
     } else if (difference.inHours > 0) {
-      return 'Expires in ${difference.inHours} hour${difference.inHours > 1 ? 's' : ''}';
+      return context.l10n.expiresInHours(difference.inHours);
     } else if (difference.inDays < 0) {
-      return 'Expired ${difference.inDays.abs()} day${difference.inDays.abs() > 1 ? 's' : ''} ago';
+      return context.l10n.expiredDaysAgo(difference.inDays.abs());
     }
-    return 'Expires soon';
+    return context.l10n.expiresSoon;
   }
 
   // --- Actions ---

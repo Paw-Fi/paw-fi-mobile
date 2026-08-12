@@ -194,6 +194,31 @@ void main() {
     );
   });
 
+  test('series overlay replaces a confirmed current-month amount delta', () {
+    final notifier = RecurringSeriesOptimisticNotifier();
+    final base = [
+      RecurringSeriesSummary(
+        transaction: _transaction('Original'),
+        nextOccurrenceDate: DateTime(2026, 8, 15),
+        latestActionableOccurrenceDate: null,
+        currentMonthConfirmedAmountDeltaCents: -2000,
+      ),
+    ];
+
+    // An existing $80 confirmation for a $100 series has already contributed
+    // -$20. Editing it to $90 must add only +$10, not a second full delta.
+    notifier.upsert(
+      mutationId: 'edit-current-month-confirmation',
+      transaction: _transaction('Original'),
+      currentMonthConfirmedAmountDeltaCents: 1000,
+    );
+
+    expect(
+      notifier.apply(_scope, base).single.currentMonthConfirmedAmountDeltaCents,
+      -1000,
+    );
+  });
+
   test('older failed occurrence mutation cannot overwrite a newer state', () {
     final notifier = RecurringOccurrenceOptimisticNotifier();
     final first = notifier.upsert(

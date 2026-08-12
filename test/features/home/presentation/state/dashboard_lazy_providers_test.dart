@@ -798,7 +798,7 @@ void main() {
   });
 
   test(
-      'mounted calendar cache incorporates a later reconciled recurring occurrence without an explicit refresh',
+      'mounted calendar cache waits for the local delta instead of publishing a remote-only refresh',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
@@ -824,8 +824,7 @@ void main() {
       database,
       now: () => DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
     ).writeCalendar(query, cachedEntries);
-    final service = _FakeTransactionsFeedService()
-      ..allPagesCompleter = Completer<List<ExpenseEntry>>();
+    final service = _FakeTransactionsFeedService();
     final container = ProviderContainer(overrides: [
       authProvider.overrideWith(_TestAuth.new),
       localDatabaseProvider.overrideWith((ref) async => database),
@@ -840,6 +839,7 @@ void main() {
     );
     expect(
         initial.fold<int>(0, (sum, entry) => sum + entry.amountCents), 60655);
+    expect(service.lastAllPagesQuery, isNull);
 
     await database.upsertTransactions([
       _entry(
@@ -870,8 +870,6 @@ void main() {
     expect(afterDelete, isNotNull);
     expect(afterDelete!.fold<int>(0, (sum, entry) => sum + entry.amountCents),
         60655);
-
-    service.allPagesCompleter!.complete(cachedEntries);
   });
 
   test('owned MoM range paginates beyond the PostgREST max_rows cap', () async {

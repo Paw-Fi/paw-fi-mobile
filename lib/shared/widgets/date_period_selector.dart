@@ -52,6 +52,12 @@ class _DatePeriodSnapScrollPhysics extends ScrollPhysics {
     ScrollMetrics position,
     double velocity,
   ) {
+    if (!pageExtent.isFinite ||
+        pageExtent <= 0 ||
+        !position.pixels.isFinite ||
+        !position.maxScrollExtent.isFinite) {
+      return super.createBallisticSimulation(position, velocity);
+    }
     if ((velocity <= 0.0 && position.pixels <= position.minScrollExtent) ||
         (velocity >= 0.0 && position.pixels >= position.maxScrollExtent)) {
       return super.createBallisticSimulation(position, velocity);
@@ -70,10 +76,13 @@ class _DatePeriodSnapScrollPhysics extends ScrollPhysics {
         : ((endPixels - pageAnchorOffset) / pageExtent).roundToDouble();
     final targetPixels = pageAnchorOffset + pageNumber * pageExtent;
 
-    final clampedTarget = targetPixels.clamp(
-      minimumScrollOffset,
-      position.maxScrollExtent,
-    );
+    final lowerBound = minimumScrollOffset < position.maxScrollExtent
+        ? minimumScrollOffset
+        : position.maxScrollExtent;
+    final upperBound = minimumScrollOffset > position.maxScrollExtent
+        ? minimumScrollOffset
+        : position.maxScrollExtent;
+    final clampedTarget = targetPixels.clamp(lowerBound, upperBound);
 
     if ((clampedTarget - position.pixels).abs() < tolerance.distance &&
         velocity.abs() < tolerance.velocity) {

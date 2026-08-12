@@ -543,7 +543,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                     final confirmedDateText = timelineItem
                                                 ?.isImported ==
                                             true
-                                        ? 'Imported payment'
+                                        ? context.l10n.importedPayment
                                         : (paidDate != null &&
                                                 formatDateOnlyYmd(paidDate) !=
                                                     dateString)
@@ -609,7 +609,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                       AppToast.error(
                                         context,
                                         success.error ??
-                                            'Unable to skip occurrence.',
+                                            context.l10n.unableToSkipOccurrence,
                                       );
                                     }
 
@@ -883,7 +883,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                         ],
                                                       )
                                                     else if (isSkipped)
-                                                      Text('Skipped',
+                                                      Text(context.l10n.skipped,
                                                           style: TextStyle(
                                                               fontSize: 12,
                                                               color: colorScheme

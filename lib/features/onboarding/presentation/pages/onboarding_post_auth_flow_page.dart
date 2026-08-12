@@ -160,6 +160,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final loggedExpensePreview =
         useState<OnboardingLoggedExpensePreview?>(null);
     final isPrimaryBusy = useState(false);
+    final hasShownLoggedExpenseResult = useRef(false);
 
     useEffect(() {
       unawaited(
@@ -241,7 +242,20 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> showLoggedExpenseResult(
+      OnboardingLoggedExpensePreview preview,
+    ) async {
+      if (hasShownLoggedExpenseResult.value || !context.mounted) return;
+      hasShownLoggedExpenseResult.value = true;
+      loggedExpensePreview.value = preview;
+      ref.read(onboardingPostAuthLogExpenseSuccessProvider.notifier).state =
+          null;
+      await _showLoggedExpenseResultSheet(context, preview);
+    }
+
     Future<void> handleLogExpense() async {
+      ref.read(onboardingPostAuthLogExpenseSuccessProvider.notifier).state =
+          (preview) => unawaited(showLoggedExpenseResult(preview));
       final preview =
           await ref.read(onboardingPostAuthLogExpenseActionProvider)(
         context,
@@ -250,8 +264,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       );
       if (!context.mounted) return;
       if (preview != null) {
-        loggedExpensePreview.value = preview;
-        await _showLoggedExpenseResultSheet(context, preview);
+        await showLoggedExpenseResult(preview);
         return;
       }
     }

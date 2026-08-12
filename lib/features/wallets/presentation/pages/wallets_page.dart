@@ -429,10 +429,12 @@ class AccountsPage extends HookConsumerWidget {
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
           excludeFromAnalytics: result.excludeFromAnalytics,
+          onLocallyPersisted: () {
+            if (context.mounted) {
+              AppToast.success(context, context.l10n.walletCreatedSuccessfully);
+            }
+          },
         );
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.save);
-        }
       } catch (error) {
         if (context.mounted) {
           if (ErrorHandler.isPlusFeatureLimitError(error)) {
@@ -551,6 +553,15 @@ class AccountsPage extends HookConsumerWidget {
                         rates: CurrencyRates.rates,
                         isStale: true,
                       );
+              final currentMonthKey = _normalizeWalletMonth(
+                scopeQuery.currentMonthStart,
+                financialMonthStartDay: scopeQuery.financialMonthStartDay,
+              );
+              final currentWalletBalances = isPreviewMode
+                  ? const <String, int>{}
+                  : walletsPageState?.cachedSnapshotsByMonth[currentMonthKey]
+                          ?.walletBalances ??
+                      const <String, int>{};
               _AccountsSnapshot accountsSnapshotForMonth(
                 WalletsMonthSnapshot snapshot,
               ) {
@@ -709,6 +720,9 @@ class AccountsPage extends HookConsumerWidget {
                           child: _WalletAccountStack(
                             wallets: wallets,
                             isPreviewMode: isPreviewMode,
+                            walletBalances: currentWalletBalances,
+                            displayCurrency: selectedCurrencyCode,
+                            rates: currencyRates,
                           ),
                         ),
                       ),
@@ -1081,10 +1095,16 @@ class _WalletsOverviewCard extends HookConsumerWidget {
 class _WalletAccountStack extends HookConsumerWidget {
   final List<WalletEntity> wallets;
   final bool isPreviewMode;
+  final Map<String, int> walletBalances;
+  final String displayCurrency;
+  final CurrencyRateTable rates;
 
   const _WalletAccountStack({
     required this.wallets,
     required this.isPreviewMode,
+    required this.walletBalances,
+    required this.displayCurrency,
+    required this.rates,
   });
 
   @override
@@ -1127,7 +1147,17 @@ class _WalletAccountStack extends HookConsumerWidget {
     }, [wallets, isPreviewMode]);
 
     final orderedAccounts = orderedAccountsState.value;
-    final selectedId = selectedAccountIdState.value;
+    final requestedSelectedId = selectedAccountIdState.value;
+    // Server reconciliation replaces a newly created optimistic ID with its
+    // canonical ID. Keep one card expanded during that identity swap instead
+    // of rendering a transient all-collapsed stack.
+    final selectedId = orderedAccounts.any(
+      (wallet) => wallet.id == requestedSelectedId,
+    )
+        ? requestedSelectedId
+        : orderedAccounts.isEmpty
+            ? null
+            : orderedAccounts.last.id;
 
     const tightSpacing = 70.0;
     const expandedCardHeight = 240.0;
@@ -1239,7 +1269,14 @@ class _WalletAccountStack extends HookConsumerWidget {
                 child: WalletStackCard(
                   wallet: wallet,
                   currencyCode: wallet.currency,
-                  displayBalanceCents: wallet.currentBalanceCents,
+                  displayBalanceCents: walletBalances[wallet.id] == null
+                      ? wallet.currentBalanceCents
+                      : _convertWalletCents(
+                          walletBalances[wallet.id]!,
+                          fromCurrency: displayCurrency,
+                          targetCurrency: wallet.currency,
+                          rates: rates,
+                        ),
                   isExpanded: isExpanded,
                   headerAction: isExpanded && shouldShowExpandedCurrencyFlag
                       ? _WalletCurrencyFlagBadge(currencyCode: wallet.currency)
@@ -1504,12 +1541,13 @@ _AccountsSnapshot _accountsSnapshotFromCurrentWalletBalances(
 }) {
   final walletBalances = <String, int>{
     for (final wallet in wallets)
-      wallet.id: _convertWalletCents(
-        wallet.currentBalanceCents,
-        fromCurrency: wallet.currency,
-        targetCurrency: targetCurrency,
-        rates: rates,
-      ),
+      wallet.id: snapshot.walletBalances[wallet.id] ??
+          _convertWalletCents(
+            wallet.currentBalanceCents,
+            fromCurrency: wallet.currency,
+            targetCurrency: targetCurrency,
+            rates: rates,
+          ),
   };
   var netWorthCents = 0;
   final excludedWalletIds = wallets

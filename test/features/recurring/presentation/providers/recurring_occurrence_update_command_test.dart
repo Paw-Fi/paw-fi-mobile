@@ -58,6 +58,26 @@ void main() {
     expect(command.toRequestBody(), isNot(contains('accountId')));
   });
 
+  test('builds the one-off override payload without changing confirmation', () {
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user-id',
+      recurringTransaction: recurringTransaction.copyWith(type: 'income'),
+      scheduledOccurrenceDate: DateTime(2026, 7, 1),
+      paidDate: DateTime(2026, 7, 2),
+      amountCents: 12550,
+      accountId: 'account-id',
+      functionName: 'save-recurring-occurrence-override',
+      category: 'income:salary',
+      currency: 'USD',
+      source: 'Employer',
+    );
+
+    expect(command.functionName, 'save-recurring-occurrence-override');
+    expect(command.toRequestBody(), containsPair('category', 'income:salary'));
+    expect(command.toRequestBody(), containsPair('currency', 'USD'));
+    expect(command.toRequestBody(), containsPair('source', 'Employer'));
+  });
+
   test('sends only notes for a settlement-locked occurrence', () {
     final command = RecurringOccurrenceUpdateCommand(
       userId: 'user-id',

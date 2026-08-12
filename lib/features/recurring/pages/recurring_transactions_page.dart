@@ -685,10 +685,8 @@ class _RecurringTransactionsPageState
     final label =
         isIncome ? context.l10n.monthlyIncome : context.l10n.monthlyCommitment;
     final subtext = isIncome
-        ? (activeCount == 1
-            ? '1 active paycheck'
-            : '$activeCount active paychecks')
-        : (activeCount == 1 ? '1 active bill' : '$activeCount active bills');
+        ? context.l10n.activePaycheckCount(activeCount)
+        : context.l10n.activeBillCount(activeCount);
 
     final isDark = colorScheme.brightness == Brightness.dark;
 

@@ -473,11 +473,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Future<void> _refreshActiveFeed() async {
+    if (!mounted) return;
     final query = _activeFeedQuery;
     if (query == null) {
       return;
     }
     await ref.read(transactionsFeedProvider(query).notifier).refresh();
+    if (!mounted) return;
     ref.invalidate(transactionsFeedAllItemsProvider(query));
   }
 

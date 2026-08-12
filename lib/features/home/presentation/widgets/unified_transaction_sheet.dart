@@ -76,7 +76,6 @@ import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-const String _replaceReceiptPhotoTooltip = 'Replace receipt photo';
 
 /// Format date with relative terms
 String _formatRelativeDate(
@@ -565,9 +564,9 @@ class _UnifiedTransactionSheetV2State
 
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: 'Unsaved changes',
-      description: 'Leave without saving your changes?',
-      confirmLabel: 'Leave',
+      title: context.l10n.unsavedChanges,
+      description: context.l10n.leaveWithoutSavingChanges,
+      confirmLabel: context.l10n.leave,
       cancelLabel: context.l10n.cancel,
       isDestructive: true,
     );
@@ -4769,7 +4768,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
         actions: [
           if (widget.onReplacePhoto != null)
             Tooltip(
-              message: _replaceReceiptPhotoTooltip,
+              message: context.l10n.replaceReceiptPhoto,
               child: TextButton.icon(
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.foreground,

@@ -1675,30 +1675,13 @@ final dashboardCalendarTransactionsProvider =
     }
 
     if (cached != null) {
-      if (!coordinator.isFresh(generation)) {
-        unawaited(() async {
-          try {
-            final result = await loadFresh();
-            if (!disposed &&
-                _dashboardRequestUserIsCurrent(ref, query.userId) &&
-                result.persisted) {
-              ref.invalidateSelf();
-            }
-          } catch (error) {
-            if (!disposed) {
-              ref
-                  .read(dashboardRefreshMetadataProvider(cacheKey).notifier)
-                  .state = DashboardRefreshMetadata(
-                isFromCache: true,
-                error: error,
-              );
-            }
-          }
-        }());
-      }
+      // The startup delta writes canonical rows to SQLite and emits the two
+      // refresh signals this provider watches. Do not publish a parallel
+      // remote-only response over an already-complete local snapshot: that
+      // response can briefly omit a reconciled recurring occurrence before
+      // the delta arrives, causing dashboard totals to regress and recover.
       ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
           DashboardRefreshMetadata(
-        isRefreshing: !coordinator.isFresh(generation),
         isFromCache: true,
         lastRefreshedAt: cached.cachedAt,
       );
