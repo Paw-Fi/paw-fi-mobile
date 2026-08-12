@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -170,6 +171,8 @@ class GroupedTransactionsList extends StatelessWidget {
 
   /// Called when a transaction is long-pressed
   final OnTransactionTap? onTransactionLongPress;
+  final OnTransactionTap? onTransactionDelete;
+  final bool Function(ExpenseEntry expense)? canDeleteTransaction;
 
   /// Background color for the card container (defaults to theme card color)
   final Color? cardColor;
@@ -204,6 +207,8 @@ class GroupedTransactionsList extends StatelessWidget {
     this.preferredTimezone,
     this.onTransactionTap,
     this.onTransactionLongPress,
+    this.onTransactionDelete,
+    this.canDeleteTransaction,
     this.cardColor,
     this.padding = EdgeInsets.zero,
     this.emptyStateWidget,
@@ -442,7 +447,7 @@ class GroupedTransactionsList extends StatelessWidget {
 
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
 
-    return Container(
+    final card = Container(
       margin: EdgeInsets.fromLTRB(0, 0, 0, isLast ? 16 : 0),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
@@ -503,6 +508,28 @@ class GroupedTransactionsList extends StatelessWidget {
         ),
       ),
     );
+    final canDelete = onTransactionDelete != null &&
+        (canDeleteTransaction?.call(expense) ?? true);
+    if (!canDelete) return card;
+
+    return Slidable(
+      key: ValueKey('transaction-delete-${expense.id}'),
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (_) => onTransactionDelete!(expense),
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+            icon: Icons.delete,
+            spacing: 2,
+            borderRadius: BorderRadius.zero,
+          ),
+        ],
+      ),
+      child: card,
+    );
   }
 }
 
@@ -516,6 +543,8 @@ class SliverGroupedTransactionsList extends StatelessWidget {
     this.preferredTimezone,
     this.onTransactionTap,
     this.onTransactionLongPress,
+    this.onTransactionDelete,
+    this.canDeleteTransaction,
     this.cardColor,
     this.backgroundColor,
     this.emptyStateWidget,
@@ -534,6 +563,8 @@ class SliverGroupedTransactionsList extends StatelessWidget {
   final String? preferredTimezone;
   final OnTransactionTap? onTransactionTap;
   final OnTransactionTap? onTransactionLongPress;
+  final OnTransactionTap? onTransactionDelete;
+  final bool Function(ExpenseEntry expense)? canDeleteTransaction;
   final Color? cardColor;
   final Color? backgroundColor;
   final Widget? emptyStateWidget;
@@ -794,7 +825,7 @@ class SliverGroupedTransactionsList extends StatelessWidget {
 
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
 
-    return Container(
+    final card = Container(
       key: key,
       margin: EdgeInsets.fromLTRB(
         horizontalPadding,
@@ -859,6 +890,28 @@ class SliverGroupedTransactionsList extends StatelessWidget {
           ),
         ),
       ),
+    );
+    final canDelete = onTransactionDelete != null &&
+        (canDeleteTransaction?.call(expense) ?? true);
+    if (!canDelete) return card;
+
+    return Slidable(
+      key: ValueKey('transaction-delete-${expense.id}'),
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (_) => onTransactionDelete!(expense),
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+            icon: Icons.delete,
+            spacing: 2,
+            borderRadius: BorderRadius.zero,
+          ),
+        ],
+      ),
+      child: card,
     );
   }
 }

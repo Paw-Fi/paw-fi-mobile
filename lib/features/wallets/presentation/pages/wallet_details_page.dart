@@ -18,9 +18,11 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_account.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
@@ -30,6 +32,7 @@ import 'package:moneko/features/home/presentation/state/bank_connections_provide
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -694,15 +697,102 @@ class WalletDetailsPage extends HookConsumerWidget {
     }
 
     Future<void> handleTransactionTap(ExpenseEntry expense) async {
+      var didUpdateTransfer = false;
       final didChange = await showTransactionDetailsSheet(
         context,
         expense: expense,
         recurringTransactionsById: recurringTransactionsById,
         transferWallets: currencyScopedAccounts,
+        onTransferUpdated: (transfer) {
+          didUpdateTransfer = true;
+          final entries = buildWalletTransferFeedEntriesForTransfer(
+            transfer: transfer,
+            fallbackUserId: currentUserId,
+            fromWallet: currencyScopedAccounts
+                .where((wallet) => wallet.id == transfer.fromAccountId)
+                .firstOrNull,
+            toWallet: currencyScopedAccounts
+                .where((wallet) => wallet.id == transfer.toAccountId)
+                .firstOrNull,
+            householdId: effectiveHouseholdId,
+          );
+          ref
+              .read(transactionsFeedProvider(walletFeedQuery).notifier)
+              .applyOptimisticEntries(entries);
+          ref
+              .read(transactionsFeedProvider(monthFeedQuery).notifier)
+              .applyOptimisticEntries(entries);
+        },
+        onTransferDeleted: (transfer) {
+          didUpdateTransfer = true;
+          final ids = walletTransferFeedEntryIds(transfer.id);
+          ref
+              .read(transactionsFeedProvider(walletFeedQuery).notifier)
+              .replaceEntries(removedIds: ids, entries: const []);
+          ref
+              .read(transactionsFeedProvider(monthFeedQuery).notifier)
+              .replaceEntries(removedIds: ids, entries: const []);
+        },
       );
-      if (didChange == true) {
+      if (didChange == true && !didUpdateTransfer) {
         await refreshWalletDetails();
       }
+    }
+
+    Future<void> handleTransactionDelete(ExpenseEntry expense) async {
+      WalletTransfer? transfer;
+      if (isWalletTransferExpenseEntry(expense)) {
+        transfer = await loadWalletTransferForExpense(context, expense.id);
+        if (!context.mounted) return;
+        if (transfer == null) {
+          AppToast.error(context, context.l10n.failedToLoad);
+          return;
+        }
+      }
+      final confirmation = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.delete,
+        description: context.l10n.confirmDeleteExpense,
+        confirmLabel: context.l10n.delete,
+        isDestructive: true,
+      );
+      if (confirmation?.confirmed != true) return;
+      if (!context.mounted) return;
+
+      AppToast.success(context, context.l10n.transactionDeleted);
+      if (transfer != null) {
+        try {
+          await actions.deleteTransfer(transfer);
+          if (!context.mounted) return;
+          final ids = walletTransferFeedEntryIds(transfer.id);
+          ref
+              .read(transactionsFeedProvider(walletFeedQuery).notifier)
+              .replaceEntries(removedIds: ids, entries: const []);
+          ref
+              .read(transactionsFeedProvider(monthFeedQuery).notifier)
+              .replaceEntries(removedIds: ids, entries: const []);
+        } catch (error) {
+          if (context.mounted) {
+            AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+          }
+        }
+        return;
+      }
+      final deleted = await ref
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically([expense]);
+      if (!context.mounted) return;
+      if (!deleted) {
+        AppToast.error(
+          context,
+          ErrorHandler.getUserFriendlyMessage(
+            ref.read(transactionEditProvider).error,
+            context: BackendErrorContext.deleteExpense,
+          ),
+        );
+        return;
+      }
+      await refreshWalletDetails();
     }
 
     Future<void> onEdit() async {
@@ -877,9 +967,18 @@ class WalletDetailsPage extends HookConsumerWidget {
       }
       final completion = operation?.completion;
       if (completion == null) return;
-      unawaited(completion.then((error) {
-        if (error != null && context.mounted) {
-          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      final optimisticIds = operation!.entries.map((entry) => entry.id).toSet();
+      unawaited(completion.then((result) {
+        if (!context.mounted) return;
+        if (result is List<ExpenseEntry>) {
+          ref
+              .read(transactionsFeedProvider(walletFeedQuery).notifier)
+              .replaceEntries(removedIds: optimisticIds, entries: result);
+          ref
+              .read(transactionsFeedProvider(monthFeedQuery).notifier)
+              .replaceEntries(removedIds: optimisticIds, entries: result);
+        } else if (result != null) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(result));
         }
       }));
     }
@@ -1262,6 +1361,16 @@ class WalletDetailsPage extends HookConsumerWidget {
                         visibleTransactionsById[expense.id] ?? expense,
                       ));
                     },
+                    onTransactionDelete: (expense) => unawaited(
+                      handleTransactionDelete(
+                        visibleTransactionsById[expense.id] ?? expense,
+                      ),
+                    ),
+                    canDeleteTransaction: (expense) =>
+                        extractRecurringTransactionIdFromProjectedExpenseId(
+                          expense.id,
+                        ) ==
+                        null,
                   ),
                 SliverToBoxAdapter(
                   child: ColoredBox(

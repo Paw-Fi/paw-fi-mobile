@@ -26,6 +26,28 @@ List<ExpenseEntry> buildWalletTransferFeedEntries({
   final householdId = _trimmedOrNull(transferJson['household_id']) ??
       fromWallet?.householdId ??
       toWallet?.householdId;
+  return buildWalletTransferFeedEntriesForTransfer(
+    transfer: transfer,
+    fallbackUserId: createdByUserId,
+    fromWallet: fromWallet,
+    toWallet: toWallet,
+    householdId: householdId,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
+}
+
+List<ExpenseEntry> buildWalletTransferFeedEntriesForTransfer({
+  required WalletTransfer transfer,
+  required String fallbackUserId,
+  WalletEntity? fromWallet,
+  WalletEntity? toWallet,
+  String? householdId,
+  DateTime? createdAt,
+  DateTime? updatedAt,
+}) {
+  final resolvedHouseholdId =
+      householdId ?? fromWallet?.householdId ?? toWallet?.householdId;
   final note = _trimmedOrNull(transfer.note);
 
   ExpenseEntry buildEntry({
@@ -36,13 +58,13 @@ List<ExpenseEntry> buildWalletTransferFeedEntries({
   }) {
     return ExpenseEntry(
       id: 'transfer:${transfer.id}:$direction',
-      userId: createdByUserId,
-      householdId: householdId,
+      userId: fallbackUserId,
+      householdId: resolvedHouseholdId,
       date: transfer.date,
       amountCents: transfer.amountCents.abs(),
       currency: transfer.currency.trim().toUpperCase(),
       category: 'transfers',
-      createdAt: createdAt,
+      createdAt: createdAt ?? DateTime.now().toUtc(),
       updatedAt: updatedAt,
       rawText: note ?? (direction == 'in' ? 'Transfer in' : 'Transfer out'),
       walletId: walletId,

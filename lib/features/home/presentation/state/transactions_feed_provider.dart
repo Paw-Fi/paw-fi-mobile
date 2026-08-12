@@ -1407,6 +1407,22 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     );
   }
 
+  /// Atomically replaces stale optimistic rows with their canonical rows.
+  void replaceEntries({
+    required Iterable<String> removedIds,
+    required Iterable<ExpenseEntry> entries,
+  }) {
+    final ids = removedIds.where((id) => id.isNotEmpty).toSet();
+    final matchingEntries = entries.where(_entryMatchesQuery).toList();
+    state = state.copyWith(
+      items: _uniqueSortedTransactions([
+        ...state.items.where((entry) => !ids.contains(entry.id)),
+        ...matchingEntries,
+      ]),
+      clearError: true,
+    );
+  }
+
   bool _entryMatchesQuery(ExpenseEntry entry) {
     final userId = entry.userId?.trim();
     if (userId == null || userId.isEmpty || userId != _query.userId) {

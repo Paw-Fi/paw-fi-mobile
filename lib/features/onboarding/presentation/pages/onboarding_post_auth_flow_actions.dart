@@ -116,12 +116,14 @@ Future<OnboardingLoggedExpensePreview?> _defaultLogExpenseAction(
       context,
       ref,
       onSuccess: captureSuccess,
+      isOnboarding: true,
     );
   } else {
     await handleAiFreeFormText(
       context,
       ref,
       onSuccess: captureSuccess,
+      isOnboarding: true,
     );
   }
 

@@ -1014,6 +1014,7 @@ Future<void> _persistAiTransactions(
   required String? accountId,
   String? accountCurrency,
   String? localImagePath,
+  bool requestReview = true,
 }) async {
   if (transactions.isEmpty) return;
 
@@ -1657,7 +1658,7 @@ Future<void> _persistAiTransactions(
           );
     }
 
-    if (savedExpenseCount > 0) {
+    if (requestReview && savedExpenseCount > 0) {
       final prefs = container.read(sharedPreferencesProvider);
       unawaited(Future<void>.delayed(
         const Duration(milliseconds: 300),
@@ -1765,7 +1766,7 @@ Future<void> _persistAiTransactions(
             );
       }
 
-      if (savedExpenseCount > 0) {
+      if (requestReview && savedExpenseCount > 0) {
         final prefs = container.read(sharedPreferencesProvider);
         unawaited(Future<void>.delayed(
           const Duration(milliseconds: 300),
@@ -2101,6 +2102,7 @@ Future<void> handleAiCameraCapture(
   WidgetRef ref, {
   AiInputTarget? inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
+  bool isOnboarding = false,
 }) async {
   _debugPrint('🎥 Starting camera capture...');
 
@@ -2125,6 +2127,7 @@ Future<void> handleAiCameraCapture(
           imagePath: captured.imagePath,
           inputTarget: captured.target,
           onSuccess: onSuccess,
+          isOnboarding: isOnboarding,
         );
       }
     } else {
@@ -2302,6 +2305,7 @@ Future<void> handleAiFreeFormText(
   BuildContext context,
   WidgetRef ref, {
   void Function(AiLogSuccess success)? onSuccess,
+  bool isOnboarding = false,
 }) async {
   await showTextInputDrawer(
     context,
@@ -2313,6 +2317,7 @@ Future<void> handleAiFreeFormText(
         text: text,
         inputTarget: target,
         onSuccess: onSuccess,
+        isOnboarding: isOnboarding,
       );
     },
     onSubmitAudio: (audioBytes, contentType, target) async {
@@ -2324,6 +2329,7 @@ Future<void> handleAiFreeFormText(
         audioContentType: contentType,
         inputTarget: target,
         onSuccess: onSuccess,
+        isOnboarding: isOnboarding,
       );
     },
   );
@@ -2557,6 +2563,7 @@ Future<void> _processExpense(
   String? audioContentType,
   required AiInputTarget inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
+  bool isOnboarding = false,
 }) async {
   final user = ref.read(authProvider);
   final preview = ref.read(previewModeProvider);
@@ -2755,8 +2762,8 @@ Future<void> _processExpense(
 
     // Update dialog for PDFs
     if (dialogController != null && isPdfUpload) {
-      dialogController.updateSubMessage(
-          context.l10n.aiExtractingTransactionsFromPdf);
+      dialogController
+          .updateSubMessage(context.l10n.aiExtractingTransactionsFromPdf);
     }
 
     // Check if user cancelled before making request
@@ -2806,8 +2813,8 @@ Future<void> _processExpense(
     if (responseData == null) {
       // Update dialog for PDFs
       if (dialogController != null && isPdfUpload) {
-        dialogController.updateSubMessage(
-            context.l10n.aiExtractingTransactionsFromPdf);
+        dialogController
+            .updateSubMessage(context.l10n.aiExtractingTransactionsFromPdf);
       }
 
       // Explicitly pass JWT so the Edge Function can enrich household context
@@ -3122,7 +3129,7 @@ Future<void> _processExpense(
 
           final expenseCount =
               parsed.where((entry) => !entry.transaction.isIncome).length;
-          if (context.mounted && expenseCount > 0) {
+          if (!isOnboarding && context.mounted && expenseCount > 0) {
             unawaited(_maybeShowUnsetHoldQuickActionReminder(
               context,
               ref,
@@ -3141,6 +3148,7 @@ Future<void> _processExpense(
                 accountId: scopedDefaultAccountId,
                 accountCurrency: inputTarget.accountCurrency,
                 localImagePath: imagePath,
+                requestReview: !isOnboarding,
               ),
             );
           }

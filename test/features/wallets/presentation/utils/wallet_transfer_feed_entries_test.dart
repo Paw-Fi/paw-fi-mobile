@@ -4,9 +4,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 
 void main() {
+  test('rebuilds existing synthetic transfer rows with the edited values', () {
+    const fromWallet = WalletEntity(
+      id: 'from-wallet',
+      userId: 'user-1',
+      householdId: null,
+      name: 'Checking',
+      icon: 'wallet',
+      color: '#112233',
+      currency: 'USD',
+      openingBalanceCents: 10000,
+      goalAmountCents: null,
+      isDefault: true,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 7500,
+    );
+    const toWallet = WalletEntity(
+      id: 'to-wallet',
+      userId: 'user-1',
+      householdId: null,
+      name: 'Savings',
+      icon: 'savings',
+      color: '#445566',
+      currency: 'USD',
+      openingBalanceCents: 0,
+      goalAmountCents: null,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 2500,
+    );
+
+    final rows = buildWalletTransferFeedEntriesForTransfer(
+      transfer: WalletTransfer(
+        id: 'transfer-1',
+        fromAccountId: fromWallet.id,
+        toAccountId: toWallet.id,
+        amountCents: 3000,
+        currency: 'USD',
+        date: DateTime(2026, 8, 12),
+        note: 'Updated note',
+      ),
+      fallbackUserId: 'user-1',
+      fromWallet: fromWallet,
+      toWallet: toWallet,
+    );
+
+    expect(rows.map((row) => row.id), [
+      'transfer:transfer-1:out',
+      'transfer:transfer-1:in',
+    ]);
+    expect(rows.map((row) => row.amountCents), [3000, 3000]);
+    expect(rows.map((row) => row.rawText), ['Updated note', 'Updated note']);
+  });
+
   test('builds wallet-bound outgoing and incoming transfer feed rows',
       () async {
     const fromWallet = WalletEntity(

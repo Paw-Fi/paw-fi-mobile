@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -91,6 +92,38 @@ void main() {
     );
 
     expect(find.text('Pending'), findsOneWidget);
+  });
+
+  testWidgets('supports the shared left-swipe delete action for actual rows',
+      (tester) async {
+    final entry = _entry(id: 'deletable-tx', amountCents: 500, currency: 'USD');
+    var deletedId = '';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                SliverGroupedTransactionsList(
+                  items: buildGroupedTransactionRenderItems([entry]),
+                  currency: 'USD',
+                  onTransactionDelete: (expense) => deletedId = expense.id,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(Slidable), findsOneWidget);
+    await tester.drag(find.byType(Slidable), const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete));
+    expect(deletedId, entry.id);
   });
 
   testWidgets('shows pending tag alongside a custom subtitle', (tester) async {

@@ -6,7 +6,8 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
-import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_details_sheet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 
 Future<bool?> showTransactionDetailsSheet(
   BuildContext context, {
@@ -14,6 +15,8 @@ Future<bool?> showTransactionDetailsSheet(
   required Map<String, RecurringTransaction> recurringTransactionsById,
   UserContact? contact,
   List<WalletEntity> transferWallets = const <WalletEntity>[],
+  ValueChanged<WalletTransfer>? onTransferUpdated,
+  ValueChanged<WalletTransfer>? onTransferDeleted,
 }) async {
   final recurringId =
       extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
@@ -29,10 +32,12 @@ Future<bool?> showTransactionDetailsSheet(
   }
 
   if (isWalletTransferExpenseEntry(expense)) {
-    return showWalletTransferDetailsSheet(
+    return showWalletTransferEditorForExpense(
       context,
       transferExpense: expense,
       wallets: transferWallets,
+      onUpdated: onTransferUpdated,
+      onDeleted: onTransferDeleted,
     );
   }
 

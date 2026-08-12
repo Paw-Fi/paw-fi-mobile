@@ -1103,7 +1103,7 @@ class WalletActions {
         entries: optimisticEntries,
         completion: Future<Object?>(() async {
           try {
-            await _completeOptimisticTransfer(
+            return await _completeOptimisticTransfer(
               localDatabase: localDatabase,
               authHeaders: authHeaders,
               requestBody: requestBody,
@@ -1112,7 +1112,6 @@ class WalletActions {
               fromWallet: fromWallet,
               toWallet: toWallet,
             );
-            return null;
           } catch (error) {
             return error;
           }
@@ -1125,7 +1124,7 @@ class WalletActions {
     }
   }
 
-  Future<void> _completeOptimisticTransfer({
+  Future<List<ExpenseEntry>?> _completeOptimisticTransfer({
     required MonekoDatabase localDatabase,
     required Map<String, String> authHeaders,
     required Map<String, dynamic> requestBody,
@@ -1160,10 +1159,11 @@ class WalletActions {
         clientMutationId: clientMutationId,
       );
       _invalidateAll();
+      return savedEntries;
     } catch (error) {
       if (_shouldKeepQueuedLocalMutation(error)) {
         _invalidateAll();
-        return;
+        return null;
       }
       await localDatabase.rollbackOptimisticWalletTransfer(
         optimisticIds: optimisticEntries.map((entry) => entry.id),

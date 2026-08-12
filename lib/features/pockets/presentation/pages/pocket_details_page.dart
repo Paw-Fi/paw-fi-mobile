@@ -11,6 +11,7 @@ import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -19,6 +20,9 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 
@@ -29,6 +33,10 @@ import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelop
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -48,6 +56,8 @@ class PocketDetailsPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final scrollController = useScrollController();
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
+    final List<WalletEntity> scopedWallets =
+        ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
     final recurringScopeHouseholdId =
         scopeParams.scope == PocketsScopeType.personal
             ? null
@@ -334,10 +344,65 @@ class PocketDetailsPage extends HookConsumerWidget {
         context,
         expense: expense,
         recurringTransactionsById: effectiveRecurringTransactionsById,
+        transferWallets: scopedWallets,
       );
       if (didChange == true) {
         await refreshPocketDetails(linkedCategories);
       }
+    }
+
+    Future<void> handleTransactionDelete(
+      ExpenseEntry expense,
+      List<String> linkedCategories,
+    ) async {
+      WalletTransfer? transfer;
+      if (isWalletTransferExpenseEntry(expense)) {
+        transfer = await loadWalletTransferForExpense(context, expense.id);
+        if (!context.mounted) return;
+        if (transfer == null) {
+          AppToast.error(context, context.l10n.failedToLoad);
+          return;
+        }
+      }
+      final confirmation = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.delete,
+        description: context.l10n.confirmDeleteExpense,
+        confirmLabel: context.l10n.delete,
+        isDestructive: true,
+      );
+      if (confirmation?.confirmed != true) return;
+      if (!context.mounted) return;
+
+      AppToast.success(context, context.l10n.transactionDeleted);
+      if (transfer != null) {
+        try {
+          await ref.read(walletActionsProvider).deleteTransfer(transfer);
+          if (context.mounted) {
+            await refreshPocketDetails(linkedCategories);
+          }
+        } catch (error) {
+          if (context.mounted) {
+            AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+          }
+        }
+        return;
+      }
+      final deleted = await ref
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically([expense]);
+      if (!context.mounted) return;
+      if (!deleted) {
+        AppToast.error(
+          context,
+          ErrorHandler.getUserFriendlyMessage(
+            ref.read(transactionEditProvider).error,
+            context: BackendErrorContext.deleteExpense,
+          ),
+        );
+        return;
+      }
+      await refreshPocketDetails(linkedCategories);
     }
 
     // Calculate unallocated budget for the edit sheet based on the effective
@@ -729,6 +794,17 @@ class PocketDetailsPage extends HookConsumerWidget {
                           ),
                         );
                       },
+                      onTransactionDelete: (expense) => unawaited(
+                        handleTransactionDelete(
+                          visibleTransactionsById[expense.id] ?? expense,
+                          detailsData!.linkedCategories,
+                        ),
+                      ),
+                      canDeleteTransaction: (expense) =>
+                          extractRecurringTransactionIdFromProjectedExpenseId(
+                            expense.id,
+                          ) ==
+                          null,
                     ),
                   SliverToBoxAdapter(
                     child: ColoredBox(
