@@ -134,6 +134,46 @@ class DeepLinks {
     return false;
   }
 
+  /// Validates HTTPS review links and the web fallback's custom app link.
+  static bool isImportReview(Uri uri) {
+    final isHttpsReview = uri.scheme == 'https' &&
+        (uri.host == 'moneko.io' || uri.host == 'www.moneko.io') &&
+        uri.pathSegments.length == 2 &&
+        uri.pathSegments.first == 'import-review';
+    final isCustomReview = uri.scheme == appScheme &&
+        uri.host == 'import-review' &&
+        uri.pathSegments.length == 1;
+    if (!isHttpsReview && !isCustomReview) {
+      return false;
+    }
+    final reviewId =
+        isCustomReview ? uri.pathSegments.first : uri.pathSegments[1];
+    return isValidImportReviewId(reviewId) &&
+        isValidImportReviewSecret(uri.fragment);
+  }
+
+  static bool isValidImportReviewId(String value) =>
+      _uuidPattern.hasMatch(value);
+
+  static bool isValidImportReviewSecret(String value) =>
+      _reviewTokenPattern.hasMatch(value);
+
+  static String? importReviewId(Uri uri) {
+    if (!isImportReview(uri)) return null;
+    return uri.scheme == appScheme
+        ? uri.pathSegments.first
+        : uri.pathSegments[1];
+  }
+
+  static String? importReviewSecret(Uri uri) =>
+      isImportReview(uri) ? uri.fragment : null;
+
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    caseSensitive: false,
+  );
+  static final RegExp _reviewTokenPattern = RegExp(r'^[A-Za-z0-9_-]{43}$');
+
   /// Check if a URI is an expense deep link
   /// Format: moneko://expense/{expense_id}
   static bool isExpenseLink(Uri uri) {

@@ -28,6 +28,14 @@ extension HomeDashboardL10nX on AppLocalizations {
   String get netCashflow => 'Net cashflow';
 }
 
+extension ImportReviewL10nX on AppLocalizations {
+  String get importReviewCompleteTitle => 'Import complete';
+  String get importReviewClosePage => 'Close this page';
+  String get importReviewResultsTitle => 'Import results';
+  String get importReviewTransactionLogged => 'Transaction logged';
+  String get importReviewSourceTitle => 'Forwarded import';
+}
+
 extension SiriExpenseTutorialL10nX on AppLocalizations {
   String get logExpenseWithSiri => 'Log expense with Siri';
   String get siriNoSetupRequired => 'No setup required.';

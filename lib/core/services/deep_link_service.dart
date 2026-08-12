@@ -40,6 +40,9 @@ class DeepLinkService {
   final AppLinks _appLinks = AppLinks();
   final NotificationIntentParser _intentParser = NotificationIntentParser();
   StreamSubscription<Uri>? _linkSubscription;
+  Uri? _pendingImportReview;
+  bool _isImportReviewConsumptionScheduled = false;
+  bool _isDisposed = false;
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
@@ -109,6 +112,11 @@ class DeepLinkService {
       if (navCtx?.mounted ?? false) {
         navCtx!.go('/auth/callback');
       }
+      return;
+    }
+
+    if (DeepLinks.isImportReview(uri)) {
+      _queueImportReview(uri);
       return;
     }
 
@@ -363,6 +371,45 @@ class DeepLinkService {
     }
   }
 
+  void _queueImportReview(Uri uri) {
+    final reviewId = DeepLinks.importReviewId(uri);
+    final secret = DeepLinks.importReviewSecret(uri);
+    if (reviewId == null || secret == null) return;
+    _pendingImportReview = uri;
+    _scheduleImportReviewConsumption();
+  }
+
+  void _scheduleImportReviewConsumption() {
+    if (_isDisposed ||
+        _pendingImportReview == null ||
+        _isImportReviewConsumptionScheduled) {
+      return;
+    }
+    _isImportReviewConsumptionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isImportReviewConsumptionScheduled = false;
+      if (!_consumeImportReview()) _scheduleImportReviewConsumption();
+    });
+  }
+
+  bool _consumeImportReview() {
+    final pending = _pendingImportReview;
+    if (pending == null) return true;
+    final reviewId = DeepLinks.importReviewId(pending);
+    final secret = DeepLinks.importReviewSecret(pending);
+    final context = rootNavigatorKey.currentContext;
+    if (reviewId == null ||
+        secret == null ||
+        context == null ||
+        !context.mounted) {
+      return false;
+    }
+    _pendingImportReview = null;
+    _debugPrint('Import review link received');
+    context.push('/import-review/$reviewId', extra: secret);
+    return true;
+  }
+
   /// Handle Tink callback - sync transactions using credentialsId
   Future<void> _handleTinkCallback(
       String credentialsId, String state, WidgetRef ref) async {
@@ -495,6 +542,8 @@ class DeepLinkService {
 
   /// Dispose the subscription
   void dispose() {
+    _isDisposed = true;
+    _pendingImportReview = null;
     _linkSubscription?.cancel();
   }
 }

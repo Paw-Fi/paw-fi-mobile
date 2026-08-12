@@ -27,6 +27,7 @@ import 'package:moneko/features/home/presentation/pages/currency_rates_page.dart
 import 'package:moneko/features/insights/presentation/pages/monthly_report_page.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/features/import_review/presentation/pages/import_review_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_account_preparing_page.dart';
@@ -204,6 +205,13 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) {
           return AppLockPage(from: state.uri.queryParameters['from']);
         },
+      ),
+      GoRoute(
+        path: '/import-review/:reviewId',
+        builder: (context, state) => ImportReviewPage(
+          reviewId: state.pathParameters['reviewId'] ?? '',
+          token: state.extra is String ? state.extra! as String : '',
+        ),
       ),
 
       // Subscription / Paywall
@@ -400,6 +408,8 @@ GoRouter router(RouterRef ref) {
             state.matchedLocation == '/onboarding';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
         final isOnErrorPage = state.matchedLocation == '/error';
+        final isPublicImportReview =
+            state.matchedLocation.startsWith('/import-review/');
 
         if (kDebugMode) {
           debugPrint(
@@ -412,7 +422,8 @@ GoRouter router(RouterRef ref) {
         );
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
-        if (appInitStateV2.state == AppInitState.failed &&
+        if (!isPublicImportReview &&
+            appInitStateV2.state == AppInitState.failed &&
             appInitStateV2.data == null) {
           if (!isOnErrorPage) {
             debugPrint(
@@ -459,7 +470,9 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        if (!isAuthenticated && requiresSingleOwnerReauthentication) {
+        if (!isPublicImportReview &&
+            !isAuthenticated &&
+            requiresSingleOwnerReauthentication) {
           return isOnAuthPage ? null : '/login';
         }
 
@@ -514,7 +527,8 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        if (isAuthenticated &&
+        if (!isPublicImportReview &&
+            isAuthenticated &&
             hasCompletedPreauth &&
             !isPreauthSynced &&
             !isOnPrepareOnboardingPage &&
@@ -523,7 +537,8 @@ GoRouter router(RouterRef ref) {
           return '/onboarding?stage=prepare';
         }
 
-        if (!isPreview &&
+        if (!isPublicImportReview &&
+            !isPreview &&
             isAuthenticated &&
             isPreauthSynced &&
             !hasOnboarded &&
@@ -544,7 +559,8 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        if (!isPreview &&
+        if (!isPublicImportReview &&
+            !isPreview &&
             !isAuthenticated &&
             !isOnAuthPage &&
             !isOnboardingPage) {
