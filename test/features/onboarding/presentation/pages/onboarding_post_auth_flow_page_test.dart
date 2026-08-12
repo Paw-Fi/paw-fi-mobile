@@ -232,4 +232,41 @@ void main() {
 
     expect(find.text('Import your expenses\nfrom another app'), findsOneWidget);
   });
+
+  testWidgets('logging expense shows result after asynchronous AI success',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    const preview = OnboardingLoggedExpensePreview(
+      sourceLabel: 'Text',
+      amount: 24.5,
+      currency: 'USD',
+      description: 'Lunch',
+      category: 'Uncategorized',
+      items: [],
+    );
+
+    await _pumpPage(
+      tester,
+      prefs: prefs,
+      overrides: [
+        onboardingPostAuthLogExpenseActionProvider.overrideWithValue(
+          (context, ref, sourceLabel) async {
+            Future<void>.delayed(Duration.zero, () {
+              ref.read(onboardingPostAuthLogExpenseSuccessProvider)?.call(
+                    preview,
+                  );
+            });
+            return null;
+          },
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Add Expense'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Expense Captured!'), findsWidgets);
+    expect(find.text('Lunch'), findsWidgets);
+  });
 }

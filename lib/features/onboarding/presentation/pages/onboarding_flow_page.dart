@@ -56,8 +56,8 @@ const _heardAboutSourceOptions = [
   (value: 'reddit', label: 'Reddit'),
   (value: 'google_search', label: 'Google Search'),
   (value: 'app_store', label: 'App Store'),
-  (value: 'friend_or_family', label: 'Friend or family'),
-  (value: _kHeardAboutOtherValue, label: 'Other'),
+  (value: 'friend_or_family', label: 'friend_or_family'),
+  (value: _kHeardAboutOtherValue, label: 'other'),
 ];
 
 String _heardAboutSourceLabel(String value) => _heardAboutSourceOptions
@@ -92,7 +92,7 @@ final onboardingHeardAboutSaveActionProvider =
   };
 });
 
-String _importSourceLabel(ImportSourceApp source) {
+String _importSourceLabel(ImportSourceApp source, BuildContext context) {
   switch (source) {
     case ImportSourceApp.ynab:
       return 'YNAB';
@@ -115,7 +115,7 @@ String _importSourceLabel(ImportSourceApp source) {
     case ImportSourceApp.spendee:
       return 'Spendee';
     case ImportSourceApp.other:
-      return 'Other';
+      return context.l10n.other;
   }
 }
 
@@ -437,7 +437,7 @@ class _GuestHeardAboutPage extends HookWidget {
         children: [
           const SizedBox(height: 24),
           Text(
-            'Where did you hear about us?',
+            context.l10n.whereDidYouHearAboutUs,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
@@ -448,7 +448,7 @@ class _GuestHeardAboutPage extends HookWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Pick the option that fits best. If it was somewhere else, choose Other.',
+            context.l10n.heardAboutSubtitle,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w400,
@@ -463,7 +463,11 @@ class _GuestHeardAboutPage extends HookWidget {
                 children: [
                   for (final option in _heardAboutSourceOptions) ...[
                     _HeardAboutSourceCard(
-                      label: option.label,
+                      label: option.label == 'friend_or_family'
+                          ? context.l10n.friendOrFamily
+                          : option.label == 'other'
+                              ? context.l10n.other
+                              : option.label,
                       selected: selected == option.value,
                       onTap: () => onSelected(option.value),
                       trailing: option.value == _kHeardAboutOtherValue &&
@@ -476,7 +480,7 @@ class _GuestHeardAboutPage extends HookWidget {
                                 fontWeight: FontWeight.w500,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Tell us where',
+                                hintText: context.l10n.tellUsWhere,
                                 hintStyle: TextStyle(
                                   color: colorScheme.mutedForeground
                                       .withValues(alpha: 0.6),
@@ -545,7 +549,7 @@ class _GuestHeardAboutPage extends HookWidget {
             height: 52,
             child: PrimaryAdaptiveButton(
               onPressed: isBusy ? null : onNext,
-              child: const Text('Continue'),
+              child: Text(context.l10n.continueAction),
             ),
           ),
         ],
@@ -1746,7 +1750,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
                               : currentPage.value == 1
                                   ? (selectedImportSource.value == null
                                       ? context.l10n.continueAction
-                                      : 'Import and continue')
+                                      : context.l10n.importAndContinue)
                                   : (aiLogSuccess.value != null
                                       ? context.l10n.continueAction
                                       : context.l10n.tryNow),
@@ -2114,7 +2118,7 @@ class _DataImportSourceStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Are you currently using other app?',
+            context.l10n.areYouCurrentlyUsingOtherApp,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 24,
@@ -2124,7 +2128,7 @@ class _DataImportSourceStep extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Pick your source to see exactly which file to upload. We import into your personal account in the next step.',
+            context.l10n.pickYourSourceSubtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
@@ -2207,7 +2211,7 @@ class _ImportSourceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _importSourceLabel(spec.app),
+                      _importSourceLabel(spec.app, context),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,

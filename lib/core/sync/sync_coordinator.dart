@@ -21,6 +21,12 @@ class NonRetryableLocalMutationException implements Exception {
   String toString() => message;
 }
 
+/// A local dependency has not reached its canonical server identity yet.
+/// Requeue without consuming a retry attempt.
+class DeferredLocalMutationException implements Exception {
+  const DeferredLocalMutationException();
+}
+
 class SyncCoordinator {
   const SyncCoordinator({
     required this.database,
@@ -52,6 +58,10 @@ class SyncCoordinator {
         await database.markMutationSynced(mutation.clientMutationId);
         syncedCount += 1;
       } catch (error) {
+        if (error is DeferredLocalMutationException) {
+          await database.deferMutation(mutation.clientMutationId);
+          break;
+        }
         final nextAttempt = mutation.attemptCount + 1;
         if (error is NonRetryableLocalMutationException ||
             (!isDurableHouseholdSettlementMutation(mutation) &&

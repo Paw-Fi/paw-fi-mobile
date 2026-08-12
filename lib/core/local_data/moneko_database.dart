@@ -511,6 +511,22 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  Future<ExpenseEntry?> getTransactionByIdOrClientRecordId(String id) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) return null;
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE id = ? OR client_record_id = ?
+      ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+      LIMIT 1
+      ''',
+      [normalizedId, normalizedId, normalizedId],
+    );
+    return rows.isEmpty ? null : _entryFromTransactionRow(rows.first);
+  }
+
   Future<void> writeOptimisticTransaction({
     required ExpenseEntry entry,
     required String clientMutationId,
@@ -604,18 +620,51 @@ class MonekoDatabase {
     final touched = <_SummaryKey>{};
 
     _runInTransaction(() {
+      final canonicalTransferId = _transferIdFromFeedEntryId(
+        savedEntries.isEmpty ? null : savedEntries.first.id,
+      );
+      final optimisticTransferId = _transferIdFromFeedEntryId(
+        ids.isEmpty ? null : ids.first,
+      );
+      if (canonicalTransferId != null && optimisticTransferId != null) {
+        _retargetPendingWalletTransferDependencies(
+          optimisticTransferId: optimisticTransferId,
+          canonicalTransferId: canonicalTransferId,
+        );
+      }
+      final newerEntriesByDirection = <String, ExpenseEntry>{};
       for (final id in ids) {
         final key = _summaryKeyForTransactionId(id);
         if (key != null) touched.add(key);
+        final rows = _db.select(
+          'SELECT * FROM local_transactions WHERE id = ? LIMIT 1',
+          [id],
+        );
+        if (rows.isNotEmpty) {
+          final entry = _entryFromTransactionRow(rows.first);
+          if (entry.clientMutationId != null &&
+              entry.clientMutationId != clientMutationId) {
+            final direction = _transferDirectionFromFeedEntryId(entry.id);
+            if (direction != null) newerEntriesByDirection[direction] = entry;
+          }
+        }
         _db.execute('DELETE FROM local_transactions WHERE id = ?', [id]);
       }
       for (final entry in savedEntries) {
+        if (_hasActiveTransactionTombstone(entry.id)) {
+          // A dependent delete owns this canonical row after retargeting.
+          continue;
+        }
+        final direction = _transferDirectionFromFeedEntryId(entry.id);
+        final newerEntry =
+            direction == null ? null : newerEntriesByDirection[direction];
         _upsertTransaction(
-          entry,
-          syncStatus: localSyncStatusSynced,
+          newerEntry?.copyWith(id: entry.id) ?? entry,
+          syncStatus:
+              newerEntry == null ? localSyncStatusSynced : localSyncStatusLocal,
           preserveLocalPending: false,
         );
-        touched.add(_SummaryKey.fromEntry(entry));
+        touched.add(_SummaryKey.fromEntry(newerEntry ?? entry));
       }
       _markMutationStatus(
         clientMutationId: clientMutationId,
@@ -627,6 +676,135 @@ class MonekoDatabase {
     });
 
     _notifyChanged();
+  }
+
+  void _retargetPendingWalletTransferDependencies({
+    required String optimisticTransferId,
+    required String canonicalTransferId,
+  }) {
+    final mutations = _db.select(
+      '''
+      SELECT client_mutation_id, entity_id, payload_json
+      FROM local_mutation_outbox
+      WHERE entity_type = ? AND status IN (?, ?, ?)
+      ''',
+      [
+        'wallet',
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
+    );
+    for (final mutation in mutations) {
+      final payload =
+          _tryDecodeJsonObject(mutation['payload_json']?.toString() ?? '');
+      final requestBodyValue = payload?['requestBody'];
+      final requestBody = requestBodyValue is Map
+          ? Map<String, dynamic>.from(requestBodyValue)
+          : null;
+      if (requestBody?['transferId']?.toString() != optimisticTransferId) {
+        continue;
+      }
+      requestBody!['transferId'] = canonicalTransferId;
+      final rewrittenPayload = payload!;
+      rewrittenPayload['requestBody'] = requestBody;
+      _retargetWalletTransferOriginalEntries(
+        rewrittenPayload,
+        optimisticTransferId: optimisticTransferId,
+        canonicalTransferId: canonicalTransferId,
+      );
+      if (rewrittenPayload['functionName'] == 'delete-wallet-transfer') {
+        _retargetWalletTransferTombstones(
+          clientMutationId: mutation['client_mutation_id']?.toString() ?? '',
+          optimisticTransferId: optimisticTransferId,
+          canonicalTransferId: canonicalTransferId,
+        );
+      }
+      _db.execute(
+        '''
+        UPDATE local_mutation_outbox
+        SET entity_id = ?, payload_json = ?, updated_at = ?
+        WHERE client_mutation_id = ?
+        ''',
+        [
+          canonicalTransferId,
+          jsonEncode(rewrittenPayload),
+          _instant(DateTime.now().toUtc()),
+          mutation['client_mutation_id'],
+        ],
+      );
+    }
+  }
+
+  void _retargetWalletTransferOriginalEntries(
+    Map<String, dynamic> payload, {
+    required String optimisticTransferId,
+    required String canonicalTransferId,
+  }) {
+    final originalEntries = payload['originalEntries'];
+    if (originalEntries is! List) return;
+    payload['originalEntries'] = originalEntries.map((value) {
+      if (value is! Map) return value;
+      final entry = Map<String, dynamic>.from(value);
+      entry['id'] = _retargetWalletTransferFeedEntryId(
+        entry['id']?.toString(),
+        optimisticTransferId: optimisticTransferId,
+        canonicalTransferId: canonicalTransferId,
+      );
+      return entry;
+    }).toList(growable: false);
+  }
+
+  void _retargetWalletTransferTombstones({
+    required String clientMutationId,
+    required String optimisticTransferId,
+    required String canonicalTransferId,
+  }) {
+    for (final direction in const ['out', 'in']) {
+      final optimisticId = 'transfer:$optimisticTransferId:$direction';
+      final canonicalId = 'transfer:$canonicalTransferId:$direction';
+      _db.execute(
+        '''
+        UPDATE local_transaction_tombstones
+        SET transaction_id = ?, updated_at = ?
+        WHERE transaction_id = ? AND client_mutation_id = ?
+        ''',
+        [
+          canonicalId,
+          _instant(DateTime.now().toUtc()),
+          optimisticId,
+          clientMutationId,
+        ],
+      );
+    }
+  }
+
+  String? _retargetWalletTransferFeedEntryId(
+    String? entryId, {
+    required String optimisticTransferId,
+    required String canonicalTransferId,
+  }) {
+    final direction =
+        entryId == null ? null : _transferDirectionFromFeedEntryId(entryId);
+    if (_transferIdFromFeedEntryId(entryId) != optimisticTransferId ||
+        direction == null) {
+      return entryId;
+    }
+    return 'transfer:$canonicalTransferId:$direction';
+  }
+
+  String? _transferIdFromFeedEntryId(String? entryId) {
+    final parts = entryId?.split(':');
+    if (parts == null || parts.length != 3 || parts.first != 'transfer') {
+      return null;
+    }
+    return parts[1].trim().isEmpty ? null : parts[1];
+  }
+
+  String? _transferDirectionFromFeedEntryId(String entryId) {
+    final parts = entryId.split(':');
+    if (parts.length != 3 || parts.first != 'transfer') return null;
+    return parts.last == 'in' || parts.last == 'out' ? parts.last : null;
   }
 
   Future<void> rollbackOptimisticWalletTransfer({
@@ -655,6 +833,165 @@ class MonekoDatabase {
       }
     });
 
+    _notifyChanged();
+  }
+
+  Future<void> writeOptimisticWalletTransferUpdate({
+    required List<ExpenseEntry> originalEntries,
+    required List<ExpenseEntry> updatedEntries,
+    required String clientMutationId,
+    required String transferId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final touched = <_SummaryKey>{
+      ...originalEntries.map(_SummaryKey.fromEntry),
+      ...updatedEntries.map(_SummaryKey.fromEntry),
+    };
+    _runInTransaction(() {
+      for (final entry in updatedEntries) {
+        _upsertTransaction(
+          entry.copyWith(clientMutationId: clientMutationId),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'wallet',
+        entityId: transferId,
+        operation: 'invoke_function',
+        payload: {
+          ...payload,
+          'originalEntries':
+              originalEntries.map((entry) => entry.toJson()).toList(),
+        },
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+    _notifyChanged();
+  }
+
+  Future<void> writeOptimisticWalletTransferDelete({
+    required List<ExpenseEntry> entries,
+    required String clientMutationId,
+    required String transferId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final touched = entries.map(_SummaryKey.fromEntry).toSet();
+    _runInTransaction(() {
+      for (final entry in entries) {
+        _upsertTransactionTombstone(
+          entry: entry,
+          clientMutationId: clientMutationId,
+          status: localMutationStatusQueued,
+        );
+        _db.execute('DELETE FROM local_transactions WHERE id = ?', [entry.id]);
+      }
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'wallet',
+        entityId: transferId,
+        operation: 'invoke_function',
+        payload: {
+          ...payload,
+          'originalEntries': entries.map((entry) => entry.toJson()).toList(),
+        },
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+    _notifyChanged();
+  }
+
+  Future<void> markOptimisticWalletTransferMutationSynced({
+    required String clientMutationId,
+    required bool isDelete,
+  }) async {
+    _runInTransaction(() {
+      _markMutationStatus(
+        clientMutationId: clientMutationId,
+        status: localMutationStatusSynced,
+      );
+      if (isDelete) {
+        _markTransactionTombstonesSynced(clientMutationId);
+      } else {
+        _db.execute(
+          'UPDATE local_transactions SET sync_status = ? WHERE client_mutation_id = ?',
+          [localSyncStatusSynced, clientMutationId],
+        );
+      }
+    });
+    _notifyChanged();
+  }
+
+  Future<void> rollbackOptimisticWalletTransferMutation({
+    required List<ExpenseEntry> originalEntries,
+    required String clientMutationId,
+    required bool isDelete,
+    required Object error,
+  }) async {
+    _runInTransaction(() {
+      final touched = <_SummaryKey>{};
+      for (final entry in originalEntries) {
+        final ownsEntry = isDelete
+            ? _transactionTombstoneOwnedBy(entry.id, clientMutationId)
+            : _transactionMutationStillOwnsEntry(entry.id, clientMutationId);
+        if (!ownsEntry) continue;
+        final currentKey = _summaryKeyForTransactionId(entry.id);
+        if (currentKey != null) touched.add(currentKey);
+        if (isDelete) _deleteTransactionTombstone(entry.id);
+        _upsertTransaction(
+          entry,
+          syncStatus: localSyncStatusSynced,
+          preserveLocalPending: false,
+        );
+        touched.add(_SummaryKey.fromEntry(entry));
+      }
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+      _markMutationCancelledRow(
+          clientMutationId: clientMutationId, error: error);
+    });
+    _notifyChanged();
+  }
+
+  Future<void> cancelPendingWalletTransferDependencies({
+    required String transferId,
+    required Object error,
+  }) async {
+    _runInTransaction(() {
+      final mutations = _db.select(
+        '''
+        SELECT client_mutation_id, payload_json
+        FROM local_mutation_outbox
+        WHERE entity_type = ? AND status IN (?, ?, ?)
+        ''',
+        [
+          'wallet',
+          localMutationStatusQueued,
+          localMutationStatusFailed,
+          localMutationStatusSyncing,
+        ],
+      );
+      for (final mutation in mutations) {
+        final payload =
+            _tryDecodeJsonObject(mutation['payload_json']?.toString() ?? '');
+        final request = payload?['requestBody'];
+        if (request is! Map ||
+            request['transferId']?.toString() != transferId) {
+          continue;
+        }
+        final mutationId = mutation['client_mutation_id']?.toString() ?? '';
+        _db.execute(
+          'DELETE FROM local_transaction_tombstones WHERE client_mutation_id = ?',
+          [mutationId],
+        );
+        _markMutationCancelledRow(clientMutationId: mutationId, error: error);
+      }
+    });
     _notifyChanged();
   }
 
@@ -734,24 +1071,21 @@ class MonekoDatabase {
     required String clientMutationId,
   }) async {
     _runInTransaction(() {
-      _upsertTransaction(
-        entry,
-        syncStatus: localSyncStatusSynced,
-        preserveLocalPending: false,
-      );
+      if (_transactionMutationStillOwnsEntry(
+        entry.id,
+        clientMutationId,
+      )) {
+        _upsertTransaction(
+          entry,
+          syncStatus: localSyncStatusSynced,
+          preserveLocalPending: false,
+        );
+        _rebuildSummary(_SummaryKey.fromEntry(entry));
+      }
       _markMutationStatus(
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
       );
-      _db.execute(
-        '''
-        UPDATE local_transactions
-        SET sync_status = ?
-        WHERE client_mutation_id = ?
-        ''',
-        [localSyncStatusSynced, clientMutationId],
-      );
-      _rebuildSummary(_SummaryKey.fromEntry(entry));
     });
 
     _notifyChanged();
@@ -1015,6 +1349,24 @@ class MonekoDatabase {
         rows.first['client_mutation_id']?.toString() == clientMutationId;
   }
 
+  bool _transactionTombstoneOwnedBy(
+    String entryId,
+    String clientMutationId,
+  ) {
+    final rows = _db.select(
+      'SELECT client_mutation_id FROM local_transaction_tombstones WHERE transaction_id = ? LIMIT 1',
+      [entryId],
+    );
+    return rows.isNotEmpty &&
+        rows.first['client_mutation_id']?.toString() == clientMutationId;
+  }
+
+  Future<bool> transactionMutationStillOwnsEntry({
+    required String entryId,
+    required String clientMutationId,
+  }) async =>
+      _transactionMutationStillOwnsEntry(entryId, clientMutationId);
+
   ExpenseEntry? _originalEntryFromMutationPayload(
     LocalMutationOutboxData mutation,
   ) {
@@ -1091,7 +1443,7 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
-  Future<void> replaceOptimisticTransaction({
+  Future<ExpenseEntry?> replaceOptimisticTransaction({
     required String optimisticId,
     required ExpenseEntry savedEntry,
     required String clientMutationId,
@@ -1102,32 +1454,83 @@ class MonekoDatabase {
       idempotencyKey: savedEntry.idempotencyKey ?? clientMutationId,
     );
     final touched = <_SummaryKey>{};
+    ExpenseEntry? reconciledEntry;
     _runInTransaction(() {
       final optimisticKey = _summaryKeyForTransactionId(optimisticId);
       if (optimisticKey != null) touched.add(optimisticKey);
+
+      final localRows = _db.select(
+        'SELECT * FROM local_transactions WHERE id = ? LIMIT 1',
+        [optimisticId],
+      );
+      final localEntry =
+          localRows.isEmpty ? null : _entryFromTransactionRow(localRows.first);
+      final savedOccurrenceEntry = localEntry == null
+          ? savedEntryWithMutationMetadata
+          : savedEntryWithMutationMetadata.copyWith(
+              parentRecurringId:
+                  savedEntryWithMutationMetadata.parentRecurringId ??
+                      localEntry.parentRecurringId,
+              scheduledOccurrenceDate:
+                  savedEntryWithMutationMetadata.scheduledOccurrenceDate ??
+                      localEntry.scheduledOccurrenceDate,
+              recurringConfirmedAt:
+                  savedEntryWithMutationMetadata.recurringConfirmedAt ??
+                      localEntry.recurringConfirmedAt,
+              recurringConfirmationSource:
+                  savedEntryWithMutationMetadata.recurringConfirmationSource ??
+                      localEntry.recurringConfirmationSource,
+            );
+      final tombstoneRows = _db.select(
+        '''
+        SELECT client_mutation_id, status
+        FROM local_transaction_tombstones
+        WHERE transaction_id = ?
+        LIMIT 1
+        ''',
+        [optimisticId],
+      );
+
+      _retargetPendingTransactionDependencies(
+        optimisticId: optimisticId,
+        canonicalId: savedEntryWithMutationMetadata.id,
+      );
 
       _db.execute(
         'DELETE FROM local_transactions WHERE id = ?',
         [optimisticId],
       );
-
-      _upsertTransaction(
-        savedEntryWithMutationMetadata,
-        syncStatus: localSyncStatusSynced,
-        preserveLocalPending: false,
-      );
-      touched.add(_SummaryKey.fromEntry(savedEntryWithMutationMetadata));
+      if (tombstoneRows.isNotEmpty) {
+        final tombstone = tombstoneRows.first;
+        _deleteTransactionTombstone(optimisticId);
+        _upsertTransactionTombstone(
+          entry: savedEntryWithMutationMetadata,
+          clientMutationId: tombstone['client_mutation_id'] as String,
+          status: tombstone['status'] as String,
+        );
+      } else {
+        final hasNewerLocalUpdate = localEntry != null &&
+            localEntry.clientMutationId != null &&
+            localEntry.clientMutationId != clientMutationId;
+        reconciledEntry = hasNewerLocalUpdate
+            ? localEntry.copyWith(
+                id: savedEntryWithMutationMetadata.id,
+                clientRecordId: savedEntryWithMutationMetadata.clientRecordId,
+                idempotencyKey: savedEntryWithMutationMetadata.idempotencyKey,
+              )
+            : savedOccurrenceEntry;
+        _upsertTransaction(
+          reconciledEntry!,
+          syncStatus: hasNewerLocalUpdate
+              ? localSyncStatusLocal
+              : localSyncStatusSynced,
+          preserveLocalPending: false,
+        );
+        touched.add(_SummaryKey.fromEntry(reconciledEntry!));
+      }
       _markMutationStatus(
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
-      );
-      _db.execute(
-        '''
-        UPDATE local_transactions
-        SET sync_status = ?
-        WHERE client_mutation_id = ?
-        ''',
-        [localSyncStatusSynced, clientMutationId],
       );
 
       for (final key in touched) {
@@ -1136,6 +1539,127 @@ class MonekoDatabase {
     });
 
     _notifyChanged();
+    return reconciledEntry;
+  }
+
+  void _retargetPendingTransactionDependencies({
+    required String optimisticId,
+    required String canonicalId,
+  }) {
+    final mutations = _db.select(
+      '''
+      SELECT client_mutation_id, entity_id, operation, payload_json
+      FROM local_mutation_outbox
+      WHERE entity_type = ?
+        AND status IN (?, ?, ?)
+        AND operation IN (?, ?)
+      ''',
+      [
+        'transaction',
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+        'update_transaction',
+        'delete_transaction',
+      ],
+    );
+    for (final mutation in mutations) {
+      final payload = _tryDecodeJsonObject(
+        mutation['payload_json']?.toString() ?? '',
+      );
+      if (payload == null ||
+          !_transactionPayloadReferencesId(payload, optimisticId)) {
+        continue;
+      }
+      final rewrittenPayload = _retargetTransactionPayloadId(
+        payload,
+        optimisticId: optimisticId,
+        canonicalId: canonicalId,
+      );
+      final entityId = _retargetTransactionIdList(
+        mutation['entity_id']?.toString(),
+        optimisticId: optimisticId,
+        canonicalId: canonicalId,
+      );
+      _db.execute(
+        '''
+        UPDATE local_mutation_outbox
+        SET entity_id = ?, payload_json = ?, updated_at = ?
+        WHERE client_mutation_id = ?
+        ''',
+        [
+          entityId,
+          jsonEncode(rewrittenPayload),
+          _instant(DateTime.now().toUtc()),
+          mutation['client_mutation_id'],
+        ],
+      );
+    }
+  }
+
+  bool _transactionPayloadReferencesId(
+      Map<String, dynamic> payload, String id) {
+    return payload['expenseId'] == id ||
+        _transactionIdListContains(payload['expenseIds'], id) ||
+        _payloadEntryReferencesId(payload['originalEntry'], id) ||
+        (payload['originalEntries'] is List &&
+            (payload['originalEntries'] as List)
+                .any((entry) => _payloadEntryReferencesId(entry, id)));
+  }
+
+  bool _payloadEntryReferencesId(Object? value, String id) {
+    return value is Map && value['id']?.toString() == id;
+  }
+
+  Map<String, dynamic> _retargetTransactionPayloadId(
+    Map<String, dynamic> payload, {
+    required String optimisticId,
+    required String canonicalId,
+  }) {
+    Object? rewrite(Object? value, {String? key}) {
+      if (value is Map) {
+        return {
+          for (final entry in value.entries)
+            entry.key.toString():
+                rewrite(entry.value, key: entry.key.toString()),
+        };
+      }
+      if (value is List) {
+        return value.map((entry) => rewrite(entry)).toList(growable: false);
+      }
+      if (key == 'expenseIds' && value is String) {
+        return _retargetTransactionIdList(
+          value,
+          optimisticId: optimisticId,
+          canonicalId: canonicalId,
+        );
+      }
+      if (value == optimisticId && key != 'clientRecordId') {
+        return canonicalId;
+      }
+      return value;
+    }
+
+    return Map<String, dynamic>.from(rewrite(payload) as Map);
+  }
+
+  bool _transactionIdListContains(Object? value, String id) {
+    return value is String &&
+        value.split(',').map((value) => value.trim()).contains(id);
+  }
+
+  String _retargetTransactionIdList(
+    String? value, {
+    required String optimisticId,
+    required String canonicalId,
+  }) {
+    if (value == null || value.isEmpty) return canonicalId;
+    return value
+        .split(',')
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .map((id) => id == optimisticId ? canonicalId : id)
+        .join(',');
   }
 
   Future<void> rollbackOptimisticTransaction({
@@ -1248,6 +1772,30 @@ class MonekoDatabase {
 
     if (cancelled) _notifyChanged();
     return cancelled;
+  }
+
+  Future<bool> hasPendingOptimisticTransactionCreate(
+      String transactionId) async {
+    final rows = _db.select(
+      '''
+      SELECT 1
+      FROM local_mutation_outbox
+      WHERE entity_type = ?
+        AND entity_id = ?
+        AND operation = ?
+        AND status IN (?, ?, ?)
+      LIMIT 1
+      ''',
+      [
+        'transaction',
+        transactionId,
+        'create',
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
+    );
+    return rows.isNotEmpty;
   }
 
   Future<void> deleteTransactionsByIds(List<String> ids) async {
@@ -3340,6 +3888,21 @@ class MonekoDatabase {
     );
   }
 
+  Future<void> deferMutation(String clientMutationId) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, retry_after = NULL, updated_at = ?
+      WHERE client_mutation_id = ?
+      ''',
+      [
+        localMutationStatusQueued,
+        _instant(DateTime.now().toUtc()),
+        clientMutationId,
+      ],
+    );
+  }
+
   Future<void> markMutationSynced(String clientMutationId) async {
     _markMutationStatus(
       clientMutationId: clientMutationId,
@@ -3825,10 +4388,22 @@ class MonekoDatabase {
         local_receipt_image_path = excluded.local_receipt_image_path,
         shared_member_ids_json = excluded.shared_member_ids_json,
         split_group_id = excluded.split_group_id,
-        parent_recurring_id = excluded.parent_recurring_id,
-        scheduled_occurrence_date = excluded.scheduled_occurrence_date,
-        recurring_confirmed_at = excluded.recurring_confirmed_at,
-        recurring_confirmation_source = excluded.recurring_confirmation_source,
+        parent_recurring_id = COALESCE(
+          excluded.parent_recurring_id,
+          local_transactions.parent_recurring_id
+        ),
+        scheduled_occurrence_date = COALESCE(
+          excluded.scheduled_occurrence_date,
+          local_transactions.scheduled_occurrence_date
+        ),
+        recurring_confirmed_at = COALESCE(
+          excluded.recurring_confirmed_at,
+          local_transactions.recurring_confirmed_at
+        ),
+        recurring_confirmation_source = COALESCE(
+          excluded.recurring_confirmation_source,
+          local_transactions.recurring_confirmation_source
+        ),
         bank_account_id = excluded.bank_account_id,
         wallet_id = excluded.wallet_id,
         account_name = excluded.account_name,
@@ -4382,6 +4957,10 @@ _LocalFeedFilter _localFeedFilter(
   final conditions = <String>[
     'scope_key = ?',
     'deleted_at IS NULL',
+    // Recurring templates are read through the recurring provider and expanded
+    // into occurrences by their consuming surface. Including them here makes a
+    // confirmed actual and its template count as two transactions.
+    'is_recurring = 0',
     '''
     (
       sync_status != ?

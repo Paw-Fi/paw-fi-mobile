@@ -1273,7 +1273,18 @@ final transactionsFeedServiceProvider =
 
 final transactionsFeedRefreshSignalProvider = StateProvider<int>((ref) => 0);
 
-final transactionsFeedEditedEntryProvider = StateProvider<ExpenseEntry?>(
+class TransactionsFeedEditedEntry {
+  TransactionsFeedEditedEntry({
+    required this.entry,
+    Set<String> replacingIds = const <String>{},
+  }) : replacingIds = Set<String>.unmodifiable(replacingIds);
+
+  final ExpenseEntry entry;
+  final Set<String> replacingIds;
+}
+
+final transactionsFeedEditedEntryProvider =
+    StateProvider<TransactionsFeedEditedEntry?>(
   (ref) => null,
 );
 
@@ -1306,12 +1317,15 @@ final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
       }
       unawaited(notifier.refresh());
     });
-    ref.listen<ExpenseEntry?>(transactionsFeedEditedEntryProvider,
-        (previous, next) {
+    ref.listen<TransactionsFeedEditedEntry?>(
+        transactionsFeedEditedEntryProvider, (previous, next) {
       if (next == null) {
         return;
       }
-      notifier.applyEditedEntrySnapshot(next);
+      notifier.applyEditedEntrySnapshot(
+        next.entry,
+        replacingIds: next.replacingIds,
+      );
     });
     unawaited(notifier.loadInitial());
     return notifier;
@@ -1351,19 +1365,25 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     }
   }
 
-  void applyEditedEntrySnapshot(ExpenseEntry entry) {
+  void applyEditedEntrySnapshot(
+    ExpenseEntry entry, {
+    Set<String> replacingIds = const <String>{},
+  }) {
     if (state.items.isEmpty) {
       return;
     }
 
-    final existingIndex = state.items.indexWhere((item) => item.id == entry.id);
+    final idsToReplace = {...replacingIds, entry.id};
+    final existingIndex =
+        state.items.indexWhere((item) => idsToReplace.contains(item.id));
     final matches = _entryMatchesQuery(entry);
     if (existingIndex == -1 && !matches) {
       return;
     }
 
-    final nextItems =
-        state.items.where((item) => item.id != entry.id).toList(growable: true);
+    final nextItems = state.items
+        .where((item) => !idsToReplace.contains(item.id))
+        .toList(growable: true);
     if (matches) {
       nextItems.add(entry);
     }

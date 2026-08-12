@@ -68,7 +68,7 @@ class _BulkConfirmPastOccurrencesFormState
   Future<void> _submitBulk() async {
     final userId = ref.read(authProvider).uid;
     if (userId.isEmpty) {
-      setState(() => _error = 'Sign in to confirm payments.');
+      setState(() => _error = context.l10n.signInToConfirmPayments);
       return;
     }
     final walletsAsync = ref.read(walletsByCurrencyProvider(
@@ -80,8 +80,8 @@ class _BulkConfirmPastOccurrencesFormState
     final loadedWallets = walletsAsync.valueOrNull;
     if (loadedWallets == null) {
       setState(() => _error = walletsAsync.hasError
-          ? 'Unable to load wallets.'
-          : 'Wallets are still loading.');
+          ? context.l10n.recurringOccurrenceUnableToLoadWallets
+          : context.l10n.recurringOccurrenceWalletsLoading);
       return;
     }
     final activeWallets = loadedWallets
@@ -91,12 +91,12 @@ class _BulkConfirmPastOccurrencesFormState
       _accountId = null;
     } else if (_accountId != null &&
         !activeWallets.any((wallet) => wallet.id == _accountId)) {
-      setState(() => _error = 'Choose a wallet for confirmation.');
+      setState(() => _error = context.l10n.chooseAWalletForConfirmation);
       return;
     }
     if (activeWallets.isNotEmpty &&
         (_accountId == null || _accountId!.isEmpty)) {
-      setState(() => _error = 'Choose a wallet for confirmation.');
+      setState(() => _error = context.l10n.chooseAWalletForConfirmation);
       return;
     }
 
@@ -133,7 +133,7 @@ class _BulkConfirmPastOccurrencesFormState
     if (successCount == 0) {
       setState(() {
         _isSubmitting = false;
-        _error = 'Unable to confirm remaining past payments.';
+        _error = context.l10n.unableToConfirmRemainingPayments;
       });
       return;
     }
@@ -141,7 +141,7 @@ class _BulkConfirmPastOccurrencesFormState
     Navigator.of(context).pop(true);
     AppToast.success(
       context,
-      'Successfully confirmed $successCount past payments.',
+      context.l10n.successfullyConfirmedPastPayments(successCount),
     );
   }
 
@@ -167,10 +167,12 @@ class _BulkConfirmPastOccurrencesFormState
     }
 
     var walletName = loadedWallets == null
-        ? (walletsAsync.hasError ? 'Wallets unavailable' : 'Loading wallets...')
+        ? (walletsAsync.hasError
+            ? context.l10n.recurringOccurrenceWalletsUnavailable
+            : context.l10n.recurringOccurrenceLoadingWallets)
         : wallets.isEmpty
             ? context.l10n.noWallet
-            : 'Choose wallet';
+            : context.l10n.recurringOccurrenceChooseWallet;
     for (final wallet in wallets) {
       if (wallet.id == _accountId) {
         walletName = wallet.name;
@@ -213,7 +215,7 @@ class _BulkConfirmPastOccurrencesFormState
           // Account Selection Tile
           MonekoInput(
             child: MonekoDisclosureRow(
-              label: 'Deposit/Withdraw Wallet',
+              label: context.l10n.depositWithdrawWallet,
               value: walletName,
               isFirst: true,
               isLast: true,

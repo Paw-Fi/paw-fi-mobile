@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -268,6 +269,41 @@ void main() {
       ).called(1);
     });
 
+    test('does not report success when no local row was written', () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final failedResponse = _MockFunctionResponse();
+      when(() => failedResponse.data).thenReturn({
+        'success': false,
+        'error': 'Missing transaction',
+        'code': 'NOT_FOUND',
+      });
+      when(
+        () => functionsClient.invoke(
+          'update-expense',
+          body: any(named: 'body'),
+        ),
+      ).thenAnswer((_) async => failedResponse);
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .updateExpense('missing-expense', {'amount_cents': 1500});
+
+      expect(result, isFalse);
+      verify(
+        () => functionsClient.invoke(
+          'update-expense',
+          body: any(named: 'body'),
+        ),
+      ).called(1);
+    });
+
     test(
       'returns after backend commit without waiting for full analytics reload',
       () async {
@@ -452,7 +488,8 @@ void main() {
       },
     );
 
-    test('writes optimistic update metadata to local outbox', () async {
+    test('returns after writing a canonical edit to the local outbox',
+        () async {
       final database = MonekoDatabase.inMemory();
       addTearDown(database.close);
 
@@ -466,32 +503,7 @@ void main() {
         createdAt: DateTime(2026, 5, 7, 10),
         type: 'expense',
       );
-      final updated = original.copyWith(amountCents: 1500);
       await database.upsertTransactions([original]);
-
-      final successResponse = _MockFunctionResponse();
-      when(() => successResponse.data).thenReturn({
-        'success': true,
-        'data': updated.toJson(),
-      });
-
-      final requestBodies = <Map<String, dynamic>>[];
-      final requestStarted = Completer<void>();
-      final responseCompleter = Completer<FunctionResponse>();
-      when(
-        () => functionsClient.invoke(
-          'update-expense',
-          body: any(named: 'body'),
-        ),
-      ).thenAnswer((invocation) {
-        requestBodies.add(
-          Map<String, dynamic>.from(
-            invocation.namedArguments[#body] as Map<String, dynamic>,
-          ),
-        );
-        requestStarted.complete();
-        return responseCompleter.future;
-      });
 
       final container = createContainer(
         supabaseClient: supabaseClient,
@@ -510,10 +522,9 @@ void main() {
       final originalDashboardSignal =
           container.read(dashboardRefreshSignalProvider);
 
-      final updateFuture = container
+      final result = await container
           .read(transactionEditProvider.notifier)
           .updateExpense('expense-1', {'amount_cents': 1500});
-      await requestStarted.future;
       expect(
         container.read(transactionsFeedRefreshSignalProvider),
         greaterThan(originalFeedSignal),
@@ -523,9 +534,6 @@ void main() {
         greaterThan(originalDashboardSignal),
       );
 
-      responseCompleter.complete(successResponse);
-      final result = await updateFuture;
-
       final mutations = await database.getOutboxMutations();
       final localRows = await database.getRecentTransactions(
         userId: 'user-1',
@@ -533,10 +541,176 @@ void main() {
       );
 
       expect(result, isTrue);
-      expect(requestBodies.single['clientRecordId'], 'expense-1');
       expect(mutations.single.operation, 'update_transaction');
-      expect(mutations.single.status, localMutationStatusSynced);
       expect(localRows.single.amountCents, 1500);
+      verifyNever(
+        () =>
+            functionsClient.invoke('update-expense', body: any(named: 'body')),
+      );
+    });
+
+    test('retargets an open optimistic sheet to the canonical local row',
+        () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final optimistic = ExpenseEntry(
+        id: 'optimistic_1',
+        userId: 'user-1',
+        date: DateTime(2026, 5, 7),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime(2026, 5, 7, 10),
+        type: 'expense',
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.replaceOptimisticTransaction(
+        optimisticId: optimistic.id,
+        savedEntry: optimistic.copyWith(id: 'server_1'),
+        clientMutationId: 'mobile:create_1',
+      );
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+      container.read(analyticsProvider);
+      analyticsNotifier!.state = AnalyticsData(
+        expenses: [optimistic],
+        allExpenses: [optimistic],
+      );
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .updateExpense(optimistic.id, {'amount_cents': 1500});
+
+      final row = (await database.getRecentTransactions(
+        userId: 'user-1',
+        householdId: null,
+      ))
+          .single;
+      final mutation = (await database.getOutboxMutations()).last;
+      final payload = jsonDecode(mutation.payloadJson) as Map<String, dynamic>;
+      expect(result, isTrue);
+      expect(row.id, 'server_1');
+      expect(row.amountCents, 1500);
+      expect(payload['expenseId'], 'server_1');
+      expect(
+        container.read(analyticsProvider).allExpenses.single.id,
+        'server_1',
+      );
+    });
+
+    test(
+        'updates a pending optimistic create locally without invoking update-expense against its local id',
+        () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final optimistic = ExpenseEntry(
+        id: 'optimistic_1',
+        userId: 'user-1',
+        date: DateTime(2026, 5, 7),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime(2026, 5, 7, 10),
+        type: 'expense',
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+      container.read(analyticsProvider);
+      analyticsNotifier!.state = AnalyticsData(
+        expenses: [optimistic],
+        allExpenses: [optimistic],
+      );
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .updateExpense(optimistic.id, {'amount_cents': 1500});
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user-1',
+        householdId: null,
+      );
+      expect(result, isTrue);
+      expect(rows.single.amountCents, 1500);
+      verifyNever(
+        () =>
+            functionsClient.invoke('update-expense', body: any(named: 'body')),
+      );
+    });
+
+    test('deletes an actively syncing optimistic create locally', () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final optimistic = ExpenseEntry(
+        id: 'optimistic_1',
+        userId: 'user-1',
+        date: DateTime(2026, 5, 7),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime(2026, 5, 7, 10),
+        type: 'expense',
+      );
+      await database.writeOptimisticTransaction(
+        entry: optimistic,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: const {'requestBody': <String, dynamic>{}},
+      );
+      await database.markMutationSyncing('mobile:create_1');
+      final container = createContainer(
+        supabaseClient: supabaseClient,
+        onAnalyticsNotifierCreated: (notifier) => analyticsNotifier = notifier,
+        database: database,
+      );
+      addTearDown(container.dispose);
+      container.read(analyticsProvider);
+      analyticsNotifier!.state = AnalyticsData(
+        expenses: [optimistic],
+        allExpenses: [optimistic],
+      );
+
+      final result = await container
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically([optimistic]);
+
+      final mutations = await database.getOutboxMutations();
+      expect(result, isTrue);
+      expect(
+        await database.getRecentTransactions(
+            userId: 'user-1', householdId: null),
+        isEmpty,
+      );
+      expect(
+        mutations
+            .singleWhere(
+              (mutation) => mutation.operation == 'delete_transaction',
+            )
+            .status,
+        localMutationStatusQueued,
+      );
+      verifyNever(
+        () =>
+            functionsClient.invoke('delete-expense', body: any(named: 'body')),
+      );
     });
 
     test(

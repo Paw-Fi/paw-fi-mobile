@@ -146,27 +146,10 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                               final idx = entry.key;
                               final category = entry.value;
                               final isTouched = idx == _touchedIndex;
-                              final percent = totalSpent > 0
-                                  ? (category.amount / totalSpent) * 100
-                                  : 0.0;
                               return PieChartSectionData(
                                 color: category.color,
                                 value: category.amount,
                                 title: '',
-                                badgePositionPercentageOffset: 0.5,
-                                badgeWidget: percent > 4
-                                    ? AnimatedAmountText(
-                                        value: percent,
-                                        symbol: '',
-                                        suffix: '%',
-                                        decimalDigits: 0,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.onPrimary,
-                                        ),
-                                      )
-                                    : null,
                                 radius: isTouched
                                     ? widget.touchedSectionRadius
                                     : widget.sectionRadius,

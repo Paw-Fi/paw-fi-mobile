@@ -9,6 +9,8 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart'
     show supabaseClientProvider;
@@ -82,6 +84,8 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
       startDay: financialStartDay,
     );
     final visiblePeriods = ref.watch(homePeriodVisiblePeriodsProvider);
+    final transactionRefresh = ref.watch(transactionsFeedRefreshSignalProvider);
+    final dashboardRefresh = ref.watch(dashboardRefreshSignalProvider);
     final periodsToLoad = visiblePeriods.isEmpty
         ? homePeriodItems(
             mode: state.mode,
@@ -150,7 +154,13 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
                 startDay: financialStartDay,
               ).end
             : null,
-        ringAnimationRevision: _ringAnimationRevision,
+        // Recreate the ring animation when a local transaction mutation changes
+        // a visible pocket's spending total, even while Overview remains active.
+        ringAnimationRevision: Object.hash(
+          _ringAnimationRevision,
+          transactionRefresh,
+          dashboardRefresh,
+        ),
         onVisiblePeriodsChanged: (periods) {
           ref.read(homePeriodVisiblePeriodsProvider.notifier).state = periods;
         },

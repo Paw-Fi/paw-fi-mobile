@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -69,11 +70,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     Map<String, dynamic>? extraBody,
     ExpenseEntry? originalExpense,
   }) async {
-    if (state.isLoading) {
-      _debugPrint('⚠️ Update already in progress, ignoring');
-      return false;
-    }
-
     state = state.copyWith(
       isLoading: true,
       editingExpenseId: expenseId,
@@ -88,9 +84,21 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ExpenseEntry? optimisticExpense;
     ExpenseEntry? originalForRollback;
     MonekoDatabase? localDatabase;
+    ExpenseEntry? durableOriginalExpense;
+    var wroteLocalUpdate = false;
     var backendCommitted = false;
 
     try {
+      try {
+        final database = await ref.read(localDatabaseProvider.future);
+        localDatabase = database;
+        durableOriginalExpense =
+            await database.getTransactionByIdOrClientRecordId(expenseId);
+      } catch (error) {
+        _debugPrint('⚠️ Local transaction lookup unavailable: $error');
+        localDatabase = null;
+      }
+      final effectiveExpenseId = durableOriginalExpense?.id ?? expenseId;
       // ═══════════════════════════════════════════════════════════════
       // STEP 1: Try optimistic UI update (if expense is in local cache)
       // ═══════════════════════════════════════════════════════════════
@@ -105,41 +113,71 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       final analyticsData = ref.read(analyticsProvider);
       final currentExpenses = analyticsData.allExpenses;
 
-      final originalExpenseIndex =
-          currentExpenses.indexWhere((e) => e.id == expenseId);
+      final originalExpenseIndex = currentExpenses.indexWhere(
+        (e) => e.id == expenseId || e.id == effectiveExpenseId,
+      );
       final cachedOriginalExpense = originalExpenseIndex == -1
           ? originalExpense
           : currentExpenses[originalExpenseIndex];
 
       // If expense found in local cache, apply optimistic update
-      if (cachedOriginalExpense != null) {
+      final providerOriginalExpense =
+          cachedOriginalExpense ?? durableOriginalExpense;
+      if (providerOriginalExpense != null) {
         // 2. Create optimistic update (what the UI will show immediately)
-        optimisticExpense = _applyUpdates(cachedOriginalExpense, updates);
-        originalForRollback = cachedOriginalExpense;
+        final storageOriginal =
+            durableOriginalExpense ?? providerOriginalExpense;
+        optimisticExpense = _applyUpdates(storageOriginal, updates);
+        originalForRollback = storageOriginal;
 
         _debugPrint('💾 Applying optimistic update');
 
         // 3. Update UI immediately (optimistic)
         state = state.copyWith(optimisticUpdate: optimisticExpense);
         ref.read(transactionsFeedEditedEntryProvider.notifier).state =
-            optimisticExpense;
-        _applyOptimisticUpdateToProvider(
-          optimisticExpense,
-          originalExpense: cachedOriginalExpense,
-        );
-        localDatabase = await _writeOptimisticUpdateToLocalStore(
-          originalEntry: cachedOriginalExpense,
-          updatedEntry: optimisticExpense,
-          mutationMetadata: mutationMetadata,
-          payload: {
-            ...mutationMetadata.toRequestJson(),
-            'userId': user.uid,
-            'expenseId': expenseId,
-            'updates': updates,
-            if (extraBody != null && extraBody.isNotEmpty)
-              'extraBody': extraBody,
+            TransactionsFeedEditedEntry(
+          entry: optimisticExpense,
+          replacingIds: {
+            expenseId,
+            providerOriginalExpense.id,
+            optimisticExpense.id,
           },
         );
+        _applyOptimisticUpdateToProvider(
+          optimisticExpense,
+          originalExpense: providerOriginalExpense,
+        );
+        if (localDatabase != null) {
+          await localDatabase.writeOptimisticTransactionUpdate(
+            originalEntry: storageOriginal,
+            updatedEntry: optimisticExpense,
+            clientMutationId: mutationMetadata.clientMutationId,
+            payload: {
+              ...mutationMetadata.toRequestJson(),
+              'userId': user.uid,
+              'expenseId': effectiveExpenseId,
+              'updates': updates,
+              if (extraBody != null && extraBody.isNotEmpty)
+                'extraBody': extraBody,
+            },
+          );
+          wroteLocalUpdate = true;
+        } else {
+          localDatabase = await _writeOptimisticUpdateToLocalStore(
+            originalEntry: storageOriginal,
+            updatedEntry: optimisticExpense,
+            mutationMetadata: mutationMetadata,
+            payload: {
+              ...mutationMetadata.toRequestJson(),
+              'userId': user.uid,
+              'expenseId': effectiveExpenseId,
+              'updates': updates,
+              if (extraBody != null && extraBody.isNotEmpty)
+                'extraBody': extraBody,
+            },
+          );
+          wroteLocalUpdate = localDatabase != null;
+        }
         if (localDatabase != null) {
           await _refreshAfterLocalTransactionMutation(user.uid);
         }
@@ -148,6 +186,19 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         // This is NOT an error, just skip optimistic update
         _debugPrint(
             '💾 Expense not in local cache; skipping optimistic update');
+      }
+
+      if (wroteLocalUpdate && localDatabase != null) {
+        unawaited(drainMobileOutbox(ref).catchError((Object error) {
+          _debugPrint('⚠️ Background transaction edit sync deferred: $error');
+          return 0;
+        }));
+        state = state.copyWith(
+          isLoading: false,
+          clearOptimisticUpdate: true,
+          clearError: true,
+        );
+        return true;
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -281,11 +332,16 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // The backend response is authoritative. Apply it before doing any broad
       // refresh so a slow analytics reload cannot keep the save dialog open or
       // temporarily replace the edited row with stale data.
-      if (confirmedExpense != null) {
+      final mutationStillOwnsEntry = localDatabase == null ||
+          await localDatabase.transactionMutationStillOwnsEntry(
+            entryId: expenseId,
+            clientMutationId: mutationMetadata.clientMutationId,
+          );
+      if (confirmedExpense != null && mutationStillOwnsEntry) {
         final rollbackSource =
             originalForRollback ?? originalExpense ?? confirmedExpense;
         ref.read(transactionsFeedEditedEntryProvider.notifier).state =
-            confirmedExpense;
+            TransactionsFeedEditedEntry(entry: confirmedExpense);
         _applyOptimisticUpdateToProvider(
           confirmedExpense,
           originalExpense: rollbackSource,
@@ -344,7 +400,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         try {
           if (optimisticExpense != null) {
             ref.read(transactionsFeedEditedEntryProvider.notifier).state =
-                optimisticExpense;
+                TransactionsFeedEditedEntry(entry: optimisticExpense);
           }
           ref.read(walletActionsProvider).refreshAccountData();
         } catch (refreshError) {
@@ -378,7 +434,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
             error: e,
           );
           ref.read(transactionsFeedEditedEntryProvider.notifier).state =
-              originalForRollback;
+              TransactionsFeedEditedEntry(entry: originalForRollback);
         }
 
         final originalHouseholdId =
@@ -411,7 +467,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         final rollbackEntry = originalForRollback ?? originalExpense;
         if (rollbackEntry != null) {
           ref.read(transactionsFeedEditedEntryProvider.notifier).state =
-              rollbackEntry;
+              TransactionsFeedEditedEntry(entry: rollbackEntry);
           await _refreshAfterLocalTransactionMutation(user.uid);
         }
       } catch (refreshError) {
@@ -445,27 +501,28 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         .toList(growable: false);
 
     if (localTargets.isNotEmpty) {
-      final activeCreateSyncIds =
-          ref.read(activeTransactionCreateSyncIdsProvider);
-      final hasActiveCreateSync = localTargets.any(
-        (entry) => activeCreateSyncIds.contains(entry.id.trim()),
-      );
-      if (hasActiveCreateSync) {
-        state = state.copyWith(
-          error:
-              'This transaction is still syncing. Please try again in a moment.',
-        );
-        return false;
-      }
-
       final cancelledLocalCreates =
           await _cancelQueuedLocalCreateTransactions(localTargets);
       if (!cancelledLocalCreates) {
-        state = state.copyWith(
-          error:
-              'This transaction is still syncing. Please try again in a moment.',
+        final mutationMetadata = buildTransactionMutationMetadataForRecord(
+          clientRecordId: localTargets.map((entry) => entry.id).join('_'),
+          operation: 'delete_transaction',
         );
-        return false;
+        final database = await _writeOptimisticDeleteToLocalStore(
+          entries: localTargets,
+          mutationMetadata: mutationMetadata,
+          payload: {
+            ...mutationMetadata.toRequestJson(),
+            'userId': user.uid,
+            'expenseIds': localTargets.map((entry) => entry.id).join(','),
+          },
+        );
+        if (database == null) {
+          state = state.copyWith(
+            error: 'Unable to delete the pending transaction locally.',
+          );
+          return false;
+        }
       }
 
       _removeLocalOptimisticTransactionsFromProviders(localTargets);
@@ -923,18 +980,20 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       if (updatedHouseholdId != null &&
           updatedHouseholdId.isNotEmpty &&
           updatedHouseholdId != originalHouseholdId) {
-        householdNotifier.removeExpense(originalHouseholdId, updatedExpense.id);
+        householdNotifier.removeExpense(
+            originalHouseholdId, originalExpense.id);
         householdNotifier.replaceExpense(
           updatedHouseholdId,
-          updatedExpense.id,
+          originalExpense.id,
           updatedExpense,
         );
       } else if (updatedHouseholdId == null || updatedHouseholdId.isEmpty) {
-        householdNotifier.removeExpense(originalHouseholdId, updatedExpense.id);
+        householdNotifier.removeExpense(
+            originalHouseholdId, originalExpense.id);
       } else {
         householdNotifier.replaceExpense(
           originalHouseholdId,
-          updatedExpense.id,
+          originalExpense.id,
           updatedExpense,
         );
       }
@@ -948,10 +1007,14 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         updatedHouseholdId == null || updatedHouseholdId.isEmpty;
 
     final updatedExpenses = analytics.expenses
-        .where((e) => e.id != updatedExpense.id)
+        .where(
+          (e) => e.id != updatedExpense.id && e.id != originalExpense.id,
+        )
         .toList(growable: true);
     final updatedAllExpenses = analytics.allExpenses
-        .where((e) => e.id != updatedExpense.id)
+        .where(
+          (e) => e.id != updatedExpense.id && e.id != originalExpense.id,
+        )
         .toList(growable: true);
 
     if (updatedIsPersonal) {

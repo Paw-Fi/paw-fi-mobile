@@ -735,9 +735,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
   Future<void> _handleUnsavedBackNavigation() async {
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: 'Unsaved changes',
-      description: 'Leave without saving your changes?',
-      confirmLabel: 'Leave',
+      title: context.l10n.unsavedChanges,
+      description: context.l10n.leaveWithoutSavingChanges,
+      confirmLabel: context.l10n.leave,
       cancelLabel: context.l10n.cancel,
       isDestructive: true,
     );

@@ -94,8 +94,6 @@ bool _isAvatarUploadInProgress = false;
 
 const String _compareWithChatGptUrl =
     'https://moneko.io/compare-with-chatgpt?source=compare-with-chatgpt-mobile-settings';
-const String _compareWithChatGptLabel = 'Compare with ChatGPT';
-const String _compareWithChatGptError = 'Could not open ChatGPT comparison';
 
 String _appLockTimeoutLabel(
   AppLocalizations l10n,
@@ -1912,10 +1910,11 @@ class SettingsPage extends HookConsumerWidget {
                           color: colorScheme.onSurface,
                           colorBlendMode: BlendMode.srcIn,
                         ),
-                        label: _compareWithChatGptLabel,
+                        label: context.l10n.compareWithChatGPT,
                         onTap: () => launchIntegrationUrl(
                           Uri.parse(_compareWithChatGptUrl),
-                          errorMessage: _compareWithChatGptError,
+                          errorMessage:
+                              context.l10n.couldNotOpenChatGPTComparison,
                         ),
                       ),
                     ],

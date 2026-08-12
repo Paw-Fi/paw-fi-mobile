@@ -9678,4 +9678,270 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get cancelReasonContinue => 'ดำเนินการยกเลิกต่อ';
+
+  @override
+  String get editPayment => 'แก้ไขการชำระเงิน';
+
+  @override
+  String get recurringOccurrenceEnterAmount => 'กรอกจำนวนเงินที่มากกว่า 0';
+
+  @override
+  String get recurringOccurrenceNotAvailable => 'ยังไม่สามารถยืนยันการชำระเงินนี้ได้';
+
+  @override
+  String get recurringOccurrenceUnableToLoadWallets => 'ไม่สามารถโหลดกระเป๋าเงินได้';
+
+  @override
+  String get recurringOccurrenceWalletsLoading => 'กระเป๋าเงินยังโหลดไม่เสร็จ';
+
+  @override
+  String get recurringOccurrenceChooseWalletInCurrency => 'เลือกกระเป๋าเงินที่ใช้สกุลเงินนี้';
+
+  @override
+  String get recurringOccurrencePaidDateAfterToday => 'วันที่ชำระเงินต้องไม่เกินวันนี้';
+
+  @override
+  String get recurringOccurrenceSignInToConfirm => 'ลงชื่อเข้าใช้เพื่อยืนยันการชำระเงินนี้';
+
+  @override
+  String get recurringOccurrenceUnableToUpdate => 'ไม่สามารถอัปเดตการชำระเงินได้';
+
+  @override
+  String get recurringOccurrenceUnableToConfirm => 'ไม่สามารถยืนยันการชำระเงินได้';
+
+  @override
+  String get recurringOccurrenceUpdateSaved => 'บันทึกการแก้ไขการชำระเงินแล้ว';
+
+  @override
+  String get recurringOccurrenceConfirmationSaved => 'บันทึกการยืนยันการชำระเงินแล้ว';
+
+  @override
+  String get recurringOccurrenceUnconfirmQuestion => 'ยกเลิกการยืนยันการชำระเงินหรือไม่';
+
+  @override
+  String get recurringOccurrenceUnconfirmDescription => 'รายการชำระเงินจะถูกลบ และรายการชำระเงินตามกำหนดจะถูกกู้คืน';
+
+  @override
+  String get recurringOccurrenceUnconfirm => 'ยกเลิกการยืนยัน';
+
+  @override
+  String get recurringOccurrenceUnableToUnconfirm => 'ไม่สามารถยกเลิกการยืนยันการชำระเงินได้';
+
+  @override
+  String get recurringOccurrenceUnconfirmed => 'ยกเลิกการยืนยันการชำระเงินแล้ว';
+
+  @override
+  String get recurringOccurrenceWalletsUnavailable => 'ไม่มีกระเป๋าเงินที่พร้อมใช้งาน';
+
+  @override
+  String get recurringOccurrenceLoadingWallets => 'กำลังโหลดกระเป๋าเงิน...';
+
+  @override
+  String get recurringOccurrenceChooseWallet => 'เลือกกระเป๋าเงิน';
+
+  @override
+  String get recurringOccurrenceDateReceived => 'วันที่ได้รับ';
+
+  @override
+  String get recurringOccurrenceDatePaid => 'วันที่ชำระ';
+
+  @override
+  String get recurringOccurrenceActualAmount => 'จำนวนเงินจริง';
+
+  @override
+  String get recurringOccurrenceSettlementLocked => 'การชำระเงินนี้มีรายการที่เกี่ยวข้องกับการชำระยอดแล้ว แก้ไขได้เฉพาะโน้ตเท่านั้น';
+
+  @override
+  String get recurringOccurrenceUpdateFutureAmount => 'อัปเดตจำนวนเงินเริ่มต้นสำหรับการชำระเงินครั้งถัดไป';
+
+  @override
+  String get recurringOccurrenceConfirming => 'กำลังยืนยัน...';
+
+  @override
+  String get recurringOccurrenceUnconfirmPayment => 'ยกเลิกการยืนยันการชำระเงิน';
+
+  @override
+  String get signInToConfirmPayments => 'ลงชื่อเข้าใช้เพื่อยืนยันการชำระเงิน';
+
+  @override
+  String get chooseAWalletForConfirmation => 'เลือกกระเป๋าเงินสำหรับยืนยันการชำระเงิน';
+
+  @override
+  String get unableToConfirmRemainingPayments => 'ไม่สามารถยืนยันการชำระเงินที่ผ่านมาที่เหลือได้';
+
+  @override
+  String successfullyConfirmedPastPayments(Object count) {
+    return 'ยืนยันการชำระเงินที่ผ่านมาแล้ว $count รายการ';
+  }
+
+  @override
+  String get depositWithdrawWallet => 'ฝาก/ถอนเงิน';
+
+  @override
+  String get walletCreatedSuccessfully => 'สร้างกระเป๋าเงินสำเร็จแล้ว';
+
+  @override
+  String get walletUpdatedSuccessfully => 'อัปเดตกระเป๋าเงินสำเร็จแล้ว';
+
+  @override
+  String get transferCompletedSuccessfully => 'โอนเงินสำเร็จแล้ว';
+
+  @override
+  String get transferUpdatedSuccessfully => 'อัปเดตการโอนเงินสำเร็จแล้ว';
+
+  @override
+  String get transferDeletedSuccessfully => 'ลบการโอนเงินสำเร็จแล้ว';
+
+  @override
+  String activePaycheckCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'เงินเดือนที่ใช้งานอยู่ $count รายการ',
+      one: 'เงินเดือนที่ใช้งานอยู่ 1 รายการ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activeBillCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'บิลที่ใช้งานอยู่ $count รายการ',
+      one: 'บิลที่ใช้งานอยู่ 1 รายการ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get importedPayment => 'รายการชำระเงินที่นำเข้า';
+
+  @override
+  String get skipped => 'ข้ามแล้ว';
+
+  @override
+  String get unableToSkipOccurrence => 'ไม่สามารถข้ามการชำระเงินนี้ได้';
+
+  @override
+  String get equal => 'เท่ากัน';
+
+  @override
+  String get unsavedChanges => 'การเปลี่ยนแปลงที่ยังไม่ได้บันทึก';
+
+  @override
+  String get leaveWithoutSavingChanges => 'ออกโดยไม่บันทึกการเปลี่ยนแปลงหรือไม่?';
+
+  @override
+  String get leave => 'ออก';
+
+  @override
+  String get replaceReceiptPhoto => 'เปลี่ยนรูปใบเสร็จ';
+
+  @override
+  String expiresInDays(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count วัน',
+      one: '1 วัน',
+    );
+    return 'หมดอายุในอีก $_temp0';
+  }
+
+  @override
+  String expiresInHours(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ชั่วโมง',
+      one: '1 ชั่วโมง',
+    );
+    return 'หมดอายุในอีก $_temp0';
+  }
+
+  @override
+  String expiredDaysAgo(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count วัน',
+      one: '1 วัน',
+    );
+    return 'หมดอายุเมื่อ $_temp0 ที่แล้ว';
+  }
+
+  @override
+  String get noInternetWhilePayingWithApplePay => 'ไม่มีอินเทอร์เน็ตขณะชำระเงินด้วย Apple Pay?';
+
+  @override
+  String get applePayOfflineSyncDescription => 'ไม่ต้องกังวล Moneko จะบันทึกรายการไว้บน iPhone ของคุณ และซิงค์ให้อัตโนมัติในครั้งถัดไปที่คุณเปิดแอปขณะเชื่อมต่ออินเทอร์เน็ต';
+
+  @override
+  String dayOfTotal(Object current, Object total) {
+    return 'วันที่ $current จาก $total';
+  }
+
+  @override
+  String get aiProgressGettingThingsReady => 'กำลังเตรียม...';
+
+  @override
+  String get aiProgressReadingTheDetails => 'กำลังอ่านรายละเอียด...';
+
+  @override
+  String get aiProgressLookingThroughReceipt => 'กำลังตรวจสอบใบเสร็จของคุณ...';
+
+  @override
+  String get aiProgressReviewingTransactions => 'กำลังตรวจสอบรายการ...';
+
+  @override
+  String get aiProgressFinishingUp => 'กำลังดำเนินการขั้นสุดท้าย...';
+
+  @override
+  String get aiProgressWorkingOnIt => 'กำลังดำเนินการ...';
+
+  @override
+  String get aiProcessingPdfDocument => 'กำลังประมวลผลเอกสาร PDF...';
+
+  @override
+  String get aiReadingWhatYouTyped => 'กำลังอ่านข้อความที่คุณพิมพ์...';
+
+  @override
+  String get aiLookingThroughYourImage => 'กำลังตรวจสอบรูปภาพของคุณ...';
+
+  @override
+  String get aiListeningToYourRecording => 'กำลังฟังเสียงบันทึกของคุณ...';
+
+  @override
+  String get aiProcessingFile => 'กำลังประมวลผลไฟล์...';
+
+  @override
+  String get aiProcessingLargeFile => 'กำลังประมวลผลไฟล์ขนาดใหญ่...';
+
+  @override
+  String get aiExtractingTransactionsFromPdf => 'กำลังดึงข้อมูลรายการจาก PDF...';
+
+  @override
+  String get aiFileTooLargeToAnalyze => 'ไฟล์มีขนาดใหญ่เกินกว่าจะวิเคราะห์ได้ กรุณาใช้ไฟล์ที่มีขนาดไม่เกิน 20MB หรือแบ่งเป็นไฟล์ขนาดเล็กลง';
+
+  @override
+  String get whereDidYouHearAboutUs => 'คุณรู้จักเราจากช่องทางใด?';
+
+  @override
+  String get heardAboutSubtitle => 'เลือกตัวเลือกที่ตรงที่สุด หากรู้จักเราจากช่องทางอื่น ให้เลือก อื่นๆ';
+
+  @override
+  String get tellUsWhere => 'โปรดระบุช่องทาง';
+
+  @override
+  String get importAndContinue => 'นำเข้าและดำเนินการต่อ';
+
+  @override
+  String get areYouCurrentlyUsingOtherApp => 'ตอนนี้คุณกำลังใช้แอปอื่นอยู่หรือไม่?';
+
+  @override
+  String get pickYourSourceSubtitle => 'เลือกแหล่งข้อมูลเพื่อดูว่าต้องอัปโหลดไฟล์ใด จากนั้นเราจะนำเข้าไฟล์ไปยังบัญชีส่วนตัวของคุณในขั้นตอนถัดไป';
+
+  @override
+  String get friendOrFamily => 'เพื่อนหรือครอบครัว';
 }

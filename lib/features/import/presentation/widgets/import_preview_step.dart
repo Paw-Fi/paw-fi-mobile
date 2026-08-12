@@ -650,7 +650,7 @@ class PreviewStep extends ConsumerWidget {
         );
       }
       if (context.mounted) {
-        AppToast.success(context, context.l10n.save);
+        AppToast.success(context, context.l10n.walletCreatedSuccessfully);
       }
     } catch (error) {
       if (context.mounted) {

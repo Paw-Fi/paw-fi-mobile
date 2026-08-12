@@ -14,12 +14,17 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/state.dart'
+    show widgetSyncVersionProvider;
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
@@ -227,22 +232,25 @@ Future<void> _dispatchMobileMutation(
               _metadataFromPayload(payload)['idempotencyKey']?.toString() ??
                   mutation.clientMutationId,
         );
-        await database.replaceOptimisticTransaction(
+        final reconciledEntry = await database.replaceOptimisticTransaction(
           optimisticId: mutation.entityId,
           savedEntry: savedEntry,
           clientMutationId: mutation.clientMutationId,
         );
         final queuedTransaction = _mapValue(payload['transaction']);
-        reconcileSyncedHouseholdTransactionOverlays(
-          expensesNotifier:
-              ref.read(householdOptimisticExpensesProvider.notifier),
-          splitsNotifier: ref.read(householdOptimisticSplitsProvider.notifier),
-          optimisticId: mutation.entityId,
-          optimisticHouseholdId:
-              queuedTransaction?['household_id']?.toString() ??
-                  queuedTransaction?['householdId']?.toString(),
-          savedEntry: savedEntry,
-        );
+        if (reconciledEntry != null) {
+          reconcileSyncedHouseholdTransactionOverlays(
+            expensesNotifier:
+                ref.read(householdOptimisticExpensesProvider.notifier),
+            splitsNotifier:
+                ref.read(householdOptimisticSplitsProvider.notifier),
+            optimisticId: mutation.entityId,
+            optimisticHouseholdId:
+                queuedTransaction?['household_id']?.toString() ??
+                    queuedTransaction?['householdId']?.toString(),
+            savedEntry: reconciledEntry,
+          );
+        }
         ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
@@ -253,9 +261,17 @@ Future<void> _dispatchMobileMutation(
       await _analyzeQueuedAiInput(database, payload, mutation.entityId);
       return;
     case 'invoke_function':
+      final functionName = payload['functionName']?.toString();
+      final requestBody = _mapValue(payload['requestBody']);
+      final transferId = requestBody?['transferId']?.toString();
+      if ((functionName == 'update-wallet-transfer' ||
+              functionName == 'delete-wallet-transfer') &&
+          transferId?.startsWith('optimistic-transfer-') == true) {
+        throw const DeferredLocalMutationException();
+      }
       final responseBody = await _invokeMutationFunction(
-        payload['functionName']?.toString(),
-        _mapValue(payload['requestBody']),
+        functionName,
+        requestBody,
       );
       if (mutation.entityType == 'wallet') {
         await _reconcileSyncedWalletMutation(
@@ -378,6 +394,7 @@ Future<void> _dispatchMobileMutation(
     case localRecurringOccurrenceConfirmationMutationOperation:
       final responseBody = await _invokeRecurringOccurrenceConfirmation(
         _mapValue(payload['requestBody']),
+        functionName: payload['functionName']?.toString(),
       );
       final savedPayload = _extractRecurringOccurrenceTransaction(responseBody);
       if (savedPayload == null) {
@@ -396,15 +413,7 @@ Future<void> _dispatchMobileMutation(
         ),
         clientMutationId: mutation.clientMutationId,
       );
-      ref
-          .read(recurringSeriesOptimisticProvider.notifier)
-          .commitMutation(mutation.clientMutationId);
-      ref
-          .read(recurringOccurrenceOptimisticProvider.notifier)
-          .commitMutation(mutation.clientMutationId);
-      ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
-      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-      ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
+      _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       return;
     default:
       throw UnsupportedError(
@@ -419,9 +428,18 @@ void _commitRecurringOptimisticMutation(Ref ref, String mutationId) {
   ref
       .read(recurringOccurrenceOptimisticProvider.notifier)
       .commitMutation(mutationId);
+  _publishRecurringMutationSurfaces(ref);
+}
+
+void _publishRecurringMutationSurfaces(Ref ref) {
   ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
   ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
   ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
+  ref.read(widgetSyncVersionProvider.notifier).state += 1;
+  ref.invalidate(pocketsProvider);
+  ref.invalidate(pocketDetailsProvider);
+  ref.invalidate(currencyTransactionCountsProvider);
 }
 
 Future<void> _reconcileSyncedWalletMutation(
@@ -445,6 +463,20 @@ Future<void> _reconcileSyncedWalletMutation(
       clientMutationId: mutation.clientMutationId,
     );
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  } else if (payload['functionName'] == 'update-wallet-transfer') {
+    await database.markOptimisticWalletTransferMutationSynced(
+      clientMutationId: mutation.clientMutationId,
+      isDelete: false,
+    );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+  } else if (payload['functionName'] == 'delete-wallet-transfer') {
+    await database.markOptimisticWalletTransferMutationSynced(
+      clientMutationId: mutation.clientMutationId,
+      isDelete: true,
+    );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
   }
   final walletIds = _walletIdsForMutation(
     mutation,
@@ -467,9 +499,7 @@ Future<void> _handleCancelledMobileMutation(
     ref
         .read(recurringOccurrenceOptimisticProvider.notifier)
         .rollbackMutation(mutation.clientMutationId);
-    ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
-    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-    ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
+    _publishRecurringMutationSurfaces(ref);
     ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
       id: mutation.clientMutationId,
       feature: mutation.operation.contains('recurring')
@@ -485,12 +515,36 @@ Future<void> _handleCancelledMobileMutation(
       clientMutationId: mutation.clientMutationId,
       error: mutation.lastError ?? 'Transfer sync failed',
     );
+    await database.cancelPendingWalletTransferDependencies(
+      transferId: mutation.entityId,
+      error: mutation.lastError ?? 'Transfer create failed',
+    );
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+  } else if (payload['functionName'] == 'update-wallet-transfer' ||
+      payload['functionName'] == 'delete-wallet-transfer') {
+    await database.rollbackOptimisticWalletTransferMutation(
+      originalEntries: _walletTransferOriginalEntries(payload),
+      clientMutationId: mutation.clientMutationId,
+      isDelete: payload['functionName'] == 'delete-wallet-transfer',
+      error: mutation.lastError ?? 'Transfer sync failed',
+    );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
   }
   await _clearWalletOptimisticState(
     ref,
     _walletIdsForMutation(mutation, payload),
   );
+}
+
+List<ExpenseEntry> _walletTransferOriginalEntries(
+    Map<String, dynamic> payload) {
+  final entries = payload['originalEntries'];
+  if (entries is! List) return const [];
+  return entries
+      .whereType<Map>()
+      .map((entry) => ExpenseEntry.fromJson(Map<String, dynamic>.from(entry)))
+      .toList(growable: false);
 }
 
 Set<String> _walletIdsForMutation(
@@ -665,13 +719,13 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
 }
 
 Future<Map<String, dynamic>> _invokeRecurringOccurrenceConfirmation(
-  Map<String, dynamic>? body,
-) async {
+    Map<String, dynamic>? body,
+    {String? functionName}) async {
   if (body == null || body.isEmpty) {
     throw ArgumentError('Missing recurring occurrence confirmation payload');
   }
   final response = await supabase.functions.invoke(
-    'confirm-recurring-occurrence',
+    functionName ?? 'confirm-recurring-occurrence',
     body: body,
   );
   final responseBody = _mapValue(response.data);

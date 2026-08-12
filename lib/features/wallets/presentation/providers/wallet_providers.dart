@@ -636,6 +636,24 @@ class WalletActions {
     unawaited(_persistOptimisticWallet(account));
   }
 
+  void replaceOptimisticWallet({
+    required String optimisticId,
+    required WalletEntity account,
+  }) {
+    final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
+    final nextOverrides = <String, WalletEntity>{...overrides}
+      ..remove(optimisticId)
+      ..[account.id] = account;
+    ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
+        nextOverrides;
+    unawaited(
+      _persistOptimisticWallet(
+        account,
+        replacedWalletId: optimisticId,
+      ),
+    );
+  }
+
   void clearOptimisticWallet(String accountId) {
     debugPrint('[Accounts][Optimistic] clear accountId=$accountId');
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
@@ -679,6 +697,7 @@ class WalletActions {
     required String currency,
     bool isDefault = false,
     bool excludeFromAnalytics = false,
+    VoidCallback? onLocallyPersisted,
   }) async {
     final householdId = ref.read(walletScopeHouseholdIdProvider);
     final user = ref.read(authProvider);
@@ -720,6 +739,7 @@ class WalletActions {
       functionName: 'save-wallet',
       requestBody: requestBody,
     );
+    onLocallyPersisted?.call();
 
     try {
       final response = await supabase.functions.invoke(
@@ -738,18 +758,25 @@ class WalletActions {
       if (saved is Map<String, dynamic>) {
         final savedWallet = WalletEntity.fromJson(saved);
         final hasCurrentBalance = saved['current_balance_cents'] is num;
-        setOptimisticWallet(
-          hasCurrentBalance
-              ? savedWallet
-              : savedWallet.copyWith(
-                  currentBalanceCents: savedWallet.openingBalanceCents,
-                ),
+        final reconciledWallet = hasCurrentBalance
+            ? savedWallet
+            : savedWallet.copyWith(
+                currentBalanceCents: savedWallet.openingBalanceCents,
+              );
+        final matchesOptimisticWallet =
+            _walletOverrideMatchesServer(optimisticWallet, reconciledWallet);
+        replaceOptimisticWallet(
+          optimisticId: optimisticId,
+          account: reconciledWallet,
         );
+        if (!matchesOptimisticWallet) {
+          _invalidateAll();
+        }
+      } else {
+        _invalidateAll();
       }
-      _invalidateAll();
     } catch (error) {
       if (_shouldKeepQueuedLocalMutation(error)) {
-        _invalidateAll();
         return;
       }
       await _cancelWalletMutation(optimisticId, error);
@@ -1143,6 +1170,10 @@ class WalletActions {
         clientMutationId: clientMutationId,
         error: error,
       );
+      await localDatabase.cancelPendingWalletTransferDependencies(
+        transferId: transferMutationEntityId,
+        error: error,
+      );
       clearOptimisticWallet(requestBody['fromAccountId'] as String);
       clearOptimisticWallet(requestBody['toAccountId'] as String);
       await _clearWalletCachesForCurrentUser();
@@ -1161,8 +1192,32 @@ class WalletActions {
     String? note,
   }) async {
     final authHeaders = _requireAuthHeaders();
+    final localDatabase = await ref.read(localDatabaseProvider.future);
+    _validateTransferWalletCurrencies(
+      fromAccountId: fromAccountId,
+      toAccountId: toAccountId,
+      currency: currency,
+    );
     final mutationEntityId =
         'update-transfer:${existingTransfer.id}:${DateTime.now().microsecondsSinceEpoch}';
+    final wallets = ref.read(effectiveScopeWalletsProvider);
+    final originalEntries = _transferFeedEntries(
+      transfer: existingTransfer,
+      wallets: wallets,
+    );
+    final updatedTransfer = WalletTransfer(
+      id: existingTransfer.id,
+      fromAccountId: fromAccountId,
+      toAccountId: toAccountId,
+      amountCents: amountCents,
+      currency: currency.trim().toUpperCase(),
+      date: date,
+      note: note,
+    );
+    final updatedEntries = _transferFeedEntries(
+      transfer: updatedTransfer,
+      wallets: wallets,
+    );
     _applyTransferBalanceDeltas([
       MapEntry(existingTransfer.fromAccountId, existingTransfer.amountCents),
       MapEntry(existingTransfer.toAccountId, -existingTransfer.amountCents),
@@ -1179,32 +1234,48 @@ class WalletActions {
         'date': formatDateOnlyYmd(date),
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       };
-      final localDatabase = await _enqueueWalletMutation(
-        entityId: mutationEntityId,
-        functionName: 'update-wallet-transfer',
-        requestBody: requestBody,
-        affectedWalletIds: {
-          existingTransfer.fromAccountId,
-          existingTransfer.toAccountId,
-          fromAccountId,
-          toAccountId,
+      await localDatabase.writeOptimisticWalletTransferUpdate(
+        originalEntries: originalEntries,
+        updatedEntries: updatedEntries,
+        clientMutationId: _walletMutationId(mutationEntityId),
+        transferId: existingTransfer.id,
+        payload: {
+          'functionName': 'update-wallet-transfer',
+          'requestBody': requestBody,
+          'affectedWalletIds': {
+            existingTransfer.fromAccountId,
+            existingTransfer.toAccountId,
+            fromAccountId,
+            toAccountId,
+          }.toList(growable: false),
         },
       );
+      _invalidateAll();
+      if (_isOptimisticTransferId(existingTransfer.id)) {
+        return;
+      }
       final response = await supabase.functions.invoke(
         'update-wallet-transfer',
         headers: authHeaders,
         body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to update transfer');
-      await localDatabase
-          .markMutationSynced(_walletMutationId(mutationEntityId));
+      await localDatabase.markOptimisticWalletTransferMutationSynced(
+        clientMutationId: _walletMutationId(mutationEntityId),
+        isDelete: false,
+      );
       _invalidateAll();
     } catch (error) {
       if (_shouldKeepQueuedLocalMutation(error)) {
         _invalidateAll();
         return;
       }
-      await _cancelWalletMutation(mutationEntityId, error);
+      await localDatabase.rollbackOptimisticWalletTransferMutation(
+        originalEntries: originalEntries,
+        clientMutationId: _walletMutationId(mutationEntityId),
+        isDelete: false,
+        error: error,
+      );
       clearOptimisticWallet(existingTransfer.fromAccountId);
       clearOptimisticWallet(existingTransfer.toAccountId);
       clearOptimisticWallet(fromAccountId);
@@ -1215,38 +1286,53 @@ class WalletActions {
 
   Future<void> deleteTransfer(WalletTransfer transfer) async {
     final authHeaders = _requireAuthHeaders();
+    final localDatabase = await ref.read(localDatabaseProvider.future);
     final mutationEntityId =
         'delete-transfer:${transfer.id}:${DateTime.now().microsecondsSinceEpoch}';
     _applyTransferBalanceDeltas([
       MapEntry(transfer.fromAccountId, transfer.amountCents),
       MapEntry(transfer.toAccountId, -transfer.amountCents),
     ]);
+    final wallets = ref.read(effectiveScopeWalletsProvider);
+    final entries = _transferFeedEntries(transfer: transfer, wallets: wallets);
     try {
       final requestBody = {'transferId': transfer.id};
-      final localDatabase = await _enqueueWalletMutation(
-        entityId: mutationEntityId,
-        functionName: 'delete-wallet-transfer',
-        requestBody: requestBody,
-        affectedWalletIds: {
-          transfer.fromAccountId,
-          transfer.toAccountId,
+      await localDatabase.writeOptimisticWalletTransferDelete(
+        entries: entries,
+        clientMutationId: _walletMutationId(mutationEntityId),
+        transferId: transfer.id,
+        payload: {
+          'functionName': 'delete-wallet-transfer',
+          'requestBody': requestBody,
+          'affectedWalletIds': [transfer.fromAccountId, transfer.toAccountId],
         },
       );
+      _invalidateAll();
+      if (_isOptimisticTransferId(transfer.id)) {
+        return;
+      }
       final response = await supabase.functions.invoke(
         'delete-wallet-transfer',
         headers: authHeaders,
         body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to delete transfer');
-      await localDatabase
-          .markMutationSynced(_walletMutationId(mutationEntityId));
+      await localDatabase.markOptimisticWalletTransferMutationSynced(
+        clientMutationId: _walletMutationId(mutationEntityId),
+        isDelete: true,
+      );
       _invalidateAll();
     } catch (error) {
       if (_shouldKeepQueuedLocalMutation(error)) {
         _invalidateAll();
         return;
       }
-      await _cancelWalletMutation(mutationEntityId, error);
+      await localDatabase.rollbackOptimisticWalletTransferMutation(
+        originalEntries: entries,
+        clientMutationId: _walletMutationId(mutationEntityId),
+        isDelete: true,
+        error: error,
+      );
       clearOptimisticWallet(transfer.fromAccountId);
       clearOptimisticWallet(transfer.toAccountId);
       rethrow;
@@ -1274,6 +1360,53 @@ class WalletActions {
       ));
     }
   }
+
+  List<ExpenseEntry> _transferFeedEntries({
+    required WalletTransfer transfer,
+    required List<WalletEntity> wallets,
+  }) {
+    final fromWallet = wallets
+        .firstWhereOrNull((wallet) => wallet.id == transfer.fromAccountId);
+    final toWallet =
+        wallets.firstWhereOrNull((wallet) => wallet.id == transfer.toAccountId);
+    return buildWalletTransferFeedEntries(
+      transferJson: {
+        'id': transfer.id,
+        'from_account_id': transfer.fromAccountId,
+        'to_account_id': transfer.toAccountId,
+        'amount_cents': transfer.amountCents,
+        'currency': transfer.currency,
+        'date': formatDateOnlyYmd(transfer.date),
+        'note': transfer.note,
+        'created_by_user_id': ref.read(authProvider).uid,
+      },
+      fallbackUserId: ref.read(authProvider).uid,
+      fromWallet: fromWallet,
+      toWallet: toWallet,
+    );
+  }
+
+  void _validateTransferWalletCurrencies({
+    required String fromAccountId,
+    required String toAccountId,
+    required String currency,
+  }) {
+    final wallets = ref.read(effectiveScopeWalletsProvider);
+    final from =
+        wallets.firstWhereOrNull((wallet) => wallet.id == fromAccountId);
+    final to = wallets.firstWhereOrNull((wallet) => wallet.id == toAccountId);
+    final normalizedCurrency = currency.trim().toUpperCase();
+    if (from == null ||
+        to == null ||
+        from.currency.trim().toUpperCase() !=
+            to.currency.trim().toUpperCase() ||
+        from.currency.trim().toUpperCase() != normalizedCurrency) {
+      throw ArgumentError('Transfers require wallets with the same currency');
+    }
+  }
+
+  bool _isOptimisticTransferId(String transferId) =>
+      transferId.startsWith('optimistic-transfer-');
 
   Future<void> updateBalance({
     required String walletId,
@@ -1341,7 +1474,10 @@ class WalletActions {
     }
   }
 
-  Future<void> _persistOptimisticWallet(WalletEntity account) async {
+  Future<void> _persistOptimisticWallet(
+    WalletEntity account, {
+    String? replacedWalletId,
+  }) async {
     final user = ref.read(authProvider);
     if (user.uid.isEmpty) return;
     final householdId = account.householdId;
@@ -1364,8 +1500,16 @@ class WalletActions {
         ) ??
         ref.read(scopedWalletsProvider).valueOrNull ??
         const <WalletEntity>[];
+    final currentWithoutReplacedWallet = replacedWalletId == null
+        ? current
+        : current
+            .where((wallet) => wallet.id != replacedWalletId)
+            .toList(growable: false);
     final next = _activeWallets(
-      _mergeOptimisticAccounts(current, {account.id: account}),
+      _mergeOptimisticAccounts(
+        currentWithoutReplacedWallet,
+        {account.id: account},
+      ),
     );
     ref.read(walletsListSessionCacheProvider.notifier).state = {
       ...ref.read(walletsListSessionCacheProvider),

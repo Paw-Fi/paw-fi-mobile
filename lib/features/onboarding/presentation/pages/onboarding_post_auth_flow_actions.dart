@@ -58,6 +58,9 @@ final onboardingPostAuthLogExpenseActionProvider =
   (ref) => _defaultLogExpenseAction,
 );
 
+final onboardingPostAuthLogExpenseSuccessProvider =
+    StateProvider<ValueChanged<OnboardingLoggedExpensePreview>?>((ref) => null);
+
 final onboardingPostAuthImportExpensesActionProvider =
     Provider<OnboardingPostAuthImportExpensesAction>(
   (ref) => _defaultImportExpensesAction,
@@ -91,6 +94,21 @@ Future<OnboardingLoggedExpensePreview?> _defaultLogExpenseAction(
 
   void captureSuccess(AiLogSuccess value) {
     success = value;
+    final firstItem = value.items.isNotEmpty ? value.items.first : null;
+    if (firstItem == null) return;
+
+    ref.read(onboardingPostAuthLogExpenseSuccessProvider)?.call(
+          OnboardingLoggedExpensePreview(
+            sourceLabel: sourceLabel,
+            amount: firstItem.amount,
+            currency: firstItem.currency,
+            description: firstItem.description?.trim().isNotEmpty == true
+                ? firstItem.description!.trim()
+                : sourceLabel,
+            category: firstItem.category,
+            items: value.items,
+          ),
+        );
   }
 
   if (sourceLabel == 'Take photo') {

@@ -990,6 +990,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 
   final localTransactions = <RecurringTransaction>[];
   final pendingRecurringIds = <String>{};
+  final pendingDeletedRecurringIds = <String>{};
   if (localDatabase != null) {
     try {
       final localRows = await localDatabase.getRecurringTransactions(
@@ -1004,6 +1005,26 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
       for (final mutation in mutations) {
         if (mutation.status == localMutationStatusSynced ||
             mutation.status == localMutationStatusCancelled) {
+          continue;
+        }
+        if (mutation.operation == 'delete_recurring_transaction' ||
+            mutation.operation == 'delete_recurring_template') {
+          pendingDeletedRecurringIds.add(mutation.entityId);
+          continue;
+        }
+        if (mutation.operation == 'update_recurring_expense' ||
+            mutation.operation == 'update_recurring_income') {
+          pendingRecurringIds.add(mutation.entityId);
+          continue;
+        }
+        if (mutation.operation == 'create') {
+          try {
+            final payload = jsonDecode(mutation.payloadJson);
+            final transaction = payload is Map ? payload['transaction'] : null;
+            if (transaction is Map && transaction['is_recurring'] == true) {
+              pendingRecurringIds.add(mutation.entityId);
+            }
+          } catch (_) {}
           continue;
         }
         if (!mutation.operation.contains('recurring_occurrence')) continue;
@@ -1057,7 +1078,8 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
         _debugLog('[Pockets] Failed to parse recurring transaction: $error');
       }
     }
-    if (localTransactions.isEmpty || pendingRecurringIds.isEmpty) {
+    if (localTransactions.isEmpty ||
+        (pendingRecurringIds.isEmpty && pendingDeletedRecurringIds.isEmpty)) {
       return transactions;
     }
     final localById = <String, RecurringTransaction>{
@@ -1066,9 +1088,14 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
           transaction.id: transaction,
     };
     return <RecurringTransaction>[
-      ...transactions.map(
-        (transaction) => localById.remove(transaction.id) ?? transaction,
-      ),
+      ...transactions
+          .where(
+            (transaction) => !pendingDeletedRecurringIds.contains(
+              transaction.id,
+            ),
+          )
+          .map(
+              (transaction) => localById.remove(transaction.id) ?? transaction),
       ...localById.values,
     ];
   } catch (_) {

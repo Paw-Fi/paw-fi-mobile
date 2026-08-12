@@ -76,7 +76,6 @@ import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-const String _replaceReceiptPhotoTooltip = 'Replace receipt photo';
 
 /// Format date with relative terms
 String _formatRelativeDate(
@@ -565,9 +564,9 @@ class _UnifiedTransactionSheetV2State
 
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: 'Unsaved changes',
-      description: 'Leave without saving your changes?',
-      confirmLabel: 'Leave',
+      title: context.l10n.unsavedChanges,
+      description: context.l10n.leaveWithoutSavingChanges,
+      confirmLabel: context.l10n.leave,
       cancelLabel: context.l10n.cancel,
       isDestructive: true,
     );
@@ -3407,17 +3406,26 @@ class _UnifiedTransactionSheetV2State
           clientMutationId: mutationMetadata.clientMutationId,
           idempotencyKey: mutationMetadata.idempotencyKey,
         );
-        replaceOptimisticTransactionWithContainer(
-          container: container,
-          optimisticId: optimisticId,
-          savedEntry: savedIncomeEntry,
-          householdId: householdId,
-        );
-        await localDatabase?.replaceOptimisticTransaction(
+        final reconciledEntry =
+            await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticId,
           savedEntry: savedIncomeEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
+        if (localDatabase != null && reconciledEntry == null) {
+          removeOptimisticTransactionWithContainer(
+            container: container,
+            optimisticId: optimisticId,
+            householdId: householdId,
+          );
+        } else {
+          replaceOptimisticTransactionWithContainer(
+            container: container,
+            optimisticId: optimisticId,
+            savedEntry: reconciledEntry ?? savedIncomeEntry,
+            householdId: householdId,
+          );
+        }
       } else {
         final saved = await container
             .read(expenseSaveNotifierProvider.notifier)
@@ -3442,25 +3450,34 @@ class _UnifiedTransactionSheetV2State
           throw Exception('Failed to save expense');
         }
 
-        final savedEntry = replaceOptimisticTransactionWithContainer(
-          container: container,
-          optimisticId: optimisticId,
-          savedEntry: saved,
-          householdId: householdId,
-        );
-        // `savedEntry` may carry a process-local optimistic split bridge when
+        // `saved` may carry a process-local optimistic split bridge when
         // an older/partial response omitted the backend UUID. Keep that bridge
         // in memory only; persisting it would make a restart load the expense
         // without a resolvable split and fall back to payer-full attribution.
         final durableSavedEntry =
-            isCanonicalHouseholdSplitGroupId(savedEntry.splitGroupId)
-                ? savedEntry
-                : savedEntry.copyWith(clearSplitGroupId: true);
-        await localDatabase?.replaceOptimisticTransaction(
+            isCanonicalHouseholdSplitGroupId(saved.splitGroupId)
+                ? saved
+                : saved.copyWith(clearSplitGroupId: true);
+        final reconciledEntry =
+            await localDatabase?.replaceOptimisticTransaction(
           optimisticId: optimisticId,
           savedEntry: durableSavedEntry,
           clientMutationId: mutationMetadata.clientMutationId,
         );
+        if (localDatabase != null && reconciledEntry == null) {
+          removeOptimisticTransactionWithContainer(
+            container: container,
+            optimisticId: optimisticId,
+            householdId: householdId,
+          );
+        } else {
+          replaceOptimisticTransactionWithContainer(
+            container: container,
+            optimisticId: optimisticId,
+            savedEntry: reconciledEntry ?? saved,
+            householdId: householdId,
+          );
+        }
       }
 
       _refreshUiAfterOptimisticSave(
@@ -4751,7 +4768,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
         actions: [
           if (widget.onReplacePhoto != null)
             Tooltip(
-              message: _replaceReceiptPhotoTooltip,
+              message: context.l10n.replaceReceiptPhoto,
               child: TextButton.icon(
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.foreground,

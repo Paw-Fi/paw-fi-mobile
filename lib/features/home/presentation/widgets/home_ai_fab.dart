@@ -107,13 +107,15 @@ void homeSpendTrace(String message) {
 
 String traceAiAmount(num value) => value.toStringAsFixed(2);
 
-String _friendlyProgressMessage(AnalysisProgressEvent event) {
-  const stageFallback = <String, String>{
-    'started': 'Getting things ready...',
-    'extracting_text': 'Reading the details...',
-    'processing_vision': 'Looking through your receipt...',
-    'analyzing_chunk': 'Reviewing transactions...',
-    'complete': 'Finishing up...',
+String _friendlyProgressMessage(
+    AnalysisProgressEvent event, BuildContext context) {
+  final l10n = context.l10n;
+  final stageFallback = <String, String>{
+    'started': l10n.aiProgressGettingThingsReady,
+    'extracting_text': l10n.aiProgressReadingTheDetails,
+    'processing_vision': l10n.aiProgressLookingThroughReceipt,
+    'analyzing_chunk': l10n.aiProgressReviewingTransactions,
+    'complete': l10n.aiProgressFinishingUp,
   };
 
   final stage = event.stage.trim().toLowerCase();
@@ -135,11 +137,11 @@ String _friendlyProgressMessage(AnalysisProgressEvent event) {
 
   String baseMessage;
   if (raw.isEmpty || hasJargon) {
-    baseMessage = stageFallback[stage] ?? 'Working on it...';
+    baseMessage = stageFallback[stage] ?? l10n.aiProgressWorkingOnIt;
   } else if (lowered.contains('extracting text')) {
-    baseMessage = 'Reading the details...';
+    baseMessage = l10n.aiProgressReadingTheDetails;
   } else if (lowered.contains('processing vision')) {
-    baseMessage = 'Looking through your receipt...';
+    baseMessage = l10n.aiProgressLookingThroughReceipt;
   } else {
     baseMessage = raw;
   }
@@ -2266,7 +2268,7 @@ Future<void> handleSharedAiInputFiles(
       if (context.mounted) {
         AppToast.error(
           context,
-          'File is too large to analyze. Keep it under 20MB or split it into smaller files.',
+          context.l10n.aiFileTooLargeToAnalyze,
         );
       }
       continue;
@@ -2358,7 +2360,7 @@ Future<void> handleAiFileUpload(
       if (context.mounted) {
         AppToast.error(
           context,
-          'File is too large to analyze. Keep it under 20MB or split it into smaller files.',
+          context.l10n.aiFileTooLargeToAnalyze,
         );
       }
       return;
@@ -2451,6 +2453,7 @@ Future<void> handleAiFileOrGallery(
 
 /// Process analysis request with SSE streaming for real-time progress updates.
 Future<Map<String, dynamic>?> _processWithSSE({
+  required BuildContext context,
   required Map<String, dynamic> body,
   required BlockingProcessingController dialogController,
   required bool Function() onCancelCheck,
@@ -2490,7 +2493,7 @@ Future<Map<String, dynamic>?> _processWithSSE({
       case 'progress':
         final progressEvent = AnalysisProgressEvent.fromJson(event.data);
         dialogController.updateSubMessage(
-          _friendlyProgressMessage(progressEvent),
+          _friendlyProgressMessage(progressEvent, context),
         );
         break;
       case 'complete':
@@ -2654,16 +2657,16 @@ Future<void> _processExpense(
               ? context.l10n.analyzingReceipt
               : context.l10n.analyzingExpense,
       subMessage: isPdfUpload
-          ? 'Processing PDF document...'
+          ? context.l10n.aiProcessingPdfDocument
           : hasTextInput
-              ? 'Reading what you typed...'
+              ? context.l10n.aiReadingWhatYouTyped
               : hasImageInput
-                  ? 'Looking through your image...'
+                  ? context.l10n.aiLookingThroughYourImage
                   : hasAudioInput
-                      ? 'Listening to your recording...'
+                      ? context.l10n.aiListeningToYourRecording
                       : hasAttachments
-                          ? 'Processing file...'
-                          : 'Processing large file...',
+                          ? context.l10n.aiProcessingFile
+                          : context.l10n.aiProcessingLargeFile,
       showElapsedTime: true,
     );
     dialogController = processingOverlay.controller;
@@ -2752,7 +2755,8 @@ Future<void> _processExpense(
 
     // Update dialog for PDFs
     if (dialogController != null && isPdfUpload) {
-      dialogController.updateSubMessage('Extracting transactions from PDF...');
+      dialogController.updateSubMessage(
+          context.l10n.aiExtractingTransactionsFromPdf);
     }
 
     // Check if user cancelled before making request
@@ -2786,6 +2790,7 @@ Future<void> _processExpense(
     if (responseData == null && shouldStream && dialogController != null) {
       try {
         responseData = await _processWithSSE(
+          context: context,
           body: body,
           dialogController: dialogController,
           onCancelCheck: () => dialogController?.isCancelled ?? false,
@@ -2801,8 +2806,8 @@ Future<void> _processExpense(
     if (responseData == null) {
       // Update dialog for PDFs
       if (dialogController != null && isPdfUpload) {
-        dialogController
-            .updateSubMessage('Extracting transactions from PDF...');
+        dialogController.updateSubMessage(
+            context.l10n.aiExtractingTransactionsFromPdf);
       }
 
       // Explicitly pass JWT so the Edge Function can enrich household context

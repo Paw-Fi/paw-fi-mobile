@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -189,6 +190,9 @@ class WalletDetailsPage extends HookConsumerWidget {
     );
     final walletFeedState =
         ref.watch(transactionsFeedProvider(walletFeedQuery));
+    final walletBalanceTransactionsAsync = ref.watch(
+      transactionsFeedAllItemsProvider(walletFeedQuery),
+    );
 
     final monthStart = currentMonthStart;
     final monthEnd = nextFinancialCycleStart(
@@ -277,6 +281,29 @@ class WalletDetailsPage extends HookConsumerWidget {
             selectedCurrencies: <String>[walletCurrencyCode],
             wallet: latestWallet,
           );
+    final walletBalanceActualTransactions =
+        walletBalanceTransactionsAsync.valueOrNull?.where((transaction) {
+      return !transaction.isRecurring &&
+          transaction.walletId?.trim() == latestWallet.id;
+    }).toList(growable: false);
+    final walletBalanceProjectedRecurringExpenses =
+        walletBalanceActualTransactions == null ||
+                walletRecurringTransactions.isEmpty
+            ? const <ExpenseEntry>[]
+            : _projectWalletRecurringExpenses(
+                recurringTransactions: walletRecurringTransactions,
+                actualExpenses: walletBalanceActualTransactions,
+                rangeStart: _resolveWalletProjectedRangeStart(
+                  feedTransactions: walletBalanceActualTransactions,
+                  recurringTransactions: walletRecurringTransactions,
+                  fallbackMonthStart: currentMonthStart,
+                  financialMonthStartDay: financialMonthStartDay,
+                ),
+                rangeEnd: userNow,
+                selectedCurrency: walletCurrencyCode,
+                selectedCurrencies: <String>[walletCurrencyCode],
+                wallet: latestWallet,
+              );
     // CRITICAL: keep the wallet detail list aligned with the recurring-aware
     // wallet balances.
     // STRICT REQUIREMENT: do not render only the raw feed rows here, or the
@@ -289,6 +316,25 @@ class WalletDetailsPage extends HookConsumerWidget {
     final displayVisibleTransactions = visibleTransactions;
     final visibleTransactionsSignature =
         groupedTransactionEntriesSignature(displayVisibleTransactions);
+    useEffect(() {
+      if (!kDebugMode) return null;
+
+      for (final transaction in displayVisibleTransactions) {
+        debugPrint(
+          '[WalletDetailsPage][recurring-chip] '
+          'wallet=${latestWallet.id} '
+          'id=${transaction.id} '
+          'amountCents=${transaction.amountCents} '
+          'type=${transaction.type} '
+          'isRecurring=${transaction.isRecurring} '
+          'parentRecurringId=${transaction.parentRecurringId} '
+          'scheduledOccurrenceDate=${transaction.scheduledOccurrenceDate} '
+          'recurringConfirmedAt=${transaction.recurringConfirmedAt} '
+          'showRecurringChip=${shouldShowRecurringChipForExpense(transaction)}',
+        );
+      }
+      return null;
+    }, [visibleTransactionsSignature, latestWallet.id]);
     final visibleTransactionsById = useMemoized(
       () => {
         for (final transaction in visibleTransactions)
@@ -329,7 +375,21 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final currentBalanceCents = latestWallet.currentBalanceCents;
+    final currentBalanceCents = walletBalanceActualTransactions == null
+        ? latestWallet.currentBalanceCents
+        : buildWalletSnapshot(
+              wallets: <WalletEntity>[latestWallet],
+              transactions: _mergeWalletDetailTransactions(
+                feedTransactions: walletBalanceActualTransactions,
+                projectedTransactions: walletBalanceProjectedRecurringExpenses,
+              ),
+              endExclusive: DateTime(
+                userNow.year,
+                userNow.month,
+                userNow.day + 1,
+              ),
+            ).walletBalances[latestWallet.id] ??
+            latestWallet.currentBalanceCents;
     // CRITICAL: the "this month" stat cards must include the same projected
     // recurring rows shown in the transaction list and wallet balance logic.
     // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
@@ -694,7 +754,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           invalidate: false,
         );
         if (context.mounted) {
-          AppToast.success(context, context.l10n.saveChanges);
+          AppToast.success(context, context.l10n.walletUpdatedSuccessfully);
         }
         debugPrint(
             '[AccountDetails][Edit] refreshAccountData accountId=${latestWallet.id}');
@@ -813,7 +873,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       if (result == null) return;
 
       if (context.mounted) {
-        AppToast.success(context, context.l10n.save);
+        AppToast.success(context, context.l10n.transferCompletedSuccessfully);
       }
       final completion = operation?.completion;
       if (completion == null) return;
@@ -1000,15 +1060,6 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 color: textColor,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              context.l10n.balanceSummary,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: secondaryTextColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
                             const SizedBox(height: 8),
                             _AnimatedAmountText(
                               value: currentBalanceCents / 100.0,
@@ -1022,15 +1073,26 @@ class WalletDetailsPage extends HookConsumerWidget {
                             ),
                             if (latestWallet.goalAmountCents != null) ...[
                               const SizedBox(height: 8),
-                              _AnimatedAmountText(
-                                value: latestWallet.goalAmountCents! / 100.0,
-                                currencyCode: walletCurrencyCode,
-                                prefix: context.l10n.balanceSummary,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: secondaryTextColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.emoji_events,
+                                    size: 16,
+                                    color: secondaryTextColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  _AnimatedAmountText(
+                                    value:
+                                        latestWallet.goalAmountCents! / 100.0,
+                                    currencyCode: walletCurrencyCode,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: secondaryTextColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                             if (shouldShowBankSyncStatus &&
@@ -1835,13 +1897,11 @@ class _AnimatedAmountText extends StatelessWidget {
   final double value;
   final String currencyCode;
   final TextStyle style;
-  final String prefix;
 
   const _AnimatedAmountText({
     required this.value,
     required this.currencyCode,
     required this.style,
-    this.prefix = '',
   });
 
   @override
@@ -1853,7 +1913,7 @@ class _AnimatedAmountText extends StatelessWidget {
       builder: (context, val, child) {
         final formatted = _formatAmount(context, val, currencyCode);
         return Text(
-          prefix.isEmpty ? formatted : '$prefix $formatted',
+          formatted,
           style: style,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

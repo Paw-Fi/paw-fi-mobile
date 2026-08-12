@@ -39,10 +39,13 @@ class _AiShareIntentListenerState extends ConsumerState<AiShareIntentListener> {
         .listen(_enqueueSharedMedia, onError: (_) {});
 
     unawaited(
-      ReceiveSharingIntent.instance.getInitialMedia().then((media) {
-        _enqueueSharedMedia(media);
-        ReceiveSharingIntent.instance.reset();
-      }),
+      ReceiveSharingIntent.instance
+          .getInitialMedia()
+          .then((media) {
+            if (mounted) _enqueueSharedMedia(media);
+          })
+          .catchError((_) {})
+          .whenComplete(ReceiveSharingIntent.instance.reset),
     );
   }
 
@@ -90,6 +93,7 @@ class _AiShareIntentListenerState extends ConsumerState<AiShareIntentListener> {
     if (_drainScheduled || _isProcessing || !mounted) return;
     _drainScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _drainScheduled = false;
       unawaited(_drainPendingFiles());
     });
@@ -113,7 +117,7 @@ class _AiShareIntentListenerState extends ConsumerState<AiShareIntentListener> {
       );
     } finally {
       _isProcessing = false;
-      if (_pendingFiles.isNotEmpty) {
+      if (mounted && _pendingFiles.isNotEmpty) {
         _scheduleDrain();
       }
     }

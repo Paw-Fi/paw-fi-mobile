@@ -22,6 +22,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuthNotifier extends Auth {
@@ -374,8 +375,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(seconds: 2));
 
-    expect(find.text(r'$-6.20'), findsWidgets);
-    expect(find.text(r'$-6.00'), findsNothing);
+    final spendingCard = tester.widget<WalletStackCard>(
+      find.byWidgetPredicate(
+        (widget) => widget is WalletStackCard && widget.wallet.id == 'a1',
+      ),
+    );
+    expect(spendingCard.displayBalanceCents, -600);
     expect(find.text('Off-books Reserve'), findsWidgets);
     expect(find.text('Excluded from analytics'), findsOneWidget);
   });

@@ -604,7 +604,7 @@ class _CycleTimeline extends StatelessWidget {
         const SizedBox(height: 10),
         Center(
           child: Text(
-            'Day ${elapsedDays + 1} of $totalDays',
+            context.l10n.dayOfTotal(elapsedDays + 1, totalDays),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,

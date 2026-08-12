@@ -99,6 +99,30 @@ void main() {
     expect(mutations.last.retryAfter, now.add(const Duration(seconds: 2)));
   });
 
+  test('defers a dependency without consuming a retry attempt', () async {
+    final now = DateTime.utc(2026, 4, 8, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'dependent-transfer-edit',
+      entityType: 'wallet',
+      entityId: 'optimistic-transfer-1',
+      operation: 'invoke_function',
+      payload: const {'functionName': 'update-wallet-transfer'},
+      createdAt: now,
+    );
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      dispatchMutation: (_) async =>
+          throw const DeferredLocalMutationException(),
+    );
+
+    expect(await coordinator.drainOutbox(), 0);
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusQueued);
+    expect(mutation.attemptCount, 0);
+    expect(mutation.retryAfter, isNull);
+  });
+
   test('drainOutbox cancels poison mutation and continues later rows',
       () async {
     final now = DateTime.utc(2026, 4, 8, 12);

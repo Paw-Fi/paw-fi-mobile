@@ -96,7 +96,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
           ? 'wallet'
           : (initial?.icon ?? 'wallet'),
     );
-    final selectedColor = useState<String>(initial?.color ?? '#6B7280');
+    final selectedColor = useState<String?>(initial?.color);
     final initialCurrency = initial?.currency.trim().toUpperCase();
     final selectedCurrency = useState<String>(
       isSupportedCurrencyCode(initialCurrency)
@@ -129,7 +129,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
         CreateEditWalletResult(
           name: name,
           icon: selectedIcon.value,
-          color: selectedColor.value,
+          color: selectedColor.value ?? '#6B7280',
           logoUrl: selectedLogoUrl.value,
           currency: selectedCurrency.value,
           openingBalanceCents: openingCents,
@@ -218,86 +218,12 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: AppTheme.pocketPresetColors.length + 1,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return GestureDetector(
-                        onTap: () {
-                          AdaptiveColorPicker.show(
-                            context: context,
-                            startingColor: parseWalletColor(
-                              selectedColor.value,
-                              AppTheme.pocketDefaultBlue,
-                            ),
-                            onColorChanged: (color) {
-                              String two(int n) =>
-                                  n.toRadixString(16).padLeft(2, '0');
-                              int toByte(double x) =>
-                                  (x * 255.0).round() & 0xff;
-                              selectedColor.value =
-                                  '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                            },
-                            label: context.l10n.selectColor,
-                          );
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: const SweepGradient(
-                              colors: AppTheme.pocketColorSweep,
-                            ),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: colorScheme.border),
-                          ),
-                          child: Icon(
-                            Icons.colorize,
-                            color: colorScheme.primaryForeground,
-                            size: 20,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final color = AppTheme.pocketPresetColors[index - 1];
-                    String two(int n) => n.toRadixString(16).padLeft(2, '0');
-                    int toByte(double x) => (x * 255.0).round() & 0xff;
-                    final hex =
-                        '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                    final isSelected =
-                        selectedColor.value.toLowerCase() == hex.toLowerCase();
-
-                    return GestureDetector(
-                      onTap: () => selectedColor.value = hex,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: isSelected
-                              ? Border.all(
-                                  color: colorScheme.foreground,
-                                  width: 2,
-                                )
-                              : null,
-                        ),
-                        child: isSelected
-                            ? Icon(
-                                Icons.check,
-                                color: colorScheme.primaryForeground,
-                                size: 20,
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                ),
+              ColorSelectionSwatchRow(
+                selectedHex: selectedColor.value,
+                onChanged: (color) => selectedColor.value = color,
+                presetColors: AppTheme.pocketPresetColors,
+                sweepColors: AppTheme.pocketColorSweep,
+                fallbackColor: AppTheme.pocketDefaultBlue,
               ),
               const SizedBox(height: 20),
               Text(

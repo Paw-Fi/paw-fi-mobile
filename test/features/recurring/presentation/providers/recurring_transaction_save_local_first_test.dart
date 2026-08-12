@@ -15,6 +15,8 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -82,6 +84,123 @@ void main() {
     expect(requestBody['payerUserId'], 'user_2');
     expect(requestBody['customSplits'], _amountSplitPayload);
     expect(capturedBody?['customSplits'], _amountSplitPayload);
+  });
+
+  test('single income occurrence queues the atomic override before replay',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (_) => throw const SocketException('offline');
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final recurring = _recurring(
+      householdId: 'household_1',
+      type: 'income',
+      category: 'income:salary',
+    );
+
+    final saved = await container
+        .read(recurringTransactionSaveProvider.notifier)
+        .updateSingleIncomeOccurrence(
+          userId: 'user_1',
+          recurringSeries: recurring,
+          occurrenceDateToSkip: DateTime(2026, 2, 1),
+          amount: 120,
+          category: 'income:salary',
+          currency: 'USD',
+          date: DateTime(2026, 2, 2),
+          description: 'February salary',
+          merchant: 'Employer',
+          source: 'Payroll',
+          householdId: 'household_1',
+          accountId: 'wallet_usd',
+        );
+
+    final mutation = (await database.getOutboxMutations()).single;
+    final payload = jsonDecode(mutation.payloadJson) as Map<String, dynamic>;
+    final requestBody = payload['requestBody'] as Map<String, dynamic>;
+
+    expect(saved?.amount, 120);
+    expect(mutation.operation,
+        localRecurringOccurrenceConfirmationMutationOperation);
+    expect(payload['functionName'], 'save-recurring-occurrence-override');
+    expect(requestBody['source'], 'Payroll');
+    expect(requestBody['category'], 'income:salary');
+    expect(requestBody['currency'], 'USD');
+    expect(requestBody['accountId'], 'wallet_usd');
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(
+      (await database.getOutboxMutations()).single.status,
+      localMutationStatusFailed,
+    );
+  });
+
+  test(
+      'current-month occurrence edit adjusts the recurring header before replay',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (_) => throw const SocketException('offline');
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final recurring = _recurring(
+      householdId: 'household_1',
+      date: DateTime(2026, 8, 1),
+    );
+    final actual = _entry(recurring).copyWith(
+      id: 'actual-occurrence-1',
+      isRecurring: false,
+      parentRecurringId: recurring.id,
+      scheduledOccurrenceDate: DateTime(2026, 8, 1),
+      amountCents: 8000,
+    );
+
+    final result = await container
+        .read(recurringOccurrenceUpdateProvider)
+        .update(RecurringOccurrenceUpdateCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring,
+          occurrence: RecurringOccurrenceTimelineItem(
+            occurrenceId: 'occurrence-1',
+            scheduledOccurrenceDate: DateTime(2026, 8, 1),
+            status: 'confirmed',
+            actualTransaction: actual,
+            amountCents: 8000,
+            currency: 'USD',
+          ),
+          paidDate: DateTime(2026, 8, 1),
+          amountCents: 9000,
+          accountId: 'wallet_usd',
+        ));
+
+    final headerSummary =
+        container.read(recurringSeriesOptimisticProvider.notifier).apply(
+      const RecurringReadScope(
+        userId: 'user_1',
+        householdId: 'household_1',
+        currencies: ['USD'],
+      ),
+      [
+        RecurringSeriesSummary(
+          transaction: recurring,
+          nextOccurrenceDate: DateTime(2026, 9, 1),
+          latestActionableOccurrenceDate: null,
+          currentMonthConfirmedAmountDeltaCents: -2000,
+        ),
+      ],
+    ).single;
+
+    expect(result.isQueued, isTrue);
+    expect(headerSummary.currentMonthConfirmedAmountDeltaCents, -1000);
+
+    // Let the intentionally offline background drain finish before disposing
+    // the in-memory database.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(
+      (await database.getOutboxMutations()).single.status,
+      localMutationStatusFailed,
+    );
   });
 
   test('retryable recurring split failure remains queued and visible',
@@ -640,12 +759,13 @@ RecurringTransaction _recurring({
   String type = 'expense',
   String category = 'housing',
   String? splitGroupId,
+  DateTime? date,
 }) {
-  final date = DateTime(2026, 2, 1);
+  final resolvedDate = date ?? DateTime(2026, 2, 1);
   return RecurringTransaction(
     id: 'recurring_1',
     userId: 'user_1',
-    date: date,
+    date: resolvedDate,
     category: category,
     description: 'Rent',
     amount: 100,
@@ -658,12 +778,12 @@ RecurringTransaction _recurring({
     accountId: 'wallet_usd',
     recurrenceRule: RecurrenceRule(
       frequency: 'monthly',
-      anchorDate: date,
+      anchorDate: resolvedDate,
     ),
     type: type,
     attachments: const [],
-    createdAt: date,
-    updatedAt: date,
+    createdAt: resolvedDate,
+    updatedAt: resolvedDate,
   );
 }
 
