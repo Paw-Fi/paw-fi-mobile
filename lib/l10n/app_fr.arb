@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "Portefeuilles",
   "plusLockedOnePrivateOneShared": "1 privé + 1 partagé",
   "plusLockedTwoWallets": "2 portefeuilles",
-  "expiredPlusBannerMessage": "Votre essai gratuit est terminé. Abonnez-vous dès {price}/mois.",
+  "expiredPlusBannerMessage": "Continuez à profiter des avantages Plus - abonnez-vous à partir de seulement {price}/mois.",
   "expiredSubscriptionMessage": "Votre forfait Plus a expiré. Abonnez-vous pour continuer à profiter de ses avantages.",
   "trialWelcomeTitle": "Profitez de 7 jours de Plus — gratuits !",
   "trialWelcomeSubtitle": "Profitez de toutes les fonctionnalités Plus gratuitement pendant les 7 prochains jours. Voici ce que vous pouvez essayer :",
@@ -3536,5 +3536,6 @@
   "importAndContinue": "Importer et continuer",
   "areYouCurrentlyUsingOtherApp": "Utilisez-vous actuellement une autre application ?",
   "pickYourSourceSubtitle": "Choisissez la source pour savoir exactement quel fichier importer. Nous l'importerons dans votre compte personnel à l'étape suivante.",
-  "friendOrFamily": "Amis ou famille"
+  "friendOrFamily": "Amis ou famille",
+  "trialActiveUntilDate": "Votre essai Plus est actif jusqu'au {formattedDate}"
 }

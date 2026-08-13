@@ -3203,7 +3203,7 @@
   "plusLockedWallets": "بٹوے",
   "plusLockedOnePrivateOneShared": "1 ذاتی + 1 مشترکہ",
   "plusLockedTwoWallets": "2 بٹوے",
-  "expiredPlusBannerMessage": "آپ کی مفت آزمائش ختم ہو گئی ہے۔ صرف {price} ماہانہ سے سبسکرائب کریں۔",
+  "expiredPlusBannerMessage": "اپنے Plus فوائد جاری رکھیں - صرف {price}/ماہ سے سبسکرائب کریں۔",
   "expiredSubscriptionMessage": "آپ کا پلس پلان ختم ہو گیا ہے۔ پلس کے فوائد سے لطف اندوز ہوتے رہنے کے لیے سبسکرائب کریں۔",
   "trialWelcomeTitle": "آپ کو پلس کے 7 دن مفت مل گئے ہیں!",
   "trialWelcomeSubtitle": "اگلے 7 دنوں تک بغیر کسی قیمت کے تمام پلس خصوصیات سے لطف اندوز ہوں۔ یہاں وہ سب ہے جو آپ آزما سکتے ہیں:",
@@ -3482,5 +3482,6 @@
   "importAndContinue": "امپورٹ کریں اور جاری رکھیں",
   "areYouCurrentlyUsingOtherApp": "کیا آپ فی الحال کوئی دوسری ایپ استعمال کر رہے ہیں؟",
   "pickYourSourceSubtitle": "کون سی فائل اپ لوڈ کرنی ہے یہ دیکھنے کے لیے اپنا ذریعہ منتخب کریں۔ اگلے مرحلے میں ہم اسے آپ کے ذاتی اکاؤنٹ میں امپورٹ کریں گے۔",
-  "friendOrFamily": "دوست یا خاندان"
+  "friendOrFamily": "دوست یا خاندان",
+  "trialActiveUntilDate": "آپ کا Plus ٹرائل {formattedDate} تک فعال ہے"
 }

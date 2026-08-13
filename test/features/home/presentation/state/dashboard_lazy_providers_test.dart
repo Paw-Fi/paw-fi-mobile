@@ -872,6 +872,64 @@ void main() {
         60655);
   });
 
+  test(
+      'household calendar cache revalidates a member snapshot in the background',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    const householdId = 'household-1';
+    final query = DashboardScopeQuery(
+      userId: 'user-1',
+      householdId: householdId,
+      selectedCurrency: 'USD',
+      selectedCurrencies: const ['USD'],
+      startDate: DateTime(2026, 4, 1),
+      endDate: DateTime(2026, 4, 30),
+    );
+    await DashboardSqliteCache(database).writeCalendar(
+      query,
+      const <ExpenseEntry>[],
+    );
+    final allPages = Completer<List<ExpenseEntry>>();
+    final service = _FakeTransactionsFeedService()
+      ..allPagesCompleter = allPages;
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_TestAuth.new),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      transactionsFeedServiceProvider.overrideWithValue(service),
+      transactionsRemoteFeedServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    final updated = Completer<List<ExpenseEntry>>();
+    container.listen(dashboardCalendarTransactionsProvider(query), (_, next) {
+      final value = next.valueOrNull;
+      if (value != null &&
+          value.length == 1 &&
+          value.single.id == 'shared-expense' &&
+          !updated.isCompleted) {
+        updated.complete(value);
+      }
+    });
+
+    expect(
+      await container.read(dashboardCalendarTransactionsProvider(query).future),
+      isEmpty,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(service.lastAllPagesQuery?.householdId, householdId);
+
+    allPages.complete([
+      _entry(
+        'shared-expense',
+        DateTime(2026, 4, 5),
+        userId: 'member-2',
+      ).copyWith(householdId: householdId),
+    ]);
+
+    expect((await updated.future).single.id, 'shared-expense');
+  });
+
   test('owned MoM range paginates beyond the PostgREST max_rows cap', () async {
     final requestedCursors = <String?>[];
     final client = SupabaseClient(

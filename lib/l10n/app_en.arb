@@ -2636,6 +2636,14 @@
   "freeTrial": "Free trial",
   "dayLeft": "{count} day left",
   "daysLeft": "{count} days left",
+  "trialActiveUntilDate": "Your Plus trial is active until {formattedDate}",
+  "@trialActiveUntilDate": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
   "upgrade": "Upgrade",
   "viewPlans": "View plans",
   "dismiss": "Dismiss",
@@ -3295,7 +3303,7 @@
   "plusLockedWallets": "Wallets",
   "plusLockedOnePrivateOneShared": "1 private + 1 shared",
   "plusLockedTwoWallets": "2 wallets",
-  "expiredPlusBannerMessage": "Your free trial has ended. Subscribe from just {price}/month.",
+  "expiredPlusBannerMessage": "Keep your Plus benefits going — subscribe from just {price}/month.",
   "expiredSubscriptionMessage": "Your Plus plan has expired. Subscribe to keep enjoying Plus benefits.",
   "trialWelcomeTitle": "You've got 7 days of Plus — free!",
   "trialWelcomeSubtitle": "Enjoy all Plus features at no cost for the next 7 days. Here's what you can try:",

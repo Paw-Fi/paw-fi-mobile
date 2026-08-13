@@ -3253,7 +3253,7 @@
   "plusLockedWallets": "钱包",
   "plusLockedOnePrivateOneShared": "1 个私人 + 1 个共享",
   "plusLockedTwoWallets": "2 个钱包",
-  "expiredPlusBannerMessage": "免费试用已结束。订阅低至每月 {price}。",
+  "expiredPlusBannerMessage": "继续享受 Plus 权益 - 订阅仅需 {price}/月起。",
   "expiredSubscriptionMessage": "您的 Plus 计划已过期。请订阅以继续享受 Plus 专属特权。",
   "trialWelcomeTitle": "畅享 7 天免费 Plus 体验！",
   "trialWelcomeSubtitle": "在接下来的 7 天内免费享受所有 Plus 功能。您可以尝试：",
@@ -3532,5 +3532,6 @@
   "importAndContinue": "导入并继续",
   "areYouCurrentlyUsingOtherApp": "你目前在使用其他应用吗？",
   "pickYourSourceSubtitle": "选择数据来源，查看需要上传的具体文件。下一步我们会将其导入你的个人账户。",
-  "friendOrFamily": "亲朋好友"
+  "friendOrFamily": "亲朋好友",
+  "trialActiveUntilDate": "你的 Plus 试用期有效至 {formattedDate}"
 }

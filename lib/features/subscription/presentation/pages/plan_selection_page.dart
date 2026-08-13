@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -53,16 +54,14 @@ int? _computeTrialDaysLeft(DateTime? trialEndAt) {
   return (remaining.inMilliseconds / Duration.millisecondsPerDay).ceil();
 }
 
-String? _trialDaysLeftLabel(BuildContext context, Subscription? subscription) {
+String? _trialActiveUntilLabel(
+    BuildContext context, Subscription? subscription) {
   if (subscription?.status?.toLowerCase() != 'trialing') return null;
-
-  final daysLeft = _computeTrialDaysLeft(subscription?.currentPeriodEnd);
-  if (daysLeft == null) return null;
-
-  final daysLeftLabel = daysLeft == 1
-      ? context.l10n.dayLeft(daysLeft)
-      : context.l10n.daysLeft(daysLeft);
-  return '${context.l10n.freeTrial}: $daysLeftLabel';
+  final trialEndsAt = subscription?.currentPeriodEnd;
+  if (trialEndsAt == null) return null;
+  if (_computeTrialDaysLeft(trialEndsAt) == null) return null;
+  final formattedDate = formatLocalizedDate(context, trialEndsAt);
+  return context.l10n.trialActiveUntilDate(formattedDate);
 }
 
 const bool forceUseStripeCheckout = false;
@@ -158,7 +157,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
     final renewalInfoLabel = currentSub?.renewalInfo(context.l10n);
     final trialDaysLeftLabel =
-        _trialDaysLeftLabel(context, currentSubscription);
+        _trialActiveUntilLabel(context, currentSubscription);
     final currentPlanInfoLabel = trialDaysLeftLabel ?? renewalInfoLabel;
     final hasActiveSubscription = currentSubscription?.isSubscribed ?? false;
     final isHouseholdSharedSubscription =
@@ -780,10 +779,12 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     String resolveSubscriptionStatusLabel() {
+      if (!hasActiveSubscription) {
+        return context.l10n.freePlan;
+      }
       return switch (currentStatus) {
         'active' => context.l10n.activeStatus,
         'trialing' => context.l10n.trialStatus,
-        'canceled' => context.l10n.canceledStatus,
         'past_due' => context.l10n.pastDueStatus,
         _ => context.l10n.freePlan,
       };

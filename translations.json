@@ -1,1 +1,36 @@
-{}
+{
+  "trialActiveUntilDate": {
+    "en": "Your Plus trial is active until {formattedDate}",
+    "de": "Dein Plus-Testzeitraum ist bis zum {formattedDate} aktiv",
+    "es": "Tu prueba de Plus está activa hasta el {formattedDate}",
+    "fr": "Votre essai Plus est actif jusqu'au {formattedDate}",
+    "it": "La tua prova di Plus è attiva fino al {formattedDate}",
+    "ja": "Plusの無料体験は{formattedDate}まで利用できます",
+    "ko": "Plus 체험은 {formattedDate}까지 이용할 수 있어요",
+    "nl": "Je Plus-proefperiode is actief tot {formattedDate}",
+    "ur": "آپ کا Plus ٹرائل {formattedDate} تک فعال ہے",
+    "ru": "Пробный период Plus действует до {formattedDate}",
+    "th": "ทดลองใช้ Plus ได้ถึง {formattedDate}",
+    "uk": "Пробний період Plus діє до {formattedDate}",
+    "zh": "你的 Plus 试用期有效至 {formattedDate}",
+    "zh_TW": "你的 Plus 試用期可使用至 {formattedDate}",
+    "vi": "Bản dùng thử Plus của bạn có hiệu lực đến {formattedDate}"
+  },
+  "expiredPlusBannerMessage": {
+    "en": "Keep your Plus benefits going — subscribe from just {price}/month.",
+    "de": "Nutze deine Plus-Vorteile weiter - Abos gibt es schon ab {price}/Monat.",
+    "es": "Sigue disfrutando de las ventajas de Plus - suscríbete desde solo {price}/mes.",
+    "fr": "Continuez à profiter des avantages Plus - abonnez-vous à partir de seulement {price}/mois.",
+    "it": "Continua a usufruire dei vantaggi Plus - abbonati a partire da soli {price}/mese.",
+    "ja": "Plusの特典を引き続き利用しましょう。月額{price}からご利用いただけます。",
+    "ko": "Plus 혜택을 계속 이용해 보세요. 월 {price}부터 구독할 수 있어요.",
+    "nl": "Blijf profiteren van je Plus-voordelen - abonneer je vanaf slechts {price}/maand.",
+    "ur": "اپنے Plus فوائد جاری رکھیں - صرف {price}/ماہ سے سبسکرائب کریں۔",
+    "ru": "Продолжайте пользоваться преимуществами Plus - подписка всего от {price}/месяц.",
+    "th": "ใช้สิทธิประโยชน์ Plus ต่อได้ - สมัครสมาชิกเริ่มต้นเพียง {price}/เดือน",
+    "uk": "Продовжуйте користуватися перевагами Plus - підписка лише від {price}/місяць.",
+    "zh": "继续享受 Plus 权益 - 订阅仅需 {price}/月起。",
+    "zh_TW": "繼續享有 Plus 權益 - 訂閱只要 {price}/月起。",
+    "vi": "Tiếp tục tận hưởng quyền lợi Plus - đăng ký chỉ từ {price}/tháng."
+  }
+}

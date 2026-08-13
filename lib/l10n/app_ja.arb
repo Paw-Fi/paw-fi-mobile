@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "ウォレット",
   "plusLockedOnePrivateOneShared": "個人用1 + 共有用1",
   "plusLockedTwoWallets": "2つのウォレット",
-  "expiredPlusBannerMessage": "無料トライアルが終了しました。月額{price}から利用できます。",
+  "expiredPlusBannerMessage": "Plusの特典を引き続き利用しましょう。月額{price}からご利用いただけます。",
   "expiredSubscriptionMessage": "Plusプランの有効期限が切れました。Plusの特典を引き続き楽しむには、定期購入してください。",
   "trialWelcomeTitle": "7日間の無料Plusトライアルをプレゼント！",
   "trialWelcomeSubtitle": "今後7日間、すべてのPlus機能を無料でお楽しみいただけます。ぜひお試しください：",
@@ -3536,5 +3536,6 @@
   "importAndContinue": "インポートして続ける",
   "areYouCurrentlyUsingOtherApp": "現在、他のアプリを使っていますか？",
   "pickYourSourceSubtitle": "移行元を選択すると、アップロードするファイルを確認できます。次のステップで個人アカウントにインポートします。",
-  "friendOrFamily": "友人・家族"
+  "friendOrFamily": "友人・家族",
+  "trialActiveUntilDate": "Plusの無料体験は{formattedDate}まで利用できます"
 }

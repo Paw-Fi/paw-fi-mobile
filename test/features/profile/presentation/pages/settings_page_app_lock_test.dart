@@ -57,8 +57,12 @@ class _TestAppLockController extends AppLockController {
 
 class _FakeSubscriptionManagementNotifier
     extends SubscriptionManagementNotifier {
+  _FakeSubscriptionManagementNotifier(this.details);
+
+  final SubscriptionDetails? details;
+
   @override
-  Future<SubscriptionDetails?> build() async => _activePlusSubscription;
+  Future<SubscriptionDetails?> build() async => details;
 }
 
 final _activePlusSubscription = SubscriptionDetails(
@@ -76,7 +80,10 @@ final _activePlusSubscription = SubscriptionDetails(
   invoices: const [],
 );
 
-ProviderScope _settingsPageTestScope(SharedPreferences preferences) {
+ProviderScope _settingsPageTestScope(
+  SharedPreferences preferences, {
+  SubscriptionDetails? subscriptionDetails,
+}) {
   return ProviderScope(
     overrides: [
       authProvider.overrideWith(_TestAuth.new),
@@ -88,7 +95,9 @@ ProviderScope _settingsPageTestScope(SharedPreferences preferences) {
         const _TestBiometricService(),
       ),
       subscriptionManagementProvider.overrideWith(
-        _FakeSubscriptionManagementNotifier.new,
+        () => _FakeSubscriptionManagementNotifier(
+          subscriptionDetails ?? _activePlusSubscription,
+        ),
       ),
     ],
     child: const MaterialApp(
@@ -187,6 +196,56 @@ void main() {
       // Simulate successful setup (this would require mocking the controller)
       // For now, we just verify the navigation behavior
       expect(find.byType(AppLockSetupPage), findsOneWidget);
+    });
+  });
+
+  group('Membership tile', () {
+    testWidgets('shows Free plan when a Plus entitlement has expired',
+        (tester) async {
+      final expiredPlusSubscription = SubscriptionDetails(
+        subscription: Subscription(
+          id: 'sub_expired',
+          userId: 'user_1',
+          provider: 'stripe',
+          plan: 'plus',
+          status: 'active',
+          currentPeriodEnd: DateTime.now().subtract(const Duration(days: 1)),
+          createdAt: DateTime.now(),
+        ),
+        invoices: const [],
+      );
+
+      await tester.pumpWidget(_settingsPageTestScope(
+        preferences,
+        subscriptionDetails: expiredPlusSubscription,
+      ));
+      await tester.pump();
+
+      expect(find.text('Free plan'), findsOneWidget);
+    });
+
+    testWidgets('shows Trialing while the trial entitlement remains valid',
+        (tester) async {
+      final activeTrialSubscription = SubscriptionDetails(
+        subscription: Subscription(
+          id: 'sub_trial',
+          userId: 'user_1',
+          provider: 'stripe',
+          plan: 'plus',
+          status: 'trialing',
+          currentPeriodEnd: DateTime.now().add(const Duration(days: 1)),
+          createdAt: DateTime.now(),
+        ),
+        invoices: const [],
+      );
+
+      await tester.pumpWidget(_settingsPageTestScope(
+        preferences,
+        subscriptionDetails: activeTrialSubscription,
+      ));
+      await tester.pump();
+
+      expect(find.text('Trialing'), findsOneWidget);
     });
   });
 }

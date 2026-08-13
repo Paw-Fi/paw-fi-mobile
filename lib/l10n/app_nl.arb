@@ -3204,7 +3204,7 @@
   "plusLockedWallets": "Portemonnees",
   "plusLockedOnePrivateOneShared": "1 privé + 1 gedeeld",
   "plusLockedTwoWallets": "2 portemonnees",
-  "expiredPlusBannerMessage": "Je gratis proefperiode is afgelopen. Abonneer je vanaf {price}/maand.",
+  "expiredPlusBannerMessage": "Blijf profiteren van je Plus-voordelen - abonneer je vanaf slechts {price}/maand.",
   "expiredSubscriptionMessage": "Je Plus-abonnement is verlopen. Abonneer je om te blijven genieten van Plus-voordelen.",
   "trialWelcomeTitle": "Je hebt 7 dagen Plus gekregen — gratis!",
   "trialWelcomeSubtitle": "Geniet de komende 7 dagen kosteloos van alle Plus-functies. Dit is wat je kunt proberen:",
@@ -3483,5 +3483,6 @@
   "importAndContinue": "Importeren en doorgaan",
   "areYouCurrentlyUsingOtherApp": "Gebruik je momenteel een andere app?",
   "pickYourSourceSubtitle": "Kies je bron om precies te zien welk bestand je moet uploaden. In de volgende stap importeren we het naar je persoonlijke account.",
-  "friendOrFamily": "Vrienden of familie"
+  "friendOrFamily": "Vrienden of familie",
+  "trialActiveUntilDate": "Je Plus-proefperiode is actief tot {formattedDate}"
 }

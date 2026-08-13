@@ -132,17 +132,12 @@ class OverviewDashboardPage extends ConsumerWidget {
 
               final splitGroupsByExpenseId = <String, ExpenseSplitGroup>{};
               final splitGroupsById = <String, ExpenseSplitGroup>{};
-              final householdsWithPendingSplits = <String>{};
               for (final household in data.households) {
                 final splitsAsync = ref.watch(
                   householdSplitsProvider(
                     HouseholdSplitsParams(householdId: household.id),
                   ),
                 );
-                if ((splitsAsync.isLoading || splitsAsync.hasError) &&
-                    !splitsAsync.hasValue) {
-                  householdsWithPendingSplits.add(household.id);
-                }
                 final splits =
                     splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
                 for (final split in splits) {
@@ -158,20 +153,6 @@ class OverviewDashboardPage extends ConsumerWidget {
                   tx.entry.effectiveSpendingMultiplier != 0;
 
               double resolveMyShareRawAmount(ConsolidatedTransaction tx) {
-                final householdId = tx.entry.householdId?.trim();
-                final splitGroupId = tx.entry.splitGroupId?.trim();
-                final hasSplitGroupId =
-                    splitGroupId != null && splitGroupId.isNotEmpty;
-                final isHouseholdSplitPending = householdId != null &&
-                    householdId.isNotEmpty &&
-                    hasSplitGroupId &&
-                    householdsWithPendingSplits.contains(householdId) &&
-                    splitGroupsByExpenseId[tx.entry.id] == null &&
-                    splitGroupsById[splitGroupId] == null;
-                if (isHouseholdSplitPending) {
-                  return 0.0;
-                }
-
                 return resolveUserShareRawAmountForOverview(
                   entry: tx.entry,
                   currentUserId: user.uid,

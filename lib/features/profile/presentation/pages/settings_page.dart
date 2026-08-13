@@ -30,6 +30,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
@@ -204,6 +205,22 @@ Future<bool> _showWhatsAppRestrictedRegionDialog({
     cancelLabel: context.l10n.continueAnyway,
   );
   return result?.confirmed ?? false;
+}
+
+String _membershipTileValue(
+  BuildContext context,
+  SubscriptionDetails? details,
+) {
+  final subscription = details?.subscription;
+  if (subscription == null || !subscription.isSubscribed) {
+    return context.l10n.freePlan;
+  }
+
+  return switch (subscription.status?.toLowerCase()) {
+    'trialing' => context.l10n.trialStatus,
+    'past_due' => context.l10n.pastDueStatus,
+    _ => details!.planDisplayName(context.l10n),
+  };
 }
 
 class SettingsPage extends HookConsumerWidget {
@@ -1218,18 +1235,8 @@ class SettingsPage extends HookConsumerWidget {
                         icon: Icons.star_outline_rounded,
                         label: context.l10n.membership,
                         value: subscriptionAsync.when(
-                          data: (d) {
-                            final status =
-                                d?.subscription?.status?.toLowerCase();
-                            if (status == 'trialing') {
-                              return context.l10n.trialStatus;
-                            }
-                            if (d?.hasActiveSubscription != true) {
-                              return context.l10n.free;
-                            }
-                            return d?.planDisplayName(context.l10n) ??
-                                context.l10n.plusPlan;
-                          },
+                          data: (details) =>
+                              _membershipTileValue(context, details),
                           loading: () => '...',
                           error: (_, __) => context.l10n.error('unknown'),
                         ),

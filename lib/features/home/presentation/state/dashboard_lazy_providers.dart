@@ -1685,8 +1685,38 @@ final dashboardCalendarTransactionsProvider =
       // remote-only response over an already-complete local snapshot: that
       // response can briefly omit a reconciled recurring occurrence before
       // the delta arrives, causing dashboard totals to regress and recover.
+      //
+      // Household calendar snapshots need the same background reconciliation
+      // as Recent Transactions. A member can have a valid cached snapshot
+      // before another member creates a split expense; no local mutation is
+      // guaranteed to reach that device, so retaining the snapshot forever
+      // leaves every split-aware aggregate stale even though the recent feed
+      // and settlement RPC already show the shared expense.
+      final isHouseholdQuery = query.householdId?.trim().isNotEmpty == true;
+      if (isHouseholdQuery && !coordinator.isFresh(generation)) {
+        unawaited(() async {
+          try {
+            final result = await loadFresh();
+            if (!disposed &&
+                _dashboardRequestUserIsCurrent(ref, query.userId) &&
+                result.persisted) {
+              ref.invalidateSelf();
+            }
+          } catch (error) {
+            if (!disposed) {
+              ref
+                  .read(dashboardRefreshMetadataProvider(cacheKey).notifier)
+                  .state = DashboardRefreshMetadata(
+                isFromCache: true,
+                error: error,
+              );
+            }
+          }
+        }());
+      }
       ref.read(dashboardRefreshMetadataProvider(cacheKey).notifier).state =
           DashboardRefreshMetadata(
+        isRefreshing: isHouseholdQuery && !coordinator.isFresh(generation),
         isFromCache: true,
         lastRefreshedAt: cached.cachedAt,
       );

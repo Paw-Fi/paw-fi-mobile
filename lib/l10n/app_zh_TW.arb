@@ -3201,7 +3201,7 @@
   "plusLockedWallets": "錢包",
   "plusLockedOnePrivateOneShared": "1 個私人 + 1 個共享",
   "plusLockedTwoWallets": "2 個錢包",
-  "expiredPlusBannerMessage": "免費試用已結束。訂閱最低每月 {price}。",
+  "expiredPlusBannerMessage": "繼續享有 Plus 權益 - 訂閱只要 {price}/月起。",
   "expiredSubscriptionMessage": "您的 Plus 方案已過期。請訂閱以繼續享受 Plus 專屬特權。",
   "trialWelcomeTitle": "暢享 7 天免費 Plus 體驗！",
   "trialWelcomeSubtitle": "在接下來的 7 天內免費享受所有 Plus 功能。您可以嘗試：",
@@ -3480,5 +3480,6 @@
   "importAndContinue": "匯入並繼續",
   "areYouCurrentlyUsingOtherApp": "你目前有使用其他 App 嗎？",
   "pickYourSourceSubtitle": "選擇資料來源，查看需要上傳的檔案。下一步我們會將其匯入你的個人帳戶。",
-  "friendOrFamily": "親朋好友"
+  "friendOrFamily": "親朋好友",
+  "trialActiveUntilDate": "你的 Plus 試用期可使用至 {formattedDate}"
 }

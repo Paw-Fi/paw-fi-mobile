@@ -108,6 +108,19 @@ double resolveUserShareRawAmountForOverview({
   final splitGroup = splitGroupsByExpenseId[entry.id] ??
       (hasSplitGroupId ? splitGroupsById[splitGroupId] : null);
 
+  // A transaction that names a split group must never be estimated from
+  // `sharedMemberIds`. The transaction and its split group arrive through
+  // separate reads; until the exact, complete group is available we cannot
+  // know whether the saved split was equal, custom, percentage, or shares.
+  if (hasSplitGroupId &&
+      (splitGroup == null ||
+          splitGroup.id != splitGroupId ||
+          splitGroup.expenseId != entry.id ||
+          splitGroup.totalAmountCents != entry.amountCents.abs() ||
+          !_hasCompleteSplitLines(splitGroup))) {
+    return 0.0;
+  }
+
   if (splitGroup != null) {
     return resolveSplitLineAmountForUser(splitGroup, normalizedCurrentUserId);
   }
@@ -134,4 +147,14 @@ double resolveUserShareRawAmountForOverview({
 
   if (entry.userId?.trim() == normalizedCurrentUserId) return fullAmount;
   return 0.0;
+}
+
+bool _hasCompleteSplitLines(ExpenseSplitGroup group) {
+  final lines = group.splitLines;
+  if (lines == null || lines.isEmpty) return false;
+  final total = lines.fold<int>(
+    0,
+    (sum, line) => sum + (line.amountCents ?? 0).abs(),
+  );
+  return total == group.totalAmountCents.abs();
 }

@@ -287,9 +287,7 @@ void main() {
       expect(result, 25.0);
     });
 
-    test(
-        'falls back to creator full amount when split group id exists but group missing',
-        () {
+    test('defers a split-linked payer row when its group is missing', () {
       final entry = buildEntry(
         id: 'e6',
         householdId: 'h1',
@@ -304,12 +302,10 @@ void main() {
         splitGroupsById: const {},
       );
 
-      expect(result, 100.0);
+      expect(result, 0.0);
     });
 
-    test(
-        'falls back to shared members when split group id exists but group missing',
-        () {
+    test('does not estimate a split-linked row from shared members', () {
       final entry = buildEntry(
         id: 'e7',
         householdId: 'h1',
@@ -325,7 +321,78 @@ void main() {
         splitGroupsById: const {},
       );
 
-      expect(result, 50.0);
+      expect(result, 0.0);
+    });
+
+    test('defers a split-linked row until the exact complete group is present',
+        () {
+      final entry = buildEntry(
+        id: 'e7-complete',
+        householdId: 'h1',
+        userId: 'u2',
+        splitGroupId: 'g7-complete',
+      );
+      final incompleteGroup = buildAmountSplitGroup(
+        id: 'g7-complete',
+        expenseId: entry.id,
+        lines: [buildLine(userId: currentUserId, amountCents: 2500)],
+      );
+
+      expect(
+        resolveUserShareRawAmountForOverview(
+          entry: entry,
+          currentUserId: currentUserId,
+          splitGroupsByExpenseId: {entry.id: incompleteGroup},
+          splitGroupsById: {'g7-complete': incompleteGroup},
+        ),
+        0.0,
+      );
+
+      final completeGroup = buildAmountSplitGroup(
+        id: 'g7-complete',
+        expenseId: entry.id,
+        lines: [
+          buildLine(userId: currentUserId, amountCents: 2500),
+          buildLine(userId: 'u2', amountCents: 7500),
+        ],
+      );
+      expect(
+        resolveUserShareRawAmountForOverview(
+          entry: entry,
+          currentUserId: currentUserId,
+          splitGroupsByExpenseId: {entry.id: completeGroup},
+          splitGroupsById: {'g7-complete': completeGroup},
+        ),
+        25.0,
+      );
+    });
+
+    test('defers a split-linked row when a different group has its expense ID',
+        () {
+      final entry = buildEntry(
+        id: 'e7-wrong-group',
+        householdId: 'h1',
+        userId: 'u2',
+        splitGroupId: 'expected-group',
+      );
+      final staleGroup = buildAmountSplitGroup(
+        id: 'stale-group',
+        expenseId: entry.id,
+        lines: [
+          buildLine(userId: currentUserId, amountCents: 2500),
+          buildLine(userId: 'u2', amountCents: 7500),
+        ],
+      );
+
+      expect(
+        resolveUserShareRawAmountForOverview(
+          entry: entry,
+          currentUserId: currentUserId,
+          splitGroupsByExpenseId: {entry.id: staleGroup},
+          splitGroupsById: {'stale-group': staleGroup},
+        ),
+        0.0,
+      );
     });
 
     test('returns zero when split group exists and user has no split line', () {

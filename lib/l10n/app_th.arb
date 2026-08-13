@@ -3274,7 +3274,7 @@
   "plusLockedWallets": "กระเป๋าเงิน",
   "plusLockedOnePrivateOneShared": "1 ส่วนตัว + 1 แชร์",
   "plusLockedTwoWallets": "2 กระเป๋าเงิน",
-  "expiredPlusBannerMessage": "ช่วงทดลองใช้ฟรีสิ้นสุดแล้ว สมัครได้ในราคาเริ่มต้น {price}/เดือน",
+  "expiredPlusBannerMessage": "ใช้สิทธิประโยชน์ Plus ต่อได้ - สมัครสมาชิกเริ่มต้นเพียง {price}/เดือน",
   "expiredSubscriptionMessage": "แผน Plus ของคุณหมดอายุแล้ว สมัครสมาชิกเพื่อเพลิดเพลินกับสิทธิประโยชน์จาก Plus ต่อไป",
   "trialWelcomeTitle": "รับไปเลย! ใช้งาน Plus ฟรี 7 วัน",
   "trialWelcomeSubtitle": "เพลิดเพลินกับทุกฟีเจอร์ของ Plus ได้ฟรีตลอด 7 วันนับจากนี้ นี่คือสิ่งที่คุณสามารถทดลองใช้ได้:",
@@ -3553,5 +3553,6 @@
   "importAndContinue": "นำเข้าและดำเนินการต่อ",
   "areYouCurrentlyUsingOtherApp": "ตอนนี้คุณกำลังใช้แอปอื่นอยู่หรือไม่?",
   "pickYourSourceSubtitle": "เลือกแหล่งข้อมูลเพื่อดูว่าต้องอัปโหลดไฟล์ใด จากนั้นเราจะนำเข้าไฟล์ไปยังบัญชีส่วนตัวของคุณในขั้นตอนถัดไป",
-  "friendOrFamily": "เพื่อนหรือครอบครัว"
+  "friendOrFamily": "เพื่อนหรือครอบครัว",
+  "trialActiveUntilDate": "ทดลองใช้ Plus ได้ถึง {formattedDate}"
 }

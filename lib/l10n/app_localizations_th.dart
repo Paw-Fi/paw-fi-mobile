@@ -6908,6 +6908,11 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
+  String trialActiveUntilDate(String formattedDate) {
+    return 'ทดลองใช้ Plus ได้ถึง $formattedDate';
+  }
+
+  @override
   String get upgrade => 'อัปเกรด';
 
   @override
@@ -9000,7 +9005,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String expiredPlusBannerMessage(Object price) {
-    return 'ช่วงทดลองใช้ฟรีสิ้นสุดแล้ว สมัครได้ในราคาเริ่มต้น $price/เดือน';
+    return 'ใช้สิทธิประโยชน์ Plus ต่อได้ - สมัครสมาชิกเริ่มต้นเพียง $price/เดือน';
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -146,7 +147,7 @@ class TrialReminderBannerGate extends HookConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: _TrialEndingReminderBanner(
-        daysLeft: effectiveTrialDaysLeft,
+        trialEndsAt: trialEndsAt,
         onManageTap: () {
           unawaited(() async {
             await context.push('/plan-selection?mode=resubscribe');
@@ -317,22 +318,22 @@ class ExpiredSubscriptionBannerGate extends HookConsumerWidget {
 
 class _TrialEndingReminderBanner extends StatelessWidget {
   const _TrialEndingReminderBanner({
-    required this.daysLeft,
+    required this.trialEndsAt,
     required this.onManageTap,
     required this.onDismissTap,
   });
 
-  final int? daysLeft;
+  final DateTime? trialEndsAt;
   final VoidCallback onManageTap;
   final VoidCallback onDismissTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final safeDaysLeft = daysLeft == null || daysLeft! <= 0 ? 1 : daysLeft!;
-    final daysLeftLabel = safeDaysLeft == 1
-        ? context.l10n.dayLeft(safeDaysLeft)
-        : context.l10n.daysLeft(safeDaysLeft);
+    final formattedDate = trialEndsAt != null
+        ? formatLocalizedDate(context, trialEndsAt!)
+        : '';
+    final message = context.l10n.trialActiveUntilDate(formattedDate);
 
     return Container(
       width: double.infinity,
@@ -347,7 +348,7 @@ class _TrialEndingReminderBanner extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '${context.l10n.freeTrial}: $daysLeftLabel',
+              message,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
