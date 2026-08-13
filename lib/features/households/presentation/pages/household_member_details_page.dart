@@ -12,14 +12,16 @@ import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 
@@ -60,6 +62,38 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     final rawTransactionsById = <String, ExpenseEntry>{
       for (final transaction in transactions) transaction.id: transaction,
     };
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(householdId))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: householdId,
+          startDate: rangeFrom,
+          endDate: rangeTo,
+        ),
+      ),
+    );
+    Future<void> openTransaction(ExpenseEntry expense) async {
+      await showTransactionDetailsSheet(
+        context,
+        expense: rawTransactionsById[expense.id] ?? expense,
+        recurringTransactionsById: recurringTransactionsById,
+        recurringOccurrence:
+            occurrenceResolution.occurrencesByActualTransactionId[expense.id],
+        recurringIdForOccurrence:
+            occurrenceResolution.recurringIdsByActualTransactionId[expense.id],
+      );
+    }
+
     final renderItems = buildGroupedTransactionRenderItems(
       memberTransactions,
       financialMonthStartDay: financialMonthStartDay,
@@ -103,6 +137,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               categorySummaries: categorySummaries,
               categoryTransactions: categoryTransactions,
               rawTransactionsById: rawTransactionsById,
+              onTransactionTap: openTransaction,
             ),
           ),
           if (memberTransactions.isEmpty)
@@ -134,10 +169,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
               useHorizontalPadding: false,
               onTransactionTap: (expense) {
-                showUnifiedTransactionSheet(
-                  context,
-                  existingExpense: rawTransactionsById[expense.id] ?? expense,
-                );
+                openTransaction(expense);
               },
             ),
           ],
@@ -318,6 +350,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     required List<_CategorySummary> categorySummaries,
     required Map<String, List<ExpenseEntry>> categoryTransactions,
     required Map<String, ExpenseEntry> rawTransactionsById,
+    required Future<void> Function(ExpenseEntry) onTransactionTap,
   }) {
     if (transactionCount == 0) {
       return const SizedBox.shrink();
@@ -371,6 +404,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               totalSpentCents,
               categoryTransactions,
               rawTransactionsById,
+              onTransactionTap,
             ),
           ],
           if (categorySummaries.isNotEmpty) ...[
@@ -399,6 +433,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               totalSpentCents,
               categoryTransactions,
               rawTransactionsById,
+              onTransactionTap,
             ),
           ],
         ],
@@ -478,6 +513,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     int totalSpentCents,
     Map<String, List<ExpenseEntry>> categoryTransactions,
     Map<String, ExpenseEntry> rawTransactionsById,
+    Future<void> Function(ExpenseEntry) onTransactionTap,
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
     final categoryColor = getCategoryColor(summary.category, context);
@@ -491,6 +527,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         summary.category,
         categoryTransactions[summary.category] ?? const [],
         rawTransactionsById,
+        onTransactionTap,
       ),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -583,6 +620,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     int totalSpentCents,
     Map<String, List<ExpenseEntry>> categoryTransactions,
     Map<String, ExpenseEntry> rawTransactionsById,
+    Future<void> Function(ExpenseEntry) onTransactionTap,
   ) {
     final items = summaries.take(5).toList();
     return Column(
@@ -596,6 +634,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             totalSpentCents,
             categoryTransactions,
             rawTransactionsById,
+            onTransactionTap,
           ),
         );
       }).toList(),
@@ -609,6 +648,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     int totalSpentCents,
     Map<String, List<ExpenseEntry>> categoryTransactions,
     Map<String, ExpenseEntry> rawTransactionsById,
+    Future<void> Function(ExpenseEntry) onTransactionTap,
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
     final categoryColor = getCategoryColor(summary.category, context);
@@ -622,6 +662,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         summary.category,
         categoryTransactions[summary.category] ?? const [],
         rawTransactionsById,
+        onTransactionTap,
       ),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -793,6 +834,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     String category,
     List<ExpenseEntry> transactions,
     Map<String, ExpenseEntry> rawTransactionsById,
+    Future<void> Function(ExpenseEntry) onTransactionTap,
   ) {
     if (transactions.isEmpty) return;
     Navigator.of(context).push(
@@ -803,6 +845,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           category: category,
           transactions: transactions,
           rawTransactionsById: rawTransactionsById,
+          onTransactionTap: onTransactionTap,
         ),
       ),
     );
@@ -986,6 +1029,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
   final String category;
   final List<ExpenseEntry> transactions;
   final Map<String, ExpenseEntry> rawTransactionsById;
+  final Future<void> Function(ExpenseEntry) onTransactionTap;
 
   const HouseholdMemberCategoryDetailsPage({
     super.key,
@@ -994,6 +1038,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
     required this.category,
     required this.transactions,
     required this.rawTransactionsById,
+    required this.onTransactionTap,
   });
 
   @override
@@ -1144,13 +1189,9 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             amount: expense.amountCents / 100.0,
             currency: expense.currency ?? currency,
             isIncome: false,
-            showRecurringChip:
-                shouldShowRecurringChipForExpense(rawExpense),
+            showRecurringChip: shouldShowRecurringChipForExpense(rawExpense),
             showPendingChip: rawExpense.isProviderPending,
-            onTap: () => showUnifiedTransactionSheet(
-              context,
-              existingExpense: rawExpense,
-            ),
+            onTap: () => onTransactionTap(rawExpense),
           );
         },
       ),

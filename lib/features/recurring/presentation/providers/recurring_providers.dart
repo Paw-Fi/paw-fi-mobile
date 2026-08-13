@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/state/transactions_feed_provid
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
@@ -443,10 +444,61 @@ class RecurringOccurrenceTimelineQuery {
       );
 }
 
+/// One occurrence-ledger view for every projected-recurring consumer in a
+/// scope/range. It is deliberately separate from the raw transaction feed:
+/// older cached rows can omit recurrence columns even though the server's
+/// occurrence ledger still authoritatively identifies the materialized actual.
+@immutable
+class RecurringOccurrenceProjectionResolutionQuery {
+  const RecurringOccurrenceProjectionResolutionQuery({
+    required this.userId,
+    required this.householdId,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  final String userId;
+  final String? householdId;
+  final DateTime startDate;
+  final DateTime endDate;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RecurringOccurrenceProjectionResolutionQuery &&
+      userId == other.userId &&
+      householdId == other.householdId &&
+      formatDateOnlyYmd(startDate) == formatDateOnlyYmd(other.startDate) &&
+      formatDateOnlyYmd(endDate) == formatDateOnlyYmd(other.endDate);
+
+  @override
+  int get hashCode => Object.hash(
+        userId,
+        householdId,
+        formatDateOnlyYmd(startDate),
+        formatDateOnlyYmd(endDate),
+      );
+}
+
+@immutable
+class RecurringOccurrenceProjectionResolution {
+  const RecurringOccurrenceProjectionResolution({
+    this.suppressionEntries = const <ExpenseEntry>[],
+    this.occurrencesByActualTransactionId =
+        const <String, RecurringOccurrenceTimelineItem>{},
+    this.recurringIdsByActualTransactionId = const <String, String>{},
+  });
+
+  final List<ExpenseEntry> suppressionEntries;
+  final Map<String, RecurringOccurrenceTimelineItem>
+      occurrencesByActualTransactionId;
+  final Map<String, String> recurringIdsByActualTransactionId;
+}
+
 @immutable
 class RecurringOccurrenceTimelineItem {
   const RecurringOccurrenceTimelineItem({
     this.occurrenceId,
+    this.actualTransactionId,
     required this.scheduledOccurrenceDate,
     required this.status,
     this.actualTransaction,
@@ -460,6 +512,7 @@ class RecurringOccurrenceTimelineItem {
   });
 
   final String? occurrenceId;
+  final String? actualTransactionId;
   final DateTime scheduledOccurrenceDate;
   final String status;
   final ExpenseEntry? actualTransaction;
@@ -487,6 +540,7 @@ class RecurringOccurrenceTimelineItem {
     final confirmedAt = occurrence['confirmed_at'] as String?;
     return RecurringOccurrenceTimelineItem(
       occurrenceId: occurrence['id']?.toString(),
+      actualTransactionId: occurrence['actual_transaction_id']?.toString(),
       scheduledOccurrenceDate: scheduledDate,
       status: occurrence['status']?.toString() ?? 'pending',
       actualTransaction: transaction is Map
@@ -503,8 +557,41 @@ class RecurringOccurrenceTimelineItem {
     );
   }
 
+  factory RecurringOccurrenceTimelineItem.fromOccurrenceSummaryJson(
+    Map<String, dynamic> summary, {
+    ExpenseEntry? actualTransaction,
+  }) {
+    final scheduledOccurrenceDate = DateTime.parse(
+      summary['scheduled_occurrence_date'].toString(),
+    );
+    final recurringId = summary['recurring_id']?.toString();
+    return RecurringOccurrenceTimelineItem(
+      occurrenceId: summary['id']?.toString(),
+      actualTransactionId: summary['actual_transaction_id']?.toString(),
+      scheduledOccurrenceDate: scheduledOccurrenceDate,
+      status: summary['status']?.toString() ?? 'pending',
+      actualTransaction: actualTransaction?.copyWith(
+        parentRecurringId: recurringId,
+        scheduledOccurrenceDate: scheduledOccurrenceDate,
+        recurringConfirmedAt: actualTransaction.recurringConfirmedAt ??
+            _nullableOccurrenceDate(summary['confirmed_at']),
+        recurringConfirmationSource:
+            actualTransaction.recurringConfirmationSource ??
+                summary['confirmation_source']?.toString(),
+      ),
+      paidDate: _nullableOccurrenceDate(summary['paid_date']),
+      amountCents: (summary['amount_cents'] as num?)?.round(),
+      currency: summary['currency']?.toString(),
+      confirmedAt: _nullableOccurrenceDate(summary['confirmed_at']),
+      confirmationSource: summary['confirmation_source']?.toString(),
+      wasSkippedBeforeConfirmation:
+          summary['was_skipped_before_confirmation'] == true,
+    );
+  }
+
   factory RecurringOccurrenceTimelineItem.fromLocalEntry(ExpenseEntry entry) {
     return RecurringOccurrenceTimelineItem(
+      actualTransactionId: entry.id,
       scheduledOccurrenceDate: entry.scheduledOccurrenceDate!,
       status: 'confirmed',
       actualTransaction: entry,
@@ -515,6 +602,11 @@ class RecurringOccurrenceTimelineItem {
       confirmationSource: entry.recurringConfirmationSource,
     );
   }
+}
+
+DateTime? _nullableOccurrenceDate(Object? value) {
+  final text = value?.toString().trim();
+  return text == null || text.isEmpty ? null : DateTime.tryParse(text);
 }
 
 final recurringOccurrenceTimelineProvider = FutureProvider.family<
@@ -533,6 +625,11 @@ final recurringOccurrenceTimelineProvider = FutureProvider.family<
         .where((entry) => entry.scheduledOccurrenceDate != null)
         .map(RecurringOccurrenceTimelineItem.fromLocalEntry)
         .toList(growable: false);
+    _recurringProjectionTrace(
+      'timeline-local recurring=${query.recurringId} household=${query.householdId ?? '-'} '
+      'range=${formatDateOnlyYmd(query.startDate)}..${formatDateOnlyYmd(query.endDate)} '
+      'rows=${localItems.length}',
+    );
     try {
       final response = await supabase.functions.invoke(
         'list-recurring-occurrences',
@@ -544,15 +641,53 @@ final recurringOccurrenceTimelineProvider = FutureProvider.family<
       );
       final payload = response.data;
       if (payload is! Map || payload['success'] != true) return localItems;
-      final persistedItems = (payload['data'] as List? ?? const <dynamic>[])
-          .whereType<Map>()
-          .map((item) => RecurringOccurrenceTimelineItem.fromPersistedJson(
-                Map<String, dynamic>.from(item),
-              ))
-          .where((item) =>
-              !item.scheduledOccurrenceDate.isBefore(query.startDate) &&
-              !item.scheduledOccurrenceDate.isAfter(query.endDate))
+      final occurrencePage = Map<String, dynamic>.from(
+        payload['data'] as Map,
+      );
+      final persistedItems = <RecurringOccurrenceTimelineItem>[];
+      for (final rawItem
+          in (occurrencePage['items'] as List? ?? const <dynamic>[])
+              .whereType<Map>()) {
+        final summary = Map<String, dynamic>.from(rawItem);
+        final actualTransactionId =
+            summary['actual_transaction_id']?.toString().trim();
+        final actualTransaction =
+            actualTransactionId == null || actualTransactionId.isEmpty
+                ? null
+                : await database.getTransactionByIdOrClientRecordId(
+                    actualTransactionId,
+                  );
+        final item = RecurringOccurrenceTimelineItem.fromOccurrenceSummaryJson(
+          summary,
+          actualTransaction: actualTransaction,
+        );
+        if (!item.scheduledOccurrenceDate.isBefore(query.startDate) &&
+            !item.scheduledOccurrenceDate.isAfter(query.endDate)) {
+          persistedItems.add(item);
+        }
+      }
+      _recurringProjectionTrace(
+        'timeline-remote recurring=${query.recurringId} rows=${persistedItems.length} '
+        'confirmed=${persistedItems.where((item) => item.isConfirmed).length} '
+        'actuals=[${persistedItems.map((item) {
+          final actual = item.actualTransaction;
+          return '${formatDateOnlyYmd(item.scheduledOccurrenceDate)}:${item.status}:'
+              '${actual?.id ?? item.actualTransactionId ?? '-'}:${actual?.amountCents ?? item.amountCents ?? '-'}:'
+              '${actual?.parentRecurringId ?? '-'}:'
+              '${actual?.scheduledOccurrenceDate == null ? '-' : formatDateOnlyYmd(actual!.scheduledOccurrenceDate!)}';
+        }).join(',')}]',
+      );
+      // The occurrence ledger is the authoritative identity source for a
+      // materialized occurrence. Hydrate an older cached feed row that missed
+      // these columns so every later local-first consumer (not just the
+      // current occurrence screen) can dedupe and route it correctly.
+      final materializedActuals = persistedItems
+          .map((item) => item.actualTransaction)
+          .whereType<ExpenseEntry>()
           .toList(growable: false);
+      if (materializedActuals.isNotEmpty) {
+        await database.upsertTransactions(materializedActuals);
+      }
       final itemsByScheduledDate = <String, RecurringOccurrenceTimelineItem>{
         for (final item in persistedItems)
           formatDateOnlyYmd(item.scheduledOccurrenceDate): item,
@@ -565,11 +700,144 @@ final recurringOccurrenceTimelineProvider = FutureProvider.family<
               a.scheduledOccurrenceDate,
             ));
       return merged;
-    } catch (_) {
+    } catch (error) {
+      _recurringProjectionTrace(
+        'timeline-error recurring=${query.recurringId} error=$error '
+        'fallingBackToLocal=${localItems.length}',
+      );
       return localItems;
     }
   },
 );
+
+final recurringOccurrenceProjectionResolutionProvider = Provider.family<
+    RecurringOccurrenceProjectionResolution,
+    RecurringOccurrenceProjectionResolutionQuery>((ref, query) {
+  if (query.userId.isEmpty || query.endDate.isBefore(query.startDate)) {
+    return const RecurringOccurrenceProjectionResolution();
+  }
+
+  final recurringTransactions = ref
+          .watch(recurringTransactionsProvider(query.householdId))
+          .data
+          .valueOrNull ??
+      const <RecurringTransaction>[];
+  final occurrencesByRecurringId =
+      <String, List<RecurringOccurrenceTimelineItem>>{};
+
+  for (final transaction in recurringTransactions) {
+    final occurrencesAsync = ref.watch(
+      recurringOccurrenceTimelineProvider(
+        RecurringOccurrenceTimelineQuery(
+          userId: query.userId,
+          householdId: transaction.householdId,
+          recurringId: transaction.id,
+          startDate: query.startDate,
+          endDate: query.endDate,
+        ),
+      ),
+    );
+    occurrencesByRecurringId[transaction.id] = occurrencesAsync.valueOrNull ??
+        const <RecurringOccurrenceTimelineItem>[];
+    _recurringProjectionTrace(
+      'resolution-source recurring=${transaction.id} '
+      'state=${occurrencesAsync.isLoading ? 'loading' : occurrencesAsync.hasError ? 'error' : 'data'} '
+      'items=${occurrencesByRecurringId[transaction.id]!.length}',
+    );
+  }
+
+  return _buildRecurringOccurrenceProjectionResolution(
+    recurringTransactions: recurringTransactions,
+    occurrencesByRecurringId: occurrencesByRecurringId,
+  );
+});
+
+/// Resolves the same occurrence-ledger identity for non-reactive consumers
+/// that already have their recurring templates. Keeping this beside the
+/// reactive provider prevents wallet snapshots and background aggregates from
+/// inventing a second deduplication rule.
+Future<RecurringOccurrenceProjectionResolution>
+    loadRecurringOccurrenceProjectionResolution({
+  required RecurringOccurrenceProjectionResolutionQuery query,
+  required Iterable<RecurringTransaction> recurringTransactions,
+  required Future<List<RecurringOccurrenceTimelineItem>> Function(
+    RecurringOccurrenceTimelineQuery query,
+  ) loadOccurrences,
+}) async {
+  if (query.userId.isEmpty || query.endDate.isBefore(query.startDate)) {
+    return const RecurringOccurrenceProjectionResolution();
+  }
+
+  final occurrencesByRecurringId =
+      <String, List<RecurringOccurrenceTimelineItem>>{};
+  for (final transaction in recurringTransactions) {
+    occurrencesByRecurringId[transaction.id] = await loadOccurrences(
+      RecurringOccurrenceTimelineQuery(
+        userId: query.userId,
+        householdId: transaction.householdId,
+        recurringId: transaction.id,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      ),
+    );
+  }
+
+  return _buildRecurringOccurrenceProjectionResolution(
+    recurringTransactions: recurringTransactions,
+    occurrencesByRecurringId: occurrencesByRecurringId,
+  );
+}
+
+RecurringOccurrenceProjectionResolution
+    _buildRecurringOccurrenceProjectionResolution({
+  required Iterable<RecurringTransaction> recurringTransactions,
+  required Map<String, List<RecurringOccurrenceTimelineItem>>
+      occurrencesByRecurringId,
+}) {
+  final suppressionEntries = <ExpenseEntry>[];
+  final occurrencesByActualTransactionId =
+      <String, RecurringOccurrenceTimelineItem>{};
+  final recurringIdsByActualTransactionId = <String, String>{};
+
+  for (final transaction in recurringTransactions) {
+    final confirmed = (occurrencesByRecurringId[transaction.id] ??
+            const <RecurringOccurrenceTimelineItem>[])
+        .where((item) => item.isConfirmed);
+    suppressionEntries.addAll(
+      buildConfirmedOccurrenceSuppressionEntries(
+        recurringId: transaction.id,
+        confirmedScheduledDates:
+            confirmed.map((item) => item.scheduledOccurrenceDate),
+      ),
+    );
+    for (final occurrence in confirmed) {
+      final actualTransactionId = occurrence.actualTransaction?.id.trim() ??
+          occurrence.actualTransactionId?.trim();
+      if (actualTransactionId == null || actualTransactionId.isEmpty) continue;
+      occurrencesByActualTransactionId[actualTransactionId] = occurrence;
+      recurringIdsByActualTransactionId[actualTransactionId] = transaction.id;
+    }
+  }
+
+  _recurringProjectionTrace(
+    'resolution-ready recurring=${occurrencesByRecurringId.length} '
+    'suppression=[${suppressionEntries.map((entry) => '${entry.parentRecurringId}@${formatDateOnlyYmd(entry.scheduledOccurrenceDate ?? entry.date)}').join(',')}] '
+    'actualIds=[${occurrencesByActualTransactionId.keys.join(',')}]',
+  );
+
+  return RecurringOccurrenceProjectionResolution(
+    suppressionEntries: suppressionEntries,
+    occurrencesByActualTransactionId: occurrencesByActualTransactionId,
+    recurringIdsByActualTransactionId: recurringIdsByActualTransactionId,
+  );
+}
+
+void _recurringProjectionTrace(String message) {
+  assert(() {
+    foundation.debugPrint('🔁 [RecurringProjection] $message');
+    return true;
+  }());
+}
 
 final recurringOccurrenceConfirmationProvider =
     Provider<RecurringOccurrenceConfirmationController>(
@@ -721,6 +989,13 @@ class RecurringOccurrenceUpdateController {
                     command.userId,
                   )
                 : null,
+      );
+      // Keep mounted paginated feeds (including Wallet Details' visible tile)
+      // in sync with the SQLite write using the ordinary edit path.
+      _ref.read(transactionsFeedEditedEntryProvider.notifier).state =
+          TransactionsFeedEditedEntry(
+        entry: updated,
+        replacingIds: {original.id},
       );
       _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;

@@ -870,4 +870,90 @@ void main() {
 
     expect(deduped, isEmpty);
   });
+
+  test('confirmed occurrence suppression replaces a legacy feed row projection',
+      () {
+    final scheduledDate = DateTime(2026, 8, 10);
+    final projection = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId('income-series', scheduledDate),
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 500000,
+      currency: 'USD',
+      category: 'income',
+      createdAt: scheduledDate,
+      type: 'income',
+    );
+    // Older cached feed rows can lack recurrence columns even though the
+    // occurrence ledger already identifies the materialized transaction.
+    final legacyFeedRow = ExpenseEntry(
+      id: 'actual-income',
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 485000,
+      currency: 'USD',
+      category: 'income',
+      createdAt: scheduledDate,
+      type: 'income',
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [projection],
+      actualExpenses: [
+        legacyFeedRow,
+        ...buildConfirmedOccurrenceSuppressionEntries(
+          recurringId: 'income-series',
+          confirmedScheduledDates: [scheduledDate],
+        ),
+      ],
+    );
+
+    expect(deduped, isEmpty);
+  });
+
+  test('shared merge suppresses a legacy confirmed occurrence projection', () {
+    final scheduledDate = DateTime(2026, 8, 10);
+    final recurring = RecurringTransaction(
+      id: 'income-series',
+      userId: 'user_1',
+      date: scheduledDate,
+      category: 'income',
+      amount: 5000,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: scheduledDate,
+      ),
+      type: 'income',
+      attachments: const [],
+      createdAt: scheduledDate,
+    );
+    final legacyActual = ExpenseEntry(
+      id: 'actual-income',
+      userId: 'user_1',
+      date: scheduledDate,
+      amountCents: 485000,
+      currency: 'USD',
+      category: 'income',
+      createdAt: scheduledDate,
+      type: 'income',
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: [legacyActual],
+      recurringTransactions: [recurring],
+      rangeStart: DateTime(2026, 8, 1),
+      rangeEnd: DateTime(2026, 8, 31),
+      selectedCurrency: 'USD',
+      confirmedOccurrenceSuppressionEntries:
+          buildConfirmedOccurrenceSuppressionEntries(
+        recurringId: recurring.id,
+        confirmedScheduledDates: [scheduledDate],
+      ),
+    );
+
+    expect(merged, [legacyActual]);
+  });
 }

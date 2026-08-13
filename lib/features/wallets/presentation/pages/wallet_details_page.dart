@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -273,11 +272,24 @@ class WalletDetailsPage extends HookConsumerWidget {
       fallbackMonthStart: currentMonthStart,
       financialMonthStartDay: financialMonthStartDay,
     );
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: effectiveHouseholdId,
+          startDate: projectedRecurringRangeStart,
+          endDate: userNow,
+        ),
+      ),
+    );
     final projectedRecurringExpenses = walletRecurringTransactions.isEmpty
         ? const <ExpenseEntry>[]
         : _projectWalletRecurringExpenses(
             recurringTransactions: walletRecurringTransactions,
-            actualExpenses: scopedExpenses,
+            actualExpenses: <ExpenseEntry>[
+              ...scopedExpenses,
+              ...occurrenceResolution.suppressionEntries,
+            ],
             rangeStart: projectedRecurringRangeStart,
             rangeEnd: userNow,
             selectedCurrency: walletCurrencyCode,
@@ -295,7 +307,10 @@ class WalletDetailsPage extends HookConsumerWidget {
             ? const <ExpenseEntry>[]
             : _projectWalletRecurringExpenses(
                 recurringTransactions: walletRecurringTransactions,
-                actualExpenses: walletBalanceActualTransactions,
+                actualExpenses: <ExpenseEntry>[
+                  ...walletBalanceActualTransactions,
+                  ...occurrenceResolution.suppressionEntries,
+                ],
                 rangeStart: _resolveWalletProjectedRangeStart(
                   feedTransactions: walletBalanceActualTransactions,
                   recurringTransactions: walletRecurringTransactions,
@@ -319,25 +334,6 @@ class WalletDetailsPage extends HookConsumerWidget {
     final displayVisibleTransactions = visibleTransactions;
     final visibleTransactionsSignature =
         groupedTransactionEntriesSignature(displayVisibleTransactions);
-    useEffect(() {
-      if (!kDebugMode) return null;
-
-      for (final transaction in displayVisibleTransactions) {
-        debugPrint(
-          '[WalletDetailsPage][recurring-chip] '
-          'wallet=${latestWallet.id} '
-          'id=${transaction.id} '
-          'amountCents=${transaction.amountCents} '
-          'type=${transaction.type} '
-          'isRecurring=${transaction.isRecurring} '
-          'parentRecurringId=${transaction.parentRecurringId} '
-          'scheduledOccurrenceDate=${transaction.scheduledOccurrenceDate} '
-          'recurringConfirmedAt=${transaction.recurringConfirmedAt} '
-          'showRecurringChip=${shouldShowRecurringChipForExpense(transaction)}',
-        );
-      }
-      return null;
-    }, [visibleTransactionsSignature, latestWallet.id]);
     final visibleTransactionsById = useMemoized(
       () => {
         for (final transaction in visibleTransactions)
@@ -360,7 +356,10 @@ class WalletDetailsPage extends HookConsumerWidget {
         ? const <ExpenseEntry>[]
         : _projectWalletRecurringExpenses(
             recurringTransactions: walletRecurringTransactions,
-            actualExpenses: monthFeedState.items,
+            actualExpenses: <ExpenseEntry>[
+              ...monthFeedState.items,
+              ...occurrenceResolution.suppressionEntries,
+            ],
             rangeStart: monthStart,
             rangeEnd: userNow,
             selectedCurrency: walletCurrencyCode,
@@ -702,6 +701,10 @@ class WalletDetailsPage extends HookConsumerWidget {
         context,
         expense: expense,
         recurringTransactionsById: recurringTransactionsById,
+        recurringOccurrence:
+            occurrenceResolution.occurrencesByActualTransactionId[expense.id],
+        recurringIdForOccurrence:
+            occurrenceResolution.recurringIdsByActualTransactionId[expense.id],
         transferWallets: currencyScopedAccounts,
         onTransferUpdated: (transfer) {
           didUpdateTransfer = true;

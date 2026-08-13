@@ -655,6 +655,11 @@ List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
   void addIfUnique(ExpenseEntry entry) {
     if (entry.id.isEmpty) return;
     if (deletedIds.contains(entry.id)) return;
+    // The normal local transaction feed already excludes recurring templates.
+    // Apply the same invariant while merging a persisted dashboard snapshot or
+    // local overlay, otherwise a stale template row is counted beside its
+    // confirmed materialized occurrence.
+    if (entry.isRecurring) return;
     if (!_matchesDashboardQuery(
       entry,
       query,

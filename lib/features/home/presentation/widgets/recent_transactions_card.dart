@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -14,7 +13,9 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
@@ -249,6 +250,12 @@ Widget buildRecentTransactionsCard(
   String? selectedCurrency,
   List<String>? selectedCurrencies,
   String? householdId,
+  Map<String, RecurringTransaction> recurringTransactionsById =
+      const <String, RecurringTransaction>{},
+  Map<String, RecurringOccurrenceTimelineItem> recurringOccurrencesByActualTransactionId =
+      const <String, RecurringOccurrenceTimelineItem>{},
+  Map<String, String> recurringIdsByActualTransactionId =
+      const <String, String>{},
   required VoidCallback onViewAll,
 }) {
   return _RecentTransactionsCard(
@@ -259,6 +266,10 @@ Widget buildRecentTransactionsCard(
     selectedCurrency: selectedCurrency,
     selectedCurrencies: selectedCurrencies,
     householdId: householdId,
+    recurringTransactionsById: recurringTransactionsById,
+    recurringOccurrencesByActualTransactionId:
+        recurringOccurrencesByActualTransactionId,
+    recurringIdsByActualTransactionId: recurringIdsByActualTransactionId,
     onViewAll: onViewAll,
   );
 }
@@ -272,6 +283,9 @@ class _RecentTransactionsCard extends ConsumerStatefulWidget {
     required this.selectedCurrency,
     required this.selectedCurrencies,
     required this.householdId,
+    required this.recurringTransactionsById,
+    required this.recurringOccurrencesByActualTransactionId,
+    required this.recurringIdsByActualTransactionId,
     required this.onViewAll,
   });
 
@@ -281,6 +295,10 @@ class _RecentTransactionsCard extends ConsumerStatefulWidget {
   final String? selectedCurrency;
   final List<String>? selectedCurrencies;
   final String? householdId;
+  final Map<String, RecurringTransaction> recurringTransactionsById;
+  final Map<String, RecurringOccurrenceTimelineItem>
+      recurringOccurrencesByActualTransactionId;
+  final Map<String, String> recurringIdsByActualTransactionId;
   final VoidCallback onViewAll;
 
   @override
@@ -664,9 +682,14 @@ class _RecentTransactionsCardState
         isIncome: isIncome,
         onTap: row.isRemoving
             ? null
-            : () => showUnifiedTransactionSheet(
+            : () => showTransactionDetailsSheet(
                   context,
-                  existingExpense: e,
+                  expense: e,
+                  recurringTransactionsById: widget.recurringTransactionsById,
+                  recurringOccurrence:
+                      widget.recurringOccurrencesByActualTransactionId[e.id],
+                  recurringIdForOccurrence:
+                      widget.recurringIdsByActualTransactionId[e.id],
                   contact: widget.contact,
                 ),
       ),

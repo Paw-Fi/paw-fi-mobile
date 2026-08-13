@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -378,6 +379,8 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   required List<RecurringTransaction> recurringTransactions,
   required DateTime rangeStart,
   required DateTime rangeEnd,
+  Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries =
+      const <ExpenseEntry>[],
   String? selectedCurrency,
   List<String>? selectedCurrencies,
   bool includeFutureOccurrences = true,
@@ -422,8 +425,32 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   );
   final dedupedProjectedExpenses = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
-    actualExpenses: scopedActualExpenses,
+    actualExpenses: <ExpenseEntry>[
+      ...scopedActualExpenses,
+      ...confirmedOccurrenceSuppressionEntries,
+    ],
   );
+  assert(() {
+    String identities(Iterable<ExpenseEntry> entries) => entries
+        .map(
+          (entry) =>
+              '${entry.parentRecurringId ?? extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ?? '-'}'
+              '@${_dateKey(entry.scheduledOccurrenceDate ?? entry.date)}',
+        )
+        .take(12)
+        .join(',');
+    developer.log(
+      'merge range=${_dateKey(normalizedStart)}..${_dateKey(normalizedEnd)} '
+      'actual=${scopedActualExpenses.length} recurring=${recurringTransactions.length} '
+      'projected=${projectedExpenses.length} suppression=${confirmedOccurrenceSuppressionEntries.length} '
+      'deduped=${dedupedProjectedExpenses.length} dropped=${projectedExpenses.length - dedupedProjectedExpenses.length} '
+      'projectedKeys=[${identities(projectedExpenses)}] '
+      'suppressionKeys=[${identities(confirmedOccurrenceSuppressionEntries)}] '
+      'actualKeys=[${identities(scopedActualExpenses)}]',
+      name: 'RecurringProjection',
+    );
+    return true;
+  }());
 
   if (dedupedProjectedExpenses.isEmpty) {
     return filteredActualExpenses;

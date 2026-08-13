@@ -182,6 +182,26 @@ class PocketDetailsPage extends HookConsumerWidget {
     final detailsAsync = ref.watch(
       pocketDetailsProvider(pocketDetailsParams),
     );
+    final detailMonthStart = financialCycleStartForDate(
+      detailScopeParams.periodMonth ?? DateTime.now(),
+      startDay: detailScopeParams.normalizedFinancialMonthStartDay,
+    );
+    final detailMonthEnd = nextFinancialCycleStart(
+      detailMonthStart,
+      startDay: detailScopeParams.normalizedFinancialMonthStartDay,
+    ).subtract(const Duration(days: 1));
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: detailScopeParams.scope == PocketsScopeType.personal
+              ? null
+              : detailScopeParams.householdId,
+          startDate: detailMonthStart,
+          endDate: detailMonthEnd,
+        ),
+      ),
+    );
 
     TransactionsFeedQuery buildFeedQuery(List<String> linkedCategories) {
       final periodMonth = detailScopeParams.periodMonth ?? DateTime.now();
@@ -344,6 +364,10 @@ class PocketDetailsPage extends HookConsumerWidget {
         context,
         expense: expense,
         recurringTransactionsById: effectiveRecurringTransactionsById,
+        recurringOccurrence:
+            occurrenceResolution.occurrencesByActualTransactionId[expense.id],
+        recurringIdForOccurrence:
+            occurrenceResolution.recurringIdsByActualTransactionId[expense.id],
         transferWallets: scopedWallets,
       );
       if (didChange == true) {

@@ -21,8 +21,9 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
 import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -165,12 +166,15 @@ class _DailyFinancialDetailsPageState
     required DateTime rangeEnd,
     required List<String>? selectedCurrencies,
     required CurrencyRateTable rates,
+    required Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries,
   }) {
     final merged = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: actualTransactions,
       recurringTransactions: widget.recurringTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
+      confirmedOccurrenceSuppressionEntries:
+          confirmedOccurrenceSuppressionEntries,
       selectedCurrency: widget.currency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: true,
@@ -287,6 +291,20 @@ class _DailyFinancialDetailsPageState
               _focusedMonth.month == initialMonth.month;
         }).toList(growable: false);
     final selectedCurrencies = query.normalizedCurrencies;
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: widget.userId,
+          householdId: widget.householdId,
+          startDate: monthStart,
+          endDate: monthEnd,
+        ),
+      ),
+    );
+    final recurringTransactionsById = {
+      for (final transaction in widget.recurringTransactions)
+        transaction.id: transaction,
+    };
     final isMultiCurrencySelection =
         selectedCurrencies != null && selectedCurrencies.length > 1;
     final rates = ref.watch(currencyRateTableProvider).valueOrNull ??
@@ -308,6 +326,8 @@ class _DailyFinancialDetailsPageState
       rangeEnd: monthEnd,
       selectedCurrencies: selectedCurrencies,
       rates: rates,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
     );
 
     // Filter transactions for this specific day
@@ -344,6 +364,8 @@ class _DailyFinancialDetailsPageState
       recurringTransactions: widget.recurringTransactions,
       rangeStart: _selectedDate,
       rangeEnd: _selectedDate,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
       selectedCurrency: widget.currency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: true,
@@ -555,9 +577,18 @@ class _DailyFinancialDetailsPageState
                                       showPendingChip: t.isProviderPending,
                                       date: t.date,
                                       onTap: () {
-                                        showUnifiedTransactionSheet(
+                                        showTransactionDetailsSheet(
                                           context,
-                                          existingExpense: t,
+                                          expense: t,
+                                          recurringTransactionsById:
+                                              recurringTransactionsById,
+                                          recurringOccurrence: occurrenceResolution
+                                                  .occurrencesByActualTransactionId[
+                                              t.id],
+                                          recurringIdForOccurrence:
+                                              occurrenceResolution
+                                                      .recurringIdsByActualTransactionId[
+                                                  t.id],
                                         );
                                       },
                                     ),

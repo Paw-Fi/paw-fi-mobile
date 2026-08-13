@@ -8,14 +8,16 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/settlement_breakdown_display.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 
@@ -66,11 +68,45 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
       for (final transaction in effectiveTransactions)
         if (transaction.id.trim().isNotEmpty) transaction.id: transaction,
     };
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(householdId))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final occurrenceStart = effectiveTransactions.isEmpty
+        ? DateTime.now()
+        : effectiveTransactions
+            .map((transaction) => transaction.date)
+            .reduce((earlier, date) => date.isBefore(earlier) ? date : earlier);
+    final occurrenceEnd = effectiveTransactions.isEmpty
+        ? DateTime.now()
+        : effectiveTransactions
+            .map((transaction) => transaction.date)
+            .reduce((later, date) => date.isAfter(later) ? date : later);
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: householdId,
+          startDate: occurrenceStart,
+          endDate: occurrenceEnd,
+        ),
+      ),
+    );
 
     Future<void> showTransaction(ExpenseEntry transaction) async {
-      final changed = await showUnifiedTransactionSheet(
+      final changed = await showTransactionDetailsSheet(
         context,
-        existingExpense: transaction,
+        expense: transaction,
+        recurringTransactionsById: recurringTransactionsById,
+        recurringOccurrence: occurrenceResolution
+            .occurrencesByActualTransactionId[transaction.id],
+        recurringIdForOccurrence: occurrenceResolution
+            .recurringIdsByActualTransactionId[transaction.id],
         contact: currentUserContact,
       );
       if (changed != true || !context.mounted) return;

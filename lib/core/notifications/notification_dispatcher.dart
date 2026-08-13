@@ -19,12 +19,14 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/widgets/budget_status_sheet.dart';
 import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_page_command_provider.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 class NotificationDispatcher {
   NotificationDispatcher(
@@ -284,9 +286,84 @@ class NotificationDispatcher {
       );
     }
 
-    await showUnifiedTransactionSheet(
+    final recurringScopeId = _normalizedHouseholdId(expense.householdId);
+    final recurringNotifier =
+        _ref?.read(recurringTransactionsProvider(recurringScopeId).notifier);
+    var recurringState = _ref?.read(recurringTransactionsProvider(
+      recurringScopeId,
+    ));
+    if (recurringState?.data.valueOrNull == null && recurringNotifier != null) {
+      await recurringNotifier.loadRecurringTransactions(user.uid);
+      recurringState = _ref?.read(recurringTransactionsProvider(
+        recurringScopeId,
+      ));
+    }
+    final recurringTransactions =
+        recurringState?.data.valueOrNull ?? const <RecurringTransaction>[];
+    final recurringTransactionsById = <String, RecurringTransaction>{
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final occurrenceResolution = await _resolveNotificationOccurrence(
+      userId: user.uid,
+      householdId: recurringScopeId,
+      expense: expense,
+      recurringTransactions: recurringTransactions,
+    );
+
+    if (!currentContext.mounted) {
+      return;
+    }
+    await showTransactionDetailsSheet(
       currentContext,
-      existingExpense: expense,
+      expense: expense,
+      recurringTransactionsById: recurringTransactionsById,
+      recurringOccurrence:
+          occurrenceResolution.occurrencesByActualTransactionId[expense.id],
+      recurringIdForOccurrence:
+          occurrenceResolution.recurringIdsByActualTransactionId[expense.id],
+    );
+  }
+
+  String? _normalizedHouseholdId(String? householdId) {
+    final normalized = householdId?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  Future<RecurringOccurrenceProjectionResolution>
+      _resolveNotificationOccurrence({
+    required String userId,
+    required String? householdId,
+    required ExpenseEntry expense,
+    required List<RecurringTransaction> recurringTransactions,
+  }) async {
+    // The direct notification lookup can return an older cached row without
+    // recurring provenance. Resolve the ledger for that occurrence date before
+    // routing so it cannot fall through to the ordinary transaction editor.
+    if (userId.isEmpty ||
+        recurringTransactions.isEmpty ||
+        expense.parentRecurringId?.trim().isNotEmpty == true) {
+      return const RecurringOccurrenceProjectionResolution();
+    }
+    final occurrenceDate = expense.scheduledOccurrenceDate ?? expense.date;
+    final dateOnly = DateTime(
+      occurrenceDate.year,
+      occurrenceDate.month,
+      occurrenceDate.day,
+    );
+    final query = RecurringOccurrenceProjectionResolutionQuery(
+      userId: userId,
+      householdId: householdId,
+      startDate: dateOnly,
+      endDate: dateOnly,
+    );
+    return loadRecurringOccurrenceProjectionResolution(
+      query: query,
+      recurringTransactions: recurringTransactions,
+      loadOccurrences: (timelineQuery) =>
+          _ref?.read(
+              recurringOccurrenceTimelineProvider(timelineQuery).future) ??
+          Future.value(const <RecurringOccurrenceTimelineItem>[]),
     );
   }
 
@@ -403,7 +480,7 @@ class NotificationDispatcher {
         final response = await supabase
             .from('expenses')
             .select(
-                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,account_id,type,is_recurring')
+                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,account_id,type,is_recurring')
             .eq('id', expenseId)
             .isFilter('deleted_at', null)
             .maybeSingle();

@@ -11,11 +11,14 @@ import '../pages/create_budget_page.dart';
 import '../pages/budget_detail_page.dart';
 import '../pages/household_expenses_page.dart';
 import '../../../home/presentation/models/expense_entry.dart';
-import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
 import '../../../utils/currency.dart';
 import '../../../../shared/widgets/user_avatar.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 /// Main household dashboard showing budgets, expenses, and splits
 class HouseholdDashboard extends ConsumerWidget {
@@ -242,6 +245,38 @@ class HouseholdDashboard extends ConsumerWidget {
       BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final expensesParams = HouseholdExpensesParams(householdId: household.id);
     final expensesAsync = ref.watch(householdExpensesProvider(expensesParams));
+    final activityExpenses =
+        expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+    final currentUserId = ref.watch(authProvider.select((state) => state.uid));
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(household.id))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final occurrenceStart = activityExpenses.isEmpty
+        ? DateTime.now()
+        : activityExpenses
+            .map((expense) => expense.date)
+            .reduce((earlier, date) => date.isBefore(earlier) ? date : earlier);
+    final occurrenceEnd = activityExpenses.isEmpty
+        ? DateTime.now()
+        : activityExpenses
+            .map((expense) => expense.date)
+            .reduce((later, date) => date.isAfter(later) ? date : later);
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: household.id,
+          startDate: occurrenceStart,
+          endDate: occurrenceEnd,
+        ),
+      ),
+    );
 
     return expensesAsync.when(
       loading: () => const Padding(
@@ -294,7 +329,11 @@ class HouseholdDashboard extends ConsumerWidget {
                 final expense = expenses[index];
                 debugPrint(
                     '🔍 Expense ${expense.id}: userName=${expense.userName}, userId=${expense.userId}');
-                return _ExpenseActivityCard(expense: expense);
+                return _ExpenseActivityCard(
+                  expense: expense,
+                  recurringTransactionsById: recurringTransactionsById,
+                  occurrenceResolution: occurrenceResolution,
+                );
               },
             ),
 
@@ -549,8 +588,14 @@ class _SplitCard extends StatelessWidget {
 /// Expense activity card widget
 class _ExpenseActivityCard extends StatelessWidget {
   final ExpenseEntry expense;
+  final Map<String, RecurringTransaction> recurringTransactionsById;
+  final RecurringOccurrenceProjectionResolution occurrenceResolution;
 
-  const _ExpenseActivityCard({required this.expense});
+  const _ExpenseActivityCard({
+    required this.expense,
+    required this.recurringTransactionsById,
+    required this.occurrenceResolution,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -558,10 +603,14 @@ class _ExpenseActivityCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // Open unified transaction sheet for viewing/editing expense
-        showUnifiedTransactionSheet(
+        showTransactionDetailsSheet(
           context,
-          existingExpense: expense,
+          expense: expense,
+          recurringTransactionsById: recurringTransactionsById,
+          recurringOccurrence:
+              occurrenceResolution.occurrencesByActualTransactionId[expense.id],
+          recurringIdForOccurrence: occurrenceResolution
+              .recurringIdsByActualTransactionId[expense.id],
         );
       },
       child: _buildCard(context, colorScheme),

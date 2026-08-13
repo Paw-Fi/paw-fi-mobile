@@ -101,6 +101,34 @@ void main() {
 
       expect(merged, [included]);
     });
+
+    test('excludes a recurring template but keeps its confirmed occurrence',
+        () {
+      final template = _entry(
+        id: 'recurring-template',
+        amountCents: 100000,
+        isRecurring: true,
+      );
+      final confirmedOccurrence = _entry(
+        id: 'confirmed-occurrence',
+        amountCents: 80000,
+      );
+
+      final merged = mergeDashboardTransactionsWithLocalOverlay(
+        base: [template, confirmedOccurrence],
+        localOverlay: const [],
+        query: const DashboardScopeQuery(
+          userId: 'user-1',
+          householdId: null,
+          selectedCurrency: 'USD',
+          startDate: null,
+          endDate: null,
+        ),
+      );
+
+      expect(merged.map((entry) => entry.id), ['confirmed-occurrence']);
+      expect(merged.single.amountCents, 80000);
+    });
   });
 }
 
@@ -111,6 +139,7 @@ ExpenseEntry _entry({
   DateTime? date,
   DateTime? createdAt,
   int amountCents = 1200,
+  bool isRecurring = false,
 }) {
   return ExpenseEntry(
     id: id,
@@ -122,5 +151,6 @@ ExpenseEntry _entry({
     category: 'food',
     createdAt: createdAt ?? DateTime(2026, 5, 7, 11),
     type: 'expense',
+    isRecurring: isRecurring,
   );
 }

@@ -1369,14 +1369,13 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     ExpenseEntry entry, {
     Set<String> replacingIds = const <String>{},
   }) {
-    if (state.items.isEmpty) {
-      return;
-    }
-
     final idsToReplace = {...replacingIds, entry.id};
     final existingIndex =
         state.items.indexWhere((item) => idsToReplace.contains(item.id));
     final matches = _entryMatchesQuery(entry);
+    if (state.items.isEmpty) {
+      return;
+    }
     if (existingIndex == -1 && !matches) {
       return;
     }

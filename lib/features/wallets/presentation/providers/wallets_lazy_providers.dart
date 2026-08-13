@@ -25,6 +25,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
     show PocketsScopeType, loadScopedRecurringTransactions;
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
@@ -731,8 +732,6 @@ class WalletsPageStateNotifier
     );
     final overlaidInitialState = await _overlayPendingLocalWalletPageState(
       initialState,
-      includeDatabasePending:
-          ref.read(walletsRecurringMutationSignalProvider) == 0,
     );
     _storePageState(initialState);
     trace.mark('initial-state-ready', {'snapshotCount': 1});
@@ -1240,6 +1239,19 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     ),
     financialMonthStartDay: query.financialMonthStartDay,
   );
+  final occurrenceResolution =
+      await loadRecurringOccurrenceProjectionResolution(
+    query: RecurringOccurrenceProjectionResolutionQuery(
+      userId: query.userId,
+      householdId: query.householdId,
+      startDate: projectionRangeStart,
+      endDate: endInclusive,
+    ),
+    recurringTransactions: recurringTransactions,
+    loadOccurrences: (occurrenceQuery) => ref.read(
+      recurringOccurrenceTimelineProvider(occurrenceQuery).future,
+    ),
+  );
   final projectedTransactions = _buildProjectedWalletRecurringTransactions(
     recurringTransactions: recurringTransactions,
     actualTransactions: actualTransactions,
@@ -1247,6 +1259,8 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     selectedCurrencies: query.normalizedSelectedCurrencies,
     rangeStart: projectionRangeStart,
     rangeEndInclusive: endInclusive,
+    confirmedOccurrenceSuppressionEntries:
+        occurrenceResolution.suppressionEntries,
   );
   trace.mark('legacy-projection-built', {
     'rangeStart': projectionRangeStart,
@@ -1806,6 +1820,8 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
   List<String>? selectedCurrencies,
   required DateTime rangeStart,
   required DateTime rangeEndInclusive,
+  Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries =
+      const <ExpenseEntry>[],
 }) {
   if (recurringTransactions.isEmpty) {
     return const <ExpenseEntry>[];
@@ -1842,6 +1858,9 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
   // recurring-expanded balances, or the wallets page will regress again.
   return dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
-    actualExpenses: actualTransactions,
+    actualExpenses: <ExpenseEntry>[
+      ...actualTransactions,
+      ...confirmedOccurrenceSuppressionEntries,
+    ],
   );
 }

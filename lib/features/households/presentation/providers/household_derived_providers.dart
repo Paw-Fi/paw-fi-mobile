@@ -210,22 +210,18 @@ class _HouseholdDashboardProjectionRefreshCache {
               '${_traceId(expense.id)}:${expense.amountCents}:${_traceId(expense.splitGroupId!)}',
         )
         .join(',');
-    final splits = projection.splits
-        .take(3)
-        .map(
-          (split) {
-            final lines = split.splitLines
-                    ?.map(
-                      (line) =>
-                          '${_traceId(line.userId)}:${line.amountCents ?? 0}',
-                    )
-                    .join('+') ??
-                '-';
-            return '${_traceId(split.id)}:${_traceId(split.expenseId)}:'
-                '${split.totalAmountCents}:$lines';
-          },
-        )
-        .join(',');
+    final splits = projection.splits.take(3).map(
+      (split) {
+        final lines = split.splitLines
+                ?.map(
+                  (line) => '${_traceId(line.userId)}:${line.amountCents ?? 0}',
+                )
+                .join('+') ??
+            '-';
+        return '${_traceId(split.id)}:${_traceId(split.expenseId)}:'
+            '${split.totalAmountCents}:$lines';
+      },
+    ).join(',');
     final signature =
         '${projection.actualExpenses.length}|$splitExpenses|$splits|${projection.hasDeferredSplitReferences}';
     if (_traceSignatures[query] == signature) return;
@@ -328,6 +324,17 @@ final householdDashboardProjectionProvider = Provider.autoDispose
     final recurringState = ref.watch(
       recurringTransactionsProvider(householdId),
     );
+    final occurrenceResolution =
+        query.startDate == null || query.endDate == null
+            ? const RecurringOccurrenceProjectionResolution()
+            : ref.watch(recurringOccurrenceProjectionResolutionProvider(
+                RecurringOccurrenceProjectionResolutionQuery(
+                  userId: query.userId,
+                  householdId: householdId,
+                  startDate: query.startDate!,
+                  endDate: query.endDate!,
+                ),
+              ));
     if (!recurringState.hasLoadedOnce) {
       final recurringNotifier = ref.read(
         recurringTransactionsProvider(householdId).notifier,
@@ -384,6 +391,8 @@ final householdDashboardProjectionProvider = Provider.autoDispose
                   recurringTransactions: recurringTransactions,
                   rangeStart: query.startDate!,
                   rangeEnd: query.endDate!,
+                  confirmedOccurrenceSuppressionEntries:
+                      occurrenceResolution.suppressionEntries,
                   selectedCurrency: query.selectedCurrency ?? 'USD',
                   selectedCurrencies: query.normalizedCurrencies,
                   includeFutureOccurrences: false,
@@ -418,12 +427,12 @@ final householdDashboardProjectionProvider = Provider.autoDispose
 
     if (retained != null) {
       final projection = buildProjection(
-          baseExpenses: baseExpenses ?? retained.actualExpenses,
-          baseSplits: baseSplits ?? retained.splits,
-          recurringTransactions:
-              recurringTransactions ?? retained.recurringTransactions,
-          retainedProjection: retained,
-        );
+        baseExpenses: baseExpenses ?? retained.actualExpenses,
+        baseSplits: baseSplits ?? retained.splits,
+        recurringTransactions:
+            recurringTransactions ?? retained.recurringTransactions,
+        retainedProjection: retained,
+      );
       refreshCache.traceIfChanged(query, projection);
       return AsyncValue.data(projection);
     }
@@ -544,7 +553,7 @@ final householdDashboardSplitsProvider = Provider.autoDispose
         .where(
           (entry) =>
               entry.splitGroupId?.trim().startsWith('optimistic_split_') ==
-                  true,
+              true,
         )
         .map((entry) => entry.id)
         .toSet();
@@ -572,8 +581,8 @@ final householdDashboardSplitsProvider = Provider.autoDispose
 
     final legacyGroups = legacySplits
             ?.where(
-              (group) => legacyOptimisticSplitExpenseIds
-                  .contains(group.expenseId),
+              (group) =>
+                  legacyOptimisticSplitExpenseIds.contains(group.expenseId),
             )
             .toList(growable: false) ??
         const <ExpenseSplitGroup>[];

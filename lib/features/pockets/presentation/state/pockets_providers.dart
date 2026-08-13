@@ -1253,16 +1253,21 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
       );
       final payload = response.data;
       if (payload is! Map || payload['success'] != true) continue;
-      final confirmedDates = (payload['data'] as List? ?? const <dynamic>[])
-          .whereType<Map>()
-          .map((item) => RecurringOccurrenceTimelineItem.fromPersistedJson(
-                Map<String, dynamic>.from(item),
-              ))
-          .where((item) =>
-              item.isConfirmed &&
-              !item.scheduledOccurrenceDate.isBefore(monthStart) &&
-              !item.scheduledOccurrenceDate.isAfter(periodEnd))
-          .map((item) => item.scheduledOccurrenceDate);
+      final occurrencePage = Map<String, dynamic>.from(
+        payload['data'] as Map,
+      );
+      final confirmedDates =
+          (occurrencePage['items'] as List? ?? const <dynamic>[])
+              .whereType<Map>()
+              .map((item) =>
+                  RecurringOccurrenceTimelineItem.fromOccurrenceSummaryJson(
+                    Map<String, dynamic>.from(item),
+                  ))
+              .where((item) =>
+                  item.isConfirmed &&
+                  !item.scheduledOccurrenceDate.isBefore(monthStart) &&
+                  !item.scheduledOccurrenceDate.isAfter(periodEnd))
+              .map((item) => item.scheduledOccurrenceDate);
       confirmedOccurrenceSuppressionEntries.addAll(
         buildConfirmedOccurrenceSuppressionEntries(
           recurringId: transaction.id,

@@ -536,6 +536,23 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
             rates: rates,
           )
         : historicalTransactions;
+    final occurrenceResolution = watchDependencies
+        ? ref.watch(recurringOccurrenceProjectionResolutionProvider(
+            RecurringOccurrenceProjectionResolutionQuery(
+              userId: userId,
+              householdId: householdId,
+              startDate: now.add(const Duration(days: 1)),
+              endDate: period.end,
+            ),
+          ))
+        : ref.read(recurringOccurrenceProjectionResolutionProvider(
+            RecurringOccurrenceProjectionResolutionQuery(
+              userId: userId,
+              householdId: householdId,
+              startDate: now.add(const Duration(days: 1)),
+              endDate: period.end,
+            ),
+          ));
 
     final futureTransactionSets = _futureTransactionsForReport(
       actualTransactions: currentTransactions,
@@ -545,6 +562,8 @@ class MonthlyReportNotifier extends FamilyAsyncNotifier<
       currencyCode: currencyCode,
       selectedCurrencies: selectedCurrencies,
       rates: rates,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
     );
     final futureTransactions = futureTransactionSets.report;
     final nativeFutureTransactionsById = <String, ExpenseEntry>{
@@ -1798,6 +1817,8 @@ Future<double?> _readPreviousNetWorth(
   required String currencyCode,
   List<String>? selectedCurrencies,
   required CurrencyRateTable rates,
+  Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries =
+      const <ExpenseEntry>[],
 }) {
   final today = DateTime(now.year, now.month, now.day);
   final actualFuture = actualTransactions.where((entry) {
@@ -1813,7 +1834,10 @@ Future<double?> _readPreviousNetWorth(
   );
   final dedupedProjected = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projected,
-    actualExpenses: actualFuture,
+    actualExpenses: <ExpenseEntry>[
+      ...actualFuture,
+      ...confirmedOccurrenceSuppressionEntries,
+    ],
   );
 
   final futureTransactions = <ExpenseEntry>[

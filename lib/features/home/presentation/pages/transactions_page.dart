@@ -45,6 +45,7 @@ import 'package:moneko/features/home/presentation/utils/transaction_display_date
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -650,6 +651,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         (householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId);
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: effectiveHouseholdId,
+          startDate: range?['from'] ?? DateTime(2000),
+          endDate: range?['to'] ?? userNow,
+        ),
+      ),
+    );
     final feedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
@@ -904,6 +915,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       currentUserId: currentUserId,
       accountLabelsById: accountLabelsById,
       recurringTransactionsById: recurringTransactionsById,
+      occurrenceResolution: occurrenceResolution,
       shouldShowCurrencyFlag: shouldShowCurrencyFlag,
     );
   }
@@ -940,6 +952,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
+    required RecurringOccurrenceProjectionResolution occurrenceResolution,
     required bool shouldShowCurrencyFlag,
   }) {
     final expensesToExport = derivedData.filteredExpenses;
@@ -1232,6 +1245,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           currentUserId: currentUserId,
                           accountLabelsById: accountLabelsById,
                           recurringTransactionsById: recurringTransactionsById,
+                          occurrenceResolution: occurrenceResolution,
                           shouldShowCurrencyFlag: shouldShowCurrencyFlag,
                           isFirst: item.isFirst,
                           isLast: item.isLast,
@@ -1391,6 +1405,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
+    required RecurringOccurrenceProjectionResolution occurrenceResolution,
     required bool shouldShowCurrencyFlag,
     required bool isFirst,
     required bool isLast,
@@ -1428,6 +1443,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         currentUserId: currentUserId,
         accountLabelsById: accountLabelsById,
         recurringTransactionsById: recurringTransactionsById,
+        occurrenceResolution: occurrenceResolution,
         shouldShowCurrencyFlag: shouldShowCurrencyFlag,
         isLast: isLast,
       ),
@@ -2135,6 +2151,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
+    required RecurringOccurrenceProjectionResolution occurrenceResolution,
     required bool shouldShowCurrencyFlag,
     bool isLast = false,
   }) {
@@ -2199,9 +2216,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 _openRecurringTransactionEditor(projectedRecurringTransaction);
               } else {
                 unawaited(
-                  showUnifiedTransactionSheet(
+                  showTransactionDetailsSheet(
                     context,
-                    existingExpense: originalExpense,
+                    expense: originalExpense,
+                    recurringTransactionsById: recurringTransactionsById,
+                    recurringOccurrence: occurrenceResolution
+                        .occurrencesByActualTransactionId[originalExpense.id],
+                    recurringIdForOccurrence: occurrenceResolution
+                        .recurringIdsByActualTransactionId[originalExpense.id],
                     contact: contact,
                   ).then((didMutate) async {
                     if (!mounted || didMutate != true) {

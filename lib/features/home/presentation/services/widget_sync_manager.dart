@@ -319,10 +319,27 @@ class WidgetSyncManager extends HookConsumerWidget {
             );
             final actualExpenses = <ExpenseEntry>[];
             final recurringTransactions = <RecurringTransaction>[];
+            final confirmedOccurrenceSuppressionEntries = <ExpenseEntry>[];
             for (final householdId in scopedHouseholdIds) {
               actualExpenses.addAll(await loadActualExpenses(householdId));
-              recurringTransactions.addAll(
-                await loadRecurringTransactions(householdId),
+              final scopedRecurringTransactions =
+                  await loadRecurringTransactions(householdId);
+              recurringTransactions.addAll(scopedRecurringTransactions);
+              final occurrenceResolution =
+                  await loadRecurringOccurrenceProjectionResolution(
+                query: RecurringOccurrenceProjectionResolutionQuery(
+                  userId: user.uid,
+                  householdId: householdId,
+                  startDate: currentMonth,
+                  endDate: currentRangeEnd,
+                ),
+                recurringTransactions: scopedRecurringTransactions,
+                loadOccurrences: (occurrenceQuery) => ref.read(
+                  recurringOccurrenceTimelineProvider(occurrenceQuery).future,
+                ),
+              );
+              confirmedOccurrenceSuppressionEntries.addAll(
+                occurrenceResolution.suppressionEntries,
               );
             }
 
@@ -336,6 +353,8 @@ class WidgetSyncManager extends HookConsumerWidget {
               selectedCurrencies: selectedWidgetCurrencies,
               includeFutureOccurrences: false,
               now: userNow,
+              confirmedOccurrenceSuppressionEntries:
+                  confirmedOccurrenceSuppressionEntries,
             );
 
             return prepareWidgetAggregateTransactions(

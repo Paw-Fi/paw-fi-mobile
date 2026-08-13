@@ -16,6 +16,7 @@ import 'package:moneko/features/households/presentation/providers/household_deri
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 String _safeCompactFormat(num value, BuildContext context) {
   try {
@@ -65,12 +66,15 @@ class _FinancialCalendarWidgetState
     required DateTime rangeEnd,
     required List<String>? selectedCurrencies,
     required CurrencyRateTable rates,
+    required Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries,
   }) {
     final merged = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: actualTransactions,
       recurringTransactions: widget.recurringTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
+      confirmedOccurrenceSuppressionEntries:
+          confirmedOccurrenceSuppressionEntries,
       selectedCurrency: widget.currency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: true,
@@ -370,12 +374,24 @@ class _FinancialCalendarWidgetState
             ),
           );
     final selectedCurrencies = query.normalizedCurrencies;
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: widget.userId,
+          householdId: widget.householdId,
+          startDate: rangeStart,
+          endDate: rangeEnd,
+        ),
+      ),
+    );
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrencies: selectedCurrencies,
       rates: rates,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
     );
     final actualDailyTotals = _buildActualDailyTotals(
       transactions: resolvedTransactions,

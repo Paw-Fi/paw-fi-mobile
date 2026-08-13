@@ -262,8 +262,7 @@ class _ConfirmRecurringOccurrenceFormState
                 ref.read(analyticsProvider).contact?.preferredTimezone,
           ),
         )) {
-      setState(() =>
-          _error = context.l10n.recurringOccurrenceNotAvailable);
+      setState(() => _error = context.l10n.recurringOccurrenceNotAvailable);
       return;
     }
     if (!_isSettlementLocked) {
@@ -287,18 +286,21 @@ class _ConfirmRecurringOccurrenceFormState
         _accountId = null;
       } else if (_accountId != null &&
           !activeWallets.any((wallet) => wallet.id == _accountId)) {
-        setState(() => _error = context.l10n.recurringOccurrenceChooseWalletInCurrency);
+        setState(() =>
+            _error = context.l10n.recurringOccurrenceChooseWalletInCurrency);
         return;
       }
       if (!_isEditing &&
           activeWallets.isNotEmpty &&
           (_accountId == null || _accountId!.isEmpty)) {
-        setState(() => _error = context.l10n.recurringOccurrenceChooseWalletInCurrency);
+        setState(() =>
+            _error = context.l10n.recurringOccurrenceChooseWalletInCurrency);
         return;
       }
     }
     if (!_isSettlementLocked && _paidDate.isAfter(today)) {
-      setState(() => _error = context.l10n.recurringOccurrencePaidDateAfterToday);
+      setState(
+          () => _error = context.l10n.recurringOccurrencePaidDateAfterToday);
       return;
     }
     if (userId.isEmpty) {
@@ -404,7 +406,9 @@ class _ConfirmRecurringOccurrenceFormState
     } else {
       AppToast.success(
         context,
-        _isEditing ? context.l10n.recurringOccurrenceUpdateSaved : context.l10n.recurringOccurrenceConfirmationSaved,
+        _isEditing
+            ? context.l10n.recurringOccurrenceUpdateSaved
+            : context.l10n.recurringOccurrenceConfirmationSaved,
       );
     }
   }
@@ -438,7 +442,8 @@ class _ConfirmRecurringOccurrenceFormState
     if (!result.isQueued) {
       setState(() {
         _isSubmitting = false;
-        _error = result.error ?? context.l10n.recurringOccurrenceUnableToUnconfirm;
+        _error =
+            result.error ?? context.l10n.recurringOccurrenceUnableToUnconfirm;
       });
       return;
     }
@@ -498,6 +503,56 @@ class _ConfirmRecurringOccurrenceFormState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          GestureDetector(
+            onTap: _isSubmitting || _isSettlementLocked
+                ? null
+                : () async {
+                    final amount = await showCalculatorKeypadSheet(
+                      context: context,
+                      initialValue: _amountController.text,
+                      prefix: resolveCurrencySymbol(transaction.currency),
+                    );
+                    if (amount != null && mounted) {
+                      setState(() {
+                        _amountController.text = amount;
+                        _error = null;
+                      });
+                    }
+                  },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Text(
+                    '${resolveCurrencySymbol(transaction.currency)}${_amountController.text}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 44,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                      letterSpacing: 0,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isSettlementLocked
+                        ? context.l10n.recurringOccurrenceActualAmount
+                        : context.l10n.tapToEditAmount,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           MonekoInput(
             child: _ReadOnlyRow(
               label: context.l10n.recurringOccurrenceScheduledDate,
@@ -529,28 +584,6 @@ class _ConfirmRecurringOccurrenceFormState
                             );
                             if (selected != null && mounted) {
                               setState(() => _paidDate = selected);
-                            }
-                          },
-                  ),
-                  const Divider(height: 1),
-                  MonekoDisclosureRow(
-                    label: context.l10n.recurringOccurrenceActualAmount,
-                    value:
-                        '${resolveCurrencySymbol(transaction.currency)}${_amountController.text}',
-                    onTap: _isSubmitting
-                        ? () {}
-                        : () async {
-                            final amount = await showCalculatorKeypadSheet(
-                              context: context,
-                              initialValue: _amountController.text,
-                              prefix:
-                                  resolveCurrencySymbol(transaction.currency),
-                            );
-                            if (amount != null && mounted) {
-                              setState(() {
-                                _amountController.text = amount;
-                                _error = null;
-                              });
                             }
                           },
                   ),
@@ -666,7 +699,8 @@ class _ConfirmRecurringOccurrenceFormState
                         ? null
                         : (value) => setState(
                             () => _updateFutureAmount = value ?? false),
-                    title: Text(context.l10n.recurringOccurrenceUpdateFutureAmount),
+                    title: Text(
+                        context.l10n.recurringOccurrenceUpdateFutureAmount),
                   )
                 : const SizedBox.shrink(),
           ),

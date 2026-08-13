@@ -34,6 +34,8 @@ import 'package:moneko/features/households/presentation/widgets/household_member
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 HouseholdSummaryParams buildHouseholdSummaryParams({
@@ -394,12 +396,27 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
       startDate: selectedPeriod.start,
       endDate: selectedPeriod.end,
     );
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(household.id))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: userId,
+          householdId: household.id,
+          startDate: selectedPeriod.start,
+          endDate: selectedPeriod.end,
+        ),
+      ),
+    );
     final recentAsync = ref.watch(
       dashboardRecentTransactionsProvider(
         DashboardRecentTransactionsRequest(query: query, limit: 5),
       ),
     );
-    final recentTransactions = mergeHouseholdDashboardExpenses(
+    final rawRecentTransactions = mergeHouseholdDashboardExpenses(
       base: recentAsync.valueOrNull ?? const <ExpenseEntry>[],
       localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
       query: query,
@@ -415,6 +432,31 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
       ),
       limit: 5,
     );
+    final recentTransactions = <ExpenseEntry>[
+      ...rawRecentTransactions.where(
+        (entry) =>
+            extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
+            null,
+      ),
+      ...dedupeProjectedRecurringExpenseEntries(
+        projectedExpenses: rawRecentTransactions
+            .where(
+              (entry) =>
+                  extractRecurringTransactionIdFromProjectedExpenseId(
+                      entry.id) !=
+                  null,
+            )
+            .toList(growable: false),
+        actualExpenses: <ExpenseEntry>[
+          ...rawRecentTransactions.where(
+            (entry) =>
+                extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
+                null,
+          ),
+          ...occurrenceResolution.suppressionEntries,
+        ],
+      ),
+    ];
 
     Widget child;
 
@@ -449,6 +491,14 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
         selectedCurrency: selectedCurrency,
         selectedCurrencies: query.normalizedCurrencies,
         householdId: household.id,
+        recurringTransactionsById: {
+          for (final transaction in recurringTransactions)
+            transaction.id: transaction,
+        },
+        recurringOccurrencesByActualTransactionId:
+            occurrenceResolution.occurrencesByActualTransactionId,
+        recurringIdsByActualTransactionId:
+            occurrenceResolution.recurringIdsByActualTransactionId,
         onViewAll: () {
           Navigator.of(context).push(
             MaterialPageRoute(

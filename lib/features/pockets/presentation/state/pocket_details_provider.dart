@@ -8,6 +8,8 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart'
+    show dashboardRefreshSignalProvider;
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
@@ -97,6 +99,12 @@ class PocketDetailsData {
 final pocketDetailsProvider =
     FutureProvider.family<PocketDetailsData, PocketTransactionsParams>(
         (ref, params) async {
+  // An occurrence edit first replaces its local actual transaction. Detail
+  // rows and their derived totals must recompute from that local-first feed
+  // immediately; waiting for a later remote pocket refresh leaves this page
+  // visibly stale while the confirmation sheet has already closed.
+  ref.watch(transactionsFeedRefreshSignalProvider);
+  ref.watch(dashboardRefreshSignalProvider);
   final authUser = ref.read(authProvider);
   final periodSelection = ref.read(periodFilterProvider);
   final selectedCurrency =

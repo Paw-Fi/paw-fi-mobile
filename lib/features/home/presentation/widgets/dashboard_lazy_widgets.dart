@@ -32,6 +32,7 @@ import 'package:moneko/features/home/presentation/widgets/spending_card.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -203,11 +204,23 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     }
 
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: query.userId,
+          householdId: scope.activeAccountHouseholdId,
+          startDate: range['from']!,
+          endDate: range['to']!,
+        ),
+      ),
+    );
     final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: transactions,
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
@@ -400,11 +413,33 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     }
 
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final currentOccurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentQuery.userId,
+          householdId: scope.activeAccountHouseholdId,
+          startDate: currentRange.$1,
+          endDate: currentRange.$2,
+        ),
+      ),
+    );
+    final previousOccurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: previousQuery.userId,
+          householdId: scope.activeAccountHouseholdId,
+          startDate: previousRange.$1,
+          endDate: previousRange.$2,
+        ),
+      ),
+    );
     final currentTransactions = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: currentBaseTransactions,
       recurringTransactions: recurringTransactions,
       rangeStart: currentRange.$1,
       rangeEnd: currentRange.$2,
+      confirmedOccurrenceSuppressionEntries:
+          currentOccurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
@@ -414,6 +449,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       recurringTransactions: recurringTransactions,
       rangeStart: previousRange.$1,
       rangeEnd: previousRange.$2,
+      confirmedOccurrenceSuppressionEntries:
+          previousOccurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
@@ -554,17 +591,58 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
       startDate: selectedPeriod.start,
       endDate: selectedPeriod.end,
     );
+    final recurringTransactions = ref
+            .watch(
+                recurringTransactionsProvider(scope.activeAccountHouseholdId))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: query.userId,
+          householdId: scope.activeAccountHouseholdId,
+          startDate: selectedPeriod.start,
+          endDate: selectedPeriod.end,
+        ),
+      ),
+    );
     final recentAsync = ref.watch(
       dashboardRecentTransactionsProvider(
         DashboardRecentTransactionsRequest(query: query, limit: 5),
       ),
     );
-    final recentTransactions = mergeDashboardTransactionsWithLocalOverlay(
+    final rawRecentTransactions = mergeDashboardTransactionsWithLocalOverlay(
       base: recentAsync.valueOrNull ?? const <ExpenseEntry>[],
       localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
       query: query,
       limit: 5,
     );
+    final recentTransactions = <ExpenseEntry>[
+      ...rawRecentTransactions.where(
+        (entry) =>
+            extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
+            null,
+      ),
+      ...dedupeProjectedRecurringExpenseEntries(
+        projectedExpenses: rawRecentTransactions
+            .where(
+              (entry) =>
+                  extractRecurringTransactionIdFromProjectedExpenseId(
+                      entry.id) !=
+                  null,
+            )
+            .toList(growable: false),
+        actualExpenses: <ExpenseEntry>[
+          ...rawRecentTransactions.where(
+            (entry) =>
+                extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
+                null,
+          ),
+          ...occurrenceResolution.suppressionEntries,
+        ],
+      ),
+    ];
 
     if (recentAsync.isLoading &&
         !recentAsync.hasValue &&
@@ -603,6 +681,14 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
         selectedCurrency: selectedCurrency,
         selectedCurrencies: query.normalizedCurrencies,
         householdId: query.householdId,
+        recurringTransactionsById: {
+          for (final transaction in recurringTransactions)
+            transaction.id: transaction,
+        },
+        recurringOccurrencesByActualTransactionId:
+            occurrenceResolution.occurrencesByActualTransactionId,
+        recurringIdsByActualTransactionId:
+            occurrenceResolution.recurringIdsByActualTransactionId,
         onViewAll: () {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -709,11 +795,23 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     }
 
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: query.userId,
+          householdId: scope.activeAccountHouseholdId,
+          startDate: range['from']!,
+          endDate: range['to']!,
+        ),
+      ),
+    );
     final expenses = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: transactions,
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,
@@ -835,11 +933,23 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     }
 
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: query.userId,
+          householdId: scope.activeAccountHouseholdId,
+          startDate: range['from']!,
+          endDate: range['to']!,
+        ),
+      ),
+    );
     final expenses = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: transactions,
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
       includeFutureOccurrences: false,

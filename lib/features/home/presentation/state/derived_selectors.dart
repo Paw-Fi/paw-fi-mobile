@@ -66,6 +66,8 @@ Map<String, double> calculateMomTrend({
   required List<RecurringTransaction> recurringTransactions,
   required DateTime now,
   required int financialMonthStartDay,
+  Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries =
+      const <ExpenseEntry>[],
   String? selectedCurrency,
 }) {
   final normalizedCurrency = selectedCurrency?.trim().toUpperCase();
@@ -105,6 +107,8 @@ Map<String, double> calculateMomTrend({
       recurringTransactions: recurringTransactions,
       rangeStart: start,
       rangeEnd: end,
+      confirmedOccurrenceSuppressionEntries:
+          confirmedOccurrenceSuppressionEntries,
       selectedCurrency: normalizedCurrency,
       includeFutureOccurrences: false,
       now: now,
@@ -184,12 +188,24 @@ final momTrendProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
     }
     return const AsyncValue.loading();
   }
+  final occurrenceResolution = ref.watch(
+    recurringOccurrenceProjectionResolutionProvider(
+      RecurringOccurrenceProjectionResolutionQuery(
+        userId: userId,
+        householdId: householdId,
+        startDate: rangeStart,
+        endDate: rangeEnd,
+      ),
+    ),
+  );
   return AsyncValue.data(
     calculateMomTrend(
       actualTransactions: actualTransactions,
       recurringTransactions: recurringExpenses,
       now: now,
       financialMonthStartDay: financialMonthStartDay,
+      confirmedOccurrenceSuppressionEntries:
+          occurrenceResolution.suppressionEntries,
       selectedCurrency: setCurrency,
     ),
   );

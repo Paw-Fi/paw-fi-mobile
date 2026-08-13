@@ -27,14 +27,15 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/home/presentation/utils/transactions_page_derived_data.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 class CategoryDetailsPage extends ConsumerStatefulWidget {
   final String categoryKey;
@@ -305,6 +306,20 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         const [];
     final userNow = effectiveNow(
       preferredTimezone: contact?.preferredTimezone,
+    );
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: recurringScopeHouseholdId,
+          startDate: query.startDate ?? DateTime(2000),
+          endDate: query.endDate ?? userNow,
+        ),
+      ),
     );
 
     final projectedRecurring = recurringTransactions.isEmpty
@@ -618,6 +633,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                           key: ValueKey(item.key),
                           originalItem: displayExpense,
                           currentUserId: currentUserId,
+                          recurringTransactionsById: recurringTransactionsById,
+                          occurrenceResolution: occurrenceResolution,
                           isFirst: item.isFirst,
                           isLast: item.isLast,
                         );
@@ -1037,6 +1054,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     Key? key,
     required ExpenseEntry originalItem,
     required String currentUserId,
+    required Map<String, RecurringTransaction> recurringTransactionsById,
+    required RecurringOccurrenceProjectionResolution occurrenceResolution,
     required bool isFirst,
     required bool isLast,
   }) {
@@ -1087,9 +1106,14 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             return;
           }
           unawaited(
-            showUnifiedTransactionSheet(
+            showTransactionDetailsSheet(
               context,
-              existingExpense: originalItem,
+              expense: originalItem,
+              recurringTransactionsById: recurringTransactionsById,
+              recurringOccurrence: occurrenceResolution
+                  .occurrencesByActualTransactionId[originalItem.id],
+              recurringIdForOccurrence: occurrenceResolution
+                  .recurringIdsByActualTransactionId[originalItem.id],
               contact: contact,
             ).then((_) => _refreshData()),
           );

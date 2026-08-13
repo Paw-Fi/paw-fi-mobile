@@ -11,6 +11,7 @@ import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -2812,6 +2813,13 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
     final snapshot = reportAsync.valueOrNull;
     final ids = _decodeSourceTransactionIds(sourceTransactionIds).toSet();
     final householdScope = ref.watch(householdScopeProvider);
+    final currentUserId = ref.watch(authProvider.select((state) => state.uid));
+    final reportPeriod = resolveMonthlyReportPeriod(
+      effectiveQuery,
+      now: effectiveNow(
+        preferredTimezone: ref.watch(appPreferredTimezoneProvider),
+      ),
+    );
     final List<RecurringTransaction> recurringTransactions = ref
             .watch(recurringTransactionsProvider(
                 _monthlyReportHouseholdId(householdScope)))
@@ -2822,6 +2830,16 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
       for (final transaction in recurringTransactions)
         transaction.id: transaction,
     };
+    final occurrenceResolution = ref.watch(
+      recurringOccurrenceProjectionResolutionProvider(
+        RecurringOccurrenceProjectionResolutionQuery(
+          userId: currentUserId,
+          householdId: _monthlyReportHouseholdId(householdScope),
+          startDate: reportPeriod.start,
+          endDate: reportPeriod.end,
+        ),
+      ),
+    );
     final selectedRecurring = recurringTransactionsById[recurringId];
     final List<WalletEntity> scopedWallets =
         ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
@@ -2999,6 +3017,12 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
                                   expense: transaction,
                                   recurringTransactionsById:
                                       recurringTransactionsById,
+                                  recurringOccurrence: occurrenceResolution
+                                          .occurrencesByActualTransactionId[
+                                      transaction.id],
+                                  recurringIdForOccurrence: occurrenceResolution
+                                          .recurringIdsByActualTransactionId[
+                                      transaction.id],
                                   transferWallets: scopedWallets,
                                 );
                                 if (context.mounted) {
