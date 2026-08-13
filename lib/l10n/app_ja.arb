@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "ウォレット",
   "plusLockedOnePrivateOneShared": "個人用1 + 共有用1",
   "plusLockedTwoWallets": "2つのウォレット",
-  "expiredPlusBannerMessage": "Plusの特典を引き続き利用しましょう。月額{price}からご利用いただけます。",
+  "expiredPlusBannerMessage": "月額{price}から登録して、Plusの特典を引き続き利用しましょう。",
   "expiredSubscriptionMessage": "Plusプランの有効期限が切れました。Plusの特典を引き続き楽しむには、定期購入してください。",
   "trialWelcomeTitle": "7日間の無料Plusトライアルをプレゼント！",
   "trialWelcomeSubtitle": "今後7日間、すべてのPlus機能を無料でお楽しみいただけます。ぜひお試しください：",

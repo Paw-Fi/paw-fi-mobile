@@ -3259,7 +3259,7 @@
   "plusLockedWallets": "Carteras",
   "plusLockedOnePrivateOneShared": "1 privada + 1 compartida",
   "plusLockedTwoWallets": "2 carteras",
-  "expiredPlusBannerMessage": "Sigue disfrutando de las ventajas de Plus - suscríbete desde solo {price}/mes.",
+  "expiredPlusBannerMessage": "Suscríbete desde {price}/mes para mantener tus beneficios Plus.",
   "expiredSubscriptionMessage": "Tu plan Plus ha expirado. Suscríbete para seguir disfrutando de sus beneficios.",
   "trialWelcomeTitle": "¡Tienes 7 días de Plus, gratis!",
   "trialWelcomeSubtitle": "Disfruta de todas las funciones Plus sin costo durante los próximos 7 días. Esto es lo que puedes probar:",

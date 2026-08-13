@@ -3253,7 +3253,7 @@
   "plusLockedWallets": "钱包",
   "plusLockedOnePrivateOneShared": "1 个私人 + 1 个共享",
   "plusLockedTwoWallets": "2 个钱包",
-  "expiredPlusBannerMessage": "继续享受 Plus 权益 - 订阅仅需 {price}/月起。",
+  "expiredPlusBannerMessage": "订阅仅需 {price}/月起，即可继续享受 Plus 权益。",
   "expiredSubscriptionMessage": "您的 Plus 计划已过期。请订阅以继续享受 Plus 专属特权。",
   "trialWelcomeTitle": "畅享 7 天免费 Plus 体验！",
   "trialWelcomeSubtitle": "在接下来的 7 天内免费享受所有 Plus 功能。您可以尝试：",

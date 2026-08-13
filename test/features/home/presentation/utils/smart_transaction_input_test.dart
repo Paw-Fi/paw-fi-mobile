@@ -206,6 +206,74 @@ void main() {
       expect(memory, isNull);
     });
 
+    test('does not cache household payer or split decisions', () {
+      final splitMemory = SmartInputAnalysisMemory.fromAnalysisResponse(
+        inputText: '20 for lunch',
+        responseData: {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'description': 'lunch',
+                'amount': 20,
+                'currency': 'EUR',
+                'category': 'restaurants',
+                'date': '2026-05-07',
+                'customSplits': {
+                  'splitType': 'amount',
+                  'memberSplits': [
+                    {'userId': 'user_1', 'amount': 20},
+                    {'userId': 'user_2', 'amount': 0},
+                  ],
+                },
+              },
+            ],
+          },
+        },
+        defaultDateYmd: '2026-05-07',
+      );
+      final payerMemory = SmartInputAnalysisMemory.fromAnalysisResponse(
+        inputText: '20 for lunch paid by Charles',
+        responseData: {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'description': 'lunch',
+                'amount': 20,
+                'currency': 'EUR',
+                'category': 'restaurants',
+                'date': '2026-05-07',
+                'payerUserId': 'user_2',
+              },
+            ],
+          },
+        },
+        defaultDateYmd: '2026-05-07',
+      );
+
+      expect(splitMemory, isNull);
+      expect(payerMemory, isNull);
+      expect(
+        SmartInputAnalysisMemory.fromJson({
+          'measurement': measureSmartInput('20 for lunch').toJson(),
+          'item': {
+            'description': 'lunch',
+            'amount': 20,
+            'date': '2026-05-07',
+            'customSplits': {
+              'splitType': 'amount',
+              'memberSplits': [
+                {'userId': 'user_1', 'amount': 20},
+                {'userId': 'user_2', 'amount': 0},
+              ],
+            },
+          },
+        }),
+        isNull,
+      );
+    });
+
     test('supports non-Latin decimal digits and separators', () {
       final memory = SmartInputAnalysisMemory.fromAnalysisResponse(
         inputText: 'قهوة ١٢٫٥٠',

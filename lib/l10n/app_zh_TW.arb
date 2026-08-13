@@ -3201,7 +3201,7 @@
   "plusLockedWallets": "錢包",
   "plusLockedOnePrivateOneShared": "1 個私人 + 1 個共享",
   "plusLockedTwoWallets": "2 個錢包",
-  "expiredPlusBannerMessage": "繼續享有 Plus 權益 - 訂閱只要 {price}/月起。",
+  "expiredPlusBannerMessage": "訂閱只要 {price}/月起，即可繼續享有 Plus 權益。",
   "expiredSubscriptionMessage": "您的 Plus 方案已過期。請訂閱以繼續享受 Plus 專屬特權。",
   "trialWelcomeTitle": "暢享 7 天免費 Plus 體驗！",
   "trialWelcomeSubtitle": "在接下來的 7 天內免費享受所有 Plus 功能。您可以嘗試：",

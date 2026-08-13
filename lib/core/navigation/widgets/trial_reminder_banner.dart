@@ -415,12 +415,6 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            Icons.workspace_premium_rounded,
-            size: 18,
-            color: colorScheme.warning,
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: Text(
               context.l10n.expiredPlusBannerMessage(monthlyPrice ?? '…'),

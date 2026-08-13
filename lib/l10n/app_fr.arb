@@ -3257,7 +3257,7 @@
   "plusLockedWallets": "Portefeuilles",
   "plusLockedOnePrivateOneShared": "1 privé + 1 partagé",
   "plusLockedTwoWallets": "2 portefeuilles",
-  "expiredPlusBannerMessage": "Continuez à profiter des avantages Plus - abonnez-vous à partir de seulement {price}/mois.",
+  "expiredPlusBannerMessage": "Abonnez-vous à partir de {price}/mois pour conserver vos avantages Plus.",
   "expiredSubscriptionMessage": "Votre forfait Plus a expiré. Abonnez-vous pour continuer à profiter de ses avantages.",
   "trialWelcomeTitle": "Profitez de 7 jours de Plus — gratuits !",
   "trialWelcomeSubtitle": "Profitez de toutes les fonctionnalités Plus gratuitement pendant les 7 prochains jours. Voici ce que vous pouvez essayer :",

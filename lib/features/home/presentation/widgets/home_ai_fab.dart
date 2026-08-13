@@ -34,7 +34,6 @@ import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -189,18 +188,6 @@ class _AutoSplitContext {
   const _AutoSplitContext({
     required this.household,
     required this.members,
-  });
-}
-
-class _ExplicitAmountSplitOverride {
-  final double totalAmount;
-  final List<Map<String, dynamic>> memberSplits;
-  final String? descriptionHint;
-
-  const _ExplicitAmountSplitOverride({
-    required this.totalAmount,
-    required this.memberSplits,
-    this.descriptionHint,
   });
 }
 
@@ -602,290 +589,6 @@ String _applyLocalCategoryRemap({
   final direct = category.trim().toLowerCase();
   final normalized = normalizeCategory(category);
   return remaps[direct] ?? remaps[normalized] ?? category;
-}
-
-String _normalizeMemberAlias(String value) {
-  final lowered = value.toLowerCase().trim();
-  if (lowered.isEmpty) return '';
-  return lowered
-      .replaceAll(RegExp(r'@[^ ]+$'), '')
-      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-}
-
-String? _resolveMentionedMemberId({
-  required String rawMention,
-  required List<Map<String, dynamic>> householdMembers,
-  required String callerUserId,
-}) {
-  final mention = _normalizeMemberAlias(rawMention);
-  if (mention.isEmpty) return null;
-
-  const callerAliases = {'me', 'myself', 'i', 'my', 'mine'};
-  if (callerAliases.contains(mention)) return callerUserId;
-
-  final exact = <String>{};
-  final fuzzy = <String>{};
-
-  for (final member in householdMembers) {
-    final userId = member['userId']?.toString().trim() ?? '';
-    if (userId.isEmpty) continue;
-
-    final rawName = member['userName']?.toString() ?? '';
-    final rawEmail = member['userEmail']?.toString() ?? '';
-    final normalizedName = _normalizeMemberAlias(rawName);
-    final normalizedEmail = _normalizeMemberAlias(rawEmail);
-    final emailLocal = normalizedEmail.split(' ').first;
-    final nameParts =
-        normalizedName.isEmpty ? const <String>[] : normalizedName.split(' ');
-    final firstName = nameParts.isNotEmpty ? nameParts.first : '';
-    final lastName = nameParts.length > 1 ? nameParts.last : '';
-
-    final aliases = <String>{
-      normalizedName,
-      firstName,
-      lastName,
-      emailLocal,
-      normalizedEmail,
-    }.where((s) => s.isNotEmpty).toSet();
-
-    if (aliases.contains(mention)) {
-      exact.add(userId);
-      continue;
-    }
-    if (aliases
-        .any((alias) => alias.contains(mention) || mention.contains(alias))) {
-      fuzzy.add(userId);
-    }
-  }
-
-  if (exact.length == 1) return exact.first;
-  if (exact.isNotEmpty) return null;
-  if (fuzzy.length == 1) return fuzzy.first;
-  return null;
-}
-
-double? _parseLooseAmount(String raw) {
-  final cents = tryParseMoneyToCents(raw);
-  return cents != null ? centsToAmount(cents) : null;
-}
-
-String? _extractDescriptionHintFromTotalClause(String clause) {
-  final match = RegExp(
-    r'(\d+(?:\.\d{1,2})?)\s*(?:for|on)\s+(.+)',
-    caseSensitive: false,
-  ).firstMatch(clause);
-  if (match == null) return null;
-  final raw = (match.group(2) ?? '').trim();
-  if (raw.isEmpty) return null;
-  final stripped = raw
-      .replaceAll(RegExp(r'[^a-z0-9 ]', caseSensitive: false), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  return stripped.isEmpty ? null : stripped;
-}
-
-bool _itemsContainExplicitCustomSplits(List<dynamic> items) {
-  for (final item in items) {
-    if (item is! Map) continue;
-    if (_hasExplicitCustomSplits(item['customSplits'])) return true;
-  }
-  return false;
-}
-
-List<String> _expandAmountSplitClauses(String text) {
-  final baseClauses = text
-      .split(RegExp(r'[;,]'))
-      .expand((chunk) => chunk.split(RegExp(r'\band\b', caseSensitive: false)))
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList(growable: false);
-
-  final repeatedAmountPattern = RegExp(
-    r'(?:\bsplit\s+)?(\d+(?:\.\d{1,2})?)\s*(?:for|to|with)\s+(.+?)(?=\s+(?:\bsplit\s+)?\d+(?:\.\d{1,2})?\s*(?:for|to|with)\b|$)',
-    caseSensitive: false,
-  );
-
-  return baseClauses.expand((clause) {
-    final matches = repeatedAmountPattern.allMatches(clause).toList();
-    if (matches.length <= 1) return <String>[clause];
-    return matches
-        .map((match) => match.group(0)?.trim() ?? '')
-        .where((match) => match.isNotEmpty);
-  }).toList(growable: false);
-}
-
-_ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
-  required String text,
-  required List<Map<String, dynamic>> householdMembers,
-  required String callerUserId,
-}) {
-  if (text.trim().isEmpty || householdMembers.isEmpty) return null;
-
-  final clauses = _expandAmountSplitClauses(text);
-
-  if (clauses.isEmpty) return null;
-
-  final memberAmounts = <String, double>{};
-  double? totalHint;
-  String? descriptionHint;
-
-  final memberSplitPatterns = <RegExp>[
-    RegExp(r'(\d+(?:\.\d{1,2})?)\s*(?:for|to)\s+(.+)', caseSensitive: false),
-    RegExp(r'(?:split\s+)?(\d+(?:\.\d{1,2})?)\s*(?:with)\s+(.+)',
-        caseSensitive: false),
-  ];
-
-  for (final clause in clauses) {
-    for (final pattern in memberSplitPatterns) {
-      final match = pattern.firstMatch(clause);
-      if (match == null) continue;
-
-      final amount = _parseLooseAmount(match.group(1) ?? '');
-      if (amount == null || amount <= 0) break;
-
-      final rawMention = (match.group(2) ?? '').trim();
-      final mentionTokens = rawMention
-          .replaceAll(RegExp(r'[^a-zA-Z0-9@._ ]'), ' ')
-          .split(RegExp(r'\s+'))
-          .where((t) => t.isNotEmpty)
-          .toList(growable: false);
-      if (mentionTokens.isEmpty) break;
-
-      String? resolvedUserId;
-      for (var len = min(3, mentionTokens.length); len >= 1; len--) {
-        final probe = mentionTokens.take(len).join(' ');
-        resolvedUserId = _resolveMentionedMemberId(
-          rawMention: probe,
-          householdMembers: householdMembers,
-          callerUserId: callerUserId,
-        );
-        if (resolvedUserId != null) break;
-      }
-
-      if (resolvedUserId != null) {
-        memberAmounts.update(
-          resolvedUserId,
-          (existing) => existing + amount,
-          ifAbsent: () => amount,
-        );
-      } else {
-        totalHint ??= amount;
-        descriptionHint ??= _extractDescriptionHintFromTotalClause(clause);
-      }
-      break;
-    }
-  }
-
-  if (memberAmounts.isEmpty) return null;
-
-  final allMemberIds = householdMembers
-      .map((m) => m['userId']?.toString().trim() ?? '')
-      .where((id) => id.isNotEmpty)
-      .toList(growable: false);
-  if (allMemberIds.isEmpty) return null;
-
-  final sumSpecified = memberAmounts.values.fold<double>(0, (a, b) => a + b);
-  var totalAmount = totalHint ?? sumSpecified;
-  if (totalAmount < sumSpecified) totalAmount = sumSpecified;
-
-  var totalCents = (totalAmount * 100).round();
-  final specifiedCents = <String, int>{
-    for (final entry in memberAmounts.entries)
-      entry.key: (entry.value * 100).round(),
-  };
-  var specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
-
-  if (specifiedSumCents > totalCents) {
-    totalCents = specifiedSumCents;
-    totalAmount = totalCents / 100.0;
-  }
-
-  final missingIds =
-      allMemberIds.where((id) => !specifiedCents.containsKey(id)).toList();
-  var remainderCents = totalCents - specifiedSumCents;
-  if (totalHint != null &&
-      remainderCents > 0 &&
-      missingIds.contains(callerUserId)) {
-    specifiedCents[callerUserId] = remainderCents;
-    specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
-    remainderCents = totalCents - specifiedSumCents;
-  } else if (missingIds.isNotEmpty && remainderCents > 0) {
-    final per = remainderCents ~/ missingIds.length;
-    var extra = remainderCents % missingIds.length;
-    for (final id in missingIds) {
-      specifiedCents[id] = per + (extra > 0 ? 1 : 0);
-      if (extra > 0) extra -= 1;
-    }
-    specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
-    remainderCents = totalCents - specifiedSumCents;
-  }
-
-  if (remainderCents != 0 && allMemberIds.isNotEmpty) {
-    final tailId = allMemberIds.last;
-    specifiedCents[tailId] = (specifiedCents[tailId] ?? 0) + remainderCents;
-  }
-
-  final memberSplits = allMemberIds
-      .map((id) => <String, dynamic>{
-            'userId': id,
-            'amount': ((specifiedCents[id] ?? 0) / 100.0),
-          })
-      .toList(growable: false);
-
-  return _ExplicitAmountSplitOverride(
-    totalAmount: totalAmount,
-    memberSplits: memberSplits,
-    descriptionHint: descriptionHint,
-  );
-}
-
-List<dynamic> _applyExplicitSplitOverrideToItems({
-  required List<dynamic> items,
-  required String? text,
-  required String callerUserId,
-  required List<Map<String, dynamic>> householdMembers,
-}) {
-  if (items.isEmpty || text == null || text.trim().isEmpty) return items;
-  if (householdMembers.isEmpty) return items;
-
-  final override = _extractExplicitAmountSplitOverride(
-    text: text,
-    householdMembers: householdMembers,
-    callerUserId: callerUserId,
-  );
-  if (override == null) return items;
-
-  final shouldOverride =
-      items.length > 1 || !_itemsContainExplicitCustomSplits(items);
-  if (!shouldOverride) return items;
-
-  final baseItem = items.firstWhere(
-    (item) => item is Map,
-    orElse: () => <String, dynamic>{},
-  );
-  final normalizedBase = baseItem is Map
-      ? Map<String, dynamic>.from(baseItem)
-      : <String, dynamic>{};
-
-  normalizedBase['amount'] = override.totalAmount;
-  normalizedBase['customSplits'] = <String, dynamic>{
-    'splitType': 'amount',
-    'memberSplits': override.memberSplits,
-  };
-  final existingDescription = normalizedBase['description']?.toString().trim();
-  if ((override.descriptionHint ?? '').isNotEmpty &&
-      ((existingDescription == null || existingDescription.isEmpty) ||
-          items.length > 1)) {
-    normalizedBase['description'] = override.descriptionHint;
-  }
-
-  _debugPrint(
-    '[AI] Applied explicit split override from text. '
-    'members=${override.memberSplits.length} total=${override.totalAmount}',
-  );
-  return <dynamic>[normalizedBase];
 }
 
 Future<_AutoSplitContext?> _loadAutoSplitContext(
@@ -2680,9 +2383,6 @@ Future<void> _processExpense(
   }
 
   try {
-    List<Map<String, dynamic>> householdMembersContext =
-        const <Map<String, dynamic>>[];
-
     if (preview.isActive) {
       responseData = {
         'success': true,
@@ -2714,7 +2414,6 @@ Future<void> _processExpense(
       body['isPortfolio'] = isPortfolio;
       if (!isPortfolio) {
         final memberContext = _buildHouseholdMemberContext(ref, householdId);
-        householdMembersContext = memberContext;
         if (memberContext.isNotEmpty) {
           body['householdMembers'] = memberContext;
         }
@@ -2890,15 +2589,6 @@ Future<void> _processExpense(
 
           final filtered = items.where((it) => !isTotalLike(it)).toList();
           if (filtered.isNotEmpty) items = filtered;
-        }
-
-        if (householdId != null && householdId.isNotEmpty && !isPortfolio) {
-          items = _applyExplicitSplitOverrideToItems(
-            items: items,
-            text: text,
-            callerUserId: user.uid,
-            householdMembers: householdMembersContext,
-          );
         }
 
         if (items.isNotEmpty) {

@@ -17,20 +17,20 @@
     "vi": "Bản dùng thử Plus của bạn có hiệu lực đến {formattedDate}"
   },
   "expiredPlusBannerMessage": {
-    "en": "Keep your Plus benefits going — subscribe from just {price}/month.",
-    "de": "Nutze deine Plus-Vorteile weiter - Abos gibt es schon ab {price}/Monat.",
-    "es": "Sigue disfrutando de las ventajas de Plus - suscríbete desde solo {price}/mes.",
-    "fr": "Continuez à profiter des avantages Plus - abonnez-vous à partir de seulement {price}/mois.",
-    "it": "Continua a usufruire dei vantaggi Plus - abbonati a partire da soli {price}/mese.",
-    "ja": "Plusの特典を引き続き利用しましょう。月額{price}からご利用いただけます。",
-    "ko": "Plus 혜택을 계속 이용해 보세요. 월 {price}부터 구독할 수 있어요.",
-    "nl": "Blijf profiteren van je Plus-voordelen - abonneer je vanaf slechts {price}/maand.",
-    "ur": "اپنے Plus فوائد جاری رکھیں - صرف {price}/ماہ سے سبسکرائب کریں۔",
-    "ru": "Продолжайте пользоваться преимуществами Plus - подписка всего от {price}/месяц.",
-    "th": "ใช้สิทธิประโยชน์ Plus ต่อได้ - สมัครสมาชิกเริ่มต้นเพียง {price}/เดือน",
-    "uk": "Продовжуйте користуватися перевагами Plus - підписка лише від {price}/місяць.",
-    "zh": "继续享受 Plus 权益 - 订阅仅需 {price}/月起。",
-    "zh_TW": "繼續享有 Plus 權益 - 訂閱只要 {price}/月起。",
-    "vi": "Tiếp tục tận hưởng quyền lợi Plus - đăng ký chỉ từ {price}/tháng."
+    "en": "Subscribe from {price}/month to keep your Plus benefits.",
+    "de": "Abonniere ab {price}/Monat, um deine Plus-Vorteile zu behalten.",
+    "es": "Suscríbete desde {price}/mes para mantener tus beneficios Plus.",
+    "fr": "Abonnez-vous à partir de {price}/mois pour conserver vos avantages Plus.",
+    "it": "Abbonati da {price}/mese per mantenere i vantaggi Plus.",
+    "ja": "月額{price}から登録して、Plusの特典を引き続き利用しましょう。",
+    "ko": "월 {price}부터 구독하고 Plus 혜택을 계속 이용하세요.",
+    "nl": "Abonneer je vanaf {price}/maand om je Plus-voordelen te behouden.",
+    "ur": "اپنے Plus فوائد جاری رکھنے کے لیے {price}/ماہ سے سبسکرائب کریں۔",
+    "ru": "Оформите подписку от {price}/месяц, чтобы сохранить преимущества Plus.",
+    "th": "สมัครสมาชิกเริ่มต้น {price}/เดือน เพื่อใช้สิทธิประโยชน์ Plus ต่อไป",
+    "uk": "Оформіть підписку від {price}/місяць, щоб зберегти переваги Plus.",
+    "zh": "订阅仅需 {price}/月起，即可继续享受 Plus 权益。",
+    "zh_TW": "訂閱只要 {price}/月起，即可繼續享有 Plus 權益。",
+    "vi": "Đăng ký từ {price}/tháng để tiếp tục hưởng quyền lợi Plus."
   }
 }

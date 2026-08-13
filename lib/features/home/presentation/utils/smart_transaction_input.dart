@@ -134,6 +134,9 @@ class SmartInputAnalysisMemory {
 
     final item = _asStringDynamicMap(rawItems.single);
     if (item == null) return null;
+    if (item['payerUserId'] != null || item['customSplits'] != null) {
+      return null;
+    }
 
     final itemAmount = _parseFlexibleAmount(item['amount']);
     if (itemAmount == null) return null;
@@ -185,6 +188,9 @@ class SmartInputAnalysisMemory {
     final measurement = SmartInputMeasurement.fromJson(map['measurement']);
     final item = _asStringDynamicMap(map['item']);
     if (measurement == null || item == null) return null;
+    if (item['payerUserId'] != null || item['customSplits'] != null) {
+      return null;
+    }
     return SmartInputAnalysisMemory(
       measurement: measurement,
       item: _deepCopyMap(item),

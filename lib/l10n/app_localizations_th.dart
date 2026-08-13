@@ -9005,7 +9005,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String expiredPlusBannerMessage(Object price) {
-    return 'ใช้สิทธิประโยชน์ Plus ต่อได้ - สมัครสมาชิกเริ่มต้นเพียง $price/เดือน';
+    return 'สมัครสมาชิกเริ่มต้น $price/เดือน เพื่อใช้สิทธิประโยชน์ Plus ต่อไป';
   }
 
   @override

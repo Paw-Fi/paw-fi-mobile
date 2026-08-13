@@ -3303,7 +3303,7 @@
   "plusLockedWallets": "Wallets",
   "plusLockedOnePrivateOneShared": "1 private + 1 shared",
   "plusLockedTwoWallets": "2 wallets",
-  "expiredPlusBannerMessage": "Keep your Plus benefits going — subscribe from just {price}/month.",
+  "expiredPlusBannerMessage": "Subscribe from {price}/month to keep your Plus benefits.",
   "expiredSubscriptionMessage": "Your Plus plan has expired. Subscribe to keep enjoying Plus benefits.",
   "trialWelcomeTitle": "You've got 7 days of Plus — free!",
   "trialWelcomeSubtitle": "Enjoy all Plus features at no cost for the next 7 days. Here's what you can try:",
