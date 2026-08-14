@@ -2,6 +2,7 @@ import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 class HouseholdMemberSpendingTotals {
   const HouseholdMemberSpendingTotals({
@@ -67,10 +68,11 @@ HouseholdMemberSpendingTotals computeSplitAwareMemberSpendingTotals({
   }
 
   for (final transaction in transactions) {
+    final reportingDate = recurringOccurrenceReportingDate(transaction);
     final transactionDate = DateTime(
-      transaction.date.year,
-      transaction.date.month,
-      transaction.date.day,
+      reportingDate.year,
+      reportingDate.month,
+      reportingDate.day,
     );
     if (transactionDate.isBefore(from) || transactionDate.isAfter(to)) {
       continue;

@@ -35,6 +35,17 @@ bool shouldShowRecurringChipForExpense(ExpenseEntry expense) =>
     expense.scheduledOccurrenceDate != null ||
     extractRecurringTransactionIdFromProjectedExpenseId(expense.id) != null;
 
+/// Period aggregates classify a materialized recurring occurrence by the
+/// scheduled date it replaces. Its paid date remains [ExpenseEntry.date] for
+/// row display and editing.
+DateTime recurringOccurrenceReportingDate(ExpenseEntry expense) {
+  final recurringId = expense.parentRecurringId?.trim();
+  if (recurringId != null && recurringId.isNotEmpty) {
+    return expense.scheduledOccurrenceDate ?? expense.date;
+  }
+  return expense.date;
+}
+
 int _clampDayOfMonth(
     {required int year, required int month, required int day}) {
   final lastDay = DateTime(year, month + 1, 0).day;
@@ -402,7 +413,7 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
     return expenseCurrency.isEmpty || currencyFilters.contains(expenseCurrency);
   }).toList(growable: false);
   final filteredActualExpenses = scopedActualExpenses.where((expense) {
-    final expenseDay = _dateOnly(expense.date);
+    final expenseDay = _dateOnly(recurringOccurrenceReportingDate(expense));
     return !expenseDay.isBefore(normalizedStart) &&
         !expenseDay.isAfter(projectionEnd);
   }).toList(growable: false);

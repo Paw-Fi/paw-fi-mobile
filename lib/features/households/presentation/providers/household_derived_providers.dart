@@ -931,7 +931,7 @@ bool _expenseMatchesCurrency(ExpenseEntry expense, String currency) {
 }
 
 bool _expenseInRange(ExpenseEntry expense, DateTime start, DateTime end) {
-  final d = _normalizeDate(expense.date);
+  final d = _normalizeDate(recurringOccurrenceReportingDate(expense));
   return !d.isBefore(start) && !d.isAfter(end);
 }
 

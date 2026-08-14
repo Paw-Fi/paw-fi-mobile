@@ -790,7 +790,7 @@ void main() {
     expect(deduped, [augustProjection]);
   });
 
-  test('suppresses a projection when its actual is outside the paid-date range',
+  test('keeps a confirmed occurrence in its scheduled period when paid later',
       () {
     final recurring = RecurringTransaction(
       id: 'rent-series',
@@ -831,7 +831,9 @@ void main() {
       selectedCurrency: 'USD',
     );
 
-    expect(merged, isEmpty);
+    expect(merged, hasLength(1));
+    expect(merged.single.id, 'actual-rent-paid-late');
+    expect(merged.single.amountCents, 95000);
   });
 
   test('linked actual replacement ignores changed amount, merchant, and wallet',

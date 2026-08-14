@@ -11,6 +11,8 @@ ExpenseEntry _expense({
   required String currency,
   required DateTime date,
   String? splitGroupId,
+  String? parentRecurringId,
+  DateTime? scheduledOccurrenceDate,
   String type = 'expense',
 }) {
   return ExpenseEntry(
@@ -20,6 +22,8 @@ ExpenseEntry _expense({
     amountCents: amountCents,
     currency: currency,
     splitGroupId: splitGroupId,
+    parentRecurringId: parentRecurringId,
+    scheduledOccurrenceDate: scheduledOccurrenceDate,
     type: type,
     createdAt: date,
   );
@@ -158,5 +162,38 @@ void main() {
 
     expect(totals.totalForUser('payer-user'), 8000);
     expect(totals.totalForUser('member-user'), 12000);
+  });
+
+  test('uses the scheduled date for a confirmed recurring occurrence', () {
+    final totals = computeSplitAwareMemberSpendingTotals(
+      transactions: [
+        _expense(
+          id: 'late-recurring-actual',
+          userId: 'payer-user',
+          amountCents: 95000,
+          currency: 'USD',
+          date: DateTime(2026, 9, 2),
+          parentRecurringId: 'rent-series',
+          scheduledOccurrenceDate: DateTime(2026, 8, 10),
+          splitGroupId: 'split-1',
+        ),
+      ],
+      from: DateTime(2026, 8, 1),
+      to: DateTime(2026, 8, 31),
+      splits: [
+        _splitGroup(
+          id: 'split-1',
+          payerUserId: 'payer-user',
+          lines: [
+            _splitLine(id: 'line-1', userId: 'payer-user', amountCents: 47500),
+            _splitLine(id: 'line-2', userId: 'member-user', amountCents: 47500),
+          ],
+        ),
+      ],
+      selectedCurrency: 'USD',
+    );
+
+    expect(totals.totalForUser('payer-user'), 47500);
+    expect(totals.totalForUser('member-user'), 47500);
   });
 }
