@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -72,5 +74,77 @@ void main() {
           .onTap,
       isNull,
     );
+  });
+
+  testWidgets('locks the amount for a confirmed shared occurrence',
+      (tester) async {
+    const walletQuery =
+        WalletsCurrencyQuery(householdId: 'household-id', currency: 'USD');
+    final recurringTransaction = RecurringTransaction(
+      id: 'recurring-id',
+      date: DateTime(2026, 7, 1),
+      category: 'housing',
+      amount: 100,
+      currency: 'USD',
+      ownerType: 'household',
+      privacyScope: 'full',
+      householdId: 'household-id',
+      splitGroupId: 'split-group-id',
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 7, 1),
+    );
+    final occurrence = RecurringOccurrenceTimelineItem(
+      scheduledOccurrenceDate: DateTime(2026, 7, 1),
+      status: 'confirmed',
+      amountCents: 10000,
+      actualTransaction: ExpenseEntry(
+        id: 'actual-id',
+        date: DateTime(2026, 7, 1),
+        amountCents: 10000,
+        currency: 'USD',
+        createdAt: DateTime(2026, 7, 1),
+        splitGroupId: 'split-group-id',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          walletsByCurrencyProvider(walletQuery).overrideWith(
+            (ref) async => [],
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () => showConfirmRecurringOccurrenceSheet(
+                  context: context,
+                  recurringTransaction: recurringTransaction,
+                  scheduledOccurrenceDate: DateTime(2026, 7, 1),
+                  existingOccurrence: occurrence,
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Actual amount'), findsOneWidget);
+    expect(find.text('Tap to edit amount'), findsNothing);
+    final amountTapTarget = find.ancestor(
+      of: find.text('Actual amount'),
+      matching: find.byType(GestureDetector),
+    );
+    expect(amountTapTarget, findsOneWidget);
+    expect(tester.widget<GestureDetector>(amountTapTarget).onTap, isNull);
   });
 }

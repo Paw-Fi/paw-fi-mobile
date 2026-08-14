@@ -24,7 +24,12 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_
 import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
+import 'package:moneko/features/households/domain/entities/expense_split.dart'
+    as split_entities;
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:intl/intl.dart';
@@ -43,12 +48,7 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
-void _homeSpendTrace(String message) {
-  assert(() {
-    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void _homeSpendTrace(String _) {}
 
 void _publishRecurringMutation(Ref ref) {
   ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
@@ -307,7 +307,11 @@ class RecurringOccurrenceConfirmationCommand {
   String get optimisticId =>
       'optimistic-recurring-occurrence-${recurringTransaction.id}-${formatDateOnlyYmd(scheduledOccurrenceDate)}';
 
-  Map<String, dynamic> toRequestBody() => <String, dynamic>{
+  Map<String, dynamic> toRequestBody({
+    Map<String, dynamic>? resolvedCustomSplits,
+    String? resolvedPayerUserId,
+  }) =>
+      <String, dynamic>{
         'userId': userId,
         'recurringId': recurringTransaction.id,
         'scheduledOccurrenceDate': formatDateOnlyYmd(scheduledOccurrenceDate),
@@ -318,8 +322,10 @@ class RecurringOccurrenceConfirmationCommand {
         if (merchant?.trim().isNotEmpty == true) 'merchant': merchant!.trim(),
         if (description?.trim().isNotEmpty == true)
           'description': description!.trim(),
-        if (customSplits != null) 'customSplits': customSplits,
-        if (payerUserId?.trim().isNotEmpty == true) 'payerUserId': payerUserId,
+        if (resolvedCustomSplits != null || customSplits != null)
+          'customSplits': resolvedCustomSplits ?? customSplits,
+        if ((resolvedPayerUserId ?? payerUserId)?.trim().isNotEmpty == true)
+          'payerUserId': resolvedPayerUserId ?? payerUserId,
         if (category?.trim().isNotEmpty == true) 'category': category!.trim(),
         if (currency?.trim().isNotEmpty == true) 'currency': currency!.trim(),
         if (source?.trim().isNotEmpty == true) 'source': source!.trim(),
@@ -746,7 +752,7 @@ final recurringOccurrenceProjectionResolutionProvider = Provider.family<
     );
   }
 
-  return _buildRecurringOccurrenceProjectionResolution(
+  return buildRecurringOccurrenceProjectionResolution(
     recurringTransactions: recurringTransactions,
     occurrencesByRecurringId: occurrencesByRecurringId,
   );
@@ -782,14 +788,14 @@ Future<RecurringOccurrenceProjectionResolution>
     );
   }
 
-  return _buildRecurringOccurrenceProjectionResolution(
+  return buildRecurringOccurrenceProjectionResolution(
     recurringTransactions: recurringTransactions,
     occurrencesByRecurringId: occurrencesByRecurringId,
   );
 }
 
 RecurringOccurrenceProjectionResolution
-    _buildRecurringOccurrenceProjectionResolution({
+    buildRecurringOccurrenceProjectionResolution({
   required Iterable<RecurringTransaction> recurringTransactions,
   required Map<String, List<RecurringOccurrenceTimelineItem>>
       occurrencesByRecurringId,
@@ -800,9 +806,12 @@ RecurringOccurrenceProjectionResolution
   final recurringIdsByActualTransactionId = <String, String>{};
 
   for (final transaction in recurringTransactions) {
+    // A ledger confirmation alone cannot replace the scheduled occurrence.
+    // Suppress it only after the materialized actual is locally available for
+    // the dashboard to render, otherwise the amount would disappear entirely.
     final confirmed = (occurrencesByRecurringId[transaction.id] ??
             const <RecurringOccurrenceTimelineItem>[])
-        .where((item) => item.isConfirmed);
+        .where((item) => item.isConfirmed && item.actualTransaction != null);
     suppressionEntries.addAll(
       buildConfirmedOccurrenceSuppressionEntries(
         recurringId: transaction.id,
@@ -832,12 +841,7 @@ RecurringOccurrenceProjectionResolution
   );
 }
 
-void _recurringProjectionTrace(String message) {
-  assert(() {
-    foundation.debugPrint('🔁 [RecurringProjection] $message');
-    return true;
-  }());
-}
+void _recurringProjectionTrace(String _) {}
 
 final recurringOccurrenceConfirmationProvider =
     Provider<RecurringOccurrenceConfirmationController>(
@@ -1193,6 +1197,22 @@ class RecurringOccurrenceConfirmationController {
       );
     }
 
+    RecurringOccurrenceSplitPlan? splitPlan;
+    try {
+      splitPlan = command.customSplits == null
+          ? await _resolveRecurringOccurrenceSplitPlan(command)
+          : _buildCustomRecurringOccurrenceSplitPlan(command);
+    } catch (_) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Unable to load the saved household split for this recurring expense.',
+      );
+    }
+    if (splitPlan == null && _requiresRecurringOccurrenceSplit(command)) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'Unable to load the saved household split for this recurring expense.',
+      );
+    }
+
     final optimisticEntry = ExpenseEntry(
       id: command.optimisticId,
       userId: command.userId,
@@ -1205,6 +1225,7 @@ class RecurringOccurrenceConfirmationController {
       rawText: command.description ?? command.recurringTransaction.description,
       merchant: command.merchant ?? command.recurringTransaction.merchant,
       walletId: command.accountId,
+      splitGroupId: splitPlan?.optimisticSplit.id,
       type: command.recurringTransaction.type,
       parentRecurringId: command.recurringTransaction.id,
       scheduledOccurrenceDate: scheduledDate,
@@ -1234,7 +1255,10 @@ class RecurringOccurrenceConfirmationController {
           'clientMutationId': command.idempotencyKey,
           if (command.functionName != 'confirm-recurring-occurrence')
             'functionName': command.functionName,
-          'requestBody': command.toRequestBody(),
+          'requestBody': command.toRequestBody(
+            resolvedCustomSplits: splitPlan?.requestPayload,
+            resolvedPayerUserId: splitPlan?.payerUserId,
+          ),
         },
         relatedOriginalEntry: command.updateFutureAmount
             ? _expenseEntryFromRecurringTransaction(
@@ -1278,6 +1302,13 @@ class RecurringOccurrenceConfirmationController {
               updatedAt: now,
             ),
           );
+      final optimisticSplit = splitPlan?.optimisticSplit;
+      final householdId = command.recurringTransaction.householdId;
+      if (optimisticSplit != null && householdId != null) {
+        _ref
+            .read(householdOptimisticSplitsProvider.notifier)
+            .addSplitGroup(householdId, optimisticSplit);
+      }
       _ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
       _ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       _ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
@@ -1299,6 +1330,225 @@ class RecurringOccurrenceConfirmationController {
       );
     }
   }
+
+  bool _requiresRecurringOccurrenceSplit(
+    RecurringOccurrenceConfirmationCommand command,
+  ) {
+    final householdId = command.recurringTransaction.householdId?.trim();
+    return command.recurringTransaction.type == 'expense' &&
+        householdId != null &&
+        householdId.isNotEmpty &&
+        !(_ref.read(householdScopeProvider).isPortfolioId(householdId)) &&
+        command.recurringTransaction.splitGroupId?.trim().isNotEmpty == true &&
+        command.customSplits == null;
+  }
+
+  RecurringOccurrenceSplitPlan? _buildCustomRecurringOccurrenceSplitPlan(
+    RecurringOccurrenceConfirmationCommand command,
+  ) {
+    final householdId = command.recurringTransaction.householdId?.trim();
+    final payerUserId = command.payerUserId?.trim();
+    final customSplits = command.customSplits;
+    if (command.recurringTransaction.type != 'expense' ||
+        householdId == null ||
+        householdId.isEmpty ||
+        payerUserId == null ||
+        payerUserId.isEmpty ||
+        customSplits == null ||
+        _ref.read(householdScopeProvider).isPortfolioId(householdId)) {
+      return null;
+    }
+
+    final optimisticSplit = buildOptimisticHouseholdSplitGroup(
+      householdId: householdId,
+      expenseId: command.optimisticId,
+      payerUserId: payerUserId,
+      totalAmount: command.amountCents / 100,
+      currency: command.currency ?? command.recurringTransaction.currency,
+      members: const [],
+      autoSplitEnabled: false,
+      autoSplitConfig: null,
+      rawCustomSplits: customSplits,
+      keepSemanticallyEqualCustomSplits: true,
+      description:
+          command.description ?? command.recurringTransaction.description,
+    );
+    if (optimisticSplit == null) return null;
+    return RecurringOccurrenceSplitPlan(
+      requestPayload: Map<String, dynamic>.from(customSplits),
+      payerUserId: payerUserId,
+      optimisticSplit: optimisticSplit,
+    );
+  }
+
+  Future<RecurringOccurrenceSplitPlan?> _resolveRecurringOccurrenceSplitPlan(
+    RecurringOccurrenceConfirmationCommand command,
+  ) async {
+    if (command.customSplits != null ||
+        command.recurringTransaction.type != 'expense') {
+      return null;
+    }
+    final householdId = command.recurringTransaction.householdId?.trim();
+    final templateSplitGroupId =
+        command.recurringTransaction.splitGroupId?.trim();
+    if (householdId == null ||
+        householdId.isEmpty ||
+        templateSplitGroupId == null ||
+        templateSplitGroupId.isEmpty ||
+        _ref.read(householdScopeProvider).isPortfolioId(householdId)) {
+      return null;
+    }
+
+    split_entities.ExpenseSplitGroup? templateGroup;
+    try {
+      final groups = await _ref.read(
+        householdHomeSplitGroupsProvider(
+          HouseholdHomeSplitGroupsParams(
+            userId: command.userId,
+            householdId: householdId,
+            splitGroupIds: {templateSplitGroupId},
+          ),
+        ).future,
+      );
+      templateGroup = _findSplitGroupById(groups, templateSplitGroupId);
+    } catch (_) {
+      // The targeted Home split cache/RPC is an optimization. A failure there
+      // must not turn a still-readable saved template split into a defaulted
+      // or unconfirmable occurrence.
+    }
+
+    if (templateGroup == null) {
+      final groups = await _ref
+          .read(householdRepositoryProvider)
+          .getHouseholdSplits(householdId: householdId);
+      templateGroup = _findSplitGroupById(groups, templateSplitGroupId);
+    }
+    if (templateGroup == null) return null;
+    return buildRecurringOccurrenceSplitPlan(
+      templateGroup: templateGroup,
+      optimisticExpenseId: command.optimisticId,
+      occurrenceAmountCents: command.amountCents,
+      description:
+          command.description ?? command.recurringTransaction.description,
+    );
+  }
+}
+
+split_entities.ExpenseSplitGroup? _findSplitGroupById(
+  Iterable<split_entities.ExpenseSplitGroup> groups,
+  String splitGroupId,
+) {
+  for (final group in groups) {
+    if (group.id == splitGroupId) return group;
+  }
+  return null;
+}
+
+class RecurringOccurrenceSplitPlan {
+  const RecurringOccurrenceSplitPlan({
+    required this.requestPayload,
+    required this.payerUserId,
+    required this.optimisticSplit,
+  });
+
+  final Map<String, dynamic> requestPayload;
+  final String payerUserId;
+  final split_entities.ExpenseSplitGroup optimisticSplit;
+}
+
+RecurringOccurrenceSplitPlan? buildRecurringOccurrenceSplitPlan({
+  required split_entities.ExpenseSplitGroup templateGroup,
+  required String optimisticExpenseId,
+  required int occurrenceAmountCents,
+  String? description,
+}) {
+  final sourceLines = templateGroup.splitLines
+          ?.where((line) => line.userId.trim().isNotEmpty)
+          .toList(growable: false) ??
+      const <split_entities.ExpenseSplitLine>[];
+  if (optimisticExpenseId.isEmpty ||
+      occurrenceAmountCents <= 0 ||
+      templateGroup.payerUserId.trim().isEmpty ||
+      sourceLines.isEmpty) {
+    return null;
+  }
+
+  final splitType = templateGroup.splitType == split_entities.SplitType.equal
+      ? split_entities.SplitType.equal
+      : split_entities.SplitType.amount;
+  final allocatedCents = _allocateRecurringOccurrenceSplitCents(
+    sourceLines: sourceLines,
+    targetAmountCents: occurrenceAmountCents,
+  );
+  if (allocatedCents == null) return null;
+
+  final optimisticGroupId = 'optimistic_split_$optimisticExpenseId';
+  final now = DateTime.now();
+  final lines = <split_entities.ExpenseSplitLine>[];
+  final members = <Map<String, dynamic>>[];
+  for (var index = 0; index < sourceLines.length; index++) {
+    final source = sourceLines[index];
+    final amountCents = allocatedCents[index];
+    if (amountCents <= 0) continue;
+    lines.add(split_entities.ExpenseSplitLine(
+      id: '${optimisticGroupId}_$index',
+      splitGroupId: optimisticGroupId,
+      userId: source.userId,
+      amountCents: amountCents,
+      isSettled: false,
+      createdAt: now,
+      updatedAt: now,
+    ));
+    members.add(<String, dynamic>{
+      'userId': source.userId,
+      if (splitType == split_entities.SplitType.amount)
+        'amount': amountCents / 100,
+    });
+  }
+  if (lines.isEmpty) return null;
+
+  return RecurringOccurrenceSplitPlan(
+    requestPayload: <String, dynamic>{
+      'splitType': splitType.name,
+      'memberSplits': members,
+    },
+    payerUserId: templateGroup.payerUserId,
+    optimisticSplit: split_entities.ExpenseSplitGroup(
+      id: optimisticGroupId,
+      householdId: templateGroup.householdId,
+      expenseId: optimisticExpenseId,
+      payerUserId: templateGroup.payerUserId,
+      splitType: splitType,
+      currency: templateGroup.currency,
+      totalAmountCents: occurrenceAmountCents,
+      description: description ?? templateGroup.description,
+      createdAt: now,
+      updatedAt: now,
+      splitLines: lines,
+    ),
+  );
+}
+
+List<int>? _allocateRecurringOccurrenceSplitCents({
+  required List<split_entities.ExpenseSplitLine> sourceLines,
+  required int targetAmountCents,
+}) {
+  final weights = sourceLines
+      .map((line) => (line.amountCents ?? 0).abs())
+      .toList(growable: false);
+  final totalWeight = weights.fold<int>(0, (sum, weight) => sum + weight);
+  if (totalWeight <= 0) return null;
+  final allocated = weights
+      .map((weight) => weight * targetAmountCents ~/ totalWeight)
+      .toList(growable: false);
+  var remainder =
+      targetAmountCents - allocated.fold<int>(0, (sum, value) => sum + value);
+  for (var index = 0; remainder > 0; index = (index + 1) % allocated.length) {
+    if (weights[index] <= 0) continue;
+    allocated[index] += 1;
+    remainder -= 1;
+  }
+  return allocated;
 }
 
 // ============================================================================
@@ -1966,76 +2216,11 @@ class RecurringTransactionsNotifier
         operation: 'skip_recurring_occurrence',
       );
       _publishRecurringMutation(ref);
-
-      // Backend skip is atomic: ledger state, legacy exclusion, and reminder.
-      final response = await supabase.functions.invoke(
-        'skip-recurring-occurrence',
-        body: {
-          'userId': userId,
-          'recurringId': transactionId,
-          'scheduledOccurrenceDate': formatDateOnlyYmd(dateToSkip),
-        },
-      );
-
-      _debugPrint(
-          '✅ [RecurringTx] update-expense response status=${response.status}');
-
-      if (response.data is Map<String, dynamic> &&
-          (response.data as Map<String, dynamic>)['success'] == true) {
-        final lazyHandle = lazyOptimisticHandle;
-        ref.read(recurringSeriesOptimisticProvider.notifier).commit(lazyHandle);
-        final occurrenceHandle = occurrenceOptimisticHandle;
-        ref
-            .read(recurringOccurrenceOptimisticProvider.notifier)
-            .commit(occurrenceHandle);
-        ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
-        await localDatabase.markOptimisticTransactionMetadataSynced(
-          clientMutationId: mutationMetadata.clientMutationId,
-        );
-        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-        ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
-        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-        ref.read(widgetSyncVersionProvider.notifier).state += 1;
-        _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
-        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        return const DeleteRecurringResult.success();
-      }
-
-      final payload = response.data;
-      final errorMessage = _extractFunctionError(payload) ??
-          (response.status >= 400
-              ? 'Request failed (${response.status})'
-              : null);
-
-      _debugPrint('❌ [RecurringTx] SKIP FAILED: $errorMessage');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      await localDatabase.rollbackOptimisticTransactionUpdate(
-        originalEntry: originalEntry,
-        clientMutationId: mutationMetadata.clientMutationId,
-        error: errorMessage ?? 'Skip occurrence failed',
-      );
-      final lazyHandle = lazyOptimisticHandle;
-      ref.read(recurringSeriesOptimisticProvider.notifier).rollback(lazyHandle);
-      final occurrenceHandle = occurrenceOptimisticHandle;
-      ref
-          .read(recurringOccurrenceOptimisticProvider.notifier)
-          .rollback(occurrenceHandle);
-      updateRecurring(target!);
-      _publishRecurringMutation(ref);
-      await refresh(userId);
-      return DeleteRecurringResult.failure(errorMessage);
+      unawaited(drainMobileOutbox(ref));
+      return const DeleteRecurringResult.success();
     } catch (e) {
       _debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
-        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-        ref.read(walletsRecurringMutationSignalProvider.notifier).state += 1;
-        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-        ref.read(widgetSyncVersionProvider.notifier).state += 1;
-        ref.invalidate(pocketsProvider);
-        ref.invalidate(currencyTransactionCountsProvider);
-        return const DeleteRecurringResult.success();
-      }
       if (originalEntry != null && updatedEntry != null) {
         await localDatabase?.rollbackOptimisticTransactionUpdate(
           originalEntry: originalEntry,

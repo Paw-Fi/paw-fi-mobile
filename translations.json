@@ -1,36 +1,19 @@
 {
-  "trialActiveUntilDate": {
-    "en": "Your Plus trial is active until {formattedDate}",
-    "de": "Dein Plus-Testzeitraum ist bis zum {formattedDate} aktiv",
-    "es": "Tu prueba de Plus está activa hasta el {formattedDate}",
-    "fr": "Votre essai Plus est actif jusqu'au {formattedDate}",
-    "it": "La tua prova di Plus è attiva fino al {formattedDate}",
-    "ja": "Plusの無料体験は{formattedDate}まで利用できます",
-    "ko": "Plus 체험은 {formattedDate}까지 이용할 수 있어요",
-    "nl": "Je Plus-proefperiode is actief tot {formattedDate}",
-    "ur": "آپ کا Plus ٹرائل {formattedDate} تک فعال ہے",
-    "ru": "Пробный период Plus действует до {formattedDate}",
-    "th": "ทดลองใช้ Plus ได้ถึง {formattedDate}",
-    "uk": "Пробний період Plus діє до {formattedDate}",
-    "zh": "你的 Plus 试用期有效至 {formattedDate}",
-    "zh_TW": "你的 Plus 試用期可使用至 {formattedDate}",
-    "vi": "Bản dùng thử Plus của bạn có hiệu lực đến {formattedDate}"
-  },
-  "expiredPlusBannerMessage": {
-    "en": "Subscribe from {price}/month to keep your Plus benefits.",
-    "de": "Abonniere ab {price}/Monat, um deine Plus-Vorteile zu behalten.",
-    "es": "Suscríbete desde {price}/mes para mantener tus beneficios Plus.",
-    "fr": "Abonnez-vous à partir de {price}/mois pour conserver vos avantages Plus.",
-    "it": "Abbonati da {price}/mese per mantenere i vantaggi Plus.",
-    "ja": "月額{price}から登録して、Plusの特典を引き続き利用しましょう。",
-    "ko": "월 {price}부터 구독하고 Plus 혜택을 계속 이용하세요.",
-    "nl": "Abonneer je vanaf {price}/maand om je Plus-voordelen te behouden.",
-    "ur": "اپنے Plus فوائد جاری رکھنے کے لیے {price}/ماہ سے سبسکرائب کریں۔",
-    "ru": "Оформите подписку от {price}/месяц, чтобы сохранить преимущества Plus.",
-    "th": "สมัครสมาชิกเริ่มต้น {price}/เดือน เพื่อใช้สิทธิประโยชน์ Plus ต่อไป",
-    "uk": "Оформіть підписку від {price}/місяць, щоб зберегти переваги Plus.",
-    "zh": "订阅仅需 {price}/月起，即可继续享受 Plus 权益。",
-    "zh_TW": "訂閱只要 {price}/月起，即可繼續享有 Plus 權益。",
-    "vi": "Đăng ký từ {price}/tháng để tiếp tục hưởng quyền lợi Plus."
+  "spendByYou": {
+    "en": "Spent by You",
+    "de": "Von dir ausgegeben",
+    "es": "Gastado por ti",
+    "fr": "Dépensé par vous",
+    "it": "Speso da te",
+    "ja": "あなたの支出",
+    "ko": "내 지출",
+    "nl": "Door jou uitgegeven",
+    "ur": "آپ کے اخراجات",
+    "ru": "Потрачено вами",
+    "th": "ใช้จ่ายโดยคุณ",
+    "uk": "Витрачено вами",
+    "zh": "你的支出",
+    "zh_TW": "你的支出",
+    "vi": "Bạn đã chi"
   }
 }

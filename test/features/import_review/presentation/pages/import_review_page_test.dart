@@ -107,7 +107,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('Transaction logged'), findsOneWidget);
+    expect(find.text('TRANSACTION LOGGED'), findsOneWidget);
     expect(find.text('USD 42.50'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Close this page'),

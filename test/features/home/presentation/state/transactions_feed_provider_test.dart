@@ -16,6 +16,18 @@ ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
       currency: 'USD',
     );
 
+ExpenseEntry _recurringTemplate(String id, DateTime date) => ExpenseEntry(
+      id: id,
+      userId: 'user-1',
+      date: date,
+      amountCents: 1000,
+      createdAt: date,
+      type: 'expense',
+      category: 'food',
+      currency: 'USD',
+      isRecurring: true,
+    );
+
 class _FakeTransactionsFeedService extends TransactionsFeedService {
   int summaryCallCount = 0;
   int pageCallCount = 0;
@@ -646,5 +658,31 @@ void main() {
     expect(page.items.map((entry) => entry.id), ['remote_1']);
     expect(remote.pageCallCount, 1);
     expect(cached.map((entry) => entry.id), ['remote_1']);
+  });
+
+  test('local-first feed never returns a recurring template from remote rows',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final occurrence = _entry('confirmed-occurrence', DateTime(2026, 4, 5));
+    final remote = _FakeTransactionsFeedService([
+      TransactionsFeedPageResult(
+        items: [
+          _recurringTemplate('recurring-template', DateTime(2026, 4, 5)),
+          occurrence,
+        ],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    final items = await service.fetchAllPages(buildQuery());
+
+    expect(items.map((entry) => entry.id), ['confirmed-occurrence']);
+    expect(items.single.isRecurring, isFalse);
   });
 }

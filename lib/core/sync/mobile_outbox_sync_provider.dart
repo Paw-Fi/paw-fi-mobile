@@ -23,6 +23,8 @@ import 'package:moneko/features/households/presentation/providers/household_opti
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart'
+    show recurringTransactionsProvider;
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -402,7 +404,7 @@ Future<void> _dispatchMobileMutation(
           'Recurring occurrence sync succeeded without an actual transaction payload',
         );
       }
-      await database.replaceOptimisticTransaction(
+      final reconciledEntry = await database.replaceOptimisticTransaction(
         optimisticId: mutation.entityId,
         savedEntry: ExpenseEntry.fromJson(savedPayload).copyWith(
           clientRecordId: mutation.entityId,
@@ -413,6 +415,15 @@ Future<void> _dispatchMobileMutation(
         ),
         clientMutationId: mutation.clientMutationId,
       );
+      if (reconciledEntry != null) {
+        ref
+            .read(householdOptimisticSplitsProvider.notifier)
+            .rebindSplitExpenseId(
+              fromExpenseId: mutation.entityId,
+              toExpenseId: reconciledEntry.id,
+              canonicalSplitGroupId: reconciledEntry.splitGroupId,
+            );
+      }
       _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       return;
     default:
@@ -499,6 +510,15 @@ Future<void> _handleCancelledMobileMutation(
     ref
         .read(recurringOccurrenceOptimisticProvider.notifier)
         .rollbackMutation(mutation.clientMutationId);
+    ref
+        .read(householdOptimisticSplitsProvider.notifier)
+        .removeSplitByExpenseIdAcrossHouseholds(mutation.entityId);
+    if (mutation.operation.contains('recurring')) {
+      // Skip updates the mounted recurring notifier before it is queued. Once
+      // a terminal failure restores SQLite, reload that scope from the
+      // restored local-first source so the skipped occurrence cannot linger.
+      ref.invalidate(recurringTransactionsProvider);
+    }
     _publishRecurringMutationSurfaces(ref);
     ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
       id: mutation.clientMutationId,
@@ -711,6 +731,20 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
   final response = await supabase.functions.invoke(functionName, body: body);
   final responseBody = _mapValue(response.data);
   if (responseBody == null || responseBody['success'] != true) {
+    final code = responseBody?['code']?.toString() ?? '';
+    final isRecurringOccurrenceMutation = switch (functionName) {
+      'skip-recurring-occurrence' ||
+      'update-recurring-occurrence' ||
+      'unconfirm-recurring-occurrence' =>
+        true,
+      _ => false,
+    };
+    if (isRecurringOccurrenceMutation &&
+        (code.startsWith('OCCURRENCE_') || code == 'VALIDATION_ERROR')) {
+      throw NonRetryableLocalMutationException(
+        responseBody?['error']?.toString() ?? '$functionName failed',
+      );
+    }
     throw Exception(
       responseBody?['error']?.toString() ?? '$functionName failed',
     );
@@ -1105,7 +1139,13 @@ Map<String, dynamic>? _extractRecurringOccurrenceTransaction(
 ) {
   final data = _mapValue(response['data']);
   final transaction = _mapValue(data?['transaction']);
-  return transaction;
+  if (transaction == null) return null;
+  final splitGroupId = data?['split_group_id']?.toString().trim();
+  return <String, dynamic>{
+    ...transaction,
+    if (splitGroupId != null && splitGroupId.isNotEmpty)
+      'split_group_id': splitGroupId,
+  };
 }
 
 Map<String, dynamic> _decodePayload(String payloadJson) {

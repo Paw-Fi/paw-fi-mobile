@@ -1196,6 +1196,9 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
   required bool includeUpcomingRecurring,
   required List<ExpenseEntry> actualExpenses,
   MonekoDatabase? localDatabase,
+  Iterable<RecurringTransaction>? scopedRecurringTransactions,
+  Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries =
+      const <ExpenseEntry>[],
 }) async {
   // CRITICAL: this projection is part of the pocket spend calculation for the
   // selected month, not only the current month.
@@ -1206,12 +1209,15 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     return const <ExpenseEntry>[];
   }
 
-  final recurringTransactions = await loadScopedRecurringTransactions(
-    userId: userId,
-    scope: scope,
-    householdId: householdId,
-    localDatabase: localDatabase,
-  );
+  final recurringTransactions = scopedRecurringTransactions?.toList(
+        growable: false,
+      ) ??
+      await loadScopedRecurringTransactions(
+        userId: userId,
+        scope: scope,
+        householdId: householdId,
+        localDatabase: localDatabase,
+      );
   if (recurringTransactions.isEmpty) {
     return const <ExpenseEntry>[];
   }
@@ -1243,39 +1249,6 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
       normalizedSelectedCurrencies,
     );
   }).toList(growable: false);
-
-  final confirmedOccurrenceSuppressionEntries = <ExpenseEntry>[];
-  for (final transaction in recurringTransactions) {
-    try {
-      final response = await supabase.functions.invoke(
-        'list-recurring-occurrences',
-        body: {'userId': userId, 'recurringId': transaction.id, 'limit': 100},
-      );
-      final payload = response.data;
-      if (payload is! Map || payload['success'] != true) continue;
-      final occurrencePage = Map<String, dynamic>.from(
-        payload['data'] as Map,
-      );
-      final confirmedDates =
-          (occurrencePage['items'] as List? ?? const <dynamic>[])
-              .whereType<Map>()
-              .map((item) =>
-                  RecurringOccurrenceTimelineItem.fromOccurrenceSummaryJson(
-                    Map<String, dynamic>.from(item),
-                  ))
-              .where((item) =>
-                  item.isConfirmed &&
-                  !item.scheduledOccurrenceDate.isBefore(monthStart) &&
-                  !item.scheduledOccurrenceDate.isAfter(periodEnd))
-              .map((item) => item.scheduledOccurrenceDate);
-      confirmedOccurrenceSuppressionEntries.addAll(
-        buildConfirmedOccurrenceSuppressionEntries(
-          recurringId: transaction.id,
-          confirmedScheduledDates: confirmedDates,
-        ),
-      );
-    } catch (_) {}
-  }
 
   return dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,
@@ -3187,6 +3160,31 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       });
 
       trace.mark('projection-start');
+      final recurringTransactions = params.includeUpcomingRecurring
+          ? await loadScopedRecurringTransactions(
+              userId: authUser.uid,
+              scope: scopeType,
+              householdId: householdId,
+              localDatabase: ref.read(localDatabaseProvider).valueOrNull,
+            )
+          : const <RecurringTransaction>[];
+      final occurrenceResolution = recurringTransactions.isEmpty
+          ? const RecurringOccurrenceProjectionResolution()
+          : await loadRecurringOccurrenceProjectionResolution(
+              query: RecurringOccurrenceProjectionResolutionQuery(
+                userId: authUser.uid,
+                householdId: householdId,
+                startDate: monthStart,
+                endDate: nextFinancialCycleStart(
+                  monthStart,
+                  startDay: cacheKey.financialMonthStartDay,
+                ).subtract(const Duration(days: 1)),
+              ),
+              recurringTransactions: recurringTransactions,
+              loadOccurrences: (query) => ref.read(
+                recurringOccurrenceTimelineProvider(query).future,
+              ),
+            );
       final projectedRecurringExpenses = await loadProjectedPocketMonthExpenses(
         userId: authUser.uid,
         scope: scopeType,
@@ -3198,6 +3196,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         actualExpenses: actualExpensesWithPending,
         localDatabase: ref.read(localDatabaseProvider).valueOrNull,
+        scopedRecurringTransactions: recurringTransactions,
+        confirmedOccurrenceSuppressionEntries:
+            occurrenceResolution.suppressionEntries,
       );
       trace.mark('projection-success', {
         'projectedRecurringCount': projectedRecurringExpenses.length,

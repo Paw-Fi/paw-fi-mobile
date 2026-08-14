@@ -162,5 +162,29 @@ void main() {
       expect(group!.splitType, SplitType.amount);
       expect(group.splitLines!.map((line) => line.amountCents), [1000, 1000]);
     });
+
+    test('materializes an explicit equal split without household defaults', () {
+      final group = buildOptimisticHouseholdSplitGroup(
+        householdId: 'household-1',
+        expenseId: 'expense-1',
+        payerUserId: 'user-a',
+        totalAmount: 10.01,
+        currency: 'EUR',
+        members: const [],
+        autoSplitEnabled: false,
+        autoSplitConfig: null,
+        keepSemanticallyEqualCustomSplits: true,
+        rawCustomSplits: {
+          'splitType': 'equal',
+          'memberSplits': [
+            {'userId': 'user-a'},
+            {'userId': 'user-b'},
+          ],
+        },
+      );
+
+      expect(group!.splitType, SplitType.equal);
+      expect(group.splitLines!.map((line) => line.amountCents), [501, 500]);
+    });
   });
 }

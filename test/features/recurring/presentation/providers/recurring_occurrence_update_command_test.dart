@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -117,6 +118,64 @@ void main() {
     );
 
     expect(command.toRequestBody(), isNot(contains('accountId')));
+  });
+
+  test('materializes the saved template split for an edited occurrence', () {
+    final now = DateTime(2026, 8, 14);
+    final plan = buildRecurringOccurrenceSplitPlan(
+      templateGroup: ExpenseSplitGroup(
+        id: 'template-split',
+        householdId: 'household-id',
+        expenseId: 'recurring-id',
+        payerUserId: 'payer',
+        splitType: SplitType.percentage,
+        currency: 'USD',
+        totalAmountCents: 100000,
+        createdAt: now,
+        updatedAt: now,
+        splitLines: [
+          ExpenseSplitLine(
+            id: 'first',
+            splitGroupId: 'template-split',
+            userId: 'payer',
+            amountCents: 60000,
+            percentage: 60,
+            isSettled: false,
+            createdAt: now,
+            updatedAt: now,
+          ),
+          ExpenseSplitLine(
+            id: 'second',
+            splitGroupId: 'template-split',
+            userId: 'member',
+            amountCents: 40000,
+            percentage: 40,
+            isSettled: false,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        ],
+      ),
+      optimisticExpenseId: 'optimistic-occurrence',
+      occurrenceAmountCents: 80000,
+    );
+
+    expect(plan, isNotNull);
+    expect(plan!.payerUserId, 'payer');
+    expect(plan.requestPayload, {
+      'splitType': 'amount',
+      'memberSplits': [
+        {'userId': 'payer', 'amount': 480.0},
+        {'userId': 'member', 'amount': 320.0},
+      ],
+    });
+    expect(plan.optimisticSplit.expenseId, 'optimistic-occurrence');
+    expect(plan.optimisticSplit.id, 'optimistic_split_optimistic-occurrence');
+    expect(plan.optimisticSplit.totalAmountCents, 80000);
+    expect(
+      plan.optimisticSplit.splitLines!.map((line) => line.amountCents),
+      [48000, 32000],
+    );
   });
 
   test('builds an unconfirm request for a confirmed occurrence', () {

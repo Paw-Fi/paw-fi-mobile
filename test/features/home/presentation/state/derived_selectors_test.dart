@@ -142,6 +142,39 @@ void main() {
     });
   });
 
+  test('projects every recurring occurrence in the selected financial cycle',
+      () {
+    final recurring = RecurringTransaction(
+      id: 'income-tax-recurring',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 7),
+      category: 'taxes',
+      description: 'Income Tax',
+      amount: 98.5,
+      currency: 'SGD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 4, 7),
+        endDate: DateTime(2027, 4, 7),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 4, 7),
+    );
+
+    final totals = calculateMomTrend(
+      actualTransactions: const <ExpenseEntry>[],
+      recurringTransactions: [recurring],
+      now: DateTime(2026, 8, 1),
+      financialMonthStartDay: 1,
+      selectedCurrency: 'SGD',
+    );
+
+    expect(totals['2026-08-01'], 98.5);
+  });
+
   test('suppresses a scheduled projection when its actual is paid next cycle',
       () {
     final recurring = RecurringTransaction(
@@ -179,7 +212,7 @@ void main() {
       selectedCurrency: 'USD',
     );
 
-    expect(totals['2026-09-01'], 10);
+    expect(totals['2026-09-01'], 20);
     expect(totals['2026-08-01'], 0);
     expect(totals['2026-07-01'], 10);
   });

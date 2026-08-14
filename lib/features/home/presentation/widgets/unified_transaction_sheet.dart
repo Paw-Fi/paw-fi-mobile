@@ -41,7 +41,6 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/destructive_text_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
 import 'package:moneko/features/households/presentation/utils/household_split_update_intent.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -205,6 +204,7 @@ class _UnifiedTransactionSheetV2State
   bool _hasManuallyChangedPayer = false;
   String? _resolvedSplitGroupId;
   bool _hasCheckedSplitGroup = false;
+  bool _isResolvingExistingSplit = false;
   String? _selectedFinancialAccountId;
   bool _hasManuallySelectedFinancialAccount = false;
   bool _hasManuallyChangedAccountSelection = false;
@@ -291,6 +291,9 @@ class _UnifiedTransactionSheetV2State
         _resolvedSplitGroupId = existingSplitGroupId;
         _hasCheckedSplitGroup = true;
       }
+      if (isSharedSpace) {
+        _isResolvingExistingSplit = true;
+      }
 
       debugPrint(
           '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
@@ -308,9 +311,7 @@ class _UnifiedTransactionSheetV2State
                 householdId;
             debugPrint('🏠 [EDIT EXPENSE] Loading household members');
             _loadMembers(householdId);
-            if (hasExistingSplitGroup) {
-              _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
-            }
+            _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
           } else {
             debugPrint(
                 '⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
@@ -1950,6 +1951,15 @@ class _UnifiedTransactionSheetV2State
                   );
                 }
 
+                // A cached household transaction can briefly arrive without
+                // its split-group id. Until that relationship is resolved, do
+                // not render a household default allocation as if it were the
+                // saved split for this transaction.
+                if (isExistingExpense &&
+                    (_isResolvingExistingSplit || !_hasCheckedSplitGroup)) {
+                  return _buildSplitLoadingSkeleton(colorScheme);
+                }
+
                 if (_householdMembers == null || _householdMembers!.isEmpty) {
                   return Container(
                     padding: const EdgeInsets.all(12),
@@ -2700,84 +2710,146 @@ class _UnifiedTransactionSheetV2State
     final expense = widget.existingExpense;
     if (expense == null) return null;
 
-    final accountTarget = _resolveAccountTarget();
-    final isSharedSpace =
-        accountTarget.householdId != null && !accountTarget.isPortfolio;
-    if (!isSharedSpace) {
-      _markSplitCheck();
-      return null;
-    }
-
-    final existingId = expense.splitGroupId?.trim();
-    if (existingId != null && existingId.isNotEmpty) {
-      _markSplitCheck(resolvedId: existingId);
-      if (loadSplitConfig) {
-        await _loadExistingSplitConfiguration(existingId);
-      }
-      return existingId;
-    }
-
-    final householdId = expense.householdId;
-    if (householdId == null || householdId.isEmpty) {
-      _markSplitCheck();
-      return null;
-    }
-
-    // For recently created expenses, the split group may not be available yet
-    // because _persistAiTransactions runs asynchronously. Retry a few times.
-    final isRecentlyCreated =
-        DateTime.now().toUtc().difference(expense.createdAt.toUtc()).inSeconds <
-            15;
-    final maxAttempts = isRecentlyCreated ? 5 : 1;
-
+    _setExistingSplitResolving(true);
     try {
-      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-        if (!mounted) return null;
-
-        if (attempt > 1) {
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (!mounted) return null;
-          ref.invalidate(householdSplitsProvider(
-            HouseholdSplitsParams(householdId: householdId),
-          ));
-        }
-
-        final splits = await ref.read(householdSplitsProvider(
-          HouseholdSplitsParams(householdId: householdId),
-        ).future);
-
-        household_split.ExpenseSplitGroup? match;
-        for (final group in splits) {
-          if (group.expenseId == expense.id) {
-            match = group;
-            break;
-          }
-        }
-
-        if (match != null) {
-          debugPrint(
-              '🔎 [RESOLVE SPLIT] Found split group ${match.id} for expense ${expense.id} (attempt $attempt)');
-          _markSplitCheck(resolvedId: match.id);
-          if (loadSplitConfig) {
-            await _loadExistingSplitConfiguration(match.id);
-          }
-          return match.id;
-        }
-
-        if (attempt < maxAttempts) {
-          debugPrint(
-              '🔎 [RESOLVE SPLIT] No split group yet for expense ${expense.id}, retrying ($attempt/$maxAttempts)...');
-        }
+      final accountTarget = _resolveAccountTarget();
+      final isSharedSpace =
+          accountTarget.householdId != null && !accountTarget.isPortfolio;
+      if (!isSharedSpace) {
+        _markSplitCheck();
+        return null;
       }
 
-      debugPrint(
-          '🔎 [RESOLVE SPLIT] No split group found for expense ${expense.id} after $maxAttempts attempt(s)');
-      _markSplitCheck();
-      return null;
-    } catch (error) {
-      debugPrint('❌ [RESOLVE SPLIT] Failed to resolve split group: $error');
-      return null;
+      final existingId = expense.splitGroupId?.trim();
+      if (existingId != null && existingId.isNotEmpty) {
+        _markSplitCheck(resolvedId: existingId);
+        if (loadSplitConfig) {
+          await _loadExistingSplitConfiguration(existingId);
+        }
+        return existingId;
+      }
+
+      final householdId = expense.householdId;
+      if (householdId == null || householdId.isEmpty) {
+        _markSplitCheck();
+        return null;
+      }
+
+      // Try the cached snapshot first. If it does not contain the group, force
+      // one fresh read before treating the transaction as genuinely unsplit.
+      // Newly-created local rows retain a few short retries while their split
+      // write is still being persisted.
+      final isRecentlyCreated = DateTime.now()
+              .toUtc()
+              .difference(expense.createdAt.toUtc())
+              .inSeconds <
+          15;
+      final maxAttempts = isRecentlyCreated ? 5 : 2;
+
+      try {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+          if (!mounted) return null;
+
+          final params = HouseholdSplitsParams(householdId: householdId);
+          final List<household_split.ExpenseSplitGroup> splits;
+          if (attempt > 1) {
+            if (isRecentlyCreated) {
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (!mounted) return null;
+            }
+            final remoteSplits = await ref
+                .read(householdRepositoryProvider)
+                .getHouseholdSplits(householdId: householdId);
+            await cacheHouseholdSplitsSnapshot(
+              params: params,
+              splits: remoteSplits,
+            );
+            ref.invalidate(householdSplitsProvider(params));
+            final optimisticSplits =
+                ref.read(householdOptimisticSplitsProvider)[householdId] ??
+                    const <household_split.ExpenseSplitGroup>[];
+            splits = mergeHouseholdSplits(remoteSplits, optimisticSplits);
+          } else {
+            splits = await ref.read(householdSplitsProvider(params).future);
+          }
+
+          household_split.ExpenseSplitGroup? match;
+          for (final group in splits) {
+            if (group.expenseId == expense.id) {
+              match = group;
+              break;
+            }
+          }
+
+          if (match != null) {
+            debugPrint(
+                '🔎 [RESOLVE SPLIT] Found split group ${match.id} for expense ${expense.id} (attempt $attempt)');
+            _markSplitCheck(resolvedId: match.id);
+            if (loadSplitConfig) {
+              await _loadExistingSplitConfiguration(match.id);
+            }
+            return match.id;
+          }
+
+          if (attempt < maxAttempts) {
+            debugPrint(
+                '🔎 [RESOLVE SPLIT] No split group yet for expense ${expense.id}, retrying ($attempt/$maxAttempts)...');
+          }
+        }
+
+        debugPrint(
+            '🔎 [RESOLVE SPLIT] No split group found for expense ${expense.id} after $maxAttempts attempt(s)');
+        _markSplitCheck();
+        return null;
+      } catch (error) {
+        debugPrint('❌ [RESOLVE SPLIT] Failed to resolve split group: $error');
+        _markSplitCheck();
+        return null;
+      }
+    } finally {
+      _setExistingSplitResolving(false);
     }
+  }
+
+  void _setExistingSplitResolving(bool value) {
+    if (!mounted) {
+      _isResolvingExistingSplit = value;
+      return;
+    }
+    setState(() => _isResolvingExistingSplit = value);
+  }
+
+  Widget _buildSplitLoadingSkeleton(ColorScheme colorScheme) {
+    Widget placeholder({required double width}) => Container(
+          width: width,
+          height: 14,
+          decoration: BoxDecoration(
+            color: colorScheme.skeletonBase,
+            borderRadius: BorderRadius.circular(7),
+          ),
+        );
+
+    return Semantics(
+      label: 'Loading saved split',
+      child: MonekoInput(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [placeholder(width: 74), placeholder(width: 96)],
+            ),
+            const SizedBox(height: 18),
+            placeholder(width: 126),
+            const SizedBox(height: 12),
+            placeholder(width: double.infinity),
+            const SizedBox(height: 10),
+            placeholder(width: double.infinity),
+          ],
+        ),
+      ),
+    );
   }
 
   void _markSplitCheck({String? resolvedId}) {
@@ -2851,15 +2923,7 @@ class _UnifiedTransactionSheetV2State
     final household = _resolveHouseholdById(householdId);
     if (household == null || household.isPortfolio) return;
 
-    final shouldSeedForNewExpense = isNewExpense && !household.autoSplitEnabled;
-    final existingHouseholdId = widget.existingExpense?.householdId;
-    final existingSplitGroupId = widget.existingExpense?.splitGroupId?.trim();
-    final shouldSeedForExistingUnsplitExpense = isExistingExpense &&
-        existingHouseholdId == householdId &&
-        (existingSplitGroupId == null || existingSplitGroupId.isEmpty);
-    if (!shouldSeedForNewExpense && !shouldSeedForExistingUnsplitExpense) {
-      return;
-    }
+    if (!isNewExpense || household.autoSplitEnabled) return;
 
     final currentUserId = ref.read(authProvider).uid;
     final payerId = members.any((member) => member.userId == currentUserId)
@@ -2986,23 +3050,21 @@ class _UnifiedTransactionSheetV2State
               const <household_split.ExpenseSplitGroup>[];
 
       final params = HouseholdSplitsParams(householdId: householdId);
-      ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
-      ref.invalidate(householdSplitsProvider(params));
-      ref.invalidate(cachedHouseholdSplitsProvider(params));
-
-      List<household_split.ExpenseSplitGroup> splitsAsync = optimisticSplits;
-      final hasOptimisticMatch = optimisticSplits.any(
+      final cachedSplits =
+          await ref.read(householdSplitsProvider(params).future);
+      List<household_split.ExpenseSplitGroup> splitsAsync =
+          mergeHouseholdSplits(cachedSplits, optimisticSplits);
+      final hasCachedMatch = splitsAsync.any(
         (group) =>
             group.id == splitGroupId ||
             group.expenseId == widget.existingExpense!.id,
       );
 
-      if (!hasOptimisticMatch) {
+      if (!hasCachedMatch) {
         try {
           final remoteSplits = await ref
               .read(householdRepositoryProvider)
               .getHouseholdSplits(householdId: householdId);
-          await clearHouseholdPersistentCacheForHousehold(householdId);
           unawaited(cacheHouseholdSplitsSnapshot(
             params: params,
             splits: remoteSplits,

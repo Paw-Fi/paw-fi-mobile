@@ -21,12 +21,7 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-void _homeSpendTrace(String message) {
-  assert(() {
-    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void _homeSpendTrace(String _) {}
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
   return entries.fold<double>(

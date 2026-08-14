@@ -728,29 +728,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ? null
         : ref.watch(transactionsFeedAllItemsProvider(recurringDedupeQuery));
     final recurringActualExpenses = recurringActualExpensesState?.valueOrNull;
-    final occurrenceSuppressionEntries = <ExpenseEntry>[
-      for (final transaction in recurringTransactions)
-        if (currentUserId.isNotEmpty && projectedRecurringExpenses.isNotEmpty)
-          ...buildConfirmedOccurrenceSuppressionEntries(
-            recurringId: transaction.id,
-            confirmedScheduledDates: ref
-                    .watch(recurringOccurrenceTimelineProvider(
-                      RecurringOccurrenceTimelineQuery(
-                        userId: currentUserId,
-                        householdId: transaction.householdId,
-                        recurringId: transaction.id,
-                        startDate: range?['from'] ??
-                            projectedRecurringExpenses.first.date,
-                        endDate: range?['to'] ??
-                            projectedRecurringExpenses.last.date,
-                      ),
-                    ))
-                    .valueOrNull
-                    ?.where((item) => item.isConfirmed)
-                    .map((item) => item.scheduledOccurrenceDate) ??
-                const <DateTime>[],
-          ),
-    ];
+    final occurrenceSuppressionEntries =
+        occurrenceResolution.suppressionEntries;
     final dedupeActualExpenses = [
       ...?recurringActualExpenses,
       ...occurrenceSuppressionEntries,
@@ -2314,6 +2293,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           showPendingChip: expense.isProviderPending,
                           showCurrencyFlag: shouldShowCurrencyFlag,
                           accountLabel: accountLabel,
+                          useCustomCategoryStyleOverrides:
+                              expense.householdId?.trim().isEmpty ?? true,
                         ),
                       ),
                     ],

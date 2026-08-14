@@ -476,12 +476,35 @@ int computeFallbackCategoryColorArgb(String? category) {
   return _fallbackPalette[paletteIndex].toARGB32();
 }
 
-Color getCategoryColor(String? category, [BuildContext? context]) {
+Color getCategoryColor(String? category, [BuildContext? context]) =>
+    _getCategoryColor(
+      category,
+      context: context,
+      useCustomStyleOverrides: true,
+    );
+
+Color getSharedTransactionCategoryColor(
+  String? category, [
+  BuildContext? context,
+]) =>
+    _getCategoryColor(
+      category,
+      context: context,
+      useCustomStyleOverrides: false,
+    );
+
+Color _getCategoryColor(
+  String? category, {
+  BuildContext? context,
+  required bool useCustomStyleOverrides,
+}) {
   final directKey = canonicalizeCategoryKey(category);
 
   Color? baseColor;
 
-  final directOverride = getCustomCategoryStyleOverrides()[directKey];
+  final directOverride = useCustomStyleOverrides
+      ? getCustomCategoryStyleOverrides()[directKey]
+      : null;
   final directColorArgb = directOverride?.colorArgb;
   if (directColorArgb is int) {
     baseColor = Color(directColorArgb);
@@ -494,7 +517,9 @@ Color getCategoryColor(String? category, [BuildContext? context]) {
           ? directKey
           : normalizeCategory(category ?? 'uncategorized');
 
-      final override = getCustomCategoryStyleOverrides()[key];
+      final override = useCustomStyleOverrides
+          ? getCustomCategoryStyleOverrides()[key]
+          : null;
       final overrideColorArgb = override?.colorArgb;
       if (overrideColorArgb is int) {
         baseColor = Color(overrideColorArgb);
@@ -513,16 +538,28 @@ Color getCategoryColor(String? category, [BuildContext? context]) {
   if (context != null) {
     // We import AppTheme if needed. Wait, is AppTheme imported?
     // We will ensure it is imported.
-    return AppTheme.adaptCategoryColorForTheme(baseColor, Theme.of(context).colorScheme);
+    return AppTheme.adaptCategoryColorForTheme(
+        baseColor, Theme.of(context).colorScheme);
   }
 
   return baseColor;
 }
 
-IconData getCategoryIcon(String? category) {
+IconData getCategoryIcon(String? category) =>
+    _getCategoryIcon(category, useCustomStyleOverrides: true);
+
+IconData getSharedTransactionCategoryIcon(String? category) =>
+    _getCategoryIcon(category, useCustomStyleOverrides: false);
+
+IconData _getCategoryIcon(
+  String? category, {
+  required bool useCustomStyleOverrides,
+}) {
   final directKey = canonicalizeCategoryKey(category);
 
-  final directOverride = getCustomCategoryStyleOverrides()[directKey];
+  final directOverride = useCustomStyleOverrides
+      ? getCustomCategoryStyleOverrides()[directKey]
+      : null;
   final directIconKey = directOverride?.iconKey;
   if (directIconKey is String && directIconKey.isNotEmpty) {
     return customCategoryIconForKey(directIconKey);
@@ -535,7 +572,8 @@ IconData getCategoryIcon(String? category) {
       ? directKey
       : normalizeCategory(category ?? 'uncategorized');
 
-  final override = getCustomCategoryStyleOverrides()[key];
+  final override =
+      useCustomStyleOverrides ? getCustomCategoryStyleOverrides()[key] : null;
   final iconKey = override?.iconKey;
   if (iconKey is String && iconKey.isNotEmpty) {
     return customCategoryIconForKey(iconKey);

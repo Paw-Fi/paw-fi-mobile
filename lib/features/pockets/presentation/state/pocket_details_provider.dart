@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -14,6 +15,8 @@ import 'package:moneko/features/home/presentation/utils/converted_transaction_su
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_rollover_breakdown.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PocketTransactionsParams {
@@ -256,6 +259,28 @@ final pocketDetailsProvider =
   // recurring projection as the pocket totals, or the detail list/insights
   // will disagree with the pocket card and users will think recurring
   // transactions are missing.
+  final recurringTransactions = params.scopeParams.includeUpcomingRecurring
+      ? await loadScopedRecurringTransactions(
+          userId: authUser.uid,
+          scope: scopeType,
+          householdId: householdId,
+          localDatabase: ref.read(localDatabaseProvider).valueOrNull,
+        )
+      : const <RecurringTransaction>[];
+  final occurrenceResolution = recurringTransactions.isEmpty
+      ? const RecurringOccurrenceProjectionResolution()
+      : await loadRecurringOccurrenceProjectionResolution(
+          query: RecurringOccurrenceProjectionResolutionQuery(
+            userId: authUser.uid,
+            householdId: householdId,
+            startDate: monthStart,
+            endDate: monthEnd.subtract(const Duration(days: 1)),
+          ),
+          recurringTransactions: recurringTransactions,
+          loadOccurrences: (query) => ref.read(
+            recurringOccurrenceTimelineProvider(query).future,
+          ),
+        );
   final projectedTransactions = await loadProjectedPocketMonthExpenses(
     userId: authUser.uid,
     scope: scopeType,
@@ -265,6 +290,10 @@ final pocketDetailsProvider =
     selectedCurrencies: selectedCurrencies,
     includeUpcomingRecurring: params.scopeParams.includeUpcomingRecurring,
     actualExpenses: actualTransactions,
+    financialMonthStartDay: financialMonthStartDay,
+    scopedRecurringTransactions: recurringTransactions,
+    confirmedOccurrenceSuppressionEntries:
+        occurrenceResolution.suppressionEntries,
   );
   final normalizedCategories =
       categories.map((category) => category.toLowerCase()).toSet();

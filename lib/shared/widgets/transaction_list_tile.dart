@@ -31,6 +31,7 @@ class TransactionListTile extends StatelessWidget {
   final bool showPendingChip;
   final bool? showCurrencyFlag;
   final String? accountLabel;
+  final bool useCustomCategoryStyleOverrides;
 
   const TransactionListTile({
     super.key,
@@ -51,6 +52,7 @@ class TransactionListTile extends StatelessWidget {
     this.showPendingChip = false,
     this.showCurrencyFlag,
     this.accountLabel,
+    this.useCustomCategoryStyleOverrides = true,
   });
 
   String? _formatDate(BuildContext context, DateTime date) {
@@ -100,8 +102,12 @@ class TransactionListTile extends StatelessWidget {
       valueListenable: customCategoryStyleOverridesNotifier,
       builder: (context, _, __) {
         final colorScheme = Theme.of(context).colorScheme;
-        final color = getCategoryColor(category, context);
-        final icon = getCategoryIcon(category);
+        final color = useCustomCategoryStyleOverrides
+            ? getCategoryColor(category, context)
+            : getSharedTransactionCategoryColor(category, context);
+        final icon = useCustomCategoryStyleOverrides
+            ? getCategoryIcon(category)
+            : getSharedTransactionCategoryIcon(category);
         final sign = isIncome ? '+' : '-';
         final normalizedAmount = double.parse(formatAmount(amount.abs()));
         final localizedNumber =
@@ -369,6 +375,11 @@ Widget buildExpenseTransactionTile({
       showRecurringChip: showRecurringChip ??
           (expense != null && shouldShowRecurringChipForExpense(expense)),
       showPendingChip: showPendingChip ?? expense?.isProviderPending ?? false,
+      // A shared transaction's category is shared data. Do not let a viewer's
+      // private category-style preference make that same record look different
+      // to another household member.
+      useCustomCategoryStyleOverrides:
+          expense?.householdId?.trim().isEmpty ?? true,
     ),
   );
 }

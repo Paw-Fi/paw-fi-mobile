@@ -945,6 +945,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
     final response = await query
         .isFilter('deleted_at', null)
+        // Match get_user_analytics: a recurring row is a template, not a
+        // posted transaction for analytics or aggregate fallback data.
+        .eq('is_recurring', false)
         .order('date', ascending: false)
         .range(from, to)
         .timeout(timeout);

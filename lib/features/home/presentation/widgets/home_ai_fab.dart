@@ -97,12 +97,7 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
-void homeSpendTrace(String message) {
-  assert(() {
-    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void homeSpendTrace(String _) {}
 
 String traceAiAmount(num value) => value.toStringAsFixed(2);
 

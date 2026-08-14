@@ -195,6 +195,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
           selectedCurrency: selectedCurrency,
           customStartDate: range.start,
           customEndDate: range.end,
+          headerLabel: context.l10n.spendByYou,
           animationStorageKey:
               'household_spent_by_you:${household.id}:${config.id}:$selectedCurrency:${config.dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
         ),
@@ -312,6 +313,20 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         : householdDerivedSummaryWithoutBudgetsProvider(params);
     final summaryAsync = ref.watch(summaryProvider);
     final summary = summaryAsync.valueOrNull;
+    final projection = ref
+        .watch(
+          householdDashboardProjectionProvider(
+            DashboardScopeQuery(
+              userId: userId ?? '',
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              selectedCurrencies: _selectedCurrencies(ref),
+              startDate: range.start,
+              endDate: range.end,
+            ),
+          ),
+        )
+        .valueOrNull;
 
     Widget child;
 
@@ -354,6 +369,10 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         selectedCurrency: selectedCurrency,
         dateRangeFilter: DateRangeFilter.custom,
         currentUserId: userId,
+        transactions: projection?.expensesWithRecurring,
+        splits: projection?.splits,
+        from: range.start,
+        to: range.end,
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -698,6 +717,7 @@ Widget _buildSpentByYouSkeleton(
       dateFilter,
       referenceNow: referenceNow,
       selectedCurrency: currency,
+      headerLabel: context.l10n.spendByYou,
     ),
   );
 }

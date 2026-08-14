@@ -17,12 +17,7 @@ import 'package:moneko/features/home/presentation/widgets/animated_amount_text.d
 import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
-void _homeSpendTrace(String message) {
-  assert(() {
-    debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void _homeSpendTrace(String _) {}
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
   return entries.fold<double>(
@@ -46,6 +41,7 @@ class SpendingCard extends StatefulWidget {
   final DateTime? customEndDate;
   final int financialMonthStartDay;
   final String? animationStorageKey;
+  final String? headerLabel;
   final VoidCallback? onTap;
 
   const SpendingCard({
@@ -62,6 +58,7 @@ class SpendingCard extends StatefulWidget {
     this.customEndDate,
     this.financialMonthStartDay = 1,
     this.animationStorageKey,
+    this.headerLabel,
     this.onTap,
   });
 
@@ -241,7 +238,8 @@ class _SpendingCardState extends State<SpendingCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        context.l10n.spent.toUpperCase(),
+                        (widget.headerLabel ?? context.l10n.spent)
+                            .toUpperCase(),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -900,6 +898,7 @@ Widget buildSpendingCard(
   DateTime? customEndDate,
   int financialMonthStartDay = 1,
   String? animationStorageKey,
+  String? headerLabel,
   VoidCallback? onTap,
 }) {
   return SpendingCard(
@@ -916,6 +915,7 @@ Widget buildSpendingCard(
     customEndDate: customEndDate,
     financialMonthStartDay: financialMonthStartDay,
     animationStorageKey: animationStorageKey,
+    headerLabel: headerLabel,
     onTap: onTap,
   );
 }

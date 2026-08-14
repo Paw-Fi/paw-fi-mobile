@@ -162,6 +162,7 @@ class _DailyFinancialDetailsPageState
 
   Map<DateTime, Map<String, double>> _buildRecurringDailyTotals({
     required List<ExpenseEntry> actualTransactions,
+    required List<RecurringTransaction> recurringTransactions,
     required DateTime rangeStart,
     required DateTime rangeEnd,
     required List<String>? selectedCurrencies,
@@ -170,7 +171,7 @@ class _DailyFinancialDetailsPageState
   }) {
     final merged = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: actualTransactions,
-      recurringTransactions: widget.recurringTransactions,
+      recurringTransactions: recurringTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       confirmedOccurrenceSuppressionEntries:
@@ -301,8 +302,16 @@ class _DailyFinancialDetailsPageState
         ),
       ),
     );
+    // The page receives a navigation snapshot, but remaining projections and
+    // occurrence routing must follow edits made while this detail view is open.
+    // Keep that snapshot only until the scoped local-first provider has a value.
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(widget.householdId))
+            .data
+            .valueOrNull ??
+        widget.recurringTransactions;
     final recurringTransactionsById = {
-      for (final transaction in widget.recurringTransactions)
+      for (final transaction in recurringTransactions)
         transaction.id: transaction,
     };
     final isMultiCurrencySelection =
@@ -322,6 +331,7 @@ class _DailyFinancialDetailsPageState
         : resolvedTransactions;
     final recurringDailyTotals = _buildRecurringDailyTotals(
       actualTransactions: resolvedTransactions,
+      recurringTransactions: recurringTransactions,
       rangeStart: monthStart,
       rangeEnd: monthEnd,
       selectedCurrencies: selectedCurrencies,
@@ -361,7 +371,7 @@ class _DailyFinancialDetailsPageState
     final rawProjectedRecurringEntriesForDay =
         mergeActualExpensesWithProjectedRecurring(
       actualExpenses: dailyTransactions,
-      recurringTransactions: widget.recurringTransactions,
+      recurringTransactions: recurringTransactions,
       rangeStart: _selectedDate,
       rangeEnd: _selectedDate,
       confirmedOccurrenceSuppressionEntries:
@@ -409,7 +419,7 @@ class _DailyFinancialDetailsPageState
     ];
 
     // Filter recurring transactions for this specific day
-    final dailyRecurring = widget.recurringTransactions
+    final dailyRecurring = recurringTransactions
         .where((r) => recurringIdsForDay.contains(r.id))
         .toList();
 
@@ -576,6 +586,8 @@ class _DailyFinancialDetailsPageState
                                           shouldShowRecurringChipForExpense(t),
                                       showPendingChip: t.isProviderPending,
                                       date: t.date,
+                                      useCustomCategoryStyleOverrides:
+                                          t.householdId?.trim().isEmpty ?? true,
                                       onTap: () {
                                         showTransactionDetailsSheet(
                                           context,
@@ -1013,6 +1025,8 @@ class _RecurringTransactionTile extends StatelessWidget {
             currency: transaction.currency,
             isIncome: isIncome,
             showRecurringChip: true,
+            useCustomCategoryStyleOverrides:
+                transaction.householdId?.trim().isEmpty ?? true,
             subtitleWidget: Row(
               children: [
                 Container(

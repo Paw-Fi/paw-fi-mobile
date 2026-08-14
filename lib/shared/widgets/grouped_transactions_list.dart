@@ -493,6 +493,8 @@ class GroupedTransactionsList extends StatelessWidget {
                   showPendingChip: expense.isProviderPending,
                   showCurrencyFlag: showCurrencyFlag,
                   accountLabel: expense.accountName,
+                  useCustomCategoryStyleOverrides:
+                      expense.householdId?.trim().isEmpty ?? true,
                 ),
               ),
               // Inset Divider (56px indent per design spec)
@@ -877,6 +879,8 @@ class SliverGroupedTransactionsList extends StatelessWidget {
                   showPendingChip: expense.isProviderPending,
                   showCurrencyFlag: showCurrencyFlag,
                   accountLabel: expense.accountName,
+                  useCustomCategoryStyleOverrides:
+                      expense.householdId?.trim().isEmpty ?? true,
                 ),
               ),
               if (!isLast)

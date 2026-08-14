@@ -385,6 +385,79 @@ void main() {
     expect(find.text('Excluded from analytics'), findsOneWidget);
   });
 
+  testWidgets('wallet cards follow the carousel selected month',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final scopeQuery = WalletsScopeQuery(
+      userId: 'u1',
+      householdId: null,
+      selectedCurrency: 'USD',
+      currentMonthStart: DateTime(2026, 4, 1),
+    );
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: 1200,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
+          appPreferredTimezoneProvider.overrideWith((ref) => null),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          walletsScopeQueryProvider.overrideWith((ref) => scopeQuery),
+          scopedWalletsProvider
+              .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
+          effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
+          walletsDataServiceProvider.overrideWithValue(
+            _WindowedWalletsDataService(delayedMonths: const {}),
+          ),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    WalletStackCard walletCard() => tester.widget<WalletStackCard>(
+          find.byWidgetPredicate(
+            (widget) => widget is WalletStackCard && widget.wallet.id == 'a1',
+          ),
+        );
+
+    expect(walletCard().displayBalanceCents, 1200);
+
+    await tester.drag(find.byType(PageView), const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(walletCard().displayBalanceCents, 1100);
+  });
+
   testWidgets('connect bank option remains available from new wallet sheet',
       (tester) async {
     tester.view.physicalSize = const Size(800, 1200);

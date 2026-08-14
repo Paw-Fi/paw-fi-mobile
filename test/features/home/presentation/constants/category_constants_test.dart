@@ -1,9 +1,34 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  tearDown(() {
+    setCustomCategoryStyleOverrides(<String, CustomCategoryStyle>{});
+  });
+
+  group('shared transaction category styling', () {
+    test('ignores a viewer-specific category style override', () {
+      setCustomCategoryStyleOverrides({
+        'groceries': CustomCategoryStyle(
+          colorArgb: Colors.red.toARGB32(),
+          iconKey: 'restaurant',
+        ),
+      });
+
+      expect(getCategoryColor('groceries').toARGB32(), Colors.red.toARGB32());
+      expect(getCategoryIcon('groceries'), Icons.restaurant);
+      expect(
+        getSharedTransactionCategoryColor('groceries').toARGB32(),
+        categoryColors['groceries']!.toARGB32(),
+      );
+      expect(getSharedTransactionCategoryIcon('groceries'),
+          categoryIcons['groceries']);
+    });
+  });
+
   group('normalizeCategory', () {
     test('returns canonical category when already normalized', () {
       expect(normalizeCategory('groceries'), 'groceries');

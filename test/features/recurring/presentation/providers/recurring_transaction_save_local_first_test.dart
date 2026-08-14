@@ -203,6 +203,54 @@ void main() {
     );
   });
 
+  test('terminal occurrence update rolls back instead of remaining queued',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (request) async => _terminalResponse(request);
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final recurring = _recurring(householdId: 'household_1');
+    final actual = _entry(recurring).copyWith(
+      id: 'actual-occurrence-1',
+      isRecurring: false,
+      parentRecurringId: recurring.id,
+      scheduledOccurrenceDate: DateTime(2026, 2, 1),
+      amountCents: 8000,
+    );
+    await database.upsertTransactions([actual]);
+
+    final result = await container
+        .read(recurringOccurrenceUpdateProvider)
+        .update(RecurringOccurrenceUpdateCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring,
+          occurrence: RecurringOccurrenceTimelineItem(
+            occurrenceId: 'occurrence-1',
+            scheduledOccurrenceDate: DateTime(2026, 2, 1),
+            status: 'confirmed',
+            actualTransaction: actual,
+            amountCents: 8000,
+            currency: 'USD',
+          ),
+          paidDate: DateTime(2026, 2, 2),
+          amountCents: 9000,
+          accountId: 'wallet_usd',
+        ));
+
+    expect(result.isQueued, isTrue);
+    await _waitForAsync(() async {
+      final mutation = (await database.getOutboxMutations()).single;
+      return mutation.status == localMutationStatusCancelled;
+    });
+
+    final restored =
+        await database.getTransactionByIdOrClientRecordId(actual.id);
+    expect(restored?.amountCents, 8000);
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusCancelled);
+  });
+
   test('retryable recurring split failure remains queued and visible',
       () async {
     final database = MonekoDatabase.inMemory();
@@ -861,6 +909,14 @@ Future<void> _waitFor(bool Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
   expect(condition(), isTrue);
+}
+
+Future<void> _waitForAsync(Future<bool> Function() condition) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    if (await condition()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail('Timed out waiting for asynchronous condition');
 }
 
 const _amountSplitPayload = {

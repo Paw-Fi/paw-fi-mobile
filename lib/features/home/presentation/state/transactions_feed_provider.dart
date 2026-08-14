@@ -13,12 +13,7 @@ import 'package:moneko/features/home/presentation/utils/transaction_grouping.dar
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-void _homeSpendTrace(String message) {
-  assert(() {
-    foundation.debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void _homeSpendTrace(String _) {}
 
 int _traceExpenseCents(Iterable<ExpenseEntry> entries) {
   return entries.fold<int>(0, (sum, entry) {
@@ -468,6 +463,15 @@ class TransactionsFeedPageResult {
   });
 }
 
+/// The transaction feed is the posted-transaction source. Recurring templates
+/// are schedule definitions and must be read from the recurring provider so a
+/// confirmed occurrence is never rendered or aggregated beside its template.
+@foundation.visibleForTesting
+List<ExpenseEntry> postedTransactionFeedEntries(
+  Iterable<ExpenseEntry> entries,
+) =>
+    entries.where((entry) => !entry.isRecurring).toList(growable: false);
+
 abstract class TransactionsFeedService {
   const TransactionsFeedService();
 
@@ -850,7 +854,12 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     }
 
     try {
-      final remotePage = await _remote.fetchPage(query, cursor: cursor);
+      final rawRemotePage = await _remote.fetchPage(query, cursor: cursor);
+      final remotePage = TransactionsFeedPageResult(
+        items: postedTransactionFeedEntries(rawRemotePage.items),
+        hasMore: rawRemotePage.hasMore,
+        nextCursor: rawRemotePage.nextCursor,
+      );
       _homeSpendTrace(
         'feed-fetchPage remote count=${remotePage.items.length} '
         'total=${_traceAmountFromCents(_traceExpenseCents(remotePage.items))} hasMore=${remotePage.hasMore}',
@@ -963,7 +972,9 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     }
 
     try {
-      final remoteItems = await _remote.fetchAllPages(query);
+      final remoteItems = postedTransactionFeedEntries(
+        await _remote.fetchAllPages(query),
+      );
       _homeSpendTrace(
         'feed-fetchAllPages remote count=${remoteItems.length} '
         'total=${_traceAmountFromCents(_traceExpenseCents(remoteItems))}',
@@ -1024,7 +1035,12 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _remote.fetchPage(query),
     ]);
     final summary = results[0] as TransactionsFeedSummary;
-    final page = results[1] as TransactionsFeedPageResult;
+    final rawPage = results[1] as TransactionsFeedPageResult;
+    final page = TransactionsFeedPageResult(
+      items: postedTransactionFeedEntries(rawPage.items),
+      hasMore: rawPage.hasMore,
+      nextCursor: rawPage.nextCursor,
+    );
     await _cacheRemoteItems(page.items);
     await _database.reconcileTransactionsFeedPage(
       query: localQuery,
@@ -1045,7 +1061,9 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       localQuery,
     );
     if (!cacheIsComplete || syncedLocalCount != summary.transactionCount) {
-      final authoritativeItems = await _remote.fetchAllPages(query);
+      final authoritativeItems = postedTransactionFeedEntries(
+        await _remote.fetchAllPages(query),
+      );
       await _cacheRemoteItems(authoritativeItems);
       await _database.reconcileTransactionsFeedPage(
         query: localQuery,

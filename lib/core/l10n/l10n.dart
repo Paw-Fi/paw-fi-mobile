@@ -26,6 +26,8 @@ extension SettlementBreakdownL10nX on AppLocalizations {
 
 extension HomeDashboardL10nX on AppLocalizations {
   String get netCashflow => 'Net cashflow';
+
+  String get spendByYou => 'Your share in this space';
 }
 
 extension ImportReviewL10nX on AppLocalizations {

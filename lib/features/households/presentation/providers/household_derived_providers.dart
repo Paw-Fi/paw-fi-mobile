@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -185,7 +184,6 @@ class HouseholdDashboardProjection {
 
 class _HouseholdDashboardProjectionRefreshCache {
   final _entries = <DashboardScopeQuery, HouseholdDashboardProjection>{};
-  final _traceSignatures = <DashboardScopeQuery, String>{};
 
   HouseholdDashboardProjection? operator [](DashboardScopeQuery query) =>
       _entries[query];
@@ -196,57 +194,6 @@ class _HouseholdDashboardProjectionRefreshCache {
   ) {
     _entries[query] = projection;
   }
-
-  void traceIfChanged(
-    DashboardScopeQuery query,
-    HouseholdDashboardProjection projection,
-  ) {
-    if (!kDebugMode) return;
-    final splitExpenses = projection.actualExpenses
-        .where((expense) => expense.splitGroupId?.trim().isNotEmpty == true)
-        .take(3)
-        .map(
-          (expense) =>
-              '${_traceId(expense.id)}:${expense.amountCents}:${_traceId(expense.splitGroupId!)}',
-        )
-        .join(',');
-    final splits = projection.splits.take(3).map(
-      (split) {
-        final lines = split.splitLines
-                ?.map(
-                  (line) => '${_traceId(line.userId)}:${line.amountCents ?? 0}',
-                )
-                .join('+') ??
-            '-';
-        return '${_traceId(split.id)}:${_traceId(split.expenseId)}:'
-            '${split.totalAmountCents}:$lines';
-      },
-    ).join(',');
-    final signature =
-        '${projection.actualExpenses.length}|$splitExpenses|$splits|${projection.hasDeferredSplitReferences}';
-    if (_traceSignatures[query] == signature) return;
-    _traceSignatures[query] = signature;
-    debugPrint(
-      '[HouseholdHomeSnapshotTrace] household=${_traceId(query.householdId)} '
-      'scope=${query.normalizedCurrency ?? '-'}:'
-      '${_traceDay(query.startDate)}:${_traceDay(query.endDate)} '
-      'expenses=${projection.actualExpenses.length} splitExpenses=$splitExpenses '
-      'splits=$splits deferred=${projection.hasDeferredSplitReferences}',
-    );
-  }
-}
-
-String _traceId(String? value) {
-  final normalized = value?.trim() ?? '';
-  if (normalized.isEmpty) return '-';
-  return normalized.length <= 8 ? normalized : normalized.substring(0, 8);
-}
-
-String _traceDay(DateTime? value) {
-  if (value == null) return '-';
-  return '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
 }
 
 final _householdDashboardProjectionRefreshCacheProvider =
@@ -274,6 +221,21 @@ List<ExpenseEntry> mergeHouseholdDashboardExpenses({
   if (limit == null || limit < 0 || merged.length <= limit) return merged;
   return merged.take(limit).toList(growable: false);
 }
+
+Set<String> householdDashboardReferencedSplitGroupIds({
+  required Iterable<ExpenseEntry> actualExpenses,
+  required Iterable<RecurringTransaction> recurringTransactions,
+}) =>
+    {
+      ...actualExpenses
+          .map((entry) => entry.splitGroupId?.trim())
+          .whereType<String>()
+          .where(_databaseUuidPattern.hasMatch),
+      ...recurringTransactions
+          .map((transaction) => transaction.splitGroupId?.trim())
+          .whereType<String>()
+          .where(_databaseUuidPattern.hasMatch),
+    };
 
 /// Shared stale-while-revalidate source for household aggregate cards.
 ///
@@ -395,7 +357,7 @@ final householdDashboardProjectionProvider = Provider.autoDispose
                       occurrenceResolution.suppressionEntries,
                   selectedCurrency: query.selectedCurrency ?? 'USD',
                   selectedCurrencies: query.normalizedCurrencies,
-                  includeFutureOccurrences: false,
+                  includeFutureOccurrences: true,
                 );
       return HouseholdDashboardProjection(
         actualExpenses: actualExpenses,
@@ -421,7 +383,6 @@ final householdDashboardProjectionProvider = Provider.autoDispose
       if (!projection.hasDeferredSplitReferences) {
         refreshCache.put(query, projection);
       }
-      refreshCache.traceIfChanged(query, projection);
       return AsyncValue.data(projection);
     }
 
@@ -433,7 +394,6 @@ final householdDashboardProjectionProvider = Provider.autoDispose
             recurringTransactions ?? retained.recurringTransactions,
         retainedProjection: retained,
       );
-      refreshCache.traceIfChanged(query, projection);
       return AsyncValue.data(projection);
     }
 
@@ -544,11 +504,18 @@ final householdDashboardSplitsProvider = Provider.autoDispose
       optimisticExpenses: optimisticExpenses,
       deletedIds: deletedIds,
     );
-    final referencedIds = mergedExpenses
-        .map((entry) => entry.splitGroupId?.trim())
-        .whereType<String>()
-        .where(_databaseUuidPattern.hasMatch)
-        .toSet();
+    // A projected recurring occurrence inherits its template's split-group ID.
+    // That group is not referenced by a materialized transaction until the
+    // occurrence is confirmed, so include it explicitly. Otherwise household
+    // cards see the projection without its member allocations and attribute the
+    // whole amount to the series creator.
+    final recurringState =
+        ref.watch(recurringTransactionsProvider(householdId));
+    final referencedIds = householdDashboardReferencedSplitGroupIds(
+      actualExpenses: mergedExpenses,
+      recurringTransactions:
+          recurringState.data.valueOrNull ?? const <RecurringTransaction>[],
+    );
     final legacyOptimisticSplitExpenseIds = mergedExpenses
         .where(
           (entry) =>

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
+import 'package:moneko/features/households/presentation/pages/household_member_details_page.dart';
 import 'package:moneko/features/households/presentation/widgets/household_member_spending_card.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
@@ -88,4 +92,49 @@ void main() {
       expect(find.text('Blair'), findsOneWidget);
     },
   );
+
+  testWidgets('uses the dashboard-selected range in member details',
+      (tester) async {
+    final member = HouseholdMember(
+      id: 'membership-a',
+      householdId: 'household-1',
+      userId: 'member-a',
+      role: HouseholdRole.member,
+      joinedAt: DateTime(2026, 1, 1),
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+      userName: 'Avery',
+    );
+    final selectedEntry = ExpenseEntry(
+      id: 'selected-range-entry',
+      userId: member.userId,
+      date: DateTime(2030, 1, 15),
+      amountCents: 1000,
+      currency: 'USD',
+      createdAt: DateTime(2030, 1, 15),
+      type: 'expense',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.lightTheme(),
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: HouseholdMemberDetailsPage(
+            member: member,
+            transactions: [selectedEntry],
+            currency: 'USD',
+            initialStartDate: DateTime(2030, 1, 1),
+            initialEndDate: DateTime(2030, 1, 31),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.text('\$10'), findsWidgets);
+  });
 }

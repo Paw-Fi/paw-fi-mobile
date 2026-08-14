@@ -49,12 +49,7 @@ HomePeriodDateRange _selectedHomePeriodRange(WidgetRef ref) {
   return ref.watch(homePeriodDateRangeProvider(userId));
 }
 
-void _homeSpendTrace(String message) {
-  assert(() {
-    debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void _homeSpendTrace(String _) {}
 
 double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
   return entries.fold<double>(0, (sum, entry) {
@@ -223,7 +218,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
           occurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
+      includeFutureOccurrences: true,
     );
     _homeSpendTrace(
       'spending-render source=data actualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
@@ -442,7 +437,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
           currentOccurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
+      includeFutureOccurrences: true,
     );
     final previousTransactions = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: previousBaseTransactions,
@@ -453,7 +448,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
           previousOccurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
+      includeFutureOccurrences: true,
     );
     final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
     final rates = shouldConvertCurrencies
@@ -814,7 +809,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
           occurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
+      includeFutureOccurrences: true,
     );
     final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
         ? convertTransactionsToCurrency(
@@ -952,7 +947,7 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
           occurrenceResolution.suppressionEntries,
       selectedCurrency: selectedCurrency,
       selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: false,
+      includeFutureOccurrences: true,
     );
     final displayExpenses = (selectedCurrencies?.length ?? 0) > 1
         ? convertTransactionsToCurrency(

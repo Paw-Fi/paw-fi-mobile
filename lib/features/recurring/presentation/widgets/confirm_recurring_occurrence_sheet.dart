@@ -199,6 +199,15 @@ class _ConfirmRecurringOccurrenceFormState
   bool get _isEditing => widget.existingOccurrence?.isConfirmed == true;
   bool get _isSettlementLocked =>
       widget.existingOccurrence?.isSettlementLocked == true;
+  bool get _isSharedConfirmedOccurrence =>
+      _isEditing &&
+      (widget.existingOccurrence?.actualTransaction?.splitGroupId
+                  ?.trim()
+                  .isNotEmpty ==
+              true ||
+          widget.recurringTransaction.splitGroupId?.trim().isNotEmpty == true);
+  bool get _isAmountLocked =>
+      _isSettlementLocked || _isSharedConfirmedOccurrence;
   String get _merchant =>
       widget.existingOccurrence?.actualTransaction?.merchant ??
       widget.recurringTransaction.merchant ??
@@ -249,7 +258,7 @@ class _ConfirmRecurringOccurrenceFormState
     final today = effectiveToday(
       preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
     );
-    if (!_isSettlementLocked && amountCents == null) {
+    if (!_isAmountLocked && amountCents == null) {
       setState(() => _error = context.l10n.recurringOccurrenceEnterAmount);
       return;
     }
@@ -471,7 +480,7 @@ class _ConfirmRecurringOccurrenceFormState
         (!_isEditing || existingWalletId != null)) {
       _accountId = wallets.isEmpty ? null : wallets.first.id;
     }
-    final amountChanged = !_isSettlementLocked &&
+    final amountChanged = !_isAmountLocked &&
         _amountCents != null &&
         _amountCents != (transaction.amount * 100).round();
     final dateLabel = transaction.type == 'income'
@@ -504,7 +513,7 @@ class _ConfirmRecurringOccurrenceFormState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GestureDetector(
-            onTap: _isSubmitting || _isSettlementLocked
+            onTap: _isSubmitting || _isAmountLocked
                 ? null
                 : () async {
                     final amount = await showCalculatorKeypadSheet(
@@ -538,7 +547,7 @@ class _ConfirmRecurringOccurrenceFormState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isSettlementLocked
+                    _isAmountLocked
                         ? context.l10n.recurringOccurrenceActualAmount
                         : context.l10n.tapToEditAmount,
                     textAlign: TextAlign.center,

@@ -71,6 +71,36 @@ void main() {
       expect(rows.single.parentRecurringId, 'recurring_series_1');
     });
 
+    test('recent rows exclude a recurring template but keep its occurrence',
+        () async {
+      await database.upsertTransactions([
+        _entry(
+          id: 'recurring-template',
+          userId: 'user_1',
+          amountCents: 100000,
+          isRecurring: true,
+          date: DateTime(2026, 6, 1),
+        ),
+        _entry(
+          id: 'confirmed-occurrence',
+          userId: 'user_1',
+          amountCents: 80000,
+          date: DateTime(2026, 6, 10),
+        ).copyWith(
+          parentRecurringId: 'recurring-template',
+          scheduledOccurrenceDate: DateTime(2026, 6, 1),
+        ),
+      ]);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+
+      expect(rows.map((entry) => entry.id), ['confirmed-occurrence']);
+    });
+
     test('round-trips recurring occurrence provenance through upserts',
         () async {
       final confirmedAt = DateTime.utc(2026, 6, 11, 12, 30);

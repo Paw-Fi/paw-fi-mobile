@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 void main() {
@@ -38,7 +39,7 @@ void main() {
     test(
         'parses persisted imported occurrences without requiring a transaction',
         () {
-      final item = RecurringOccurrenceTimelineItem.fromPersistedJson({
+      final item = RecurringOccurrenceTimelineItem.fromPersistedJson(const {
         'occurrence': {
           'scheduled_occurrence_date': '2026-07-01',
           'status': 'confirmed',
@@ -61,7 +62,8 @@ void main() {
     });
 
     test('parses list-occurrence summaries without a detail wrapper', () {
-      final item = RecurringOccurrenceTimelineItem.fromOccurrenceSummaryJson({
+      final item =
+          RecurringOccurrenceTimelineItem.fromOccurrenceSummaryJson(const {
         'id': 'occurrence-1',
         'recurring_id': 'rent-series',
         'scheduled_occurrence_date': '2026-08-12',
@@ -77,6 +79,43 @@ void main() {
       expect(item.actualTransactionId, 'actual-1');
       expect(item.actualTransaction, isNull);
       expect(item.scheduledOccurrenceDate, DateTime(2026, 8, 12));
+    });
+
+    test(
+        'keeps the scheduled projection when a confirmed actual is unavailable',
+        () {
+      final transaction = RecurringTransaction(
+        id: 'income-tax',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 7),
+        category: 'taxes',
+        amount: 98.5,
+        currency: 'SGD',
+        ownerType: 'me',
+        privacyScope: 'full',
+        recurrenceRule: RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: DateTime(2026, 4, 7),
+        ),
+        type: 'expense',
+        attachments: const [],
+        createdAt: DateTime(2026, 4, 7),
+      );
+      final resolution = buildRecurringOccurrenceProjectionResolution(
+        recurringTransactions: [transaction],
+        occurrencesByRecurringId: {
+          transaction.id: [
+            RecurringOccurrenceTimelineItem(
+              actualTransactionId: 'missing-actual',
+              scheduledOccurrenceDate: DateTime(2026, 8, 7),
+              status: 'confirmed',
+            ),
+          ],
+        },
+      );
+
+      expect(resolution.suppressionEntries, isEmpty);
+      expect(resolution.occurrencesByActualTransactionId, isEmpty);
     });
   });
 }

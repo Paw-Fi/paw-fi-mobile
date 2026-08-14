@@ -2114,6 +2114,9 @@ class MonekoDatabase {
       FROM local_transactions
       WHERE scope_key = ?
         AND deleted_at IS NULL
+        -- Templates belong to the recurring-series reader. Recent rows are
+        -- posted transactions, including materialized occurrences.
+        AND is_recurring = 0
         AND sync_status != ?
         AND (
           sync_status != ?

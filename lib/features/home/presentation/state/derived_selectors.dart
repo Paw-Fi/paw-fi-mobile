@@ -110,7 +110,7 @@ Map<String, double> calculateMomTrend({
       confirmedOccurrenceSuppressionEntries:
           confirmedOccurrenceSuppressionEntries,
       selectedCurrency: normalizedCurrency,
-      includeFutureOccurrences: false,
+      includeFutureOccurrences: true,
       now: now,
     );
     totals[key] = mergedExpenses.fold<double>(

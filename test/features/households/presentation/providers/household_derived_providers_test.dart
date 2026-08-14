@@ -5,6 +5,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 const _retainedSummary = HouseholdSummary(
   householdId: 'household-1',
@@ -180,5 +181,32 @@ void main() {
       expect(retained?.valueOrNull, same(_retainedSummary));
       expect(retained?.hasError, isFalse);
     });
+  });
+
+  test('loads a projected recurring template split group for member shares',
+      () {
+    const splitGroupId = '11111111-1111-4111-8111-111111111111';
+    final ids = householdDashboardReferencedSplitGroupIds(
+      actualExpenses: const <ExpenseEntry>[],
+      recurringTransactions: [
+        RecurringTransaction(
+          id: '22222222-2222-4222-8222-222222222222',
+          userId: 'user-1',
+          date: DateTime(2026, 8, 14),
+          category: 'food',
+          amount: 100,
+          currency: 'USD',
+          ownerType: 'household',
+          privacyScope: 'full',
+          householdId: '33333333-3333-4333-8333-333333333333',
+          splitGroupId: splitGroupId,
+          type: 'expense',
+          attachments: const [],
+          createdAt: DateTime(2026, 8, 14),
+        ),
+      ],
+    );
+
+    expect(ids, {splitGroupId});
   });
 }

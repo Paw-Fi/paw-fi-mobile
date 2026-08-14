@@ -6,6 +6,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
@@ -42,6 +44,60 @@ void main() {
     expect(query.startDate, DateTime(2026, 4, 1));
     expect(query.endDate, DateTime(2026, 4, 30));
     expect(query.pageSize, 500);
+  });
+
+  test('pocket projection suppresses a legacy confirmed occurrence', () async {
+    final scheduledDate = DateTime(2026, 8, 12);
+    final recurring = RecurringTransaction(
+      id: 'recurring-1',
+      userId: 'user-1',
+      date: scheduledDate,
+      category: 'housing',
+      description: 'Rent',
+      source: null,
+      amount: 500,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      householdId: null,
+      payerUserId: null,
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: scheduledDate,
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: scheduledDate,
+      updatedAt: null,
+    );
+
+    final projected = await loadProjectedPocketMonthExpenses(
+      userId: 'user-1',
+      scope: PocketsScopeType.personal,
+      householdId: null,
+      monthStart: DateTime(2026, 8, 1),
+      selectedCurrency: 'USD',
+      includeUpcomingRecurring: true,
+      actualExpenses: [
+        ExpenseEntry(
+          id: 'legacy-actual',
+          userId: 'user-1',
+          date: scheduledDate,
+          amountCents: 50000,
+          currency: 'USD',
+          createdAt: scheduledDate,
+          type: 'expense',
+        ),
+      ],
+      scopedRecurringTransactions: [recurring],
+      confirmedOccurrenceSuppressionEntries:
+          buildConfirmedOccurrenceSuppressionEntries(
+        recurringId: recurring.id,
+        confirmedScheduledDates: [scheduledDate],
+      ),
+    );
+
+    expect(projected, isEmpty);
   });
 
   group('pocket rollover math', () {

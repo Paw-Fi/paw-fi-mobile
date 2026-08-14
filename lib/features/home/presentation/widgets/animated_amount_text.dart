@@ -3,12 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
-void _homeSpendTrace(String message) {
-  assert(() {
-    debugPrint('🧾 [HomeSpendTrace] $message');
-    return true;
-  }());
-}
+void _homeSpendTrace(String _) {}
 
 String _traceAmount(num value) => value.toStringAsFixed(2);
 

@@ -357,29 +357,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       }
       return true;
     }).toList();
-    final occurrenceSuppressionEntries = <ExpenseEntry>[
-      for (final transaction in recurringTransactions)
-        if (currentUserId.isNotEmpty && projectedRecurringInCategory.isNotEmpty)
-          ...buildConfirmedOccurrenceSuppressionEntries(
-            recurringId: transaction.id,
-            confirmedScheduledDates: ref
-                    .watch(recurringOccurrenceTimelineProvider(
-                      RecurringOccurrenceTimelineQuery(
-                        userId: currentUserId,
-                        householdId: transaction.householdId,
-                        recurringId: transaction.id,
-                        startDate: query.startDate ??
-                            projectedRecurringInCategory.first.date,
-                        endDate: query.endDate ??
-                            projectedRecurringInCategory.last.date,
-                      ),
-                    ))
-                    .valueOrNull
-                    ?.where((item) => item.isConfirmed)
-                    .map((item) => item.scheduledOccurrenceDate) ??
-                const <DateTime>[],
-          ),
-    ];
+    final occurrenceSuppressionEntries =
+        occurrenceResolution.suppressionEntries;
 
     final dedupedProjectedRecurringInCategory =
         dedupeProjectedRecurringExpenseEntries(

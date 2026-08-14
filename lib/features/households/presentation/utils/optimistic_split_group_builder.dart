@@ -103,7 +103,6 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
   final customSplits = Map<String, dynamic>.from(rawCustomSplits);
   final splitType = _parseSplitType(customSplits['splitType']);
   if (splitType == null) return null;
-  if (splitType == SplitType.equal) return null;
 
   final rawMemberSplits = customSplits['memberSplits'];
   final rawMaps = rawMemberSplits is List
@@ -124,6 +123,16 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
       ? rawMaps.map((entry) => entry['userId'].toString().trim()).toList()
       : fallbackMembers.map((member) => member.userId).toList();
   if (userIds.isEmpty) return null;
+
+  if (splitType == SplitType.equal) {
+    return _ResolvedSplitLines(
+      splitType: SplitType.equal,
+      lineInputs: _equalLineInputs(
+        userIds: userIds,
+        totalCents: totalCents,
+      ),
+    );
+  }
 
   int amountCentsFor(Map<String, dynamic> entry) {
     switch (splitType) {

@@ -9,11 +9,14 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -32,6 +35,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   final String currency;
   final CurrencyRateTable? currencyRates;
   final String? householdId;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
 
   const HouseholdMemberDetailsPage({
     super.key,
@@ -41,6 +46,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     required this.currency,
     this.currencyRates,
     this.householdId,
+    this.initialStartDate,
+    this.initialEndDate,
   });
 
   @override
@@ -48,21 +55,66 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
-    final range = getDateRangeFromFilter(
-      DateRangeFilter.thisMonth,
-      null,
-      null,
-      financialMonthStartDay: financialMonthStartDay,
-    );
+    final range = initialStartDate != null && initialEndDate != null
+        ? <String, DateTime>{
+            'from': DateTime(
+              initialStartDate!.year,
+              initialStartDate!.month,
+              initialStartDate!.day,
+            ),
+            'to': DateTime(
+              initialEndDate!.year,
+              initialEndDate!.month,
+              initialEndDate!.day,
+            ),
+          }
+        : getDateRangeFromFilter(
+            DateRangeFilter.thisMonth,
+            null,
+            null,
+            financialMonthStartDay: financialMonthStartDay,
+          );
     final rangeFrom = range['from']!;
     final rangeTo = range['to']!;
 
-    // Filter transactions for this member within the selected date range
-    final memberTransactions = _getMemberTransactions(rangeFrom, rangeTo);
-    final rawTransactionsById = <String, ExpenseEntry>{
-      for (final transaction in transactions) transaction.id: transaction,
-    };
     final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    final liveProjection = householdId == null || currentUserId.isEmpty
+        ? null
+        : ref
+            .watch(
+              householdDashboardProjectionProvider(
+                DashboardScopeQuery(
+                  userId: currentUserId,
+                  householdId: householdId,
+                  selectedCurrency: currency,
+                  selectedCurrencies: ref.watch(
+                    homeFilterProvider.select(
+                      (state) => state.normalizedSelectedCurrencies,
+                    ),
+                  ),
+                  startDate: rangeFrom,
+                  endDate: rangeTo,
+                ),
+              ),
+            )
+            .valueOrNull;
+    // The card supplies a coherent navigation snapshot. Once the existing
+    // scoped projection resolves, keep the open detail screen in sync with
+    // occurrence and split mutations instead of retaining that snapshot.
+    final effectiveTransactions =
+        liveProjection?.expensesWithRecurring ?? transactions;
+    final effectiveSplits = liveProjection?.splits ?? splits;
+    // Filter transactions for this member within the selected date range.
+    final memberTransactions = _getMemberTransactions(
+      rangeFrom,
+      rangeTo,
+      transactions: effectiveTransactions,
+      splits: effectiveSplits,
+    );
+    final rawTransactionsById = <String, ExpenseEntry>{
+      for (final transaction in effectiveTransactions)
+        transaction.id: transaction,
+    };
     final recurringTransactions = ref
             .watch(recurringTransactionsProvider(householdId))
             .data
@@ -852,7 +904,11 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   }
 
   List<ExpenseEntry> _getMemberTransactions(
-      DateTime rangeFrom, DateTime rangeTo) {
+    DateTime rangeFrom,
+    DateTime rangeTo, {
+    required List<ExpenseEntry> transactions,
+    required List<ExpenseSplitGroup>? splits,
+  }) {
     // Use similar logic to the spending card to attribute expenses
     final memberTransactions = <ExpenseEntry>[];
 
@@ -864,7 +920,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
     // Lookup map for split groups
     final byGroupId = splits != null
-        ? {for (final g in splits!) g.id: g}
+        ? {for (final g in splits) g.id: g}
         : <String, ExpenseSplitGroup>{};
 
     for (final t in transactions) {
@@ -1191,6 +1247,8 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             isIncome: false,
             showRecurringChip: shouldShowRecurringChipForExpense(rawExpense),
             showPendingChip: rawExpense.isProviderPending,
+            useCustomCategoryStyleOverrides:
+                rawExpense.householdId?.trim().isEmpty ?? true,
             onTap: () => onTransactionTap(rawExpense),
           );
         },

@@ -553,15 +553,6 @@ class AccountsPage extends HookConsumerWidget {
                         rates: CurrencyRates.rates,
                         isStale: true,
                       );
-              final currentMonthKey = _normalizeWalletMonth(
-                scopeQuery.currentMonthStart,
-                financialMonthStartDay: scopeQuery.financialMonthStartDay,
-              );
-              final currentWalletBalances = isPreviewMode
-                  ? const <String, int>{}
-                  : walletsPageState?.cachedSnapshotsByMonth[currentMonthKey]
-                          ?.walletBalances ??
-                      const <String, int>{};
               _AccountsSnapshot accountsSnapshotForMonth(
                 WalletsMonthSnapshot snapshot,
               ) {
@@ -599,6 +590,10 @@ class AccountsPage extends HookConsumerWidget {
                           rates: currencyRates,
                         );
               final displayedSelectedSnapshot = rawSelectedSnapshot;
+              final isWalletStackLoading = !isPreviewMode &&
+                  (walletsPageState?.isSelectedMonthLoading ?? false) &&
+                  walletsPageState?.selectedSnapshot == null &&
+                  walletsPageState?.displayedSnapshot != null;
 
               return RefreshIndicator(
                 onRefresh: onRefresh,
@@ -717,12 +712,17 @@ class AccountsPage extends HookConsumerWidget {
                         key: walletStackSpotlightKey,
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 24, top: 12),
-                          child: _WalletAccountStack(
-                            wallets: wallets,
-                            isPreviewMode: isPreviewMode,
-                            walletBalances: currentWalletBalances,
-                            displayCurrency: selectedCurrencyCode,
-                            rates: currencyRates,
+                          child: Skeletonizer(
+                            key: const ValueKey('wallet-stack-loading'),
+                            enabled: isWalletStackLoading,
+                            child: _WalletAccountStack(
+                              wallets: wallets,
+                              isPreviewMode: isPreviewMode,
+                              walletBalances:
+                                  displayedSelectedSnapshot.walletBalances,
+                              displayCurrency: selectedCurrencyCode,
+                              rates: currencyRates,
+                            ),
                           ),
                         ),
                       ),
