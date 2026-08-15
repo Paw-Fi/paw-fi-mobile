@@ -4,7 +4,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/bank_sync/bank_provider_routing.dart';
-import 'package:moneko/core/bank_sync/tink_link_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/main_menu_screen.dart';
 import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
@@ -18,7 +17,6 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
-import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -150,18 +148,11 @@ class _PlaidSyncWalkthroughPageState
     final client = Supabase.instance.client;
 
     try {
-      if (provider == BankProvider.plaid) {
-        await _performPlaidFlow(
-          client: client,
-          countryCode: selectedCountryCode,
-          userId: user.uid,
-        );
-      } else if (provider == BankProvider.tink) {
-        await _performTinkFlow(
-          client: client,
-          countryCode: selectedCountryCode,
-        );
-      }
+      await _performPlaidFlow(
+        client: client,
+        countryCode: selectedCountryCode,
+        userId: user.uid,
+      );
     } catch (error) {
       if (!mounted) return;
       if (_extractFunctionErrorCode(error) == 'duplicate_item_accounts') {
@@ -341,46 +332,6 @@ class _PlaidSyncWalkthroughPageState
         builder: (_) => PlaidSyncReviewPage(session: session),
       ),
     );
-  }
-
-  Future<void> _performTinkFlow({
-    required SupabaseClient client,
-    required String countryCode,
-  }) async {
-    final linkTokenResponse = await client.functions.invoke(
-      'tink-create-link-token',
-      body: {
-        'countryCode': countryCode,
-        'intent': 'add',
-        if (widget.targetHouseholdId != null)
-          'targetHouseholdId': widget.targetHouseholdId,
-      },
-    );
-
-    if (linkTokenResponse.status >= 400) {
-      throw Exception(context.l10n.failedToCreateTinkLink);
-    }
-
-    final linkData = linkTokenResponse.data as Map<String, dynamic>?;
-    final linkUrl = linkData?['linkUrl'] as String?;
-    if (linkUrl == null || linkUrl.isEmpty) {
-      throw Exception(context.l10n.missingTinkLinkUrl);
-    }
-
-    ref.read(pendingBankLinkStateProvider.notifier).state =
-        PendingBankLinkState(
-      countryCode: countryCode,
-      targetHouseholdId: widget.targetHouseholdId,
-    );
-
-    final opened = await openTinkLink(linkUrl);
-    if (!opened) {
-      ref.read(pendingBankLinkStateProvider.notifier).state = null;
-      throw Exception(context.l10n.couldNotOpenTinkLink);
-    }
-
-    if (!mounted) return;
-    Navigator.of(context).pop();
   }
 
   Future<void> _handleDuplicateBankConnection([dynamic response]) async {

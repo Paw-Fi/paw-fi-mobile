@@ -64,37 +64,6 @@ void main() {
       expect(account.excludeFromAnalytics, isTrue);
     });
 
-    test('falls back to derived wallet defaults when no linked wallet exists',
-        () {
-      final session = BankSyncReviewSession.fromResponse(
-        data: {
-          'connectionId': 'connection-2',
-          'accounts': [
-            {
-              'id': 'bank-account-2',
-              'name': 'Savings',
-              'currency': 'eur',
-              'type': 'depository',
-              'subtype': 'savings',
-            },
-          ],
-        },
-        flowReason: null,
-        provider: 'tink',
-        targetHouseholdId: 'household-1',
-        defaultAccountName: 'Bank account',
-      );
-
-      final account = session.accounts.first;
-      expect(account.hasLinkedWallet, isFalse);
-      expect(account.walletName, 'Savings');
-      expect(account.walletIcon, 'savings');
-      expect(account.walletColor, startsWith('#'));
-      expect(account.currency, 'EUR');
-      expect(account.excludeFromAnalytics, isFalse);
-      expect(session.targetHouseholdId, 'household-1');
-    });
-
     test('uses institution logo URL for new linked-wallet defaults', () {
       final session = BankSyncReviewSession.fromResponse(
         data: {

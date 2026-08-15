@@ -700,7 +700,7 @@ class _ReviewSkeleton extends StatelessWidget {
   }
 }
 
-class _ShimmerBox extends StatelessWidget {
+class _ShimmerBox extends StatefulWidget {
   final double height;
   final double width;
   final double borderRadius;
@@ -711,14 +711,41 @@ class _ShimmerBox extends StatelessWidget {
   });
 
   @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      height: height,
-      width: width,
-      decoration: BoxDecoration(
-        color: scheme.surfaceBorder,
-        borderRadius: BorderRadius.circular(borderRadius),
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.3, end: 0.8).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      ),
+      child: Container(
+        height: widget.height,
+        width: widget.width,
+        decoration: BoxDecoration(
+          color: scheme.surfaceBorder,
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+        ),
       ),
     );
   }

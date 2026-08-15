@@ -74,7 +74,8 @@ void main() {
     expect(pendingRemoval.requiresUserAction, isFalse);
   });
 
-  test('existing connections always use Plaid regardless of selected country',
+  test(
+      'existing connections use Plaid and unsupported countries are unavailable',
       () {
     expect(
       resolveBankProviderForConnection(
@@ -85,7 +86,7 @@ void main() {
     );
     expect(
       resolveBankProviderForConnection(connectionId: null, countryCode: 'DE'),
-      BankProvider.tink,
+      BankProvider.comingSoon,
     );
   });
 

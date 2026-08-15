@@ -1,17 +1,14 @@
 /// Bank provider routing logic for determining which bank sync provider
 /// to use based on country code.
 ///
-/// Plaid handles US banks only. Tink handles all other countries.
+/// Plaid handles supported bank connections.
 
 import 'dart:math';
 
 /// Supported bank sync providers.
 enum BankProvider {
-  /// Plaid - US/Canada banks
+  /// Plaid-supported banks.
   plaid,
-
-  /// Tink - European and other supported countries
-  tink,
 
   /// Coming soon - Countries not yet supported
   comingSoon,
@@ -24,44 +21,14 @@ const Set<String> plaidSupportedCountries = {
   'CA', // Canada
 };
 
-/// Countries where Tink is the primary provider.
-/// This includes all countries from plaidCountryOptions except US.
-const Set<String> tinkSupportedCountries = {
-  // Americas (non-US/CA)
-  'MX', 'BR', 'CL', 'PY', 'GT', 'DO',
-
-  // Africa & Middle East
-  'NG', 'EG', 'GH', 'KE', 'ZA', 'AE', 'SA',
-
-  // Asia-Pacific
-  'CN', 'HK', 'JP', 'KR', 'VN', 'TH', 'ID', 'IN', 'MY', 'PH', 'SG', 'AU', 'NZ',
-  'LK', 'PK',
-
-  // Core Europe
-  'DE', 'FR', 'GB', 'IT', 'ES', 'NL', 'BE', 'CH', 'AT', 'IE', 'LU',
-
-  // Northern Europe
-  'SE', 'NO', 'FI', 'DK', 'IS',
-
-  // Southern Europe / Mediterranean
-  'PT', 'GR', 'HR', 'RS', 'BG', 'SI', 'MK', 'AL', 'ME', 'BA', 'MT', 'CY',
-
-  // Eastern Europe
-  'PL', 'CZ', 'SK', 'HU', 'RO', 'MD', 'UA', 'BY',
-};
-
 /// Returns the appropriate bank provider for the given country code.
 ///
 /// - Returns [BankProvider.plaid] for US/Canada
-/// - Returns [BankProvider.tink] for Tink-supported countries
 /// - Returns [BankProvider.comingSoon] for all other countries
 BankProvider getProviderForCountry(String countryCode) {
   final code = countryCode.toUpperCase();
   if (plaidSupportedCountries.contains(code)) {
     return BankProvider.plaid;
-  }
-  if (tinkSupportedCountries.contains(code)) {
-    return BankProvider.tink;
   }
   return BankProvider.comingSoon;
 }
@@ -87,8 +54,7 @@ String? resolveBankConnectionId({
 /// Returns whether the given country is supported by any bank provider.
 bool isCountrySupported(String countryCode) {
   final code = countryCode.toUpperCase();
-  return plaidSupportedCountries.contains(code) ||
-      tinkSupportedCountries.contains(code);
+  return plaidSupportedCountries.contains(code);
 }
 
 /// Returns the display name for the bank provider.
@@ -96,8 +62,6 @@ String getProviderDisplayName(BankProvider provider) {
   switch (provider) {
     case BankProvider.plaid:
       return 'Plaid';
-    case BankProvider.tink:
-      return 'Tink';
     case BankProvider.comingSoon:
       return 'Coming Soon';
   }

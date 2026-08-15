@@ -35,13 +35,6 @@ class DeepLinks {
 
   static const String plaidCallback = '$appScheme://plaid';
 
-  /// Tink callback URL
-  /// Format: moneko://tink/callback?code=xxx&credentialsId=yyy
-  ///
-  /// Users are redirected here after completing Tink Link flow.
-  /// The code parameter is exchanged for access tokens.
-  static const String tinkCallback = '$appScheme://tink';
-
   // ==================== WhatsApp Verification Deep Links ====================
 
   /// WhatsApp verification callback URL
@@ -265,12 +258,6 @@ class DeepLinks {
 
   static bool isPlaidCallback(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'plaid';
-  }
-
-  /// Check if a URI is a Tink callback
-  /// Format: moneko://tink/callback?code=xxx&credentialsId=yyy
-  static bool isTinkCallback(Uri uri) {
-    return uri.scheme == appScheme && uri.host == 'tink';
   }
 
   /// Legacy OAuth callback (kept for backward compatibility)
