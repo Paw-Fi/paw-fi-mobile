@@ -3529,5 +3529,12 @@
   "areYouCurrentlyUsingOtherApp": "Ви зараз користуєтеся іншим застосунком?",
   "pickYourSourceSubtitle": "Виберіть джерело, щоб точно дізнатися, який файл потрібно завантажити. На наступному кроці ми імпортуємо його у ваш особистий акаунт.",
   "friendOrFamily": "Друзі або родина",
-  "trialActiveUntilDate": "Пробний період Plus діє до {formattedDate}"
+  "trialActiveUntilDate": "Пробний період Plus діє до {formattedDate}",
+  "spendByYou": "Ваші витрати в цьому просторі",
+  "importReviewCompleteTitle": "Імпорт завершено",
+  "importReviewClosePage": "Закрити цю сторінку",
+  "importReviewResultsTitle": "Результати імпорту",
+  "importReviewTransactionLogged": "Транзакцію додано",
+  "importReviewSourceTitle": "Імпорт із пересланих даних",
+  "plaidReviewLoadMore": "Завантажити більше транзакцій"
 }

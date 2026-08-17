@@ -128,3 +128,66 @@ class TransactionExportDataSource {
     return (response as List).cast<Map<String, dynamic>>();
   }
 }
+
+List<ExpenseEntry> mergeExportExpenses({
+  required Iterable<ExpenseEntry> remoteExpenses,
+  required Iterable<ExpenseEntry> pendingLocalExpenses,
+  required TransactionExportSpaceOption space,
+  required DateTimeRange dateRange,
+  Set<String> excludedExpenseIds = const <String>{},
+}) {
+  final expensesById = <String, ExpenseEntry>{
+    for (final expense in remoteExpenses)
+      if (!excludedExpenseIds.contains(expense.id)) expense.id: expense,
+  };
+
+  for (final expense in pendingLocalExpenses) {
+    // A pending local update replaces the remote row even when it has moved
+    // outside this export's date range or space.
+    expensesById.remove(expense.id);
+    if (expense.isRecurring ||
+        excludedExpenseIds.contains(expense.id) ||
+        !_isInExportDateRange(expense, dateRange) ||
+        !_belongsToExportSpace(expense, space)) {
+      continue;
+    }
+    expensesById[expense.id] = expense;
+  }
+
+  final expenses = expensesById.values.toList(growable: false)
+    ..sort((left, right) {
+      final dateOrder = right.date.compareTo(left.date);
+      if (dateOrder != 0) return dateOrder;
+      final createdOrder = right.createdAt.compareTo(left.createdAt);
+      if (createdOrder != 0) return createdOrder;
+      return right.id.compareTo(left.id);
+    });
+  return expenses;
+}
+
+bool _belongsToExportSpace(
+  ExpenseEntry expense,
+  TransactionExportSpaceOption space,
+) {
+  switch (space.type) {
+    case TransactionExportSpaceType.all:
+      return true;
+    case TransactionExportSpaceType.personal:
+      return expense.householdId?.trim().isEmpty ?? true;
+    case TransactionExportSpaceType.household:
+      return expense.householdId?.trim() == space.householdId?.trim();
+  }
+}
+
+bool _isInExportDateRange(ExpenseEntry expense, DateTimeRange dateRange) {
+  final date =
+      DateTime(expense.date.year, expense.date.month, expense.date.day);
+  final start = DateTime(
+    dateRange.start.year,
+    dateRange.start.month,
+    dateRange.start.day,
+  );
+  final end =
+      DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day);
+  return !date.isBefore(start) && !date.isAfter(end);
+}

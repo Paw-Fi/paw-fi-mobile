@@ -3483,5 +3483,12 @@
   "areYouCurrentlyUsingOtherApp": "کیا آپ فی الحال کوئی دوسری ایپ استعمال کر رہے ہیں؟",
   "pickYourSourceSubtitle": "کون سی فائل اپ لوڈ کرنی ہے یہ دیکھنے کے لیے اپنا ذریعہ منتخب کریں۔ اگلے مرحلے میں ہم اسے آپ کے ذاتی اکاؤنٹ میں امپورٹ کریں گے۔",
   "friendOrFamily": "دوست یا خاندان",
-  "trialActiveUntilDate": "آپ کا Plus ٹرائل {formattedDate} تک فعال ہے"
+  "trialActiveUntilDate": "آپ کا Plus ٹرائل {formattedDate} تک فعال ہے",
+  "spendByYou": "اس اسپیس میں آپ کے اخراجات",
+  "importReviewCompleteTitle": "امپورٹ مکمل ہو گیا",
+  "importReviewClosePage": "یہ صفحہ بند کریں",
+  "importReviewResultsTitle": "امپورٹ کے نتائج",
+  "importReviewTransactionLogged": "ٹرانزیکشن درج ہو گئی",
+  "importReviewSourceTitle": "فارورڈ کردہ مواد سے امپورٹ",
+  "plaidReviewLoadMore": "مزید ٹرانزیکشنز لوڈ کریں"
 }

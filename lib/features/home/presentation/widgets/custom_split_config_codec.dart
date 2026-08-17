@@ -175,6 +175,20 @@ Map<String, dynamic>? buildCustomSplitsPayload({
 }) {
   if (splits.isEmpty) return null;
 
+  // The server uses this established sentinel to distinguish a deliberate
+  // equal allocation from an omitted automatic/default split. Without it,
+  // a manually entered 50/50 amount split is indistinguishable from a stale
+  // default-shaped payload when Auto split is disabled.
+  if (splitType == SplitType.equal ||
+      _hasEqualPositiveValues(splitType, splits)) {
+    return {
+      'splitType': SplitType.equal.name,
+      'memberSplits': splits
+          .map((split) => {'userId': split.member.userId})
+          .toList(growable: false),
+    };
+  }
+
   return {
     'splitType': splitType.name,
     'memberSplits': splits.map((split) {
@@ -199,6 +213,74 @@ Map<String, dynamic>? buildCustomSplitsPayload({
       return memberData;
     }).toList(growable: false),
   };
+}
+
+/// Keeps an allocation supplied by AI explicit, while encoding equal values
+/// using the backend's established `equal` sentinel. This is necessary when
+/// Auto split is off: an omitted payload means unsplit, but a requested 50/50
+/// remains a real split.
+Map<String, dynamic>? normalizeExplicitCustomSplitsPayload(
+  Object? rawCustomSplits,
+) {
+  if (rawCustomSplits is! Map) return null;
+  final customSplits = Map<String, dynamic>.from(rawCustomSplits);
+  final splitType = customSplits['splitType']?.toString().trim().toLowerCase();
+  if (splitType == null || splitType.isEmpty) return null;
+
+  final memberSplits = customSplits['memberSplits'];
+  if (memberSplits is! List || memberSplits.isEmpty) return null;
+  final memberIds = memberSplits
+      .whereType<Map>()
+      .map((entry) => entry['userId']?.toString().trim())
+      .whereType<String>()
+      .where((userId) => userId.isNotEmpty)
+      .toList(growable: false);
+  if (memberIds.isEmpty) return null;
+
+  if (splitType == SplitType.equal.name) {
+    return {
+      'splitType': SplitType.equal.name,
+      'memberSplits': memberIds.map((userId) => {'userId': userId}).toList(),
+    };
+  }
+
+  final splitValueKey = switch (splitType) {
+    'amount' => 'amount',
+    'percentage' => 'percentage',
+    'shares' => 'shares',
+    _ => null,
+  };
+  if (splitValueKey == null) return null;
+  final values = memberSplits
+      .whereType<Map>()
+      .map((entry) => entry[splitValueKey])
+      .whereType<num>()
+      .map((value) => value.toDouble())
+      .toList(growable: false);
+  if (values.length != memberIds.length || values.isEmpty) return null;
+  final first = values.first;
+  if (first > 0 && values.every((value) => (value - first).abs() < 0.000001)) {
+    return {
+      'splitType': SplitType.equal.name,
+      'memberSplits': memberIds.map((userId) => {'userId': userId}).toList(),
+    };
+  }
+
+  return customSplits;
+}
+
+bool _hasEqualPositiveValues(SplitType splitType, List<MemberSplit> splits) {
+  final values = switch (splitType) {
+    SplitType.amount => splits.map((split) => split.amount).toList(),
+    SplitType.percentage => splits.map((split) => split.percentage).toList(),
+    SplitType.shares =>
+      splits.map((split) => split.shares?.toDouble()).toList(),
+    SplitType.equal => const <double?>[],
+  };
+  if (values.isEmpty || values.any((value) => value == null)) return false;
+  final first = values.first!;
+  if (first <= 0) return false;
+  return values.every((value) => (value! - first).abs() < 0.000001);
 }
 
 double? _asDouble(Object? value) {

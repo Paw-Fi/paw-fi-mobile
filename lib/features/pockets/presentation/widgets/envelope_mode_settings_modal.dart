@@ -68,56 +68,6 @@ void showEnvelopeModeSettingsModal(
                   description: context.l10n.avoidOverspendingDescription,
                   colorScheme: colorScheme,
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colorScheme.outline.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.pocketsForecastRecurringSpentTitle,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              context.l10n
-                                  .pocketsForecastRecurringSpentDescription,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colorScheme.mutedForeground,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Switch.adaptive(
-                        value: forecastEnabled,
-                        onChanged: (value) {
-                          setModalState(() => forecastEnabled = value);
-                          onIncludeUpcomingRecurringChanged(value);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
               ],
             ),
           ),

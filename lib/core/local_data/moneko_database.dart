@@ -2320,23 +2320,27 @@ class MonekoDatabase {
 
   Future<List<ExpenseEntry>> getPendingOwnedTransactions({
     required String userId,
-    required DateTime startDate,
-    required DateTime endDate,
+    DateTime? startDate,
+    DateTime? endDate,
     String? currency,
   }) async {
     final conditions = <String>[
       'user_id = ?',
       'deleted_at IS NULL',
       'sync_status = ?',
-      'date >= ?',
-      'date <= ?',
     ];
     final args = <Object?>[
       userId,
       localSyncStatusLocal,
-      _dateOnly(startDate),
-      _dateOnly(endDate),
     ];
+    if (startDate != null) {
+      conditions.add('date >= ?');
+      args.add(_dateOnly(startDate));
+    }
+    if (endDate != null) {
+      conditions.add('date <= ?');
+      args.add(_dateOnly(endDate));
+    }
     final normalizedCurrency = currency?.trim().toUpperCase();
     if (normalizedCurrency != null && normalizedCurrency.isNotEmpty) {
       conditions.add('UPPER(COALESCE(currency, \'\')) = ?');

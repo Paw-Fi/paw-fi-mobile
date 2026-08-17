@@ -58,7 +58,7 @@ Widget buildNetCashflowCard(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          context.l10n.netCashflow.toUpperCase(),
+          context.l10n.netCashFlow.toUpperCase(),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,

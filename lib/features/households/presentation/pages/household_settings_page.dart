@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:moneko/shared/widgets/async_data_skeleton.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -266,7 +266,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                 ),
               );
             },
-            loading: () => const AsyncDataSkeleton(rowCount: 6),
+            loading: () => const _HouseholdSettingsSkeleton(),
             error: (e, s) => Center(child: Text('${context.l10n.error}: $e')),
           ),
         ),
@@ -896,5 +896,422 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         }
       }
     }
+  }
+}
+
+class _HouseholdSettingsSkeleton extends StatelessWidget {
+  const _HouseholdSettingsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Skeletonizer(
+      key: const ValueKey('household-settings-skeleton'),
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
+        child: CustomScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                top: getSubPageTopPadding(context),
+                bottom: 40,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildGeneralSettingsSkeleton(context, colorScheme),
+                  _buildAutoSplitSkeleton(context, colorScheme),
+                  _buildMembersSkeleton(context, colorScheme),
+                  _buildDangerZoneSkeleton(context, colorScheme),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeneralSettingsSkeleton(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: colorScheme.cardSurface,
+                  borderRadius: BorderRadius.circular(40),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.credit_card_rounded,
+                    size: 40,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+              Transform.translate(
+                offset: const Offset(4, 4),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colorScheme.cardSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 48),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 26.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: colorScheme.appleInputBackground,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: const Center(
+              child: Bone.text(
+                words: 2,
+                fontSize: 20,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  Widget _buildAutoSplitSkeleton(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return _buildSkeletonSection(
+      context,
+      colorScheme,
+      title: context.l10n.autoSplit,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.autoSplit,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.l10n.autoSplitDescriptionOn,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        fontWeight: FontWeight.w400,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Bone(
+                  width: 51,
+                  height: 31,
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Bone(
+                width: double.infinity,
+                height: 36,
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+              ),
+              const SizedBox(height: 16),
+              _buildMemberSplitSkeletonRow(colorScheme),
+              const SizedBox(height: 12),
+              _buildMemberSplitSkeletonRow(colorScheme),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMemberSplitSkeletonRow(ColorScheme colorScheme) {
+    return const Row(
+      children: [
+        Bone.circle(size: 32),
+        SizedBox(width: 12),
+        Expanded(
+          child: Bone.text(
+            words: 2,
+            fontSize: 14,
+          ),
+        ),
+        SizedBox(width: 12),
+        Bone(
+          width: 48,
+          height: 24,
+          borderRadius: BorderRadius.all(Radius.circular(6)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMembersSkeleton(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return _buildSkeletonSection(
+      context,
+      colorScheme,
+      title: context.l10n.members,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              const Bone.circle(size: 40),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Bone.text(words: 2, fontSize: 15),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            context.l10n.you,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Bone.text(words: 3, fontSize: 13),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                context.l10n.owner,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              const Bone.circle(size: 40),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Bone.text(words: 2, fontSize: 15),
+                    SizedBox(height: 4),
+                    Bone.text(words: 3, fontSize: 13),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                context.l10n.member,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  CupertinoIcons.person_add,
+                  size: 20,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.l10n.inviteNewMember,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDangerZoneSkeleton(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return _buildSkeletonSection(
+      context,
+      colorScheme,
+      title: context.l10n.dangerZone,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.l10n.deleteHousehold,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.destructive,
+                  ),
+                ),
+              ),
+              Icon(
+                CupertinoIcons.trash,
+                size: 20,
+                color: colorScheme.destructive,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonSection(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.0,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.cardSurface,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: _withSectionDividers(context, colorScheme, children),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _withSectionDividers(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<Widget> children,
+  ) {
+    if (children.isEmpty) return [];
+
+    return List<Widget>.generate(children.length * 2 - 1, (index) {
+      if (index.isEven) {
+        return children[index ~/ 2];
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Divider(
+          height: 1,
+          thickness: 0.5,
+          color: colorScheme.border.withValues(alpha: 0.22),
+        ),
+      );
+    });
   }
 }

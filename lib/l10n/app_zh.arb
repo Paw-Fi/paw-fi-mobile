@@ -3533,5 +3533,12 @@
   "areYouCurrentlyUsingOtherApp": "你目前在使用其他应用吗？",
   "pickYourSourceSubtitle": "选择数据来源，查看需要上传的具体文件。下一步我们会将其导入你的个人账户。",
   "friendOrFamily": "亲朋好友",
-  "trialActiveUntilDate": "你的 Plus 试用期有效至 {formattedDate}"
+  "trialActiveUntilDate": "你的 Plus 试用期有效至 {formattedDate}",
+  "spendByYou": "你在此空间的支出",
+  "importReviewCompleteTitle": "导入完成",
+  "importReviewClosePage": "关闭此页面",
+  "importReviewResultsTitle": "导入结果",
+  "importReviewTransactionLogged": "交易已记录",
+  "importReviewSourceTitle": "从转发内容导入",
+  "plaidReviewLoadMore": "加载更多交易"
 }

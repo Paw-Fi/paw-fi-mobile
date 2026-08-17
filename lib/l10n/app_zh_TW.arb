@@ -3481,5 +3481,12 @@
   "areYouCurrentlyUsingOtherApp": "你目前有使用其他 App 嗎？",
   "pickYourSourceSubtitle": "選擇資料來源，查看需要上傳的檔案。下一步我們會將其匯入你的個人帳戶。",
   "friendOrFamily": "親朋好友",
-  "trialActiveUntilDate": "你的 Plus 試用期可使用至 {formattedDate}"
+  "trialActiveUntilDate": "你的 Plus 試用期可使用至 {formattedDate}",
+  "spendByYou": "你在此空間的支出",
+  "importReviewCompleteTitle": "匯入完成",
+  "importReviewClosePage": "關閉此頁面",
+  "importReviewResultsTitle": "匯入結果",
+  "importReviewTransactionLogged": "交易已記錄",
+  "importReviewSourceTitle": "從轉寄內容匯入",
+  "plaidReviewLoadMore": "載入更多交易"
 }

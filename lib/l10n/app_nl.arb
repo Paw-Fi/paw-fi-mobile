@@ -3484,5 +3484,12 @@
   "areYouCurrentlyUsingOtherApp": "Gebruik je momenteel een andere app?",
   "pickYourSourceSubtitle": "Kies je bron om precies te zien welk bestand je moet uploaden. In de volgende stap importeren we het naar je persoonlijke account.",
   "friendOrFamily": "Vrienden of familie",
-  "trialActiveUntilDate": "Je Plus-proefperiode is actief tot {formattedDate}"
+  "trialActiveUntilDate": "Je Plus-proefperiode is actief tot {formattedDate}",
+  "spendByYou": "Jouw uitgaven in deze ruimte",
+  "importReviewCompleteTitle": "Import voltooid",
+  "importReviewClosePage": "Deze pagina sluiten",
+  "importReviewResultsTitle": "Importresultaten",
+  "importReviewTransactionLogged": "Transactie vastgelegd",
+  "importReviewSourceTitle": "Doorgestuurde import",
+  "plaidReviewLoadMore": "Meer transacties laden"
 }

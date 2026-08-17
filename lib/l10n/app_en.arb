@@ -3581,5 +3581,13 @@
   "importAndContinue": "Import and continue",
   "areYouCurrentlyUsingOtherApp": "Are you currently using other app?",
   "pickYourSourceSubtitle": "Pick your source to see exactly which file to upload. We import into your personal account in the next step.",
-  "friendOrFamily": "Friend or family"
+  "friendOrFamily": "Friend or family",
+  "comparePlans": "Compare plans",
+  "spendByYou": "Your spending in this space",
+  "importReviewCompleteTitle": "Import complete",
+  "importReviewClosePage": "Close this page",
+  "importReviewResultsTitle": "Import results",
+  "importReviewTransactionLogged": "Transaction logged",
+  "importReviewSourceTitle": "Forwarded import",
+  "plaidReviewLoadMore": "Load more transactions"
 }

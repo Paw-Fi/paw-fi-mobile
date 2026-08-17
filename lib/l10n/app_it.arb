@@ -3484,5 +3484,12 @@
   "areYouCurrentlyUsingOtherApp": "Usi attualmente un'altra app?",
   "pickYourSourceSubtitle": "Scegli la fonte per sapere esattamente quale file caricare. Lo importeremo nel tuo account personale nel passaggio successivo.",
   "friendOrFamily": "Amici o familiari",
-  "trialActiveUntilDate": "La tua prova di Plus è attiva fino al {formattedDate}"
+  "trialActiveUntilDate": "La tua prova di Plus è attiva fino al {formattedDate}",
+  "spendByYou": "Le tue spese in questo spazio",
+  "importReviewCompleteTitle": "Importazione completata",
+  "importReviewClosePage": "Chiudi questa pagina",
+  "importReviewResultsTitle": "Risultati dell'importazione",
+  "importReviewTransactionLogged": "Transazione registrata",
+  "importReviewSourceTitle": "Importazione inoltrata",
+  "plaidReviewLoadMore": "Carica altre transazioni"
 }

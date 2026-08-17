@@ -24,20 +24,9 @@ extension SettlementBreakdownL10nX on AppLocalizations {
       'Balance from before detailed settlement history was available.';
 }
 
-extension HomeDashboardL10nX on AppLocalizations {
-  String get netCashflow => 'Net cashflow';
+extension HomeDashboardL10nX on AppLocalizations {}
 
-  String get spendByYou => 'Your share in this space';
-}
-
-extension ImportReviewL10nX on AppLocalizations {
-  String get comparePlans => 'Compare plans';
-  String get importReviewCompleteTitle => 'Import complete';
-  String get importReviewClosePage => 'Close this page';
-  String get importReviewResultsTitle => 'Import results';
-  String get importReviewTransactionLogged => 'Transaction logged';
-  String get importReviewSourceTitle => 'Forwarded import';
-}
+extension ImportReviewL10nX on AppLocalizations {}
 
 extension SiriExpenseTutorialL10nX on AppLocalizations {
   String get logExpenseWithSiri => 'Log expense with Siri';
@@ -237,7 +226,6 @@ extension BankConnectionsRecoveryL10nX on AppLocalizations {
 extension PlaidClassificationReviewL10nX on AppLocalizations {
   String get failedToSyncTransactions =>
       'Bank transactions could not be synced. Try again before continuing.';
-  String get plaidReviewLoadMore => 'Load more transactions';
   String get plaidClassificationNeedsReview => 'Check transaction type';
   String get plaidClassificationNeedsReviewDescription =>
       'Plaid could not identify how this transaction should affect your budget.';

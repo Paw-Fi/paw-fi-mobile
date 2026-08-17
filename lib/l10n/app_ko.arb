@@ -3350,5 +3350,12 @@
   "areYouCurrentlyUsingOtherApp": "현재 다른 앱을 사용하고 계신가요?",
   "pickYourSourceSubtitle": "가져올 출처를 선택하면 어떤 파일을 업로드해야 하는지 확인할 수 있습니다. 다음 단계에서 개인 계정으로 가져옵니다.",
   "friendOrFamily": "친구 또는 가족",
-  "trialActiveUntilDate": "Plus 체험은 {formattedDate}까지 이용할 수 있어요"
+  "trialActiveUntilDate": "Plus 체험은 {formattedDate}까지 이용할 수 있어요",
+  "spendByYou": "이 공간에서 내 지출",
+  "importReviewCompleteTitle": "가져오기 완료",
+  "importReviewClosePage": "이 페이지 닫기",
+  "importReviewResultsTitle": "가져오기 결과",
+  "importReviewTransactionLogged": "거래가 기록되었습니다",
+  "importReviewSourceTitle": "전달된 항목에서 가져오기",
+  "plaidReviewLoadMore": "거래 더 불러오기"
 }

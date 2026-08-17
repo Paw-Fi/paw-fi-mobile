@@ -3487,5 +3487,12 @@
   "areYouCurrentlyUsingOtherApp": "Вы сейчас используете другое приложение?",
   "pickYourSourceSubtitle": "Выберите источник, чтобы точно узнать, какой файл нужно загрузить. На следующем шаге мы импортируем его в ваш личный аккаунт.",
   "friendOrFamily": "Друзья или семья",
-  "trialActiveUntilDate": "Пробный период Plus действует до {formattedDate}"
+  "trialActiveUntilDate": "Пробный период Plus действует до {formattedDate}",
+  "spendByYou": "Ваши расходы в этом пространстве",
+  "importReviewCompleteTitle": "Импорт завершен",
+  "importReviewClosePage": "Закрыть эту страницу",
+  "importReviewResultsTitle": "Результаты импорта",
+  "importReviewTransactionLogged": "Транзакция добавлена",
+  "importReviewSourceTitle": "Импорт из пересланных данных",
+  "plaidReviewLoadMore": "Загрузить еще транзакции"
 }

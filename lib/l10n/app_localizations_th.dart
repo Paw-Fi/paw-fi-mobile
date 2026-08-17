@@ -9949,4 +9949,28 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get friendOrFamily => 'เพื่อนหรือครอบครัว';
+
+  @override
+  String get comparePlans => 'Compare plans';
+
+  @override
+  String get spendByYou => 'ค่าใช้จ่ายของคุณในพื้นที่นี้';
+
+  @override
+  String get importReviewCompleteTitle => 'นำเข้าเรียบร้อยแล้ว';
+
+  @override
+  String get importReviewClosePage => 'ปิดหน้านี้';
+
+  @override
+  String get importReviewResultsTitle => 'ผลการนำเข้า';
+
+  @override
+  String get importReviewTransactionLogged => 'บันทึกรายการแล้ว';
+
+  @override
+  String get importReviewSourceTitle => 'นำเข้าจากข้อมูลที่ส่งต่อ';
+
+  @override
+  String get plaidReviewLoadMore => 'โหลดรายการเพิ่มเติม';
 }

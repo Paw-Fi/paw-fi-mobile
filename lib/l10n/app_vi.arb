@@ -3536,5 +3536,12 @@
   "areYouCurrentlyUsingOtherApp": "Hiện tại bạn có đang sử dụng ứng dụng khác không?",
   "pickYourSourceSubtitle": "Chọn nguồn để biết chính xác tệp cần tải lên. Chúng tôi sẽ nhập tệp đó vào tài khoản cá nhân của bạn ở bước tiếp theo.",
   "friendOrFamily": "Bạn bè hoặc người thân",
-  "trialActiveUntilDate": "Bản dùng thử Plus của bạn có hiệu lực đến {formattedDate}"
+  "trialActiveUntilDate": "Bản dùng thử Plus của bạn có hiệu lực đến {formattedDate}",
+  "spendByYou": "Chi tiêu của bạn trong không gian này",
+  "importReviewCompleteTitle": "Nhập dữ liệu hoàn tất",
+  "importReviewClosePage": "Đóng trang này",
+  "importReviewResultsTitle": "Kết quả nhập dữ liệu",
+  "importReviewTransactionLogged": "Đã ghi lại giao dịch",
+  "importReviewSourceTitle": "Nhập từ nội dung được chuyển tiếp",
+  "plaidReviewLoadMore": "Tải thêm giao dịch"
 }

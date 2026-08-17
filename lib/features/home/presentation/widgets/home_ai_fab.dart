@@ -497,36 +497,6 @@ Household? _resolveHouseholdForAutoSplit(
   return null;
 }
 
-bool _hasExplicitCustomSplits(Object? rawCustomSplits) {
-  return _normalizeExplicitCustomSplits(rawCustomSplits) != null;
-}
-
-Map<String, dynamic>? _normalizeExplicitCustomSplits(Object? rawCustomSplits) {
-  if (rawCustomSplits is! Map) return null;
-  final customSplits = Map<String, dynamic>.from(rawCustomSplits);
-  final splitType = customSplits['splitType']?.toString().trim().toLowerCase();
-  if (splitType == null || splitType.isEmpty || splitType == 'equal') {
-    return null;
-  }
-  final splitValueKey = switch (splitType) {
-    'amount' => 'amount',
-    'percentage' => 'percentage',
-    'shares' => 'shares',
-    _ => null,
-  };
-  if (splitValueKey == null) return null;
-
-  final memberSplits = customSplits['memberSplits'];
-  if (memberSplits is! List || memberSplits.isEmpty) return null;
-  final hasValues = memberSplits.any((entry) =>
-      entry is Map &&
-      entry[splitValueKey] is num &&
-      (entry['userId']?.toString().trim().isNotEmpty ?? false));
-  if (!hasValues) return null;
-
-  return customSplits;
-}
-
 String _resolveOptimisticAiCategory({
   required Object? rawCategory,
   required Object? rawDescription,
@@ -631,36 +601,6 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
     if (household == null || members == null || members.isEmpty) return null;
     return _AutoSplitContext(household: household, members: members);
   }).catchError((_) => null);
-}
-
-Map<String, dynamic>? _resolveAutoSplitCustomSplitsPayload(
-  _AutoSplitContext? context, {
-  required double totalAmount,
-}) {
-  final household = context?.household;
-  if (household == null || !household.autoSplitEnabled) return null;
-
-  final config = household.autoSplitConfig;
-  if (config == null || config.isEmpty) return null;
-
-  final members = context?.members;
-  if (members == null || members.isEmpty) return null;
-
-  final splitType = resolveStoredSplitType(config);
-  if (splitType.name == 'equal') return null;
-
-  final templateSplits = deserializeStoredSplitConfig(
-    members: members,
-    totalAmount: totalAmount,
-    config: config,
-  );
-  final splits = resolveStoredSplitsForTransaction(
-    splitType: splitType,
-    splits: templateSplits,
-    config: config,
-    totalAmount: totalAmount,
-  );
-  return buildCustomSplitsPayload(splitType: splitType, splits: splits);
 }
 
 Future<void> _maybeRequestReviewAfterExpenseSave({
@@ -1084,25 +1024,15 @@ Future<void> _persistAiTransactions(
             ? rawPayerUserId.trim()
             : null;
 
-    final hasExplicitCustomSplits = _hasExplicitCustomSplits(
-      item.raw['customSplits'],
-    );
     final autoSplitEnabled =
         autoSplitContext?.household.autoSplitEnabled != false;
-    final explicitCustomSplits = _normalizeExplicitCustomSplits(
+    final explicitCustomSplits = normalizeExplicitCustomSplitsPayload(
       item.raw['customSplits'],
     );
-    final defaultCustomSplits = householdId != null &&
-            householdId.isNotEmpty &&
-            !isPortfolio &&
-            autoSplitEnabled &&
-            !hasExplicitCustomSplits
-        ? _resolveAutoSplitCustomSplitsPayload(
-            autoSplitContext,
-            totalAmount: tx.amount,
-          )
-        : null;
-    final effectiveCustomSplits = explicitCustomSplits ?? defaultCustomSplits;
+    // Stored defaults stay server-resolved. Sending one back as an explicit
+    // request would let a stale client override a newly disabled household
+    // setting.
+    final effectiveCustomSplits = explicitCustomSplits;
     homeSpendTrace(
       '[HouseholdDefaultSplitDecisionTrace] stage=mobile-request '
       'trace=$batchTraceBase household=${householdId ?? '<personal>'} '

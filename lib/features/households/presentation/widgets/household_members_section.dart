@@ -1,10 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:moneko/shared/widgets/async_data_skeleton.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -51,14 +50,10 @@ class _HouseholdMembersSectionState
     final invitesAsync =
         ref.watch(householdInvitesProvider(widget.householdId));
 
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     if (membersAsync.isLoading) {
-      return const AsyncDataSkeleton(
-        rowCount: 3,
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-      );
+      return _buildSkeleton(context);
     }
 
     // We handle errors gracefully or just show empty/loading
@@ -261,6 +256,51 @@ class _HouseholdMembersSectionState
   }
 
   // Helpers & Logic
+
+  Widget _buildSkeleton(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Skeletonizer(
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: _buildSettingsSection(
+        context,
+        title: context.l10n.members,
+        children: [
+          _buildSettingsTile(
+            context: context,
+            leading: const Bone.circle(size: 40),
+            title: const Bone.text(words: 2, fontSize: 15),
+            subtitle: const Bone.text(words: 3, fontSize: 13),
+            trailing: Text(
+              context.l10n.owner,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ),
+          _buildSettingsTile(
+            context: context,
+            leading: const Bone.circle(size: 40),
+            title: const Bone.text(words: 2, fontSize: 15),
+            subtitle: const Bone.text(words: 3, fontSize: 13),
+            trailing: Text(
+              context.l10n.member,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSettingsSection(
     BuildContext context, {

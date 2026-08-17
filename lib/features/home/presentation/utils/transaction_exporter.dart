@@ -708,6 +708,99 @@ class _ReceiptFile {
   final Uint8List bytes;
 }
 
+const _maximumLocalReceiptBytes = 15 * 1024 * 1024;
+const _supportedReceiptExtensions = {'.jpg', '.jpeg', '.png', '.webp'};
+const _pendingAiInputDirectoryName = 'pending_ai_inputs';
+
+@visibleForTesting
+Future<Uint8List?> readLocalReceiptBytesForExport(
+  String localPath, {
+  Iterable<Directory>? allowedDirectories,
+}) async {
+  if (kIsWeb || localPath.trim().isEmpty) return null;
+
+  try {
+    final file = File(localPath);
+    final filePath = await file.resolveSymbolicLinks();
+    final directories = allowedDirectories ?? await _exportReceiptDirectories();
+    final isWithinAllowedDirectory = await _isWithinAllowedDirectory(
+      filePath,
+      directories,
+    );
+    final extension = _resolveImageExtension(filePath);
+    if (!isWithinAllowedDirectory ||
+        !_supportedReceiptExtensions.contains(extension)) {
+      return null;
+    }
+
+    final resolvedFile = File(filePath);
+    final stat = await resolvedFile.stat();
+    if (stat.type != FileSystemEntityType.file ||
+        stat.size > _maximumLocalReceiptBytes) {
+      return null;
+    }
+    final bytes = await resolvedFile.readAsBytes();
+    return bytes.length <= _maximumLocalReceiptBytes &&
+            _hasSupportedImageSignature(bytes, extension)
+        ? bytes
+        : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<List<Directory>> _exportReceiptDirectories() async {
+  final documents = await getApplicationDocumentsDirectory();
+  return [
+    Directory('${documents.path}/$_pendingAiInputDirectoryName'),
+  ];
+}
+
+Future<bool> _isWithinAllowedDirectory(
+  String filePath,
+  Iterable<Directory> directories,
+) async {
+  for (final directory in directories) {
+    final rootPath = await directory.resolveSymbolicLinks();
+    if (filePath.startsWith('$rootPath${Platform.pathSeparator}')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _hasSupportedImageSignature(Uint8List bytes, String extension) {
+  switch (extension) {
+    case '.jpg':
+    case '.jpeg':
+      return bytes.length >= 3 &&
+          bytes[0] == 0xff &&
+          bytes[1] == 0xd8 &&
+          bytes[2] == 0xff;
+    case '.png':
+      return bytes.length >= 8 &&
+          bytes[0] == 0x89 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x4e &&
+          bytes[3] == 0x47 &&
+          bytes[4] == 0x0d &&
+          bytes[5] == 0x0a &&
+          bytes[6] == 0x1a &&
+          bytes[7] == 0x0a;
+    case '.webp':
+      return bytes.length >= 12 &&
+          bytes[0] == 0x52 &&
+          bytes[1] == 0x49 &&
+          bytes[2] == 0x46 &&
+          bytes[3] == 0x46 &&
+          bytes[8] == 0x57 &&
+          bytes[9] == 0x45 &&
+          bytes[10] == 0x42 &&
+          bytes[11] == 0x50;
+  }
+  return false;
+}
+
 Future<_ReceiptBundle> _downloadReceiptImages(
   List<ExpenseEntry> expenses,
 ) async {
@@ -716,16 +809,24 @@ Future<_ReceiptBundle> _downloadReceiptImages(
   final usedNames = <String>{};
 
   for (final expense in expenses) {
+    final localPath = expense.localReceiptImagePath?.trim() ?? '';
     final url = expense.receiptImageUrl?.trim() ?? '';
-    if (url.isEmpty) continue;
+    Uint8List? bytes;
+    var source = url;
+    if (!kIsWeb && localPath.isNotEmpty) {
+      bytes = await readLocalReceiptBytesForExport(localPath);
+      if (bytes != null) source = localPath;
+    }
+    if (bytes == null && url.isNotEmpty) {
+      bytes = await _downloadBytes(url);
+    }
+    if (bytes == null || bytes.isEmpty) continue;
 
     final fileName = _uniqueReceiptFileName(
       expenseId: expense.id,
-      url: url,
+      url: source,
       usedNames: usedNames,
     );
-    final bytes = await _downloadBytes(url);
-    if (bytes == null || bytes.isEmpty) continue;
 
     fileNamesByExpenseId[expense.id] = 'receipts/$fileName';
     files.add(_ReceiptFile(fileName: fileName, bytes: bytes));

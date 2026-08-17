@@ -205,6 +205,7 @@ class _UnifiedTransactionSheetV2State
   String? _resolvedSplitGroupId;
   bool _hasCheckedSplitGroup = false;
   bool _isResolvingExistingSplit = false;
+  bool _isCreatingSplitForUnsplitExpense = false;
   String? _selectedFinancialAccountId;
   bool _hasManuallySelectedFinancialAccount = false;
   bool _hasManuallyChangedAccountSelection = false;
@@ -1977,6 +1978,10 @@ class _UnifiedTransactionSheetV2State
                 final pendingExpense =
                     isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
+                final isConfirmedUnsplitExistingExpense = isExistingExpense &&
+                    _hasCheckedSplitGroup &&
+                    !_isResolvingExistingSplit &&
+                    _effectiveSplitGroupId == null;
 
                 return GroupSplitEditorSection(
                   members: _householdMembers!,
@@ -1994,7 +1999,20 @@ class _UnifiedTransactionSheetV2State
                   splitEditorKey: ValueKey(
                     'split_${_customSplitType}_${_initialSplitSignature ?? 'pending'}',
                   ),
-                  showNotYetSplitBanner: false,
+                  // Once the lookup completes with no group, the editor is a
+                  // new allocation draft. Do not let its visual equal default
+                  // be mistaken for a saved split on this transaction.
+                  showNotYetSplitBanner: isConfirmedUnsplitExistingExpense,
+                  notYetSplitMessage: isConfirmedUnsplitExistingExpense
+                      ? context.l10n.notYetSplitBanner
+                      : null,
+                  showSplitEditor: !isConfirmedUnsplitExistingExpense ||
+                      _isCreatingSplitForUnsplitExpense,
+                  onCreateSplit: isConfirmedUnsplitExistingExpense
+                      ? () => setState(
+                            () => _isCreatingSplitForUnsplitExpense = true,
+                          )
+                      : null,
                   onSplitChanged: (splitType, splits) {
                     setState(() {
                       _customSplitType = splitType;
@@ -2607,11 +2625,6 @@ class _UnifiedTransactionSheetV2State
           _selectedPayerUserId = validPayerId;
         });
 
-        _maybeSeedSinglePayerSplitDefaults(
-          householdId: householdId,
-          members: members,
-        );
-
         // Seed the split editor with the household's saved default split
         // template so users immediately see the configured behaviour for new
         // expenses. Only applies when adding a fresh expense (not income,
@@ -2911,49 +2924,6 @@ class _UnifiedTransactionSheetV2State
     }
 
     return floorValues;
-  }
-
-  void _maybeSeedSinglePayerSplitDefaults({
-    required String householdId,
-    required List<HouseholdMember> members,
-  }) {
-    if (members.isEmpty) return;
-    if (_customSplits != null || _customSplitType != null) return;
-
-    final household = _resolveHouseholdById(householdId);
-    if (household == null || household.isPortfolio) return;
-
-    if (!isNewExpense || household.autoSplitEnabled) return;
-
-    final currentUserId = ref.read(authProvider).uid;
-    final payerId = members.any((member) => member.userId == currentUserId)
-        ? currentUserId
-        : (_selectedPayerUserId != null &&
-                members.any((member) => member.userId == _selectedPayerUserId)
-            ? _selectedPayerUserId!
-            : members.first.userId);
-    final totalAmount =
-        (isNewExpense ? ref.read(pendingExpenseProvider)?.amount : null) ??
-            widget.newExpense?.amount ??
-            amount;
-
-    if (!mounted) return;
-    setState(() {
-      _selectedPayerUserId = payerId;
-      _customSplitType = SplitType.amount;
-      _customSplits = members
-          .map(
-            (member) => MemberSplit(
-              member: member,
-              amount: member.userId == payerId ? totalAmount : 0,
-              percentage: member.userId == payerId ? 100 : 0,
-              shares: member.userId == payerId ? 1 : null,
-              includedInAmount: member.userId == payerId,
-              includedInPercentage: member.userId == payerId,
-            ),
-          )
-          .toList(growable: false);
-    });
   }
 
   List<MemberSplit> _toAmountEditorSplits({
@@ -3356,19 +3326,8 @@ class _UnifiedTransactionSheetV2State
   Map<String, dynamic> _customSplitsPayload(
     SplitType splitType,
     List<MemberSplit> splits,
-  ) {
-    return {
-      'splitType': splitType.name,
-      'memberSplits': splits
-          .map((split) => {
-                'userId': split.member.userId,
-                if (split.amount != null) 'amount': split.amount,
-                if (split.percentage != null) 'percentage': split.percentage,
-                if (split.shares != null) 'shares': split.shares,
-              })
-          .toList(growable: false),
-    };
-  }
+  ) =>
+      buildCustomSplitsPayload(splitType: splitType, splits: splits)!;
 
   household_split.ExpenseSplitGroup? _buildOptimisticSplitGroupForSheet({
     required String expenseId,

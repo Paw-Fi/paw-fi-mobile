@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart'
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
@@ -443,6 +444,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
       }
 
       var locallyDeletedExpenseIds = const <String>{};
+      var pendingLocalExpenses = const <ExpenseEntry>[];
       try {
         final database = await ref.read(localDatabaseProvider.future);
         locallyDeletedExpenseIds =
@@ -452,14 +454,24 @@ class HomeHeaderSliver extends HookConsumerWidget {
           includeAllHouseholds:
               exportRequest.space.type == TransactionExportSpaceType.all,
         );
+        pendingLocalExpenses = await database.getPendingOwnedTransactions(
+          userId: user.uid,
+        );
       } catch (_) {}
 
-      final exportableExpenses = await TransactionExportDataSource(
+      final remoteExpenses = await TransactionExportDataSource(
         ref.read(supabaseClientProvider),
       ).fetchExportExpenses(
         userId: user.uid,
         dateRange: exportRequest.dateRange,
         space: exportRequest.space,
+        excludedExpenseIds: locallyDeletedExpenseIds,
+      );
+      final exportableExpenses = mergeExportExpenses(
+        remoteExpenses: remoteExpenses,
+        pendingLocalExpenses: pendingLocalExpenses,
+        space: exportRequest.space,
+        dateRange: exportRequest.dateRange,
         excludedExpenseIds: locallyDeletedExpenseIds,
       );
       if (!context.mounted) {

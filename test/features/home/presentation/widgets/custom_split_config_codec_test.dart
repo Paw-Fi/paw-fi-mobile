@@ -107,6 +107,43 @@ void main() {
       ]);
     });
 
+    test('encodes a deliberate 50/50 allocation as equal', () {
+      final payload = buildCustomSplitsPayload(
+        splitType: SplitType.amount,
+        splits: [
+          MemberSplit(member: members[0], amount: 50),
+          MemberSplit(member: members[1], amount: 50),
+        ],
+      );
+
+      expect(payload, {
+        'splitType': 'equal',
+        'memberSplits': [
+          {'userId': 'u1'},
+          {'userId': 'u2'},
+        ],
+      });
+    });
+
+    test('keeps an AI-proposed 50/50 allocation explicit', () {
+      expect(
+        normalizeExplicitCustomSplitsPayload({
+          'splitType': 'amount',
+          'memberSplits': [
+            {'userId': 'u1', 'amount': 50},
+            {'userId': 'u2', 'amount': 50},
+          ],
+        }),
+        {
+          'splitType': 'equal',
+          'memberSplits': [
+            {'userId': 'u1'},
+            {'userId': 'u2'},
+          ],
+        },
+      );
+    });
+
     test('preserves two-member 40/60 percentage default payload', () {
       final stored = serializeStoredSplitConfig(
         splitType: SplitType.percentage,

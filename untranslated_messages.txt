@@ -1,1 +1,57 @@
-{}
+{
+  "de": [
+    "comparePlans"
+  ],
+
+  "es": [
+    "comparePlans"
+  ],
+
+  "fr": [
+    "comparePlans"
+  ],
+
+  "it": [
+    "comparePlans"
+  ],
+
+  "ja": [
+    "comparePlans"
+  ],
+
+  "ko": [
+    "comparePlans"
+  ],
+
+  "nl": [
+    "comparePlans"
+  ],
+
+  "ru": [
+    "comparePlans"
+  ],
+
+  "th": [
+    "comparePlans"
+  ],
+
+  "uk": [
+    "comparePlans"
+  ],
+
+  "ur": [
+    "comparePlans"
+  ],
+
+  "vi": [
+    "comparePlans"
+  ],
+
+  "zh": [
+    "comparePlans"
+  ],
+
+  "zh_TW": [
+    "comparePlans"
+  ]
+}

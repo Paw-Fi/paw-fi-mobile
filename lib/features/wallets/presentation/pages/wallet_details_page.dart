@@ -1072,6 +1072,20 @@ class WalletDetailsPage extends HookConsumerWidget {
       buttonStyle: PopupButtonStyle.plain,
     );
 
+    final hasGoal = latestWallet.goalAmountCents != null &&
+        latestWallet.goalAmountCents! > 0;
+    final hasBankSync =
+        shouldShowBankSyncStatus && bankSyncStatusLabel != null;
+    final hasBadges = latestWallet.isDefault ||
+        latestWallet.excludeFromAnalytics ||
+        latestWallet.isArchived ||
+        hasLinkedBankAccount;
+
+    var calculatedExpandedHeight = 280.0;
+    if (hasBadges) calculatedExpandedHeight += 28.0;
+    if (hasGoal) calculatedExpandedHeight += 56.0;
+    if (hasBankSync) calculatedExpandedHeight += 38.0;
+
     return Scaffold(
       backgroundColor: gradientColors.first,
       floatingActionButton: !latestWallet.isArchived
@@ -1081,8 +1095,11 @@ class WalletDetailsPage extends HookConsumerWidget {
                 onPressed: onTransfer,
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
-                icon: const Icon(Icons.swap_horiz),
-                label: Text(context.l10n.transfer),
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: Text(
+                  context.l10n.transfer,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             )
           : null,
@@ -1118,10 +1135,7 @@ class WalletDetailsPage extends HookConsumerWidget {
               ),
               slivers: [
                 SliverAppBar(
-                  expandedHeight:
-                      shouldShowBankSyncStatus && bankSyncStatusLabel != null
-                          ? 332
-                          : 300,
+                  expandedHeight: calculatedExpandedHeight,
                   pinned: true,
                   stretch: true,
                   backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
@@ -1145,7 +1159,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 12),
                             WalletLogoAvatar(
                               logoUrl: latestWallet.logoUrl,
                               icon: resolveWalletIcon(latestWallet.icon),
@@ -1153,61 +1167,55 @@ class WalletDetailsPage extends HookConsumerWidget {
                               size: 56,
                               iconSize: 26,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
                             Text(
                               latestWallet.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                                 color: textColor,
                               ),
                             ),
+                            if (hasBadges)
+                              _WalletMetadataBadges(
+                                isDefault: latestWallet.isDefault,
+                                isArchived: latestWallet.isArchived,
+                                excludeFromAnalytics:
+                                    latestWallet.excludeFromAnalytics,
+                                hasLinkedBank: hasLinkedBankAccount,
+                                textColor: textColor,
+                              ),
                             const SizedBox(height: 8),
                             _AnimatedAmountText(
                               value: currentBalanceCents / 100.0,
                               currencyCode: walletCurrencyCode,
                               style: TextStyle(
-                                fontSize: 48,
+                                fontSize: 44,
                                 fontWeight: FontWeight.w800,
                                 color: textColor,
-                                letterSpacing: -1.5,
+                                letterSpacing: -1.2,
                               ),
                             ),
-                            if (latestWallet.goalAmountCents != null) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.emoji_events,
-                                    size: 16,
-                                    color: secondaryTextColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  _AnimatedAmountText(
-                                    value:
-                                        latestWallet.goalAmountCents! / 100.0,
-                                    currencyCode: walletCurrencyCode,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: secondaryTextColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                            if (hasGoal)
+                              _GoalProgressHeader(
+                                goalAmountCents: latestWallet.goalAmountCents!,
+                                currentBalanceCents: currentBalanceCents,
+                                currencyCode: walletCurrencyCode,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
                               ),
-                            ],
-                            if (shouldShowBankSyncStatus &&
-                                bankSyncStatusLabel != null) ...[
-                              const SizedBox(height: 12),
-                              _WalletBankSyncStatusText(
+                            if (hasBankSync)
+                              _WalletBankSyncStatusPill(
                                 label: bankSyncStatusLabel,
                                 onSync: isManualSyncingState.value
                                     ? null
                                     : onManualBankSync,
-                                textColor: secondaryTextColor,
+                                isSyncing: isManualSyncingState.value,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
                               ),
-                            ],
                           ],
                         ),
                       ),
@@ -1223,7 +1231,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                         topRight: Radius.circular(32),
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -1232,7 +1240,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                             Text(
                               context.l10n.keyInsights,
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: colorScheme.onSurface,
                               ),
@@ -1241,14 +1249,14 @@ class WalletDetailsPage extends HookConsumerWidget {
                             Text(
                               '(${context.l10n.thisMonth.toLowerCase()})',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         Row(
                           children: [
                             Expanded(
@@ -1258,7 +1266,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 currencyCode: walletCurrencyCode,
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _StatCard(
                                 label: context.l10n.totalSpent,
@@ -1268,17 +1276,19 @@ class WalletDetailsPage extends HookConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         _StatCard(
                           label: context.l10n.net,
                           amount: net,
                           currencyCode: walletCurrencyCode,
+                          isFullWidth: true,
+                          isNet: true,
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 28),
                         Text(
                           context.l10n.recentTransactions,
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: colorScheme.onSurface,
                           ),
@@ -1917,16 +1927,224 @@ String _formatDurationCompact(BuildContext context, Duration duration) {
   );
 }
 
-class _WalletBankSyncStatusText extends StatelessWidget {
-  const _WalletBankSyncStatusText({
+class _WalletMetadataBadges extends StatelessWidget {
+  const _WalletMetadataBadges({
+    required this.isDefault,
+    required this.isArchived,
+    required this.excludeFromAnalytics,
+    required this.hasLinkedBank,
+    required this.textColor,
+  });
+
+  final bool isDefault;
+  final bool isArchived;
+  final bool excludeFromAnalytics;
+  final bool hasLinkedBank;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = <Widget>[
+      if (isDefault)
+        _BadgeChip(
+          icon: Icons.star_rounded,
+          label: context.l10n.primary,
+          textColor: textColor,
+        ),
+      if (excludeFromAnalytics)
+        _BadgeChip(
+          icon: Icons.visibility_off_rounded,
+          label: context.l10n.excludedFromAnalytics,
+          textColor: textColor,
+        ),
+      if (isArchived)
+        _BadgeChip(
+          icon: Icons.archive_outlined,
+          label: context.l10n.archive,
+          textColor: textColor,
+        ),
+      if (hasLinkedBank)
+        _BadgeChip(
+          icon: Icons.account_balance_rounded,
+          label: context.l10n.bankConnection,
+          textColor: textColor,
+        ),
+    ];
+
+    if (badges.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 6,
+        runSpacing: 4,
+        children: badges,
+      ),
+    );
+  }
+}
+
+class _BadgeChip extends StatelessWidget {
+  const _BadgeChip({
+    required this.icon,
+    required this.label,
+    required this.textColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: textColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: textColor.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalProgressHeader extends StatelessWidget {
+  const _GoalProgressHeader({
+    required this.goalAmountCents,
+    required this.currentBalanceCents,
+    required this.currencyCode,
+    required this.textColor,
+    required this.secondaryTextColor,
+  });
+
+  final int goalAmountCents;
+  final int currentBalanceCents;
+  final String currencyCode;
+  final Color textColor;
+  final Color secondaryTextColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final goalAmount = goalAmountCents / 100.0;
+    final currentAmount =
+        (currentBalanceCents < 0 ? 0 : currentBalanceCents) / 100.0;
+    final progress =
+        goalAmount > 0 ? (currentAmount / goalAmount).clamp(0.0, 1.0) : 1.0;
+    final percentage = (progress * 100).toInt();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      constraints: const BoxConstraints(maxWidth: 320),
+      decoration: BoxDecoration(
+        color: textColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: textColor.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.emoji_events_rounded,
+                    size: 15,
+                    color: textColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    context.l10n.target,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _AnimatedAmountText(
+                    value: goalAmount,
+                    currencyCode: currencyCode,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '$percentage%',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (context, val, _) {
+                return LinearProgressIndicator(
+                  value: val,
+                  minHeight: 5,
+                  backgroundColor: textColor.withValues(alpha: 0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(textColor),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletBankSyncStatusPill extends StatelessWidget {
+  const _WalletBankSyncStatusPill({
     required this.label,
     required this.onSync,
+    required this.isSyncing,
     required this.textColor,
+    required this.secondaryTextColor,
   });
 
   final String label;
   final VoidCallback? onSync;
+  final bool isSyncing;
   final Color textColor;
+  final Color secondaryTextColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1935,15 +2153,48 @@ class _WalletBankSyncStatusText extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onSync,
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        child: Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: textColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: textColor.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSyncing)
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(textColor),
+                  ),
+                )
+              else
+                Icon(
+                  Icons.sync_rounded,
+                  size: 14,
+                  color: secondaryTextColor,
+                ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1952,23 +2203,37 @@ class _WalletBankSyncStatusText extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard(
-      {required this.label, required this.amount, required this.currencyCode});
+  const _StatCard({
+    required this.label,
+    required this.amount,
+    required this.currencyCode,
+    this.isFullWidth = false,
+    this.isNet = false,
+  });
 
   final String label;
   final double amount;
   final String currencyCode;
+  final bool isFullWidth;
+  final bool isNet;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isNegative = amount < 0;
+    final valueColor = isNet
+        ? (isNegative
+            ? colorScheme.destructive
+            : (amount > 0 ? colorScheme.success : colorScheme.foreground))
+        : colorScheme.foreground;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: colorScheme.cardSurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.border.withValues(alpha: 0.5),
         ),
       ),
       child: Column(
@@ -1980,11 +2245,11 @@ class _StatCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+              color: colorScheme.mutedForeground,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -1992,9 +2257,9 @@ class _StatCard extends StatelessWidget {
               value: amount,
               currencyCode: currencyCode,
               style: TextStyle(
-                fontSize: 18,
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w700,
+                fontSize: isFullWidth ? 22 : 18,
+                color: valueColor,
+                fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
               ),
             ),
@@ -2037,7 +2302,8 @@ class _AnimatedAmountText extends StatelessWidget {
 
 String _formatAmount(BuildContext context, double amount, String currencyCode) {
   final symbol = resolveCurrencySymbol(currencyCode);
-  final normalized = double.parse(formatAmount(amount));
+  final isNegative = amount < 0;
+  final normalized = double.parse(formatAmount(amount.abs()));
   final localized = formatLocalizedNumber(context, normalized);
-  return '$symbol$localized';
+  return '${isNegative ? '-' : ''}$symbol$localized';
 }

@@ -3537,5 +3537,12 @@
   "areYouCurrentlyUsingOtherApp": "現在、他のアプリを使っていますか？",
   "pickYourSourceSubtitle": "移行元を選択すると、アップロードするファイルを確認できます。次のステップで個人アカウントにインポートします。",
   "friendOrFamily": "友人・家族",
-  "trialActiveUntilDate": "Plusの無料体験は{formattedDate}まで利用できます"
+  "trialActiveUntilDate": "Plusの無料体験は{formattedDate}まで利用できます",
+  "spendByYou": "このスペースでのあなたの支出",
+  "importReviewCompleteTitle": "インポートが完了しました",
+  "importReviewClosePage": "このページを閉じる",
+  "importReviewResultsTitle": "インポート結果",
+  "importReviewTransactionLogged": "取引を記録しました",
+  "importReviewSourceTitle": "転送データからのインポート",
+  "plaidReviewLoadMore": "さらに取引を読み込む"
 }

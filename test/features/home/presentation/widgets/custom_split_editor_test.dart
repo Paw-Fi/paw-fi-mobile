@@ -61,6 +61,48 @@ void main() {
     expect(selectedPayer, 'u1');
   });
 
+  testWidgets('hides defaults until an unsplit expense is deliberately split',
+      (tester) async {
+    final members = <HouseholdMember>[
+      _member('u1', 'Alice'),
+      _member('u2', 'Bob'),
+    ];
+    var showEditor = false;
+
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => MaterialApp(
+          home: Scaffold(
+            body: GroupSplitEditorSection(
+              members: members,
+              selectedPayerUserId: 'u1',
+              onPayerChanged: (_) {},
+              totalAmount: 100,
+              currencySymbol: '\$',
+              initialSplitType: null,
+              initialSplits: null,
+              showNotYetSplitBanner: true,
+              notYetSplitMessage: 'This expense is not yet split.',
+              showSplitEditor: showEditor,
+              onCreateSplit: () => setState(() => showEditor = true),
+              onSplitChanged: (_, __) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('This expense is not yet split.'), findsOneWidget);
+    expect(find.text('Create Split'), findsOneWidget);
+    expect(find.text('50.00'), findsNothing);
+
+    await tester.tap(find.text('Create Split'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DropdownButton<String>), findsOneWidget);
+    expect(find.text('50.00'), findsNWidgets(2));
+  });
+
   testWidgets('Switching to percent initializes percentages when missing',
       (tester) async {
     final members = <HouseholdMember>[

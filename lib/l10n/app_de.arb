@@ -3537,5 +3537,12 @@
   "areYouCurrentlyUsingOtherApp": "Nutzt du derzeit eine andere App?",
   "pickYourSourceSubtitle": "Wähle deine Quelle, um genau zu sehen, welche Datei du hochladen musst. Im nächsten Schritt importieren wir sie in dein persönliches Konto.",
   "friendOrFamily": "Freunde oder Familie",
-  "trialActiveUntilDate": "Dein Plus-Testzeitraum ist bis zum {formattedDate} aktiv"
+  "trialActiveUntilDate": "Dein Plus-Testzeitraum ist bis zum {formattedDate} aktiv",
+  "spendByYou": "Deine Ausgaben in diesem Space",
+  "importReviewCompleteTitle": "Import abgeschlossen",
+  "importReviewClosePage": "Diese Seite schließen",
+  "importReviewResultsTitle": "Importergebnisse",
+  "importReviewTransactionLogged": "Transaktion erfasst",
+  "importReviewSourceTitle": "Weitergeleiteter Import",
+  "plaidReviewLoadMore": "Weitere Transaktionen laden"
 }

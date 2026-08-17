@@ -216,6 +216,8 @@ class GroupSplitEditorSection extends StatelessWidget {
   final bool showNotYetSplitBanner;
   final String? notYetSplitMessage;
   final Key? splitEditorKey;
+  final bool showSplitEditor;
+  final VoidCallback? onCreateSplit;
 
   const GroupSplitEditorSection({
     super.key,
@@ -231,6 +233,8 @@ class GroupSplitEditorSection extends StatelessWidget {
     this.showNotYetSplitBanner = false,
     this.notYetSplitMessage,
     this.splitEditorKey,
+    this.showSplitEditor = true,
+    this.onCreateSplit,
   });
 
   @override
@@ -248,7 +252,9 @@ class GroupSplitEditorSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         children: [
-          if (showNotYetSplitBanner && (notYetSplitMessage ?? '').isNotEmpty)
+          if (showSplitEditor &&
+              showNotYetSplitBanner &&
+              (notYetSplitMessage ?? '').isNotEmpty)
             Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               padding: const EdgeInsets.all(12),
@@ -277,79 +283,190 @@ class GroupSplitEditorSection extends StatelessWidget {
                 ],
               ),
             ),
-
-          // "Who Paid" Row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    context.l10n.whoPaid,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                MonekoInput(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  borderRadius: BorderRadius.circular(8),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: effectivePayerId,
-                      isDense: true,
-                      icon: Icon(Icons.keyboard_arrow_down_rounded,
-                          color: colorScheme.onSurface.withValues(alpha: 0.5),
-                          size: 20),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
-                      ),
-                      items: [
-                        if (hasHistoricalPayer)
-                          DropdownMenuItem<String>(
-                            value: selectedPayerUserId,
-                            child: Text(
-                              context.l10n.unknownMember,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ...members.map(
-                          (m) => DropdownMenuItem<String>(
-                            value: m.userId,
-                            child: Text(
-                              m.userName ?? m.userEmail ?? context.l10n.member,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: showSplitEditor
+                ? Column(
+                    key: const ValueKey('split_editor'),
+                    children: [
+                      // "Who Paid" Row
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                      ],
-                      onChanged: onPayerChanged,
-                    ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                context.l10n.whoPaid,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            MonekoInput(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: effectivePayerId,
+                                  isDense: true,
+                                  icon: Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                    size: 20,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                  items: [
+                                    if (hasHistoricalPayer)
+                                      DropdownMenuItem<String>(
+                                        value: selectedPayerUserId,
+                                        child: Text(
+                                          context.l10n.unknownMember,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ...members.map(
+                                      (m) => DropdownMenuItem<String>(
+                                        value: m.userId,
+                                        child: Text(
+                                          m.userName ??
+                                              m.userEmail ??
+                                              context.l10n.member,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: onPayerChanged,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      const SizedBox(height: 16),
+                      CustomSplitEditor(
+                        key: splitEditorKey,
+                        members: members,
+                        totalAmount: totalAmount,
+                        currencySymbol: currencySymbol,
+                        initialSplitType: initialSplitType,
+                        initialSplits: initialSplits,
+                        showEqualOption: showEqualOption,
+                        onChanged: onSplitChanged,
+                      ),
+                    ],
+                  )
+                : _UnsplitInvitation(
+                    key: const ValueKey('create_split_action'),
+                    message: notYetSplitMessage,
+                    onCreateSplit: onCreateSplit,
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1, thickness: 0.5, indent: 16, endIndent: 16),
-          const SizedBox(height: 16),
-
-          CustomSplitEditor(
-            key: splitEditorKey,
-            members: members,
-            totalAmount: totalAmount,
-            currencySymbol: currencySymbol,
-            initialSplitType: initialSplitType,
-            initialSplits: initialSplits,
-            showEqualOption: showEqualOption,
-            onChanged: onSplitChanged,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Merged "not yet split" banner + create-split action. Reuses the same
+/// visual language as the info banner above (primary-tinted surface, info
+/// icon, primary text) and folds the create-split call-to-action in so the
+/// unsplit state reads as one cohesive invitation instead of a banner plus
+/// a floating text button.
+class _UnsplitInvitation extends StatelessWidget {
+  const _UnsplitInvitation({super.key, this.message, this.onCreateSplit});
+
+  final String? message;
+  final VoidCallback? onCreateSplit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final hasMessage = (message ?? '').isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasMessage)
+              Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      message!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            Padding(
+              padding: EdgeInsets.only(top: hasMessage ? 10 : 0),
+              child: Center(
+                child: FilledButton(
+                  onPressed: onCreateSplit,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 10,
+                    ),
+                    minimumSize: const Size(0, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  child: Text(l10n.createSplit),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

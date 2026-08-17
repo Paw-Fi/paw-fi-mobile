@@ -3554,5 +3554,12 @@
   "areYouCurrentlyUsingOtherApp": "ตอนนี้คุณกำลังใช้แอปอื่นอยู่หรือไม่?",
   "pickYourSourceSubtitle": "เลือกแหล่งข้อมูลเพื่อดูว่าต้องอัปโหลดไฟล์ใด จากนั้นเราจะนำเข้าไฟล์ไปยังบัญชีส่วนตัวของคุณในขั้นตอนถัดไป",
   "friendOrFamily": "เพื่อนหรือครอบครัว",
-  "trialActiveUntilDate": "ทดลองใช้ Plus ได้ถึง {formattedDate}"
+  "trialActiveUntilDate": "ทดลองใช้ Plus ได้ถึง {formattedDate}",
+  "spendByYou": "ค่าใช้จ่ายของคุณในพื้นที่นี้",
+  "importReviewCompleteTitle": "นำเข้าเรียบร้อยแล้ว",
+  "importReviewClosePage": "ปิดหน้านี้",
+  "importReviewResultsTitle": "ผลการนำเข้า",
+  "importReviewTransactionLogged": "บันทึกรายการแล้ว",
+  "importReviewSourceTitle": "นำเข้าจากข้อมูลที่ส่งต่อ",
+  "plaidReviewLoadMore": "โหลดรายการเพิ่มเติม"
 }
