@@ -749,6 +749,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             throw Exception(l10n.failedToCreateEnvelope);
           }
           envelopeId = id;
+          await pocketsNotifier.rebindOptimisticPocketId(
+            optimisticId: optimisticEnvelopeId,
+            canonicalId: envelopeId,
+          );
 
           await persistSiblingAllocations();
           await persistPocketAmount(

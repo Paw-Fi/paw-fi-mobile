@@ -39,6 +39,45 @@ enum PlusFeature {
   customerSupport,
 }
 
+Future<void> showFreeVsPlusComparisonDialog(
+  BuildContext context, {
+  PlusFeature? highlightedFeature,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+
+  return showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Stack(
+        children: [
+          SingleChildScrollView(
+            child: _PlanComparisonTable(
+              content: _freeVsPlusComparison(
+                context,
+                highlightedFeature: highlightedFeature,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              tooltip: context.l10n.close,
+              icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+              onPressed: () => Navigator.of(context).pop(),
+              style: IconButton.styleFrom(
+                backgroundColor: colorScheme.surface.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class PlusLockedSheet extends HookConsumerWidget {
   const PlusLockedSheet({super.key, this.highlightedFeature});
 
@@ -794,43 +833,10 @@ class _PremiumFeaturesList extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   IconButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => Dialog(
-                          backgroundColor: Colors.transparent,
-                          insetPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 24),
-                          child: Stack(
-                            children: [
-                              SingleChildScrollView(
-                                child: _PlanComparisonTable(
-                                  content: _freeVsPlusComparison(
-                                    context,
-                                    plusBadge:
-                                        context.l10n.plusLockedRecommendedBadge,
-                                    highlightedFeature: highlightedFeature,
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: IconButton(
-                                  icon: Icon(Icons.close,
-                                      color: colorScheme.mutedForeground),
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: colorScheme.surface
-                                        .withValues(alpha: 0.8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: () => showFreeVsPlusComparisonDialog(
+                      context,
+                      highlightedFeature: highlightedFeature,
+                    ),
                     icon: Icon(
                       Icons.info_outline_rounded,
                       size: 22,

@@ -26,6 +26,8 @@ import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
 import 'package:moneko/features/subscription/presentation/widgets/manage_membership_choice_sheet.dart';
 import 'package:moneko/features/subscription/presentation/widgets/cancel_reason_sheet.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart'
+    show showFreeVsPlusComparisonDialog;
 import 'package:moneko/features/subscription/data/subscription_cancel_reason_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -1304,6 +1306,24 @@ class PlanSelectionPage extends HookConsumerWidget {
                                     selectedPlanId.value = id,
                                 isCurrentPlan: isCurrentPlan,
                                 isNewUser: isNewUser,
+                              ),
+                            ),
+                            Center(
+                              child: Semantics(
+                                button: true,
+                                label: context.l10n.comparePlans,
+                                child: TextButton(
+                                  onPressed: () =>
+                                      showFreeVsPlusComparisonDialog(context),
+                                  child: Text(
+                                    context.l10n.comparePlans,
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 18),

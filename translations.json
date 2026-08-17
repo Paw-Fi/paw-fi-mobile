@@ -1,19 +1,19 @@
 {
-  "spendByYou": {
-    "en": "Spent by You",
-    "de": "Von dir ausgegeben",
-    "es": "Gastado por ti",
-    "fr": "Dépensé par vous",
-    "it": "Speso da te",
-    "ja": "あなたの支出",
-    "ko": "내 지출",
-    "nl": "Door jou uitgegeven",
-    "ur": "آپ کے اخراجات",
-    "ru": "Потрачено вами",
-    "th": "ใช้จ่ายโดยคุณ",
-    "uk": "Витрачено вами",
-    "zh": "你的支出",
-    "zh_TW": "你的支出",
-    "vi": "Bạn đã chi"
+  "comparePlans": {
+    "en": "Compare plans",
+    "de": "Tarife vergleichen",
+    "es": "Comparar planes",
+    "fr": "Comparer les offres",
+    "it": "Confronta i piani",
+    "ja": "プランを比較",
+    "ko": "요금제 비교",
+    "nl": "Abonnementen vergelijken",
+    "ur": "پلانز کا موازنہ کریں",
+    "ru": "Сравнить тарифы",
+    "th": "เปรียบเทียบแพ็กเกจ",
+    "uk": "Порівняти тарифи",
+    "zh": "对比方案",
+    "zh_TW": "比較方案",
+    "vi": "So sánh gói"
   }
 }

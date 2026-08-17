@@ -31,6 +31,7 @@ extension HomeDashboardL10nX on AppLocalizations {
 }
 
 extension ImportReviewL10nX on AppLocalizations {
+  String get comparePlans => 'Compare plans';
   String get importReviewCompleteTitle => 'Import complete';
   String get importReviewClosePage => 'Close this page';
   String get importReviewResultsTitle => 'Import results';
@@ -49,10 +50,8 @@ extension WalletPickerL10nX on AppLocalizations {
   String get walletUpdatedSuccessfully => 'Wallet updated successfully.';
   String get transferCompletedSuccessfully =>
       'Transfer completed successfully.';
-  String get transferUpdatedSuccessfully =>
-      'Transfer updated successfully.';
-  String get transferDeletedSuccessfully =>
-      'Transfer deleted successfully.';
+  String get transferUpdatedSuccessfully => 'Transfer updated successfully.';
+  String get transferDeletedSuccessfully => 'Transfer deleted successfully.';
 }
 
 extension WalletAnalyticsL10nX on AppLocalizations {
@@ -313,9 +312,8 @@ extension RecurringPageL10nX on AppLocalizations {
   String get dueThisMonth => 'Due This Month';
   String get dueLater => 'Due Later';
   String get activeSchedules => 'Active Schedules';
-  String activePaycheckCount(int count) => count == 1
-      ? '1 active paycheck'
-      : '$count active paychecks';
+  String activePaycheckCount(int count) =>
+      count == 1 ? '1 active paycheck' : '$count active paychecks';
   String activeBillCount(int count) =>
       count == 1 ? '1 active bill' : '$count active bills';
 }
@@ -355,18 +353,15 @@ extension RecurringOccurrenceL10nX on AppLocalizations {
       'This occurrence is not available for confirmation yet.';
   String get recurringOccurrenceUnableToLoadWallets =>
       'Unable to load wallets.';
-  String get recurringOccurrenceWalletsLoading =>
-      'Wallets are still loading.';
+  String get recurringOccurrenceWalletsLoading => 'Wallets are still loading.';
   String get recurringOccurrenceChooseWalletInCurrency =>
       'Choose a wallet in this currency.';
   String get recurringOccurrencePaidDateAfterToday =>
       'The paid date cannot be later than today.';
   String get recurringOccurrenceSignInToConfirm =>
       'Sign in to confirm this payment.';
-  String get recurringOccurrenceUnableToUpdate =>
-      'Unable to update payment.';
-  String get recurringOccurrenceUnableToConfirm =>
-      'Unable to confirm payment.';
+  String get recurringOccurrenceUnableToUpdate => 'Unable to update payment.';
+  String get recurringOccurrenceUnableToConfirm => 'Unable to confirm payment.';
   String get recurringOccurrenceUpdateSaved => 'Payment update saved.';
   String get recurringOccurrenceConfirmationSaved =>
       'Payment confirmation saved.';
@@ -406,17 +401,14 @@ extension RecurringOccurrenceL10nX on AppLocalizations {
 /// the keys are promoted into generated ARB files.
 extension UnsavedChangesL10nX on AppLocalizations {
   String get unsavedChanges => 'Unsaved changes';
-  String get leaveWithoutSavingChanges =>
-      'Leave without saving your changes?';
+  String get leaveWithoutSavingChanges => 'Leave without saving your changes?';
   String get leave => 'Leave';
   String get equal => 'Equal';
   String get replaceReceiptPhoto => 'Replace receipt photo';
-  String expiresInDays(int count) => count == 1
-      ? 'Expires in 1 day'
-      : 'Expires in $count days';
-  String expiresInHours(int count) => count == 1
-      ? 'Expires in 1 hour'
-      : 'Expires in $count hours';
+  String expiresInDays(int count) =>
+      count == 1 ? 'Expires in 1 day' : 'Expires in $count days';
+  String expiresInHours(int count) =>
+      count == 1 ? 'Expires in 1 hour' : 'Expires in $count hours';
   String expiredDaysAgo(int count) =>
       count == 1 ? 'Expired 1 day ago' : 'Expired $count days ago';
   String get noInternetWhilePayingWithApplePay =>

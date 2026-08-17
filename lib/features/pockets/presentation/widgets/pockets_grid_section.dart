@@ -240,6 +240,10 @@ class PocketsGridSection extends HookConsumerWidget {
       (sum, e) => sum + e.getLimit(totalBudget),
     );
     final unallocatedBudget = totalBudget - totalAllocated;
+    final canAddPocket = !isLoading &&
+        totalBudget > 0 &&
+        state.budgetId?.trim().isNotEmpty == true &&
+        !isMultiCurrencySelection;
     final selectedCurrencyBudgets = <String, double>{
       for (final currency
           in scopeParams.normalizedSelectedCurrencies ?? const <String>[])
@@ -247,14 +251,7 @@ class PocketsGridSection extends HookConsumerWidget {
     };
 
     void openAddPocketSheet() {
-      if (isMultiCurrencySelection) {
-        AppToast.info(context, context.l10n.selectCurrencyFirst);
-        return;
-      }
-      if (totalBudget <= 0) {
-        AppToast.info(context, context.l10n.pleaseSetMonthlyBudgetFirst);
-        return;
-      }
+      if (!canAddPocket) return;
       EditPocketEnvelopeSheet.show(
         context: context,
         scopeParams: scopeParams,
@@ -553,6 +550,11 @@ class PocketsGridSection extends HookConsumerWidget {
                             child: AddEnvelopeCard(
                               colorScheme: colorScheme,
                               onTap: openAddPocketSheet,
+                              isEnabled: canAddPocket,
+                              onDisabledTap: () => AppToast.info(
+                                context,
+                                context.l10n.pleaseSetMonthlyBudgetFirst,
+                              ),
                             ),
                           );
                         }
@@ -622,6 +624,11 @@ class PocketsGridSection extends HookConsumerWidget {
                             child: AddEnvelopeListTile(
                               colorScheme: colorScheme,
                               onTap: openAddPocketSheet,
+                              isEnabled: canAddPocket,
+                              onDisabledTap: () => AppToast.info(
+                                context,
+                                context.l10n.pleaseSetMonthlyBudgetFirst,
+                              ),
                             ),
                           );
                         }

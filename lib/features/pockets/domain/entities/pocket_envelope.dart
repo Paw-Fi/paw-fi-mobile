@@ -156,6 +156,7 @@ class PocketEnvelope {
   }
 
   PocketEnvelope copyWith({
+    String? id,
     int? budgetAmountCents,
     double? spent,
     String? currency,
@@ -195,7 +196,7 @@ class PocketEnvelope {
     final nextHasRolloverFields = hasRolloverFields ??
         (this.hasRolloverFields || rolloverFieldsWereUpdated);
     return PocketEnvelope(
-      id: id,
+      id: id ?? this.id,
       name: name,
       budgetAmountCents: nextBudgetAmountCents,
       spent: spent ?? this.spent,

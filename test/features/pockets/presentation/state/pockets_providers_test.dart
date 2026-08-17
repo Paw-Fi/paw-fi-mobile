@@ -46,6 +46,44 @@ void main() {
     expect(query.pageSize, 500);
   });
 
+  test('rebinds a created pocket ID before a later save uses it', () {
+    final optimisticPocket = PocketEnvelope(
+      id: 'optimistic-pocket-1',
+      name: 'Coffee',
+      budgetAmountCents: 20000,
+      spent: 0,
+      currency: 'IDR',
+      lastUpdated: DateTime(2026, 8, 15),
+    );
+    final state = PocketsState.initial().copyWith(
+      saved: [optimisticPocket],
+      editing: [optimisticPocket],
+      aggregateSpentByEnvelopeId: const {'optimistic-pocket-1': 0},
+      envelopeCategories: const {
+        'optimistic-pocket-1': ['food'],
+      },
+      savedEnvelopeCategories: const {
+        'optimistic-pocket-1': ['food'],
+      },
+    );
+
+    final rebound = rebindOptimisticPocketIdInState(
+      state,
+      optimisticId: 'optimistic-pocket-1',
+      canonicalId: 'pocket-1',
+    );
+
+    expect(rebound.saved.single.id, 'pocket-1');
+    expect(rebound.editing.single.id, 'pocket-1');
+    expect(rebound.aggregateSpentByEnvelopeId, const {'pocket-1': 0});
+    expect(rebound.envelopeCategories, const {
+      'pocket-1': ['food']
+    });
+    expect(rebound.savedEnvelopeCategories, const {
+      'pocket-1': ['food']
+    });
+  });
+
   test('pocket projection suppresses a legacy confirmed occurrence', () async {
     final scheduledDate = DateTime(2026, 8, 12);
     final recurring = RecurringTransaction(

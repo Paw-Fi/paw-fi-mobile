@@ -123,7 +123,8 @@ NonBlockingProcessingOverlay showNonBlockingProcessingOverlay({
     subMessage: subMessage,
   )..markStarted();
   final entryKey = GlobalKey<_NonBlockingProcessingBannerState>();
-  final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+  final overlayState = Overlay.maybeOf(context, rootOverlay: true) ??
+      Navigator.maybeOf(context, rootNavigator: true)?.overlay;
   if (overlayState == null) {
     return NonBlockingProcessingOverlay._(
       controller: controller,

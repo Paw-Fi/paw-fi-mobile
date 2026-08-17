@@ -1885,6 +1885,45 @@ class PocketsState {
   }
 }
 
+@foundation.visibleForTesting
+PocketsState rebindOptimisticPocketIdInState(
+  PocketsState state, {
+  required String optimisticId,
+  required String canonicalId,
+}) {
+  if (optimisticId == canonicalId ||
+      !state.saved.any((pocket) => pocket.id == optimisticId)) {
+    return state;
+  }
+
+  Map<String, T> rekey<T>(Map<String, T> values) {
+    if (!values.containsKey(optimisticId)) return values;
+    return Map<String, T>.fromEntries(
+      values.entries.map(
+        (entry) => entry.key == optimisticId
+            ? MapEntry(canonicalId, entry.value)
+            : entry,
+      ),
+    );
+  }
+
+  List<PocketEnvelope> rebind(List<PocketEnvelope> pockets) => pockets
+      .map(
+        (pocket) => pocket.id == optimisticId
+            ? pocket.copyWith(id: canonicalId)
+            : pocket,
+      )
+      .toList(growable: false);
+
+  return state.copyWith(
+    saved: rebind(state.saved),
+    editing: rebind(state.editing),
+    aggregateSpentByEnvelopeId: rekey(state.aggregateSpentByEnvelopeId),
+    envelopeCategories: rekey(state.envelopeCategories),
+    savedEnvelopeCategories: rekey(state.savedEnvelopeCategories),
+  );
+}
+
 int? _parseOptionalInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -4805,6 +4844,28 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ));
     }
     ref.read(pocketsRefreshSignalProvider.notifier).state++;
+  }
+
+  Future<void> rebindOptimisticPocketId({
+    required String optimisticId,
+    required String canonicalId,
+  }) async {
+    if (!mounted) return;
+    state = rebindOptimisticPocketIdInState(
+      state,
+      optimisticId: optimisticId,
+      canonicalId: canonicalId,
+    );
+    final authUser = ref.read(authProvider);
+    if (authUser.isEmpty) return;
+    await _persistCurrentStateSnapshot(
+      userId: authUser.uid,
+      scopeType: params.scope,
+      householdId: params.householdId,
+      periodMonth: _formatDate(state.periodMonth),
+      currency: _resolveWriteCurrency(),
+    );
+    await queueCurrentPocketsSnapshotForSync();
   }
 
   Future<String> queueCurrentPocketsSnapshotForSync({

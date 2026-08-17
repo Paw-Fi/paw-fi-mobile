@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
@@ -106,12 +107,24 @@ class _AiShareIntentListenerState extends ConsumerState<AiShareIntentListener> {
     final appLockState = ref.read(appLockControllerProvider);
     if (auth.uid.trim().isEmpty || appLockState.shouldBlockApp) return;
 
+    // This listener is mounted from MaterialApp.builder, above the router's
+    // Overlay. Run AI processing from the root navigator so its progress and
+    // completion notifications are visible.
+    final navigatorContext = rootNavigatorKey.currentContext;
+    if (navigatorContext == null || !navigatorContext.mounted) {
+      Future<void>.delayed(
+        const Duration(milliseconds: 100),
+        _scheduleDrain,
+      );
+      return;
+    }
+
     _isProcessing = true;
     final batch = List<AiSharedInputFile>.from(_pendingFiles);
     _pendingFiles.clear();
     try {
       await handleSharedAiInputFiles(
-        context,
+        navigatorContext,
         ref,
         files: batch,
       );
