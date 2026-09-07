@@ -16,6 +16,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
@@ -83,11 +84,13 @@ final onboardingHeardAboutSaveActionProvider =
     required String? otherText,
     required String platform,
   }) async {
+    final timezone = await resolveDeviceTimezoneIdentifier();
     await client.from('onboarding_heard_about_responses').insert({
       'source': source,
       'source_label': sourceLabel,
       'other_text': otherText,
       'platform': platform,
+      'timezone': timezone,
     });
   };
 });
