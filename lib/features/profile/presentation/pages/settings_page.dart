@@ -709,12 +709,25 @@ class SettingsPage extends HookConsumerWidget {
           await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
         } catch (_) {}
 
-        await ref.read(selectedHouseholdProvider.notifier).clearSelection();
-        await ref.read(appInitializationV2Provider.notifier).onLogout();
-        await ref.read(userFinancialCacheCleanupProvider).clearForLogout(
-              userId: authState.uid,
-              signOut: ref.read(authProvider.notifier).signOut,
-            );
+        try {
+          await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+          await ref.read(appInitializationV2Provider.notifier).onLogout();
+          await ref.read(userFinancialCacheCleanupProvider).clearForLogout(
+                userId: authState.uid,
+              );
+        } catch (error, stackTrace) {
+          // The account no longer exists remotely. Local cleanup must not keep
+          // its deleted session alive if a cache operation fails.
+          debugPrint(
+              'Account deletion local cleanup failed: $error\n$stackTrace');
+        } finally {
+          try {
+            await ref.read(authProvider.notifier).signOut();
+          } catch (error, stackTrace) {
+            // Auth clears its persisted session before its remote request.
+            debugPrint('Post-delete sign out failed: $error\n$stackTrace');
+          }
+        }
         if (authState.uid.isNotEmpty) {
           ref.invalidate(userProfileProvider(authState.uid));
         }

@@ -198,39 +198,16 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
 
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
-    final occurrenceResolution = ref.watch(
-      recurringOccurrenceProjectionResolutionProvider(
-        RecurringOccurrenceProjectionResolutionQuery(
-          userId: query.userId,
-          householdId: scope.activeAccountHouseholdId,
-          startDate: range['from']!,
-          endDate: range['to']!,
-        ),
-      ),
-    );
-    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringTransactions,
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      confirmedOccurrenceSuppressionEntries:
-          occurrenceResolution.suppressionEntries,
-      selectedCurrency: selectedCurrency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: true,
-    );
     _homeSpendTrace(
       'spending-render source=data actualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
-      'recCount=${recurringTransactions.length} finalCount=${mergedTransactions.length} '
-      'finalTotal=${_traceAmount(_traceExpenseTotal(mergedTransactions))}',
+      'actualCount=${transactions.length}',
     );
 
     return _buildDashboardSwitcher(
       buildSpendingCard(
         context,
         colorScheme,
-        mergedTransactions,
+        transactions,
         contact,
         DateRangeFilter.custom,
         key: ValueKey('spending_data_${config.id}_$selectedCurrency'),
