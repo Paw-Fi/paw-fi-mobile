@@ -969,19 +969,11 @@ class _RecurringTransactionsPageState
         '   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
 
     final l10n = context.l10n;
-    final deleteEntireSeriesLabel = l10n.deleteEntireSeries.trim().isEmpty
-        ? l10n.delete
-        : l10n.deleteEntireSeries;
-    final skipNextOccurrenceLabel = l10n.skipNextOccurrence.trim().isEmpty
-        ? l10n.skip
-        : l10n.skipNextOccurrence;
-
     final result = await MonekoAlertDialog.show(
       context: context,
       title: l10n.deleteRecurringTransaction,
-      description: l10n.deleteRecurringChoiceDescription,
-      confirmLabel: deleteEntireSeriesLabel,
-      secondaryLabel: skipNextOccurrenceLabel,
+      description: l10n.areYouSureYouWantToDeleteThisRecurringTransaction,
+      confirmLabel: l10n.delete,
       cancelLabel: l10n.cancel,
       isDestructive: true,
       barrierDismissible: true,
@@ -996,9 +988,7 @@ class _RecurringTransactionsPageState
     if (!mounted) return;
 
     final failedDeleteMessage = l10n.failedToDeleteRecurringTransaction;
-    final skipNextOccurrenceMessage = '${l10n.skipNextOccurrence}...';
     final deleteMessage = '${l10n.delete}...';
-    final occurrenceSkippedMessage = l10n.occurrenceSkipped;
     final recurringDeletedMessage = l10n.recurringTransactionDeleted;
     final unauthenticatedMessage = l10n.userNotAuthenticated;
 
@@ -1019,14 +1009,12 @@ class _RecurringTransactionsPageState
       dialogOpen = false;
     }
 
-    final isSkipOccurrence = result.action == MonekoAlertDialogAction.secondary;
-
     if (!toastContext.mounted) return;
 
     // Show loading dialog
     showBlockingProcessingDialog(
       context: toastContext,
-      message: isSkipOccurrence ? skipNextOccurrenceMessage : deleteMessage,
+      message: deleteMessage,
     );
     dialogOpen = true;
 
@@ -1034,34 +1022,11 @@ class _RecurringTransactionsPageState
       final notifier =
           ref.read(recurringTransactionsProvider(householdId).notifier);
 
-      DeleteRecurringResult operationResult;
-
-      if (isSkipOccurrence) {
-        // Compute the next occurrence date to skip
-        final preferredTimezone =
-            ref.read(analyticsProvider).contact?.preferredTimezone;
-        final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-        final nextDate = transaction.getNextSkippableOccurrence(userNow);
-        if (nextDate == null) {
-          closeDialog();
-          if (!toastContext.mounted) return;
-          AppToast.error(toastContext, failedDeleteMessage);
-          return;
-        }
-        operationResult = await notifier.skipOccurrence(
-          user.uid,
-          transaction.id,
-          nextDate,
-          transaction: transaction,
-        );
-      } else {
-        // Delete entire series
-        operationResult = await notifier.deleteRecurring(
-          user.uid,
-          transaction.id,
-          transaction: transaction,
-        );
-      }
+      final operationResult = await notifier.deleteRecurring(
+        user.uid,
+        transaction.id,
+        transaction: transaction,
+      );
 
       if (!mounted) return;
 
@@ -1071,7 +1036,7 @@ class _RecurringTransactionsPageState
         if (!toastContext.mounted) return;
         AppToast.success(
           toastContext,
-          isSkipOccurrence ? occurrenceSkippedMessage : recurringDeletedMessage,
+          recurringDeletedMessage,
         );
       } else {
         if (operationResult.error == 'preview_mode_blocked') {

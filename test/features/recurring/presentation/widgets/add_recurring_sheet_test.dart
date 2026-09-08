@@ -1096,8 +1096,7 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
-  testWidgets('Delete button opens choice dialog and deletes entire series',
-      (tester) async {
+  testWidgets('Delete button confirms and deletes the series', (tester) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -1189,10 +1188,10 @@ void main() {
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
-    expect(find.text(l10n.deleteEntireSeries), findsOneWidget);
-    expect(find.text(l10n.skipNextOccurrence), findsOneWidget);
+    expect(find.text(l10n.delete), findsOneWidget);
+    expect(find.text(l10n.skipNextOccurrence), findsNothing);
 
-    await tester.tap(find.text(l10n.deleteEntireSeries));
+    await tester.tap(find.text(l10n.delete));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -1203,7 +1202,8 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
   });
 
-  testWidgets('Delete dialog can skip the next occurrence', (tester) async {
+  testWidgets('Delete dialog cancellation leaves the series unchanged',
+      (tester) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -1217,7 +1217,6 @@ void main() {
 
     _TestRecurringTransactionsNotifier? recurringNotifier;
     final transaction = _recurringExpense(id: 'exp_skip', householdId: 'h1');
-    final expectedSkippedDate = transaction.getNextSkippableOccurrence();
 
     final container = ProviderContainer(
       overrides: [
@@ -1296,15 +1295,11 @@ void main() {
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(l10n.skipNextOccurrence));
+    await tester.tap(find.text(l10n.cancel));
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(recurringNotifier, isNotNull);
-    expect(recurringNotifier!.skipCalled, isTrue);
-    expect(recurringNotifier!.skippedTransactionId, transaction.id);
-    expect(recurringNotifier!.skippedDate, expectedSkippedDate);
-    expect(recurringNotifier!.deleteCalled, isFalse);
+    expect(recurringNotifier, isNull);
     await tester.pump(const Duration(seconds: 6));
   });
 

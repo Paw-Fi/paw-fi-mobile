@@ -1437,31 +1437,16 @@ class AddRecurringSheet extends HookConsumerWidget {
       if (!isEditing || existingTransaction == null) return;
 
       final l10n = context.l10n;
-      final deleteEntireSeriesLabel = l10n.deleteEntireSeries.trim().isEmpty
-          ? l10n.delete
-          : l10n.deleteEntireSeries;
-      final skipNextOccurrenceLabel = l10n.skipNextOccurrence.trim().isEmpty
-          ? l10n.skip
-          : l10n.skipNextOccurrence;
-
       MonekoAlertDialogAction? choice;
 
       await AdaptiveAlertDialog.show(
         context: context,
         title: l10n.deleteRecurringTransaction,
-        message: l10n.deleteRecurringChoiceDescription,
+        message: l10n.areYouSureYouWantToDeleteThisRecurringTransaction,
         actions: [
           AlertAction(
-            title: skipNextOccurrenceLabel,
+            title: l10n.delete,
             style: AlertActionStyle.destructive,
-            onPressed: () async {
-              choice = MonekoAlertDialogAction.secondary;
-              Navigator.pop(context);
-            },
-          ),
-          AlertAction(
-            title: deleteEntireSeriesLabel,
-            style: AlertActionStyle.cancel,
             onPressed: () async {
               choice = MonekoAlertDialogAction.confirm;
               Navigator.pop(context);
@@ -1500,13 +1485,9 @@ class AddRecurringSheet extends HookConsumerWidget {
         dialogOpen = false;
       }
 
-      final isSkipOccurrence = choice == MonekoAlertDialogAction.secondary;
-
       showBlockingProcessingDialog(
         context: toastContext,
-        message: isSkipOccurrence
-            ? '${l10n.skipNextOccurrence}...'
-            : '${l10n.delete}...',
+        message: '${l10n.delete}...',
       );
       dialogOpen = true;
 
@@ -1516,32 +1497,11 @@ class AddRecurringSheet extends HookConsumerWidget {
               .notifier,
         );
 
-        late final DeleteRecurringResult result;
-        if (isSkipOccurrence) {
-          final preferredTimezone =
-              ref.read(analyticsProvider).contact?.preferredTimezone;
-          final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-          final nextDate =
-              existingTransaction!.getNextSkippableOccurrence(userNow);
-          if (nextDate == null) {
-            closeDialog();
-            AppToast.error(
-                toastContext, l10n.failedToDeleteRecurringTransaction);
-            return;
-          }
-          result = await notifier.skipOccurrence(
-            user.uid,
-            existingTransaction!.id,
-            nextDate,
-            transaction: existingTransaction,
-          );
-        } else {
-          result = await notifier.deleteRecurring(
-            user.uid,
-            existingTransaction!.id,
-            transaction: existingTransaction,
-          );
-        }
+        final result = await notifier.deleteRecurring(
+          user.uid,
+          existingTransaction!.id,
+          transaction: existingTransaction,
+        );
 
         if (!context.mounted) return;
 
@@ -1555,9 +1515,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           }
           AppToast.success(
             toastContext,
-            isSkipOccurrence
-                ? l10n.occurrenceSkipped
-                : l10n.recurringTransactionDeleted,
+            l10n.recurringTransactionDeleted,
           );
           return;
         }
