@@ -6,19 +6,14 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/core/utils/currency_rate_provider.dart';
-import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
-import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
-import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
-import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 
 const bool _enableRecentTransactionDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -497,38 +492,7 @@ class _RecentTransactionsCardState
           clipBehavior: Clip.antiAlias,
           child: Builder(
             builder: (context) {
-              final upcoming = ref.watch(upcomingRecurringTransactionProvider(
-                UpcomingRecurringScope(
-                  householdId: widget.householdId,
-                  currency: widget.selectedCurrency,
-                  selectedCurrencies: widget.selectedCurrencies,
-                ),
-              ));
-              final shouldConvertUpcoming =
-                  (widget.selectedCurrencies?.length ?? 0) > 1;
-              final targetCurrency = widget.selectedCurrency ?? 'USD';
-              final rateTable = shouldConvertUpcoming
-                  ? ref.watch(currencyRateTableProvider).valueOrNull ??
-                      const CurrencyRateTable(
-                        baseCurrency: 'USD',
-                        rates: CurrencyRates.rates,
-                        isStale: true,
-                      )
-                  : null;
-              final upcomingDisplayAmount =
-                  upcoming == null || !shouldConvertUpcoming
-                      ? null
-                      : convertAmountCentsToCurrency(
-                            (upcoming.transaction.amount * 100).round(),
-                            fromCurrency: upcoming.transaction.currency
-                                .trim()
-                                .toUpperCase(),
-                            targetCurrency: targetCurrency,
-                            rates: rateTable!,
-                          ) /
-                          100.0;
-
-              if (_rows.isEmpty && upcoming == null) {
+              if (_rows.isEmpty) {
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -543,26 +507,10 @@ class _RecentTransactionsCardState
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (upcoming != null) ...[
-                    UpcomingRecurringBanner(
-                      upcoming: upcoming,
-                      displayAmount: upcomingDisplayAmount,
-                      displayCurrency:
-                          shouldConvertUpcoming ? targetCurrency : null,
-                      onTap: () {
-                        showAddRecurringSheet(
-                          context,
-                          type: upcoming.transaction.type,
-                          existingTransaction: upcoming.transaction,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                       0,
-                      upcoming != null ? 0 : 16,
+                      16,
                       0,
                       16,
                     ),

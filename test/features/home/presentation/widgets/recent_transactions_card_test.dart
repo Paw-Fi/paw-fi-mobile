@@ -62,7 +62,8 @@ void main() {
     },
   );
 
-  testWidgets('recent transactions card shows upcoming recurring banner', (
+  testWidgets('recent transactions card does not show upcoming recurring items',
+      (
     tester,
   ) async {
     final upcoming = UpcomingRecurringTransaction(
@@ -117,9 +118,9 @@ void main() {
     final context = tester.element(find.byType(Scaffold));
     final l10n = AppLocalizations.of(context)!;
 
-    expect(find.text(l10n.upcomingBills), findsOneWidget);
-    expect(find.text('Insurance renewal'), findsOneWidget);
-    expect(find.text(l10n.inDays(2)), findsOneWidget);
-    expect(find.text(l10n.noTransactionsFound), findsNothing);
+    expect(find.text(l10n.upcomingBills), findsNothing);
+    expect(find.text('Insurance renewal'), findsNothing);
+    expect(find.text(l10n.inDays(2)), findsNothing);
+    expect(find.text(l10n.noTransactionsFound), findsOneWidget);
   });
 }

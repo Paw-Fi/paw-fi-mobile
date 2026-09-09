@@ -2183,6 +2183,30 @@ class MonekoDatabase {
     return rows.map(_entryFromTransactionRow).toList(growable: false);
   }
 
+  Future<List<ExpenseEntry>> getTransactionsByParentRecurringId({
+    required String userId,
+    required String? householdId,
+    required String parentRecurringId,
+  }) async {
+    final rows = _db.select(
+      '''
+      SELECT *
+      FROM local_transactions
+      WHERE scope_key = ?
+        AND parent_recurring_id = ?
+        AND deleted_at IS NULL
+        AND sync_status != ?
+      ORDER BY date DESC, created_at DESC, id DESC
+      ''',
+      [
+        localScopeKey(userId: userId, householdId: householdId),
+        parentRecurringId,
+        localSyncStatusFailed,
+      ],
+    );
+    return rows.map(_entryFromTransactionRow).toList(growable: false);
+  }
+
   Future<List<ExpenseEntry>> getRecurringTransactions({
     required String userId,
     required String? householdId,

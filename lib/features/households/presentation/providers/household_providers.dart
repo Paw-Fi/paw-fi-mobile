@@ -1410,7 +1410,8 @@ class HouseholdExpensesParams {
 /// 1. Needs user_id and contact_id for user enrichment (not returned by backend)
 /// 2. Needs to fetch and join with users table for display names
 /// 3. Backend endpoint is optimized for simple lists, not joined data
-/// Includes recurring rows so household dashboards match home totals
+/// Actual activity excludes recurring templates. Confirmed occurrences are
+/// materialized non-recurring rows and remain visible here.
 final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
@@ -1439,15 +1440,15 @@ final householdExpensesProvider = FutureProvider.autoDispose
     if (cached != null &&
         _isFresh(cached.cachedAt, _householdTransactionCacheTtl)) {
       return mergeHouseholdExpenses(
-        cached.items,
-        optimistic,
+        _withoutRecurringTemplates(cached.items),
+        _withoutRecurringTemplates(optimistic),
         deletedIds: deletedIds,
       );
     }
     if (isOffline) {
       return mergeHouseholdExpenses(
-        cached?.items ?? const <ExpenseEntry>[],
-        optimistic,
+        _withoutRecurringTemplates(cached?.items ?? const <ExpenseEntry>[]),
+        _withoutRecurringTemplates(optimistic),
         deletedIds: deletedIds,
       );
     }
@@ -1463,6 +1464,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
             .from('expenses')
             .select(selectFields)
             .eq('household_id', params.householdId)
+            .or('is_recurring.eq.false,is_recurring.is.null')
             .isFilter('deleted_at', null);
 
         if (params.startDate != null) {
@@ -1540,7 +1542,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
         ));
         return mergeHouseholdExpenses(
           const <ExpenseEntry>[],
-          optimistic,
+          _withoutRecurringTemplates(optimistic),
           deletedIds: deletedIds,
         );
       }
@@ -1606,7 +1608,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
       }
       return mergeHouseholdExpenses(
         entries,
-        optimistic,
+        _withoutRecurringTemplates(optimistic),
         deletedIds: deletedIds,
       );
     } on TimeoutException catch (e, st) {
@@ -1618,8 +1620,8 @@ final householdExpensesProvider = FutureProvider.autoDispose
           .log('❌ Error loading household expenses (timeout): $e\n$st');
       if (cached != null) {
         return mergeHouseholdExpenses(
-          cached.items,
-          optimistic,
+          _withoutRecurringTemplates(cached.items),
+          _withoutRecurringTemplates(optimistic),
           deletedIds: deletedIds,
         );
       }
@@ -1630,8 +1632,8 @@ final householdExpensesProvider = FutureProvider.autoDispose
           .log('❌ Error loading household expenses: $e\n$st');
       if (cached != null) {
         return mergeHouseholdExpenses(
-          cached.items,
-          optimistic,
+          _withoutRecurringTemplates(cached.items),
+          _withoutRecurringTemplates(optimistic),
           deletedIds: deletedIds,
         );
       }
@@ -1640,6 +1642,9 @@ final householdExpensesProvider = FutureProvider.autoDispose
     }
   },
 );
+
+List<ExpenseEntry> _withoutRecurringTemplates(Iterable<ExpenseEntry> entries) =>
+    entries.where((entry) => !entry.isRecurring).toList(growable: false);
 
 // ============================================================================
 // COVER IMAGES

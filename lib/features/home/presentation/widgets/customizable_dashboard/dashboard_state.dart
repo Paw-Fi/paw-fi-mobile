@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -61,6 +60,25 @@ void _dashboardConfigTrace(
 
 final isEditModeProvider = StateProvider<bool>((ref) => false);
 
+List<DashboardWidgetConfig> _insertAfterDashboardWidget(
+  List<DashboardWidgetConfig> configs,
+  DashboardWidgetType type,
+  DashboardWidgetType anchor,
+) {
+  if (configs.any((config) => config.type == type)) return configs;
+  final result = List<DashboardWidgetConfig>.from(configs);
+  final anchorIndex = result.indexWhere((config) => config.type == anchor);
+  result.insert(
+    anchorIndex < 0 ? result.length : anchorIndex + 1,
+    DashboardWidgetConfig(id: type.name, type: type, order: 0),
+  );
+  return result
+      .asMap()
+      .entries
+      .map((entry) => entry.value.copyWith(order: entry.key))
+      .toList(growable: false);
+}
+
 // ============================================================================
 // PERSONAL DASHBOARD CONTROLLER
 // ============================================================================
@@ -90,6 +108,7 @@ class PersonalDashboardController
           DashboardWidgetType.netCashflow,
           DashboardWidgetType.financialCalendar,
           DashboardWidgetType.recentTransactions,
+          DashboardWidgetType.upcomingTransactions,
           DashboardWidgetType.spendingBreakdownChart,
           DashboardWidgetType.whereTheMoneyWent,
         ];
@@ -104,6 +123,7 @@ class PersonalDashboardController
 
           final newConfigs = List<DashboardWidgetConfig>.from(configs);
           for (final type in missingTypes) {
+            if (type == DashboardWidgetType.upcomingTransactions) continue;
             newConfigs.add(DashboardWidgetConfig(
               id: type.name, // Use type name as ID for new widgets
               type: type,
@@ -111,9 +131,14 @@ class PersonalDashboardController
               isVisible: true, // Default to visible so user sees it
             ));
           }
-          state = AsyncValue.data(newConfigs);
+          final migrated = _insertAfterDashboardWidget(
+            newConfigs,
+            DashboardWidgetType.upcomingTransactions,
+            DashboardWidgetType.recentTransactions,
+          );
+          state = AsyncValue.data(migrated);
           // Auto-save the migrated config
-          save(newConfigs);
+          save(migrated);
         } else {
           state = AsyncValue.data(configs);
         }
@@ -143,13 +168,17 @@ class PersonalDashboardController
               type: DashboardWidgetType.recentTransactions,
               order: 3),
           const DashboardWidgetConfig(
+              id: 'upcoming_transactions',
+              type: DashboardWidgetType.upcomingTransactions,
+              order: 4),
+          const DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.spendingBreakdownChart,
-              order: 4),
+              order: 5),
           const DashboardWidgetConfig(
               id: 'where_the_money_went',
               type: DashboardWidgetType.whereTheMoneyWent,
-              order: 5),
+              order: 6),
         ];
         state = AsyncValue.data(defaultConfigs);
         await _repository.savePersonalLayout(_userId, defaultConfigs);
@@ -261,6 +290,7 @@ class HouseholdDashboardController
           DashboardWidgetType.householdSettlement,
           DashboardWidgetType.householdMemberSpending,
           DashboardWidgetType.householdRecentTransactions,
+          DashboardWidgetType.householdUpcomingTransactions,
           DashboardWidgetType.householdSpendingBreakdownChart,
           DashboardWidgetType.householdWhereTheMoneyWent,
         ];
@@ -275,6 +305,9 @@ class HouseholdDashboardController
 
           final newConfigs = List<DashboardWidgetConfig>.from(configs);
           for (final type in missingTypes) {
+            if (type == DashboardWidgetType.householdUpcomingTransactions) {
+              continue;
+            }
             newConfigs.add(DashboardWidgetConfig(
               id: type.name,
               type: type,
@@ -282,8 +315,13 @@ class HouseholdDashboardController
               isVisible: true,
             ));
           }
-          state = AsyncValue.data(newConfigs);
-          save(newConfigs);
+          final migrated = _insertAfterDashboardWidget(
+            newConfigs,
+            DashboardWidgetType.householdUpcomingTransactions,
+            DashboardWidgetType.householdRecentTransactions,
+          );
+          state = AsyncValue.data(migrated);
+          save(migrated);
         } else {
           state = AsyncValue.data(configs);
         }
@@ -325,13 +363,17 @@ class HouseholdDashboardController
               type: DashboardWidgetType.householdRecentTransactions,
               order: 6),
           const DashboardWidgetConfig(
+              id: 'household_upcoming_transactions',
+              type: DashboardWidgetType.householdUpcomingTransactions,
+              order: 7),
+          const DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.householdSpendingBreakdownChart,
-              order: 7),
+              order: 8),
           const DashboardWidgetConfig(
               id: 'where_the_money_went',
               type: DashboardWidgetType.householdWhereTheMoneyWent,
-              order: 8),
+              order: 9),
         ];
         state = AsyncValue.data(defaultConfigs);
         await _repository.saveHouseholdLayout(_householdId, defaultConfigs);

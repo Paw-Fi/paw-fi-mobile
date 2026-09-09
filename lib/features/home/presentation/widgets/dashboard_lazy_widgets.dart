@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -27,6 +28,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/home/presentation/widgets/net_cashflow_card.dart';
 import 'package:moneko/features/home/presentation/widgets/recent_transactions_card.dart';
+import 'package:moneko/features/home/presentation/widgets/upcoming_transactions_card.dart';
 import 'package:moneko/features/home/presentation/widgets/spending_breakdown_chart.dart';
 import 'package:moneko/features/home/presentation/widgets/spending_card.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -34,6 +36,7 @@ import 'package:moneko/features/insights/presentation/widgets/category_guide_dia
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 Widget _buildDashboardSwitcher(Widget child) {
@@ -656,6 +659,33 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class LazyDashboardUpcomingTransactionsCard extends ConsumerWidget {
+  const LazyDashboardUpcomingTransactionsCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scope = ref.watch(householdScopeProvider);
+    final selectedCurrency = _selectedCurrency(ref);
+    final selectedCurrencies = _selectedCurrencies(ref);
+    final upcoming = ref.watch(upcomingRecurringTransactionsProvider(
+      UpcomingRecurringScope(
+        householdId: scope.activeAccountHouseholdId,
+        currency: selectedCurrency,
+        selectedCurrencies: selectedCurrencies,
+      ),
+    ));
+    return UpcomingTransactionsCard(
+      upcoming: upcoming,
+      onTap: (item) => showAddRecurringSheet(
+        context,
+        type: item.transaction.type,
+        existingTransaction: item.transaction,
+      ),
+      onViewAll: () => ref.read(mainShellTabIndexProvider.notifier).state = 1,
     );
   }
 }

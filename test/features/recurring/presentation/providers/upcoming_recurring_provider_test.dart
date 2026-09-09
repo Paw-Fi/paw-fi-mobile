@@ -85,4 +85,62 @@ void main() {
     expect(upcoming!.transaction.id, 'rec_six_months');
     expect(upcoming.daysUntil, 2);
   });
+
+  test('upcoming provider lists bills and income in due-date order', () {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    RecurringTransaction recurring({
+      required String id,
+      required DateTime date,
+      required String type,
+    }) =>
+        RecurringTransaction(
+          id: id,
+          date: date,
+          category: type == 'income' ? 'income:salary' : 'utilities',
+          description: id,
+          amount: 100,
+          currency: 'USD',
+          ownerType: 'me',
+          privacyScope: 'full',
+          recurrenceRule: RecurrenceRule(
+            frequency: 'monthly',
+            anchorDate: date,
+          ),
+          type: type,
+          attachments: const [],
+          createdAt: today,
+        );
+    final container = ProviderContainer(
+      overrides: [
+        analyticsProvider.overrideWith(
+          (ref) => _MockAnalyticsNotifier(
+            ref,
+            AnalyticsData(
+                contact: UserContact(id: 'contact_1', verified: true)),
+          ),
+        ),
+        recurringTransactionsProvider(null).overrideWith(
+          (ref) => _MockRecurringTransactionsNotifier(ref, null, [
+            recurring(
+                id: 'bill',
+                date: today.add(const Duration(days: 2)),
+                type: 'expense'),
+            recurring(
+              id: 'income',
+              date: today.add(const Duration(days: 1)),
+              type: 'income',
+            ),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final upcoming = container.read(upcomingRecurringTransactionsProvider(
+      const UpcomingRecurringScope(householdId: null, currency: 'USD'),
+    ));
+
+    expect(upcoming.map((item) => item.transaction.id), ['income', 'bill']);
+  });
 }

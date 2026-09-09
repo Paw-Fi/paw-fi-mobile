@@ -176,8 +176,8 @@ final cachedHouseholdExpensesProvider =
     );
 
     final merged = mergeHouseholdExpenses(
-      result,
-      optimistic,
+      result.where((entry) => !entry.isRecurring).toList(growable: false),
+      optimistic.where((entry) => !entry.isRecurring).toList(growable: false),
       deletedIds: deletedIds,
     );
     final deduped = <ExpenseEntry>[];
