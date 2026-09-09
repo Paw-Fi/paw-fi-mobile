@@ -1009,7 +1009,18 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
         }
         if (mutation.operation == 'delete_recurring_transaction' ||
             mutation.operation == 'delete_recurring_template') {
-          pendingDeletedRecurringIds.add(mutation.entityId);
+          try {
+            final payload = jsonDecode(mutation.payloadJson);
+            final recurringId =
+                payload is Map ? payload['recurringId']?.toString() : null;
+            pendingDeletedRecurringIds.add(
+              recurringId?.isNotEmpty == true
+                  ? recurringId!
+                  : mutation.entityId,
+            );
+          } catch (_) {
+            pendingDeletedRecurringIds.add(mutation.entityId);
+          }
           continue;
         }
         if (mutation.operation == 'update_recurring_expense' ||

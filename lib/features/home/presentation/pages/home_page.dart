@@ -542,6 +542,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                               contact: dashboardContact,
                             ),
                           ),
+                      DashboardWidgetType.upcomingTransactions:
+                          (context, config) => const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                                child: LazyDashboardUpcomingTransactionsCard(),
+                              ),
                       DashboardWidgetType.spendingBreakdownChart: (context,
                               config) =>
                           Padding(

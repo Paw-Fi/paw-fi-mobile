@@ -671,6 +671,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           selectedCurrency: selectedCurrency,
                         ),
                       ),
+                  DashboardWidgetType.householdUpcomingTransactions: (context,
+                          config) =>
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LazyHouseholdUpcomingTransactionsCard(
+                          household: resolvedHousehold,
+                          selectedCurrency: selectedCurrency,
+                        ),
+                      ),
                   DashboardWidgetType.householdSpendingBreakdownChart: (context,
                           config) =>
                       Padding(

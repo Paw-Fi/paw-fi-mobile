@@ -7,6 +7,7 @@ enum DashboardWidgetType {
   netCashflow, // Includes MoM trend for now or separate? Let's keep them separate items
   financialCalendar,
   recentTransactions,
+  upcomingTransactions,
   spendingBreakdownChart,
   whereTheMoneyWent,
 
@@ -18,6 +19,7 @@ enum DashboardWidgetType {
   householdSettlement,
   householdMemberSpending,
   householdRecentTransactions,
+  householdUpcomingTransactions,
   householdSpendingBreakdownChart,
   householdWhereTheMoneyWent;
 

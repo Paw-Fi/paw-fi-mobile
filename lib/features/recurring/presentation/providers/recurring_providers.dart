@@ -1976,8 +1976,17 @@ class RecurringTransactionsNotifier
               .where((entry) => entry.id == transactionId)
               .firstOrNull;
       if (target != null) {
+        final database = await ref.read(localDatabaseProvider.future);
+        localDatabase = database;
+        final materializedOccurrences =
+            await database.getTransactionsByParentRecurringId(
+          userId: userId,
+          householdId: target.householdId,
+          parentRecurringId: transactionId,
+        );
         deletedEntries = [
           _expenseEntryFromRecurringTransaction(target, userId),
+          ...materializedOccurrences,
         ];
         lazyOptimisticHandle =
             ref.read(recurringSeriesOptimisticProvider.notifier).remove(
@@ -1995,7 +2004,8 @@ class RecurringTransactionsNotifier
       });
 
       if (deletedEntries.isNotEmpty) {
-        final database = await ref.read(localDatabaseProvider.future);
+        final MonekoDatabase database =
+            localDatabase ?? (await ref.read(localDatabaseProvider.future))!;
         localDatabase = database;
         await database.writeOptimisticTransactionDelete(
           entries: deletedEntries,
@@ -2393,8 +2403,8 @@ class UpcomingRecurringTransaction {
 }
 
 /// Next recurring transaction due within 3 days for the current scope.
-final upcomingRecurringTransactionProvider =
-    Provider.family<UpcomingRecurringTransaction?, UpcomingRecurringScope>(
+final upcomingRecurringTransactionsProvider =
+    Provider.family<List<UpcomingRecurringTransaction>, UpcomingRecurringScope>(
         (ref, scope) {
   final currency = scope.currency?.trim().toUpperCase();
   final currencies = scope.normalizedSelectedCurrencies;
@@ -2405,16 +2415,14 @@ final upcomingRecurringTransactionProvider =
   String? userId;
   try {
     userId = supabase.auth.currentUser?.id;
-  } catch (_) {
-    // Provider tests and unauthenticated previews have no Supabase client.
-  }
+  } catch (_) {}
   final List<RecurringSeriesSummary> summaries;
   if (userId == null || userId.isEmpty) {
     final transactions = ref
         .watch(recurringTransactionsProvider(scope.householdId))
         .data
         .valueOrNull;
-    if (transactions == null) return null;
+    if (transactions == null) return const [];
     summaries = transactions
         .map((transaction) => RecurringSeriesSummary(
               transaction: transaction,
@@ -2438,40 +2446,42 @@ final upcomingRecurringTransactionProvider =
             ?.items ??
         const [];
   }
-  UpcomingRecurringTransaction? best;
 
+  final upcoming = <UpcomingRecurringTransaction>[];
   for (final summary in summaries) {
     final transaction = summary.transaction;
     if (!transaction.isActive) continue;
     final transactionCurrency = transaction.currency.toUpperCase();
-    if (currencies != null && !currencies.contains(transactionCurrency)) {
+    if (currencies != null && !currencies.contains(transactionCurrency))
       continue;
-    }
     if (currencies == null &&
         currency != null &&
         currency.isNotEmpty &&
-        transactionCurrency != currency) {
-      continue;
-    }
-
+        transactionCurrency != currency) continue;
     final nextDate =
         summary.nextOccurrenceDate ?? transaction.getNextOccurrence(userNow);
     final daysUntil = nextDate.difference(today).inDays;
-
     if (daysUntil < 0 || daysUntil > 3) continue;
-
-    final candidate = UpcomingRecurringTransaction(
+    upcoming.add(UpcomingRecurringTransaction(
       transaction: transaction,
       nextOccurrence: nextDate,
       daysUntil: daysUntil,
-    );
-
-    if (best == null || nextDate.isBefore(best.nextOccurrence)) {
-      best = candidate;
-    }
+    ));
   }
+  upcoming.sort((left, right) {
+    final byDate = left.nextOccurrence.compareTo(right.nextOccurrence);
+    return byDate != 0
+        ? byDate
+        : left.transaction.id.compareTo(right.transaction.id);
+  });
+  return upcoming.take(5).toList(growable: false);
+});
 
-  return best;
+final upcomingRecurringTransactionProvider =
+    Provider.family<UpcomingRecurringTransaction?, UpcomingRecurringScope>(
+        (ref, scope) {
+  final upcoming = ref.watch(upcomingRecurringTransactionsProvider(scope));
+  return upcoming.isEmpty ? null : upcoming.first;
 });
 
 // ============================================================================

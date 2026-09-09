@@ -9,6 +9,8 @@ import 'package:http/testing.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -133,6 +135,100 @@ void main() {
     expect(
       (await database.getOutboxMutations()).single.status,
       localMutationStatusFailed,
+    );
+  });
+
+  test(
+      'deleting a recurring series removes its materialized occurrences locally',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (request) async => http.Response(
+          jsonEncode({'success': true}),
+          200,
+          headers: {'content-type': 'application/json'},
+          request: request,
+        );
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final recurring = _recurring(householdId: 'household_1');
+    final actual = _entry(recurring).copyWith(
+      id: 'actual-occurrence-1',
+      isRecurring: false,
+      parentRecurringId: recurring.id,
+      scheduledOccurrenceDate: DateTime(2026, 2, 1),
+    );
+    await database.upsertTransactions([actual]);
+    final notifier =
+        container.read(recurringTransactionsProvider('household_1').notifier);
+    notifier.addRecurring(recurring);
+    final initialFeedRefresh =
+        container.read(transactionsFeedRefreshSignalProvider);
+    final initialDashboardRefresh =
+        container.read(dashboardRefreshSignalProvider);
+
+    final result = await notifier.deleteRecurring(
+      'user_1',
+      recurring.id,
+      transaction: recurring,
+    );
+
+    expect(result.success, isTrue);
+    expect(
+      await database.getTransactionsByParentRecurringId(
+        userId: 'user_1',
+        householdId: 'household_1',
+        parentRecurringId: recurring.id,
+      ),
+      isEmpty,
+    );
+    expect(
+      container.read(transactionsFeedRefreshSignalProvider),
+      initialFeedRefresh + 1,
+    );
+    expect(
+      container.read(dashboardRefreshSignalProvider),
+      initialDashboardRefresh + 1,
+    );
+  });
+
+  test('terminal recurring deletion restores materialized occurrences locally',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (request) async => _terminalResponse(request);
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final recurring = _recurring(householdId: 'household_1');
+    final actual = _entry(recurring).copyWith(
+      id: 'actual-occurrence-1',
+      isRecurring: false,
+      parentRecurringId: recurring.id,
+      scheduledOccurrenceDate: DateTime(2026, 2, 1),
+    );
+    await database.upsertTransactions([actual]);
+    final notifier =
+        container.read(recurringTransactionsProvider('household_1').notifier);
+    notifier.addRecurring(recurring);
+
+    final result = await notifier.deleteRecurring(
+      'user_1',
+      recurring.id,
+      transaction: recurring,
+    );
+
+    expect(result.success, isFalse);
+    final restoredOccurrences =
+        await database.getTransactionsByParentRecurringId(
+      userId: 'user_1',
+      householdId: 'household_1',
+      parentRecurringId: recurring.id,
+    );
+    expect(restoredOccurrences.single.id, actual.id);
+    expect(restoredOccurrences.single.parentRecurringId, recurring.id);
+    expect(
+      (await database.getOutboxMutations()).single.status,
+      localMutationStatusCancelled,
     );
   });
 
