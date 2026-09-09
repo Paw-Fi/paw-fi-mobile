@@ -104,7 +104,7 @@ Map<String, double> calculateMomTrend({
       // Include all actuals for scheduled-occurrence suppression, while the
       // merge keeps returned actuals scoped to this paid-date period.
       actualExpenses: eligibleActualExpenses,
-      recurringTransactions: recurringTransactions,
+      recurringTransactions: const [],
       rangeStart: start,
       rangeEnd: end,
       confirmedOccurrenceSuppressionEntries:

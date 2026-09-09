@@ -44,6 +44,7 @@ void main() {
       rangeStart: DateTime(2026, 6, 1),
       rangeEnd: DateTime(2026, 6, 30),
       selectedCurrency: 'USD',
+      includeUnconfirmedOccurrences: true,
     );
 
     expect(projected.map((entry) => entry.date), [DateTime(2026, 6, 10)]);
@@ -72,6 +73,7 @@ void main() {
       rangeStart: DateTime(2026, 6, 1),
       rangeEnd: DateTime(2026, 6, 30),
       selectedCurrency: 'USD',
+      includeUnconfirmedOccurrences: true,
     );
 
     expect(
@@ -106,6 +108,7 @@ void main() {
       recurringTransactions: [transaction],
       rangeStart: DateTime(2026, 6, 1),
       rangeEnd: DateTime(2026, 6, 30),
+      includeUnconfirmedOccurrences: true,
     );
 
     expect(projected.single.analyticsClass, 'cash_movement');
@@ -139,6 +142,7 @@ void main() {
       rangeStart: DateTime(2026, 7, 1),
       rangeEnd: DateTime(2026, 7, 31),
       selectedCurrency: 'USD',
+      includeUnconfirmedOccurrences: true,
     );
 
     expect(projected, hasLength(1));
@@ -391,6 +395,7 @@ void main() {
       rangeEnd: DateTime(2026, 4, 30),
       selectedCurrency: 'USD',
       includeFutureOccurrences: false,
+      includeUnconfirmedOccurrences: true,
       now: DateTime(2026, 4, 15),
     );
 
@@ -542,6 +547,7 @@ void main() {
       rangeEnd: DateTime(2026, 4, 30),
       selectedCurrency: 'INR',
       includeFutureOccurrences: false,
+      includeUnconfirmedOccurrences: true,
       now: DateTime(2026, 4, 15),
     );
 

@@ -384,7 +384,6 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       );
     }
 
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
     final currentOccurrenceResolution = ref.watch(
       recurringOccurrenceProjectionResolutionProvider(
         RecurringOccurrenceProjectionResolutionQuery(
@@ -407,7 +406,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     );
     final currentTransactions = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: currentBaseTransactions,
-      recurringTransactions: recurringTransactions,
+      recurringTransactions: const [],
       rangeStart: currentRange.$1,
       rangeEnd: currentRange.$2,
       confirmedOccurrenceSuppressionEntries:
@@ -418,7 +417,7 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     );
     final previousTransactions = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: previousBaseTransactions,
-      recurringTransactions: recurringTransactions,
+      recurringTransactions: const [],
       rangeStart: previousRange.$1,
       rangeEnd: previousRange.$2,
       confirmedOccurrenceSuppressionEntries:
@@ -590,31 +589,13 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
       query: query,
       limit: 5,
     );
-    final recentTransactions = <ExpenseEntry>[
-      ...rawRecentTransactions.where(
-        (entry) =>
-            extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
-            null,
-      ),
-      ...dedupeProjectedRecurringExpenseEntries(
-        projectedExpenses: rawRecentTransactions
-            .where(
-              (entry) =>
-                  extractRecurringTransactionIdFromProjectedExpenseId(
-                      entry.id) !=
-                  null,
-            )
-            .toList(growable: false),
-        actualExpenses: <ExpenseEntry>[
-          ...rawRecentTransactions.where(
-            (entry) =>
-                extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
-                null,
-          ),
-          ...occurrenceResolution.suppressionEntries,
-        ],
-      ),
-    ];
+    final recentTransactions = rawRecentTransactions
+        .where(
+          (entry) =>
+              extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
+              null,
+        )
+        .toList(growable: false);
 
     if (recentAsync.isLoading &&
         !recentAsync.hasValue &&
@@ -766,7 +747,6 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       );
     }
 
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
     final occurrenceResolution = ref.watch(
       recurringOccurrenceProjectionResolutionProvider(
         RecurringOccurrenceProjectionResolutionQuery(
@@ -779,7 +759,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     );
     final expenses = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: transactions,
-      recurringTransactions: recurringTransactions,
+      recurringTransactions: const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
       confirmedOccurrenceSuppressionEntries:
@@ -904,7 +884,6 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       );
     }
 
-    final recurringTransactions = recurringState.data.valueOrNull ?? const [];
     final occurrenceResolution = ref.watch(
       recurringOccurrenceProjectionResolutionProvider(
         RecurringOccurrenceProjectionResolutionQuery(
@@ -917,7 +896,7 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     );
     final expenses = mergeActualExpensesWithProjectedRecurring(
       actualExpenses: transactions,
-      recurringTransactions: recurringTransactions,
+      recurringTransactions: const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
       confirmedOccurrenceSuppressionEntries:

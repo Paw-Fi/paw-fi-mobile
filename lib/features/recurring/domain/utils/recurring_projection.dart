@@ -136,7 +136,9 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
   required DateTime rangeEnd,
   String? selectedCurrency,
   List<String>? selectedCurrencies,
+  bool includeUnconfirmedOccurrences = false,
 }) {
+  if (!includeUnconfirmedOccurrences) return const <ExpenseEntry>[];
   if (rangeEnd.isBefore(rangeStart)) return const <ExpenseEntry>[];
 
   final currencyFilters = _normalizeCurrencySet(selectedCurrencies) ??
@@ -337,6 +339,7 @@ List<ExpenseEntry> projectUpcomingRecurringTransactionsAsExpenseEntries({
     rangeEnd: monthEnd,
     selectedCurrency: selectedCurrency,
     selectedCurrencies: selectedCurrencies,
+    includeUnconfirmedOccurrences: true,
   );
 }
 
@@ -394,6 +397,7 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
   String? selectedCurrency,
   List<String>? selectedCurrencies,
   bool includeFutureOccurrences = true,
+  bool includeUnconfirmedOccurrences = false,
   DateTime? now,
 }) {
   final normalizedStart = _dateOnly(rangeStart);
@@ -432,6 +436,7 @@ List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
     rangeEnd: projectionEnd,
     selectedCurrency: selectedCurrency,
     selectedCurrencies: selectedCurrencies,
+    includeUnconfirmedOccurrences: includeUnconfirmedOccurrences,
   );
   final dedupedProjectedExpenses = dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectedExpenses,

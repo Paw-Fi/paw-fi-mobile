@@ -350,7 +350,7 @@ final householdDashboardProjectionProvider = Provider.autoDispose
               ? actualExpenses
               : mergeActualExpensesWithProjectedRecurring(
                   actualExpenses: actualExpenses,
-                  recurringTransactions: recurringTransactions,
+                  recurringTransactions: const [],
                   rangeStart: query.startDate!,
                   rangeEnd: query.endDate!,
                   confirmedOccurrenceSuppressionEntries:

@@ -99,7 +99,7 @@ void main() {
     });
   });
 
-  test('keeps recurring projection and actual-occurrence deduplication exact',
+  test('counts materialized recurring occurrences without template projections',
       () {
     final recurring = RecurringTransaction(
       id: 'netflix-recurring',
@@ -137,12 +137,13 @@ void main() {
 
     expect(totals, <String, double>{
       '2026-07-01': 10,
-      '2026-06-01': 10,
-      '2026-05-01': 10,
+      '2026-06-01': 0,
+      '2026-05-01': 0,
     });
   });
 
-  test('projects every recurring occurrence in the selected financial cycle',
+  test(
+      'does not count unconfirmed recurring occurrences in the selected financial cycle',
       () {
     final recurring = RecurringTransaction(
       id: 'income-tax-recurring',
@@ -172,11 +173,10 @@ void main() {
       selectedCurrency: 'SGD',
     );
 
-    expect(totals['2026-08-01'], 98.5);
+    expect(totals['2026-08-01'], 0);
   });
 
-  test('suppresses a scheduled projection when its actual is paid next cycle',
-      () {
+  test('counts a materialized recurring occurrence in its scheduled cycle', () {
     final recurring = RecurringTransaction(
       id: 'rent-recurring',
       userId: 'user-1',
@@ -212,9 +212,9 @@ void main() {
       selectedCurrency: 'USD',
     );
 
-    expect(totals['2026-09-01'], 10);
+    expect(totals['2026-09-01'], 0);
     expect(totals['2026-08-01'], 10);
-    expect(totals['2026-07-01'], 10);
+    expect(totals['2026-07-01'], 0);
   });
 
   test('does not count recurring schedule templates as posted expenses', () {

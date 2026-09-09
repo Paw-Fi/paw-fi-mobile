@@ -15,7 +15,6 @@ import 'package:moneko/features/households/presentation/pages/daily_financial_de
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
-import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 String _safeCompactFormat(num value, BuildContext context) {
@@ -68,53 +67,7 @@ class _FinancialCalendarWidgetState
     required CurrencyRateTable rates,
     required Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries,
   }) {
-    final merged = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: actualTransactions,
-      recurringTransactions: widget.recurringTransactions,
-      rangeStart: rangeStart,
-      rangeEnd: rangeEnd,
-      confirmedOccurrenceSuppressionEntries:
-          confirmedOccurrenceSuppressionEntries,
-      selectedCurrency: widget.currency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: true,
-    );
-    final projected = merged
-        .where((expense) =>
-            extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
-            null)
-        .toList(growable: false);
-
-    final totals = <DateTime, Map<String, double>>{};
-
-    for (final e in projected) {
-      final day = DateTime(e.date.year, e.date.month, e.date.day);
-      final entry = totals.putIfAbsent(
-          day,
-          () => {
-                'expense': 0.0,
-                'income': 0.0,
-              });
-
-      final sourceCurrency =
-          (e.currency ?? widget.currency).trim().toUpperCase();
-      final amount = convertAmountCentsToCurrency(
-            e.amountCents.abs(),
-            fromCurrency:
-                sourceCurrency.isEmpty ? widget.currency : sourceCurrency,
-            targetCurrency: widget.currency,
-            rates: rates,
-          ) /
-          100.0;
-      final type = (e.type ?? 'expense').toLowerCase();
-      if (type == 'income') {
-        entry['income'] = (entry['income'] ?? 0) + amount;
-      } else {
-        entry['expense'] = (entry['expense'] ?? 0) + amount;
-      }
-    }
-
-    return totals;
+    return const <DateTime, Map<String, double>>{};
   }
 
   Map<DateTime, Map<String, double>> _buildActualDailyTotals({

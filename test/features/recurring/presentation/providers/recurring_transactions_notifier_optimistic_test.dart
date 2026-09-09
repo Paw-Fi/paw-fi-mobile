@@ -140,6 +140,7 @@ void main() {
       rangeStart: DateTime(2026, 5, 1),
       rangeEnd: DateTime(2026, 5, 27),
       selectedCurrency: 'USD',
+      includeUnconfirmedOccurrences: true,
     );
 
     expect(recurring.single.recurrenceRule?.frequency, 'monthly');
