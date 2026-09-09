@@ -1266,13 +1266,11 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     'rangeStart': projectionRangeStart,
     'projectedCount': projectedTransactions.length,
   });
-  final combinedTransactions = <ExpenseEntry>[
-    ...actualTransactions,
-    ...projectedTransactions,
-  ];
   return _WalletRecurringAwareData(
     wallets: wallets,
-    transactions: combinedTransactions,
+    // Wallet balances, net worth, and period totals use only materialized
+    // transactions. The projection above remains the upcoming-only source.
+    transactions: actualTransactions,
   );
 }
 
