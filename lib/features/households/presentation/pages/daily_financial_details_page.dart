@@ -169,54 +169,7 @@ class _DailyFinancialDetailsPageState
     required CurrencyRateTable rates,
     required Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries,
   }) {
-    final merged = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: actualTransactions,
-      recurringTransactions: recurringTransactions,
-      rangeStart: rangeStart,
-      rangeEnd: rangeEnd,
-      confirmedOccurrenceSuppressionEntries:
-          confirmedOccurrenceSuppressionEntries,
-      selectedCurrency: widget.currency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: true,
-    );
-
-    final projected = merged
-        .where((expense) =>
-            extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
-            null)
-        .toList(growable: false);
-
-    final totals = <DateTime, Map<String, double>>{};
-    for (final entry in projected) {
-      final day = DateTime(entry.date.year, entry.date.month, entry.date.day);
-      final item = totals.putIfAbsent(
-        day,
-        () => {
-          'expense': 0.0,
-          'income': 0.0,
-        },
-      );
-
-      final sourceCurrency =
-          (entry.currency ?? widget.currency).trim().toUpperCase();
-      final amount = convertAmountCentsToCurrency(
-            entry.amountCents.abs(),
-            fromCurrency:
-                sourceCurrency.isEmpty ? widget.currency : sourceCurrency,
-            targetCurrency: widget.currency,
-            rates: rates,
-          ) /
-          100.0;
-      final type = (entry.type ?? 'expense').toLowerCase();
-      if (type == 'income') {
-        item['income'] = (item['income'] ?? 0) + amount;
-      } else {
-        item['expense'] = (item['expense'] ?? 0) + amount;
-      }
-    }
-
-    return totals;
+    return const <DateTime, Map<String, double>>{};
   }
 
   Map<String, double> _calculateDailyTotals(
@@ -368,28 +321,7 @@ class _DailyFinancialDetailsPageState
             .toList(growable: false)
         : dailyTransactions;
 
-    final rawProjectedRecurringEntriesForDay =
-        mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: dailyTransactions,
-      recurringTransactions: recurringTransactions,
-      rangeStart: _selectedDate,
-      rangeEnd: _selectedDate,
-      confirmedOccurrenceSuppressionEntries:
-          occurrenceResolution.suppressionEntries,
-      selectedCurrency: widget.currency,
-      selectedCurrencies: selectedCurrencies,
-      includeFutureOccurrences: true,
-    ).where((expense) {
-      return extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
-          null;
-    }).toList();
-    final projectedRecurringEntriesForDay = isMultiCurrencySelection
-        ? convertTransactionsToCurrency(
-            rawProjectedRecurringEntriesForDay,
-            targetCurrency: widget.currency,
-            rates: rates,
-          )
-        : rawProjectedRecurringEntriesForDay;
+    const projectedRecurringEntriesForDay = <ExpenseEntry>[];
 
     String? tryExtractRecurringId(String syntheticId) {
       final d =
@@ -415,7 +347,6 @@ class _DailyFinancialDetailsPageState
         .toSet();
     final chartTransactions = [
       ...dailyAggregateTransactions,
-      ...projectedRecurringEntriesForDay,
     ];
 
     // Filter recurring transactions for this specific day
@@ -433,15 +364,6 @@ class _DailyFinancialDetailsPageState
         totalIncome += amount;
       } else if (t.effectiveSpendingMultiplier != 0) {
         totalExpense += amount * t.effectiveSpendingMultiplier;
-      }
-    }
-
-    for (final e in projectedRecurringEntriesForDay) {
-      final amount = e.amountCents.abs() / 100.0;
-      if ((e.type ?? 'expense').toLowerCase() == 'income') {
-        totalIncome += amount;
-      } else {
-        totalExpense += amount;
       }
     }
 

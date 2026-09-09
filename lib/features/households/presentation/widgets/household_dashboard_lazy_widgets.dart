@@ -451,31 +451,13 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
       ),
       limit: 5,
     );
-    final recentTransactions = <ExpenseEntry>[
-      ...rawRecentTransactions.where(
-        (entry) =>
-            extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
-            null,
-      ),
-      ...dedupeProjectedRecurringExpenseEntries(
-        projectedExpenses: rawRecentTransactions
-            .where(
-              (entry) =>
-                  extractRecurringTransactionIdFromProjectedExpenseId(
-                      entry.id) !=
-                  null,
-            )
-            .toList(growable: false),
-        actualExpenses: <ExpenseEntry>[
-          ...rawRecentTransactions.where(
-            (entry) =>
-                extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
-                null,
-          ),
-          ...occurrenceResolution.suppressionEntries,
-        ],
-      ),
-    ];
+    final recentTransactions = rawRecentTransactions
+        .where(
+          (entry) =>
+              extractRecurringTransactionIdFromProjectedExpenseId(entry.id) ==
+              null,
+        )
+        .toList(growable: false);
 
     Widget child;
 

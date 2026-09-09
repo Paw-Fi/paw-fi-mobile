@@ -219,6 +219,7 @@ void main() {
         rangeStart: start,
         rangeEnd: end,
         selectedCurrency: 'SGD',
+        includeUnconfirmedOccurrences: true,
       );
       return addProjectedTransactionsToSummary(
         const TransactionsFeedSummary.empty(),
