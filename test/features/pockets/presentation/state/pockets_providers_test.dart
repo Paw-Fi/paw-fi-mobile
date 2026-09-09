@@ -14,6 +14,25 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  test('keeps materialized v4 lineage metadata for the lifecycle editor', () {
+    final metadata = pocketLineageMetadataFromV4Payloads([
+      {
+        'envelopes': [
+          {
+            'rollover_group_id': 'food-lineage',
+            'revision': 4,
+            'funding_policy': 'refill_to',
+            'funding_target_cents': 25000,
+          },
+        ],
+        'pockets_v4': const {},
+      },
+    ]);
+
+    expect(metadata['food-lineage']?.revision, 4);
+    expect(metadata['food-lineage']?.fundingPolicy, 'refill_to');
+  });
+
   test('shows empty-cycle recovery when a budget has no pockets', () {
     expect(
       shouldShowEmptyCycleRecovery(

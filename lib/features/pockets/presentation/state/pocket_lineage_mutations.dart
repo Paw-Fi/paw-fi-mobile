@@ -84,7 +84,7 @@ Map<String, dynamic> buildPocketLineageLifecyclePayload({
   required String? logoUrl,
   required bool rolloverEnabled,
   required bool rolloverNegative,
-  required int rolloverCapCents,
+  required int? rolloverCapCents,
   required String fundingPolicy,
   required int? fundingTargetCents,
   required List<String> categories,

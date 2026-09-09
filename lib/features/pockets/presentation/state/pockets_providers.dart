@@ -92,7 +92,10 @@ final pocketsMonthAiReviewProvider = FutureProvider.autoDispose
     }
     final data = Map<String, dynamic>.from(responseData);
     if (data['success'] == false) {
-      throw StateError(data['error']?.toString() ?? 'The AI review failed.');
+      throw PocketsMonthAiReviewException(
+        code: (data['code'] ?? data['error_code'])?.toString(),
+        message: data['error']?.toString() ?? 'The AI review failed.',
+      );
     }
     return PocketsMonthAiReview.fromJson(data);
   },
@@ -100,6 +103,19 @@ final pocketsMonthAiReviewProvider = FutureProvider.autoDispose
 
 const rolloverBackendUnavailableMessage =
     'Pocket rollover is not available until the app backend is updated.';
+
+class PocketsMonthAiReviewException implements Exception {
+  const PocketsMonthAiReviewException({this.code, required this.message});
+
+  final String? code;
+  final String message;
+
+  bool get isPlusDenied =>
+      code?.trim().toUpperCase() == 'SUBSCRIPTION_REQUIRED';
+
+  @override
+  String toString() => message;
+}
 
 bool isMissingRolloverColumnError(Object error) {
   if (error is! PostgrestException) return false;
@@ -174,6 +190,32 @@ bool _rowHasRolloverFields(Map<String, dynamic> row) {
       row.containsKey('rollover_cap_cents') ||
       row.containsKey('opening_rollover_cents') ||
       row.containsKey('rollover_from_previous_cents');
+}
+
+@foundation.visibleForTesting
+Map<String, PocketLineageMetadata> pocketLineageMetadataFromV4Payloads(
+  Iterable<Map<String, dynamic>> payloads,
+) {
+  final metadataById = <String, PocketLineageMetadata>{};
+  for (final payload in payloads) {
+    final pocketsV4 = payload['pockets_v4'];
+    if (pocketsV4 is! Map) continue;
+    final rows = <Object?>[
+      ...((pocketsV4['lineages'] as List?) ?? const []),
+      ...((pocketsV4['materialized_lineages'] as List?) ?? const []),
+      ...((pocketsV4['lifecycle_virtual_rows'] as List?) ?? const []),
+      ...((payload['envelopes'] as List?) ?? const []),
+    ];
+    for (final row in rows.whereType<Map>()) {
+      final metadata = PocketLineageMetadata.fromJson(
+        Map<String, dynamic>.from(row),
+      );
+      if (metadata.lineageId.isNotEmpty && metadata.revision >= 0) {
+        metadataById[metadata.lineageId] = metadata;
+      }
+    }
+  }
+  return metadataById;
 }
 
 // L1 in-memory month cache.
@@ -3812,23 +3854,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                     : review.currency)
                 .toUpperCase(): review,
       };
-      final lineageMetadataById = <String, PocketLineageMetadata>{};
-      for (final payload in payloads) {
-        final pocketsV4 = payload['pockets_v4'];
-        if (pocketsV4 is! Map) continue;
-        final rows = [
-          ...((pocketsV4['lineages'] as List?) ?? const []),
-          ...((pocketsV4['lifecycle_virtual_rows'] as List?) ?? const []),
-        ];
-        for (final row in rows.whereType<Map>()) {
-          final metadata = PocketLineageMetadata.fromJson(
-            Map<String, dynamic>.from(row),
-          );
-          if (metadata.lineageId.isNotEmpty && metadata.revision >= 0) {
-            lineageMetadataById[metadata.lineageId] = metadata;
-          }
-        }
-      }
+      final lineageMetadataById = pocketLineageMetadataFromV4Payloads(payloads);
       final review = reviewsByCurrency[selectedCurrency.toUpperCase()];
       return PocketsState(
         isLoading: false,

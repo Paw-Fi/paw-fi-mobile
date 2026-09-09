@@ -39,8 +39,6 @@ import 'package:moneko/shared/widgets/rounded_logo_picker.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
-const _autoAdjustOtherPocketsPreferenceKey =
-    'pockets_auto_adjust_other_pockets';
 const _pocketRolloverHelpPreferenceKey = 'has_seen_pocket_rollover_help';
 
 String _newPocketLifecycleOperationId() {
@@ -173,9 +171,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     );
     final isLoading = useState<bool>(false);
     final prefs = ref.read(sharedPreferencesProvider);
-    final autoAdjustOtherPockets = useState<bool>(
-      prefs.getBool(_autoAdjustOtherPocketsPreferenceKey) ?? true,
-    );
     final rolloverEnabled = useState<bool>(
       existingEnvelope?.rolloverEnabled ?? false,
     );
@@ -185,16 +180,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final hasSeenRolloverHelp = useState<bool>(
       prefs.getBool(_pocketRolloverHelpPreferenceKey) ?? false,
     );
-    final openingRolloverController = useTextEditingController(
-      text: existingEnvelope?.openingRolloverCents == null
-          ? ''
-          : existingEnvelope!.openingRolloverCents == 0
-              ? ''
-              : formatAmount(
-                  centsToAmount(existingEnvelope!.openingRolloverCents),
-                ),
-    );
-    useListenable(openingRolloverController);
     final rolloverCapController = useTextEditingController(
       text: existingEnvelope?.rolloverCapCents == null
           ? ''
@@ -238,64 +223,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         .where((pocket) => pocket.id != existingEnvelope?.id)
         .toList(growable: false);
 
-    bool shouldRebalanceSiblingBudgets(int currentAmountCents) {
-      if (!autoAdjustOtherPockets.value) {
-        return false;
-      }
-
-      if (siblingPockets.isEmpty) {
-        return false;
-      }
-
-      if (!isEditing) {
-        return true;
-      }
-
-      return existingEnvelope!.budgetAmountCents != currentAmountCents;
-    }
-
-    List<int> buildRebalancedSiblingAmounts(int currentAmountCents) {
-      final siblingAmounts = siblingPockets
-          .map((pocket) => pocket.budgetAmountCents)
-          .toList(growable: false);
-
-      if (!shouldRebalanceSiblingBudgets(currentAmountCents)) {
-        return siblingAmounts;
-      }
-
-      return rebalanceSiblingPocketBudgetAmounts(
-        siblingAmountsCents: siblingAmounts,
-        targetPocketAmountCents: currentAmountCents,
-        totalBudgetCents: totalBudgetCents,
-        allocationStepCents: allocationStepCents,
-      );
-    }
-
-    final previewSiblingAmounts =
-        buildRebalancedSiblingAmounts(previewAmountCents);
+    final previewSiblingAmounts = siblingPockets
+        .map((pocket) => pocket.budgetAmountCents)
+        .toList(growable: false);
     final previewAllocatedCents = previewAmountCents +
         previewSiblingAmounts.fold<int>(0, (sum, amount) => sum + amount);
     final previewExceededBudgetCents =
         math.max(0, previewAllocatedCents - totalBudgetCents);
-    final l10n = context.l10n;
-    final autoAdjustTitle =
-        autoAdjustOtherPockets.value ? l10n.balancedMode : l10n.manualMode;
-    final autoAdjustSubtitle = autoAdjustOtherPockets.value
-        ? l10n.autoAdjustSubtitle
-        : l10n.manualAdjustSubtitle;
-    final autoAdjustAccent = autoAdjustOtherPockets.value
-        ? colorScheme.primary
-        : colorScheme.warning;
-
-    void setAutoAdjustOtherPockets(bool value) {
-      autoAdjustOtherPockets.value = value;
-      unawaited(
-        prefs
-            .setBool(_autoAdjustOtherPocketsPreferenceKey, value)
-            .then<void>((_) {}),
-      );
-    }
-
     void setRolloverEnabled(bool value) {
       rolloverEnabled.value = value;
       if (value && !hasSeenRolloverHelp.value) {
@@ -387,7 +321,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final rolloverNegativeValue =
           rolloverEnabledValue && rolloverNegative.value;
       int? rolloverCapCentsValue;
-      var openingRolloverCentsValue = 0;
       if (rolloverEnabledValue) {
         final capText = rolloverCapController.text.trim();
         if (capText.isNotEmpty) {
@@ -397,23 +330,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             return;
           }
           rolloverCapCentsValue = parsedCapCents;
-        }
-
-        final openingText = openingRolloverController.text.trim();
-        if (openingText.isNotEmpty) {
-          final parsedOpeningCents = tryParseMoneyToCents(openingText);
-          if (parsedOpeningCents == null) {
-            AppToast.error(context, l10n.pocketRolloverInvalidOpeningError);
-            return;
-          }
-          if (parsedOpeningCents < 0 && !rolloverNegativeValue) {
-            AppToast.error(
-              context,
-              l10n.pocketRolloverNegativeOpeningRequiresOverspendingError,
-            );
-            return;
-          }
-          openingRolloverCentsValue = parsedOpeningCents;
         }
       }
       final existingCarryCents = rolloverEnabledValue
@@ -426,7 +342,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         rolloverEnabled: rolloverEnabledValue,
         rolloverNegative: rolloverNegativeValue,
         rolloverCapCents: rolloverCapCentsValue,
-        openingRolloverCents: openingRolloverCentsValue,
+        openingRolloverCents: 0,
       );
 
       if (selectedCategories.value.isEmpty) {
@@ -523,7 +439,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         final shouldWriteRolloverFields = rolloverEnabledValue ||
             rolloverNegativeValue ||
             rolloverCapCentsValue != null ||
-            openingRolloverCentsValue != 0 ||
             existingEnvelope?.hasRolloverFields == true;
         final optimisticPockets = <PocketEnvelope>[
           for (final pocket in allPockets)
@@ -543,7 +458,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 rolloverEnabled: rolloverEnabledValue,
                 rolloverNegative: rolloverNegativeValue,
                 rolloverCapCents: rolloverCapCentsValue,
-                openingRolloverCents: openingRolloverCentsValue,
+                openingRolloverCents: 0,
                 rolloverFromPreviousCents:
                     optimisticRolloverBreakdown.rolloverFromPreviousCents,
                 hasRolloverFields: shouldWriteRolloverFields,
@@ -576,7 +491,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               rolloverEnabled: rolloverEnabledValue,
               rolloverNegative: rolloverNegativeValue,
               rolloverCapCents: rolloverCapCentsValue,
-              openingRolloverCents: openingRolloverCentsValue,
+              openingRolloverCents: 0,
               rolloverFromPreviousCents:
                   optimisticRolloverBreakdown.rolloverFromPreviousCents,
               hasRolloverFields: shouldWriteRolloverFields,
@@ -602,7 +517,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               rolloverEnabled: rolloverEnabledValue,
               rolloverNegative: rolloverNegativeValue,
               rolloverCapCents: rolloverCapCentsValue,
-              openingRolloverCents: openingRolloverCentsValue,
+              openingRolloverCents: 0,
               rolloverFromPreviousCents:
                   optimisticRolloverBreakdown.rolloverFromPreviousCents,
               hasRolloverFields: shouldWriteRolloverFields,
@@ -640,7 +555,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             logoUrl: selectedLogoUrl.value,
             rolloverEnabled: rolloverEnabledValue,
             rolloverNegative: rolloverNegativeValue,
-            rolloverCapCents: rolloverCapCentsValue ?? 0,
+            rolloverCapCents: rolloverCapCentsValue,
             fundingPolicy: selectedFundingPolicy,
             fundingTargetCents: fundingTargetCents,
             categories: selectedCategories.value,
@@ -1095,97 +1010,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 12),
                             GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: isLoading.value
-                                  ? null
-                                  : () {
-                                      setAutoAdjustOtherPockets(
-                                        !autoAdjustOtherPockets.value,
-                                      );
-                                    },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeOutCubic,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.sheetElementBackground,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: colorScheme.border),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              AnimatedSwitcher(
-                                                duration: const Duration(
-                                                  milliseconds: 180,
-                                                ),
-                                                child: Text(
-                                                  autoAdjustTitle,
-                                                  key:
-                                                      ValueKey(autoAdjustTitle),
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: autoAdjustAccent,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Tooltip(
-                                                message: l10n
-                                                    .balancedManualModeTooltip,
-                                                triggerMode:
-                                                    TooltipTriggerMode.tap,
-                                                child: Icon(
-                                                  Icons.help_outline_rounded,
-                                                  size: 18,
-                                                  color: autoAdjustAccent,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 3),
-                                          AnimatedSwitcher(
-                                            duration: const Duration(
-                                              milliseconds: 180,
-                                            ),
-                                            child: Align(
-                                              key: ValueKey(autoAdjustSubtitle),
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                autoAdjustSubtitle,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  height: 1.25,
-                                                  color: colorScheme
-                                                      .mutedForeground,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    AdaptiveSwitch(
-                                      value: autoAdjustOtherPockets.value,
-                                      onChanged: isLoading.value
-                                          ? null
-                                          : setAutoAdjustOtherPockets,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            GestureDetector(
                               onTap: () async {
                                 final hexColor =
                                     selectedColor.value ?? '#6B7280';
@@ -1389,7 +1213,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             ? context.l10n.thisPocketFallback
                             : nameController.text.trim(),
                         colorScheme: colorScheme,
-                        showUnassignedBudget: !autoAdjustOtherPockets.value,
+                        showUnassignedBudget: true,
                       ),
                       const SizedBox(height: 16),
                       _RolloverSettingsSection(
@@ -1397,7 +1221,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         currency: currency,
                         rolloverEnabled: rolloverEnabled.value,
                         rolloverNegative: rolloverNegative.value,
-                        openingRolloverController: openingRolloverController,
                         rolloverCapController: rolloverCapController,
                         onRolloverEnabledChanged:
                             isLoading.value ? null : setRolloverEnabled,
@@ -1526,7 +1349,7 @@ Future<_PocketRetirementChoice?> _selectPocketRetirementDisposition({
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(
@@ -1578,7 +1401,7 @@ Future<_PocketRetirementChoice?> _selectPocketRetirementDisposition({
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
       ],
     ),
@@ -1591,7 +1414,6 @@ class _RolloverSettingsSection extends StatelessWidget {
     required this.currency,
     required this.rolloverEnabled,
     required this.rolloverNegative,
-    required this.openingRolloverController,
     required this.rolloverCapController,
     required this.onRolloverEnabledChanged,
     required this.onRolloverNegativeChanged,
@@ -1601,7 +1423,6 @@ class _RolloverSettingsSection extends StatelessWidget {
   final String currency;
   final bool rolloverEnabled;
   final bool rolloverNegative;
-  final TextEditingController openingRolloverController;
   final TextEditingController rolloverCapController;
   final ValueChanged<bool>? onRolloverEnabledChanged;
   final ValueChanged<bool>? onRolloverNegativeChanged;
@@ -1738,37 +1559,6 @@ class _RolloverSettingsSection extends StatelessWidget {
                                 onChanged: onRolloverNegativeChanged,
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            context.l10n.pocketRolloverOpeningLabel,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          CustomTextField(
-                            controller: openingRolloverController,
-                            placeholder: '${currencySymbol}0',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              signed: true,
-                              decimal: true,
-                            ),
-                            prefixIcon: _CurrencyPrefix(
-                              symbol: currencySymbol,
-                              colorScheme: colorScheme,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            context.l10n.pocketRolloverOpeningDescription,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.25,
-                              color: colorScheme.mutedForeground,
-                            ),
                           ),
                           const SizedBox(height: 14),
                           Text(

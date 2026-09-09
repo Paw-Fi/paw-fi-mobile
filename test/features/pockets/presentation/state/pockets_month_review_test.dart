@@ -93,6 +93,22 @@ void main() {
     expect(review!.isOutstanding, isFalse);
   });
 
+  test('parses the final v4 parent fields without a review', () {
+    final review = PocketsMonthReview.fromV4Payload({
+      'selected_currency': 'usd',
+      'pockets_v4': {
+        'contract_version': 4,
+        'can_edit': true,
+        'is_current_period': true,
+        'has_active_pockets': false,
+        'active_lineage_count': 0,
+        'review': null,
+      },
+    });
+
+    expect(review, isNull);
+  });
+
   test('shows an outstanding review only once during a page visit', () {
     final gate = PocketsMonthReviewVisitGate();
     final review = PocketsMonthReview(
@@ -188,6 +204,25 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('keeps a household conflict draft visible beside a confirmed plan', () {
+    final conflict = PocketsMonthReview(
+      id: 'review-2026-09',
+      status: 'household_conflict',
+      isOutstanding: false,
+      setupRevision: 8,
+      reviewedAt: '2026-09-01T12:00:00Z',
+      unassignedCents: 0,
+      carryCents: 0,
+      facts: const {},
+      suggestions: const [],
+      canEdit: true,
+      isCurrentPeriod: true,
+    );
+
+    expect(conflict.hasHouseholdConflict, isTrue);
+    expect(conflict.isVisibleInReviewSheet, isTrue);
   });
 
   test('keeps only drafts owned by the loaded review currency and revision',

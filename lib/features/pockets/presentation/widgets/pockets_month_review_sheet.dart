@@ -51,8 +51,7 @@ class PocketsMonthReviewSheet extends HookConsumerWidget {
     final review =
         state.monthReviewsByCurrency[reviewCurrency?.toUpperCase()] ??
             state.monthReview;
-    if (review == null ||
-        (!review.isOutstanding && !review.isPendingConfirmation)) {
+    if (review == null || !review.isVisibleInReviewSheet) {
       return const SizedBox.shrink();
     }
     final initialDraft = state.monthReviewDraftAllocationsCentsByReviewKey[
@@ -80,6 +79,14 @@ class PocketsMonthReviewSheet extends HookConsumerWidget {
               currency: review.currency,
             );
 
+    useEffect(
+      () => () {
+        // Closing the sheet must not silently discard an edited review.
+        unawaited(persistDraft());
+      },
+      [draft.value],
+    );
+
     Future<void> generateAiReview() async {
       if (isGeneratingAi.value) return;
       isGeneratingAi.value = true;
@@ -105,7 +112,8 @@ class PocketsMonthReviewSheet extends HookConsumerWidget {
         );
       } catch (error) {
         if (context.mounted) {
-          if (ErrorHandler.isPlusFeatureLimitError(error)) {
+          if ((error is PocketsMonthAiReviewException && error.isPlusDenied) ||
+              ErrorHandler.isPlusFeatureLimitError(error)) {
             await PlusLockedSheet.show(
               context,
               highlightedFeature: PlusFeature.aiMonthlyBudgetReview,

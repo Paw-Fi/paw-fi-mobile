@@ -86,7 +86,7 @@ void main() {
         logoUrl: 'https://example.test/food.png',
         rolloverEnabled: true,
         rolloverNegative: false,
-        rolloverCapCents: 25000,
+        rolloverCapCents: null,
         fundingPolicy: 'add_every_cycle',
         fundingTargetCents: 60000,
         categories: const [' Groceries ', 'dining', 'groceries'],
@@ -98,6 +98,7 @@ void main() {
       expect(payload['p_currency'], 'USD');
       expect(payload['p_categories'], ['groceries', 'dining']);
       expect(payload['p_logo_url'], 'https://example.test/food.png');
+      expect(payload['p_rollover_cap_cents'], isNull);
       expect(payload['p_current_amount_cents'], 60000);
     });
 
@@ -117,7 +118,7 @@ void main() {
         logoUrl: null,
         rolloverEnabled: false,
         rolloverNegative: false,
-        rolloverCapCents: 0,
+        rolloverCapCents: null,
         fundingPolicy: 'decide_each_cycle',
         fundingTargetCents: null,
         categories: const ['groceries'],
@@ -128,6 +129,7 @@ void main() {
       expect(payload['p_expected_revision'], metadata.revision);
       expect(payload['p_categories'], ['groceries']);
       expect(payload['p_current_amount_cents'], 45000);
+      expect(payload['p_rollover_cap_cents'], isNull);
     });
   });
 }

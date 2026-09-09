@@ -33,6 +33,9 @@ class PocketsMonthReview {
 
   bool get hasHouseholdConflict => status == 'household_conflict';
 
+  bool get isVisibleInReviewSheet =>
+      isOutstanding || isPendingConfirmation || hasHouseholdConflict;
+
   bool get canAutoOpen =>
       isOutstanding && canEdit && isCurrentPeriod && !isPendingConfirmation;
 
