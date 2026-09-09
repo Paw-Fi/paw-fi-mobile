@@ -137,22 +137,24 @@ void main() {
   });
 
   test(
-      'current-month occurrence edit adjusts the recurring header before replay',
+      'past-month occurrence edit leaves the recurring header unchanged before replay',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
     requestHandler = (_) => throw const SocketException('offline');
     final container = _container(database);
     addTearDown(container.dispose);
+    final occurrenceDate = DateTime(2026, 8, 1);
+    final nextOccurrenceDate = DateTime(2026, 9, 1);
     final recurring = _recurring(
       householdId: 'household_1',
-      date: DateTime(2026, 8, 1),
+      date: occurrenceDate,
     );
     final actual = _entry(recurring).copyWith(
       id: 'actual-occurrence-1',
       isRecurring: false,
       parentRecurringId: recurring.id,
-      scheduledOccurrenceDate: DateTime(2026, 8, 1),
+      scheduledOccurrenceDate: occurrenceDate,
       amountCents: 8000,
     );
 
@@ -163,13 +165,13 @@ void main() {
           recurringTransaction: recurring,
           occurrence: RecurringOccurrenceTimelineItem(
             occurrenceId: 'occurrence-1',
-            scheduledOccurrenceDate: DateTime(2026, 8, 1),
+            scheduledOccurrenceDate: occurrenceDate,
             status: 'confirmed',
             actualTransaction: actual,
             amountCents: 8000,
             currency: 'USD',
           ),
-          paidDate: DateTime(2026, 8, 1),
+          paidDate: occurrenceDate,
           amountCents: 9000,
           accountId: 'wallet_usd',
         ));
@@ -184,23 +186,21 @@ void main() {
       [
         RecurringSeriesSummary(
           transaction: recurring,
-          nextOccurrenceDate: DateTime(2026, 9, 1),
+          nextOccurrenceDate: nextOccurrenceDate,
           latestActionableOccurrenceDate: null,
           currentMonthConfirmedAmountDeltaCents: -2000,
         ),
       ],
     ).single;
 
-    expect(result.isQueued, isTrue);
-    expect(headerSummary.currentMonthConfirmedAmountDeltaCents, -1000);
-
-    // Let the intentionally offline background drain finish before disposing
-    // the in-memory database.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(
-      (await database.getOutboxMutations()).single.status,
-      localMutationStatusFailed,
-    );
+    try {
+      expect(result.isQueued, isTrue);
+      expect(headerSummary.currentMonthConfirmedAmountDeltaCents, -2000);
+    } finally {
+      await _waitForAsync(() async =>
+          (await database.getOutboxMutations()).single.status ==
+          localMutationStatusFailed);
+    }
   });
 
   test('terminal occurrence update rolls back instead of remaining queued',

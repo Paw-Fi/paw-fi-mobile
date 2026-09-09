@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -19,12 +20,15 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_month_review.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
+import 'package:moneko/features/pockets/presentation/widgets/pockets_month_review_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -34,6 +38,12 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
+bool shouldShowEmptyCycleRecovery({
+  required bool isLoading,
+  required List<Object> pockets,
+}) =>
+    !isLoading && pockets.isEmpty;
 
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
@@ -583,6 +593,62 @@ class PocketsPage extends HookConsumerWidget {
         ref.read(pocketsProvider(currentScopeParams).notifier);
     final hasChanges = currentPocketsState.hasChanges;
     final didLogUsefulPaintRef = useRef<bool>(false);
+    final monthReviewVisitGate = useRef(PocketsMonthReviewVisitGate());
+    final wasPocketsTab = useRef(false);
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+
+    useEffect(() {
+      if (currentTabIndex == 2 && !wasPocketsTab.value) {
+        monthReviewVisitGate.value.resetForNewVisit();
+      }
+      wasPocketsTab.value = currentTabIndex == 2;
+      return null;
+    }, [currentTabIndex]);
+
+    useEffect(() {
+      final autoOpenReviews = currentPocketsState.monthReviewsByCurrency.values
+          .where((review) => review.canAutoOpen)
+          .toList(growable: false);
+      final reviewToOpen =
+          autoOpenReviews.isEmpty ? null : autoOpenReviews.first;
+      final reviewAlreadyAutoOpened = reviewToOpen == null
+          ? false
+          : prefs.getBool(pocketsMonthReviewAutoOpenKey(
+                review: reviewToOpen,
+                scope: currentScopeParams.scope.name,
+                householdId: currentScopeParams.householdId,
+              )) ??
+              false;
+      if (currentTabIndex != 2 ||
+          currentPocketsState.isLoading ||
+          reviewAlreadyAutoOpened ||
+          !monthReviewVisitGate.value.shouldShow(reviewToOpen)) {
+        return null;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        unawaited(prefs.setBool(
+          pocketsMonthReviewAutoOpenKey(
+            review: reviewToOpen!,
+            scope: currentScopeParams.scope.name,
+            householdId: currentScopeParams.householdId,
+          ),
+          true,
+        ));
+        unawaited(
+          PocketsMonthReviewSheet.show(
+            context: context,
+            scopeParams: currentScopeParams,
+            reviewCurrency: reviewToOpen.currency,
+          ),
+        );
+      });
+      return null;
+    }, [
+      currentPocketsState.isLoading,
+      currentPocketsState.monthReviewsByCurrency,
+      currentTabIndex,
+    ]);
 
     useEffect(() {
       if (!recurringPreferenceReady.value ||
@@ -975,12 +1041,13 @@ class _PocketsMonthView extends HookConsumerWidget {
       await pocketsNotifier.refresh();
     }
 
-    // When a new month starts, users often have zero budget and no pockets yet.
-    // If there are no pockets and no budget amount set, show an onboarding CTA.
+    // A monthly budget can exist before any pockets are restored or created.
+    // Keep the explicit recovery action available in that state.
     // Priority: copy previous month pockets (if any) > create from template.
-    final shouldShowEmptyMonthCta = !pocketsState.isLoading &&
-        pocketsState.editing.isEmpty &&
-        pocketsState.totalBudget == 0;
+    final shouldShowEmptyMonthCta = shouldShowEmptyCycleRecovery(
+      isLoading: pocketsState.isLoading,
+      pockets: pocketsState.editing,
+    );
     final showCopyPocketsFromPreviousMonth =
         shouldShowEmptyMonthCta && pocketsState.hasPreviousMonthPockets;
     final showCreateFromTemplate =
@@ -1101,6 +1168,60 @@ class _PocketsMonthView extends HookConsumerWidget {
                             ),
                           )
                         : const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: Column(
+                  children: pocketsState.monthReviewsByCurrency.values
+                      .where((review) =>
+                          review.canEdit &&
+                          (review.isOutstanding ||
+                              review.isPendingConfirmation))
+                      .map(
+                        (review) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: review.isPendingConfirmation
+                              ? Row(
+                                  children: [
+                                    const SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${review.currency} ${context.l10n.pocketsMonthReviewConfirming}',
+                                    ),
+                                  ],
+                                )
+                              : Semantics(
+                                  button: true,
+                                  label: context
+                                      .l10n.pocketsMonthReviewRevisitSemantics,
+                                  child: SubtleAdaptiveButton(
+                                    label: review.currency.isEmpty
+                                        ? context.l10n.pocketsMonthReviewRevisit
+                                        : '${context.l10n.pocketsMonthReviewRevisit} (${review.currency})',
+                                    onPressed: () => unawaited(
+                                      PocketsMonthReviewSheet.show(
+                                        context: context,
+                                        scopeParams: scopeParams,
+                                        reviewCurrency: review.currency,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
               ),
             ),
           ),

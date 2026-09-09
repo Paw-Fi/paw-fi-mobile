@@ -212,8 +212,8 @@ void main() {
       selectedCurrency: 'USD',
     );
 
-    expect(totals['2026-09-01'], 20);
-    expect(totals['2026-08-01'], 0);
+    expect(totals['2026-09-01'], 10);
+    expect(totals['2026-08-01'], 10);
     expect(totals['2026-07-01'], 10);
   });
 

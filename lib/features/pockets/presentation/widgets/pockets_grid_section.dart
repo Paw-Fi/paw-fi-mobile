@@ -31,6 +31,11 @@ import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 
+double calculatePocketAllocation(List<PocketEnvelope> pockets) => pockets.fold(
+      0.0,
+      (sum, pocket) => sum + pocket.budgetAmountCents / 100,
+    );
+
 class PocketsGridSection extends HookConsumerWidget {
   const PocketsGridSection({
     super.key,
@@ -235,10 +240,7 @@ class PocketsGridSection extends HookConsumerWidget {
             .where((pocket) => pocket.hasRolloverBreakdown)
             .toList(growable: false);
 
-    final totalAllocated = pocketsForDisplay.fold<double>(
-      0.0,
-      (sum, e) => sum + e.getLimit(totalBudget),
-    );
+    final totalAllocated = calculatePocketAllocation(pocketsForDisplay);
     final unallocatedBudget = totalBudget - totalAllocated;
     final canAddPocket = !isLoading &&
         totalBudget > 0 &&

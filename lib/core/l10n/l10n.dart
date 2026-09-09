@@ -205,6 +205,80 @@ extension PocketAssignmentL10nX on AppLocalizations {
   String get transactionsAssignedToPocket => 'Transactions assigned to pocket';
 }
 
+extension PocketsMonthReviewL10nX on AppLocalizations {
+  String get pocketsMonthReviewTitle => 'Monthly review';
+  String pocketsMonthReviewHeading(String cycle) => 'Review your $cycle plan';
+  String get pocketsMonthReviewDescription =>
+      'Start with the suggested amounts, then adjust anything you need. You can leave money unassigned for now.';
+  String get pocketsMonthReviewMonthlyBudget => 'Monthly budget';
+  String get pocketsMonthReviewAddedToPockets => 'Added to pockets';
+  String get pocketsMonthReviewUnassigned => 'Still unassigned';
+  String get pocketsMonthReviewRemaining => 'Still unassigned';
+  String get pocketsMonthReviewCarry => 'Carried from last cycle';
+  String get pocketsMonthReviewCarryDescription =>
+      'Carry is money brought forward from the last cycle. It does not use this cycle\'s budget.';
+  String pocketsMonthReviewUnassignedDescription(String amount) =>
+      '$amount is still unassigned. That is okay, you can assign it later.';
+  String get pocketsMonthReviewUseSuggested => 'Use suggested amounts';
+  String get pocketsMonthReviewUseLastCycle => 'Use last cycle\'s amounts';
+  String get pocketsMonthReviewClearAmounts => 'Clear amounts';
+  String get pocketsMonthReviewSuggestedAmount => 'Suggested amount';
+  String get pocketsMonthReviewAddedThisCycle => 'Added this cycle';
+  String get pocketsMonthReviewCarriedFromLastCycle =>
+      'Carried from last cycle';
+  String get pocketsMonthReviewAvailable => 'Available';
+  String pocketsMonthReviewAmountFact(String label, String value) =>
+      '$label: $value';
+  String get pocketsMonthReviewSuggestionReason =>
+      'This is a starting point. You can change it.';
+  String get pocketsMonthReviewRefillReason =>
+      'This helps bring the pocket back to its planned amount.';
+  String get pocketsMonthReviewRepeatReason =>
+      'This pocket uses the same planned amount each cycle.';
+  String get pocketsMonthReviewLastCycleReason =>
+      'This starts with the amount used last cycle.';
+  String get pocketsMonthReviewSaveDraft => 'Save draft';
+  String get pocketsMonthReviewDraftSaved => 'Monthly review draft saved';
+  String get pocketsMonthReviewSaveDraftSemantics =>
+      'Save monthly review draft';
+  String get pocketsMonthReviewConfirm => 'Confirm plan';
+  String get pocketsMonthReviewConfirming => 'Confirming...';
+  String get pocketsMonthReviewConfirmSemantics =>
+      'Confirm monthly review plan';
+  String get pocketsMonthReviewRevisitSemantics => 'Revisit monthly review';
+  String get pocketsMonthReviewRevisit => 'Review this month';
+  String get pocketsMonthReviewPocket => 'Pocket';
+  String pocketsMonthReviewAllocationSemantics(String name) =>
+      '$name, added this cycle';
+  String get pocketsMonthReviewAiTitle => 'AI monthly budget review';
+  String get pocketsMonthReviewGenerateAi => 'Generate AI review';
+  String get pocketsMonthReviewGeneratingAi => 'Generating AI review...';
+  String get pocketsMonthReviewHouseholdConflict =>
+      'Someone updated this household plan. Your draft is shown beside the latest shared plan; review it before confirming.';
+}
+
+extension PocketLifecycleL10nX on AppLocalizations {
+  String get pocketLifecycleLoading =>
+      'Pocket lifecycle details are still loading.';
+  String get pocketFundingAmountRequired => 'Enter a funding amount.';
+  String get pocketRetirementQueued => 'Pocket retirement queued.';
+  String get pocketFundingTitle => 'Funding';
+  String get pocketFundingDecideEachCycle => 'Decide each cycle';
+  String get pocketFundingRefillTo => 'Refill to a target';
+  String get pocketFundingAddEveryCycle => 'Add every cycle';
+  String get pocketFundingAmount => 'Funding amount';
+  String get pocketRetirementTitle => 'Retire pocket?';
+  String get pocketRetirementZeroDescription =>
+      'This pocket has no carry balance. Its history will be preserved.';
+  String pocketRetirementPositiveTitle(String amount) =>
+      'Resolve $amount remaining before retirement';
+  String pocketRetirementNegativeTitle(String amount) =>
+      'Resolve $amount overspent before retirement';
+  String get pocketRetirementRelease => 'Release this remaining capacity';
+  String pocketRetirementTransferTo(String name) => 'Transfer to $name';
+  String pocketRetirementCoverFrom(String name) => 'Cover from $name';
+}
+
 /// Bank-connection recovery copy is intentionally kept in the translation
 /// catalog; English is the runtime fallback until the normal l10n export runs.
 extension BankConnectionsRecoveryL10nX on AppLocalizations {

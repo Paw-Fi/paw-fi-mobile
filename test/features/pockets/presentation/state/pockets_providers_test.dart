@@ -4,13 +4,134 @@ import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_month_review.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
+import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  test('shows empty-cycle recovery when a budget has no pockets', () {
+    expect(
+      shouldShowEmptyCycleRecovery(
+        isLoading: false,
+        pockets: const [],
+      ),
+      isTrue,
+    );
+  });
+
+  test('allocation excludes carried amounts from pocket availability', () {
+    final pocket = PocketEnvelope(
+      id: 'food',
+      name: 'Food',
+      budgetAmountCents: 40000,
+      spent: 0,
+      currency: 'USD',
+      rolloverEnabled: true,
+      rolloverFromPreviousCents: 15000,
+      availableBudgetCents: 55000,
+      lastUpdated: DateTime(2026, 9, 1),
+    );
+
+    expect(calculatePocketAllocation([pocket]), 400);
+  });
+
+  test('only queries canonical envelope UUIDs for logo enrichment', () {
+    expect(
+      filterPocketEnvelopeUuidIds(const [
+        'virtual:food',
+        'food-lineage',
+        '9be552a2-c213-4d5e-99c7-eb9d52805498',
+      ]),
+      const ['9be552a2-c213-4d5e-99c7-eb9d52805498'],
+    );
+  });
+
+  test('keeps virtual IDs in pocket calculations while logo queries use UUIDs',
+      () {
+    final ids = const [
+      'virtual:food-lineage',
+      '9be552a2-c213-4d5e-99c7-eb9d52805498',
+    ];
+
+    expect(pocketEnvelopeIdsForCalculations(ids), ids);
+    expect(
+      filterPocketEnvelopeUuidIds(ids),
+      const ['9be552a2-c213-4d5e-99c7-eb9d52805498'],
+    );
+  });
+
+  test('retains canonical zero allocation rows', () {
+    expect(
+      canonicalPocketAllocationCentsByEnvelopeId([
+        {'envelope_id': 'virtual:food', 'amount_cents': 0},
+        {'envelope_id': 'server-food', 'amount_cents': 25000},
+      ]),
+      const {'virtual:food': 0, 'server-food': 25000},
+    );
+  });
+
+  test('recognizes virtual effective categories as allocated', () {
+    expect(
+      pocketLinkedCategories(const {
+        'virtual:food': ['groceries'],
+        'server-rent': ['rent'],
+      }),
+      const {'groceries', 'rent'},
+    );
+  });
+
+  test('projects confirmed review allocations into virtual pockets locally',
+      () {
+    final pocket = PocketEnvelope(
+      id: 'virtual:food-lineage',
+      name: 'Food',
+      budgetAmountCents: 0,
+      spent: 0,
+      currency: 'USD',
+      rolloverGroupId: 'food-lineage',
+      availableBudgetCents: 5000,
+      remainingCents: 5000,
+      lastUpdated: DateTime(2026, 9, 1),
+    );
+    final review = PocketsMonthReview(
+      id: 'review-2026-09',
+      isOutstanding: true,
+      setupRevision: 7,
+      reviewedAt: null,
+      unassignedCents: 25000,
+      carryCents: 5000,
+      facts: const {},
+      suggestions: const [
+        PocketsMonthReviewSuggestion(
+          envelopeId: 'virtual:food-lineage',
+          lineageId: 'food-lineage',
+          label: 'Food',
+          amountCents: 0,
+        ),
+      ],
+    );
+    final state = PocketsState.initial().copyWith(
+      isLoading: false,
+      saved: [pocket],
+      editing: [pocket.copyWith()],
+    );
+
+    final projected = applyPocketsMonthReviewAllocationProjection(
+      state: state,
+      review: review,
+      allocationsCentsByLineageId: const {'food-lineage': 25000},
+    );
+
+    expect(projected.saved.single.budgetAmountCents, 25000);
+    expect(projected.saved.single.availableBudgetCents, 30000);
+    expect(projected.editing.single.remainingCents, 30000);
+  });
+
   test('pocket refresh signal invalidates every mounted period revision', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -20,6 +141,77 @@ void main() {
     container.read(pocketsRefreshSignalProvider.notifier).state++;
 
     expect(container.read(pocketsRefreshSignalProvider), 1);
+  });
+
+  test('persists drafts separately for each review currency and revision', () {
+    final usdReview = PocketsMonthReview(
+      id: 'review-2026-09',
+      isOutstanding: true,
+      setupRevision: 7,
+      reviewedAt: null,
+      unassignedCents: 42000,
+      carryCents: 8000,
+      facts: const {'spent_cents': 158000},
+      suggestions: const [
+        PocketsMonthReviewSuggestion(
+          envelopeId: 'food',
+          lineageId: 'food-lineage',
+          label: 'Food',
+          amountCents: 25000,
+        ),
+      ],
+      currency: 'USD',
+    );
+    final eurReview = PocketsMonthReview(
+      id: 'review-2026-09',
+      isOutstanding: true,
+      setupRevision: 8,
+      reviewedAt: null,
+      unassignedCents: 42000,
+      carryCents: 8000,
+      facts: const {},
+      suggestions: const [],
+      currency: 'EUR',
+    );
+    final state = PocketsState.initial().copyWith(
+      monthReview: usdReview,
+      monthReviewsByCurrency: {'USD': usdReview, 'EUR': eurReview},
+      monthReviewDraftAllocationsCentsByReviewKey: {
+        pocketsMonthReviewDraftKey(usdReview): const {'food': 12000},
+        pocketsMonthReviewDraftKey(eurReview): const {'food': 9000},
+      },
+    );
+
+    final restored = PocketsState.fromCacheJson(state.toCacheJson());
+
+    expect(restored.monthReview?.id, 'review-2026-09');
+    expect(restored.monthReview?.facts['spent_cents'], 158000);
+    expect(
+      restored.monthReviewDraftAllocationsCentsByReviewKey[
+          pocketsMonthReviewDraftKey(usdReview)],
+      const {'food': 12000},
+    );
+    expect(
+      restored.monthReviewDraftAllocationsCentsByReviewKey[
+          pocketsMonthReviewDraftKey(eurReview)],
+      const {'food': 9000},
+    );
+  });
+
+  test('AI review request uses the opened native review currency', () {
+    final body = buildPocketsMonthAiReviewRequestBody(
+      PocketsMonthAiReviewRequest(
+        scopeParams: PocketsScopeParams(
+          scope: PocketsScopeType.personal,
+          periodMonth: DateTime(2026, 9, 1),
+          currency: 'USD',
+        ),
+        currency: 'eur',
+      ),
+    );
+
+    expect(body['currency'], 'EUR');
+    expect(body['cycleStart'], '2026-09-01');
   });
 
   test('pockets refresh query targets the active household month', () {
