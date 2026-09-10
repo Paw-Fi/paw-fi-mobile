@@ -288,51 +288,6 @@ Future<void> _dispatchMobileMutation(
     case 'save_pockets_month':
       await _savePocketsMonth(payload);
       return;
-    case 'confirm_pockets_month_setup':
-      try {
-        await supabase.rpc(
-          'confirm_pockets_month_setup_v1',
-          params: payload,
-        );
-      } catch (error) {
-        if (isStalePocketsMonthReviewSetupError(error)) {
-          ref.read(pocketsRefreshSignalProvider.notifier).state++;
-          throw const NonRetryableLocalMutationException(
-            'Pocket setup changed before this confirmation could be applied.',
-          );
-        }
-        rethrow;
-      }
-      ref.read(pocketsRefreshSignalProvider.notifier).state++;
-      return;
-    case 'update_pocket_lineage_funding_policy':
-      await _dispatchPocketLineageMutation(
-        ref,
-        rpcName: 'update_pocket_lineage_funding_policy_v1',
-        payload: payload,
-      );
-      return;
-    case 'save_pocket_lineage_lifecycle':
-      await _dispatchPocketLineageMutation(
-        ref,
-        rpcName: 'save_pocket_lineage_lifecycle_v1',
-        payload: payload,
-      );
-      return;
-    case 'set_pocket_lineage_categories':
-      await _dispatchPocketLineageMutation(
-        ref,
-        rpcName: 'set_pocket_lineage_categories_v1',
-        payload: payload,
-      );
-      return;
-    case 'retire_pocket_lineage':
-      await _dispatchPocketLineageMutation(
-        ref,
-        rpcName: 'retire_pocket_lineage_v1',
-        payload: payload,
-      );
-      return;
     case 'save_scenario_history':
       await _saveScenarioHistory(payload);
       return;
@@ -547,27 +502,6 @@ Future<void> _handleCancelledMobileMutation(
   MonekoDatabase database,
   LocalMutationOutboxData mutation,
 ) async {
-  if (mutation.operation == 'confirm_pockets_month_setup') {
-    // The persisted projection is pending until the authoritative RPC accepts
-    // it. A terminal rejection must reload the review instead of hiding it.
-    ref.read(pocketsRefreshSignalProvider.notifier).state++;
-    ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
-      id: mutation.clientMutationId,
-      feature: 'pockets',
-    );
-    return;
-  }
-  if (mutation.operation == 'update_pocket_lineage_funding_policy' ||
-      mutation.operation == 'set_pocket_lineage_categories' ||
-      mutation.operation == 'save_pocket_lineage_lifecycle' ||
-      mutation.operation == 'retire_pocket_lineage') {
-    ref.read(pocketsRefreshSignalProvider.notifier).state++;
-    ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
-      id: mutation.clientMutationId,
-      feature: 'pockets',
-    );
-    return;
-  }
   if (mutation.entityType != 'wallet') {
     await database.markTransactionMutationExhausted(mutation: mutation);
     ref
@@ -1225,36 +1159,6 @@ Map<String, dynamic>? _mapValue(Object? value) {
   if (value is Map<String, dynamic>) return value;
   if (value is Map) return Map<String, dynamic>.from(value);
   return null;
-}
-
-Future<void> _dispatchPocketLineageMutation(
-  Ref ref, {
-  required String rpcName,
-  required Map<String, dynamic> payload,
-}) async {
-  try {
-    await supabase.rpc(rpcName, params: payload);
-  } catch (error) {
-    if (_isStalePocketLineageError(error)) {
-      ref.read(pocketsRefreshSignalProvider.notifier).state++;
-      throw const NonRetryableLocalMutationException(
-        'Pocket lifecycle changed before this update could be applied.',
-      );
-    }
-    rethrow;
-  }
-  ref.read(pocketsRefreshSignalProvider.notifier).state++;
-}
-
-bool _isStalePocketLineageError(Object error) {
-  if (error is! PostgrestException) return false;
-  final message =
-      '${error.code} ${error.message} ${error.details} ${error.hint}'
-          .toLowerCase();
-  return error.code == '40001' ||
-      (message.contains('pocket') &&
-          message.contains('lineage') &&
-          message.contains('revision'));
 }
 
 Map<String, dynamic> _metadataFromPayload(Map<String, dynamic> payload) {

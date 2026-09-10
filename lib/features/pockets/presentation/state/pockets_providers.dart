@@ -23,8 +23,6 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_month_review.dart';
-import 'package:moneko/features/pockets/presentation/state/pocket_lineage_mutations.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
@@ -40,82 +38,8 @@ void _debugLog(String message) {
   }
 }
 
-class PocketsMonthAiReviewRequest {
-  const PocketsMonthAiReviewRequest({
-    required this.scopeParams,
-    required this.currency,
-  });
-
-  final PocketsScopeParams scopeParams;
-  final String currency;
-
-  @override
-  bool operator ==(Object other) =>
-      other is PocketsMonthAiReviewRequest &&
-      other.scopeParams == scopeParams &&
-      other.currency.toUpperCase() == currency.toUpperCase();
-
-  @override
-  int get hashCode => Object.hash(scopeParams, currency.toUpperCase());
-}
-
-Map<String, dynamic> buildPocketsMonthAiReviewRequestBody(
-  PocketsMonthAiReviewRequest request,
-) =>
-    {
-      'scope': switch (request.scopeParams.scope) {
-        PocketsScopeType.personal => 'personal',
-        PocketsScopeType.portfolio => 'portfolio',
-        PocketsScopeType.household => 'household',
-      },
-      'householdId': request.scopeParams.householdId,
-      'cycleStart': request.scopeParams.periodMonth == null
-          ? null
-          : _formatDate(request.scopeParams.periodMonth!),
-      'currency': request.currency.toUpperCase(),
-    };
-
-final pocketsMonthAiReviewProvider = FutureProvider.autoDispose
-    .family<PocketsMonthAiReview, PocketsMonthAiReviewRequest>(
-  (ref, request) async {
-    final userId = ref.read(authProvider).uid;
-    if (userId.isEmpty) throw StateError('You must be signed in.');
-    final response = await supabase.functions.invoke(
-      'generate-pocket-month-review',
-      body: {
-        ...buildPocketsMonthAiReviewRequestBody(request),
-      },
-    );
-    final responseData = response.data;
-    if (responseData is! Map) {
-      throw StateError('The AI review response was unavailable.');
-    }
-    final data = Map<String, dynamic>.from(responseData);
-    if (data['success'] == false) {
-      throw PocketsMonthAiReviewException(
-        code: (data['code'] ?? data['error_code'])?.toString(),
-        message: data['error']?.toString() ?? 'The AI review failed.',
-      );
-    }
-    return PocketsMonthAiReview.fromJson(data);
-  },
-);
-
 const rolloverBackendUnavailableMessage =
     'Pocket rollover is not available until the app backend is updated.';
-
-class PocketsMonthAiReviewException implements Exception {
-  const PocketsMonthAiReviewException({this.code, required this.message});
-
-  final String? code;
-  final String message;
-
-  bool get isPlusDenied =>
-      code?.trim().toUpperCase() == 'SUBSCRIPTION_REQUIRED';
-
-  @override
-  String toString() => message;
-}
 
 bool isMissingRolloverColumnError(Object error) {
   if (error is! PostgrestException) return false;
@@ -131,58 +55,6 @@ bool isMissingRolloverColumnError(Object error) {
       (error.code == '42703' || error.code == 'PGRST204');
 }
 
-bool isStalePocketsMonthReviewSetupError(Object error) {
-  if (error is! PostgrestException) return false;
-  final message =
-      '${error.code} ${error.message} ${error.details} ${error.hint}'
-          .toLowerCase();
-  return error.code == '40001' ||
-      (message.contains('stale') &&
-          message.contains('setup') &&
-          message.contains('revision'));
-}
-
-List<String> filterPocketEnvelopeUuidIds(Iterable<Object?> ids) {
-  final uuid = RegExp(
-    r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
-    caseSensitive: false,
-  );
-  return ids
-      .whereType<String>()
-      .where((id) => uuid.hasMatch(id))
-      .toSet()
-      .toList(growable: false);
-}
-
-@foundation.visibleForTesting
-List<String> pocketEnvelopeIdsForCalculations(Iterable<Object?> ids) => ids
-    .whereType<String>()
-    .map((id) => id.trim())
-    .where((id) => id.isNotEmpty)
-    .toSet()
-    .toList(growable: false);
-
-@foundation.visibleForTesting
-Map<String, int> canonicalPocketAllocationCentsByEnvelopeId(
-  Iterable<Map<String, dynamic>> rows,
-) =>
-    {
-      for (final row in rows)
-        if (row['envelope_id']?.toString().trim().isNotEmpty == true)
-          row['envelope_id'].toString():
-              (row['amount_cents'] as num?)?.toInt() ?? 0,
-    };
-
-@foundation.visibleForTesting
-Set<String> pocketLinkedCategories(
-  Map<String, List<String>> categoriesByEnvelopeId,
-) =>
-    {
-      for (final categories in categoriesByEnvelopeId.values)
-        for (final category in categories)
-          if (category.trim().isNotEmpty) category.trim().toLowerCase(),
-    };
-
 bool _rowHasRolloverFields(Map<String, dynamic> row) {
   return row.containsKey('rollover_group_id') ||
       row.containsKey('rollover_enabled') ||
@@ -190,32 +62,6 @@ bool _rowHasRolloverFields(Map<String, dynamic> row) {
       row.containsKey('rollover_cap_cents') ||
       row.containsKey('opening_rollover_cents') ||
       row.containsKey('rollover_from_previous_cents');
-}
-
-@foundation.visibleForTesting
-Map<String, PocketLineageMetadata> pocketLineageMetadataFromV4Payloads(
-  Iterable<Map<String, dynamic>> payloads,
-) {
-  final metadataById = <String, PocketLineageMetadata>{};
-  for (final payload in payloads) {
-    final pocketsV4 = payload['pockets_v4'];
-    if (pocketsV4 is! Map) continue;
-    final rows = <Object?>[
-      ...((pocketsV4['lineages'] as List?) ?? const []),
-      ...((pocketsV4['materialized_lineages'] as List?) ?? const []),
-      ...((pocketsV4['lifecycle_virtual_rows'] as List?) ?? const []),
-      ...((payload['envelopes'] as List?) ?? const []),
-    ];
-    for (final row in rows.whereType<Map>()) {
-      final metadata = PocketLineageMetadata.fromJson(
-        Map<String, dynamic>.from(row),
-      );
-      if (metadata.lineageId.isNotEmpty && metadata.revision >= 0) {
-        metadataById[metadata.lineageId] = metadata;
-      }
-    }
-  }
-  return metadataById;
 }
 
 // L1 in-memory month cache.
@@ -1775,10 +1621,6 @@ class PocketsState {
     this.envelopeCategories = const {},
     this.savedEnvelopeCategories = const {},
     this.localOverlayExpenseIds = const {},
-    this.monthReview,
-    this.monthReviewsByCurrency = const {},
-    this.monthReviewDraftAllocationsCentsByReviewKey = const {},
-    this.pocketLineageMetadataById = const {},
   });
 
   final bool isLoading;
@@ -1802,11 +1644,6 @@ class PocketsState {
   final Map<String, List<String>> envelopeCategories;
   final Map<String, List<String>> savedEnvelopeCategories;
   final Set<String> localOverlayExpenseIds;
-  final PocketsMonthReview? monthReview;
-  final Map<String, PocketsMonthReview> monthReviewsByCurrency;
-  final Map<String, Map<String, int>>
-      monthReviewDraftAllocationsCentsByReviewKey;
-  final Map<String, PocketLineageMetadata> pocketLineageMetadataById;
 
   bool get hasChanges {
     // Check if budget has changed
@@ -1875,11 +1712,6 @@ class PocketsState {
     Map<String, List<String>>? envelopeCategories,
     Map<String, List<String>>? savedEnvelopeCategories,
     Set<String>? localOverlayExpenseIds,
-    PocketsMonthReview? monthReview,
-    Map<String, PocketsMonthReview>? monthReviewsByCurrency,
-    Map<String, Map<String, int>>? monthReviewDraftAllocationsCentsByReviewKey,
-    Map<String, PocketLineageMetadata>? pocketLineageMetadataById,
-    bool clearMonthReview = false,
     bool clearError = false,
   }) {
     return PocketsState(
@@ -1914,15 +1746,6 @@ class PocketsState {
               : this.savedEnvelopeCategories),
       localOverlayExpenseIds:
           localOverlayExpenseIds ?? this.localOverlayExpenseIds,
-      monthReview: clearMonthReview ? null : (monthReview ?? this.monthReview),
-      monthReviewsByCurrency: clearMonthReview
-          ? const {}
-          : (monthReviewsByCurrency ?? this.monthReviewsByCurrency),
-      monthReviewDraftAllocationsCentsByReviewKey:
-          monthReviewDraftAllocationsCentsByReviewKey ??
-              this.monthReviewDraftAllocationsCentsByReviewKey,
-      pocketLineageMetadataById:
-          pocketLineageMetadataById ?? this.pocketLineageMetadataById,
     );
   }
 
@@ -1947,10 +1770,6 @@ class PocketsState {
         envelopeCategories: const {},
         savedEnvelopeCategories: const {},
         localOverlayExpenseIds: const {},
-        monthReview: null,
-        monthReviewsByCurrency: const {},
-        monthReviewDraftAllocationsCentsByReviewKey: const {},
-        pocketLineageMetadataById: const {},
       );
 
   Map<String, dynamic> toCacheJson() {
@@ -1983,20 +1802,6 @@ class PocketsState {
       ),
       'local_overlay_expense_ids': localOverlayExpenseIds.toList(
         growable: false,
-      ),
-      'month_review': monthReview?.toJson(),
-      'month_reviews_by_currency': monthReviewsByCurrency.map(
-        (currency, review) => MapEntry(currency, review.toJson()),
-      ),
-      'month_review_draft_allocations_cents_by_review_key':
-          monthReviewDraftAllocationsCentsByReviewKey,
-      'pocket_lineage_metadata_by_id': pocketLineageMetadataById.map(
-        (id, metadata) => MapEntry(id, {
-          'id': metadata.lineageId,
-          'revision': metadata.revision,
-          'funding_policy': metadata.fundingPolicy,
-          'funding_target_cents': metadata.fundingTargetCents,
-        }),
       ),
     };
   }
@@ -2076,77 +1881,8 @@ class PocketsState {
               .map((id) => id.toString())
               .where((id) => id.isNotEmpty)
               .toSet(),
-      monthReview: json['month_review'] is Map
-          ? PocketsMonthReview.fromJson(
-              Map<String, dynamic>.from(json['month_review'] as Map),
-            )
-          : null,
-      monthReviewsByCurrency:
-          ((json['month_reviews_by_currency'] as Map?) ?? const {}).map(
-        (currency, review) => MapEntry(
-          currency.toString().toUpperCase(),
-          PocketsMonthReview.fromJson(Map<String, dynamic>.from(review as Map)),
-        ),
-      ),
-      monthReviewDraftAllocationsCentsByReviewKey:
-          ((json['month_review_draft_allocations_cents_by_review_key']
-                      as Map?) ??
-                  const {})
-              .map(
-        (reviewKey, draft) => MapEntry(
-          reviewKey.toString(),
-          ((draft as Map?) ?? const {}).map(
-            (lineageId, amount) => MapEntry(
-              lineageId.toString(),
-              (amount as num?)?.toInt() ?? 0,
-            ),
-          ),
-        ),
-      ),
-      pocketLineageMetadataById:
-          ((json['pocket_lineage_metadata_by_id'] as Map?) ?? const {}).map(
-        (id, metadata) => MapEntry(
-          id.toString(),
-          PocketLineageMetadata.fromJson(
-            Map<String, dynamic>.from(metadata as Map),
-          ),
-        ),
-      ),
     );
   }
-}
-
-@foundation.visibleForTesting
-PocketsState applyPocketsMonthReviewAllocationProjection({
-  required PocketsState state,
-  required PocketsMonthReview review,
-  required Map<String, int> allocationsCentsByLineageId,
-}) {
-  final allocationByEnvelopeId = <String, int>{
-    for (final suggestion in review.suggestions)
-      if (suggestion.envelopeId.trim().isNotEmpty &&
-          allocationsCentsByLineageId.containsKey(suggestion.lineageId))
-        suggestion.envelopeId:
-            allocationsCentsByLineageId[suggestion.lineageId]!,
-  };
-
-  List<PocketEnvelope> project(List<PocketEnvelope> pockets) => pockets.map(
-        (pocket) {
-          final allocation = allocationByEnvelopeId[pocket.id];
-          if (allocation == null) return pocket;
-          final delta = allocation - pocket.budgetAmountCents;
-          return pocket.copyWith(
-            budgetAmountCents: allocation,
-            availableBudgetCents: pocket.availableBudgetCents + delta,
-            remainingCents: pocket.remainingCents + delta,
-          );
-        },
-      ).toList(growable: false);
-
-  return state.copyWith(
-    saved: project(state.saved),
-    editing: project(state.editing),
-  );
 }
 
 @foundation.visibleForTesting
@@ -2562,7 +2298,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   bool _isDrainingSilentReload = false;
   bool _isSilentReloadScheduled = false;
   int _refreshRevision = 0;
-  bool _isConfirmingMonthReview = false;
   int _categoryAssignmentMutationSequence = 0;
   final Map<String, int> _categoryAssignmentRevisions = {};
   final Map<String, _PendingPocketCategoryAssignment>
@@ -3161,7 +2896,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     );
     try {
       final response = await supabase.rpc(
-        'get_pockets_month_v4',
+        'get_pockets_month_v3',
         params: <String, dynamic>{
           'p_user_id': userId,
           'p_scope': switch (scopeType) {
@@ -3182,55 +2917,29 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       );
       return Map<String, dynamic>.from(response as Map);
     } catch (error) {
-      if (!_isMissingRpcFunctionError(error, 'get_pockets_month_v4')) {
+      if (!_isMissingRpcFunctionError(error, 'get_pockets_month_v3')) {
         rethrow;
       }
       _debugLog(
-        '[Pockets] RPC get_pockets_month_v4 missing; using v3 during backend-first rollout',
+        '[Pockets] RPC get_pockets_month_v3 missing; using v2 during backend-first rollout',
       );
-      try {
-        final response = await supabase.rpc(
-          'get_pockets_month_v3',
-          params: <String, dynamic>{
-            'p_user_id': userId,
-            'p_scope': switch (scopeType) {
-              PocketsScopeType.personal => 'personal',
-              PocketsScopeType.portfolio => 'portfolio',
-              PocketsScopeType.household => 'household',
-            },
-            'p_household_id': householdId,
-            'p_budget_month': budgetMonth,
-            'p_currency': selectedCurrency,
-            'p_include_projected_recurring': includeUpcomingRecurring,
-            'p_allow_currency_fallback': allowCurrencyFallback,
+      final response = await supabase.rpc(
+        'get_pockets_month_v2',
+        params: <String, dynamic>{
+          'p_user_id': userId,
+          'p_scope': switch (scopeType) {
+            PocketsScopeType.personal => 'personal',
+            PocketsScopeType.portfolio => 'portfolio',
+            PocketsScopeType.household => 'household',
           },
-        );
-        return Map<String, dynamic>.from(response as Map);
-      } catch (v3Error) {
-        if (!_isMissingRpcFunctionError(v3Error, 'get_pockets_month_v3')) {
-          rethrow;
-        }
-        _debugLog(
-          '[Pockets] RPC get_pockets_month_v3 missing; using v2 during backend-first rollout',
-        );
-        final response = await supabase.rpc(
-          'get_pockets_month_v2',
-          params: <String, dynamic>{
-            'p_user_id': userId,
-            'p_scope': switch (scopeType) {
-              PocketsScopeType.personal => 'personal',
-              PocketsScopeType.portfolio => 'portfolio',
-              PocketsScopeType.household => 'household',
-            },
-            'p_household_id': householdId,
-            'p_period_month': periodMonth,
-            'p_currency': selectedCurrency,
-            'p_include_projected_recurring': includeUpcomingRecurring,
-            'p_allow_currency_fallback': allowCurrencyFallback,
-          },
-        );
-        return Map<String, dynamic>.from(response as Map);
-      }
+          'p_household_id': householdId,
+          'p_period_month': periodMonth,
+          'p_currency': selectedCurrency,
+          'p_include_projected_recurring': includeUpcomingRecurring,
+          'p_allow_currency_fallback': allowCurrencyFallback,
+        },
+      );
+      return Map<String, dynamic>.from(response as Map);
     }
   }
 
@@ -3367,69 +3076,42 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .expand((payload) => ((payload['envelopes'] as List?) ?? const []))
           .cast<Map>()
           .map((row) => Map<String, dynamic>.from(row))
-          .toList(growable: true);
+          .toList(growable: false);
 
-      // v4 continues active lineages even when this cycle has no materialized
-      // envelope.  They are normalized before allocations, categories, spending,
-      // and local overlays are applied, so every downstream calculation sees one
-      // pocket list.
-      final materializedLineages = envRows
-          .map((row) => (row['rollover_group_id'] ?? row['pocket_lineage_id'])
-              ?.toString())
-          .whereType<String>()
-          .toSet();
-      for (final payload in payloads) {
-        final virtualRows = ((payload['pockets_v4']
-                as Map?)?['lifecycle_virtual_rows'] as List?) ??
-            const [];
-        for (final rawRow in virtualRows.whereType<Map>()) {
-          final row = Map<String, dynamic>.from(rawRow);
-          final lineageId = (row['pocket_lineage_id'] ??
-                  row['rollover_group_id'] ??
-                  row['id'])
-              ?.toString();
-          if (lineageId == null || materializedLineages.contains(lineageId)) {
-            continue;
+      final envIds =
+          envRows.map((e) => e['id'] as String).toList(growable: false);
+
+      if (envIds.isNotEmpty) {
+        try {
+          final logoRows = await supabase
+              .from('budget_envelopes')
+              .select('id,logo_url')
+              .inFilter('id', envIds);
+          final logoUrlByEnvelopeId = <String, String?>{
+            for (final row in (logoRows as List?) ?? const [])
+              if (row is Map && row['id'] is String)
+                row['id'] as String: row['logo_url'] as String?,
+          };
+          for (final row in envRows) {
+            row['logo_url'] = logoUrlByEnvelopeId[row['id'] as String];
           }
-          envRows.add({
-            ...row,
-            'id': row['envelope_id'] ?? 'virtual:$lineageId',
-            'rollover_group_id': lineageId,
-            'budget_amount_cents': row['budget_amount_cents'] ?? 0,
-            'available_budget_cents': row['available_budget_cents'] ??
-                row['incoming_carry_cents'] ??
-                0,
-            'remaining_cents':
-                row['remaining_cents'] ?? row['incoming_carry_cents'] ?? 0,
-            'spent_cents': row['spent_cents'] ?? 0,
-            'opening_rollover_cents': row['opening_rollover_cents'] ??
-                row['incoming_carry_cents'] ??
-                0,
-            'rollover_from_previous_cents':
-                row['rollover_from_previous_cents'] ??
-                    row['incoming_carry_cents'] ??
-                    0,
-            'rollover_enabled': row['rollover_enabled'] ?? true,
-            '_virtual_categories': row['effective_categories'] ??
-                row['categories'] ??
-                row['category_assignments'] ??
-                const [],
-            'last_updated': row['last_updated'],
-          });
-          materializedLineages.add(lineageId);
+        } catch (error) {
+          _debugLog('[Pockets] logo_url enrichment skipped: $error');
         }
       }
 
-      final allEnvelopeIds = pocketEnvelopeIdsForCalculations(
-        envRows.map((row) => row['id']),
-      );
       final allocationRows = payloads
           .expand((payload) => ((payload['allocations'] as List?) ?? const []))
           .cast<Map>()
           .map((row) => Map<String, dynamic>.from(row))
           .toList(growable: false);
-      final allocationCentsByEnvelopeId =
-          canonicalPocketAllocationCentsByEnvelopeId(allocationRows);
+      final allocationCentsByEnvelopeId = <String, int>{
+        for (final row in allocationRows)
+          if ((row['envelope_id'] as String?) != null)
+            if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
+              (row['envelope_id'] as String):
+                  (row['amount_cents'] as num?)!.toInt(),
+      };
 
       final categoryLinksRows = payloads
           .expand(
@@ -3445,22 +3127,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             (row['category'] as String? ?? '').trim().toLowerCase();
         if (category.isEmpty) continue;
         categoriesByEnvelopeId.putIfAbsent(envId, () => []).add(category);
-      }
-      for (final row in envRows) {
-        final envelopeId = row['id']?.toString();
-        if (envelopeId == null || envelopeId.isEmpty) continue;
-        final categories = row['_virtual_categories'];
-        if (categories is! List) continue;
-        for (final value in categories) {
-          final category = value is Map
-              ? (value['category'] ?? value['name'] ?? '').toString()
-              : value.toString();
-          final normalized = category.trim().toLowerCase();
-          if (normalized.isEmpty) continue;
-          final target =
-              categoriesByEnvelopeId.putIfAbsent(envelopeId, () => []);
-          if (!target.contains(normalized)) target.add(normalized);
-        }
       }
 
       final actualExpenseRows = payloads
@@ -3666,7 +3332,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (shouldComputeSpendFromTransactions) {
         // Preserve existing semantics: when projections are included, all spend
         // calculations include both actual + projected expenses.
-        for (final envId in allEnvelopeIds) {
+        for (final envId in envIds) {
           final categories = categoriesByEnvelopeId[envId] ?? const <String>[];
           if (categories.isEmpty) {
             spentById[envId] = 0.0;
@@ -3706,7 +3372,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
 
         // Ensure empty envelopes still get 0 spent.
-        for (final envId in allEnvelopeIds) {
+        for (final envId in envIds) {
           spentById.putIfAbsent(envId, () => 0.0);
           aggregateSpentById.putIfAbsent(envId, () => 0.0);
         }
@@ -3778,7 +3444,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final expenseTotalsByCategory =
             calculatePocketCategorySpendingTotals(spendExpenses);
 
-        final linkedCategories = pocketLinkedCategories(categoriesByEnvelopeId);
+        final linkedCategories = categoryLinksRows
+            .map((r) => ((r['category'] as String?) ?? '').trim().toLowerCase())
+            .where((c) => c.isNotEmpty)
+            .toSet();
 
         expenseTotalsByCategory.forEach((cat, amount) {
           if (!linkedCategories.contains(cat)) {
@@ -3846,16 +3515,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final unallocatedSpend =
           math.max(0.0, totalMonthlySpend - totalEnvelopeSpend);
 
-      final reviewsByCurrency = <String, PocketsMonthReview>{
-        for (final payload in payloads)
-          if (PocketsMonthReview.fromV4Payload(payload) case final review?)
-            (review.currency.isEmpty
-                    ? (payload['selected_currency']?.toString() ?? '')
-                    : review.currency)
-                .toUpperCase(): review,
-      };
-      final lineageMetadataById = pocketLineageMetadataFromV4Payloads(payloads);
-      final review = reviewsByCurrency[selectedCurrency.toUpperCase()];
       return PocketsState(
         isLoading: false,
         error: null,
@@ -3883,9 +3542,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         ),
         localOverlayExpenseIds:
             localOverlayExpenses.map((expense) => expense.id).toSet(),
-        monthReview: review?.isOutstanding == true ? review : null,
-        monthReviewsByCurrency: reviewsByCurrency,
-        pocketLineageMetadataById: lineageMetadataById,
       );
     }
 
@@ -3898,110 +3554,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
 
     try {
-      var loaded = await future;
-      final existingReview = state.monthReview;
-      var retainedDrafts = retainPocketsMonthReviewDrafts(
-        draftsByReviewKey: state.monthReviewDraftAllocationsCentsByReviewKey,
-        reviews: loaded.monthReviewsByCurrency.values,
-      );
-      if (shouldPreservePocketsMonthReviewDraft(
-        current: existingReview,
-        refreshed: loaded.monthReview,
-      )) {
-        final preservedReview = existingReview!;
-        retainedDrafts = retainPocketsMonthReviewDrafts(
-          draftsByReviewKey: state.monthReviewDraftAllocationsCentsByReviewKey,
-          reviews: [...loaded.monthReviewsByCurrency.values, preservedReview],
-        );
-        loaded = loaded.copyWith(
-          monthReview: preservedReview.isPendingConfirmation
-              ? preservedReview
-              : loaded.monthReview,
-          monthReviewsByCurrency: {
-            ...loaded.monthReviewsByCurrency,
-            if (preservedReview.currency.isNotEmpty)
-              preservedReview.currency: preservedReview,
-          },
-          monthReviewDraftAllocationsCentsByReviewKey: retainedDrafts,
-        );
-      } else {
-        // A stale setup revision is terminal, but the user's draft is still
-        // useful against the newly authoritative review. Retain it under the
-        // new revision so reopening the review shows a conflict draft rather
-        // than silently discarding the local choice.
-        final refreshedReview = loaded.monthReview;
-        if (existingReview?.isPendingConfirmation == true &&
-            refreshedReview != null &&
-            refreshedReview.isOutstanding) {
-          final previousDraft =
-              state.monthReviewDraftAllocationsCentsByReviewKey[
-                  pocketsMonthReviewDraftKey(existingReview!)];
-          if (previousDraft != null) {
-            final conflictReview = params.scope == PocketsScopeType.household
-                ? refreshedReview.copyWith(status: 'household_conflict')
-                : refreshedReview;
-            retainedDrafts = {
-              ...retainedDrafts,
-              pocketsMonthReviewDraftKey(conflictReview): previousDraft,
-            };
-            loaded = loaded.copyWith(
-              monthReview:
-                  loaded.monthReview?.currency == conflictReview.currency
-                      ? conflictReview
-                      : loaded.monthReview,
-              monthReviewsByCurrency: {
-                ...loaded.monthReviewsByCurrency,
-                conflictReview.currency: conflictReview,
-              },
-            );
-          }
-        }
-        loaded = loaded.copyWith(
-          monthReviewDraftAllocationsCentsByReviewKey: retainedDrafts,
-        );
-      }
-      // A selected display currency may differ from a review's native currency.
-      // Reconcile every pending review so a refresh cannot erase another
-      // currency's local confirmation or stale-conflict draft.
-      for (final pendingReview in state.monthReviewsByCurrency.values
-          .where((review) => review.isPendingConfirmation)) {
-        final currency = pendingReview.currency.toUpperCase();
-        final refreshedReview = loaded.monthReviewsByCurrency[currency];
-        if (refreshedReview == null || !refreshedReview.isOutstanding) {
-          continue;
-        }
-        if (refreshedReview.setupRevision == pendingReview.setupRevision) {
-          retainedDrafts = retainPocketsMonthReviewDrafts(
-            draftsByReviewKey: {
-              ...retainedDrafts,
-              ...state.monthReviewDraftAllocationsCentsByReviewKey,
-            },
-            reviews: [...loaded.monthReviewsByCurrency.values, pendingReview],
-          );
-          loaded = loaded.copyWith(
-            monthReview: loaded.monthReview?.currency.toUpperCase() == currency
-                ? pendingReview
-                : loaded.monthReview,
-            monthReviewsByCurrency: {
-              ...loaded.monthReviewsByCurrency,
-              currency: pendingReview,
-            },
-            monthReviewDraftAllocationsCentsByReviewKey: retainedDrafts,
-          );
-          continue;
-        }
-        final draft = state.monthReviewDraftAllocationsCentsByReviewKey[
-            pocketsMonthReviewDraftKey(pendingReview)];
-        if (draft != null) {
-          retainedDrafts = {
-            ...retainedDrafts,
-            pocketsMonthReviewDraftKey(refreshedReview): draft,
-          };
-          loaded = loaded.copyWith(
-            monthReviewDraftAllocationsCentsByReviewKey: retainedDrafts,
-          );
-        }
-      }
+      final loaded = await future;
       final completedAt = DateTime.now();
       if (_refreshRevision != refreshRevision) {
         trace.mark('backend-state-superseded');
@@ -6006,122 +5559,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
     }
   }
-
-  Future<void> saveMonthReviewDraft(
-    Map<String, int> allocationsCentsByEnvelopeId, {
-    String? currency,
-  }) async {
-    final review = state.monthReviewsByCurrency[currency?.toUpperCase()] ??
-        state.monthReview;
-    if (review == null) return;
-    final validation = validatePocketsMonthReviewDraft(
-      review: review,
-      allocationsCentsByEnvelopeId: allocationsCentsByEnvelopeId,
-    );
-    if (!validation.isValid) {
-      throw ArgumentError('Review allocations exceed the unassigned amount.');
-    }
-    state = state.copyWith(
-      monthReviewDraftAllocationsCentsByReviewKey: {
-        ...state.monthReviewDraftAllocationsCentsByReviewKey,
-        pocketsMonthReviewDraftKey(review): Map<String, int>.from(
-          allocationsCentsByEnvelopeId,
-        ),
-      },
-    );
-    await _persistCurrentStateSnapshot(
-      userId: ref.read(authProvider).uid,
-      scopeType: params.scope,
-      householdId: params.householdId,
-      periodMonth: _formatDate(state.periodMonth),
-      currency: state.currency,
-    );
-  }
-
-  Future<void> confirmMonthReviewSetup(
-    Map<String, int> allocationsCentsByEnvelopeId, {
-    String? currency,
-  }) async {
-    final reviewCurrency = (currency ?? state.currency).toUpperCase();
-    final review =
-        state.monthReviewsByCurrency[reviewCurrency] ?? state.monthReview;
-    if (review == null || !review.isOutstanding || _isConfirmingMonthReview) {
-      return;
-    }
-    final validation = validatePocketsMonthReviewDraft(
-      review: review,
-      allocationsCentsByEnvelopeId: allocationsCentsByEnvelopeId,
-    );
-    if (!validation.isValid) {
-      throw ArgumentError('Review allocations exceed the unassigned amount.');
-    }
-
-    _isConfirmingMonthReview = true;
-    try {
-      final userId = ref.read(authProvider).uid;
-      if (userId.isEmpty) throw StateError('You must be signed in to confirm.');
-      final periodMonth = _formatDate(state.periodMonth);
-      final mutationId = buildPocketsMonthReviewMutationId(
-        userId: userId,
-        reviewId: review.id,
-        periodMonth: periodMonth,
-        currency: reviewCurrency,
-        setupRevision: review.setupRevision,
-        allocationsCentsByLineageId: allocationsCentsByEnvelopeId,
-      );
-      final request = buildPocketsMonthReviewConfirmationPayload(
-        userId: userId,
-        scope: _pocketsScopeRpcValue(params.scope),
-        householdId: params.householdId,
-        budgetMonth: periodMonth,
-        currency: reviewCurrency,
-        review: review,
-        allocationsCentsByLineageId: allocationsCentsByEnvelopeId,
-      );
-      final database = await ref.read(localDatabaseProvider.future);
-      await database.enqueueMutation(
-        clientMutationId: mutationId,
-        entityType: 'pockets_month_review',
-        entityId:
-            '${params.scope.name}:${params.householdId ?? 'personal'}:$periodMonth:${state.currency}',
-        operation: 'confirm_pockets_month_setup',
-        payload: request,
-      );
-      // This is a deterministic local mutation. The durable outbox record is the
-      // acknowledgement point; reconciliation owns the later canonical update.
-      final pendingReview = review.copyWith(status: 'pending_sync');
-      state = applyPocketsMonthReviewAllocationProjection(
-        state: state,
-        review: review,
-        allocationsCentsByLineageId: allocationsCentsByEnvelopeId,
-      ).copyWith(
-        monthReview: state.monthReview?.currency == reviewCurrency
-            ? pendingReview
-            : state.monthReview,
-        monthReviewsByCurrency: {
-          ...state.monthReviewsByCurrency,
-          reviewCurrency: pendingReview,
-        },
-      );
-      await _persistCurrentStateSnapshot(
-        userId: userId,
-        scopeType: params.scope,
-        householdId: params.householdId,
-        periodMonth: periodMonth,
-        currency: state.currency,
-      );
-      ref.read(pocketsRefreshSignalProvider.notifier).state++;
-    } finally {
-      _isConfirmingMonthReview = false;
-    }
-  }
-
-  String _pocketsScopeRpcValue(PocketsScopeType scopeType) =>
-      switch (scopeType) {
-        PocketsScopeType.personal => 'personal',
-        PocketsScopeType.portfolio => 'portfolio',
-        PocketsScopeType.household => 'household',
-      };
 
   Future<void> _persistCurrentStateSnapshot({
     required String userId,
