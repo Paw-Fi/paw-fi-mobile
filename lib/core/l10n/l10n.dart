@@ -26,6 +26,22 @@ extension SettlementBreakdownL10nX on AppLocalizations {
 
 extension HomeDashboardL10nX on AppLocalizations {}
 
+extension PocketsAiSuggestionsL10nX on AppLocalizations {
+  String get pocketsAiSuggestionsTitle => 'AI budget suggestions';
+  String get pocketsAiSuggestionsSubtitle =>
+      'Get a starting point for this month. You stay in control of every change.';
+  String get pocketsAiSuggestionsAction => 'Get AI suggestions';
+  String get pocketsAiSuggestionsFallback =>
+      'We could not reach AI, so these keep your current amounts.';
+  String get pocketsAiSuggestionsManualNote =>
+      'These are suggestions only. Edit your pockets and save when you are ready.';
+  String get pocketsAiSuggestionsUnavailable =>
+      'We could not generate suggestions right now. Please try again.';
+  String get pocketsAiSuggestionsUnknownPocket => 'Pocket';
+  String get plusLockedAiMonthlyBudgetSuggestions =>
+      'AI suggestions for your monthly pocket budget';
+}
+
 extension ImportReviewL10nX on AppLocalizations {}
 
 extension SiriExpenseTutorialL10nX on AppLocalizations {

@@ -20,6 +20,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
+import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_suggestions_sheet.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -1107,14 +1108,29 @@ class _PocketsMonthView extends HookConsumerWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: PocketsGridSection(
-                scopeParams: scopeParams,
-                colorScheme: colorScheme,
-                isPersonalMode: isPersonalMode,
-                isActiveMonth: isActiveMonth,
-                showSwipeHint: showSwipeHint,
-                uncategorizedExpenses: pocketsState.uncategorizedExpenses,
-                onDateSelected: onDateSelected,
+              child: Column(
+                children: [
+                  if (isActiveMonth &&
+                      !pocketsState.isLoading &&
+                      pocketsState.editing.isNotEmpty) ...[
+                    PocketsAiBudgetSuggestionsBanner(
+                      scopeParams: scopeParams,
+                      currency: pocketsState.currency.trim().isNotEmpty
+                          ? pocketsState.currency.trim()
+                          : (scopeParams.currency ?? 'USD'),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  PocketsGridSection(
+                    scopeParams: scopeParams,
+                    colorScheme: colorScheme,
+                    isPersonalMode: isPersonalMode,
+                    isActiveMonth: isActiveMonth,
+                    showSwipeHint: showSwipeHint,
+                    uncategorizedExpenses: pocketsState.uncategorizedExpenses,
+                    onDateSelected: onDateSelected,
+                  ),
+                ],
               ),
             ),
           ),
