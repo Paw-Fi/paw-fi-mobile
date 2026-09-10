@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
+import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 class UpcomingTransactionsCard extends StatelessWidget {
@@ -84,12 +86,55 @@ class _UpcomingTransactionRow extends StatelessWidget {
         category: transaction.category,
         title: transaction.category,
         description: transaction.description,
-        subtitle: buildUpcomingDueLabel(context, item.daysUntil),
+        subtitleWidget: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _FrequencyTag(transaction: transaction),
+            const SizedBox(width: 6),
+            Text(
+              buildUpcomingDueLabel(context, item.daysUntil),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.mutedForeground,
+              ),
+            ),            
+          ],
+        ),
         amount: transaction.amount,
         currency: transaction.currency,
         isIncome: isIncome,
         onTap: onTap,
-        showRecurringChip: true,
+        showRecurringChip: false,
+      ),
+    );
+  }
+}
+
+class _FrequencyTag extends StatelessWidget {
+  const _FrequencyTag({required this.transaction});
+
+  final RecurringTransaction transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.1),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        getLocalizedFrequencyText(context, transaction),
+        style: TextStyle(
+          color: colorScheme.mutedForeground,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
