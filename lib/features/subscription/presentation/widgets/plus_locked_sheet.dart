@@ -27,6 +27,7 @@ String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
 enum PlusFeature {
   healthDetails,
   aiScenarios,
+  aiMonthlyBudgetSuggestions,
   messagingAppCapture,
   emailReceiptImport,
   spaceCreation,
@@ -552,6 +553,11 @@ class _LockedSheetContent {
         icon: Icons.insights_rounded,
         title: context.l10n.plusLockedAiScenarios,
         featureKey: PlusFeature.aiScenarios,
+      ),
+      _PremiumFeature(
+        icon: Icons.auto_awesome_rounded,
+        title: context.l10n.plusLockedAiMonthlyBudgetSuggestions,
+        featureKey: PlusFeature.aiMonthlyBudgetSuggestions,
       ),
       _PremiumFeature(
         icon: Icons.chat_bubble_rounded,

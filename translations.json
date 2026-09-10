@@ -117,5 +117,37 @@
     "zh": "加载更多交易",
     "zh_TW": "載入更多交易",
     "vi": "Tải thêm giao dịch"
+  },
+  "pocketsAiSuggestionsTitle": {
+    "en": "AI budget suggestions",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiSuggestionsSubtitle": {
+    "en": "Get a starting point for this month. You stay in control of every change.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiSuggestionsAction": {
+    "en": "Get AI suggestions",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiSuggestionsFallback": {
+    "en": "We could not reach AI, so these keep your current amounts.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiSuggestionsManualNote": {
+    "en": "These are suggestions only. Edit your pockets and save when you are ready.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiSuggestionsUnavailable": {
+    "en": "We could not generate suggestions right now. Please try again.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiSuggestionsUnknownPocket": {
+    "en": "Pocket",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "plusLockedAiMonthlyBudgetSuggestions": {
+    "en": "AI suggestions for your monthly pocket budget",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   }
 }
