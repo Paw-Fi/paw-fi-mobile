@@ -29,8 +29,9 @@ extension HomeDashboardL10nX on AppLocalizations {}
 extension PocketsAiSuggestionsL10nX on AppLocalizations {
   String get pocketsAiSuggestionsTitle => 'AI budget suggestions';
   String get pocketsAiSuggestionsSubtitle =>
-      'Get a starting point for this month. You stay in control of every change.';
-  String get pocketsAiSuggestionsAction => 'Get AI suggestions';
+      'Let AI analyze your previous month spending to suggest realistic pocket targets for this month. You stay in control of every change.';
+  String get pocketsAiSuggestionsAction =>
+      'Suggest this month\'s budget with AI';
   String get pocketsAiSuggestionsFallback =>
       'We could not reach AI, so these keep your current amounts.';
   String get pocketsAiSuggestionsManualNote =>
@@ -38,8 +39,70 @@ extension PocketsAiSuggestionsL10nX on AppLocalizations {
   String get pocketsAiSuggestionsUnavailable =>
       'We could not generate suggestions right now. Please try again.';
   String get pocketsAiSuggestionsUnknownPocket => 'Pocket';
+  String get pocketsAiSuggestionsPreviousMonthNote =>
+      'These suggestions use last month’s pockets. Copy them first if you want to edit and save this plan.';
   String get plusLockedAiMonthlyBudgetSuggestions =>
       'AI suggestions for your monthly pocket budget';
+  String get pocketsAiIntroTitle => 'Budgeting with Moneko';
+  String pocketsAiIntroAction(String month) => 'Get My Plan for $month';
+  String get pocketsAiIntroManualAction => 'Set up manually';
+  String get pocketsAiIntroMilestoneTag => 'Milestone';
+  String get pocketsAiIntroCard1TitleNew => 'Welcome to Moneko!';
+  String get pocketsAiIntroCard1TitleOneMonth => '1 month with Moneko';
+  String pocketsAiIntroCard1TitleMonths(int count) =>
+      '$count months with Moneko';
+  String get pocketsAiIntroCard1BodyNew =>
+      'You\'re taking the first step to stress-free money management.';
+  String get pocketsAiIntroCard1BodyOneMonth =>
+      '1 month of tracking spending and building real money awareness.';
+  String pocketsAiIntroCard1BodyMonths(int count) =>
+      '$count months of taking active charge of where your money goes.';
+  String get pocketsAiIntroCard1HighlightNew => 'Fresh start';
+  String get pocketsAiIntroCard1HighlightMonths => 'Habit in progress';
+  String get pocketsAiIntroCard2Tag => 'Last Month';
+  String get pocketsAiIntroCard2Title => 'Real habits, zero guesswork';
+  String get pocketsAiIntroCard2Body =>
+      'We look at your actual spending from last month so you never have to invent random numbers.';
+  String get pocketsAiIntroCard2Highlight => 'Grounded in real data';
+  String get pocketsAiIntroCard3Tag => 'AI Blueprint';
+  String get pocketsAiIntroCard3Title => 'Smart targets for this month';
+  String get pocketsAiIntroCard3Body =>
+      'AI drafts realistic pocket limits tailored to your lifestyle. Review, tweak, and save in seconds.';
+  String get pocketsAiIntroCard3Highlight => '1-tap starting point';
+  String get pocketsAiPageTitle => 'AI Budget Plan';
+  String get pocketsAiPageSubtitle => 'Customized for your lifestyle';
+  String get pocketsAiPageHeroTotalLabel => 'Suggested Monthly Budget';
+  String get pocketsAiPageHeroCarryLabel => 'carried in from last month';
+  String get pocketsAiPageHeroDebtCarryLabel => 'to cover from last month';
+  String get pocketsAiPageWinsTitle => 'What You Did Well';
+  String get pocketsAiPageInsightsTitle => 'Smart Spending Strategy';
+  String get pocketsAiPageTipTitle => 'Budgeting Peace of Mind';
+  String get pocketsAiPagePocketsSectionTitle => 'Suggested Pocket Targets';
+  String get pocketsAiPagePocketsSectionSubtitle =>
+      'Adjusted for past spending & healthy ratios';
+  String get pocketsAiPageApplyAction => 'Apply AI Budget';
+  String get pocketsAiPageCustomAction => 'Review & Edit Manually';
+  String get pocketsAiPageSuccessToast =>
+      'AI budget plan applied successfully!';
+  String get pocketsAiPageDiffIncrease => 'Buffer added';
+  String get pocketsAiPageDiffDecrease => 'Rollover adjusted';
+  String get pocketsAiPageDiffSame => 'Steady target';
+  String get pocketsAiPagePreviousSpentLabel => 'Last month spent';
+  String get pocketsAiPageLastMonthLabel => 'Last month';
+  String get pocketsAiPageThisMonthLabel => 'This month so far';
+  String get pocketsAiPageSuggestedAddLabel => 'Add this month';
+  String get pocketsAiPageCarryIntoMonthLabel => 'Carried in';
+  String get pocketsAiPageCarriedDebtLabel => 'Debt carried';
+  String get pocketsAiPageAvailableAfterPlanLabel => 'Available after plan';
+  String pocketsAiPageAvailableToSpend(String amount) =>
+      'You’ll have $amount available to spend';
+  String get pocketsAiPageSpentOfLabel => 'spent of';
+  String get pocketsAiPagePlannedLabel => 'planned';
+  String get pocketsAiPageWhyThisPlanAction => 'Why this plan?';
+  String get pocketsAiPagePlanDetailsTitle => 'How this plan was made';
+  String get pocketsAiPageReasonTitle => 'Why this target fits';
+  String get pocketsAiPageDisclaimer =>
+      'These are recommendations. You stay in full control to tweak, increase, or reduce any envelope anytime.';
 }
 
 extension ImportReviewL10nX on AppLocalizations {}

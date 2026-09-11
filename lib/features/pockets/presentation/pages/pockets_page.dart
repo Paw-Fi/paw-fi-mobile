@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -20,7 +21,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
-import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_suggestions_sheet.dart';
+import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_intro_sheet.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -971,6 +972,7 @@ class _PocketsMonthView extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pocketsState = ref.watch(pocketsProvider(scopeParams));
     final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
 
     Future<void> refresh() async {
       await pocketsNotifier.refresh();
@@ -988,6 +990,40 @@ class _PocketsMonthView extends HookConsumerWidget {
         shouldShowEmptyMonthCta && !pocketsState.hasPreviousMonthPockets;
 
     final isCopyingPockets = useState(false);
+    final hasAutoOpenedAiSuggestions = useState(false);
+    final shouldAutoOpenAiSuggestions = isActiveMonth &&
+        currentTabIndex == 2 &&
+        !pocketsState.isLoading &&
+        pocketsState.totalBudget == 0 &&
+        pocketsState.hasPreviousMonthPockets;
+
+    useEffect(() {
+      if (currentTabIndex != 2) {
+        hasAutoOpenedAiSuggestions.value = false;
+        return null;
+      }
+      if (!shouldAutoOpenAiSuggestions || hasAutoOpenedAiSuggestions.value) {
+        return null;
+      }
+      hasAutoOpenedAiSuggestions.value = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!context.mounted) return;
+        await PocketsAiBudgetIntroSheet.show(
+          context: context,
+          ref: ref,
+          scopeParams: scopeParams,
+          currency: pocketsState.currency.trim().isNotEmpty
+              ? pocketsState.currency.trim()
+              : (scopeParams.currency ?? 'USD'),
+        );
+      });
+      return null;
+    }, [
+      shouldAutoOpenAiSuggestions,
+      currentTabIndex,
+      scopeParams,
+      pocketsState.currency,
+    ]);
 
     return RefreshIndicator(
       onRefresh: refresh,
@@ -1110,17 +1146,6 @@ class _PocketsMonthView extends HookConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Column(
                 children: [
-                  if (isActiveMonth &&
-                      !pocketsState.isLoading &&
-                      pocketsState.editing.isNotEmpty) ...[
-                    PocketsAiBudgetSuggestionsBanner(
-                      scopeParams: scopeParams,
-                      currency: pocketsState.currency.trim().isNotEmpty
-                          ? pocketsState.currency.trim()
-                          : (scopeParams.currency ?? 'USD'),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                   PocketsGridSection(
                     scopeParams: scopeParams,
                     colorScheme: colorScheme,

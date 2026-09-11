@@ -176,16 +176,7 @@ class _MonekoSheetContent extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Close Button
-                  if (onClose != null)
-                    IconButton(
-                      onPressed: onClose,
-                      icon: Icon(Icons.close, color: colorScheme.onSurface),
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.onSurface.withValues(alpha: 0.1),
-                      ),
-                    )
-                  else
+                 
                     const SizedBox(width: 48),
 
                   // Title

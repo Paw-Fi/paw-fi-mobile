@@ -6,26 +6,39 @@ class PocketsAiBudgetSuggestionsRequest {
   const PocketsAiBudgetSuggestionsRequest({
     required this.scopeParams,
     required this.currency,
+    required this.locale,
   });
 
   final PocketsScopeParams scopeParams;
   final String currency;
+  final String locale;
 
   @override
   bool operator ==(Object other) =>
       other is PocketsAiBudgetSuggestionsRequest &&
       other.scopeParams == scopeParams &&
-      other.currency.toUpperCase() == currency.toUpperCase();
+      other.currency.toUpperCase() == currency.toUpperCase() &&
+      other.locale == locale;
 
   @override
-  int get hashCode => Object.hash(scopeParams, currency.toUpperCase());
+  int get hashCode => Object.hash(scopeParams, currency.toUpperCase(), locale);
 }
 
 class PocketsAiBudgetSuggestion {
   const PocketsAiBudgetSuggestion({
     required this.envelopeId,
+    required this.pocketName,
     required this.amountCents,
     required this.reason,
+    this.tip,
+    this.changeType,
+    this.icon,
+    this.color,
+    this.previousSpentCents,
+    this.previousBudgetCents,
+    this.incomingCarryCents,
+    this.rolloverEnabled = false,
+    this.remainingCents,
   });
 
   factory PocketsAiBudgetSuggestion.fromJson(Map<String, dynamic> json) {
@@ -39,21 +52,56 @@ class PocketsAiBudgetSuggestion {
     }
     return PocketsAiBudgetSuggestion(
       envelopeId: envelopeId,
+      pocketName:
+          json['pocket_name'] is String ? json['pocket_name'] as String : null,
       amountCents: amountCents.toInt(),
       reason: reason,
+      tip: json['tip'] is String ? json['tip'] as String : null,
+      changeType:
+          json['change_type'] is String ? json['change_type'] as String : null,
+      icon: json['icon'] is String ? json['icon'] as String : null,
+      color: json['color'] is String ? json['color'] as String : null,
+      previousSpentCents: json['previous_spent_cents'] is num
+          ? (json['previous_spent_cents'] as num).toInt()
+          : null,
+      previousBudgetCents: json['previous_budget_cents'] is num
+          ? (json['previous_budget_cents'] as num).toInt()
+          : null,
+      incomingCarryCents: json['incoming_carry_cents'] is num
+          ? (json['incoming_carry_cents'] as num).toInt()
+          : null,
+      rolloverEnabled: json['rollover_enabled'] == true,
+      remainingCents: json['remaining_cents'] is num
+          ? (json['remaining_cents'] as num).toInt()
+          : null,
     );
   }
 
   final String envelopeId;
+  final String? pocketName;
   final int amountCents;
   final String reason;
+  final String? tip;
+  final String? changeType;
+  final String? icon;
+  final String? color;
+  final int? previousSpentCents;
+  final int? previousBudgetCents;
+  final int? incomingCarryCents;
+  final bool rolloverEnabled;
+  final int? remainingCents;
 }
 
 class PocketsAiBudgetSuggestions {
   const PocketsAiBudgetSuggestions({
     required this.summary,
     required this.suggestions,
-    required this.isFallback,
+    required this.usesPreviousMonthPockets,
+    this.celebration,
+    this.topSpendInsight,
+    this.pocketsHealthTip,
+    this.totalSuggestedCents,
+    this.suggestedTotalBudgetCents,
   });
 
   factory PocketsAiBudgetSuggestions.fromJson(Map<String, dynamic> json) {
@@ -71,19 +119,39 @@ class PocketsAiBudgetSuggestions {
     }
     return PocketsAiBudgetSuggestions(
       summary: payload['summary'] is String ? payload['summary'] as String : '',
+      celebration: payload['celebration'] is String
+          ? payload['celebration'] as String
+          : null,
+      topSpendInsight: payload['top_spend_insight'] is String
+          ? payload['top_spend_insight'] as String
+          : null,
+      pocketsHealthTip: payload['pockets_health_tip'] is String
+          ? payload['pockets_health_tip'] as String
+          : null,
+      totalSuggestedCents: payload['total_suggested_cents'] is num
+          ? (payload['total_suggested_cents'] as num).toInt()
+          : null,
+      suggestedTotalBudgetCents: payload['suggested_total_budget_cents'] is num
+          ? (payload['suggested_total_budget_cents'] as num).toInt()
+          : null,
       suggestions: suggestions
           .whereType<Map>()
           .map((item) => PocketsAiBudgetSuggestion.fromJson(
                 Map<String, dynamic>.from(item),
               ))
           .toList(growable: false),
-      isFallback: json['deterministicFallback'] == true,
+      usesPreviousMonthPockets: json['usesPreviousMonthPockets'] == true,
     );
   }
 
   final String summary;
+  final String? celebration;
+  final String? topSpendInsight;
+  final String? pocketsHealthTip;
+  final int? totalSuggestedCents;
+  final int? suggestedTotalBudgetCents;
   final List<PocketsAiBudgetSuggestion> suggestions;
-  final bool isFallback;
+  final bool usesPreviousMonthPockets;
 }
 
 class PocketsAiBudgetSuggestionsException implements Exception {
@@ -96,6 +164,25 @@ class PocketsAiBudgetSuggestionsException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Rebinds source-month suggestion IDs to the envelopes that were copied into
+/// the active month. A partial map must never silently save an unrelated plan.
+Map<String, int> rebindCopiedPocketSuggestionAmounts({
+  required Map<String, int> sourceAmountsCents,
+  required Map<String, String> copiedPocketIds,
+}) {
+  final reboundAmounts = <String, int>{};
+  for (final entry in sourceAmountsCents.entries) {
+    final copiedPocketId = copiedPocketIds[entry.key];
+    if (copiedPocketId == null || copiedPocketId.isEmpty) {
+      throw const PocketsAiBudgetSuggestionsException(
+        'Your pockets changed while your plan was being prepared. Please try again.',
+      );
+    }
+    reboundAmounts[copiedPocketId] = entry.value;
+  }
+  return reboundAmounts;
 }
 
 final pocketsAiBudgetSuggestionsProvider = FutureProvider.autoDispose
@@ -118,6 +205,7 @@ final pocketsAiBudgetSuggestionsProvider = FutureProvider.autoDispose
       'householdId': request.scopeParams.householdId,
       'currency': request.currency.toUpperCase(),
       'cycleStart': _dateKey(periodMonth),
+      'locale': request.locale,
     },
   );
   if (response.data is! Map) {

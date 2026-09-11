@@ -3874,15 +3874,47 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     updateTotalBudget(amount);
   }
 
-  Future<void> copyPocketsFromMonth(DateTime sourceMonth) async {
-    if (state.isLoading) return;
-    if (state.editing.isNotEmpty) return;
+  void applySuggestedPocketAmounts(
+    Map<String, int> suggestedAmountsCents, {
+    int? suggestedTotalBudgetCents,
+  }) {
+    if (suggestedAmountsCents.isEmpty) return;
+    int totalCents = 0;
+    final updatedEditing = state.editing.map((pocket) {
+      final suggested = suggestedAmountsCents[pocket.id];
+      if (suggested != null) {
+        totalCents += suggested;
+        return pocket.copyWith(budgetAmountCents: suggested);
+      } else {
+        totalCents += pocket.budgetAmountCents;
+        return pocket;
+      }
+    }).toList(growable: false);
+
+    final nextTotalBudgetCents = suggestedTotalBudgetCents != null &&
+            suggestedTotalBudgetCents == totalCents
+        ? suggestedTotalBudgetCents
+        : totalCents;
+    state = state.copyWith(
+      totalBudget: nextTotalBudgetCents / 100.0,
+      editing: updatedEditing,
+    );
+  }
+
+  /// Copies the prior month's pockets and returns their canonical ID mapping.
+  ///
+  /// A month copy creates new envelope rows, so callers that hold source-month
+  /// envelope IDs (for example AI suggestions) must use this mapping before
+  /// applying any changes to the copied pockets.
+  Future<Map<String, String>> copyPocketsFromMonth(DateTime sourceMonth) async {
+    if (state.isLoading) return const <String, String>{};
+    if (state.editing.isNotEmpty) return const <String, String>{};
 
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
-      if (!mounted) return;
+      if (!mounted) return const <String, String>{};
       state = state.copyWith(error: 'Not authenticated');
-      return;
+      return const <String, String>{};
     }
 
     final explicitCurrency = params.isBootstrapCurrency
@@ -3965,9 +3997,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final householdId = params.householdId;
 
     if (isScopedToHousehold && householdId == null) {
-      if (!mounted) return;
+      if (!mounted) return const <String, String>{};
       state = state.copyWith(error: 'No household selected');
-      return;
+      return const <String, String>{};
     }
 
     final sourceMonthStart = financialCycleStartForDate(
@@ -4017,7 +4049,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final selectedCurrencies = params.normalizedSelectedCurrencies;
     if (selectedCurrencies != null && selectedCurrencies.length > 1) {
       try {
-        final insertedCount = await _copyPocketsForCurrencies(
+        final copiedPocketIds = await _copyPocketsForCurrencies(
           userId: authUser.uid,
           scopeType: scopeType,
           householdId: householdId,
@@ -4025,16 +4057,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           targetMonthStart: targetMonthStart,
           currencies: selectedCurrencies,
         );
-        if (insertedCount == 0) {
+        if (copiedPocketIds.isEmpty) {
           throw Exception('No pockets found for the previous month');
         }
         _prepareFreshMutationReload();
         await _load(bypassCache: true);
         ref.read(analyticsProvider.notifier).refresh(authUser.uid);
         ref.read(widgetSyncVersionProvider.notifier).state++;
-        return;
+        return copiedPocketIds;
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted) return const <String, String>{};
         state = state.copyWith(
           isLoading: false,
           error: ErrorHandler.getUserFriendlyMessage(e),
@@ -4043,7 +4075,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
     }
 
-    if (!mounted) return;
+    if (!mounted) return const <String, String>{};
     state = state.copyWith(isLoading: false, clearError: true);
 
     final previousState = state;
@@ -4131,7 +4163,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _debugLog(
           '[Pockets][Copy] Selected source budget: id=$sourceBudgetId, total_budget_cents=$sourceTotalBudgetCents, currency=$effectiveCurrency');
       if (sourceBudgetId == null || sourceBudgetId.isEmpty) {
-        if (!mounted) return;
+        if (!mounted) return const <String, String>{};
         state = state.copyWith(
           isLoading: false,
           error: 'No pockets found for the previous month',
@@ -4189,7 +4221,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         _debugLog('[Pockets][Copy] Source envelope sample: $sample');
       }
       if (envRows.isEmpty) {
-        if (!mounted) return;
+        if (!mounted) return const <String, String>{};
         state = state.copyWith(
           isLoading: false,
           error: 'No pockets found for the previous month',
@@ -4326,7 +4358,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             ? const <String>[]
             : categoriesByEnvelopeId[sourceEnvId] ?? const <String>[];
       }
-      if (!mounted) return;
+      if (!mounted) return const <String, String>{};
       state = state.copyWith(
         isLoading: false,
         saved: optimisticPockets,
@@ -4348,6 +4380,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final linksPayload = <Map<String, dynamic>>[];
       var insertedCount = 0;
+      final copiedPocketIds = <String, String>{};
       for (final row in envRows) {
         final sourceEnvId = row['id'] as String?;
         if (sourceEnvId == null || sourceEnvId.isEmpty) continue;
@@ -4402,6 +4435,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
 
         insertedCount += 1;
+        copiedPocketIds[sourceEnvId] = newEnvId;
 
         if (amountCents > 0) {
           await supabase.from('envelope_allocations').upsert(
@@ -4443,13 +4477,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(widgetSyncVersionProvider.notifier).state++;
       final database = await ref.read(localDatabaseProvider.future);
       await database.markMutationSynced(queuedMutationId);
+      return copiedPocketIds;
     } catch (e) {
       if (queuedMutationId != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.read(analyticsProvider.notifier).refresh(authUser.uid);
         ref.read(widgetSyncVersionProvider.notifier).state++;
-        return;
+        rethrow;
       }
-      if (!mounted) return;
+      if (!mounted) rethrow;
       state = previousState.copyWith(
         isLoading: false,
         error: ErrorHandler.getUserFriendlyMessage(e),
@@ -5191,7 +5226,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
-  Future<int> _copyPocketsForCurrencies({
+  Future<Map<String, String>> _copyPocketsForCurrencies({
     required String userId,
     required PocketsScopeType scopeType,
     required String? householdId,
@@ -5205,7 +5240,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final isScopedToHousehold = scopeType != PocketsScopeType.personal;
     final nowIso = DateTime.now().toIso8601String();
     final copiedCurrencies = <String>{};
-    var insertedCount = 0;
+    final copiedPocketIds = <String, String>{};
 
     for (final rawCurrency in currencies) {
       final currency = rawCurrency.trim().toUpperCase();
@@ -5402,7 +5437,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         if (newEnvId == null || newEnvId.isEmpty) {
           throw Exception('Failed to copy pocket: $name');
         }
-        insertedCount += 1;
+        copiedPocketIds[sourceEnvId] = newEnvId;
 
         await supabase.from('envelope_allocations').upsert(
           <String, dynamic>{
@@ -5432,7 +5467,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
     }
 
-    return insertedCount;
+    return copiedPocketIds;
   }
 
   bool assignCategoryToPocket(String pocketId, String category) {

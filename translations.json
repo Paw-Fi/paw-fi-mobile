@@ -123,11 +123,11 @@
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiSuggestionsSubtitle": {
-    "en": "Get a starting point for this month. You stay in control of every change.",
+    "en": "Let AI analyze your previous month spending to suggest realistic pocket targets for this month. You stay in control of every change.",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiSuggestionsAction": {
-    "en": "Get AI suggestions",
+    "en": "Suggest this month's budget with AI",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiSuggestionsFallback": {
@@ -146,8 +146,212 @@
     "en": "Pocket",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
+  "pocketsAiSuggestionsPreviousMonthNote": {
+    "en": "These suggestions use last month’s pockets. Copy them first if you want to edit and save this plan.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
   "plusLockedAiMonthlyBudgetSuggestions": {
     "en": "AI suggestions for your monthly pocket budget",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroTitle": {
+    "en": "Budgeting with Moneko",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroAction": {
+    "en": "Get My Plan for {month}",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroManualAction": {
+    "en": "Set up manually",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroMilestoneTag": {
+    "en": "Milestone",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1TitleNew": {
+    "en": "Welcome to Moneko!",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1TitleOneMonth": {
+    "en": "1 month with Moneko",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1TitleMonths": {
+    "en": "{count} months with Moneko",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1BodyNew": {
+    "en": "You're taking the first step to stress-free money management.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1BodyOneMonth": {
+    "en": "1 month of tracking spending and building real money awareness.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1BodyMonths": {
+    "en": "{count} months of taking active charge of where your money goes.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1HighlightNew": {
+    "en": "Fresh start",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard1HighlightMonths": {
+    "en": "Habit in progress",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard2Tag": {
+    "en": "Last Month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard2Title": {
+    "en": "Real habits, zero guesswork",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard2Body": {
+    "en": "We look at your actual spending from last month so you never have to invent random numbers.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard2Highlight": {
+    "en": "Grounded in real data",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard3Tag": {
+    "en": "AI Blueprint",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard3Title": {
+    "en": "Smart targets for this month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard3Body": {
+    "en": "AI drafts realistic pocket limits tailored to your lifestyle. Review, tweak, and save in seconds.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiIntroCard3Highlight": {
+    "en": "1-tap starting point",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageTitle": {
+    "en": "AI Budget Plan",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageSubtitle": {
+    "en": "Customized for your lifestyle",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroTotalLabel": {
+    "en": "Suggested Monthly Budget",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroCarryLabel": {
+    "en": "carried in from last month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroDebtCarryLabel": {
+    "en": "to cover from last month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageWinsTitle": {
+    "en": "What You Did Well",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageInsightsTitle": {
+    "en": "Smart Spending Strategy",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageTipTitle": {
+    "en": "Budgeting Peace of Mind",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPagePocketsSectionTitle": {
+    "en": "Suggested Pocket Targets",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPagePocketsSectionSubtitle": {
+    "en": "Adjusted for past spending & healthy ratios",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageApplyAction": {
+    "en": "Apply AI Budget",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageCustomAction": {
+    "en": "Review & Edit Manually",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageSuccessToast": {
+    "en": "AI budget plan applied successfully!",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageDiffIncrease": {
+    "en": "Buffer added",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageDiffDecrease": {
+    "en": "Rollover adjusted",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageDiffSame": {
+    "en": "Steady target",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPagePreviousSpentLabel": {
+    "en": "Last month spent",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLastMonthLabel": {
+    "en": "Last month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageThisMonthLabel": {
+    "en": "This month so far",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageSuggestedAddLabel": {
+    "en": "Add this month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageCarryIntoMonthLabel": {
+    "en": "Carried in",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageCarriedDebtLabel": {
+    "en": "Debt carried",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageAvailableAfterPlanLabel": {
+    "en": "Available after plan",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageAvailableToSpend": {
+    "en": "You’ll have {amount} available to spend",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageSpentOfLabel": {
+    "en": "spent of",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPagePlannedLabel": {
+    "en": "planned",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageWhyThisPlanAction": {
+    "en": "Why this plan?",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPagePlanDetailsTitle": {
+    "en": "How this plan was made",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageReasonTitle": {
+    "en": "Why this target fits",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageDisclaimer": {
+    "en": "These are recommendations. You stay in full control to tweak, increase, or reduce any envelope anytime.",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   }
 }
