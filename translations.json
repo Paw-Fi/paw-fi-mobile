@@ -254,6 +254,30 @@
     "en": "to cover from last month",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
+  "pocketsAiPageHeroAvailableLabel": {
+    "en": "Total available this month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroPlannedPartLabel": {
+    "en": "Plan for this month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroCarriedOverLabel": {
+    "en": "Carried from last month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroSuggestedPartLabel": {
+    "en": "Plan for this month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroCarryPartLabel": {
+    "en": "Carried from last month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageHeroDebtPartLabel": {
+    "en": "To cover from last month",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
   "pocketsAiPageWinsTitle": {
     "en": "What You Did Well",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""

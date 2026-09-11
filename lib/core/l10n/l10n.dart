@@ -74,6 +74,12 @@ extension PocketsAiSuggestionsL10nX on AppLocalizations {
   String get pocketsAiPageHeroTotalLabel => 'Suggested Monthly Budget';
   String get pocketsAiPageHeroCarryLabel => 'carried in from last month';
   String get pocketsAiPageHeroDebtCarryLabel => 'to cover from last month';
+  String get pocketsAiPageHeroAvailableLabel => 'Total available this month';
+  String get pocketsAiPageHeroPlannedPartLabel => 'Plan for this month';
+  String get pocketsAiPageHeroCarriedOverLabel => 'Carried from last month';
+  String get pocketsAiPageHeroSuggestedPartLabel => 'Plan for this month';
+  String get pocketsAiPageHeroCarryPartLabel => 'Carried from last month';
+  String get pocketsAiPageHeroDebtPartLabel => 'To cover from last month';
   String get pocketsAiPageWinsTitle => 'What You Did Well';
   String get pocketsAiPageInsightsTitle => 'Smart Spending Strategy';
   String get pocketsAiPageTipTitle => 'Budgeting Peace of Mind';

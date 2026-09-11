@@ -160,9 +160,12 @@ void main() {
     expect(find.text('Groceries'), findsOneWidget);
     expect(find.text('Dining'), findsOneWidget);
     expect(find.byType(PrimaryAdaptiveButton), findsOneWidget);
+    expect(find.text(r'$500'), findsOneWidget);
+    expect(find.text('Total available this month'), findsOneWidget);
     expect(find.text(r'$450'), findsOneWidget);
-    expect(find.text(r'$500'), findsNothing);
-    expect(find.text(r'+$50 carried in from last month'), findsOneWidget);
+    expect(find.text('Plan for this month'), findsOneWidget);
+    expect(find.text(r'$50'), findsOneWidget);
+    expect(find.text('Carried from last month'), findsOneWidget);
     expect(find.text(r'$350'), findsOneWidget);
     expect(find.text(r'$300'), findsNothing);
     expect(find.text(r'+$50 carried in'), findsOneWidget);
@@ -171,6 +174,8 @@ void main() {
 
     final groceriesDetailsButton =
         find.byKey(const ValueKey('pocket-suggestion-details-e1'));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(groceriesDetailsButton);
     await tester.tap(groceriesDetailsButton);
     await tester.pumpAndSettle();

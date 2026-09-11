@@ -139,7 +139,6 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
               data.suggestedTotalBudgetCents == totalPocketTargetsCents
                   ? data.suggestedTotalBudgetCents!
                   : totalPocketTargetsCents;
-          final totalSuggested = totalSuggestedCents / 100.0;
           final totalIncomingCarryCents = data.suggestions.fold<int>(
             0,
             (sum, item) {
@@ -192,9 +191,8 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                       // Hero Editorial Statement (Apple-style Typography)
                       _EditorialHeroHeader(
                         colorScheme: colorScheme,
-                        textTheme: textTheme,
                         currencySymbol: currencySymbol,
-                        totalSuggested: totalSuggested,
+                        totalSuggestedCents: totalSuggestedCents,
                         totalIncomingCarryCents: totalIncomingCarryCents,
                         monthLabel: monthLabel,
                         summary: data.summary,
@@ -379,91 +377,168 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
 class _EditorialHeroHeader extends StatelessWidget {
   const _EditorialHeroHeader({
     required this.colorScheme,
-    required this.textTheme,
     required this.currencySymbol,
-    required this.totalSuggested,
+    required this.totalSuggestedCents,
     required this.totalIncomingCarryCents,
     required this.monthLabel,
     required this.summary,
   });
 
   final ColorScheme colorScheme;
-  final TextTheme textTheme;
   final String currencySymbol;
-  final double totalSuggested;
+  final int totalSuggestedCents;
   final int totalIncomingCarryCents;
   final String monthLabel;
   final String summary;
 
   @override
   Widget build(BuildContext context) {
+    final totalAvailableCents = totalSuggestedCents + totalIncomingCarryCents;
+    final hasDebt = totalIncomingCarryCents < 0;
+    final hasComposition = totalIncomingCarryCents != 0;
+
+    final totalDisplay =
+        '$currencySymbol${formatLocalizedNumber(context, totalAvailableCents.abs() / 100.0)}';
+    final suggestedDisplay =
+        '$currencySymbol${formatLocalizedNumber(context, totalSuggestedCents.abs() / 100.0)}';
+    final carryDisplay =
+        '$currencySymbol${formatLocalizedNumber(context, totalIncomingCarryCents.abs() / 100.0)}';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              '$monthLabel • AI BLUEPRINT'.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
         Text(
-          '$currencySymbol${formatLocalizedNumber(context, totalSuggested)}',
+          '$monthLabel • AI BLUEPRINT'.toUpperCase(),
           style: TextStyle(
-            fontSize: 42,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.2,
-            height: 1.1,
-            color: colorScheme.foreground,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          context.l10n.pocketsAiPageHeroTotalLabel,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w500,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
             color: colorScheme.mutedForeground,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          '${totalIncomingCarryCents < 0 ? '-' : '+'}$currencySymbol${formatLocalizedNumber(context, totalIncomingCarryCents.abs() / 100.0)} ${totalIncomingCarryCents < 0 ? context.l10n.pocketsAiPageHeroDebtCarryLabel : context.l10n.pocketsAiPageHeroCarryLabel}',
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-            color: totalIncomingCarryCents < 0
-                ? colorScheme.error
-                : colorScheme.primary,
+        const SizedBox(height: 10),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    totalDisplay,
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.0,
+                      height: 1.1,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    context.l10n.pocketsAiPageHeroAvailableLabel,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasComposition) ...[
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  width: 1,
+                  height: 38,
+                  color: colorScheme.outline.withValues(alpha: 0.18),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      suggestedDisplay,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      context.l10n.pocketsAiPageHeroSuggestedPartLabel,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    hasDebt ? '−' : '+',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      carryDisplay,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: hasDebt
+                            ? colorScheme.error
+                            : colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasDebt
+                          ? context.l10n.pocketsAiPageHeroDebtPartLabel
+                          : context.l10n.pocketsAiPageHeroCarryPartLabel,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
         ),
-        const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: colorScheme.primary.withValues(alpha: 0.5),
-                width: 2.5,
-              ),
-            ),
+        if (summary.trim().isNotEmpty) ...[
+          const SizedBox(height: 18),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: colorScheme.outline.withValues(alpha: 0.15),
           ),
-          child: Text(
+          const SizedBox(height: 12),
+          Text(
             summary,
             style: TextStyle(
               fontSize: 13.5,
-              height: 1.45,
-              color: colorScheme.foreground.withValues(alpha: 0.85),
+              height: 1.5,
+              color: colorScheme.foreground.withValues(alpha: 0.78),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
