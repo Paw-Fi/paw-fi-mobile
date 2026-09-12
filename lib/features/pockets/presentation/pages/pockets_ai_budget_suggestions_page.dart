@@ -151,31 +151,43 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
             },
           );
 
-          final coachingCards = [
-            if (data.celebration != null && data.celebration!.trim().isNotEmpty)
-              _CoachingCardItem(
-                tag: 'Win',
-                title: context.l10n.pocketsAiPageWinsTitle,
-                body: data.celebration!.trim(),
-                tagColor: colorScheme.primary,
-              ),
-            if (data.topSpendInsight != null &&
-                data.topSpendInsight!.trim().isNotEmpty)
-              _CoachingCardItem(
-                tag: 'Strategy',
-                title: context.l10n.pocketsAiPageInsightsTitle,
-                body: data.topSpendInsight!.trim(),
-                tagColor: colorScheme.primary,
-              ),
-            if (data.pocketsHealthTip != null &&
-                data.pocketsHealthTip!.trim().isNotEmpty)
-              _CoachingCardItem(
-                tag: 'Mindset',
-                title: context.l10n.pocketsAiPageTipTitle,
-                body: data.pocketsHealthTip!.trim(),
-                tagColor: colorScheme.primary,
-              ),
-          ];
+          final coachingCards = data.insights.isNotEmpty
+              ? data.insights
+                  .map(
+                    (insight) => _CoachingCardItem(
+                      title: insight.title.trim(),
+                      body: insight.summary.trim(),
+                      action: insight.action?.trim(),
+                      tagColor: colorScheme.primary,
+                    ),
+                  )
+                  .toList(growable: false)
+              : [
+                  if (data.celebration != null &&
+                      data.celebration!.trim().isNotEmpty)
+                    _CoachingCardItem(
+                      tag: 'Win',
+                      title: context.l10n.pocketsAiPageWinsTitle,
+                      body: data.celebration!.trim(),
+                      tagColor: colorScheme.primary,
+                    ),
+                  if (data.topSpendInsight != null &&
+                      data.topSpendInsight!.trim().isNotEmpty)
+                    _CoachingCardItem(
+                      tag: 'Strategy',
+                      title: context.l10n.pocketsAiPageInsightsTitle,
+                      body: data.topSpendInsight!.trim(),
+                      tagColor: colorScheme.primary,
+                    ),
+                  if (data.pocketsHealthTip != null &&
+                      data.pocketsHealthTip!.trim().isNotEmpty)
+                    _CoachingCardItem(
+                      tag: 'Mindset',
+                      title: context.l10n.pocketsAiPageTipTitle,
+                      body: data.pocketsHealthTip!.trim(),
+                      tagColor: colorScheme.primary,
+                    ),
+                ];
 
           return CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(
@@ -195,7 +207,9 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                         totalSuggestedCents: totalSuggestedCents,
                         totalIncomingCarryCents: totalIncomingCarryCents,
                         monthLabel: monthLabel,
+                        headline: data.headline,
                         summary: data.summary,
+                        cashFlow: data.cashFlow,
                       ),
                       const SizedBox(height: 24),
 
@@ -381,7 +395,9 @@ class _EditorialHeroHeader extends StatelessWidget {
     required this.totalSuggestedCents,
     required this.totalIncomingCarryCents,
     required this.monthLabel,
+    required this.headline,
     required this.summary,
+    required this.cashFlow,
   });
 
   final ColorScheme colorScheme;
@@ -389,7 +405,9 @@ class _EditorialHeroHeader extends StatelessWidget {
   final int totalSuggestedCents;
   final int totalIncomingCarryCents;
   final String monthLabel;
+  final String? headline;
   final String summary;
+  final PocketsAiKnownCashFlow? cashFlow;
 
   @override
   Widget build(BuildContext context) {
@@ -408,7 +426,9 @@ class _EditorialHeroHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$monthLabel • AI BLUEPRINT'.toUpperCase(),
+          (headline?.trim().isNotEmpty ?? false)
+              ? monthLabel.toUpperCase()
+              : '$monthLabel • AI BLUEPRINT'.toUpperCase(),
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -416,6 +436,19 @@ class _EditorialHeroHeader extends StatelessWidget {
             color: colorScheme.mutedForeground,
           ),
         ),
+        if (headline?.trim().isNotEmpty ?? false) ...[
+          const SizedBox(height: 8),
+          Text(
+            headline!.trim(),
+            style: TextStyle(
+              fontSize: 24,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         FittedBox(
           fit: BoxFit.scaleDown,
@@ -500,9 +533,8 @@ class _EditorialHeroHeader extends StatelessWidget {
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.3,
-                        color: hasDebt
-                            ? colorScheme.error
-                            : colorScheme.primary,
+                        color:
+                            hasDebt ? colorScheme.error : colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -539,22 +571,134 @@ class _EditorialHeroHeader extends StatelessWidget {
             ),
           ),
         ],
+        if (cashFlow?.dataStatus == 'complete' &&
+            cashFlow!.knownIncomeCents > 0) ...[
+          const SizedBox(height: 18),
+          _KnownCashFlowSummary(
+            currencySymbol: currencySymbol,
+            cashFlow: cashFlow!,
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _KnownCashFlowSummary extends StatelessWidget {
+  const _KnownCashFlowSummary({
+    required this.currencySymbol,
+    required this.cashFlow,
+  });
+
+  final String currencySymbol;
+  final PocketsAiKnownCashFlow cashFlow;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final remaining = cashFlow.fundingMarginAfterCarryCents;
+
+    String format(int cents) =>
+        '$currencySymbol${formatLocalizedNumber(context, cents.abs() / 100.0)}';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.cardSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.cashFlow.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _CashFlowAmount(
+                label: context.l10n.income,
+                amount: format(cashFlow.knownIncomeCents),
+                color: colorScheme.foreground,
+              ),
+              _CashFlowAmount(
+                label: context.l10n.expenses,
+                amount: format(cashFlow.knownOutflowCents),
+                color: colorScheme.foreground,
+              ),
+              _CashFlowAmount(
+                label: context.l10n.remaining,
+                amount: '${remaining < 0 ? '−' : ''}${format(remaining)}',
+                color: remaining < 0 ? colorScheme.error : colorScheme.primary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CashFlowAmount extends StatelessWidget {
+  const _CashFlowAmount({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+
+  final String label;
+  final String amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            amount,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _CoachingCardItem {
   const _CoachingCardItem({
-    required this.tag,
+    this.tag,
     required this.title,
     required this.body,
+    this.action,
     required this.tagColor,
   });
 
-  final String tag;
+  final String? tag;
   final String title;
   final String body;
+  final String? action;
   final Color tagColor;
 }
 
@@ -645,25 +789,29 @@ class _CoachingFlashCardsCarousel extends HookWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: card.tagColor.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  card.tag.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: card.tagColor,
+                              if (card.tag?.isNotEmpty ?? false)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
                                   ),
-                                ),
-                              ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        card.tagColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    card.tag!.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.6,
+                                      color: card.tagColor,
+                                    ),
+                                  ),
+                                )
+                              else
+                                const Spacer(),
                               Text(
                                 '${index + 1} / ${cards.length}',
                                 style: TextStyle(
@@ -693,6 +841,23 @@ class _CoachingFlashCardsCarousel extends HookWidget {
                               color: colorScheme.mutedForeground,
                             ),
                           ),
+                          if (card.action?.isNotEmpty ?? false) ...[
+                            const SizedBox(height: 10),
+                            Divider(
+                              height: 1,
+                              color: colorScheme.outline.withValues(alpha: 0.1),
+                            ),
+                            const SizedBox(height: 9),
+                            Text(
+                              card.action!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.4,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

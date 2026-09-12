@@ -92,11 +92,134 @@ class PocketsAiBudgetSuggestion {
   final int? remainingCents;
 }
 
+class PocketsAiBudgetInsight {
+  const PocketsAiBudgetInsight({
+    required this.type,
+    required this.title,
+    required this.summary,
+    this.action,
+    this.estimatedImpactCents,
+    this.envelopeId,
+  });
+
+  factory PocketsAiBudgetInsight.fromJson(Map<String, dynamic> json) {
+    final type = json['type'];
+    final title = json['title'];
+    final summary = json['summary'];
+    if (type is! String || title is! String || summary is! String) {
+      throw const PocketsAiBudgetSuggestionsException(
+        'The AI returned an invalid insight.',
+      );
+    }
+    return PocketsAiBudgetInsight(
+      type: type,
+      title: title,
+      summary: summary,
+      action: json['action'] is String ? json['action'] as String : null,
+      estimatedImpactCents: json['estimated_impact_cents'] is num
+          ? (json['estimated_impact_cents'] as num).toInt()
+          : null,
+      envelopeId:
+          json['envelope_id'] is String ? json['envelope_id'] as String : null,
+    );
+  }
+
+  final String type;
+  final String title;
+  final String summary;
+  final String? action;
+  final int? estimatedImpactCents;
+  final String? envelopeId;
+}
+
+class PocketsAiKnownCashFlow {
+  const PocketsAiKnownCashFlow({
+    required this.dataStatus,
+    required this.incomeCoverageStatus,
+    required this.monthFundingStatus,
+    required this.recordedIncomeCents,
+    required this.projectedRecurringIncomeCents,
+    required this.knownIncomeCents,
+    required this.actualExpenseCents,
+    required this.projectedRecurringExpenseCents,
+    required this.knownOutflowCents,
+    required this.incomeMarginCents,
+    required this.incomingCarryCents,
+    required this.knownFundingCents,
+    required this.fundingMarginAfterCarryCents,
+    required this.knownCommitmentsCovered,
+    required this.safeToSpendStatus,
+  });
+
+  factory PocketsAiKnownCashFlow.fromJson(Map<String, dynamic> json) {
+    int requiredCents(String key) {
+      final value = json[key];
+      if (value is! num) {
+        throw const PocketsAiBudgetSuggestionsException(
+          'The AI returned invalid cash-flow context.',
+        );
+      }
+      return value.toInt();
+    }
+
+    final dataStatus = json['data_status'];
+    final incomeCoverageStatus = json['income_coverage_status'];
+    final monthFundingStatus = json['month_funding_status'];
+    if (dataStatus is! String ||
+        incomeCoverageStatus is! String ||
+        monthFundingStatus is! String) {
+      throw const PocketsAiBudgetSuggestionsException(
+        'The AI returned invalid cash-flow context.',
+      );
+    }
+    return PocketsAiKnownCashFlow(
+      dataStatus: dataStatus,
+      incomeCoverageStatus: incomeCoverageStatus,
+      monthFundingStatus: monthFundingStatus,
+      recordedIncomeCents: requiredCents('recorded_income_cents'),
+      projectedRecurringIncomeCents:
+          requiredCents('projected_recurring_income_cents'),
+      knownIncomeCents: requiredCents('known_income_cents'),
+      actualExpenseCents: requiredCents('actual_expense_cents'),
+      projectedRecurringExpenseCents:
+          requiredCents('projected_recurring_expense_cents'),
+      knownOutflowCents: requiredCents('known_outflow_cents'),
+      incomeMarginCents: requiredCents('income_margin_cents'),
+      incomingCarryCents: requiredCents('incoming_carry_cents'),
+      knownFundingCents: requiredCents('known_funding_cents'),
+      fundingMarginAfterCarryCents:
+          requiredCents('funding_margin_after_carry_cents'),
+      knownCommitmentsCovered: json['known_commitments_covered'] as bool?,
+      safeToSpendStatus: json['safe_to_spend_status'] as String?,
+    );
+  }
+
+  final String dataStatus;
+  final String incomeCoverageStatus;
+  final String monthFundingStatus;
+  final int recordedIncomeCents;
+  final int projectedRecurringIncomeCents;
+  final int knownIncomeCents;
+  final int actualExpenseCents;
+  final int projectedRecurringExpenseCents;
+  final int knownOutflowCents;
+  final int incomeMarginCents;
+  final int incomingCarryCents;
+  final int knownFundingCents;
+  final int fundingMarginAfterCarryCents;
+  final bool? knownCommitmentsCovered;
+  final String? safeToSpendStatus;
+}
+
 class PocketsAiBudgetSuggestions {
   const PocketsAiBudgetSuggestions({
     required this.summary,
     required this.suggestions,
     required this.usesPreviousMonthPockets,
+    this.headline,
+    this.financialStatus,
+    this.cashFlow,
+    this.insights = const [],
     this.celebration,
     this.topSpendInsight,
     this.pocketsHealthTip,
@@ -119,6 +242,28 @@ class PocketsAiBudgetSuggestions {
     }
     return PocketsAiBudgetSuggestions(
       summary: payload['summary'] is String ? payload['summary'] as String : '',
+      headline:
+          payload['headline'] is String ? payload['headline'] as String : null,
+      financialStatus: payload['financial_status'] is String
+          ? payload['financial_status'] as String
+          : null,
+      cashFlow: payload['cash_flow'] is Map
+          ? PocketsAiKnownCashFlow.fromJson(
+              Map<String, dynamic>.from(payload['cash_flow'] as Map),
+            )
+          : null,
+      insights: payload['insights'] is List
+          ? (payload['insights'] as List).map((item) {
+              if (item is! Map) {
+                throw const PocketsAiBudgetSuggestionsException(
+                  'The AI returned an invalid insight.',
+                );
+              }
+              return PocketsAiBudgetInsight.fromJson(
+                Map<String, dynamic>.from(item),
+              );
+            }).toList(growable: false)
+          : const [],
       celebration: payload['celebration'] is String
           ? payload['celebration'] as String
           : null,
@@ -145,6 +290,10 @@ class PocketsAiBudgetSuggestions {
   }
 
   final String summary;
+  final String? headline;
+  final String? financialStatus;
+  final PocketsAiKnownCashFlow? cashFlow;
+  final List<PocketsAiBudgetInsight> insights;
   final String? celebration;
   final String? topSpendInsight;
   final String? pocketsHealthTip;

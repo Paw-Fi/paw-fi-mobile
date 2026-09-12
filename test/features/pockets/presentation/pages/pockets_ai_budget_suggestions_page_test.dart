@@ -68,6 +68,7 @@ void main() {
     );
 
     const mockSuggestions = PocketsAiBudgetSuggestions(
+      headline: 'Your plan is covered with room left',
       summary: 'Tailored monthly budget plan based on past spending.',
       celebration: 'You kept Dining well within limits last month!',
       topSpendInsight: 'Groceries was your top expense. We added a 5% buffer.',
@@ -75,6 +76,41 @@ void main() {
       totalSuggestedCents: 45000,
       suggestedTotalBudgetCents: 50000,
       usesPreviousMonthPockets: false,
+      cashFlow: PocketsAiKnownCashFlow(
+        dataStatus: 'complete',
+        incomeCoverageStatus: 'covered',
+        monthFundingStatus: 'funded',
+        recordedIncomeCents: 60000,
+        projectedRecurringIncomeCents: 0,
+        knownIncomeCents: 60000,
+        actualExpenseCents: 35000,
+        projectedRecurringExpenseCents: 10000,
+        knownOutflowCents: 45000,
+        incomeMarginCents: 15000,
+        incomingCarryCents: 0,
+        knownFundingCents: 60000,
+        fundingMarginAfterCarryCents: 15000,
+        knownCommitmentsCovered: true,
+        safeToSpendStatus: 'unavailable',
+      ),
+      insights: [
+        PocketsAiBudgetInsight(
+          type: 'positive_progress',
+          title: 'Dining stayed within your target',
+          summary: 'You kept Dining within its limit last month.',
+        ),
+        PocketsAiBudgetInsight(
+          type: 'spending_pattern',
+          title: 'Groceries need a small buffer',
+          summary: 'Groceries was your highest expense last month.',
+          action: 'Use the added buffer for your next grocery trip.',
+        ),
+        PocketsAiBudgetInsight(
+          type: 'rollover',
+          title: 'Carry reduces what you need to add',
+          summary: 'You already have money carried into Groceries.',
+        ),
+      ],
       suggestions: [
         PocketsAiBudgetSuggestion(
           envelopeId: 'e1',
@@ -133,10 +169,11 @@ void main() {
 
     // Verify page elements
     expect(find.text('AI Budget Plan'), findsOneWidget);
-    expect(find.textContaining('AI BLUEPRINT'), findsOneWidget);
-    expect(find.text('What You Did Well'), findsOneWidget);
+    expect(find.textContaining('AI BLUEPRINT'), findsNothing);
+    expect(find.text('Your plan is covered with room left'), findsOneWidget);
+    expect(find.text('Dining stayed within your target'), findsOneWidget);
     expect(
-      find.text('You kept Dining well within limits last month!'),
+      find.text('You kept Dining within its limit last month.'),
       findsOneWidget,
     );
 
@@ -144,9 +181,13 @@ void main() {
     await tester.drag(find.byType(PageView), const Offset(-400, 0));
     await tester.pumpAndSettle();
 
-    expect(find.text('Smart Spending Strategy'), findsOneWidget);
+    expect(find.text('Groceries need a small buffer'), findsOneWidget);
     expect(
-      find.text('Groceries was your top expense. We added a 5% buffer.'),
+      find.text('Groceries was your highest expense last month.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Use the added buffer for your next grocery trip.'),
       findsOneWidget,
     );
 
@@ -154,7 +195,7 @@ void main() {
     await tester.drag(find.byType(PageView), const Offset(-400, 0));
     await tester.pumpAndSettle();
 
-    expect(find.text('Budgeting Peace of Mind'), findsOneWidget);
+    expect(find.text('Carry reduces what you need to add'), findsOneWidget);
 
     expect(find.textContaining('SUGGESTED POCKET TARGETS'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
@@ -162,10 +203,19 @@ void main() {
     expect(find.byType(PrimaryAdaptiveButton), findsOneWidget);
     expect(find.text(r'$500'), findsOneWidget);
     expect(find.text('Total available this month'), findsOneWidget);
-    expect(find.text(r'$450'), findsOneWidget);
+    expect(find.text(r'$450'), findsNWidgets(2));
     expect(find.text('Plan for this month'), findsOneWidget);
     expect(find.text(r'$50'), findsOneWidget);
     expect(find.text('Carried from last month'), findsOneWidget);
+    final cashFlowLabel = find.text('CASH FLOW', skipOffstage: false);
+    await tester.ensureVisible(cashFlowLabel);
+    await tester.pumpAndSettle();
+    expect(cashFlowLabel, findsOneWidget);
+    expect(find.text('Income'), findsOneWidget);
+    expect(find.text('Expenses'), findsOneWidget);
+    expect(find.text('Remaining'), findsOneWidget);
+    expect(find.text(r'$600'), findsOneWidget);
+    expect(find.text(r'$150'), findsNWidgets(2));
     expect(find.text(r'$350'), findsOneWidget);
     expect(find.text(r'$300'), findsNothing);
     expect(find.text(r'+$50 carried in'), findsOneWidget);
