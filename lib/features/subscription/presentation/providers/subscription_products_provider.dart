@@ -37,9 +37,8 @@ class SubscriptionProductsNotifier
 
   String? _platformString() {
     if (kIsWeb) return null;
-    // Product catalog is used for iOS IAP. Android remains Stripe web checkout for now.
+    // Product catalog is used for iOS IAP. Android uses Stripe web checkout.
     if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
-    if (defaultTargetPlatform == TargetPlatform.android) return 'android';
     return null;
   }
 
