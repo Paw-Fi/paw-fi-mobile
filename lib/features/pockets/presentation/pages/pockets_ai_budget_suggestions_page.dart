@@ -1246,9 +1246,9 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
     final hasTip = tip != null && tip!.isNotEmpty;
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.68,
-      minChildSize: 0.42,
-      maxChildSize: 0.9,
+      initialChildSize: 0.8,
+      minChildSize: 0.8,
+      maxChildSize: 0.8,
       builder: (context, controller) => ListView(
         controller: controller,
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
