@@ -551,7 +551,15 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                 paidDateFormatted!)
                                             : context.l10n.paid;
 
-                                    final onTileTap = isConfirmed
+                                    final occurrenceId =
+                                        timelineItem?.occurrenceId;
+                                    final hasServerOccurrenceId =
+                                        occurrenceId != null &&
+                                            !occurrenceId.startsWith(
+                                              'optimistic-recurring-occurrence-',
+                                            );
+                                    final onTileTap = isConfirmed &&
+                                            hasServerOccurrenceId
                                         ? () =>
                                             showLazyRecurringOccurrenceSheet(
                                               context: context,

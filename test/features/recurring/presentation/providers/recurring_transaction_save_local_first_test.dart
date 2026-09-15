@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
@@ -136,6 +138,242 @@ void main() {
       (await database.getOutboxMutations()).single.status,
       localMutationStatusFailed,
     );
+  });
+
+  test('confirmed local occurrence cannot queue a second confirmation',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final today = DateTime.now();
+    final recurring = _recurring(householdId: null, date: today);
+    await database.upsertTransactions([
+      ExpenseEntry(
+        id: 'confirmed-occurrence',
+        userId: 'user_1',
+        date: today,
+        amountCents: 10000,
+        currency: 'USD',
+        category: 'housing',
+        createdAt: today,
+        type: 'expense',
+        parentRecurringId: recurring.id,
+        scheduledOccurrenceDate: today,
+        recurringConfirmedAt: today,
+        recurringConfirmationSource: 'user',
+      ),
+    ]);
+
+    final result = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(RecurringOccurrenceConfirmationCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring,
+          scheduledOccurrenceDate: today,
+          paidDate: today,
+          amountCents: 11000,
+          accountId: 'wallet_usd',
+        ));
+
+    expect(result.isQueued, isTrue);
+    expect(result.optimisticId, 'confirmed-occurrence');
+    expect(await database.getOutboxMutations(), isEmpty);
+    expect(
+      (await database.getTransactionByIdOrClientRecordId(
+        'confirmed-occurrence',
+      ))
+          ?.amountCents,
+      10000,
+    );
+  });
+
+  test('stale reconfirmation preserves the original queued occurrence',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (_) => throw const SocketException('offline');
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final today = DateTime.now();
+    final recurring = _recurring(householdId: null, date: today);
+    final firstCommand = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: today,
+      paidDate: today,
+      amountCents: 10000,
+      accountId: 'wallet_usd',
+    );
+
+    final firstResult = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(firstCommand);
+    expect(firstResult.isQueued, isTrue);
+    await _waitForAsync(() async {
+      final mutations = await database.getOutboxMutations();
+      return mutations.length == 1 &&
+          mutations.single.status == localMutationStatusFailed;
+    });
+    final originalMutation = (await database.getOutboxMutations()).single;
+    final originalPayload =
+        jsonDecode(originalMutation.payloadJson) as Map<String, dynamic>;
+
+    final staleResult = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(RecurringOccurrenceConfirmationCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring,
+          scheduledOccurrenceDate: today,
+          paidDate: today,
+          amountCents: 12500,
+          accountId: 'wallet_usd',
+        ));
+
+    expect(staleResult.isQueued, isTrue);
+    expect(staleResult.optimisticId, firstCommand.optimisticId);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    final preservedEntry = await database.getTransactionByIdOrClientRecordId(
+      firstCommand.optimisticId,
+    );
+    expect(preservedEntry, isNotNull);
+    final preserved = preservedEntry!;
+    expect(preserved.amountCents, 10000);
+    expect(preserved.parentRecurringId, recurring.id);
+    expect(
+      formatDateOnlyYmd(preserved.scheduledOccurrenceDate!),
+      formatDateOnlyYmd(today),
+    );
+    expect(preserved.clientMutationId, firstCommand.idempotencyKey);
+    final preservedMutations = await database.getOutboxMutations();
+    expect(preservedMutations, hasLength(1));
+    expect(preservedMutations.single.clientMutationId,
+        originalMutation.clientMutationId);
+    expect(preservedMutations.single.entityId, originalMutation.entityId);
+    expect(preservedMutations.single.operation, originalMutation.operation);
+    expect(preservedMutations.single.payloadJson, originalMutation.payloadJson);
+    expect(
+      (originalPayload['requestBody'] as Map<String, dynamic>)['amount'],
+      100.0,
+    );
+
+    final canonicalEntry = preserved.copyWith(
+      id: 'canonical-occurrence',
+      clientRecordId: firstCommand.optimisticId,
+      clientMutationId: null,
+    );
+    await database.upsertTransactions([canonicalEntry]);
+    await database.markTransactionMutationExhausted(
+      mutation: originalMutation,
+    );
+
+    final remainingOccurrences =
+        await database.getTransactionsByScheduledOccurrenceRange(
+      userId: 'user_1',
+      householdId: null,
+      parentRecurringId: recurring.id,
+      startDate: today,
+      endDate: today,
+    );
+    expect(
+      remainingOccurrences.map((entry) => entry.id),
+      isNot(contains(firstCommand.optimisticId)),
+    );
+    final retainedCanonical = await database.getTransactionByIdOrClientRecordId(
+      canonicalEntry.id,
+    );
+    expect(retainedCanonical?.amountCents, 10000);
+    expect(retainedCanonical?.parentRecurringId, recurring.id);
+  });
+
+  test('simultaneous confirmations preserve the first occurrence mutation',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (_) => throw const SocketException('offline');
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final today = DateTime.now();
+    final recurring = _recurring(householdId: null, date: today);
+    final firstCommand = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: today,
+      paidDate: today,
+      amountCents: 10000,
+      accountId: 'wallet_usd',
+    );
+    final secondCommand = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: today,
+      paidDate: today,
+      amountCents: 12500,
+      accountId: 'wallet_usd',
+    );
+
+    final results = await Future.wait([
+      container
+          .read(recurringOccurrenceConfirmationProvider)
+          .confirm(firstCommand),
+      container
+          .read(recurringOccurrenceConfirmationProvider)
+          .confirm(secondCommand),
+    ]);
+
+    expect(results.map((result) => result.optimisticId).toSet(), hasLength(1));
+    await _waitForAsync(() async {
+      final mutations = await database.getOutboxMutations();
+      return mutations.length == 1 &&
+          mutations.single.status == localMutationStatusFailed;
+    });
+    final retainedEntry = await database.getTransactionByIdOrClientRecordId(
+      firstCommand.optimisticId,
+    );
+    expect(retainedEntry?.amountCents, 10000);
+    final mutation = (await database.getOutboxMutations()).single;
+    final payload = jsonDecode(mutation.payloadJson) as Map<String, dynamic>;
+    expect(
+      (payload['requestBody'] as Map<String, dynamic>)['amount'],
+      100.0,
+    );
+  });
+
+  test('materialized occurrence suppresses its stale recurring CTA', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final scheduledDate = DateTime(2026, 9, 12);
+    await database.upsertTransactions([
+      ExpenseEntry(
+        id: 'confirmed-occurrence',
+        userId: 'user_1',
+        date: scheduledDate,
+        amountCents: 10000,
+        currency: 'USD',
+        category: 'housing',
+        createdAt: scheduledDate,
+        type: 'expense',
+        parentRecurringId: 'recurring_1',
+        scheduledOccurrenceDate: scheduledDate,
+        recurringConfirmedAt: scheduledDate,
+        recurringConfirmationSource: 'user',
+      ),
+    ]);
+
+    final isMaterialized = await container.read(
+      recurringOccurrenceMaterializedProvider(
+        RecurringOccurrenceMaterializationQuery(
+          userId: 'user_1',
+          householdId: null,
+          recurringId: 'recurring_1',
+          scheduledOccurrenceDate: scheduledDate,
+        ),
+      ).future,
+    );
+
+    expect(isMaterialized, isTrue);
   });
 
   test(

@@ -522,11 +522,13 @@ class _RecurringTransactionsPageState
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final summary = summaries[index];
+                final latestActionableOccurrenceDate =
+                    _latestActionableOccurrenceDate(summary);
                 return RecurringTransactionCard(
                   transaction: summary.transaction,
                   nextOccurrenceDate: summary.nextOccurrenceDate,
                   latestActionableOccurrenceDate:
-                      summary.latestActionableOccurrenceDate,
+                      latestActionableOccurrenceDate,
                   showCurrencyFlag: hasMultipleSelectedCurrencies,
                   onTap: null,
                   onDelete: null,
@@ -600,11 +602,13 @@ class _RecurringTransactionsPageState
               (context, index) {
                 final summary = groupTransactions[index];
                 final transaction = summary.transaction;
+                final latestActionableOccurrenceDate =
+                    _latestActionableOccurrenceDate(summary);
                 return RecurringTransactionCard(
                   transaction: transaction,
                   nextOccurrenceDate: summary.nextOccurrenceDate,
                   latestActionableOccurrenceDate:
-                      summary.latestActionableOccurrenceDate,
+                      latestActionableOccurrenceDate,
                   showCurrencyFlag: hasMultipleSelectedCurrencies,
                   onTap: () => _showTransactionDetails(transaction),
                   onDelete: () => _deleteTransaction(transaction, householdId),
@@ -667,6 +671,21 @@ class _RecurringTransactionsPageState
     );
 
     return slivers;
+  }
+
+  DateTime? _latestActionableOccurrenceDate(RecurringSeriesSummary summary) {
+    final actionableDate = summary.latestActionableOccurrenceDate;
+    if (actionableDate == null) return null;
+    final materialized = ref.watch(recurringOccurrenceMaterializedProvider(
+      RecurringOccurrenceMaterializationQuery(
+        userId: summary.transaction.userId ?? '',
+        householdId: summary.transaction.householdId,
+        recurringId: summary.transaction.id,
+        scheduledOccurrenceDate: actionableDate,
+      ),
+    ));
+    // Do not briefly present a stale confirmation CTA before SQLite resolves.
+    return materialized.valueOrNull == false ? actionableDate : null;
   }
 
   Widget _buildSummaryCard({

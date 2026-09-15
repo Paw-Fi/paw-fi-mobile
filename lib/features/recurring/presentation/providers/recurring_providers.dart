@@ -1148,11 +1148,30 @@ class RecurringOccurrenceUnconfirmController {
 }
 
 class RecurringOccurrenceConfirmationController {
-  const RecurringOccurrenceConfirmationController(this._ref);
+  RecurringOccurrenceConfirmationController(this._ref);
 
   final Ref _ref;
+  final Map<String, Future<RecurringOccurrenceConfirmationResult>>
+      _inFlightConfirmations = {};
 
   Future<RecurringOccurrenceConfirmationResult> confirm(
+    RecurringOccurrenceConfirmationCommand command,
+  ) {
+    final key = command.idempotencyKey;
+    final inFlight = _inFlightConfirmations[key];
+    if (inFlight != null) return inFlight;
+
+    late final Future<RecurringOccurrenceConfirmationResult> confirmation;
+    confirmation = _confirm(command).whenComplete(() {
+      if (identical(_inFlightConfirmations[key], confirmation)) {
+        _inFlightConfirmations.remove(key);
+      }
+    });
+    _inFlightConfirmations[key] = confirmation;
+    return confirmation;
+  }
+
+  Future<RecurringOccurrenceConfirmationResult> _confirm(
     RecurringOccurrenceConfirmationCommand command,
   ) async {
     if (_ref.read(previewModeProvider).isActive) {
@@ -1197,6 +1216,25 @@ class RecurringOccurrenceConfirmationController {
       );
     }
 
+    final database = await _ref.read(localDatabaseProvider.future);
+    final materializedOccurrences =
+        await database.getTransactionsByScheduledOccurrenceRange(
+      userId: command.userId,
+      householdId: command.recurringTransaction.householdId,
+      parentRecurringId: command.recurringTransaction.id,
+      startDate: scheduledDate,
+      endDate: scheduledDate,
+    );
+    if (materializedOccurrences.isNotEmpty) {
+      // A stale recurring cache must never turn an already materialized
+      // occurrence into a second confirmation mutation.
+      unawaited(drainMobileOutbox(_ref));
+      return RecurringOccurrenceConfirmationResult.queued(
+        optimisticId: materializedOccurrences.first.id,
+        idempotencyKey: command.idempotencyKey,
+      );
+    }
+
     RecurringOccurrenceSplitPlan? splitPlan;
     try {
       splitPlan = command.customSplits == null
@@ -1237,7 +1275,6 @@ class RecurringOccurrenceConfirmationController {
     );
 
     try {
-      final database = await _ref.read(localDatabaseProvider.future);
       final optimisticSeries = command.recurringTransaction.copyWith(
         amount: command.updateFutureAmount
             ? command.amountCents / 100
@@ -3128,25 +3165,26 @@ class RecurringTransactionSaveNotifier
   }) async {
     if (_guardPreviewWrites()) return null;
 
-    final result = await RecurringOccurrenceConfirmationController(ref).confirm(
-      RecurringOccurrenceConfirmationCommand(
-        userId: userId,
-        recurringTransaction: recurringSeries,
-        scheduledOccurrenceDate: occurrenceDate,
-        paidDate: date,
-        amountCents: (amount * 100).round(),
-        accountId: accountId,
-        merchant: merchant,
-        description: description,
-        customSplits: customSplits,
-        payerUserId: payerUserId,
-        functionName: 'save-recurring-occurrence-override',
-        allowUnassignedAccount: true,
-        category: category,
-        currency: currency,
-        source: source,
-      ),
-    );
+    final result =
+        await ref.read(recurringOccurrenceConfirmationProvider).confirm(
+              RecurringOccurrenceConfirmationCommand(
+                userId: userId,
+                recurringTransaction: recurringSeries,
+                scheduledOccurrenceDate: occurrenceDate,
+                paidDate: date,
+                amountCents: (amount * 100).round(),
+                accountId: accountId,
+                merchant: merchant,
+                description: description,
+                customSplits: customSplits,
+                payerUserId: payerUserId,
+                functionName: 'save-recurring-occurrence-override',
+                allowUnassignedAccount: true,
+                category: category,
+                currency: currency,
+                source: source,
+              ),
+            );
     if (!result.isQueued) return null;
 
     return recurringSeries.copyWith(

@@ -12,6 +12,53 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 
 final recurringReadRefreshSignalProvider = StateProvider<int>((ref) => 0);
 
+@immutable
+class RecurringOccurrenceMaterializationQuery {
+  const RecurringOccurrenceMaterializationQuery({
+    required this.userId,
+    required this.householdId,
+    required this.recurringId,
+    required this.scheduledOccurrenceDate,
+  });
+
+  final String userId;
+  final String? householdId;
+  final String recurringId;
+  final DateTime scheduledOccurrenceDate;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RecurringOccurrenceMaterializationQuery &&
+      userId == other.userId &&
+      householdId == other.householdId &&
+      recurringId == other.recurringId &&
+      formatDateOnlyYmd(scheduledOccurrenceDate) ==
+          formatDateOnlyYmd(other.scheduledOccurrenceDate);
+
+  @override
+  int get hashCode => Object.hash(
+        userId,
+        householdId,
+        recurringId,
+        formatDateOnlyYmd(scheduledOccurrenceDate),
+      );
+}
+
+final recurringOccurrenceMaterializedProvider =
+    FutureProvider.family<bool, RecurringOccurrenceMaterializationQuery>(
+        (ref, query) async {
+  ref.watch(recurringReadRefreshSignalProvider);
+  final database = await ref.watch(localDatabaseProvider.future);
+  final entries = await database.getTransactionsByScheduledOccurrenceRange(
+    userId: query.userId,
+    householdId: query.householdId,
+    parentRecurringId: query.recurringId,
+    startDate: query.scheduledOccurrenceDate,
+    endDate: query.scheduledOccurrenceDate,
+  );
+  return entries.isNotEmpty;
+});
+
 enum RecurringSeriesMutationKind { upsert, remove }
 
 @immutable
