@@ -25,6 +25,7 @@ void main() {
           'known_outflow_cents': 15000,
           'income_margin_cents': 20000,
           'incoming_carry_cents': 5000,
+          'known_funding_cents': 40000,
           'funding_margin_after_carry_cents': 25000,
         },
         'insights': [

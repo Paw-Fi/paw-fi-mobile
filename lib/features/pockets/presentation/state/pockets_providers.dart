@@ -946,6 +946,30 @@ class PocketsScopeParams {
   int get normalizedFinancialMonthStartDay =>
       normalizeFinancialMonthStartDay(financialMonthStartDay);
 
+  PocketsScopeParams copyWith({
+    PocketsScopeType? scope,
+    String? householdId,
+    DateTime? periodMonth,
+    String? currency,
+    List<String>? selectedCurrencies,
+    int? financialMonthStartDay,
+    bool? isBootstrapCurrency,
+    bool? includeUpcomingRecurring,
+  }) {
+    return PocketsScopeParams(
+      scope: scope ?? this.scope,
+      householdId: householdId ?? this.householdId,
+      periodMonth: periodMonth ?? this.periodMonth,
+      currency: currency ?? this.currency,
+      selectedCurrencies: selectedCurrencies ?? this.selectedCurrencies,
+      financialMonthStartDay:
+          financialMonthStartDay ?? this.financialMonthStartDay,
+      isBootstrapCurrency: isBootstrapCurrency ?? this.isBootstrapCurrency,
+      includeUpcomingRecurring:
+          includeUpcomingRecurring ?? this.includeUpcomingRecurring,
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     return other is PocketsScopeParams &&
@@ -1689,7 +1713,10 @@ class PocketsState {
   }
 
   double get totalSpent =>
-      aggregateTotalSpent ?? editing.fold<double>(0, (sum, p) => sum + p.spent);
+      aggregateTotalSpent ??
+      (editing.isNotEmpty
+          ? editing.fold<double>(0, (sum, p) => sum + p.spent)
+          : saved.fold<double>(0, (sum, p) => sum + p.spent));
 
   bool get hasDisplayData {
     return periodMonth.year != 1970 ||

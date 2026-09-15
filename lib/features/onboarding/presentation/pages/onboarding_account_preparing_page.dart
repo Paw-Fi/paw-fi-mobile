@@ -35,6 +35,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/shared/widgets/animated_pulsing_icon.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
@@ -1106,7 +1107,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                               size: 72,
                               color: colorScheme.success,
                             )
-                          : _AnimatedPulsingIcon(
+                          : AnimatedPulsingIcon(
                               key: const ValueKey('loading'),
                               color: colorScheme.primary,
                             ),
@@ -1224,49 +1225,5 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         ),
       ),
     ));
-  }
-}
-
-class _AnimatedPulsingIcon extends HookWidget {
-  const _AnimatedPulsingIcon({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = useAnimationController(
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    final scale = useAnimation(
-      Tween<double>(begin: 0.95, end: 1.05).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
-      ),
-    );
-
-    final opacity = useAnimation(
-      Tween<double>(begin: 0.5, end: 1.0).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
-      ),
-    );
-
-    return Transform.scale(
-      scale: scale,
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color.withValues(alpha: 0.1 * opacity),
-        ),
-        child: Center(
-          child: Icon(
-            Icons.auto_awesome_rounded,
-            size: 36,
-            color: color.withValues(alpha: opacity),
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -3365,11 +3365,11 @@ class MonekoDatabase {
     }
   }
 
-  Future<MonthlySummary?> getMonthlySummary({
+  MonthlySummary? getMonthlySummarySync({
     required String scopeKey,
     required DateTime month,
     required String currency,
-  }) async {
+  }) {
     final rows = _db.select(
       '''
       SELECT *
@@ -3386,6 +3386,17 @@ class MonekoDatabase {
     if (rows.isEmpty) return null;
     return _monthlySummaryFromRow(rows.first);
   }
+
+  Future<MonthlySummary?> getMonthlySummary({
+    required String scopeKey,
+    required DateTime month,
+    required String currency,
+  }) async =>
+      getMonthlySummarySync(
+        scopeKey: scopeKey,
+        month: month,
+        currency: currency,
+      );
 
   Future<DateTime?> getSyncCursor({
     required String entityName,

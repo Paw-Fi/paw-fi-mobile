@@ -18,6 +18,8 @@ import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sh
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/preparation_loading_view.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
@@ -114,7 +116,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          context.l10n.pocketsAiPageTitle,
+          context.l10n.pocketsAiPageTitle(monthLabel),
           style: textTheme.titleMedium?.copyWith(
             color: colorScheme.foreground,
             fontWeight: FontWeight.w700,
@@ -124,7 +126,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
         centerTitle: true,
       ),
       body: result.when(
-        loading: () => _SuggestionsLoadingView(colorScheme: colorScheme),
+        loading: () => const _SuggestionsLoadingView(),
         error: (error, _) => _SuggestionsErrorView(
           colorScheme: colorScheme,
           onRetry: () =>
@@ -196,7 +198,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 36),
+                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 40),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -211,7 +213,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                         summary: data.summary,
                         cashFlow: data.cashFlow,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
 
                       // Coaching Stories Carousel
                       if (coachingCards.isNotEmpty) ...[
@@ -232,19 +234,19 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                             Text(
                               '${context.l10n.pocketsAiPagePocketsSectionTitle.toUpperCase()} (${data.suggestions.length})',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 1.1,
+                                letterSpacing: 1.2,
                                 color: colorScheme.mutedForeground,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 4),
                             Text(
                               context.l10n.pocketsAiPagePocketsSectionSubtitle,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.8),
-                                fontSize: 12.5,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                                letterSpacing: -0.1,
                               ),
                             ),
                           ],
@@ -257,7 +259,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: data.suggestions.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final item = data.suggestions[index];
                           final pocket = pocketMap[item.envelopeId];
@@ -275,15 +277,15 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                         },
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 28),
                       Text(
                         context.l10n.pocketsAiPageDisclaimer,
                         textAlign: TextAlign.center,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.75),
+                        style: TextStyle(
                           fontSize: 12,
-                          height: 1.4,
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.7),
+                          height: 1.45,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -432,12 +434,12 @@ class _EditorialHeroHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
+            letterSpacing: 1.3,
             color: colorScheme.mutedForeground,
           ),
         ),
         if (headline?.trim().isNotEmpty ?? false) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             headline!.trim(),
             style: TextStyle(
@@ -449,68 +451,71 @@ class _EditorialHeroHeader extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 10),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    totalDisplay,
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.0,
-                      height: 1.1,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    context.l10n.pocketsAiPageHeroAvailableLabel,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
+        const SizedBox(height: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              totalDisplay,
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1.0,
+                height: 1.05,
+                color: colorScheme.foreground,
               ),
-              if (hasComposition) ...[
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  width: 1,
-                  height: 38,
-                  color: colorScheme.outline.withValues(alpha: 0.18),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      suggestedDisplay,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                        color: colorScheme.foreground,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              context.l10n.pocketsAiPageHeroAvailableLabel,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.1,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ],
+        ),
+        if (hasComposition) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: colorScheme.cardSurface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colorScheme.surfaceBorder),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        suggestedDisplay,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: colorScheme.foreground,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      context.l10n.pocketsAiPageHeroSuggestedPartLabel,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
+                      const SizedBox(height: 2),
+                      Text(
+                        context.l10n.pocketsAiPageHeroSuggestedPartLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -523,51 +528,50 @@ class _EditorialHeroHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      carryDisplay,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                        color:
-                            hasDebt ? colorScheme.error : colorScheme.primary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        carryDisplay,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color:
+                              hasDebt ? colorScheme.error : colorScheme.primary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      hasDebt
-                          ? context.l10n.pocketsAiPageHeroDebtPartLabel
-                          : context.l10n.pocketsAiPageHeroCarryPartLabel,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
+                      const SizedBox(height: 2),
+                      Text(
+                        hasDebt
+                            ? context.l10n.pocketsAiPageHeroDebtPartLabel
+                            : context.l10n.pocketsAiPageHeroCarryPartLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
         if (summary.trim().isNotEmpty) ...[
-          const SizedBox(height: 18),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: colorScheme.outline.withValues(alpha: 0.15),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
-            summary,
+            summary.trim(),
             style: TextStyle(
-              fontSize: 13.5,
+              fontSize: 14,
               height: 1.5,
-              color: colorScheme.foreground.withValues(alpha: 0.78),
+              letterSpacing: -0.1,
+              color: colorScheme.foreground.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -601,26 +605,62 @@ class _KnownCashFlowSummary extends StatelessWidget {
     String format(int cents) =>
         '$currencySymbol${formatLocalizedNumber(context, cents.abs() / 100.0)}';
 
+    final outflowRatio = cashFlow.knownIncomeCents > 0
+        ? (cashFlow.knownOutflowCents / cashFlow.knownIncomeCents)
+            .clamp(0.0, 1.0)
+        : 0.0;
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.surfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            context.l10n.cashFlow.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              color: colorScheme.mutedForeground,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.l10n.cashFlow.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              if (cashFlow.knownCommitmentsCovered == true)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded,
+                          size: 12, color: colorScheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'COVERED',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
             children: [
               _CashFlowAmount(
@@ -639,6 +679,16 @@ class _KnownCashFlowSummary extends StatelessWidget {
                 color: remaining < 0 ? colorScheme.error : colorScheme.primary,
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: outflowRatio,
+              minHeight: 4,
+              backgroundColor: colorScheme.surfaceBorder,
+              color: remaining < 0 ? colorScheme.error : colorScheme.primary,
+            ),
           ),
         ],
       ),
@@ -667,16 +717,18 @@ class _CashFlowAmount extends StatelessWidget {
           Text(
             amount,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
               color: color,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
               color: colorScheme.mutedForeground,
             ),
           ),
@@ -734,7 +786,7 @@ class _CoachingFlashCardsCarousel extends HookWidget {
       return () => pageController.removeListener(onPageChange);
     }, [pageController]);
 
-    final activeHeight = pageHeights.value[currentPage.value] ?? 135.0;
+    final activeHeight = pageHeights.value[currentPage.value] ?? 140.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -764,101 +816,111 @@ class _CoachingFlashCardsCarousel extends HookWidget {
                         };
                       }
                     },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: colorScheme.cardSurface,
+                    child: Card(
+                      color: colorScheme.cardSurface,
+                      elevation: 3,
+                      shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
+                      surfaceTintColor:
+                          colorScheme.surface.withValues(alpha: 0.0),
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.1),
+                        side: BorderSide(
+                          color: colorScheme.pocketCardBorder,
+                          width: 1,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.shadow.withValues(alpha: 0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              if (card.tag?.isNotEmpty ?? false)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        card.tagColor.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    card.tag!.toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.6,
-                                      color: card.tagColor,
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 3),
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (card.tag?.isNotEmpty ?? false)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3.5,
                                     ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          card.tagColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(7),
+                                    ),
+                                    child: Text(
+                                      card.tag!.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.8,
+                                        color: card.tagColor,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const Spacer(),
+                                Text(
+                                  '${index + 1} / ${cards.length}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.mutedForeground
+                                        .withValues(alpha: 0.8),
                                   ),
-                                )
-                              else
-                                const Spacer(),
-                              Text(
-                                '${index + 1} / ${cards.length}',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.mutedForeground,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            card.title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
-                              color: colorScheme.foreground,
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            card.body,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.45,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                          if (card.action?.isNotEmpty ?? false) ...[
-                            const SizedBox(height: 10),
-                            Divider(
-                              height: 1,
-                              color: colorScheme.outline.withValues(alpha: 0.1),
-                            ),
-                            const SizedBox(height: 9),
+                            const SizedBox(height: 12),
                             Text(
-                              card.action!,
+                              card.title,
                               style: TextStyle(
-                                fontSize: 13,
-                                height: 1.4,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.3,
                                 color: colorScheme.foreground,
                               ),
                             ),
+                            const SizedBox(height: 6),
+                            Text(
+                              card.body,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                height: 1.48,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                            if (card.action?.isNotEmpty ?? false) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface
+                                      .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: colorScheme.pocketCardBorder
+                                          .withValues(alpha: 0.5)),
+                                ),
+                                child: Text(
+                                  card.action!,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -868,7 +930,7 @@ class _CoachingFlashCardsCarousel extends HookWidget {
           ),
         ),
         if (cards.length > 1) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(cards.length, (index) {
@@ -878,12 +940,12 @@ class _CoachingFlashCardsCarousel extends HookWidget {
                 curve: Curves.easeInOut,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 width: isSelected ? 18 : 6,
-                height: 5,
+                height: 4,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(2),
                   color: isSelected
                       ? colorScheme.primary
-                      : colorScheme.outline.withValues(alpha: 0.25),
+                      : colorScheme.mutedForeground.withValues(alpha: 0.2),
                 ),
               );
             }),
@@ -894,7 +956,7 @@ class _CoachingFlashCardsCarousel extends HookWidget {
   }
 }
 
-/// A combo component: Exact PocketListTile on Top + AI Suggestion Box Outside Beneath It
+/// A clean Apple-style combo component: Sleek unified card with instant rationale and details trigger
 class _PocketSuggestionComboItem extends StatelessWidget {
   const _PocketSuggestionComboItem({
     required this.item,
@@ -1010,138 +1072,137 @@ class _PocketSuggestionComboItem extends StatelessWidget {
     return Semantics(
       container: true,
       label:
-          '$pocketName. ${context.l10n.pocketsAiPageAvailableAfterPlanLabel} $availableAfterPlanDisplay. ${context.l10n.pocketsAiPageWhyThisPlanAction}',
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.pocketTileFill(baseColor),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: colorScheme.pocketTileBorder),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
+          '$pocketName. ${context.l10n.pocketsAiPageAvailableAfterPlanLabel} $availableAfterPlanDisplay. ${context.l10n.viewMore}',
+      child: GestureDetector(
+        onTap: showPlanDetails,
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.pocketTileFill(baseColor),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: colorScheme.pocketTileBorder,
+              width: 1,
             ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.pocketTileIconSurface,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.pocketIconShadow,
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(iconData, size: 20, color: baseColor),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(14, 11, 14, 8),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: colorScheme.pocketTileContentSurface,
-                    borderRadius: BorderRadius.circular(16),
+                    color: colorScheme.pocketTileIconSurface,
+                    shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: colorScheme.pocketGlassShadow,
+                        color: colorScheme.pocketIconShadow,
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              pocketName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.pocketTitle,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                availableAfterPlanDisplay,
+                  child: Icon(iconData, size: 20, color: baseColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(14, 11, 14, 8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.pocketTileContentSurface,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.pocketGlassShadow,
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                pocketName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.4,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
                                   color: colorScheme.pocketTitle,
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      if (rolloverBadgeText != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color:
-                                  colorScheme.primary.withValues(alpha: 0.18),
                             ),
-                          ),
-                          child: Text(
-                            rolloverBadgeText,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.primary,
+                            const SizedBox(width: 12),
+                            Text(
+                              availableAfterPlanDisplay,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                                color: colorScheme.pocketTitle,
+                              ),
                             ),
-                          ),
+                          ],
+                        ),
+                   
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (item.reason.trim().isNotEmpty)
+                              Expanded(
+                                child: Text(
+                                  item.reason.trim(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.35,
+                                    color: colorScheme.pocketSubtitle,
+                                  ),
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              key: ValueKey(
+                                  'pocket-suggestion-details-${item.envelopeId}'),
+                              onTap: showPlanDetails,
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 2),
+                                child: Text(
+                                  context.l10n.viewMore,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        height: 44,
-                        child: TextButton.icon(
-                          key: ValueKey(
-                              'pocket-suggestion-details-${item.envelopeId}'),
-                          onPressed: showPlanDetails,
-                          icon:
-                              const Icon(Icons.auto_awesome_outlined, size: 16),
-                          label:
-                              Text(context.l10n.pocketsAiPageWhyThisPlanAction),
-                          style: TextButton.styleFrom(
-                            foregroundColor: colorScheme.primary,
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1188,32 +1249,40 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
       maxChildSize: 0.9,
       builder: (context, controller) => ListView(
         controller: controller,
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.sheetBorder,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
+          const ModalSheetHandle(),
+          const SizedBox(height: 12),
           Text(
             context.l10n.pocketsAiPagePlanDetailsTitle,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colorScheme.foreground,
-                  fontWeight: FontWeight.w800,
-                ),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: colorScheme.foreground,
+            ),
           ),
           const SizedBox(height: 4),
-          Text(
-            pocketName,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: baseColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                pocketName,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: colorScheme.mutedForeground,
                 ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           _PlanDetailSection(
@@ -1239,7 +1308,7 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _PlanDetailSection(
             title: historicalPeriodLabel,
             colorScheme: colorScheme,
@@ -1256,29 +1325,41 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           Text(
             context.l10n.pocketsAiPageReasonTitle,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: colorScheme.foreground,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+              color: colorScheme.foreground,
+            ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            reason,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.mutedForeground,
-                  height: 1.45,
-                ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colorScheme.sheetElementBackground,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colorScheme.surfaceBorder),
+            ),
+            child: Text(
+              reason,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.5,
+                color: colorScheme.foreground.withValues(alpha: 0.85),
+              ),
+            ),
           ),
           if (hasTip) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: baseColor.withValues(alpha: 0.1),
+                color: baseColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: baseColor.withValues(alpha: 0.18)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1286,16 +1367,17 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
                   Icon(
                     Icons.tips_and_updates_outlined,
                     color: baseColor,
-                    size: 20,
+                    size: 19,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       tip!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.foreground,
-                            height: 1.4,
-                          ),
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.45,
+                        color: colorScheme.foreground,
+                      ),
                     ),
                   ),
                 ],
@@ -1323,19 +1405,21 @@ class _PlanDetailSection extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.cardSurface,
+          color: colorScheme.sheetElementBackground,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+          border: Border.all(color: colorScheme.surfaceBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.mutedForeground,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: colorScheme.mutedForeground,
+              ),
             ),
             const SizedBox(height: 10),
             ...children,
@@ -1359,24 +1443,29 @@ class _PlanDetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.mutedForeground,
-                    ),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Text(
               value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.foreground,
-                    fontWeight: emphasized ? FontWeight.w800 : FontWeight.w700,
-                  ),
+              style: TextStyle(
+                fontSize: emphasized ? 16 : 14.5,
+                fontWeight: emphasized ? FontWeight.w800 : FontWeight.w600,
+                letterSpacing: -0.2,
+                color:
+                    emphasized ? colorScheme.primary : colorScheme.foreground,
+              ),
             ),
           ],
         ),
@@ -1384,55 +1473,20 @@ class _PlanDetailRow extends StatelessWidget {
 }
 
 class _SuggestionsLoadingView extends StatelessWidget {
-  const _SuggestionsLoadingView({required this.colorScheme});
-
-  final ColorScheme colorScheme;
+  const _SuggestionsLoadingView();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.primary.withValues(alpha: 0.12),
-            ),
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              size: 30,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Analyzing your spending patterns...',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Moneko AI is building tailored pocket envelopes for this month.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13.5,
-              height: 1.45,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const CircularProgressIndicator.adaptive(),
-        ],
-      ),
+    final l10n = context.l10n;
+    return PreparationLoadingView(
+      title: l10n.pocketsAiPageLoadingTitle,
+      body: l10n.pocketsAiPageLoadingBody,
+      steps: [
+        l10n.pocketsAiPageLoadingStepReviewing,
+        l10n.pocketsAiPageLoadingStepRecurring,
+        l10n.pocketsAiPageLoadingStepBalancing,
+        l10n.pocketsAiPageLoadingStepFinalizing,
+      ],
     );
   }
 }
@@ -1450,22 +1504,34 @@ class _SuggestionsErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome_rounded,
-                size: 36, color: colorScheme.mutedForeground),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.pocketsAiSuggestionsUnavailable,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.mutedForeground.withValues(alpha: 0.1),
+              ),
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                size: 26,
                 color: colorScheme.mutedForeground,
               ),
             ),
             const SizedBox(height: 20),
+            Text(
+              context.l10n.pocketsAiSuggestionsUnavailable,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.45,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 24),
             PrimaryAdaptiveButton(
               onPressed: onRetry,
               child: Text(context.l10n.retry),

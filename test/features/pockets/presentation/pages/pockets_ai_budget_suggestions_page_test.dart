@@ -7,7 +7,9 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_ai_budget_suggestions_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_ai_budget_suggestions.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/shared/widgets/animated_pulsing_icon.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/preparation_loading_view.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class _TestPocketsNotifier extends StateNotifier<PocketsState>
@@ -168,7 +170,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify page elements
-    expect(find.text('AI Budget Plan'), findsOneWidget);
+    expect(find.text('Plan for September'), findsOneWidget);
     expect(find.textContaining('AI BLUEPRINT'), findsNothing);
     expect(find.text('Your plan is covered with room left'), findsOneWidget);
     expect(find.text('Dining stayed within your target'), findsOneWidget);
@@ -219,7 +221,7 @@ void main() {
     expect(find.text(r'$350'), findsOneWidget);
     expect(find.text(r'$300'), findsNothing);
     expect(find.text(r'+$50 carried in'), findsOneWidget);
-    expect(find.text('Why this plan?'), findsNWidgets(2));
+    expect(find.text('view more'), findsNWidgets(2));
     expect(find.text('Available after plan'), findsNothing);
 
     final groceriesDetailsButton =
@@ -248,5 +250,60 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
 
     expect(find.byType(BlockingProcessingDialog), findsNothing);
+  });
+
+  testWidgets(
+      'PocketsAiBudgetSuggestionsPage displays preparation loading view while loading',
+      (tester) async {
+    final scopeParams = PocketsScopeParams(
+      scope: PocketsScopeType.personal,
+      currency: 'USD',
+      periodMonth: DateTime(2026, 9, 1),
+    );
+
+    final mockPocketsState = PocketsState.initial().copyWith(
+      currency: 'USD',
+      periodMonth: DateTime(2026, 9, 1),
+    );
+
+    final pendingCompleter = Completer<PocketsAiBudgetSuggestions>();
+
+    final request = PocketsAiBudgetSuggestionsRequest(
+      scopeParams: scopeParams,
+      currency: 'USD',
+      locale: 'en-US',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          pocketsProvider(scopeParams).overrideWith(
+            (ref) => _TestPocketsNotifier(mockPocketsState),
+          ),
+          pocketsAiBudgetSuggestionsProvider(request)
+              .overrideWith((ref) => pendingCompleter.future),
+        ],
+        child: MaterialApp(
+          locale: const Locale('en', 'US'),
+          home: PocketsAiBudgetSuggestionsPage(
+            scopeParams: scopeParams,
+            currency: 'USD',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byType(PreparationLoadingView), findsOneWidget);
+    expect(find.byType(AnimatedPulsingIcon), findsOneWidget);
+    expect(find.text('Personalizing your plan...'), findsOneWidget);
+    expect(
+      find.text(
+        'Moneko AI is reviewing your past spending to build tailored pocket targets.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 }

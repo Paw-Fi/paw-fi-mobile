@@ -1,25 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/pockets/presentation/state/monthly_intro_insights.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_intro_sheet.dart';
 
 void main() {
-  testWidgets('PocketsAiBudgetIntroSheet renders flash cards and CTA buttons',
+  testWidgets(
+      'PocketsAiBudgetIntroSheet renders hero insight card and CTA buttons',
       (tester) async {
     final scopeParams = PocketsScopeParams(
       scope: PocketsScopeType.personal,
-      currency: 'USD',
+      currency: 'EUR',
       periodMonth: DateTime(2026, 9, 1),
+    );
+
+    final insightParams = MonthlyIntroInsightsParams(
+      scopeParams: scopeParams,
+      currency: 'EUR',
+    );
+
+    final testState = MonthlyIntroState(
+      primaryInsight: const MonthlyIntroInsight(
+        type: MonthlyInsightType.rolloverCarry,
+        priority: 100,
+        badge: 'ROLLOVER',
+        headline: "You're starting September with €230 extra",
+        description:
+            "Your unused budget from August has rolled forward. Let's decide where it can help most.",
+        metric: '+€230',
+        metricLabel: 'Carried forward',
+        sentiment: MonthlyInsightSentiment.positive,
+      ),
+      milestoneText: '16 months with Moneko',
+      currentMonth: DateTime(2026, 9, 1),
+      previousMonth: DateTime(2026, 8, 1),
+      currentMonthName: 'September',
+      previousMonthName: 'August',
+      monthsUsingMoneko: 16,
     );
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          monthlyIntroInsightsProvider(insightParams).overrideWithValue(testState),
+        ],
         child: MaterialApp(
           home: Scaffold(
             body: PocketsAiBudgetIntroSheet(
               scopeParams: scopeParams,
-              currency: 'USD',
+              currency: 'EUR',
             ),
           ),
         ),
@@ -28,39 +58,93 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify initial flash card content
-    expect(find.text('MILESTONE'), findsOneWidget);
-    expect(find.text('1 / 3'), findsOneWidget);
-    expect(find.text('Welcome to Moneko!'), findsOneWidget);
-    expect(find.text('Get My AI Budget Plan'), findsOneWidget);
-    expect(find.text('Set up manually'), findsOneWidget);
+    // Verify monthly header and kicker
+    expect(find.text('HELLO, SEPTEMBER'), findsOneWidget);
+    expect(find.text('A fresh month starts here'), findsOneWidget);
 
-    // Swipe to second card
-    await tester.drag(find.byType(PageView), const Offset(-400, 0));
-    await tester.pumpAndSettle();
-
-    // Verify second card content
-    expect(find.text('LAST MONTH'), findsOneWidget);
-    expect(find.text('2 / 3'), findsOneWidget);
-    expect(find.text('Real habits, zero guesswork'), findsOneWidget);
-
-    // Swipe to third card
-    await tester.drag(find.byType(PageView), const Offset(-400, 0));
-    await tester.pumpAndSettle();
-
-    expect(find.text('AI BLUEPRINT'), findsOneWidget);
-    expect(find.text('3 / 3'), findsOneWidget);
-    expect(find.text('Smart targets for this month'), findsOneWidget);
-
-    // Verify all Text widgets in the card have no maxLines restriction (no truncation)
-    final textWidgets = tester.widgetList<Text>(find.byType(Text));
-    final bodyTextWidget = textWidgets.firstWhere(
-      (w) =>
-          w.data != null &&
-          w.data!.contains('AI drafts realistic pocket limits'),
+    // Verify hero insight card content
+    expect(find.text('ROLLOVER'), findsOneWidget);
+    expect(
+      find.text("You're starting September with €230 extra"),
+      findsOneWidget,
     );
-    expect(bodyTextWidget.maxLines, isNull);
-    expect(bodyTextWidget.overflow, isNull);
+    expect(
+      find.text(
+        "Your unused budget from August has rolled forward. Let's decide where it can help most.",
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('+€230'), findsOneWidget);
+    expect(find.text('Carried forward'), findsOneWidget);
+
+    // Verify milestone badge
+    expect(find.text('16 months with Moneko'), findsOneWidget);
+
+    // Verify CTAs
+    expect(find.text('Build My September Plan'), findsOneWidget);
+    expect(find.text('Set up manually'), findsOneWidget);
+  });
+
+  testWidgets(
+      'PocketsAiBudgetIntroSheet renders supportive overspent pocket adjustment',
+      (tester) async {
+    final scopeParams = PocketsScopeParams(
+      scope: PocketsScopeType.personal,
+      currency: 'EUR',
+      periodMonth: DateTime(2026, 9, 1),
+    );
+
+    final insightParams = MonthlyIntroInsightsParams(
+      scopeParams: scopeParams,
+      currency: 'EUR',
+    );
+
+    final testState = MonthlyIntroState(
+      primaryInsight: const MonthlyIntroInsight(
+        type: MonthlyInsightType.pocketAdjustment,
+        priority: 90,
+        badge: 'FRESH START',
+        headline: 'New month, fresh balance',
+        description:
+            'Dining ran €92 above plan last month. We can adjust September around how you actually spend.',
+        metric: '+€92',
+        metricLabel: 'Above plan in August',
+        sentiment: MonthlyInsightSentiment.supportive,
+      ),
+      currentMonth: DateTime(2026, 9, 1),
+      previousMonth: DateTime(2026, 8, 1),
+      currentMonthName: 'September',
+      previousMonthName: 'August',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          monthlyIntroInsightsProvider(insightParams).overrideWithValue(testState),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: PocketsAiBudgetIntroSheet(
+              scopeParams: scopeParams,
+              currency: 'EUR',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('FRESH START'), findsOneWidget);
+    expect(find.text('New month, fresh balance'), findsOneWidget);
+    expect(
+      find.text(
+        'Dining ran €92 above plan last month. We can adjust September around how you actually spend.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('+€92'), findsOneWidget);
+    expect(find.text('Above plan in August'), findsOneWidget);
   });
 
   testWidgets('PocketsAiBudgetIntroSheet manual setup button dismisses sheet',
@@ -71,10 +155,34 @@ void main() {
       periodMonth: DateTime(2026, 9, 1),
     );
 
+    final insightParams = MonthlyIntroInsightsParams(
+      scopeParams: scopeParams,
+      currency: 'USD',
+    );
+
+    final testState = MonthlyIntroState(
+      primaryInsight: const MonthlyIntroInsight(
+        type: MonthlyInsightType.freshStart,
+        priority: 10,
+        badge: 'WELCOME',
+        headline: 'Hello, September ✨',
+        description: 'A new month and a clean starting point.',
+        sentiment: MonthlyInsightSentiment.positive,
+      ),
+      currentMonth: DateTime(2026, 9, 1),
+      previousMonth: DateTime(2026, 8, 1),
+      currentMonthName: 'September',
+      previousMonthName: 'August',
+    );
+
     var dismissed = false;
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          monthlyIntroInsightsProvider(insightParams)
+              .overrideWithValue(testState),
+        ],
         child: MaterialApp(
           home: Scaffold(
             body: Builder(

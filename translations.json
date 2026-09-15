@@ -154,92 +154,60 @@
     "en": "AI suggestions for your monthly pocket budget",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
-  "pocketsAiIntroTitle": {
-    "en": "Budgeting with Moneko",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
   "pocketsAiIntroAction": {
-    "en": "Get My Plan for {month}",
+    "en": "Build My {month} Plan",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiIntroManualAction": {
     "en": "Set up manually",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
-  "pocketsAiIntroMilestoneTag": {
-    "en": "Milestone",
+  "pocketsAiIntroKicker": {
+    "en": "HELLO, {month}",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
-  "pocketsAiIntroCard1TitleNew": {
-    "en": "Welcome to Moneko!",
+  "pocketsAiIntroHeadline": {
+    "en": "A fresh month starts here",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
-  "pocketsAiIntroCard1TitleOneMonth": {
-    "en": "1 month with Moneko",
+  "pocketsAiIntroPocketsOnTrack": {
+    "en": "{onTrack} of {total} pockets on budget",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
-  "pocketsAiIntroCard1TitleMonths": {
+  "pocketsAiIntroMonthsWithMoneko": {
     "en": "{count} months with Moneko",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
-  "pocketsAiIntroCard1BodyNew": {
-    "en": "You're taking the first step to stress-free money management.",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard1BodyOneMonth": {
-    "en": "1 month of tracking spending and building real money awareness.",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard1BodyMonths": {
-    "en": "{count} months of taking active charge of where your money goes.",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard1HighlightNew": {
-    "en": "Fresh start",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard1HighlightMonths": {
-    "en": "Habit in progress",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard2Tag": {
-    "en": "Last Month",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard2Title": {
-    "en": "Real habits, zero guesswork",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard2Body": {
-    "en": "We look at your actual spending from last month so you never have to invent random numbers.",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard2Highlight": {
-    "en": "Grounded in real data",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard3Tag": {
-    "en": "AI Blueprint",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard3Title": {
-    "en": "Smart targets for this month",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard3Body": {
-    "en": "AI drafts realistic pocket limits tailored to your lifestyle. Review, tweak, and save in seconds.",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
-  "pocketsAiIntroCard3Highlight": {
-    "en": "1-tap starting point",
-    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
-  },
   "pocketsAiPageTitle": {
-    "en": "AI Budget Plan",
+    "en": "Plan for {month}",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiPageSubtitle": {
     "en": "Customized for your lifestyle",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLoadingTitle": {
+    "en": "Personalizing your plan...",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLoadingBody": {
+    "en": "Moneko AI is reviewing your past spending to build tailored pocket targets.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLoadingStepReviewing": {
+    "en": "Reviewing past spending...",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLoadingStepRecurring": {
+    "en": "Analyzing recurring commitments...",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLoadingStepBalancing": {
+    "en": "Balancing pocket targets...",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "pocketsAiPageLoadingStepFinalizing": {
+    "en": "Finalizing your plan...",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiPageHeroTotalLabel": {
@@ -364,6 +332,10 @@
   },
   "pocketsAiPageWhyThisPlanAction": {
     "en": "Why this plan?",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "viewMore": {
+    "en": "view more",
     "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
   },
   "pocketsAiPagePlanDetailsTitle": {

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_repository.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
