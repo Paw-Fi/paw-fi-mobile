@@ -221,7 +221,7 @@ void main() {
     expect(find.text(r'$350'), findsOneWidget);
     expect(find.text(r'$300'), findsNothing);
     expect(find.text(r'+$50 carried in'), findsOneWidget);
-    expect(find.text('view more'), findsNWidgets(2));
+    expect(find.text('View more'), findsNWidgets(2));
     expect(find.text('Available after plan'), findsNothing);
 
     final groceriesDetailsButton =
