@@ -71,6 +71,37 @@ void main() {
       expect(rows.single.parentRecurringId, 'recurring_series_1');
     });
 
+    test('round-trips merchant identity and clears it from delta updates',
+        () async {
+      final entry = _entry(
+        id: 'merchant-expense',
+        userId: 'user_1',
+        amountCents: 450,
+      ).copyWith(
+        merchant: 'STARBUCKS 123',
+        merchantId: 'merchant-starbucks',
+        merchantDomain: 'starbucks.com',
+      );
+      await database.upsertTransactions([entry]);
+      var rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      expect(rows.single.merchantId, 'merchant-starbucks');
+      expect(rows.single.merchantDomain, 'starbucks.com');
+
+      await database.upsertTransactions([
+        ExpenseEntry.fromJson(
+            {...entry.toJson(), 'merchant_id': null, 'merchant_domain': null}),
+      ]);
+      rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      expect(rows.single.merchantId, isNull);
+      expect(rows.single.merchantDomain, isNull);
+    });
+
     test('recent rows exclude a recurring template but keep its occurrence',
         () async {
       await database.upsertTransactions([
@@ -178,7 +209,7 @@ void main() {
           '2026-06-10T09:00:00.000Z'
         ],
       );
-      oldDatabase.execute('PRAGMA user_version = 8');
+      oldDatabase.execute('PRAGMA user_version = 9');
 
       final migrated =
           MonekoDatabase.fromExistingDatabaseForTesting(oldDatabase);
@@ -191,6 +222,8 @@ void main() {
         expect(rows.single.scheduledOccurrenceDate, isNull);
         expect(rows.single.recurringConfirmedAt, isNull);
         expect(rows.single.recurringConfirmationSource, isNull);
+        expect(rows.single.merchantId, isNull);
+        expect(rows.single.merchantDomain, isNull);
 
         await migrated.upsertTransactions([
           rows.single.copyWith(
@@ -198,6 +231,8 @@ void main() {
             scheduledOccurrenceDate: DateTime(2026, 6, 10),
             recurringConfirmedAt: DateTime.utc(2026, 6, 11),
             recurringConfirmationSource: 'manual',
+            merchantId: 'merchant-1',
+            merchantDomain: 'merchant.example',
           ),
         ]);
         rows = await migrated.getTransactionsByScheduledOccurrenceRange(
@@ -207,6 +242,8 @@ void main() {
           endDate: DateTime(2026, 6, 10),
         );
         expect(rows.single.recurringConfirmationSource, 'manual');
+        expect(rows.single.merchantId, 'merchant-1');
+        expect(rows.single.merchantDomain, 'merchant.example');
       } finally {
         await migrated.close();
       }

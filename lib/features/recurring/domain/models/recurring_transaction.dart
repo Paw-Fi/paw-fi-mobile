@@ -36,6 +36,8 @@ class RecurringTransaction {
   final String category;
   final String? description;
   final String? merchant;
+  final String? merchantId;
+  final String? merchantDomain;
   final String? source; // For income
   final double amount; // In major units
   final String currency;
@@ -65,6 +67,8 @@ class RecurringTransaction {
     required this.category,
     this.description,
     this.merchant,
+    this.merchantId,
+    this.merchantDomain,
     this.source,
     required this.amount,
     required this.currency,
@@ -150,6 +154,8 @@ class RecurringTransaction {
       category: _sanitizeRequired(rawCategory, fallback: 'Uncategorized'),
       description: sanitizedDescription,
       merchant: _sanitizeOptional(json['merchant'] as String?),
+      merchantId: _sanitizeOptional(json['merchant_id'] as String?),
+      merchantDomain: _sanitizeOptional(json['merchant_domain'] as String?),
       source: _sanitizeOptional(json['source'] as String?),
       amount: amountMajor ?? amountFromCents ?? amountLegacy ?? 0.0,
       currency: json['currency'] as String? ?? 'USD',
@@ -253,6 +259,8 @@ class RecurringTransaction {
       'category': category,
       'description': description,
       'merchant': merchant,
+      'merchant_id': merchantId,
+      'merchant_domain': merchantDomain,
       'source': source,
       'amountMajor': amount,
       'currency': currency,
@@ -290,6 +298,8 @@ class RecurringTransaction {
     String? category,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
     String? source,
     double? amount,
     String? currency,
@@ -321,6 +331,8 @@ class RecurringTransaction {
       category: category ?? this.category,
       description: description ?? this.description,
       merchant: merchant ?? this.merchant,
+      merchantId: merchantId ?? this.merchantId,
+      merchantDomain: merchantDomain ?? this.merchantDomain,
       source: source ?? this.source,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,

@@ -773,6 +773,8 @@ class _BreakdownRowTile extends StatelessWidget {
         amount: row.remainingAmountCents / 100.0,
         currency: currencyCode,
         isIncome: row.direction == _Direction.theyOweYou,
+        merchantId: sourceTransaction?.merchantId,
+        merchantDomain: sourceTransaction?.merchantDomain,
         onTap: sourceTransaction == null || onShowTransaction == null
             ? null
             : () => onShowTransaction!(sourceTransaction),

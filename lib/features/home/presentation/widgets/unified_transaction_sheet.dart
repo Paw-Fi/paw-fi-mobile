@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -72,6 +73,8 @@ import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/merchant_entry_sheet.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -1232,6 +1235,22 @@ class _UnifiedTransactionSheetV2State
                                       displayMerchant?.trim().isNotEmpty !=
                                           true,
                                 ),
+                                if (widget.existingExpense != null &&
+                                    !isIncomeMode &&
+                                    widget.existingExpense!.userId ==
+                                        ref.watch(authProvider).uid)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: () => _showMerchantSearch(
+                                        widget.existingExpense!,
+                                        displayMerchant,
+                                      ),
+                                      child: Text(
+                                        '${context.l10n.search} ${context.l10n.merchant}',
+                                      ),
+                                    ),
+                                  ),
                                 _buildDivider(colorScheme),
                                 MonekoDisclosureRow(
                                   label: context.l10n.currency,
@@ -2508,29 +2527,19 @@ class _UnifiedTransactionSheetV2State
 
   Future<void> _handleEditMerchant(
       String? currentMerchant, bool isIncomeMode) async {
-    final result = await MonekoAlertDialog.show(
+    final result = await showMerchantEntrySheet(
       context: context,
-      title:
-          '${isIncomeMode ? context.l10n.source : context.l10n.merchant} (${context.l10n.optional})',
-      description: null,
-      confirmLabel: context.l10n.save,
+      title: isIncomeMode ? context.l10n.source : context.l10n.merchant,
+      placeholder:
+          isIncomeMode ? context.l10n.incomeSalary : context.l10n.addMerchant,
+      initialValue: currentMerchant?.trim() ?? '',
+      saveLabel: context.l10n.save,
       cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        initialValue: currentMerchant?.trim() ?? '',
-        placeholder:
-            isIncomeMode ? context.l10n.incomeSalary : context.l10n.addMerchant,
-        isRequired: false,
-      ),
     );
 
-    if (!mounted ||
-        result == null ||
-        !result.confirmed ||
-        result.text == null) {
-      return;
-    }
+    if (!mounted || result == null) return;
 
-    final value = result.text!.trim();
+    final value = result.value;
     final normalized = value.isEmpty ? null : value;
 
     if (isNewExpense) {
@@ -2546,6 +2555,274 @@ class _UnifiedTransactionSheetV2State
       _editedMerchant = normalized;
       _hasEditedMerchant = true;
     });
+  }
+
+  Future<void> _showMerchantSearch(
+    ExpenseEntry expense,
+    String? initialQuery,
+  ) async {
+    final controller = TextEditingController(text: initialQuery?.trim() ?? '');
+    final tryAgain = context.l10n.tryAgain;
+    var isSearching = false;
+    var errorMessage = '';
+    var candidates = <Map<String, String>>[];
+    var searchGeneration = 0;
+    var lastCompletedQuery = '';
+    var hasSearched = false;
+    Timer? debounce;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.sheetBackground,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          Future<void> search() async {
+            final query = controller.text.trim();
+            if (query.isEmpty) return;
+            if (query == lastCompletedQuery) return;
+            final generation = ++searchGeneration;
+            setSheetState(() {
+              isSearching = true;
+              errorMessage = '';
+            });
+            try {
+              final response = await Supabase.instance.client.functions.invoke(
+                'merchant-user-search',
+                body: {
+                  'action': 'search',
+                  'query': query,
+                  'transactionId': expense.id,
+                },
+              );
+              final data = response.data is Map
+                  ? Map<String, dynamic>.from(response.data as Map)
+                  : <String, dynamic>{};
+              final rawCandidates = data['candidates'] as List? ?? const [];
+              if (!sheetContext.mounted || generation != searchGeneration) {
+                return;
+              }
+              candidates = rawCandidates
+                  .whereType<Map>()
+                  .map((item) => Map<String, String>.fromEntries(item.entries
+                      .where((entry) => entry.value is String)
+                      .map((entry) => MapEntry(
+                          entry.key.toString(), entry.value as String))))
+                  .where((item) =>
+                      item['name']?.isNotEmpty == true &&
+                      item['domain']?.isNotEmpty == true)
+                  .toList();
+              lastCompletedQuery = query;
+              hasSearched = true;
+            } catch (_) {
+              if (!sheetContext.mounted || generation != searchGeneration) {
+                return;
+              }
+              errorMessage = tryAgain;
+              hasSearched = true;
+            } finally {
+              if (sheetContext.mounted && generation == searchGeneration) {
+                setSheetState(() => isSearching = false);
+              }
+            }
+          }
+
+          Future<void> selectCandidate(Map<String, String> candidate) async {
+            final query = controller.text.trim();
+            if (query.isEmpty) return;
+            setSheetState(() => isSearching = true);
+            try {
+              final response = await Supabase.instance.client.functions.invoke(
+                'merchant-user-search',
+                body: {
+                  'action':
+                      candidate['source'] == 'manual' ? 'manual' : 'select',
+                  'query': query,
+                  'transactionId': expense.id,
+                  'selectedName': candidate['name'],
+                  'selectedDomain': candidate['domain'],
+                  'selectedSource': candidate['source'],
+                  'selectedMerchantId': candidate['id'],
+                },
+              );
+              final data = response.data is Map
+                  ? Map<String, dynamic>.from(response.data as Map)
+                  : <String, dynamic>{};
+              if (data['success'] != true) {
+                throw StateError('Merchant update failed');
+              }
+              if (!mounted) return;
+              // Identity correction is deliberately distinct from editing the
+              // user-facing merchant text.  The RPC changed merchant_id only;
+              // retaining this sheet's original value prevents a later save
+              // from rewriting "STARBUCKS 123" to a canonical label.
+              ref.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+                  1;
+              ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+              if (sheetContext.mounted) {
+                Navigator.of(sheetContext).pop();
+              }
+            } catch (_) {
+              setSheetState(() {
+                errorMessage = tryAgain;
+                isSearching = false;
+              });
+            }
+          }
+
+          Future<void> clearMerchant() async {
+            setSheetState(() => isSearching = true);
+            try {
+              final response = await Supabase.instance.client.functions.invoke(
+                'merchant-user-search',
+                body: {
+                  'action': 'clear',
+                  'transactionId': expense.id,
+                },
+              );
+              final data = response.data is Map
+                  ? Map<String, dynamic>.from(response.data as Map)
+                  : <String, dynamic>{};
+              if (data['success'] != true) {
+                throw StateError('Merchant reset failed');
+              }
+              if (!mounted) return;
+              ref.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+                  1;
+              ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+            } catch (_) {
+              setSheetState(() {
+                errorMessage = tryAgain;
+                isSearching = false;
+              });
+            }
+          }
+
+          Future<void> addMerchantWebsite() async {
+            final merchantName = controller.text.trim();
+            if (merchantName.isEmpty) return;
+            final website = await showMerchantEntrySheet(
+              context: sheetContext,
+              title: context.l10n.merchantWebsite,
+              placeholder: 'https://example.com',
+              initialValue: '',
+              saveLabel: context.l10n.save,
+              cancelLabel: context.l10n.cancel,
+            );
+            if (!sheetContext.mounted ||
+                website == null ||
+                website.value.isEmpty) {
+              return;
+            }
+            await selectCandidate({
+              'name': merchantName,
+              'domain': website.value,
+              'source': 'manual',
+            });
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  onSubmitted: (_) {
+                    debounce?.cancel();
+                    search();
+                  },
+                  onChanged: (value) {
+                    debounce?.cancel();
+                    final query = value.trim();
+                    if (query.isEmpty) {
+                      searchGeneration += 1;
+                      setSheetState(() {
+                        candidates = [];
+                        errorMessage = '';
+                        isSearching = false;
+                        hasSearched = false;
+                      });
+                      return;
+                    }
+                    debounce = Timer(const Duration(milliseconds: 400), search);
+                  },
+                  decoration: InputDecoration(
+                    labelText: context.l10n.merchant,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: isSearching ? null : search,
+                    ),
+                  ),
+                ),
+                if (errorMessage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(errorMessage),
+                  ),
+                if (expense.merchantId?.trim().isNotEmpty == true)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: isSearching ? null : clearMerchant,
+                      child: Text(
+                          '${context.l10n.reset} ${context.l10n.merchant}'),
+                    ),
+                  ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: isSearching ? null : addMerchantWebsite,
+                    child: Text(context.l10n.addMerchantWebsite),
+                  ),
+                ),
+                if (isSearching)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                if (!isSearching &&
+                    controller.text.trim().isNotEmpty &&
+                    candidates.isEmpty &&
+                    hasSearched &&
+                    errorMessage.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(context.l10n.noResultsFound),
+                  ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: candidates.length,
+                    itemBuilder: (_, index) {
+                      final candidate = candidates[index];
+                      return ListTile(
+                        leading: SizedBox.square(
+                          dimension: 36,
+                          child: MerchantCandidateLogo(
+                            domain: candidate['domain']!,
+                            fallback: const Icon(Icons.storefront_outlined),
+                          ),
+                        ),
+                        title: Text(candidate['name']!),
+                        subtitle: Text(candidate['domain']!),
+                        onTap: isSearching
+                            ? null
+                            : () => selectCandidate(candidate),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    debounce?.cancel();
+    controller.dispose();
   }
 
   Future<void> _loadMembers(String householdId) async {

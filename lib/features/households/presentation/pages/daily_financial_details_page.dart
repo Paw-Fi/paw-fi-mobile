@@ -507,6 +507,8 @@ class _DailyFinancialDetailsPageState
                                       showRecurringChip:
                                           shouldShowRecurringChipForExpense(t),
                                       showPendingChip: t.isProviderPending,
+                                      merchantId: t.merchantId,
+                                      merchantDomain: t.merchantDomain,
                                       date: t.date,
                                       useCustomCategoryStyleOverrides:
                                           t.householdId?.trim().isEmpty ?? true,

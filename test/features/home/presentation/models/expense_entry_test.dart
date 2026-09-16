@@ -85,10 +85,7 @@ void main() {
         analyticsClass: 'transfer_in',
         analyticsSpendingMultiplier: 0,
       );
-      final pending = refund.copyWith(
-        id: 'pending',
-        analyticsIsFinal: false,
-      );
+      final pending = refund.copyWith(id: 'pending', analyticsIsFinal: false);
 
       expect(refund.spendingEffect, -25);
       expect(refund.countsTowardIncome, isFalse);
@@ -168,6 +165,22 @@ void main() {
 
       expect(entry.userName, 'Jane Smith');
       expect(entry.userAvatarUrl, 'https://example.com/avatar.jpg');
+    });
+
+    test('fromJson preserves nullable centralized merchant identity', () {
+      final entry = ExpenseEntry.fromJson({
+        'id': 'exp_merchant',
+        'date': '2026-09-15',
+        'amount_cents': 450,
+        'created_at': '2026-09-15T09:00:00.000Z',
+        'merchant': 'STARBUCKS 12345 DUBLIN IE',
+        'merchant_id': 'merchant_starbucks',
+        'merchant_domain': 'starbucks.com',
+      });
+
+      expect(entry.merchant, 'STARBUCKS 12345 DUBLIN IE');
+      expect(entry.merchantId, 'merchant_starbucks');
+      expect(entry.merchantDomain, 'starbucks.com');
     });
 
     test('fromJson handles null date gracefully', () {
@@ -301,35 +314,34 @@ void main() {
       expect(entry.parentRecurringId, 'rent-series');
       expect(entry.scheduledOccurrenceDate, DateTime(2026, 8, 10));
       expect(entry.toJson()['scheduled_occurrence_date'], '2026-08-10');
-      expect(
-        entry.copyWith().scheduledOccurrenceDate,
-        DateTime(2026, 8, 10),
-      );
+      expect(entry.copyWith().scheduledOccurrenceDate, DateTime(2026, 8, 10));
     });
 
-    test('fromJson fails closed for bank rows missing analytics classification',
-        () {
-      final entry = ExpenseEntry.fromJson({
-        'id': 'pending_1',
-        'user_id': 'user_1',
-        'date': '2026-04-10',
-        'amount_cents': 4200,
-        'currency': 'EUR',
-        'created_at': '2026-04-10T09:00:00.000Z',
-        'type': 'expense',
-        'bank_account_id': 'bank_account_1',
-        'analytics_class': null,
-        'analytics_is_final': null,
-        'analytics_spending_multiplier': null,
-        'analytics_counts_toward_income': null,
-      });
+    test(
+      'fromJson fails closed for bank rows missing analytics classification',
+      () {
+        final entry = ExpenseEntry.fromJson({
+          'id': 'pending_1',
+          'user_id': 'user_1',
+          'date': '2026-04-10',
+          'amount_cents': 4200,
+          'currency': 'EUR',
+          'created_at': '2026-04-10T09:00:00.000Z',
+          'type': 'expense',
+          'bank_account_id': 'bank_account_1',
+          'analytics_class': null,
+          'analytics_is_final': null,
+          'analytics_spending_multiplier': null,
+          'analytics_counts_toward_income': null,
+        });
 
-      expect(entry.analyticsIsFinal, isFalse);
-      expect(entry.effectiveSpendingMultiplier, 0);
-      expect(entry.spendingEffect, 0);
-      expect(entry.countsTowardIncome, isFalse);
-      expect(entry.isProviderPending, isTrue);
-    });
+        expect(entry.analyticsIsFinal, isFalse);
+        expect(entry.effectiveSpendingMultiplier, 0);
+        expect(entry.spendingEffect, 0);
+        expect(entry.countsTowardIncome, isFalse);
+        expect(entry.isProviderPending, isTrue);
+      },
+    );
 
     test('explicit provider posted state is not inferred as pending', () {
       final entry = ExpenseEntry.fromJson({

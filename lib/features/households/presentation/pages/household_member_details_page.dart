@@ -1245,6 +1245,8 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             amount: expense.amountCents / 100.0,
             currency: expense.currency ?? currency,
             isIncome: false,
+            merchantId: rawExpense.merchantId,
+            merchantDomain: rawExpense.merchantDomain,
             showRecurringChip: shouldShowRecurringChipForExpense(rawExpense),
             showPendingChip: rawExpense.isProviderPending,
             useCustomCategoryStyleOverrides:

@@ -88,6 +88,8 @@ RecurringTransaction recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
     category: entry.category ?? 'Uncategorized',
     description: description?.isEmpty == true ? null : description,
     merchant: entry.merchant,
+    merchantId: entry.merchantId,
+    merchantDomain: entry.merchantDomain,
     amount: entry.amount,
     currency: entry.currency ?? 'USD',
     ownerType: 'me',
@@ -136,6 +138,8 @@ ExpenseEntry _expenseEntryFromRecurringTransaction(
     rawText:
         transaction.description ?? transaction.merchant ?? transaction.source,
     merchant: transaction.merchant,
+    merchantId: transaction.merchantId,
+    merchantDomain: transaction.merchantDomain,
     splitGroupId: transaction.splitGroupId,
     walletId: transaction.accountId,
     type: transaction.type,

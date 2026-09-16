@@ -62,6 +62,7 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_settings_tile.dart';
+import 'package:moneko/shared/widgets/merchant_logo_bootstrap_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -2090,14 +2091,34 @@ class SettingsPage extends HookConsumerWidget {
 
                   const SizedBox(height: 40),
                   Center(
-                    child: material.Text(
-                      packageInfo.hasData
-                          ? context.l10n.version(packageInfo.data!.version)
-                          : '',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 10,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        material.TextButton.icon(
+                          onPressed: () =>
+                              showMerchantLogoBootstrapSheet(context),
+                          icon: const Icon(Icons.storefront_outlined),
+                          label: Text(context.l10n.findMerchantLogos),
+                        ),
+                        material.Text(
+                          packageInfo.hasData
+                              ? context.l10n.version(packageInfo.data!.version)
+                              : '',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 10,
+                          ),
+                        ),
+                        material.TextButton(
+                          onPressed: () => launchUrl(
+                            Uri.parse('https://logo.dev'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          child: const material.Text(
+                            'Logos provided by Logo.dev',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),

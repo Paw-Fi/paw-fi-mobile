@@ -7,6 +7,21 @@ import 'package:moneko/features/utils/currency.dart';
 
 const Object _copyWithUnset = Object();
 
+class ParsedMerchantCandidate {
+  const ParsedMerchantCandidate({required this.name, required this.domain});
+
+  final String name;
+  final String domain;
+
+  factory ParsedMerchantCandidate.fromJson(Map<String, dynamic> json) =>
+      ParsedMerchantCandidate(
+        name: sanitizeUtf16(json['name']?.toString() ?? '').trim(),
+        domain: json['domain']?.toString().trim().toLowerCase() ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {'name': name, 'domain': domain};
+}
+
 class ParsedExpense {
   // true = income, false = expense
   final bool isIncome;
@@ -17,6 +32,9 @@ class ParsedExpense {
   final DateTime date;
   final String? description;
   final String? merchant;
+  final String? merchantId;
+  final String? merchantDomain;
+  final List<ParsedMerchantCandidate> merchantCandidates;
   final List<String>? breakdown;
   final String? localImagePath; // Local image path for display before upload
   // Household sharing (expense only)
@@ -32,6 +50,9 @@ class ParsedExpense {
     required this.date,
     this.description,
     this.merchant,
+    this.merchantId,
+    this.merchantDomain,
+    this.merchantCandidates = const [],
     this.breakdown,
     this.localImagePath,
     this.payerUserId,
@@ -65,6 +86,15 @@ class ParsedExpense {
       merchant: json['merchant'] is String
           ? sanitizeUtf16(json['merchant'] as String)
           : null,
+      merchantId: json['merchant_id']?.toString(),
+      merchantDomain: json['merchant_domain']?.toString(),
+      merchantCandidates: (json['merchant_candidates'] as List? ?? const [])
+          .whereType<Map>()
+          .map((value) => ParsedMerchantCandidate.fromJson(
+                Map<String, dynamic>.from(value),
+              ))
+          .where((value) => value.name.isNotEmpty && value.domain.isNotEmpty)
+          .toList(growable: false),
       breakdown: json['breakdown'] != null
           ? (json['breakdown'] as List)
               .map((e) => sanitizeUtf16(e.toString()))
@@ -90,6 +120,10 @@ class ParsedExpense {
       'date': formatDateOnlyYmd(date),
       'description': description,
       'merchant': merchant,
+      'merchant_id': merchantId,
+      'merchant_domain': merchantDomain,
+      'merchant_candidates':
+          merchantCandidates.map((value) => value.toJson()).toList(),
       'breakdown': breakdown,
       'localImagePath': localImagePath,
       'payerUserId': payerUserId,
@@ -107,6 +141,9 @@ class ParsedExpense {
     DateTime? date,
     Object? description = _copyWithUnset,
     Object? merchant = _copyWithUnset,
+    Object? merchantId = _copyWithUnset,
+    Object? merchantDomain = _copyWithUnset,
+    List<ParsedMerchantCandidate>? merchantCandidates,
     Object? breakdown = _copyWithUnset,
     Object? localImagePath = _copyWithUnset,
     Object? payerUserId = _copyWithUnset,
@@ -125,6 +162,13 @@ class ParsedExpense {
       merchant: identical(merchant, _copyWithUnset)
           ? this.merchant
           : merchant as String?,
+      merchantId: identical(merchantId, _copyWithUnset)
+          ? this.merchantId
+          : merchantId as String?,
+      merchantDomain: identical(merchantDomain, _copyWithUnset)
+          ? this.merchantDomain
+          : merchantDomain as String?,
+      merchantCandidates: merchantCandidates ?? this.merchantCandidates,
       breakdown: identical(breakdown, _copyWithUnset)
           ? this.breakdown
           : breakdown as List<String>?,

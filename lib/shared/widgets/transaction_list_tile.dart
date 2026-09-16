@@ -11,6 +11,7 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
 class TransactionListTile extends StatelessWidget {
@@ -31,6 +32,8 @@ class TransactionListTile extends StatelessWidget {
   final bool showPendingChip;
   final bool? showCurrencyFlag;
   final String? accountLabel;
+  final String? merchantId;
+  final String? merchantDomain;
   final bool useCustomCategoryStyleOverrides;
 
   const TransactionListTile({
@@ -52,6 +55,8 @@ class TransactionListTile extends StatelessWidget {
     this.showPendingChip = false,
     this.showCurrencyFlag,
     this.accountLabel,
+    this.merchantId,
+    this.merchantDomain,
     this.useCustomCategoryStyleOverrides = true,
   });
 
@@ -262,7 +267,11 @@ class TransactionListTile extends StatelessWidget {
               color: colorScheme.onSurface.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: MerchantLogo(
+              merchantId: merchantId,
+              domain: merchantDomain,
+              fallback: Icon(icon, color: color, size: 20),
+            ),
           ),
           title: Text(
             displayTitle,
@@ -375,6 +384,8 @@ Widget buildExpenseTransactionTile({
       showRecurringChip: showRecurringChip ??
           (expense != null && shouldShowRecurringChipForExpense(expense)),
       showPendingChip: showPendingChip ?? expense?.isProviderPending ?? false,
+      merchantId: expense?.merchantId,
+      merchantDomain: expense?.merchantDomain,
       // A shared transaction's category is shared data. Do not let a viewer's
       // private category-style preference make that same record look different
       // to another household member.

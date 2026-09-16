@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/shared/widgets/animated_pulsing_icon.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 
 class PreparationLoadingView extends HookWidget {
@@ -73,9 +72,12 @@ class PreparationLoadingView extends HookWidget {
                 );
               },
               child: pulsingIcon ??
-                  AnimatedPulsingIcon(
+                  Image.asset(
+                    'lib/assets/gifs/moneko-curious.gif',
                     key: const ValueKey('preparation_pulsing_icon'),
-                    color: colorScheme.primary,
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.contain,
                   ),
             ),
             const SizedBox(height: 32),

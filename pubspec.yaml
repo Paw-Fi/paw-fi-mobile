@@ -160,6 +160,7 @@ flutter:
     - lib/assets/images/audio-message.png
     - lib/assets/gifs/loading-anim.gif
     - lib/assets/gifs/moneko-celebrate.gif
+    - lib/assets/gifs/moneko-curious.gif
     - lib/assets/gifs/splashscreen-loading.gif
     - lib/assets/mascots/
     - lib/assets/images/avatar/

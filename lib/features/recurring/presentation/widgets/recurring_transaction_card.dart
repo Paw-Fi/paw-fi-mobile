@@ -10,6 +10,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(
@@ -152,10 +153,14 @@ class RecurringTransactionCard extends StatelessWidget {
                           width: 1,
                         ),
                       ),
-                      child: Icon(
-                        categoryIcon,
-                        color: adaptedCategoryColor,
-                        size: 22,
+                      child: MerchantLogo(
+                        merchantId: transaction.merchantId,
+                        domain: transaction.merchantDomain,
+                        fallback: Icon(
+                          categoryIcon,
+                          color: adaptedCategoryColor,
+                          size: 22,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),

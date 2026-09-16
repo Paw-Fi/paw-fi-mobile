@@ -266,7 +266,7 @@ void main() {
     await service.pullAndApply(userId: 'user_1');
 
     expect(mobileDeltaEntityName, 'mobile_delta_v5');
-    expect(mobileDeltaRpcName, 'get_mobile_delta_v5');
+    expect(mobileDeltaRpcName, 'get_mobile_delta_v6');
     expect(capturedSince, isNull);
     expect(capturedSinceId, isNull);
     expect(

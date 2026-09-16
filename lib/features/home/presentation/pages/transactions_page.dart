@@ -2293,6 +2293,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           showPendingChip: expense.isProviderPending,
                           showCurrencyFlag: shouldShowCurrencyFlag,
                           accountLabel: accountLabel,
+                          merchantId: expense.merchantId,
+                          merchantDomain: expense.merchantDomain,
                           useCustomCategoryStyleOverrides:
                               expense.householdId?.trim().isEmpty ?? true,
                         ),

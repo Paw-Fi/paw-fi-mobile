@@ -235,7 +235,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
     );
     trace.mark('rpc-start');
     final response = await _client.rpc(
-      'get_dashboard_recent_transactions_v1',
+      'get_dashboard_recent_transactions_v2',
       params: <String, dynamic>{
         'p_user_id': request.query.userId,
         'p_household_id': request.query.householdId,
@@ -267,7 +267,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
     );
     trace.mark('rpc-start');
     final response = await _client.rpc(
-      'get_dashboard_calendar_transactions_v1',
+      'get_dashboard_calendar_transactions_v2',
       params: <String, dynamic>{
         'p_user_id': query.userId,
         'p_household_id': query.householdId,

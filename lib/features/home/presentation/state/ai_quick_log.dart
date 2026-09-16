@@ -85,6 +85,8 @@ ExpenseEntry buildOptimisticEntry({
     createdAt: DateTime.now(),
     rawText: transaction.description,
     merchant: transaction.merchant,
+    merchantId: transaction.merchantId,
+    merchantDomain: transaction.merchantDomain,
     breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,
     localReceiptImagePath: localReceiptImagePath,

@@ -26,6 +26,21 @@ extension SettlementBreakdownL10nX on AppLocalizations {
 
 extension HomeDashboardL10nX on AppLocalizations {}
 
+extension MerchantIdentityL10nX on AppLocalizations {
+  String get merchantWebsite => 'Merchant website';
+  String get addMerchantWebsite => 'Add merchant website';
+  String get findMerchantLogos => 'Find merchant logos';
+  String get findMerchantLogosDescription =>
+      'Scan unresolved merchants, reuse known matches, and review only ambiguous results.';
+  String get merchantLogoScanError =>
+      'Merchant logo scan is unavailable right now. Try again.';
+  String get merchantLogoQuotaReached =>
+      'Today\'s search limit was reached. Your progress is saved.';
+  String get resolved => 'Resolved';
+  String get needsReview => 'Needs review';
+  String get skipped => 'Skipped';
+}
+
 extension PocketsAiSuggestionsL10nX on AppLocalizations {
   String get pocketsAiSuggestionsTitle => 'AI budget suggestions';
   String get pocketsAiSuggestionsSubtitle =>

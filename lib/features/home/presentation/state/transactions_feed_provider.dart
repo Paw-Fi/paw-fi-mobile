@@ -789,7 +789,7 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
   }
 }
 
-const _transactionsPageRpcName = 'get_user_transactions_page_v5';
+const _transactionsPageRpcName = 'get_user_transactions_page_v6';
 
 @foundation.visibleForTesting
 String transactionsPageRpcNameForTesting(TransactionsFeedQuery query) =>

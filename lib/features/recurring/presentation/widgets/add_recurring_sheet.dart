@@ -41,6 +41,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/shared/widgets/merchant_entry_sheet.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -1880,31 +1881,22 @@ class AddRecurringSheet extends HookConsumerWidget {
                             isValuePlaceholder:
                                 merchantController.text.trim().isEmpty,
                             onTap: () async {
-                              final result = await MonekoAlertDialog.show(
+                              final result = await showMerchantEntrySheet(
                                 context: context,
                                 title: isExpense
-                                    ? context.l10n.merchantOptional
-                                    : context.l10n.sourceOptional,
-                                description: null,
-                                confirmLabel: context.l10n.save,
+                                    ? context.l10n.merchant
+                                    : context.l10n.source,
+                                initialValue: merchantController.text.trim(),
+                                placeholder: isExpense
+                                    ? context.l10n.addMerchant
+                                    : context.l10n.addSource,
+                                saveLabel: context.l10n.save,
                                 cancelLabel: context.l10n.cancel,
-                                inputConfig: MonekoAlertDialogInputConfig(
-                                  initialValue: merchantController.text.trim(),
-                                  placeholder: isExpense
-                                      ? context.l10n.addMerchant
-                                      : context.l10n.addSource,
-                                  isRequired: false,
-                                ),
                               );
 
-                              if (!context.mounted ||
-                                  result == null ||
-                                  !result.confirmed ||
-                                  result.text == null) {
-                                return;
-                              }
+                              if (!context.mounted || result == null) return;
 
-                              merchantController.text = result.text!.trim();
+                              merchantController.text = result.value;
                             },
                           ),
                           _buildDivider(colorScheme),

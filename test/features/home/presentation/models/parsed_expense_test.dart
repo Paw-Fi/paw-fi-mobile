@@ -2,6 +2,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 
 void main() {
+  test('preserves analyzed merchant identity and candidates through JSON', () {
+    final expense = ParsedExpense.fromJson({
+      'type': 'expense',
+      'amount': 4.5,
+      'category': 'dining',
+      'currency': 'EUR',
+      'currencySymbol': '€',
+      'date': '2026-09-15',
+      'merchant': 'Starbucks',
+      'merchant_id': 'merchant-1',
+      'merchant_domain': 'starbucks.com',
+      'merchant_candidates': [
+        {'name': 'Starbucks', 'domain': 'starbucks.com'}
+      ],
+    });
+
+    expect(expense.merchant, 'Starbucks');
+    expect(expense.merchantId, 'merchant-1');
+    expect(expense.merchantDomain, 'starbucks.com');
+    expect(expense.merchantCandidates.single.domain, 'starbucks.com');
+    expect(expense.toJson()['merchant_id'], 'merchant-1');
+  });
   group('ParsedExpense - Model Creation', () {
     test('creates expense with all required fields', () {
       final date = DateTime(2024, 1, 1);

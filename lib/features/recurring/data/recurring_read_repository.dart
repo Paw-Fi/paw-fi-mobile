@@ -328,6 +328,8 @@ class RecurringReadRepository {
       category: entry.category ?? 'Uncategorized',
       description: entry.rawText,
       merchant: entry.merchant,
+      merchantId: entry.merchantId,
+      merchantDomain: entry.merchantDomain,
       amount: entry.amount,
       currency: entry.currency ?? 'USD',
       ownerType: 'me',

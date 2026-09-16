@@ -1,0 +1,73 @@
+import 'package:flutter/material.dart';
+import 'package:moneko/core/util/constants.dart';
+
+String? buildLogoDevMerchantUrl(String? merchantId, String? domain) {
+  final normalizedDomain = domain?.trim().toLowerCase();
+  if (merchantId?.trim().isEmpty ?? true) return null;
+  if (normalizedDomain == null || normalizedDomain.isEmpty) {
+    return null;
+  }
+  String token;
+  try {
+    token = Constants.logoDevPublishableKey.trim();
+  } catch (_) {
+    return null;
+  }
+  if (token.isEmpty) return null;
+  return Uri.https('img.logo.dev', normalizedDomain, {
+    'token': token,
+    'size': '72',
+    'format': 'png',
+    'fallback': '404',
+  }).toString();
+}
+
+class MerchantLogo extends StatelessWidget {
+  const MerchantLogo({
+    super.key,
+    required this.merchantId,
+    required this.domain,
+    required this.fallback,
+  });
+
+  final String? merchantId;
+  final String? domain;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = buildLogoDevMerchantUrl(merchantId, domain);
+    if (url == null) return fallback;
+
+    return Semantics(
+      label: 'Merchant logo',
+      image: true,
+      child: Image.network(
+        url,
+        fit: BoxFit.contain,
+        cacheWidth: 72,
+        errorBuilder: (_, __, ___) => fallback,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : fallback,
+      ),
+    );
+  }
+}
+
+class MerchantCandidateLogo extends StatelessWidget {
+  const MerchantCandidateLogo({
+    super.key,
+    required this.domain,
+    required this.fallback,
+  });
+
+  final String domain;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) => MerchantLogo(
+        merchantId: 'candidate',
+        domain: domain,
+        fallback: fallback,
+      );
+}

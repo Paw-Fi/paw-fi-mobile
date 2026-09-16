@@ -58,6 +58,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/merchant_entry_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
@@ -174,6 +175,18 @@ class _AiPreparedMutation {
     required this.individualRequestBody,
     required this.batchRequestBody,
   });
+}
+
+class _AiMerchantReview {
+  const _AiMerchantReview({
+    required this.transactionId,
+    required this.query,
+    required this.candidates,
+  });
+
+  final String transactionId;
+  final String query;
+  final List<Map<String, String>> candidates;
 }
 
 class _AutoSplitContext {
@@ -653,6 +666,7 @@ Future<void> _persistAiTransactions(
   String? accountCurrency,
   String? localImagePath,
   bool requestReview = true,
+  BuildContext? candidateReviewContext,
 }) async {
   if (transactions.isEmpty) return;
 
@@ -667,6 +681,46 @@ Future<void> _persistAiTransactions(
       .toString();
   MonekoDatabase? localDatabase;
   var queuedLocally = false;
+  final merchantReviews = <_AiMerchantReview>[];
+  void queueMerchantReview(
+    _AiPreparedMutation prepared,
+    ExpenseEntry savedEntry,
+  ) {
+    final transaction = prepared.item.transaction;
+    final query = transaction.merchant?.trim();
+    if (query == null ||
+        query.isEmpty ||
+        transaction.merchantCandidates.isEmpty) {
+      return;
+    }
+    merchantReviews.add(_AiMerchantReview(
+      transactionId: savedEntry.id,
+      query: query,
+      candidates: transaction.merchantCandidates
+          .map((candidate) => {
+                'name': candidate.name,
+                'domain': candidate.domain,
+              })
+          .toList(growable: false),
+    ));
+  }
+
+  void showNextMerchantReview() {
+    final reviewContext = candidateReviewContext;
+    if (merchantReviews.isEmpty ||
+        reviewContext == null ||
+        !reviewContext.mounted) {
+      return;
+    }
+    final review = merchantReviews.first;
+    unawaited(showAnalyzedMerchantCandidateSheet(
+      context: reviewContext,
+      transactionId: review.transactionId,
+      query: review.query,
+      candidates: review.candidates,
+    ));
+  }
+
   _AutoSplitContext? autoSplitContext;
   final fallbackAccountId = accountId?.trim();
   String? resolveAccountIdForCurrency(String currency) {
@@ -834,6 +888,9 @@ Future<void> _persistAiTransactions(
       clientRecordId: prepared.metadata.clientRecordId,
       clientMutationId: prepared.metadata.clientMutationId,
       idempotencyKey: prepared.metadata.idempotencyKey,
+      merchantId: savedEntry.merchantId ?? prepared.item.transaction.merchantId,
+      merchantDomain:
+          savedEntry.merchantDomain ?? prepared.item.transaction.merchantDomain,
       localReceiptImagePath: !prepared.item.transaction.isIncome &&
               (savedReceiptImageUrl == null || savedReceiptImageUrl.isEmpty) &&
               optimisticLocalReceiptPath != null &&
@@ -1062,6 +1119,8 @@ Future<void> _persistAiTransactions(
       if (isRecurring && recurrenceRule != null)
         'recurrence_rule': recurrenceRule,
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
+      if (tx.merchant?.isNotEmpty == true) 'merchant': tx.merchant,
+      if (tx.merchantId?.isNotEmpty == true) 'merchantId': tx.merchantId,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
       if ((autoSplitEnabled || explicitCustomSplits != null) &&
@@ -1230,6 +1289,7 @@ Future<void> _persistAiTransactions(
               prepared: prepared,
               savedEntry: savedEntry,
             );
+            queueMerchantReview(prepared, storedEntry);
             didPersistAny = true;
             savedEntries.add(storedEntry);
             if (!originalItem.transaction.isIncome) {
@@ -1271,6 +1331,7 @@ Future<void> _persistAiTransactions(
       savedExpenseEntriesById.addAll(splitAdjustedEntries);
     }
     await cacheSavedEntriesAndRefresh(savedEntries);
+    showNextMerchantReview();
 
     if (didPersistAny) {
       await container
@@ -1329,6 +1390,7 @@ Future<void> _persistAiTransactions(
               prepared: prepared,
               savedEntry: savedEntry,
             );
+            queueMerchantReview(prepared, storedEntry);
             savedCount++;
             savedEntries.add(storedEntry);
             if (!item.transaction.isIncome) {
@@ -1379,6 +1441,7 @@ Future<void> _persistAiTransactions(
       }
 
       await cacheSavedEntriesAndRefresh(savedEntries);
+      showNextMerchantReview();
 
       if (savedCount > 0) {
         await container
@@ -2609,6 +2672,21 @@ Future<void> _processExpense(
                   description: item['description'] is String
                       ? sanitizeUtf16(item['description'] as String)
                       : null,
+                  merchant: item['merchant'] is String
+                      ? sanitizeUtf16(item['merchant'] as String)
+                      : null,
+                  merchantId: item['merchant_id']?.toString(),
+                  merchantDomain: item['merchant_domain']?.toString(),
+                  merchantCandidates:
+                      (item['merchant_candidates'] as List? ?? const [])
+                          .whereType<Map>()
+                          .map((candidate) => ParsedMerchantCandidate.fromJson(
+                                Map<String, dynamic>.from(candidate),
+                              ))
+                          .where((candidate) =>
+                              candidate.name.isNotEmpty &&
+                              candidate.domain.isNotEmpty)
+                          .toList(growable: false),
                   breakdown: item['breakdown'] is List
                       ? (item['breakdown'] as List)
                           .map((e) => sanitizeUtf16(e.toString()))
@@ -2764,6 +2842,7 @@ Future<void> _processExpense(
                 accountCurrency: inputTarget.accountCurrency,
                 localImagePath: imagePath,
                 requestReview: !isOnboarding,
+                candidateReviewContext: context,
               ),
             );
           }
