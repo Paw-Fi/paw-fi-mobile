@@ -1,6 +1,6 @@
 // GENERATED FILE. Edit ../moneko-web/config/regional-pricing.json and run
 // npm run pricing:generate from moneko-web.
-// Source SHA-256: 9ae08e84662a2e22084cbc8735793d9af321c2877a6a91e27847e8e541ed0749
+// Source SHA-256: 377d9f2c8fe9fbe185e3e240ee508fa2f982e909fe4f2033a217b2d9b4c8e6c8
 
 class RegionalPricingMarket {
   const RegionalPricingMarket({
@@ -26,7 +26,7 @@ class RegionalPricingMarket {
   final int compareAtYearly;
 }
 
-const int regionalPricingCatalogVersion = 1;
+const int regionalPricingCatalogVersion = 3;
 const String defaultRegionalPricingMarketId = 'usd';
 const Map<String, RegionalPricingMarket> regionalPricingMarkets = {
   'aed': RegionalPricingMarket(
@@ -949,7 +949,6 @@ const List<String> regionalPricingCurrencies = [
 
 RegionalPricingMarket regionalPricingForCountry(String? countryCode) {
   final normalized = countryCode?.trim().toUpperCase() ?? '';
-  final marketId = regionalPricingCountryToMarket[normalized] ??
-      defaultRegionalPricingMarketId;
+  final marketId = regionalPricingCountryToMarket[normalized] ?? defaultRegionalPricingMarketId;
   return regionalPricingMarkets[marketId]!;
 }

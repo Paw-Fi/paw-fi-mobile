@@ -352,7 +352,8 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                                   if (context.mounted) {
                                     AppToast.success(
                                       context,
-                                      context.l10n.aiBudgetPlanAppliedSuccessfully,
+                                      context
+                                          .l10n.aiBudgetPlanAppliedSuccessfully,
                                     );
                                     Navigator.of(context).pop();
                                   }
@@ -996,9 +997,8 @@ class _PocketSuggestionComboItem extends StatelessWidget {
     );
 
     final iconData = getPocketIconData(pocket?.icon ?? item.icon);
-    final pocketName = pocket?.name ??
-        item.pocketName ??
-        context.l10n.pocketSegmentLabel;
+    final pocketName =
+        pocket?.name ?? item.pocketName ?? context.l10n.pocketSegmentLabel;
 
     final spent = pocket?.spent ??
         (item.previousSpentCents != null
@@ -1158,7 +1158,6 @@ class _PocketSuggestionComboItem extends StatelessWidget {
                             ),
                           ],
                         ),
-                   
                         const SizedBox(height: 6),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -1488,6 +1487,11 @@ class _SuggestionsLoadingView extends StatelessWidget {
         l10n.analyzingRecurringCommitments,
         l10n.balancingPocketTargets,
         l10n.finalizingYourPlan,
+      ],
+      stepDurations: const [
+        Duration(milliseconds: 3500),
+        Duration(milliseconds: 4500),
+        Duration(milliseconds: 6000),
       ],
     );
   }

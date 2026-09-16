@@ -4967,6 +4967,16 @@ class _MonthlyReportLoadingState extends HookWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Center(
+                  child: Image.asset(
+                    'lib/assets/gifs/moneko-curious.gif',
+                    width: 104,
+                    height: 104,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   context.l10n.buildingMonthlyReport,
                   textAlign: TextAlign.center,
@@ -4990,11 +5000,11 @@ class _MonthlyReportLoadingState extends HookWidget {
                     height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
                   child: LinearProgressIndicator(
-                    minHeight: 8,
+                    minHeight: 6,
                     backgroundColor:
                         colorScheme.mutedForeground.withValues(alpha: 0.15),
                     color: colorScheme.primary,

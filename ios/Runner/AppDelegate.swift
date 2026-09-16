@@ -1747,7 +1747,10 @@ struct CaptureWalletTransactionIntent: AppIntent {
   )
   var amount: Double?
 
-  @Parameter(title: "Currency")
+  @Parameter(
+    title: "Currency (Optional, e.g. USD, GBP)",
+    description: "Leave blank to use your Moneko preferred currency."
+  )
   var currencyCode: String?
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
