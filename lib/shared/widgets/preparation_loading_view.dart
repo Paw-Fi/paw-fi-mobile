@@ -12,6 +12,7 @@ class PreparationLoadingView extends HookWidget {
     required this.body,
     this.steps = const [],
     this.stepInterval = const Duration(milliseconds: 1800),
+    this.stepDurations,
     this.initialProgress = 0.15,
     this.progressCap = 0.88,
     this.pulsingIcon,
@@ -21,6 +22,7 @@ class PreparationLoadingView extends HookWidget {
   final String body;
   final List<String> steps;
   final Duration stepInterval;
+  final List<Duration>? stepDurations;
   final double initialProgress;
   final double progressCap;
   final Widget? pulsingIcon;
@@ -32,13 +34,26 @@ class PreparationLoadingView extends HookWidget {
 
     useEffect(() {
       if (steps.isEmpty) return null;
-      final timer = Timer.periodic(stepInterval, (t) {
-        if (currentStepIndex.value < steps.length - 1) {
-          currentStepIndex.value++;
-        }
-      });
-      return timer.cancel;
-    }, [steps, stepInterval]);
+
+      Timer? timer;
+      void scheduleNextStep() {
+        final duration = stepDurations != null &&
+                currentStepIndex.value < stepDurations!.length
+            ? stepDurations![currentStepIndex.value]
+            : stepInterval;
+        timer = Timer(duration, () {
+          if (currentStepIndex.value < steps.length - 1) {
+            currentStepIndex.value++;
+            scheduleNextStep();
+          }
+        });
+      }
+
+      scheduleNextStep();
+      return () {
+        timer?.cancel();
+      };
+    }, [steps, stepInterval, stepDurations]);
 
     final progressValue = steps.isEmpty
         ? initialProgress

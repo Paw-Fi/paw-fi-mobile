@@ -73,7 +73,7 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              context.l10n.pocketsAiIntroKicker(monthLabel),
+              context.l10n.helloMonth(monthLabel).toUpperCase(),
               textAlign: TextAlign.center,
               style: textTheme.labelSmall?.copyWith(
                 letterSpacing: 1.5,
@@ -83,7 +83,7 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              context.l10n.pocketsAiIntroHeadline,
+              context.l10n.aFreshMonthStartsHere,
               textAlign: TextAlign.center,
               style: textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
@@ -150,12 +150,12 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
                   currency: currency,
                 );
               },
-              child: Text(context.l10n.pocketsAiIntroAction(monthLabel)),
+              child: Text(context.l10n.buildMyMonthPlan(monthLabel)),
             ),
             const SizedBox(height: 8),
             PlainAdaptiveButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(context.l10n.pocketsAiIntroManualAction),
+              child: Text(context.l10n.setUpManually),
             ),
           ],
         ),

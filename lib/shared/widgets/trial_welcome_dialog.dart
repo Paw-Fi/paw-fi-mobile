@@ -116,15 +116,13 @@ class TrialWelcomeDialog extends StatelessWidget {
                               icon: Icons.email_rounded,
                               color: colorScheme.primary,
                               title: l10n.trialWelcomeFeatureEmailTitle,
-                              description:
-                                  l10n.trialWelcomeFeatureEmailBody,
+                              description: l10n.trialWelcomeFeatureEmailBody,
                             ),
                             const SizedBox(height: 12),
                             _FeatureRow(
                               icon: Icons.multitrack_audio_rounded,
                               color: colorScheme.primary,
-                              title:
-                                  l10n.trialWelcomeFeatureMultiCurrencyTitle,
+                              title: l10n.trialWelcomeFeatureMultiCurrencyTitle,
                               description:
                                   l10n.trialWelcomeFeatureMultiCurrencyBody,
                             ),
@@ -133,8 +131,7 @@ class TrialWelcomeDialog extends StatelessWidget {
                               icon: Icons.insights_rounded,
                               color: colorScheme.primary,
                               title: l10n.trialWelcomeFeatureInsightsTitle,
-                              description:
-                                  l10n.trialWelcomeFeatureInsightsBody,
+                              description: l10n.trialWelcomeFeatureInsightsBody,
                             ),
                             const SizedBox(height: 24),
                             _FaqSection(colorScheme: colorScheme, l10n: l10n),
@@ -170,20 +167,12 @@ class _TrialWelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colorScheme.primary.withValues(alpha: 0.12),
-      ),
-      child: Center(
+    return Center(
         child: Image.asset(
-          'lib/assets/mascots/moneko.png',
-          width: 44,
-          height: 44,
-          fit: BoxFit.contain,
-        ),
+          'lib/assets/gifs/moneko-box-pop.gif',
+          width: 64,
+          height: 64,
+          fit: BoxFit.contain,      
       ),
     );
   }

@@ -27,28 +27,13 @@ class AnimatedPulsingIcon extends HookWidget {
       ),
     );
 
-    final opacity = useAnimation(
-      Tween<double>(begin: 0.5, end: 1.0).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
-      ),
-    );
-
     return Transform.scale(
       scale: scale,
-      child: Container(
+      child: Image.asset(
+        'lib/assets/gifs/moneko-curious.gif',
         width: containerSize,
         height: containerSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color.withValues(alpha: 0.1 * opacity),
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            size: iconSize,
-            color: color.withValues(alpha: opacity),
-          ),
-        ),
+        fit: BoxFit.contain,
       ),
     );
   }

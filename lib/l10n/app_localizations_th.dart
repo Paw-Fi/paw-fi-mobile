@@ -9973,4 +9973,248 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get plaidReviewLoadMore => 'โหลดรายการเพิ่มเติม';
+
+  @override
+  String get pocketsAiSuggestionsUnavailable => 'ตอนนี้ยังสร้างคำแนะนำไม่ได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get plusLockedAiMonthlyBudgetSuggestions => 'คำแนะนำจาก AI สำหรับงบประมาณรายเดือนของแต่ละกระเป๋า';
+
+  @override
+  String buildMyMonthPlan(Object month) {
+    return 'สร้างแผน $month ของฉัน';
+  }
+
+  @override
+  String get setUpManually => 'ตั้งค่าด้วยตัวเอง';
+
+  @override
+  String helloMonth(Object month) {
+    return 'สวัสดี $month';
+  }
+
+  @override
+  String get aFreshMonthStartsHere => 'เริ่มต้นเดือนใหม่ได้จากตรงนี้';
+
+  @override
+  String planForMonth(Object month) {
+    return 'แผนสำหรับ $month';
+  }
+
+  @override
+  String get personalizingYourPlan => 'กำลังปรับแผนให้เหมาะกับคุณ...';
+
+  @override
+  String get pocketsAiPageLoadingBody => 'Moneko AI กำลังวิเคราะห์การใช้จ่ายที่ผ่านมา เพื่อกำหนดเป้าหมายงบประมาณแต่ละกระเป๋าให้เหมาะกับคุณ';
+
+  @override
+  String get reviewingPastSpending => 'กำลังดูการใช้จ่ายที่ผ่านมา...';
+
+  @override
+  String get analyzingRecurringCommitments => 'กำลังวิเคราะห์ค่าใช้จ่ายประจำ...';
+
+  @override
+  String get balancingPocketTargets => 'กำลังปรับสมดุลเป้าหมายงบประมาณ...';
+
+  @override
+  String get finalizingYourPlan => 'กำลังจัดแผนของคุณให้เรียบร้อย...';
+
+  @override
+  String get totalAvailableThisMonth => 'ยอดรวมที่ใช้ได้ในเดือนนี้';
+
+  @override
+  String get planForThisMonth => 'แผนสำหรับเดือนนี้';
+
+  @override
+  String get carriedFromLastMonth => 'ยกมาจากเดือนที่แล้ว';
+
+  @override
+  String get toCoverFromLastMonth => 'ยอดจากเดือนที่แล้วที่ต้องชดเชย';
+
+  @override
+  String get whatYouDidWell => 'สิ่งที่คุณทำได้ดี';
+
+  @override
+  String get smartSpendingStrategy => 'กลยุทธ์การใช้จ่ายอย่างชาญฉลาด';
+
+  @override
+  String get budgetingPeaceOfMind => 'วางแผนงบได้อย่างสบายใจ';
+
+  @override
+  String get suggestedPocketTargets => 'เป้าหมายงบประมาณแต่ละกระเป๋าที่แนะนำ';
+
+  @override
+  String get pocketsAiPagePocketsSectionSubtitle => 'ปรับตามการใช้จ่ายที่ผ่านมาและสัดส่วนงบประมาณที่เหมาะสม';
+
+  @override
+  String get aiBudgetPlanAppliedSuccessfully => 'ใช้แผนงบประมาณจาก AI เรียบร้อยแล้ว!';
+
+  @override
+  String get lastMonthSpent => 'ใช้ไปเมื่อเดือนที่แล้ว';
+
+  @override
+  String get thisMonthSoFar => 'เดือนนี้จนถึงตอนนี้';
+
+  @override
+  String get addThisMonth => 'เพิ่มในเดือนนี้';
+
+  @override
+  String get carriedIn => 'ยอดยกมา';
+
+  @override
+  String get availableAfterPlan => 'คงเหลือหลังวางแผน';
+
+  @override
+  String get planned => 'วางแผนแล้ว';
+
+  @override
+  String get viewMore => 'ดูเพิ่มเติม';
+
+  @override
+  String get howThisPlanWasMade => 'แผนนี้คำนวณมาอย่างไร';
+
+  @override
+  String get whyThisTargetFits => 'ทำไมเป้าหมายนี้จึงเหมาะกับคุณ';
+
+  @override
+  String get pocketsAiPageDisclaimer => 'ทั้งหมดนี้เป็นเพียงคำแนะนำ คุณเป็นผู้ตัดสินใจเสมอ และสามารถปรับ เพิ่ม หรือลดงบในแต่ละกระเป๋าได้ทุกเมื่อ';
+
+  @override
+  String get win => 'ความสำเร็จ';
+
+  @override
+  String get strategy => 'กลยุทธ์';
+
+  @override
+  String get mindset => 'แนวคิด';
+
+  @override
+  String get covered => 'ครอบคลุมแล้ว';
+
+  @override
+  String get aiBlueprint => 'แผนจาก AI';
+
+  @override
+  String get welcome => 'ยินดีต้อนรับ';
+
+  @override
+  String get freshStart => 'การเริ่มต้นใหม่';
+
+  @override
+  String get progress => 'ความคืบหน้า';
+
+  @override
+  String get upcoming => 'กำลังจะมาถึง';
+
+  @override
+  String get milestone => 'หมุดหมายสำคัญ';
+
+  @override
+  String helloMonthName(Object month) {
+    return 'สวัสดี $month ✨';
+  }
+
+  @override
+  String startingMonthWithExtra(Object amount, Object month) {
+    return 'คุณเริ่ม $month พร้อมเงินเพิ่มอีก $amount';
+  }
+
+  @override
+  String introRolloverDescription(Object month) {
+    return 'งบที่ไม่ได้ใช้จาก $month ถูกยกมาแล้ว มาดูกันว่าควรนำไปใช้ตรงไหนให้เกิดประโยชน์ที่สุด';
+  }
+
+  @override
+  String get carriedForward => 'ยอดยกมา';
+
+  @override
+  String get newMonthFreshBalance => 'เดือนใหม่ ยอดใหม่';
+
+  @override
+  String introPocketAdjustmentDescription(Object amount, Object month, Object pocket) {
+    return 'เดือนที่แล้ว $pocket ใช้เกินแผนไป $amount เราสามารถปรับงบของ $month ให้เข้ากับการใช้จ่ายจริงของคุณได้';
+  }
+
+  @override
+  String abovePlanInMonth(Object month) {
+    return 'เกินแผนใน $month';
+  }
+
+  @override
+  String youFinishedMonthOnPlan(Object month) {
+    return 'คุณจบ $month ได้ตามแผน 🎉';
+  }
+
+  @override
+  String introOnTrackDescription(Object month) {
+    return 'คุณควบคุมค่าใช้จ่ายให้อยู่ในงบรายเดือนได้ มานำสิ่งที่ได้ผลไปใช้วางแผน $month กัน';
+  }
+
+  @override
+  String onTrackOfTotal(Object onTrack, Object total) {
+    return '$onTrack จาก $total';
+  }
+
+  @override
+  String get pocketsOnBudget => 'กระเป๋างบที่อยู่ในงบ';
+
+  @override
+  String get greatProgressLastMonth => 'เดือนที่แล้วคุณมีพัฒนาการที่ดีมาก';
+
+  @override
+  String introProgressDescription(Object amount, Object month) {
+    return 'คุณใช้จ่ายน้อยกว่าเดือนก่อนหน้า $amount มารักษาจังหวะที่ดีนี้ต่อใน $month กัน';
+  }
+
+  @override
+  String spentVsMonth(Object month) {
+    return 'การใช้จ่ายเทียบกับ $month';
+  }
+
+  @override
+  String monthIsLookingBusy(Object month) {
+    return '$month ดูจะเป็นเดือนที่มีหลายรายการ';
+  }
+
+  @override
+  String introUpcomingDescription(Object amount) {
+    return 'คุณมีรายการจ่ายประจำที่กำลังจะถึงรวม $amount แล้ว มาจัดงบส่วนที่เหลือให้เหมาะกับรายการเหล่านี้กัน';
+  }
+
+  @override
+  String get scheduledBills => 'บิลที่กำหนดไว้';
+
+  @override
+  String yourOrdinalMonthWithMoneko(Object ordinal) {
+    return 'เดือนที่ $ordinal ของคุณกับ Moneko';
+  }
+
+  @override
+  String introMilestoneDescription(Object month) {
+    return 'ตอนนี้เรามีประวัติการใช้จ่ายเพียงพอแล้ว จึงปรับแผนของ $month ให้เข้ากับการใช้จ่ายจริงของคุณได้มากขึ้น';
+  }
+
+  @override
+  String monthsAbbreviation(Object count) {
+    return '$count เดือน';
+  }
+
+  @override
+  String get withMoneko => 'กับ Moneko';
+
+  @override
+  String get introFreshStartDescription => 'เดือนใหม่คือจุดเริ่มต้นใหม่ ตั้งแผนของคุณ แล้ว Moneko จะเรียนรู้จากรูปแบบการใช้จ่ายของคุณ';
+
+  @override
+  String monthsWithMoneko(Object count) {
+    return '$count เดือนกับ Moneko';
+  }
+
+  @override
+  String get pocketsChangedWhilePreparingPlan => 'กระเป๋างบของคุณมีการเปลี่ยนแปลงระหว่างที่กำลังเตรียมแผน โปรดลองอีกครั้ง';
+
+  @override
+  String workingForElapsed(Object elapsed) {
+    return 'กำลังประมวลผลมาแล้ว $elapsed';
+  }
 }

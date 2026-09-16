@@ -19,9 +19,11 @@ class OtpInput extends StatefulWidget {
   State<OtpInput> createState() => _OtpInputState();
 }
 
-class _OtpInputState extends State<OtpInput> {
+class _OtpInputState extends State<OtpInput> with WidgetsBindingObserver {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  bool _restoreFocusOnResume = false;
+  int _lifecycleGeneration = 0;
 
   @override
   void initState() {
@@ -29,14 +31,42 @@ class _OtpInputState extends State<OtpInput> {
     _controller = TextEditingController(text: widget.initialValue);
     _focusNode = FocusNode();
     _controller.addListener(_onTextChanged);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final lifecycleGeneration = ++_lifecycleGeneration;
+
+    if (state == AppLifecycleState.inactive) {
+      _restoreFocusOnResume = _focusNode.hasFocus;
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed && _restoreFocusOnResume) {
+      _restoreFocusOnResume = false;
+      _focusNode.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final primaryFocus = FocusManager.instance.primaryFocus;
+        if (!mounted ||
+            lifecycleGeneration != _lifecycleGeneration ||
+            WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed ||
+            (primaryFocus != null && primaryFocus is! FocusScopeNode)) {
+          return;
+        }
+        FocusScope.of(context).requestFocus(_focusNode);
+      });
+    }
   }
 
   void _onTextChanged() {

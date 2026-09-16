@@ -327,6 +327,7 @@ Map<String, int> rebindCopiedPocketSuggestionAmounts({
     if (copiedPocketId == null || copiedPocketId.isEmpty) {
       throw const PocketsAiBudgetSuggestionsException(
         'Your pockets changed while your plan was being prepared. Please try again.',
+        code: 'POCKETS_CHANGED',
       );
     }
     reboundAmounts[copiedPocketId] = entry.value;

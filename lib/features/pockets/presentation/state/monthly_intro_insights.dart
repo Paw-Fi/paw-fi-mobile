@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/app/locale_provider.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
@@ -11,6 +14,8 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/domain/recurring_month_summary.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/l10n/app_localizations_en.dart';
 
 enum MonthlyInsightType {
   rolloverCarry,
@@ -103,22 +108,26 @@ class MonthlyIntroState {
   static MonthlyIntroState loading({
     required DateTime currentMonth,
     required String currency,
+    AppLocalizations? l10n,
+    String? localeName,
   }) {
+    final strings = l10n ?? AppLocalizationsEn('en');
     final previousMonth = DateTime(
       currentMonth.year,
       currentMonth.month - 1,
       1,
     );
-    final currentMonthName = DateFormat('MMMM').format(currentMonth);
-    final previousMonthName = DateFormat('MMMM').format(previousMonth);
+    final currentMonthName =
+        DateFormat('MMMM', localeName).format(currentMonth);
+    final previousMonthName =
+        DateFormat('MMMM', localeName).format(previousMonth);
     return MonthlyIntroState(
       primaryInsight: MonthlyIntroInsight(
         type: MonthlyInsightType.freshStart,
         priority: 10,
-        badge: 'WELCOME',
-        headline: 'Hello, $currentMonthName ✨',
-        description:
-            'A new month and a clean starting point. Set up your plan and Moneko will learn from how you spend.',
+        badge: strings.welcome.toUpperCase(),
+        headline: strings.helloMonthName(currentMonthName),
+        description: strings.introFreshStartDescription,
         sentiment: MonthlyInsightSentiment.positive,
       ),
       currentMonth: currentMonth,
@@ -179,15 +188,19 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
   List<RecurringTransaction> recurringExpenses = const [],
   int? monthsUsingMoneko,
   double? twoMonthsAgoSpend,
+  AppLocalizations? l10n,
+  String? localeName,
 }) {
+  final strings = l10n ?? AppLocalizationsEn('en');
   final previousMonth = DateTime(
     currentMonth.year,
     currentMonth.month - 1,
     1,
   );
-  final currentMonthName = DateFormat('MMMM').format(currentMonth);
-  final previousMonthName = DateFormat('MMMM').format(previousMonth);
-  final twoMonthsAgoName = DateFormat('MMMM').format(
+  final currentMonthName = DateFormat('MMMM', localeName).format(currentMonth);
+  final previousMonthName =
+      DateFormat('MMMM', localeName).format(previousMonth);
+  final twoMonthsAgoName = DateFormat('MMMM', localeName).format(
     DateTime(currentMonth.year, currentMonth.month - 2, 1),
   );
   final effectiveCurrency =
@@ -217,13 +230,14 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
         MonthlyIntroInsight(
           type: MonthlyInsightType.rolloverCarry,
           priority: 100,
-          badge: 'ROLLOVER',
-          headline:
-              'You\'re starting $currentMonthName with $formattedRollover extra',
-          description:
-              'Your unused budget from $previousMonthName has rolled forward. Let\'s decide where it can help most.',
+          badge: strings.pocketRolloverLabel.toUpperCase(),
+          headline: strings.startingMonthWithExtra(
+            currentMonthName,
+            formattedRollover,
+          ),
+          description: strings.introRolloverDescription(previousMonthName),
           metric: '+$formattedRollover',
-          metricLabel: 'Carried forward',
+          metricLabel: strings.carriedForward,
           sentiment: MonthlyInsightSentiment.positive,
         ),
       );
@@ -247,12 +261,15 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
         MonthlyIntroInsight(
           type: MonthlyInsightType.pocketAdjustment,
           priority: 90,
-          badge: 'FRESH START',
-          headline: 'New month, fresh balance',
-          description:
-              '$pocketName ran $formattedOverspent above plan last month. We can adjust $currentMonthName around how you actually spend.',
+          badge: strings.freshStart.toUpperCase(),
+          headline: strings.newMonthFreshBalance,
+          description: strings.introPocketAdjustmentDescription(
+            pocketName,
+            formattedOverspent,
+            currentMonthName,
+          ),
           metric: '+$formattedOverspent',
-          metricLabel: 'Above plan in $previousMonthName',
+          metricLabel: strings.abovePlanInMonth(previousMonthName),
           sentiment: MonthlyInsightSentiment.supportive,
         ),
       );
@@ -273,14 +290,13 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
         MonthlyIntroInsight(
           type: MonthlyInsightType.budgetPerformance,
           priority: 80,
-          badge: 'ON TRACK',
-          headline: 'You finished $previousMonthName on plan 🎉',
-          description:
-              'You stayed within your monthly budget. Let\'s build $currentMonthName around what worked.',
+          badge: strings.onTrack.toUpperCase(),
+          headline: strings.youFinishedMonthOnPlan(previousMonthName),
+          description: strings.introOnTrackDescription(currentMonthName),
           metric: totalPocketCount > 0
-              ? '$onTrackCount of $totalPocketCount'
+              ? strings.onTrackOfTotal(onTrackCount, totalPocketCount)
               : null,
-          metricLabel: totalPocketCount > 0 ? 'Pockets on budget' : null,
+          metricLabel: totalPocketCount > 0 ? strings.pocketsOnBudget : null,
           sentiment: MonthlyInsightSentiment.positive,
         ),
       );
@@ -295,12 +311,14 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
           MonthlyIntroInsight(
             type: MonthlyInsightType.spendingImprovement,
             priority: 70,
-            badge: 'PROGRESS',
-            headline: 'Great progress last month',
-            description:
-                'You spent $formattedDecrease less than the month before. Let\'s keep that momentum going in $currentMonthName.',
+            badge: strings.progress.toUpperCase(),
+            headline: strings.greatProgressLastMonth,
+            description: strings.introProgressDescription(
+              formattedDecrease,
+              currentMonthName,
+            ),
             metric: '-$formattedDecrease',
-            metricLabel: 'Spent vs $twoMonthsAgoName',
+            metricLabel: strings.spentVsMonth(twoMonthsAgoName),
             sentiment: MonthlyInsightSentiment.positive,
           ),
         );
@@ -326,12 +344,11 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
         MonthlyIntroInsight(
           type: MonthlyInsightType.upcomingRecurring,
           priority: 60,
-          badge: 'UPCOMING',
-          headline: '$currentMonthName is looking busy',
-          description:
-              'You already have $formattedRecurring of recurring payments coming up. Let\'s make sure the rest of your budget fits around them.',
+          badge: strings.upcoming.toUpperCase(),
+          headline: strings.monthIsLookingBusy(currentMonthName),
+          description: strings.introUpcomingDescription(formattedRecurring),
           metric: formattedRecurring,
-          metricLabel: 'Scheduled bills',
+          metricLabel: strings.scheduledBills,
           sentiment: MonthlyInsightSentiment.neutral,
         ),
       );
@@ -345,12 +362,11 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
       MonthlyIntroInsight(
         type: MonthlyInsightType.longevityMilestone,
         priority: 50,
-        badge: 'MILESTONE',
-        headline: 'Your $ordinal month with Moneko',
-        description:
-            'We now have enough history to make $currentMonthName\'s plan more tailored to how you actually spend.',
-        metric: '$monthsUsingMoneko mos',
-        metricLabel: 'With Moneko',
+        badge: strings.milestone.toUpperCase(),
+        headline: strings.yourOrdinalMonthWithMoneko(ordinal),
+        description: strings.introMilestoneDescription(currentMonthName),
+        metric: strings.monthsAbbreviation(monthsUsingMoneko),
+        metricLabel: strings.withMoneko,
         sentiment: MonthlyInsightSentiment.positive,
       ),
     );
@@ -361,10 +377,9 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
     MonthlyIntroInsight(
       type: MonthlyInsightType.freshStart,
       priority: 10,
-      badge: 'WELCOME',
-      headline: 'Hello, $currentMonthName ✨',
-      description:
-          'A new month and a clean starting point. Set up your plan and Moneko will learn from how you spend.',
+      badge: strings.welcome.toUpperCase(),
+      headline: strings.helloMonthName(currentMonthName),
+      description: strings.introFreshStartDescription,
       sentiment: MonthlyInsightSentiment.positive,
     ),
   );
@@ -378,7 +393,7 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
 
   // Derive secondary milestone text
   if (monthsUsingMoneko != null && monthsUsingMoneko >= 2) {
-    milestoneText = '$monthsUsingMoneko months with Moneko';
+    milestoneText = strings.monthsWithMoneko(monthsUsingMoneko);
   }
 
   // Pick secondary insight if available and different
@@ -410,6 +425,9 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
 final monthlyIntroInsightsProvider =
     Provider.family<MonthlyIntroState, MonthlyIntroInsightsParams>(
         (ref, params) {
+  final appLocale = resolveSupportedAppLocale(ref.watch(localeProvider));
+  final l10n = lookupAppLocalizations(appLocale);
+  final localeName = intlSafeLocaleName(appLocale);
   final scopeParams = params.scopeParams;
   final currentMonth = scopeParams.periodMonth ?? DateTime.now();
   final previousMonth = DateTime(
@@ -427,6 +445,8 @@ final monthlyIntroInsightsProvider =
     return MonthlyIntroState.loading(
       currentMonth: currentMonth,
       currency: params.currency,
+      l10n: l10n,
+      localeName: localeName,
     );
   }
 
@@ -484,5 +504,7 @@ final monthlyIntroInsightsProvider =
     recurringExpenses: recurringExpenses,
     monthsUsingMoneko: monthsUsingMoneko,
     twoMonthsAgoSpend: twoMonthsAgoSpend,
+    l10n: l10n,
+    localeName: localeName,
   );
 });

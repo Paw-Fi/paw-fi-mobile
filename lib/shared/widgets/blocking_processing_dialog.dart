@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Controller for updating the blocking processing dialog.
@@ -356,7 +357,9 @@ class _NonBlockingProcessingBannerState
                                 (_isProcessing && _elapsedSeconds > 5)) ...[
                               const SizedBox(height: 2),
                               Text(
-                                _subMessage ?? 'Working for $_elapsedLabel',
+                                _subMessage ??
+                                    context.l10n
+                                        .workingForElapsed(_elapsedLabel),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context)

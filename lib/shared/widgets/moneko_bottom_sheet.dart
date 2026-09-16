@@ -89,10 +89,15 @@ class MonekoBottomSheet {
     bool useSafeArea = true,
     String? title,
     VoidCallback? onClose,
+    ValueChanged<BuildContext>? onCloseWithContext,
     VoidCallback? onConfirm,
     bool isConfirmLoading = false,
     MonekoSheetConfirmController? confirmController,
   }) {
+    assert(
+      onClose == null || onCloseWithContext == null,
+      'Provide only one close callback.',
+    );
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -116,6 +121,7 @@ class MonekoBottomSheet {
           builder: builder,
           title: title,
           onClose: onClose,
+          onCloseWithContext: onCloseWithContext,
           onConfirm: onConfirm,
           isConfirmLoading: isConfirmLoading,
           confirmController: confirmController,
@@ -134,6 +140,7 @@ class _MonekoSheetContent extends StatelessWidget {
     required this.backgroundColor,
     this.title,
     this.onClose,
+    this.onCloseWithContext,
     this.onConfirm,
     this.isConfirmLoading = false,
     this.confirmController,
@@ -144,6 +151,7 @@ class _MonekoSheetContent extends StatelessWidget {
   final Color backgroundColor;
   final String? title;
   final VoidCallback? onClose;
+  final ValueChanged<BuildContext>? onCloseWithContext;
   final VoidCallback? onConfirm;
   final bool isConfirmLoading;
   final MonekoSheetConfirmController? confirmController;
@@ -168,6 +176,7 @@ class _MonekoSheetContent extends StatelessWidget {
           // Header with Circle Icons
           if (title != null ||
               onClose != null ||
+              onCloseWithContext != null ||
               onConfirm != null ||
               confirmController != null)
             Padding(
@@ -176,7 +185,22 @@ class _MonekoSheetContent extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Close Button
-                 
+                  if (onCloseWithContext != null || onClose != null)
+                    IconButton(
+                      onPressed: () {
+                        if (onCloseWithContext != null) {
+                          onCloseWithContext!(context);
+                        } else {
+                          onClose?.call();
+                        }
+                      },
+                      icon: Icon(Icons.close, color: colorScheme.onSurface),
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            colorScheme.onSurface.withValues(alpha: 0.1),
+                      ),
+                    )
+                  else
                     const SizedBox(width: 48),
 
                   // Title

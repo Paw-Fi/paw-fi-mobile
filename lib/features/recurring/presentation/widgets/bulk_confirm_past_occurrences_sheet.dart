@@ -27,7 +27,7 @@ Future<bool?> showBulkConfirmPastOccurrencesSheet({
     context: context,
     title: context.l10n.confirmRemainingCycles,
     isScrollControlled: true,
-    onClose: () => Navigator.of(context).pop(false),
+    onCloseWithContext: (sheetContext) => Navigator.of(sheetContext).pop(false),
     builder: (_) => _BulkConfirmPastOccurrencesForm(
       recurringTransaction: recurringTransaction,
       occurrences: occurrences,

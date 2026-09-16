@@ -116,7 +116,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          context.l10n.pocketsAiPageTitle(monthLabel),
+          context.l10n.planForMonth(monthLabel),
           style: textTheme.titleMedium?.copyWith(
             color: colorScheme.foreground,
             fontWeight: FontWeight.w700,
@@ -168,24 +168,24 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                   if (data.celebration != null &&
                       data.celebration!.trim().isNotEmpty)
                     _CoachingCardItem(
-                      tag: 'Win',
-                      title: context.l10n.pocketsAiPageWinsTitle,
+                      tag: context.l10n.win,
+                      title: context.l10n.whatYouDidWell,
                       body: data.celebration!.trim(),
                       tagColor: colorScheme.primary,
                     ),
                   if (data.topSpendInsight != null &&
                       data.topSpendInsight!.trim().isNotEmpty)
                     _CoachingCardItem(
-                      tag: 'Strategy',
-                      title: context.l10n.pocketsAiPageInsightsTitle,
+                      tag: context.l10n.strategy,
+                      title: context.l10n.smartSpendingStrategy,
                       body: data.topSpendInsight!.trim(),
                       tagColor: colorScheme.primary,
                     ),
                   if (data.pocketsHealthTip != null &&
                       data.pocketsHealthTip!.trim().isNotEmpty)
                     _CoachingCardItem(
-                      tag: 'Mindset',
-                      title: context.l10n.pocketsAiPageTipTitle,
+                      tag: context.l10n.mindset,
+                      title: context.l10n.budgetingPeaceOfMind,
                       body: data.pocketsHealthTip!.trim(),
                       tagColor: colorScheme.primary,
                     ),
@@ -232,7 +232,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${context.l10n.pocketsAiPagePocketsSectionTitle.toUpperCase()} (${data.suggestions.length})',
+                              '${context.l10n.suggestedPocketTargets.toUpperCase()} (${data.suggestions.length})',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -352,14 +352,22 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
                                   if (context.mounted) {
                                     AppToast.success(
                                       context,
-                                      context.l10n.pocketsAiPageSuccessToast,
+                                      context
+                                          .l10n.aiBudgetPlanAppliedSuccessfully,
                                     );
                                     Navigator.of(context).pop();
                                   }
                                 } catch (error) {
                                   closeDialog();
                                   if (context.mounted) {
-                                    AppToast.error(context, error.toString());
+                                    AppToast.error(
+                                      context,
+                                      error is PocketsAiBudgetSuggestionsException &&
+                                              error.code == 'POCKETS_CHANGED'
+                                          ? context.l10n
+                                              .pocketsChangedWhilePreparingPlan
+                                          : error.toString(),
+                                    );
                                   }
                                 } finally {
                                   closeDialog();
@@ -430,7 +438,7 @@ class _EditorialHeroHeader extends StatelessWidget {
         Text(
           (headline?.trim().isNotEmpty ?? false)
               ? monthLabel.toUpperCase()
-              : '$monthLabel • AI BLUEPRINT'.toUpperCase(),
+              : '$monthLabel • ${context.l10n.aiBlueprint}'.toUpperCase(),
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -468,7 +476,7 @@ class _EditorialHeroHeader extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(
-              context.l10n.pocketsAiPageHeroAvailableLabel,
+              context.l10n.totalAvailableThisMonth,
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
@@ -505,7 +513,7 @@ class _EditorialHeroHeader extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        context.l10n.pocketsAiPageHeroSuggestedPartLabel,
+                        context.l10n.planForThisMonth,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -546,8 +554,8 @@ class _EditorialHeroHeader extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         hasDebt
-                            ? context.l10n.pocketsAiPageHeroDebtPartLabel
-                            : context.l10n.pocketsAiPageHeroCarryPartLabel,
+                            ? context.l10n.toCoverFromLastMonth
+                            : context.l10n.carriedFromLastMonth,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -647,7 +655,7 @@ class _KnownCashFlowSummary extends StatelessWidget {
                           size: 12, color: colorScheme.primary),
                       const SizedBox(width: 4),
                       Text(
-                        'COVERED',
+                        context.l10n.covered.toUpperCase(),
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
@@ -989,9 +997,8 @@ class _PocketSuggestionComboItem extends StatelessWidget {
     );
 
     final iconData = getPocketIconData(pocket?.icon ?? item.icon);
-    final pocketName = pocket?.name ??
-        item.pocketName ??
-        context.l10n.pocketsAiSuggestionsUnknownPocket;
+    final pocketName =
+        pocket?.name ?? item.pocketName ?? context.l10n.pocketSegmentLabel;
 
     final spent = pocket?.spent ??
         (item.previousSpentCents != null
@@ -1028,11 +1035,6 @@ class _PocketSuggestionComboItem extends StatelessWidget {
       return '$sign$currencySymbol$amount';
     }
 
-    final String? rolloverBadgeText = rolloverEnabled && incomingCarryCents != 0
-        ? (incomingCarryCents > 0
-            ? '${moneyFromCents(incomingCarryCents, includeSign: true)} carried in'
-            : '${moneyFromCents(incomingCarryCents, includeSign: true)} to cover')
-        : null;
     final availableAfterPlanDisplay = moneyFromCents(
       suggestedAvailableCents,
       includeSign: suggestedAvailableCents < 0,
@@ -1059,8 +1061,8 @@ class _PocketSuggestionComboItem extends StatelessWidget {
           historicalSpentDisplay: spentDisplay,
           historicalPlannedDisplay: limitDisplay,
           historicalPeriodLabel: usesPreviousMonthPockets
-              ? context.l10n.pocketsAiPageLastMonthLabel
-              : context.l10n.pocketsAiPageThisMonthLabel,
+              ? context.l10n.lastMonth
+              : context.l10n.thisMonthSoFar,
           reason: item.reason.trim(),
           tip: item.tip?.trim(),
           colorScheme: colorScheme,
@@ -1072,7 +1074,7 @@ class _PocketSuggestionComboItem extends StatelessWidget {
     return Semantics(
       container: true,
       label:
-          '$pocketName. ${context.l10n.pocketsAiPageAvailableAfterPlanLabel} $availableAfterPlanDisplay. ${context.l10n.viewMore}',
+          '$pocketName. ${context.l10n.availableAfterPlan} $availableAfterPlanDisplay. ${context.l10n.viewMore}',
       child: GestureDetector(
         onTap: showPlanDetails,
         child: Container(
@@ -1156,7 +1158,6 @@ class _PocketSuggestionComboItem extends StatelessWidget {
                             ),
                           ],
                         ),
-                   
                         const SizedBox(height: 6),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -1244,9 +1245,9 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
     final hasTip = tip != null && tip!.isNotEmpty;
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.68,
-      minChildSize: 0.42,
-      maxChildSize: 0.9,
+      initialChildSize: 0.8,
+      minChildSize: 0.8,
+      maxChildSize: 0.8,
       builder: (context, controller) => ListView(
         controller: controller,
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -1254,7 +1255,7 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
           const ModalSheetHandle(),
           const SizedBox(height: 12),
           Text(
-            context.l10n.pocketsAiPagePlanDetailsTitle,
+            context.l10n.howThisPlanWasMade,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -1286,22 +1287,22 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _PlanDetailSection(
-            title: context.l10n.pocketsAiPageThisMonthLabel,
+            title: context.l10n.thisMonthSoFar,
             colorScheme: colorScheme,
             children: [
               _PlanDetailRow(
-                label: context.l10n.pocketsAiPageSuggestedAddLabel,
+                label: context.l10n.addThisMonth,
                 value: suggestedAddDisplay,
                 colorScheme: colorScheme,
               ),
               if (rolloverEnabled)
                 _PlanDetailRow(
-                  label: context.l10n.pocketsAiPageCarryIntoMonthLabel,
+                  label: context.l10n.carriedIn,
                   value: incomingCarryDisplay,
                   colorScheme: colorScheme,
                 ),
               _PlanDetailRow(
-                label: context.l10n.pocketsAiPageAvailableAfterPlanLabel,
+                label: context.l10n.availableAfterPlan,
                 value: availableAfterPlanDisplay,
                 emphasized: true,
                 colorScheme: colorScheme,
@@ -1314,12 +1315,12 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
             colorScheme: colorScheme,
             children: [
               _PlanDetailRow(
-                label: context.l10n.pocketsAiPagePreviousSpentLabel,
+                label: context.l10n.lastMonthSpent,
                 value: historicalSpentDisplay,
                 colorScheme: colorScheme,
               ),
               _PlanDetailRow(
-                label: context.l10n.pocketsAiPagePlannedLabel,
+                label: context.l10n.planned,
                 value: historicalPlannedDisplay,
                 colorScheme: colorScheme,
               ),
@@ -1327,7 +1328,7 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           Text(
-            context.l10n.pocketsAiPageReasonTitle,
+            context.l10n.whyThisTargetFits,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -1479,13 +1480,18 @@ class _SuggestionsLoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return PreparationLoadingView(
-      title: l10n.pocketsAiPageLoadingTitle,
+      title: l10n.personalizingYourPlan,
       body: l10n.pocketsAiPageLoadingBody,
       steps: [
-        l10n.pocketsAiPageLoadingStepReviewing,
-        l10n.pocketsAiPageLoadingStepRecurring,
-        l10n.pocketsAiPageLoadingStepBalancing,
-        l10n.pocketsAiPageLoadingStepFinalizing,
+        l10n.reviewingPastSpending,
+        l10n.analyzingRecurringCommitments,
+        l10n.balancingPocketTargets,
+        l10n.finalizingYourPlan,
+      ],
+      stepDurations: const [
+        Duration(milliseconds: 3500),
+        Duration(milliseconds: 4500),
+        Duration(milliseconds: 6000),
       ],
     );
   }

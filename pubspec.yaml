@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library//archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: "3.1.0+231" 
+version: "3.1.1+232" 
 
 environment:
   sdk: '>=3.1.5 <4.0.0'
@@ -88,8 +88,7 @@ dependencies:
   collection: ^1.18.0
   record: ^6.1.2
   excel: ^4.0.6
-  in_app_purchase: ^3.2.1
-  in_app_purchase_android: ^0.4.0
+  in_app_purchase_platform_interface: ^1.4.0
   # 0.4.8 omitted StoreKit 2 cancelled/pending outcomes from purchaseStream.
   # Pin the compatible patch that restores those terminal updates so checkout
   # can close immediately when the user cancels Apple's sheet.
@@ -160,6 +159,7 @@ flutter:
     - lib/assets/images/audio-message.png
     - lib/assets/gifs/loading-anim.gif
     - lib/assets/gifs/moneko-celebrate.gif
+    - lib/assets/gifs/moneko-box-pop.gif
     - lib/assets/gifs/moneko-curious.gif
     - lib/assets/gifs/splashscreen-loading.gif
     - lib/assets/mascots/

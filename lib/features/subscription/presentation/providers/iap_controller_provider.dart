@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -23,6 +23,13 @@ void _debugLog(Object? message) {
 // flow logs never ship in release builds.
 // ignore: avoid_print
 void print(Object? message) => _debugLog(message);
+
+void _ensureStoreKitPlatformRegistered() {
+  if (InAppPurchasePlatform.instance is InAppPurchaseStoreKitPlatform) {
+    return;
+  }
+  InAppPurchaseStoreKitPlatform.registerPlatform();
+}
 
 class IapState {
   final bool storeAvailable;
@@ -202,6 +209,8 @@ class IapController extends AsyncNotifier<IapState> {
       );
     }
 
+    _ensureStoreKitPlatformRegistered();
+
     final products = ref.watch(subscriptionProductsProvider).value ??
         const <SubscriptionProduct>[];
     print('📦 Loaded ${products.length} products from catalog');
@@ -221,7 +230,7 @@ class IapController extends AsyncNotifier<IapState> {
     _ensurePurchaseListener();
 
     print('🔍 Checking if IAP store is available...');
-    final isAvailable = await InAppPurchase.instance.isAvailable();
+    final isAvailable = await InAppPurchasePlatform.instance.isAvailable();
     print('🏪 Store available: $isAvailable');
 
     if (!isAvailable) {
@@ -237,7 +246,8 @@ class IapController extends AsyncNotifier<IapState> {
     final ids = products.map((p) => p.storeProductId).toSet();
     print('🔍 Querying product details for: $ids');
 
-    final response = await InAppPurchase.instance.queryProductDetails(ids);
+    final response =
+        await InAppPurchasePlatform.instance.queryProductDetails(ids);
 
     if (response.error != null) {
       print('❌ Query error: ${response.error!.message}');
@@ -287,7 +297,8 @@ class IapController extends AsyncNotifier<IapState> {
     }
 
     print('🎧 Setting up purchase stream listener...');
-    _purchaseSubscription = InAppPurchase.instance.purchaseStream.listen(
+    _purchaseSubscription =
+        InAppPurchasePlatform.instance.purchaseStream.listen(
       _onPurchaseUpdated,
       onError: (Object error) {
         print('❌ Purchase stream error: $error');
@@ -304,7 +315,7 @@ class IapController extends AsyncNotifier<IapState> {
     );
     print('✅ Purchase stream listener set up');
     print(
-        '🎧 purchaseStream isBroadcast=${InAppPurchase.instance.purchaseStream.isBroadcast}');
+        '🎧 purchaseStream isBroadcast=${InAppPurchasePlatform.instance.purchaseStream.isBroadcast}');
 
     ref.onDispose(() {
       print('Disposing purchase listener');
@@ -318,7 +329,6 @@ class IapController extends AsyncNotifier<IapState> {
   String? _platformString() {
     if (kIsWeb) return null;
     if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
-    if (defaultTargetPlatform == TargetPlatform.android) return 'android';
     return null;
   }
 
@@ -496,45 +506,19 @@ class IapController extends AsyncNotifier<IapState> {
         return;
       }
 
-      PurchaseParam purchaseParam;
-
       print('🧭 buy() step 7: build purchase param');
-      if (platform == 'android' && details is GooglePlayProductDetails) {
-        print('🤖 Android purchase flow');
-        // For Google subscriptions, an offer token is required.
-        // GooglePlayProductDetails exposes a convenience getter for the selected offer.
-        final offerToken = details.offerToken;
-
-        if (!product.isLifetime && (offerToken == null || offerToken.isEmpty)) {
-          print('❌ No offer token available for Android subscription');
-          _setState(
-            isProcessing: false,
-            lastError: 'No subscription offer',
-            lastErrorCode: null,
-          );
-          throw Exception('No subscription offer available for this product');
-        }
-        purchaseParam = GooglePlayPurchaseParam(
-          productDetails: details,
-          applicationUserName: user.uid,
-          offerToken: offerToken,
-        );
-        print('✅ Android purchase param created');
-      } else {
-        print('🍎 iOS purchase flow');
-        purchaseParam = PurchaseParam(
-          productDetails: details,
-          applicationUserName: user.uid,
-        );
-        print('✅ iOS purchase param created');
-      }
+      final purchaseParam = PurchaseParam(
+        productDetails: details,
+        applicationUserName: user.uid,
+      );
+      print('✅ iOS purchase param created');
 
       print('🧭 buy() step 8: call buyNonConsumable');
       print(
           '📋 Purchase param details: productId=${purchaseParam.productDetails.id}, userName=${purchaseParam.applicationUserName}');
 
       // Subscriptions and non-consumables both use buyNonConsumable.
-      final ok = await InAppPurchase.instance.buyNonConsumable(
+      final ok = await InAppPurchasePlatform.instance.buyNonConsumable(
         purchaseParam: purchaseParam,
       );
 
@@ -591,7 +575,7 @@ class IapController extends AsyncNotifier<IapState> {
     final completer = Completer<void>();
     _restoreAttemptCompleter = completer;
 
-    await InAppPurchase.instance
+    await InAppPurchasePlatform.instance
         .restorePurchases(applicationUserName: user.uid);
 
     await completer.future.timeout(
@@ -891,7 +875,7 @@ class IapController extends AsyncNotifier<IapState> {
       } finally {
         if (purchase.pendingCompletePurchase && entitlementConfirmed) {
           try {
-            await InAppPurchase.instance.completePurchase(purchase);
+            await InAppPurchasePlatform.instance.completePurchase(purchase);
           } catch (_) {
             // Ignore completion errors; store will retry.
           }
