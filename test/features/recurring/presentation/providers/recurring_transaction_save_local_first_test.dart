@@ -63,6 +63,7 @@ void main() {
           startDate: DateTime(2026, 2, 1),
           frequency: 'monthly',
           description: 'Household groceries',
+          merchant: 'Fresh Market',
           householdId: 'household_1',
           customSplitType: SplitType.amount,
           customSplits: _amountSplits(),
@@ -82,12 +83,15 @@ void main() {
     expect(saved?.householdId, 'household_1');
     expect(localRows.single.currency, 'USD');
     expect(localRows.single.amountCents, 12000);
+    expect(localRows.single.merchant, 'Fresh Market');
     expect(localRows.single.walletId, 'wallet_usd');
     expect(mutation.operation, 'create');
     expect(mutation.status, localMutationStatusSynced);
     expect(requestBody['payerUserId'], 'user_2');
+    expect(requestBody['merchant'], 'Fresh Market');
     expect(requestBody['customSplits'], _amountSplitPayload);
     expect(capturedBody?['customSplits'], _amountSplitPayload);
+    expect(capturedBody?['merchant'], 'Fresh Market');
   });
 
   test('single income occurrence queues the atomic override before replay',
@@ -1207,6 +1211,7 @@ http.Response _successResponse(
         'date': updates?['date'] ?? body['date'],
         'category': category,
         'description': updates?['raw_text'] ?? body['description'],
+        'merchant': updates?['merchant'] ?? body['merchant'],
         'amount': amount,
         'currency': updates?['currency'] ?? body['currency'],
         'owner_type': body['ownerType'] ?? 'me',

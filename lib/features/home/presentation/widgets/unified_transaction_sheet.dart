@@ -1099,7 +1099,7 @@ class _UnifiedTransactionSheetV2State
       ),
       clipBehavior: Clip.antiAlias,
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
         body: PopScope(
           canPop: !_isSaving &&
               !_isDeleting &&
@@ -1553,33 +1553,35 @@ class _UnifiedTransactionSheetV2State
     required ColorScheme colorScheme,
     required List<String> breakdown,
   }) {
-    return AdaptiveExpansionTile(
-      iconColor: colorScheme.mutedForeground,
-      collapsedIconColor: colorScheme.mutedForeground,
-      initiallyExpanded: false,
-      title: Text(
-        context.l10n.breakdown,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.onSurface,
+    return MonekoInput(
+      child: AdaptiveExpansionTile(
+        iconColor: colorScheme.mutedForeground,
+        collapsedIconColor: colorScheme.mutedForeground,
+        initiallyExpanded: false,
+        title: Text(
+          context.l10n.breakdown,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
+          ),
         ),
-      ),
-      children: [
-        for (final item in breakdown)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              item,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
+        children: [
+          for (final item in breakdown)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Text(
+                item,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
-          ),
-        const SizedBox(height: 8),
-      ],
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 

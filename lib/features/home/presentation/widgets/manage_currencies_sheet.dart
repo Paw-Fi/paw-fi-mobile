@@ -28,7 +28,8 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedCodes = Set<String>.from(widget.currentShown.where(_isDisplayableCurrency));
+    _selectedCodes =
+        Set<String>.from(widget.currentShown.where(_isDisplayableCurrency));
     if (_selectedCodes.isEmpty) {
       for (final code in widget.allCodes) {
         if (_isDisplayableCurrency(code)) {
@@ -46,7 +47,8 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
   }
 
   bool _isDisplayableCurrency(String code) {
-    return currencyOptions.containsKey(code) && getCurrencyFlagPath(code) != null;
+    return currencyOptions.containsKey(code) &&
+        getCurrencyFlagPath(code) != null;
   }
 
   @override
@@ -54,7 +56,8 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    final displayableCodes = widget.allCodes.where(_isDisplayableCurrency).toList();
+    final displayableCodes =
+        widget.allCodes.where(_isDisplayableCurrency).toList();
 
     final query = _searchQuery.trim().toLowerCase();
     final filteredCodes = displayableCodes.where((code) {
@@ -135,7 +138,8 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
                           Icon(
                             Icons.search_off_rounded,
                             size: 40,
-                            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                            color: colorScheme.mutedForeground
+                                .withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -161,7 +165,7 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
                         final symbol = resolveCurrencySymbol(code);
 
                         return Material(
-                          color: Colors.transparent,
+                          color: colorScheme.surface.withValues(alpha: 0.0),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
                             onTap: () {
@@ -173,7 +177,8 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('At least one currency must be visible.'),
+                                        content: Text(
+                                            'At least one currency must be visible.'),
                                         duration: Duration(seconds: 2),
                                       ),
                                     );
@@ -196,7 +201,8 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: colorScheme.outline.withValues(alpha: 0.08),
+                                        color: colorScheme.outline
+                                            .withValues(alpha: 0.08),
                                         width: 1,
                                       ),
                                     ),
@@ -205,16 +211,20 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
                                           ? Image.asset(
                                               flagPath,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  _buildSymbolFallback(colorScheme, symbol),
+                                              errorBuilder: (context, error,
+                                                      stackTrace) =>
+                                                  _buildSymbolFallback(
+                                                      colorScheme, symbol),
                                             )
-                                          : _buildSymbolFallback(colorScheme, symbol),
+                                          : _buildSymbolFallback(
+                                              colorScheme, symbol),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           code,
@@ -247,9 +257,11 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
                                             size: 24,
                                           )
                                         : Icon(
-                                            Icons.radio_button_unchecked_rounded,
+                                            Icons
+                                                .radio_button_unchecked_rounded,
                                             key: const ValueKey('unselected'),
-                                            color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                            color: colorScheme.mutedForeground
+                                                .withValues(alpha: 0.6),
                                             size: 24,
                                           ),
                                   ),
@@ -279,7 +291,7 @@ class _ManageCurrenciesSheetState extends State<ManageCurrenciesSheet> {
               ),
               child: Text(
                 context.l10n.saveVisibleCurrencies,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),

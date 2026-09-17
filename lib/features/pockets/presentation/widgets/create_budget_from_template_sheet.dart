@@ -272,9 +272,7 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              color: scheme.brightness == Brightness.dark
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : Colors.black.withValues(alpha: 0.03),
+                              color: scheme.onSurface.withValues(alpha: 0.04),
                               borderRadius: BorderRadius.circular(100),
                               border: Border.all(
                                 color: scheme.outline.withValues(alpha: 0.08),
@@ -540,11 +538,11 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
               child: PrimaryAdaptiveButton(
                 onPressed: !isValid || isSubmitting.value ? null : handleSubmit,
                 child: isSubmitting.value
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2, color: scheme.onPrimary))
                     : Text(l10n.createBudget),
               ),
             ),

@@ -859,7 +859,7 @@ class _MerchantEmptyState extends StatelessWidget {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -902,7 +902,7 @@ class _MerchantEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Type a merchant name or domain to automatically match official logos, or retain custom text.',
+              'Type a merchant name or domain to automatically match official logos',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,
@@ -910,37 +910,7 @@ class _MerchantEmptyState extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: colorScheme.surfaceBorder,
-                  width: 0.5,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.auto_awesome_rounded,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Instant matching with Logo.dev',
-                    style: TextStyle(
-                      color: colorScheme.mutedForeground,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            
           ],
         ),
       ),

@@ -8,6 +8,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/pages/merchant_selection_page.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
@@ -36,6 +38,65 @@ class MerchantBulkScope {
       ..sort();
     return currencies.isEmpty ? null : currencies;
   }
+}
+
+class _BulkUpdateGroup {
+  const _BulkUpdateGroup({
+    required this.selectionId,
+    required this.representative,
+    required this.entries,
+  });
+
+  final String selectionId;
+  final ExpenseEntry representative;
+  final List<ExpenseEntry> entries;
+}
+
+ExpenseEntry _entryFromRecurringTransaction(RecurringTransaction transaction) {
+  return ExpenseEntry(
+    id: transaction.id,
+    userId: transaction.userId,
+    householdId: transaction.householdId,
+    date: transaction.date,
+    amountCents: (transaction.amount * 100).round(),
+    currency: transaction.currency,
+    category: transaction.category,
+    createdAt: transaction.createdAt,
+    updatedAt: transaction.updatedAt,
+    rawText: transaction.description ?? transaction.merchant,
+    merchant: transaction.merchant,
+    merchantId: transaction.merchantId,
+    merchantDomain: transaction.merchantDomain,
+    merchantStructuredName: transaction.merchantStructuredName,
+    walletId: transaction.accountId,
+    type: transaction.type,
+    isRecurring: true,
+    recurrenceRuleJson: transaction.recurrenceRule?.toJson(),
+  );
+}
+
+List<_BulkUpdateGroup> _groupEntriesForBulkUpdate(
+  List<ExpenseEntry> entries,
+) {
+  final grouped = <String, List<ExpenseEntry>>{};
+  for (final entry in entries) {
+    final recurringId = entry.parentRecurringId?.trim();
+    final selectionId =
+        recurringId == null || recurringId.isEmpty ? entry.id : recurringId;
+    grouped.putIfAbsent(selectionId, () => <ExpenseEntry>[]).add(entry);
+  }
+
+  return grouped.entries.map((group) {
+    final representative = group.value.firstWhere(
+      (entry) => entry.id == group.key && entry.isRecurring,
+      orElse: () => group.value.first,
+    );
+    return _BulkUpdateGroup(
+      selectionId: group.key,
+      representative: representative,
+      entries: List<ExpenseEntry>.unmodifiable(group.value),
+    );
+  }).toList(growable: false);
 }
 
 Future<void> showMerchantBulkUpdatePage({
@@ -89,11 +150,15 @@ class _MerchantBulkUpdatePageState
         endDate: null,
       );
 
-  Future<void> _save(List<ExpenseEntry> entries) async {
+  Future<void> _save(List<_BulkUpdateGroup> groups) async {
     if (_isSaving || _selectedIds.isEmpty) return;
     setState(() => _isSaving = true);
-    final selectedEntries = entries
-        .where((item) => _selectedIds.contains(item.id))
+
+    final seenIds = <String>{};
+    final selectedEntries = groups
+        .where((group) => _selectedIds.contains(group.selectionId))
+        .expand((group) => group.entries)
+        .where((entry) => seenIds.add(entry.id))
         .toList(growable: false);
     for (var start = 0; start < selectedEntries.length; start += 500) {
       final end = (start + 500).clamp(0, selectedEntries.length);
@@ -122,6 +187,31 @@ class _MerchantBulkUpdatePageState
         return;
       }
     }
+
+    final recurringNotifier = ref
+        .read(recurringTransactionsProvider(widget.scope.householdId).notifier);
+    for (final group in groups) {
+      if (!_selectedIds.contains(group.selectionId)) continue;
+      final transaction = group.representative.isRecurring
+          ? ref
+              .read(recurringTransactionsProvider(widget.scope.householdId))
+              .data
+              .valueOrNull
+              ?.where((item) => item.id == group.selectionId)
+              .firstOrNull
+          : null;
+      if (transaction == null) continue;
+      recurringNotifier.updateRecurring(
+        transaction.copyWith(
+          merchant: widget.selection.isCustomText
+              ? widget.selection.merchant
+              : transaction.merchant,
+          merchantId: widget.selection.merchantId,
+          merchantDomain: widget.selection.merchantDomain,
+          merchantStructuredName: widget.selection.merchantName,
+        ),
+      );
+    }
     if (!mounted) return;
     setState(() => _isSaving = false);
     Navigator.of(context).pop();
@@ -144,9 +234,21 @@ class _MerchantBulkUpdatePageState
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final feedState = ref.watch(transactionsFeedProvider(_query));
+    final recurringState =
+        ref.watch(recurringTransactionsProvider(widget.scope.householdId));
     final entries = feedState.items
         .where((entry) => entry.id != widget.excludedTransactionId)
+        .where((entry) => entry.parentRecurringId == null && !entry.isRecurring)
+        .followedBy(
+          (recurringState.data.valueOrNull ?? const <RecurringTransaction>[])
+              .where((transaction) {
+            final currencies = widget.scope.effectiveCurrencies;
+            return currencies == null ||
+                currencies.contains(transaction.currency.toUpperCase());
+          }).map(_entryFromRecurringTransaction),
+        )
         .toList(growable: false);
+    final groups = _groupEntriesForBulkUpdate(entries);
     final merchantName = widget.selection.merchantName ??
         widget.selection.merchant ??
         'Merchant';
@@ -162,7 +264,7 @@ class _MerchantBulkUpdatePageState
                 canSave: _selectedIds.isNotEmpty,
                 selectedCount: _selectedIds.length,
                 onClose: () => Navigator.of(context).pop(),
-                onSave: () => _save(entries),
+                onSave: () => _save(groups),
               ),
               Expanded(
                 child: AutoPaginatedScroll(
@@ -192,7 +294,7 @@ class _MerchantBulkUpdatePageState
                             child: _BulkUpdateSkeleton(isDark: isDark),
                           ),
                         )
-                      else if (entries.isEmpty)
+                      else if (groups.isEmpty)
                         const SliverFillRemaining(
                           hasScrollBody: false,
                           child: _BulkUpdateEmptyState(),
@@ -227,17 +329,18 @@ class _MerchantBulkUpdatePageState
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  for (var i = 0; i < entries.length; i++) ...[
+                                  for (var i = 0; i < groups.length; i++) ...[
                                     _BulkTransactionTile(
-                                      entry: entries[i],
-                                      isSelected:
-                                          _selectedIds.contains(entries[i].id),
+                                      entry: groups[i].representative,
+                                      isSelected: _selectedIds.contains(
+                                        groups[i].selectionId,
+                                      ),
                                       targetSelection: widget.selection,
                                       onTap: () => _toggleEntrySelection(
-                                        entries[i].id,
+                                        groups[i].selectionId,
                                       ),
                                     ),
-                                    if (i < entries.length - 1)
+                                    if (i < groups.length - 1)
                                       Padding(
                                         padding:
                                             const EdgeInsets.only(left: 68),
@@ -254,14 +357,11 @@ class _MerchantBulkUpdatePageState
                             ),
                           ),
                         ),
-                      PaginatedLoadMoreSliverIndicator(
-                        show: feedState.isLoadingMore,
-                      ),
                     ],
                   ),
                 ),
               ),
-              if (entries.isNotEmpty)
+              if (groups.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                   decoration: BoxDecoration(
@@ -276,7 +376,7 @@ class _MerchantBulkUpdatePageState
                   child: PrimaryAdaptiveButton(
                     onPressed: _selectedIds.isEmpty || _isSaving
                         ? null
-                        : () => _save(entries),
+                        : () => _save(groups),
                     isExpanded: true,
                     child: _isSaving
                         ? const SizedBox.square(

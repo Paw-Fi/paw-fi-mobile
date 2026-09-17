@@ -145,7 +145,7 @@ class _TransactionExportOptionsSheetState
     final textTheme = Theme.of(context).textTheme;
 
     return Material(
-      color: Colors.transparent,
+      color: scheme.surface.withValues(alpha: 0.0),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Container(

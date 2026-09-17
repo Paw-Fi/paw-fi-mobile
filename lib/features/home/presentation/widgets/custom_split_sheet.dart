@@ -1135,7 +1135,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1246,7 +1246,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         decoration: BoxDecoration(
           color: isSelected
               ? colorScheme.primary.withValues(alpha: 0.1)
-              : Colors.transparent,
+              : colorScheme.surface.withValues(alpha: 0.0),
           borderRadius: BorderRadius.circular(8),
         ),
         alignment: Alignment.center,

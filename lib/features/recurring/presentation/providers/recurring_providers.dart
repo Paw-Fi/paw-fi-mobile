@@ -166,6 +166,9 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
   int? interval,
   String? description,
   String? merchant,
+  String? merchantId,
+  String? merchantDomain,
+  String? merchantStructuredName,
   String? source,
   bool? hasReminder,
   int? reminderValue,
@@ -185,6 +188,9 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
     category: category,
     description: description,
     merchant: merchant,
+    merchantId: merchantId,
+    merchantDomain: merchantDomain,
+    merchantStructuredName: merchantStructuredName,
     source: source,
     amount: amount,
     currency: currency,
@@ -1267,7 +1273,11 @@ class RecurringOccurrenceConfirmationController {
       category: command.category ?? command.recurringTransaction.category,
       createdAt: now,
       rawText: command.description ?? command.recurringTransaction.description,
-      merchant: command.merchant ?? command.recurringTransaction.merchant,
+      merchant: command.recurringTransaction.merchant,
+      merchantId: command.recurringTransaction.merchantId,
+      merchantDomain: command.recurringTransaction.merchantDomain,
+      merchantStructuredName:
+          command.recurringTransaction.merchantStructuredName,
       walletId: command.accountId,
       splitGroupId: splitPlan?.optimisticSplit.id,
       type: command.recurringTransaction.type,
@@ -2565,6 +2575,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -2619,6 +2632,10 @@ class RecurringTransactionSaveNotifier
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (merchantId != null && merchantId.isNotEmpty)
+          'merchantId': merchantId,
+        if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
+          'merchantStructuredName': merchantStructuredName,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
         'isRecurring': true,
@@ -2680,6 +2697,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
@@ -2832,6 +2852,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -2889,6 +2912,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         source: source,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
@@ -2922,6 +2948,10 @@ class RecurringTransactionSaveNotifier
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (merchantId != null && merchantId.isNotEmpty)
+          'merchantId': merchantId,
+        if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
+          'merchantStructuredName': merchantStructuredName,
         if (source != null && source.isNotEmpty) 'source': source,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
@@ -3254,6 +3284,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -3351,6 +3384,8 @@ class RecurringTransactionSaveNotifier
       updates['merchant'] = merchant != null && merchant.trim().isNotEmpty
           ? merchant.trim()
           : null;
+      updates['merchant_id'] = merchantId;
+      updates['merchant_structured_name'] = merchantStructuredName;
 
       _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
       _debugPrint('   userId: $userId');
@@ -3457,6 +3492,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
@@ -3644,6 +3682,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -3742,6 +3783,8 @@ class RecurringTransactionSaveNotifier
       updatesIncome['merchant'] = merchant != null && merchant.trim().isNotEmpty
           ? merchant.trim()
           : null;
+      updatesIncome['merchant_id'] = merchantId;
+      updatesIncome['merchant_structured_name'] = merchantStructuredName;
       updatesIncome['source'] =
           source != null && source.trim().isNotEmpty ? source.trim() : null;
       if (householdId != null && payerUserId?.isNotEmpty == true) {
@@ -3760,6 +3803,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         source: source,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
