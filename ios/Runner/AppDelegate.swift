@@ -2930,23 +2930,18 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    setupSiriShortcutAuthChannel()
-    setupAppStoreCommitmentChannel()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  private func setupAppStoreCommitmentChannel() {
-    guard let controller = window?.rootViewController as? FlutterViewController else {
-      DispatchQueue.main.async { [weak self] in
-        self?.setupAppStoreCommitmentChannel()
-      }
-      return
-    }
+  func setupFlutterChannels(binaryMessenger: FlutterBinaryMessenger) {
+    setupSiriShortcutAuthChannel(binaryMessenger: binaryMessenger)
+    setupAppStoreCommitmentChannel(binaryMessenger: binaryMessenger)
+  }
 
+  private func setupAppStoreCommitmentChannel(binaryMessenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: AppStoreCommitmentChannel.name,
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: binaryMessenger
     )
     channel.setMethodCallHandler { call, result in
       guard #available(iOS 26.4, *) else {
@@ -3063,15 +3058,8 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     }
   }
 
-  private func setupSiriShortcutAuthChannel() {
-    guard let controller = window?.rootViewController as? FlutterViewController else {
-      DispatchQueue.main.async { [weak self] in
-        self?.setupSiriShortcutAuthChannel()
-      }
-      return
-    }
-
-    let channel = FlutterMethodChannel(name: SiriShortcutChannel.name, binaryMessenger: controller.binaryMessenger)
+  private func setupSiriShortcutAuthChannel(binaryMessenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: SiriShortcutChannel.name, binaryMessenger: binaryMessenger)
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case SiriShortcutChannel.syncAuthContext:
