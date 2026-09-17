@@ -75,6 +75,9 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/merchant_entry_sheet.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/features/home/presentation/pages/merchant_selection_page.dart';
+import 'package:moneko/features/home/presentation/pages/merchant_bulk_update_page.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -186,6 +189,7 @@ class _UnifiedTransactionSheetV2 extends ConsumerStatefulWidget {
 class _UnifiedTransactionSheetV2State
     extends ConsumerState<_UnifiedTransactionSheetV2> {
   final ImagePicker _imagePicker = ImagePicker();
+  TextEditingController? _merchantSearchController;
   bool _isSaving = false;
   bool _isDeleting = false;
   String? _localImagePath; // Track locally captured image for existing expenses
@@ -222,6 +226,12 @@ class _UnifiedTransactionSheetV2State
   String? _editedDescription;
   String? _editedMerchant;
   bool _hasEditedMerchant = false;
+  String? _editedMerchantId;
+  String? _editedMerchantDomain;
+  String? _editedMerchantStructuredName;
+  String? _editedMerchantEvidenceDescriptor;
+  bool _editedMerchantEvidenceAllowsStructuredLearning = false;
+  bool _hasEditedMerchantIdentity = false;
 
   void debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -458,6 +468,40 @@ class _UnifiedTransactionSheetV2State
     return widget.existingExpense!.merchant;
   }
 
+  String? get merchantStructuredName {
+    if (_hasEditedMerchantIdentity) return _editedMerchantStructuredName;
+    if (isNewExpense) {
+      return ref.read(pendingExpenseProvider)?.merchantStructuredName ??
+          widget.newExpense!.merchantStructuredName;
+    }
+    return widget.existingExpense!.merchantStructuredName;
+  }
+
+  String? get merchantDisplayName {
+    final rawMerchant = merchant?.trim();
+    if (rawMerchant?.isNotEmpty == true) return rawMerchant;
+    final structuredMerchant = merchantStructuredName?.trim();
+    return structuredMerchant?.isNotEmpty == true ? structuredMerchant : null;
+  }
+
+  String? get merchantId {
+    if (_hasEditedMerchantIdentity) return _editedMerchantId;
+    if (isNewExpense) {
+      return ref.read(pendingExpenseProvider)?.merchantId ??
+          widget.newExpense!.merchantId;
+    }
+    return widget.existingExpense!.merchantId;
+  }
+
+  String? get merchantDomain {
+    if (_hasEditedMerchantIdentity) return _editedMerchantDomain;
+    if (isNewExpense) {
+      return ref.read(pendingExpenseProvider)?.merchantDomain ??
+          widget.newExpense!.merchantDomain;
+    }
+    return widget.existingExpense!.merchantDomain;
+  }
+
   String? get receiptImageUrl {
     final url = widget.existingExpense?.receiptImageUrl;
     debugPrint('🖼️ Receipt image detected on expense');
@@ -503,6 +547,7 @@ class _UnifiedTransactionSheetV2State
         _editedCurrency != null ||
         _editedDescription != null ||
         _hasEditedMerchant ||
+        _hasEditedMerchantIdentity ||
         _editedDate != null ||
         _localImagePath != null ||
         _hasManuallyChangedPayer ||
@@ -530,6 +575,12 @@ class _UnifiedTransactionSheetV2State
         _sameCalendarDate(left.date, right.date) &&
         (left.description ?? '') == (right.description ?? '') &&
         (left.merchant ?? '') == (right.merchant ?? '') &&
+        left.merchantId == right.merchantId &&
+        left.merchantDomain == right.merchantDomain &&
+        left.merchantStructuredName == right.merchantStructuredName &&
+        left.merchantEvidenceDescriptor == right.merchantEvidenceDescriptor &&
+        left.merchantEvidenceAllowsStructuredLearning ==
+            right.merchantEvidenceAllowsStructuredLearning &&
         left.isIncome == right.isIncome &&
         _stringListEquals(left.breakdown, right.breakdown);
   }
@@ -973,8 +1024,10 @@ class _UnifiedTransactionSheetV2State
         ? pendingExpense.description
         : description;
     final displayMerchant = isNewExpense && pendingExpense != null
-        ? pendingExpense.merchant
-        : merchant;
+        ? (pendingExpense.merchant?.trim().isNotEmpty == true
+            ? pendingExpense.merchant
+            : pendingExpense.merchantStructuredName)
+        : merchantDisplayName;
     final displayBreakdown = isNewExpense
         ? (pendingExpense?.breakdown ?? widget.newExpense?.breakdown)
         : widget.existingExpense?.breakdown;
@@ -1033,6 +1086,8 @@ class _UnifiedTransactionSheetV2State
     final textColor =
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
+    final hasResolvableMerchantLogo =
+        buildLogoDevMerchantUrl(merchantId, merchantDomain) != null;
 
     return Container(
       constraints: BoxConstraints(
@@ -1109,15 +1164,57 @@ class _UnifiedTransactionSheetV2State
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 300),
                                 child: Container(
-                                  padding: const EdgeInsets.all(16),
+                                  key: ValueKey(
+                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|$displayCategory',
+                                  ),
+                                  padding: hasResolvableMerchantLogo
+                                      ? EdgeInsets.zero
+                                      : const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: textColor.withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
-                                    getCategoryIcon(displayCategory),
-                                    size: 36,
-                                    color: textColor,
+                                  child: Semantics(
+                                    button: true,
+                                    label: hasResolvableMerchantLogo
+                                        ? context.l10n.merchant
+                                        : context.l10n.category,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () {
+                                        if (hasResolvableMerchantLogo) {
+                                          unawaited(_handleEditMerchant(
+                                            displayMerchant,
+                                            isIncomeMode,
+                                          ));
+                                        } else {
+                                          _handleEditCategory(
+                                            displayCategory,
+                                            userCategoryLists,
+                                          );
+                                        }
+                                      },
+                                      child: SizedBox(
+                                        width:
+                                            hasResolvableMerchantLogo ? 68 : 36,
+                                        height:
+                                            hasResolvableMerchantLogo ? 68 : 36,
+                                        child: ClipOval(
+                                          child: MerchantLogo(
+                                            merchantId: merchantId,
+                                            domain: merchantDomain,
+                                            fallback: Center(
+                                              child: Icon(
+                                                getCategoryIcon(
+                                                    displayCategory),
+                                                size: 36,
+                                                color: textColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1235,22 +1332,6 @@ class _UnifiedTransactionSheetV2State
                                       displayMerchant?.trim().isNotEmpty !=
                                           true,
                                 ),
-                                if (widget.existingExpense != null &&
-                                    !isIncomeMode &&
-                                    widget.existingExpense!.userId ==
-                                        ref.watch(authProvider).uid)
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: () => _showMerchantSearch(
-                                        widget.existingExpense!,
-                                        displayMerchant,
-                                      ),
-                                      child: Text(
-                                        '${context.l10n.search} ${context.l10n.merchant}',
-                                      ),
-                                    ),
-                                  ),
                                 _buildDivider(colorScheme),
                                 MonekoDisclosureRow(
                                   label: context.l10n.currency,
@@ -2083,8 +2164,10 @@ class _UnifiedTransactionSheetV2State
         : category;
 
     final displayMerchant = isNewExpense && pendingExpense != null
-        ? pendingExpense.merchant
-        : merchant;
+        ? (pendingExpense.merchant?.trim().isNotEmpty == true
+            ? pendingExpense.merchant
+            : pendingExpense.merchantStructuredName)
+        : merchantDisplayName;
     final displayDescription = isNewExpense && pendingExpense != null
         ? pendingExpense.description
         : description;
@@ -2526,42 +2609,100 @@ class _UnifiedTransactionSheetV2State
   }
 
   Future<void> _handleEditMerchant(
-      String? currentMerchant, bool isIncomeMode) async {
-    final result = await showMerchantEntrySheet(
+    String? currentMerchant,
+    bool isIncomeMode,
+  ) async {
+    final initialCandidates = isNewExpense
+        ? (ref.read(pendingExpenseProvider)?.merchantCandidates ??
+                widget.newExpense?.merchantCandidates ??
+                const <ParsedMerchantCandidate>[])
+            .map((candidate) => MerchantSearchCandidate(
+                  name: candidate.name,
+                  domain: candidate.domain,
+                  source: 'logo_dev',
+                ))
+            .toList(growable: false)
+        : const <MerchantSearchCandidate>[];
+    final result = await showMerchantSelectionPage(
       context: context,
       title: isIncomeMode ? context.l10n.source : context.l10n.merchant,
-      placeholder:
-          isIncomeMode ? context.l10n.incomeSalary : context.l10n.addMerchant,
-      initialValue: currentMerchant?.trim() ?? '',
-      saveLabel: context.l10n.save,
-      cancelLabel: context.l10n.cancel,
+      category: category,
+      initialQuery: currentMerchant?.trim() ?? '',
+      initialCandidates: initialCandidates,
     );
 
     if (!mounted || result == null) return;
 
-    final value = result.value;
-    final normalized = value.isEmpty ? null : value;
-
     if (isNewExpense) {
       final current = ref.read(pendingExpenseProvider);
       if (current != null) {
-        ref.read(pendingExpenseProvider.notifier).state =
-            current.copyWith(merchant: normalized);
+        ref.read(pendingExpenseProvider.notifier).state = current.copyWith(
+          merchant: result.merchant,
+          merchantId: result.merchantId,
+          merchantDomain: result.merchantDomain,
+          merchantStructuredName: result.merchantName,
+          merchantEvidenceDescriptor:
+              result.isCustomText ? null : result.descriptor,
+          merchantEvidenceAllowsStructuredLearning:
+              result.allowsStructuredLearning,
+        );
       }
-      return;
+    } else {
+      setState(() {
+        if (result.isCustomText) {
+          _editedMerchant = result.merchant;
+          _hasEditedMerchant = true;
+        }
+        _editedMerchantId = result.merchantId;
+        _editedMerchantDomain = result.merchantDomain;
+        _editedMerchantStructuredName = result.merchantName;
+        _editedMerchantEvidenceDescriptor =
+            result.isCustomText ? null : result.descriptor;
+        _editedMerchantEvidenceAllowsStructuredLearning =
+            result.allowsStructuredLearning;
+        _hasEditedMerchantIdentity = true;
+      });
     }
 
-    setState(() {
-      _editedMerchant = normalized;
-      _hasEditedMerchant = true;
-    });
+    if (!mounted) return;
+    final applyToOthers = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Apply merchant to other transactions?',
+      description:
+          'Choose other transactions in this space to update with this merchant.',
+      confirmLabel: context.l10n.continueAction,
+      cancelLabel: context.l10n.cancel,
+    );
+    if (applyToOthers?.confirmed != true || !mounted) return;
+    final householdScope = ref.read(householdScopeProvider);
+    final filters = ref.read(homeFilterProvider);
+    await showMerchantBulkUpdatePage(
+      context: context,
+      selection: result,
+      excludedTransactionId: widget.existingExpense?.id,
+      scope: MerchantBulkScope(
+        userId: ref.read(authProvider).uid,
+        householdId:
+            householdScope.activeAccountType == ActiveWalletType.personal
+                ? null
+                : householdScope.activeAccountHouseholdId,
+        selectedCurrency: filters.selectedCurrency,
+        selectedCurrencies: filters.normalizedSelectedCurrencies,
+      ),
+    );
   }
 
+  // ignore: unused_element
   Future<void> _showMerchantSearch(
     ExpenseEntry expense,
     String? initialQuery,
   ) async {
-    final controller = TextEditingController(text: initialQuery?.trim() ?? '');
+    final initialText = initialQuery?.trim() ?? '';
+    final controller = _merchantSearchController ??= TextEditingController();
+    controller.value = TextEditingValue(
+      text: initialText,
+      selection: TextSelection.collapsed(offset: initialText.length),
+    );
     final tryAgain = context.l10n.tryAgain;
     var isSearching = false;
     var errorMessage = '';
@@ -2822,7 +2963,6 @@ class _UnifiedTransactionSheetV2State
       ),
     );
     debounce?.cancel();
-    controller.dispose();
   }
 
   Future<void> _loadMembers(String householdId) async {
@@ -3492,7 +3632,10 @@ class _UnifiedTransactionSheetV2State
       createdAt: income.createdAt,
       updatedAt: income.updatedAt,
       rawText: income.description,
-      merchant: income.source,
+      merchant: income.merchant ?? income.source,
+      merchantId: income.merchantId,
+      merchantDomain: income.merchantDomain,
+      merchantStructuredName: income.merchantStructuredName,
       type: 'income',
       isRecurring: income.isRecurring,
     );
@@ -3564,6 +3707,14 @@ class _UnifiedTransactionSheetV2State
         'clientCreatedAt': optimisticEntry.createdAt.toIso8601String(),
         'description': expense.description,
         'merchant': expense.merchant,
+        if (expense.merchantId?.isNotEmpty == true)
+          'merchantId': expense.merchantId,
+        if (expense.merchantStructuredName?.isNotEmpty == true)
+          'merchantStructuredName': expense.merchantStructuredName,
+        if (expense.merchantEvidenceDescriptor?.isNotEmpty == true)
+          'merchantEvidenceDescriptor': expense.merchantEvidenceDescriptor,
+        if (expense.merchantEvidenceAllowsStructuredLearning)
+          'merchantEvidenceAllowStructured': true,
         if (expense.breakdown != null) 'breakdown': expense.breakdown,
         if (householdId != null) 'householdId': householdId,
         'accountId': accountId,
@@ -3682,6 +3833,12 @@ class _UnifiedTransactionSheetV2State
               date: expense.date,
               description: expense.description,
               merchant: expense.merchant,
+              merchantId: expense.merchantId,
+              merchantDomain: expense.merchantDomain,
+              merchantStructuredName: expense.merchantStructuredName,
+              merchantEvidenceDescriptor: expense.merchantEvidenceDescriptor,
+              merchantEvidenceAllowsStructuredLearning:
+                  expense.merchantEvidenceAllowsStructuredLearning,
               householdId: householdId,
               accountId: accountId,
               clientRecordId: mutationMetadata.clientRecordId,
@@ -4224,6 +4381,12 @@ class _UnifiedTransactionSheetV2State
                 date: expenseDateTime,
                 description: expense.description,
                 merchant: expense.merchant,
+                merchantId: expense.merchantId,
+                merchantDomain: expense.merchantDomain,
+                merchantStructuredName: expense.merchantStructuredName,
+                merchantEvidenceDescriptor: expense.merchantEvidenceDescriptor,
+                merchantEvidenceAllowsStructuredLearning:
+                    expense.merchantEvidenceAllowsStructuredLearning,
                 householdId: effectiveHouseholdId,
                 accountId: selectedFinancialAccountId,
                 customSplitType:
@@ -4452,6 +4615,11 @@ class _UnifiedTransactionSheetV2State
               trimmedMerchant.isEmpty ? null : trimmedMerchant;
         }
 
+        if (_hasEditedMerchantIdentity) {
+          updates['merchant_id'] = _editedMerchantId;
+          updates['merchant_structured_name'] = _editedMerchantStructuredName;
+        }
+
         // Do not turn an unresolved wallet selector into an explicit request
         // to clear the account. In particular, split edits are committed by
         // an atomic backend RPC and require either the existing account or a
@@ -4554,12 +4722,22 @@ class _UnifiedTransactionSheetV2State
 
         // Build optional extra body for split creation or update
         Map<String, dynamic>? extraBody;
+        if (_hasEditedMerchantIdentity &&
+            _editedMerchantId != null &&
+            _editedMerchantEvidenceDescriptor != null) {
+          extraBody = {
+            'merchantEvidenceDescriptor': _editedMerchantEvidenceDescriptor,
+            'merchantEvidenceAllowStructured':
+                _editedMerchantEvidenceAllowsStructuredLearning,
+          };
+        }
         if (targetIsPortfolio && targetHouseholdId != null) {
-          extraBody = {'isPortfolio': true};
+          extraBody = {...?extraBody, 'isPortfolio': true};
         }
         if (shouldCreateSplitGroupForExisting) {
           final splitTypeStr = _customSplitType!.toString().split('.').last;
           extraBody = {
+            ...?extraBody,
             'householdId': targetHouseholdId,
             'isPortfolio': targetIsPortfolio,
             'customSplits': {
@@ -4635,6 +4813,7 @@ class _UnifiedTransactionSheetV2State
                 ? 'equal'
                 : currentType.toString().split('.').last;
             extraBody = {
+              ...?extraBody,
               // The split payload is also required for amount-only edits so
               // the backend can rescale existing lines. Tell new servers
               // explicitly whether the user actually changed the split;
@@ -4760,6 +4939,8 @@ class _UnifiedTransactionSheetV2State
                   updates,
                   extraBody: extraBody,
                   originalExpense: widget.existingExpense,
+                  optimisticMerchantDomain:
+                      _hasEditedMerchantIdentity ? _editedMerchantDomain : null,
                 );
         debugPrint(
           '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
@@ -5016,6 +5197,12 @@ class _UnifiedTransactionSheetV2State
         setState(() => _isDeleting = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _merchantSearchController?.dispose();
+    super.dispose();
   }
 }
 

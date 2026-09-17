@@ -227,7 +227,19 @@ Future<void> _dispatchMobileMutation(
             'Transaction create sync succeeded without a saved transaction payload',
           );
         }
-        final savedEntry = ExpenseEntry.fromJson(savedPayload).copyWith(
+        final queuedTransaction = _mapValue(payload['transaction']);
+        final queuedEntry = queuedTransaction == null
+            ? null
+            : ExpenseEntry.fromJson(queuedTransaction);
+        final parsedSavedEntry = ExpenseEntry.fromJson(savedPayload);
+        final matchingQueuedMerchantDomain =
+            parsedSavedEntry.merchantId != null &&
+                    parsedSavedEntry.merchantId == queuedEntry?.merchantId
+                ? queuedEntry?.merchantDomain
+                : null;
+        final savedEntry = parsedSavedEntry.copyWith(
+          merchantDomain:
+              parsedSavedEntry.merchantDomain ?? matchingQueuedMerchantDomain,
           clientRecordId: mutation.entityId,
           clientMutationId: mutation.clientMutationId,
           idempotencyKey:
@@ -239,7 +251,6 @@ Future<void> _dispatchMobileMutation(
           savedEntry: savedEntry,
           clientMutationId: mutation.clientMutationId,
         );
-        final queuedTransaction = _mapValue(payload['transaction']);
         if (reconciledEntry != null) {
           reconcileSyncedHouseholdTransactionOverlays(
             expensesNotifier:
@@ -326,6 +337,35 @@ Future<void> _dispatchMobileMutation(
         clientMutationId: mutation.clientMutationId,
       );
       _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
+      return;
+    case 'batch_update_transaction':
+      final responseBody = await _invokeMutationFunction(
+        'update-transactions-batch',
+        {
+          ..._metadataFromPayload(payload),
+          'transactionIds': payload['transactionIds'],
+          'householdId': payload['householdId'],
+          'currencies': payload['currencies'],
+          'updates': _mapValue(payload['updates']) ?? const <String, dynamic>{},
+          'descriptorsById': payload['descriptorsById'],
+        },
+      );
+      final responseData = responseBody['data'];
+      if (responseData is! List) {
+        throw StateError(
+            'Batch transaction update sync succeeded without rows');
+      }
+      final entries = responseData
+          .whereType<Map>()
+          .map((entry) =>
+              ExpenseEntry.fromJson(Map<String, dynamic>.from(entry)))
+          .toList(growable: false);
+      await database.markOptimisticTransactionBatchUpdateSynced(
+        entries: entries,
+        clientMutationId: mutation.clientMutationId,
+      );
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       return;
     case 'skip_recurring_occurrence':
       await _invokeMutationFunction(

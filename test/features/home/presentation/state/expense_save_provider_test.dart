@@ -53,6 +53,8 @@ void main() {
               'category': 'food',
               'amount_cents': 1250,
               'currency': 'EUR',
+              'merchant_id': 'merchant-tesco',
+              'merchant_structured_name': 'Tesco',
               'type': 'expense',
               'created_at': '2026-04-20T10:00:00.000Z',
             },
@@ -91,6 +93,9 @@ void main() {
                 currencySymbol: 'EUR',
                 date: DateTime(2026, 4, 20),
                 description: 'Lunch',
+                merchantId: 'merchant-tesco',
+                merchantDomain: 'tesco.com',
+                merchantStructuredName: 'Tesco',
               ),
               clientRecordId: 'optimistic_abc',
               clientMutationId: 'mobile:optimistic_abc',
@@ -99,10 +104,15 @@ void main() {
             );
 
     expect(saved?.id, 'expense_1');
+    expect(saved?.merchantId, 'merchant-tesco');
+    expect(saved?.merchantDomain, 'tesco.com');
+    expect(saved?.merchantStructuredName, 'Tesco');
     expect(capturedSaveBody, isNotNull);
     expect(capturedSaveBody!['clientRecordId'], 'optimistic_abc');
     expect(capturedSaveBody!['clientMutationId'], 'mobile:optimistic_abc');
     expect(capturedSaveBody!['idempotencyKey'], 'mobile:optimistic_abc');
+    expect(capturedSaveBody!['merchantId'], 'merchant-tesco');
+    expect(capturedSaveBody!['merchantStructuredName'], 'Tesco');
   });
 
   test('saveExpense sends household custom splits and payer user id', () async {

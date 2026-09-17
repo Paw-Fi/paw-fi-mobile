@@ -34,6 +34,9 @@ class ParsedExpense {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantStructuredName;
+  final String? merchantEvidenceDescriptor;
+  final bool merchantEvidenceAllowsStructuredLearning;
   final List<ParsedMerchantCandidate> merchantCandidates;
   final List<String>? breakdown;
   final String? localImagePath; // Local image path for display before upload
@@ -52,6 +55,9 @@ class ParsedExpense {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantStructuredName,
+    this.merchantEvidenceDescriptor,
+    this.merchantEvidenceAllowsStructuredLearning = false,
     this.merchantCandidates = const [],
     this.breakdown,
     this.localImagePath,
@@ -88,6 +94,11 @@ class ParsedExpense {
           : null,
       merchantId: json['merchant_id']?.toString(),
       merchantDomain: json['merchant_domain']?.toString(),
+      merchantStructuredName: json['merchant_structured_name']?.toString(),
+      merchantEvidenceDescriptor:
+          json['merchant_evidence_descriptor']?.toString(),
+      merchantEvidenceAllowsStructuredLearning:
+          json['merchant_evidence_allow_structured'] == true,
       merchantCandidates: (json['merchant_candidates'] as List? ?? const [])
           .whereType<Map>()
           .map((value) => ParsedMerchantCandidate.fromJson(
@@ -122,6 +133,10 @@ class ParsedExpense {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_structured_name': merchantStructuredName,
+      'merchant_evidence_descriptor': merchantEvidenceDescriptor,
+      'merchant_evidence_allow_structured':
+          merchantEvidenceAllowsStructuredLearning,
       'merchant_candidates':
           merchantCandidates.map((value) => value.toJson()).toList(),
       'breakdown': breakdown,
@@ -143,6 +158,9 @@ class ParsedExpense {
     Object? merchant = _copyWithUnset,
     Object? merchantId = _copyWithUnset,
     Object? merchantDomain = _copyWithUnset,
+    Object? merchantStructuredName = _copyWithUnset,
+    Object? merchantEvidenceDescriptor = _copyWithUnset,
+    bool? merchantEvidenceAllowsStructuredLearning,
     List<ParsedMerchantCandidate>? merchantCandidates,
     Object? breakdown = _copyWithUnset,
     Object? localImagePath = _copyWithUnset,
@@ -168,6 +186,16 @@ class ParsedExpense {
       merchantDomain: identical(merchantDomain, _copyWithUnset)
           ? this.merchantDomain
           : merchantDomain as String?,
+      merchantStructuredName: identical(merchantStructuredName, _copyWithUnset)
+          ? this.merchantStructuredName
+          : merchantStructuredName as String?,
+      merchantEvidenceDescriptor:
+          identical(merchantEvidenceDescriptor, _copyWithUnset)
+              ? this.merchantEvidenceDescriptor
+              : merchantEvidenceDescriptor as String?,
+      merchantEvidenceAllowsStructuredLearning:
+          merchantEvidenceAllowsStructuredLearning ??
+              this.merchantEvidenceAllowsStructuredLearning,
       merchantCandidates: merchantCandidates ?? this.merchantCandidates,
       breakdown: identical(breakdown, _copyWithUnset)
           ? this.breakdown

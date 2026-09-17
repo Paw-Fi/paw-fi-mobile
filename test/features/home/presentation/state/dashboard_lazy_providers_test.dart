@@ -938,7 +938,7 @@ void main() {
       httpClient: MockClient((request) async {
         expect(
           request.url.path,
-          endsWith('/rest/v1/rpc/get_home_mom_transactions_v2'),
+          endsWith('/rest/v1/rpc/get_home_mom_transactions_v4'),
         );
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         final beforeId = body['p_before_id'] as String?;
@@ -965,6 +965,10 @@ void main() {
             'analytics_spending_multiplier': 0,
             'analytics_counts_toward_income': false,
             'is_recurring': false,
+            'merchant': null,
+            'merchant_id': 'merchant-tesco',
+            'merchant_domain': 'tesco.com',
+            'merchant_structured_name': 'Tesco',
           },
         );
         return http.Response(
@@ -1006,6 +1010,9 @@ void main() {
     expect(rows.first.analyticsClass, 'transfer_out');
     expect(rows.first.analyticsIsFinal, isTrue);
     expect(rows.first.spendingEffect, 0);
+    expect(rows.first.merchantId, 'merchant-tesco');
+    expect(rows.first.merchantDomain, 'tesco.com');
+    expect(rows.first.merchantStructuredName, 'Tesco');
   });
 
   test('owned MoM RPC preserves the complete Plaid economic matrix', () async {
@@ -1028,7 +1035,7 @@ void main() {
       httpClient: MockClient((request) async {
         expect(
           request.url.path,
-          endsWith('/rest/v1/rpc/get_home_mom_transactions_v2'),
+          endsWith('/rest/v1/rpc/get_home_mom_transactions_v4'),
         );
         final rows = <Map<String, dynamic>>[
           for (var index = 0; index < classes.length; index++)

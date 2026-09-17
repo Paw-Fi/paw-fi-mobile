@@ -106,6 +106,30 @@ void main() {
       expect(entry.category, 'salary');
     });
 
+    test('preserves canonical merchant identity in the optimistic row', () {
+      final transaction = ParsedExpense(
+        amount: 50,
+        category: 'groceries',
+        currency: 'USD',
+        currencySymbol: r'$',
+        date: DateTime(2026, 9, 17),
+        merchantId: 'merchant-tesco',
+        merchantDomain: 'tesco.com',
+        merchantStructuredName: 'Tesco',
+      );
+
+      final entry = buildOptimisticEntry(
+        transaction: transaction,
+        optimisticId: 'optimistic_tesco',
+        userId: 'user1',
+        type: 'expense',
+      );
+
+      expect(entry.merchantId, 'merchant-tesco');
+      expect(entry.merchantDomain, 'tesco.com');
+      expect(entry.merchantStructuredName, 'Tesco');
+    });
+
     test('builds entry with household ID', () {
       final transaction = ParsedExpense(
         isIncome: false,

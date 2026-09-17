@@ -40,6 +40,7 @@ class ExpenseEntry {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantStructuredName;
   final List<String>? breakdown;
   final String? receiptImageUrl;
   final String? localReceiptImagePath;
@@ -84,6 +85,7 @@ class ExpenseEntry {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantStructuredName,
     this.breakdown,
     this.receiptImageUrl,
     this.localReceiptImagePath,
@@ -134,6 +136,7 @@ class ExpenseEntry {
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {
     // Extract user data from nested users object if available
     final userData = json['users'] as Map<String, dynamic>?;
+    final merchantData = _parseJsonMap(json['merchants']);
 
     String stringOrEmpty(dynamic value) =>
         value == null ? '' : value.toString();
@@ -190,7 +193,12 @@ class ExpenseEntry {
       rawText: _sanitizeNullable(json['raw_text'] as String?),
       merchant: _sanitizeNullable(json['merchant'] as String?),
       merchantId: _sanitizeNullable(json['merchant_id'] as String?),
-      merchantDomain: _sanitizeNullable(json['merchant_domain'] as String?),
+      merchantDomain: _sanitizeNullable(
+        json['merchant_domain'] as String? ??
+            merchantData?['domain'] as String?,
+      ),
+      merchantStructuredName:
+          _sanitizeNullable(json['merchant_structured_name'] as String?),
       breakdown: json['breakdown'] != null
           ? (json['breakdown'] as List)
               .map((e) => sanitizeUtf16(e.toString()))
@@ -262,6 +270,7 @@ class ExpenseEntry {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_structured_name': merchantStructuredName,
       'breakdown': breakdown,
       'receipt_image_url': receiptImageUrl,
       'localReceiptImagePath': localReceiptImagePath,
@@ -311,6 +320,7 @@ class ExpenseEntry {
     String? merchant,
     String? merchantId,
     String? merchantDomain,
+    String? merchantStructuredName,
     List<String>? breakdown,
     String? receiptImageUrl,
     String? localReceiptImagePath,
@@ -356,6 +366,8 @@ class ExpenseEntry {
       merchant: merchant ?? this.merchant,
       merchantId: merchantId ?? this.merchantId,
       merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantStructuredName:
+          merchantStructuredName ?? this.merchantStructuredName,
       breakdown: breakdown ?? this.breakdown,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
       localReceiptImagePath:

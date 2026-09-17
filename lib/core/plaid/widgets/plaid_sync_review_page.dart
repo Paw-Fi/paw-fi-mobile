@@ -1054,7 +1054,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }) async {
     final userId = ref.read(authProvider).uid;
     final rows = await Supabase.instance.client.rpc(
-      'get_plaid_sync_review_transactions_v2',
+      'get_plaid_sync_review_transactions_v3',
       params: {
         'p_user_id': userId,
         'p_bank_connection_id': widget.session.connectionId,

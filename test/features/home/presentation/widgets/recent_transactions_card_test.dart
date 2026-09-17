@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/widgets/recent_transactions_ca
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 
 void main() {
   testWidgets(
@@ -122,5 +123,101 @@ void main() {
     expect(find.text('Insurance renewal'), findsNothing);
     expect(find.text(l10n.inDays(2)), findsNothing);
     expect(find.text(l10n.noTransactionsFound), findsOneWidget);
+  });
+
+  testWidgets('canonical merchant-only updates reach the mounted recent row',
+      (tester) async {
+    final transactionDate = DateTime(2026, 9, 9);
+    var expense = ExpenseEntry(
+      id: 'ebd30e06-b46d-4dc5-88e3-fd4c174fd65b',
+      date: transactionDate,
+      amountCents: 5000,
+      currency: 'USD',
+      category: 'petrol',
+      rawText: 'dinner',
+      createdAt: transactionDate,
+    );
+    late StateSetter updateCard;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              updateCard = setState;
+              return Scaffold(
+                body: buildRecentTransactionsCard(
+                  context,
+                  Theme.of(context).colorScheme,
+                  [expense],
+                  null,
+                  selectedCurrency: 'USD',
+                  onViewAll: () {},
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.widget<MerchantLogo>(find.byType(MerchantLogo)).merchantId,
+        isNull);
+
+    updateCard(() {
+      expense = expense.copyWith(
+        merchantId: '4d055fac-88b0-4750-b606-92f37c008975',
+        merchantDomain: 'tesco.com',
+        merchantStructuredName: 'Tesco',
+      );
+    });
+    await tester.pump();
+
+    final logo = tester.widget<MerchantLogo>(find.byType(MerchantLogo));
+    expect(logo.merchantId, '4d055fac-88b0-4750-b606-92f37c008975');
+    expect(logo.domain, 'tesco.com');
+  });
+
+  testWidgets('legacy merchant text keeps the category-logo fallback',
+      (tester) async {
+    final transactionDate = DateTime(2026, 9, 8);
+    final expense = ExpenseEntry(
+      id: 'legacy_merchant',
+      date: transactionDate,
+      amountCents: 1200,
+      currency: 'USD',
+      category: 'shopping',
+      rawText: 'card purchase',
+      merchant: 'Corner Shop',
+      createdAt: transactionDate,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: buildRecentTransactionsCard(
+                context,
+                Theme.of(context).colorScheme,
+                [expense],
+                null,
+                selectedCurrency: 'USD',
+                onViewAll: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Corner Shop'), findsOneWidget);
+    final logo = tester.widget<MerchantLogo>(find.byType(MerchantLogo));
+    expect(logo.merchantId, isNull);
+    expect(logo.domain, isNull);
   });
 }

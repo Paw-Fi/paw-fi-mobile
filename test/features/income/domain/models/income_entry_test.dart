@@ -183,6 +183,28 @@ void main() {
       expect(entry.privacyRedacted, false);
     });
 
+    test('fromJson preserves raw and canonical merchant identity', () {
+      final entry = IncomeEntry.fromJson({
+        'id': 'inc_merchant',
+        'date': '2026-09-16',
+        'category': 'income',
+        'amountMajor': 100,
+        'currency': 'USD',
+        'createdAt': '2026-09-16T00:00:00.000Z',
+        'merchant': 'Tesco receipt text',
+        'merchantId': 'merchant-tesco',
+        'merchantStructuredName': 'Tesco',
+        'merchants': {'domain': 'tesco.com'},
+      });
+
+      expect(entry.merchant, 'Tesco receipt text');
+      expect(entry.merchantId, 'merchant-tesco');
+      expect(entry.merchantDomain, 'tesco.com');
+      expect(entry.merchantStructuredName, 'Tesco');
+      expect(entry.toJson()['merchant'], 'Tesco receipt text');
+      expect(entry.toJson()['merchant_structured_name'], 'Tesco');
+    });
+
     test('fromJson handles null recurrence rule', () {
       final json = {
         'id': 'inc_1',

@@ -81,6 +81,7 @@ void main() {
         merchant: 'STARBUCKS 123',
         merchantId: 'merchant-starbucks',
         merchantDomain: 'starbucks.com',
+        merchantStructuredName: 'Starbucks',
       );
       await database.upsertTransactions([entry]);
       var rows = await database.getRecentTransactions(
@@ -89,6 +90,22 @@ void main() {
       );
       expect(rows.single.merchantId, 'merchant-starbucks');
       expect(rows.single.merchantDomain, 'starbucks.com');
+      expect(rows.single.merchantStructuredName, 'Starbucks');
+
+      await database.upsertTransactions([
+        ExpenseEntry.fromJson({
+          ...entry.toJson(),
+          'merchant_domain': null,
+          'merchant_structured_name': null,
+        }),
+      ]);
+      rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      expect(rows.single.merchantId, 'merchant-starbucks');
+      expect(rows.single.merchantDomain, 'starbucks.com');
+      expect(rows.single.merchantStructuredName, 'Starbucks');
 
       await database.upsertTransactions([
         ExpenseEntry.fromJson(

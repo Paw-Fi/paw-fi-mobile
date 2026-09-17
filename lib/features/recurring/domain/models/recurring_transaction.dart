@@ -38,6 +38,7 @@ class RecurringTransaction {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantStructuredName;
   final String? source; // For income
   final double amount; // In major units
   final String currency;
@@ -69,6 +70,7 @@ class RecurringTransaction {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantStructuredName,
     this.source,
     required this.amount,
     required this.currency,
@@ -93,6 +95,9 @@ class RecurringTransaction {
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
+    final merchantData = json['merchants'] is Map
+        ? Map<String, dynamic>.from(json['merchants'] as Map)
+        : null;
     // Infer type from source field (income) or default to expense
     // Backend doesn't always return 'type' field, so we need to infer it
     String inferredType;
@@ -155,7 +160,12 @@ class RecurringTransaction {
       description: sanitizedDescription,
       merchant: _sanitizeOptional(json['merchant'] as String?),
       merchantId: _sanitizeOptional(json['merchant_id'] as String?),
-      merchantDomain: _sanitizeOptional(json['merchant_domain'] as String?),
+      merchantDomain: _sanitizeOptional(
+        json['merchant_domain'] as String? ??
+            merchantData?['domain'] as String?,
+      ),
+      merchantStructuredName:
+          _sanitizeOptional(json['merchant_structured_name'] as String?),
       source: _sanitizeOptional(json['source'] as String?),
       amount: amountMajor ?? amountFromCents ?? amountLegacy ?? 0.0,
       currency: json['currency'] as String? ?? 'USD',
@@ -261,6 +271,7 @@ class RecurringTransaction {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_structured_name': merchantStructuredName,
       'source': source,
       'amountMajor': amount,
       'currency': currency,
@@ -300,6 +311,7 @@ class RecurringTransaction {
     String? merchant,
     String? merchantId,
     String? merchantDomain,
+    String? merchantStructuredName,
     String? source,
     double? amount,
     String? currency,
@@ -333,6 +345,8 @@ class RecurringTransaction {
       merchant: merchant ?? this.merchant,
       merchantId: merchantId ?? this.merchantId,
       merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantStructuredName:
+          merchantStructuredName ?? this.merchantStructuredName,
       source: source ?? this.source,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,

@@ -30,7 +30,7 @@ bool _isTransactionUpdateOperation(String operation) =>
 bool _isTransactionDeleteOperation(String operation) =>
     operation == 'unconfirm_recurring_occurrence';
 
-const int _localDatabaseSchemaVersion = 10;
+const int _localDatabaseSchemaVersion = 11;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -1043,6 +1043,65 @@ class MonekoDatabase {
       }
     });
 
+    _notifyChanged();
+  }
+
+  Future<void> writeOptimisticTransactionBatchUpdate({
+    required List<ExpenseEntry> originalEntries,
+    required List<ExpenseEntry> updatedEntries,
+    required String clientMutationId,
+    required Map<String, dynamic> payload,
+  }) async {
+    if (originalEntries.length != updatedEntries.length ||
+        originalEntries.isEmpty) {
+      throw ArgumentError('Batch transaction update entries must align');
+    }
+    final touched = <_SummaryKey>{
+      for (final entry in originalEntries) _SummaryKey.fromEntry(entry),
+      for (final entry in updatedEntries) _SummaryKey.fromEntry(entry),
+    };
+    _runInTransaction(() {
+      for (final entry in updatedEntries) {
+        _upsertTransaction(
+          entry.copyWith(clientMutationId: clientMutationId),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'transaction',
+        entityId: 'batch:$clientMutationId',
+        operation: 'batch_update_transaction',
+        payload: {
+          ...payload,
+          'originalEntries':
+              originalEntries.map((entry) => entry.toJson()).toList(),
+        },
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+    _notifyChanged();
+  }
+
+  Future<void> markOptimisticTransactionBatchUpdateSynced({
+    required List<ExpenseEntry> entries,
+    required String clientMutationId,
+  }) async {
+    _runInTransaction(() {
+      for (final entry in entries) {
+        if (_transactionMutationStillOwnsEntry(entry.id, clientMutationId)) {
+          _upsertTransaction(entry,
+              syncStatus: localSyncStatusSynced, preserveLocalPending: false);
+          _rebuildSummary(_SummaryKey.fromEntry(entry));
+        }
+      }
+      _markMutationStatus(
+        clientMutationId: clientMutationId,
+        status: localMutationStatusSynced,
+      );
+    });
     _notifyChanged();
   }
 
@@ -4055,6 +4114,7 @@ class MonekoDatabase {
         merchant TEXT,
         merchant_id TEXT,
         merchant_domain TEXT,
+        merchant_structured_name TEXT,
         breakdown_json TEXT,
         receipt_image_url TEXT,
         local_receipt_image_path TEXT,
@@ -4257,6 +4317,7 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'merchant', 'TEXT');
       _ensureColumn('local_transactions', 'merchant_id', 'TEXT');
       _ensureColumn('local_transactions', 'merchant_domain', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant_structured_name', 'TEXT');
       _ensureColumn('local_transactions', 'breakdown_json', 'TEXT');
       _ensureColumn('local_transactions', 'receipt_image_url', 'TEXT');
       _ensureColumn('local_transactions', 'local_receipt_image_path', 'TEXT');
@@ -4413,8 +4474,9 @@ class MonekoDatabase {
         analytics_is_final, analytics_spending_multiplier,
         analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
-        idempotency_key, sync_status, merchant_id, merchant_domain
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        idempotency_key, sync_status, merchant_id, merchant_domain,
+        merchant_structured_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -4430,7 +4492,20 @@ class MonekoDatabase {
         raw_text = excluded.raw_text,
         merchant = excluded.merchant,
         merchant_id = excluded.merchant_id,
-        merchant_domain = excluded.merchant_domain,
+        merchant_domain = CASE
+          WHEN excluded.merchant_id IS NOT NULL
+            AND excluded.merchant_id = local_transactions.merchant_id
+            AND excluded.merchant_domain IS NULL
+          THEN local_transactions.merchant_domain
+          ELSE excluded.merchant_domain
+        END,
+        merchant_structured_name = CASE
+          WHEN excluded.merchant_id IS NOT NULL
+            AND excluded.merchant_id = local_transactions.merchant_id
+            AND excluded.merchant_structured_name IS NULL
+          THEN local_transactions.merchant_structured_name
+          ELSE excluded.merchant_structured_name
+        END,
         breakdown_json = excluded.breakdown_json,
         receipt_image_url = excluded.receipt_image_url,
         local_receipt_image_path = excluded.local_receipt_image_path,
@@ -4536,6 +4611,7 @@ class MonekoDatabase {
         syncStatus,
         entry.merchantId,
         entry.merchantDomain,
+        entry.merchantStructuredName,
       ],
     );
     return true;
@@ -4892,6 +4968,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     merchant: row['merchant'] as String?,
     merchantId: row['merchant_id'] as String?,
     merchantDomain: row['merchant_domain'] as String?,
+    merchantStructuredName: row['merchant_structured_name'] as String?,
     breakdown: _decodeStringList(row['breakdown_json'] as String?),
     receiptImageUrl: row['receipt_image_url'] as String?,
     localReceiptImagePath: row['local_receipt_image_path'] as String?,

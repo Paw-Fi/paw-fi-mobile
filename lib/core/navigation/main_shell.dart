@@ -178,7 +178,6 @@ Future<void> _refreshActiveMainShellTab(
           }
         } else {
           ref.read(analyticsProvider.notifier).refresh(userId);
-          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         }
         return;
       case 1:

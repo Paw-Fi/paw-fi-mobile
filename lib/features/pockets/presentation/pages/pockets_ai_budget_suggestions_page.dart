@@ -96,7 +96,7 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
 
     final periodMonth = scopeParams.periodMonth ?? DateTime.now();
     final normalizedFinancialStartDay =
-        normalizeFinancialMonthStartDay(scopeParams.financialMonthStartDay);
+      normalizeFinancialMonthStartDay(scopeParams.financialMonthStartDay);
     final isCurrentYear = periodMonth.year == DateTime.now().year;
     final monthLabel = normalizedFinancialStartDay == 1
         ? (isCurrentYear

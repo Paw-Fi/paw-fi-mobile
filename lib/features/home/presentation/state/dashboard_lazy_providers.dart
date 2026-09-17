@@ -1081,7 +1081,7 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
     final seenCursors = <String>{};
     while (true) {
       final response = await client
-          .rpc('get_home_mom_transactions_v2', params: <String, dynamic>{
+          .rpc('get_home_mom_transactions_v4', params: <String, dynamic>{
         'p_user_id': query.userId,
         'p_start_date': query.formattedStartDate,
         'p_end_date': query.formattedEndDate,
@@ -1141,7 +1141,7 @@ Future<List<ExpenseEntry>> _loadDashboardOwnedRangeTransactions(
       while (true) {
         dynamic fallback = client.from('expenses').select(
             'id,contact_id,user_id,household_id,date,amount_cents,currency,category,'
-            'created_at,updated_at,raw_text,split_group_id,parent_recurring_id,'
+            'created_at,updated_at,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain),split_group_id,parent_recurring_id,'
             'scheduled_occurrence_date,recurring_confirmed_at,'
             'recurring_confirmation_source,bank_account_id,type,'
             'analytics_class,analytics_is_final,analytics_spending_multiplier,'

@@ -20,7 +20,6 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as split_entities;
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -161,6 +160,26 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         requestBody['merchant'] = merchant;
       }
 
+      final merchantId = expense.merchantId;
+      if (merchantId != null && merchantId.trim().isNotEmpty) {
+        requestBody['merchantId'] = merchantId;
+      }
+
+      final merchantStructuredName = expense.merchantStructuredName;
+      if (merchantStructuredName != null &&
+          merchantStructuredName.trim().isNotEmpty) {
+        requestBody['merchantStructuredName'] = merchantStructuredName;
+      }
+
+      final merchantEvidenceDescriptor = expense.merchantEvidenceDescriptor;
+      if (merchantEvidenceDescriptor != null &&
+          merchantEvidenceDescriptor.trim().isNotEmpty) {
+        requestBody['merchantEvidenceDescriptor'] = merchantEvidenceDescriptor;
+      }
+      if (expense.merchantEvidenceAllowsStructuredLearning) {
+        requestBody['merchantEvidenceAllowStructured'] = true;
+      }
+
       final breakdown = expense.breakdown;
       if (breakdown != null && breakdown.isNotEmpty) {
         requestBody['breakdown'] = breakdown;
@@ -294,8 +313,14 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       if (savedEntry == null || savedEntry.id.trim().isEmpty) {
         throw StateError('Saved expense response did not include an ID');
       }
+      final matchingOptimisticMerchantDomain = savedEntry.merchantId != null &&
+              savedEntry.merchantId == optimisticEntry.merchantId
+          ? optimisticEntry.merchantDomain
+          : null;
       final reconciledEntry = savedEntry.copyWith(
         receiptImageUrl: savedEntry.receiptImageUrl ?? receiptImageUrl,
+        merchantDomain:
+            savedEntry.merchantDomain ?? matchingOptimisticMerchantDomain,
         clientRecordId: mutationMetadata.clientRecordId,
         clientMutationId: mutationMetadata.clientMutationId,
         idempotencyKey: mutationMetadata.idempotencyKey,
@@ -480,6 +505,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       createdAt: createdAt,
       rawText: expense.description,
       merchant: expense.merchant,
+      merchantId: expense.merchantId,
+      merchantDomain: expense.merchantDomain,
+      merchantStructuredName: expense.merchantStructuredName,
       breakdown: expense.breakdown,
       receiptImageUrl: receiptImageUrl,
       splitGroupId: splitGroupId,

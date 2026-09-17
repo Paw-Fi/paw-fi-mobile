@@ -202,6 +202,11 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     required DateTime date,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
+    String? merchantEvidenceDescriptor,
+    bool merchantEvidenceAllowsStructuredLearning = false,
     String? source,
     String ownerType = 'me',
     String privacyScope = 'full',
@@ -245,6 +250,15 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (merchantId != null && merchantId.isNotEmpty)
+          'merchantId': merchantId,
+        if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
+          'merchantStructuredName': merchantStructuredName,
+        if (merchantEvidenceDescriptor != null &&
+            merchantEvidenceDescriptor.isNotEmpty)
+          'merchantEvidenceDescriptor': merchantEvidenceDescriptor,
+        if (merchantEvidenceAllowsStructuredLearning)
+          'merchantEvidenceAllowStructured': true,
         if (source != null && source.isNotEmpty) 'source': source,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
@@ -303,6 +317,10 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         category: category,
         description: description,
         source: source,
+        merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         amount: amount,
         currency: currency,
         ownerType: ownerType,
@@ -332,6 +350,9 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           createdAt: now,
           rawText: description,
           merchant: merchant,
+          merchantId: merchantId,
+          merchantDomain: merchantDomain,
+          merchantStructuredName: merchantStructuredName,
           walletId: accountId,
           type: 'income',
           isRecurring: isRecurring,

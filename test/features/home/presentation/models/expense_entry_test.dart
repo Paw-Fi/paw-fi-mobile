@@ -176,9 +176,26 @@ void main() {
         'merchant': 'STARBUCKS 12345 DUBLIN IE',
         'merchant_id': 'merchant_starbucks',
         'merchant_domain': 'starbucks.com',
+        'merchant_structured_name': 'Starbucks',
       });
 
       expect(entry.merchant, 'STARBUCKS 12345 DUBLIN IE');
+      expect(entry.merchantId, 'merchant_starbucks');
+      expect(entry.merchantDomain, 'starbucks.com');
+      expect(entry.merchantStructuredName, 'Starbucks');
+    });
+
+    test('fromJson reads a canonical merchant domain from a direct relation',
+        () {
+      final entry = ExpenseEntry.fromJson({
+        'id': 'exp_merchant_relation',
+        'date': '2026-09-15',
+        'amount_cents': 450,
+        'created_at': '2026-09-15T09:00:00.000Z',
+        'merchant_id': 'merchant_starbucks',
+        'merchants': {'domain': 'starbucks.com'},
+      });
+
       expect(entry.merchantId, 'merchant_starbucks');
       expect(entry.merchantDomain, 'starbucks.com');
     });

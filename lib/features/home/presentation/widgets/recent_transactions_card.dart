@@ -224,6 +224,9 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.category,
       expense.rawText,
       expense.merchant,
+      expense.merchantId,
+      expense.merchantDomain,
+      expense.merchantStructuredName,
       expense.receiptImageUrl,
       expense.localReceiptImagePath,
       expense.splitGroupId,
@@ -508,7 +511,7 @@ class _RecentTransactionsCardState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       0,
                       16,
                       0,

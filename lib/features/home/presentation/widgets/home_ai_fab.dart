@@ -891,6 +891,8 @@ Future<void> _persistAiTransactions(
       merchantId: savedEntry.merchantId ?? prepared.item.transaction.merchantId,
       merchantDomain:
           savedEntry.merchantDomain ?? prepared.item.transaction.merchantDomain,
+      merchantStructuredName: savedEntry.merchantStructuredName ??
+          prepared.item.transaction.merchantStructuredName,
       localReceiptImagePath: !prepared.item.transaction.isIncome &&
               (savedReceiptImageUrl == null || savedReceiptImageUrl.isEmpty) &&
               optimisticLocalReceiptPath != null &&
@@ -1121,6 +1123,8 @@ Future<void> _persistAiTransactions(
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
       if (tx.merchant?.isNotEmpty == true) 'merchant': tx.merchant,
       if (tx.merchantId?.isNotEmpty == true) 'merchantId': tx.merchantId,
+      if (tx.merchantStructuredName?.isNotEmpty == true)
+        'merchantStructuredName': tx.merchantStructuredName,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
       if ((autoSplitEnabled || explicitCustomSplits != null) &&
@@ -2677,6 +2681,8 @@ Future<void> _processExpense(
                       : null,
                   merchantId: item['merchant_id']?.toString(),
                   merchantDomain: item['merchant_domain']?.toString(),
+                  merchantStructuredName:
+                      item['merchant_structured_name']?.toString(),
                   merchantCandidates:
                       (item['merchant_candidates'] as List? ?? const [])
                           .whereType<Map>()

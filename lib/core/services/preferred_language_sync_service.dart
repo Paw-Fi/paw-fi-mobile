@@ -12,11 +12,21 @@ final preferredLanguageSyncServiceProvider =
   return const PreferredLanguageSyncService();
 });
 
+bool shouldSyncPreferredTimezone({
+  required String? cachedTimezone,
+  required String currentTimezone,
+}) {
+  final current = currentTimezone.trim();
+  if (current.isEmpty) return false;
+  return cachedTimezone?.trim() != current;
+}
+
 class PreferredLanguageSyncService {
   const PreferredLanguageSyncService();
 
   static const _lastSyncedPrefix = 'preferred_language_synced';
-  static const _timezoneCheckedPrefix = 'preferred_timezone_checked';
+  static const _timezoneSyncedPrefix = 'preferred_timezone_synced';
+  static const _legacyTimezoneCheckedPrefix = 'preferred_timezone_checked';
   static const _platformCheckedPrefix = 'preferred_platform_checked';
 
   Future<void> syncForUser({
@@ -47,7 +57,7 @@ class PreferredLanguageSyncService {
       }
     }
 
-    await _syncMissingTimezoneAndPlatform(userId: userId, prefs: prefs);
+    await _syncTimezoneAndMissingPlatform(userId: userId, prefs: prefs);
 
     if (languageError != null && languageStackTrace != null) {
       Error.throwWithStackTrace(languageError, languageStackTrace);
@@ -89,31 +99,35 @@ class PreferredLanguageSyncService {
     await prefs.setString(cacheKey, language);
   }
 
-  Future<void> _syncMissingTimezoneAndPlatform({
+  Future<void> _syncTimezoneAndMissingPlatform({
     required String userId,
     required SharedPreferences prefs,
   }) async {
-    final timezoneCacheKey = '$_timezoneCheckedPrefix:$userId';
+    final timezoneCacheKey = '$_timezoneSyncedPrefix:$userId';
     final platformCacheKey = '$_platformCheckedPrefix:$userId';
-    final hasCheckedTimezone = prefs.getBool(timezoneCacheKey) ?? false;
+    final currentTimezone = await _resolveTimezoneForInitialSync();
+    final cachedTimezone = _readNonEmptyString(prefs.get(timezoneCacheKey));
+    final shouldSyncTimezone = shouldSyncPreferredTimezone(
+      cachedTimezone: cachedTimezone,
+      currentTimezone: currentTimezone,
+    );
     final hasCheckedPlatform = prefs.getBool(platformCacheKey) ?? false;
 
-    if (hasCheckedTimezone && hasCheckedPlatform) {
+    if (!shouldSyncTimezone && hasCheckedPlatform) {
       return;
     }
 
-    final contact = await _fetchLatestContact(userId);
-
-    if (!hasCheckedTimezone) {
-      await _syncMissingTimezone(
+    if (shouldSyncTimezone) {
+      await _syncPreferredTimezone(
         userId: userId,
-        currentTimezone: _readNonEmptyString(contact?['preferred_timezone']),
+        timezone: currentTimezone,
         cacheKey: timezoneCacheKey,
         prefs: prefs,
       );
     }
 
     if (!hasCheckedPlatform) {
+      final contact = await _fetchLatestContact(userId);
       await _syncMissingPlatform(
         userId: userId,
         currentPlatform: _readNonEmptyString(contact?['platform']),
@@ -126,7 +140,7 @@ class PreferredLanguageSyncService {
   Future<Map<String, dynamic>?> _fetchLatestContact(String userId) async {
     final response = await Supabase.instance.client
         .from('user_contacts')
-        .select('preferred_timezone,platform,updated_at,created_at')
+        .select('platform,updated_at,created_at')
         .eq('user_id', userId)
         .order('updated_at', ascending: false)
         .order('created_at', ascending: false)
@@ -136,18 +150,12 @@ class PreferredLanguageSyncService {
     return contacts.isEmpty ? null : contacts.first;
   }
 
-  Future<void> _syncMissingTimezone({
+  Future<void> _syncPreferredTimezone({
     required String userId,
-    required String? currentTimezone,
+    required String timezone,
     required String cacheKey,
     required SharedPreferences prefs,
   }) async {
-    if (currentTimezone != null) {
-      await prefs.setBool(cacheKey, true);
-      return;
-    }
-
-    final timezone = await _resolveTimezoneForInitialSync();
     final response = await Supabase.instance.client.functions.invoke(
       'update-preferred-timezone',
       body: {
@@ -160,7 +168,7 @@ class PreferredLanguageSyncService {
       response,
       errorMessage: 'Failed to sync preferred timezone',
     );
-    await prefs.setBool(cacheKey, true);
+    await prefs.setString(cacheKey, timezone);
   }
 
   Future<String> _resolveTimezoneForInitialSync() async {
@@ -249,7 +257,8 @@ class PreferredLanguageSyncService {
     if (userId.trim().isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('$_lastSyncedPrefix:$userId');
-    await prefs.remove('$_timezoneCheckedPrefix:$userId');
+    await prefs.remove('$_timezoneSyncedPrefix:$userId');
+    await prefs.remove('$_legacyTimezoneCheckedPrefix:$userId');
     await prefs.remove('$_platformCheckedPrefix:$userId');
   }
 
