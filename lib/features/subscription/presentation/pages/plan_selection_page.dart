@@ -769,6 +769,10 @@ class PlanSelectionPage extends HookConsumerWidget {
       return subscriptionMatchesPlanOption(currentSubscription, option);
     }
 
+    if (currentPlanId == 'lifetime') {
+      return const _LifetimeView();
+    }
+
     if (useIap && productsAsync.isLoading) {
       return StatusBarOverlayRegion(
           child: AdaptiveScaffold(
@@ -1395,6 +1399,28 @@ class PlanSelectionPage extends HookConsumerWidget {
 }
 
 // --- COMPONENTS ---
+
+class _LifetimeView extends StatelessWidget {
+  const _LifetimeView();
+
+  @override
+  Widget build(BuildContext context) {
+    return StatusBarOverlayRegion(
+      child: AdaptiveScaffold(
+        appBar: const AdaptiveAppBar(title: ''),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Image.asset(
+              'lib/assets/images/paywall/lifetime-thanks.png',
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _PlanSelectionBenefitsChecklist extends StatelessWidget {
   const _PlanSelectionBenefitsChecklist();

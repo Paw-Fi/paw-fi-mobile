@@ -24,11 +24,13 @@ void _debugLog(Object? message) {
 // ignore: avoid_print
 void print(Object? message) => _debugLog(message);
 
+var _storeKitPlatformRegistered = false;
+
 void _ensureStoreKitPlatformRegistered() {
-  if (InAppPurchasePlatform.instance is InAppPurchaseStoreKitPlatform) {
-    return;
-  }
+  if (_storeKitPlatformRegistered) return;
+
   InAppPurchaseStoreKitPlatform.registerPlatform();
+  _storeKitPlatformRegistered = true;
 }
 
 class IapState {
@@ -105,6 +107,7 @@ class IapController extends AsyncNotifier<IapState> {
   Completer<void>? _restoreAttemptCompleter;
 
   static const _processingTimeoutDuration = Duration(minutes: 2);
+  static const _restoreTimeoutDuration = Duration(seconds: 12);
 
   IapState _fallbackState() => const IapState(
         storeAvailable: false,
@@ -564,6 +567,8 @@ class IapController extends AsyncNotifier<IapState> {
       throw Exception('User not logged in');
     }
 
+    print('🔄 Starting StoreKit restore purchases');
+
     _setState(
       isProcessing: true,
       lastError: null,
@@ -575,23 +580,43 @@ class IapController extends AsyncNotifier<IapState> {
     final completer = Completer<void>();
     _restoreAttemptCompleter = completer;
 
-    await InAppPurchasePlatform.instance
-        .restorePurchases(applicationUserName: user.uid);
+    try {
+      await InAppPurchasePlatform.instance
+          .restorePurchases(applicationUserName: user.uid)
+          .timeout(_restoreTimeoutDuration);
 
-    await completer.future.timeout(
-      const Duration(seconds: 12),
-      onTimeout: () {
-        final current = state.valueOrNull ?? _fallbackState();
-        if (current.isProcessing) {
-          _setState(
-            isProcessing: false,
-            lastError: current.lastError,
-            lastErrorCode: current.lastErrorCode,
-          );
-        }
-        _completeRestoreAttempt();
-      },
-    );
+      await completer.future.timeout(
+        _restoreTimeoutDuration,
+        onTimeout: () {
+          print('⏱️ StoreKit restore produced no terminal update');
+          final current = state.valueOrNull ?? _fallbackState();
+          if (current.isProcessing) {
+            _setState(
+              isProcessing: false,
+              lastError: current.lastError,
+              lastErrorCode: current.lastErrorCode,
+            );
+          }
+        },
+      );
+    } on TimeoutException {
+      print('⏱️ StoreKit restore timed out');
+      _setState(
+        isProcessing: false,
+        lastError: 'Restore purchases timed out',
+        lastErrorCode: null,
+      );
+    } catch (error) {
+      print('❌ StoreKit restore failed: $error');
+      _setState(
+        isProcessing: false,
+        lastError: error.toString(),
+        lastErrorCode: null,
+      );
+      rethrow;
+    } finally {
+      _completeRestoreAttempt();
+    }
   }
 
   Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchases) async {

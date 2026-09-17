@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,6 +9,8 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/models/subscription_product.dart';
+
+const _subscriptionProductsRequestTimeout = Duration(seconds: 15);
 
 class SubscriptionProductsNotifier
     extends AsyncNotifier<List<SubscriptionProduct>> {
@@ -43,33 +47,51 @@ class SubscriptionProductsNotifier
   }
 
   Future<List<SubscriptionProduct>> _fetchProducts(String platform) async {
-    final response = await supabase.functions.invoke(
-      'get-subscription-products',
-      method: HttpMethod.post,
-      body: {
-        'platform': platform,
-      },
-    );
+    debugPrint('[SubscriptionProducts] Fetching products platform=$platform');
+    try {
+      final response = await supabase.functions.invoke(
+        'get-subscription-products',
+        method: HttpMethod.post,
+        body: {
+          'platform': platform,
+        },
+      ).timeout(_subscriptionProductsRequestTimeout);
 
-    if (response.status >= 400) {
-      throw Exception('Failed to load products: ${response.status}');
+      debugPrint(
+        '[SubscriptionProducts] Product response platform=$platform '
+        'status=${response.status}',
+      );
+
+      if (response.status >= 400) {
+        throw Exception('Failed to load products: ${response.status}');
+      }
+
+      final data = response.data as Map<String, dynamic>?;
+      final list = (data?['products'] as List?) ?? const [];
+      final products = list
+          .map((e) => SubscriptionProduct.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+
+      if (platform == 'ios') {
+        mergeMissingIosFallbackProducts(products);
+      }
+
+      final publicProducts = _publiclySelectableProducts(products);
+      publicProducts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      debugPrint(
+        '[SubscriptionProducts] Loaded ${publicProducts.length} public '
+        'products platform=$platform',
+      );
+      return publicProducts;
+    } catch (error) {
+      debugPrint(
+        '[SubscriptionProducts] Product request failed platform=$platform '
+        'error=$error',
+      );
+      rethrow;
     }
-
-    final data = response.data as Map<String, dynamic>?;
-    final list = (data?['products'] as List?) ?? const [];
-    final products = list
-        .map((e) => SubscriptionProduct.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ))
-        .toList();
-
-    if (platform == 'ios') {
-      mergeMissingIosFallbackProducts(products);
-    }
-
-    final publicProducts = _publiclySelectableProducts(products);
-    publicProducts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    return publicProducts;
   }
 
   Future<void> refresh() async {
