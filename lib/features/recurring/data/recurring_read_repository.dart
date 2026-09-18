@@ -330,6 +330,7 @@ class RecurringReadRepository {
       merchant: entry.merchant,
       merchantId: entry.merchantId,
       merchantDomain: entry.merchantDomain,
+      merchantLogoUrl: entry.merchantLogoUrl,
       merchantStructuredName: entry.merchantStructuredName,
       amount: entry.amount,
       currency: entry.currency ?? 'USD',

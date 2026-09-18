@@ -509,6 +509,7 @@ class _DailyFinancialDetailsPageState
                                       showPendingChip: t.isProviderPending,
                                       merchantId: t.merchantId,
                                       merchantDomain: t.merchantDomain,
+                                      merchantLogoUrl: t.merchantLogoUrl,
                                       date: t.date,
                                       useCustomCategoryStyleOverrides:
                                           t.householdId?.trim().isEmpty ?? true,

@@ -996,6 +996,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       merchantDomain: updates.containsKey('merchant_id')
           ? optimisticMerchantDomain
           : expense.merchantDomain,
+      merchantLogoUrl:
+          updates.containsKey('merchant_id') ? null : expense.merchantLogoUrl,
       merchantStructuredName: updates.containsKey('merchant_structured_name')
           ? updates['merchant_structured_name'] as String?
           : expense.merchantStructuredName,

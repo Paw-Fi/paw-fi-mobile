@@ -30,7 +30,7 @@ bool _isTransactionUpdateOperation(String operation) =>
 bool _isTransactionDeleteOperation(String operation) =>
     operation == 'unconfirm_recurring_occurrence';
 
-const int _localDatabaseSchemaVersion = 11;
+const int _localDatabaseSchemaVersion = 12;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -4114,6 +4114,7 @@ class MonekoDatabase {
         merchant TEXT,
         merchant_id TEXT,
         merchant_domain TEXT,
+        merchant_logo_url TEXT,
         merchant_structured_name TEXT,
         breakdown_json TEXT,
         receipt_image_url TEXT,
@@ -4317,6 +4318,7 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'merchant', 'TEXT');
       _ensureColumn('local_transactions', 'merchant_id', 'TEXT');
       _ensureColumn('local_transactions', 'merchant_domain', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant_logo_url', 'TEXT');
       _ensureColumn('local_transactions', 'merchant_structured_name', 'TEXT');
       _ensureColumn('local_transactions', 'breakdown_json', 'TEXT');
       _ensureColumn('local_transactions', 'receipt_image_url', 'TEXT');
@@ -4475,8 +4477,8 @@ class MonekoDatabase {
         analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status, merchant_id, merchant_domain,
-        merchant_structured_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        merchant_logo_url, merchant_structured_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -4498,6 +4500,13 @@ class MonekoDatabase {
             AND excluded.merchant_domain IS NULL
           THEN local_transactions.merchant_domain
           ELSE excluded.merchant_domain
+        END,
+        merchant_logo_url = CASE
+          WHEN excluded.merchant_id IS NOT NULL
+            AND excluded.merchant_id = local_transactions.merchant_id
+            AND excluded.merchant_logo_url IS NULL
+          THEN local_transactions.merchant_logo_url
+          ELSE excluded.merchant_logo_url
         END,
         merchant_structured_name = CASE
           WHEN excluded.merchant_id IS NOT NULL
@@ -4611,6 +4620,7 @@ class MonekoDatabase {
         syncStatus,
         entry.merchantId,
         entry.merchantDomain,
+        entry.merchantLogoUrl,
         entry.merchantStructuredName,
       ],
     );
@@ -4968,6 +4978,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     merchant: row['merchant'] as String?,
     merchantId: row['merchant_id'] as String?,
     merchantDomain: row['merchant_domain'] as String?,
+    merchantLogoUrl: row['merchant_logo_url'] as String?,
     merchantStructuredName: row['merchant_structured_name'] as String?,
     breakdown: _decodeStringList(row['breakdown_json'] as String?),
     receiptImageUrl: row['receipt_image_url'] as String?,

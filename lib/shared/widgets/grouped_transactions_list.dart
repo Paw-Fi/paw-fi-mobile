@@ -495,6 +495,7 @@ class GroupedTransactionsList extends StatelessWidget {
                   accountLabel: expense.accountName,
                   merchantId: expense.merchantId,
                   merchantDomain: expense.merchantDomain,
+                  merchantLogoUrl: expense.merchantLogoUrl,
                   useCustomCategoryStyleOverrides:
                       expense.householdId?.trim().isEmpty ?? true,
                 ),
@@ -883,6 +884,7 @@ class SliverGroupedTransactionsList extends StatelessWidget {
                   accountLabel: expense.accountName,
                   merchantId: expense.merchantId,
                   merchantDomain: expense.merchantDomain,
+                  merchantLogoUrl: expense.merchantLogoUrl,
                   useCustomCategoryStyleOverrides:
                       expense.householdId?.trim().isEmpty ?? true,
                 ),

@@ -86,6 +86,7 @@ class DashboardTransactionsList extends StatelessWidget {
             showPendingChip: tx.entry.isProviderPending,
             merchantId: tx.entry.merchantId,
             merchantDomain: tx.entry.merchantDomain,
+            merchantLogoUrl: tx.entry.merchantLogoUrl,
             date: tx.entry.date,
             subtitleWidget: Row(
               children: [

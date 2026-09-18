@@ -796,6 +796,7 @@ class _OccurrenceIdentityHeader extends StatelessWidget {
               child: MerchantLogo(
                 merchantId: recurringTransaction.merchantId,
                 domain: recurringTransaction.merchantDomain,
+                logoUrl: recurringTransaction.merchantLogoUrl,
                 fallback: Center(
                   child: Icon(
                     categoryIcon,

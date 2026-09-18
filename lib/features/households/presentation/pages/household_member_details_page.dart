@@ -1247,6 +1247,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
             isIncome: false,
             merchantId: rawExpense.merchantId,
             merchantDomain: rawExpense.merchantDomain,
+            merchantLogoUrl: rawExpense.merchantLogoUrl,
             showRecurringChip: shouldShowRecurringChipForExpense(rawExpense),
             showPendingChip: rawExpense.isProviderPending,
             useCustomCategoryStyleOverrides:

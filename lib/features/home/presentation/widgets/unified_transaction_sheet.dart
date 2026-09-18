@@ -502,6 +502,11 @@ class _UnifiedTransactionSheetV2State
     return widget.existingExpense!.merchantDomain;
   }
 
+  String? get merchantLogoUrl {
+    if (_hasEditedMerchantIdentity || isNewExpense) return null;
+    return widget.existingExpense!.merchantLogoUrl;
+  }
+
   String? get receiptImageUrl {
     final url = widget.existingExpense?.receiptImageUrl;
     debugPrint('🖼️ Receipt image detected on expense');
@@ -1086,8 +1091,12 @@ class _UnifiedTransactionSheetV2State
     final textColor =
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
-    final hasResolvableMerchantLogo =
-        buildLogoDevMerchantUrl(merchantId, merchantDomain) != null;
+    final hasResolvableMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: merchantLogoUrl,
+          merchantId: merchantId,
+          domain: merchantDomain,
+        ) !=
+        null;
 
     return Container(
       constraints: BoxConstraints(
@@ -1165,7 +1174,7 @@ class _UnifiedTransactionSheetV2State
                                 duration: const Duration(milliseconds: 300),
                                 child: Container(
                                   key: ValueKey(
-                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|$displayCategory',
+                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
                                   ),
                                   padding: hasResolvableMerchantLogo
                                       ? EdgeInsets.zero
@@ -1203,6 +1212,7 @@ class _UnifiedTransactionSheetV2State
                                           child: MerchantLogo(
                                             merchantId: merchantId,
                                             domain: merchantDomain,
+                                            logoUrl: merchantLogoUrl,
                                             fallback: Center(
                                               child: Icon(
                                                 getCategoryIcon(
@@ -3637,6 +3647,7 @@ class _UnifiedTransactionSheetV2State
       merchant: income.merchant ?? income.source,
       merchantId: income.merchantId,
       merchantDomain: income.merchantDomain,
+      merchantLogoUrl: income.merchantLogoUrl,
       merchantStructuredName: income.merchantStructuredName,
       type: 'income',
       isRecurring: income.isRecurring,

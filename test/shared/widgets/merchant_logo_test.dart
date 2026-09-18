@@ -31,4 +31,36 @@ void main() {
     expect(buildLogoDevMerchantUrl(null, 'starbucks.com'), isNull);
     expect(buildLogoDevMerchantUrl('merchant_1', null), isNull);
   });
+
+  test('uses a trusted Plaid logo before the Logo.dev domain fallback', () {
+    dotenv.testLoad(fileInput: 'LOGO_DEV_PUBLISHABLE_KEY=test-logo-token');
+    const plaidLogo =
+        'https://plaid-merchant-logos.plaid.com/burger_king_155.png';
+
+    expect(
+      buildMerchantLogoUrl(
+        logoUrl: plaidLogo,
+        merchantId: 'merchant_1',
+        domain: 'burgerking.com',
+      ),
+      plaidLogo,
+    );
+    expect(
+      Uri.parse(buildMerchantLogoUrl(
+        logoUrl: 'https://example.com/untrusted.png',
+        merchantId: 'merchant_1',
+        domain: 'burgerking.com',
+      )!)
+          .host,
+      'img.logo.dev',
+    );
+    expect(
+      buildMerchantLogoUrl(
+        logoUrl: plaidLogo,
+        merchantId: null,
+        domain: 'burgerking.com',
+      ),
+      isNull,
+    );
+  });
 }

@@ -891,6 +891,7 @@ Future<void> _persistAiTransactions(
       merchantId: savedEntry.merchantId ?? prepared.item.transaction.merchantId,
       merchantDomain:
           savedEntry.merchantDomain ?? prepared.item.transaction.merchantDomain,
+      merchantLogoUrl: savedEntry.merchantLogoUrl,
       merchantStructuredName: savedEntry.merchantStructuredName ??
           prepared.item.transaction.merchantStructuredName,
       localReceiptImagePath: !prepared.item.transaction.isIncome &&

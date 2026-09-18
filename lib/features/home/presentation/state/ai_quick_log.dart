@@ -87,6 +87,7 @@ ExpenseEntry buildOptimisticEntry({
     merchant: transaction.merchant,
     merchantId: transaction.merchantId,
     merchantDomain: transaction.merchantDomain,
+    merchantLogoUrl: transaction.merchantLogoUrl,
     merchantStructuredName: transaction.merchantStructuredName,
     breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,

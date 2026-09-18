@@ -34,6 +34,7 @@ class TransactionListTile extends StatelessWidget {
   final String? accountLabel;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantLogoUrl;
   final bool useCustomCategoryStyleOverrides;
 
   const TransactionListTile({
@@ -57,6 +58,7 @@ class TransactionListTile extends StatelessWidget {
     this.accountLabel,
     this.merchantId,
     this.merchantDomain,
+    this.merchantLogoUrl,
     this.useCustomCategoryStyleOverrides = true,
   });
 
@@ -270,6 +272,7 @@ class TransactionListTile extends StatelessWidget {
             child: MerchantLogo(
               merchantId: merchantId,
               domain: merchantDomain,
+              logoUrl: merchantLogoUrl,
               fallback: Icon(icon, color: color, size: 20),
             ),
           ),
@@ -386,6 +389,7 @@ Widget buildExpenseTransactionTile({
       showPendingChip: showPendingChip ?? expense?.isProviderPending ?? false,
       merchantId: expense?.merchantId,
       merchantDomain: expense?.merchantDomain,
+      merchantLogoUrl: expense?.merchantLogoUrl,
       // A shared transaction's category is shared data. Do not let a viewer's
       // private category-style preference make that same record look different
       // to another household member.

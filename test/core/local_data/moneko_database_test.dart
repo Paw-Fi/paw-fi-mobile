@@ -81,6 +81,7 @@ void main() {
         merchant: 'STARBUCKS 123',
         merchantId: 'merchant-starbucks',
         merchantDomain: 'starbucks.com',
+        merchantLogoUrl: 'https://plaid-merchant-logos.plaid.com/starbucks.png',
         merchantStructuredName: 'Starbucks',
       );
       await database.upsertTransactions([entry]);
@@ -90,6 +91,8 @@ void main() {
       );
       expect(rows.single.merchantId, 'merchant-starbucks');
       expect(rows.single.merchantDomain, 'starbucks.com');
+      expect(rows.single.merchantLogoUrl,
+          'https://plaid-merchant-logos.plaid.com/starbucks.png');
       expect(rows.single.merchantStructuredName, 'Starbucks');
 
       await database.upsertTransactions([
@@ -105,11 +108,17 @@ void main() {
       );
       expect(rows.single.merchantId, 'merchant-starbucks');
       expect(rows.single.merchantDomain, 'starbucks.com');
+      expect(rows.single.merchantLogoUrl,
+          'https://plaid-merchant-logos.plaid.com/starbucks.png');
       expect(rows.single.merchantStructuredName, 'Starbucks');
 
       await database.upsertTransactions([
-        ExpenseEntry.fromJson(
-            {...entry.toJson(), 'merchant_id': null, 'merchant_domain': null}),
+        ExpenseEntry.fromJson({
+          ...entry.toJson(),
+          'merchant_id': null,
+          'merchant_domain': null,
+          'merchant_logo_url': null,
+        }),
       ]);
       rows = await database.getRecentTransactions(
         userId: 'user_1',
@@ -117,6 +126,7 @@ void main() {
       );
       expect(rows.single.merchantId, isNull);
       expect(rows.single.merchantDomain, isNull);
+      expect(rows.single.merchantLogoUrl, isNull);
     });
 
     test('recent rows exclude a recurring template but keep its occurrence',

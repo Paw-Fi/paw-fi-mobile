@@ -38,6 +38,7 @@ class RecurringTransaction {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantLogoUrl;
   final String? merchantStructuredName;
   final String? source; // For income
   final double amount; // In major units
@@ -70,6 +71,7 @@ class RecurringTransaction {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantLogoUrl,
     this.merchantStructuredName,
     this.source,
     required this.amount,
@@ -163,6 +165,10 @@ class RecurringTransaction {
       merchantDomain: _sanitizeOptional(
         json['merchant_domain'] as String? ??
             merchantData?['domain'] as String?,
+      ),
+      merchantLogoUrl: _sanitizeOptional(
+        json['merchant_logo_url'] as String? ??
+            merchantData?['logo_identifier'] as String?,
       ),
       merchantStructuredName:
           _sanitizeOptional(json['merchant_structured_name'] as String?),
@@ -271,6 +277,7 @@ class RecurringTransaction {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_logo_url': merchantLogoUrl,
       'merchant_structured_name': merchantStructuredName,
       'source': source,
       'amountMajor': amount,
@@ -311,6 +318,7 @@ class RecurringTransaction {
     String? merchant,
     String? merchantId,
     String? merchantDomain,
+    String? merchantLogoUrl,
     String? merchantStructuredName,
     String? source,
     double? amount,
@@ -345,6 +353,7 @@ class RecurringTransaction {
       merchant: merchant ?? this.merchant,
       merchantId: merchantId ?? this.merchantId,
       merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantLogoUrl: merchantLogoUrl ?? this.merchantLogoUrl,
       merchantStructuredName:
           merchantStructuredName ?? this.merchantStructuredName,
       source: source ?? this.source,

@@ -14,6 +14,7 @@ class IncomeEntry {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantLogoUrl;
   final String? merchantStructuredName;
   final double amount; // In major units
   final String currency;
@@ -47,6 +48,7 @@ class IncomeEntry {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantLogoUrl,
     this.merchantStructuredName,
     required this.amount,
     required this.currency,
@@ -165,6 +167,9 @@ class IncomeEntry {
       merchantDomain: asNonEmptyString(json['merchantDomain']) ??
           asNonEmptyString(json['merchant_domain']) ??
           asNonEmptyString(merchantData?['domain']),
+      merchantLogoUrl: asNonEmptyString(json['merchantLogoUrl']) ??
+          asNonEmptyString(json['merchant_logo_url']) ??
+          asNonEmptyString(merchantData?['logo_identifier']),
       merchantStructuredName:
           asNonEmptyString(json['merchantStructuredName']) ??
               asNonEmptyString(json['merchant_structured_name']),
@@ -223,6 +228,7 @@ class IncomeEntry {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_logo_url': merchantLogoUrl,
       'merchant_structured_name': merchantStructuredName,
       'amountMajor': amount,
       'currency': currency,
@@ -255,6 +261,7 @@ class IncomeEntry {
     String? merchant,
     String? merchantId,
     String? merchantDomain,
+    String? merchantLogoUrl,
     String? merchantStructuredName,
     double? amount,
     String? currency,
@@ -285,6 +292,7 @@ class IncomeEntry {
       merchant: merchant ?? this.merchant,
       merchantId: merchantId ?? this.merchantId,
       merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantLogoUrl: merchantLogoUrl ?? this.merchantLogoUrl,
       merchantStructuredName:
           merchantStructuredName ?? this.merchantStructuredName,
       amount: amount ?? this.amount,

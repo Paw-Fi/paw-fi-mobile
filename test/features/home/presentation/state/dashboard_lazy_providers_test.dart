@@ -938,7 +938,7 @@ void main() {
       httpClient: MockClient((request) async {
         expect(
           request.url.path,
-          endsWith('/rest/v1/rpc/get_home_mom_transactions_v4'),
+          endsWith('/rest/v1/rpc/get_home_mom_transactions_v5'),
         );
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         final beforeId = body['p_before_id'] as String?;
@@ -1035,7 +1035,7 @@ void main() {
       httpClient: MockClient((request) async {
         expect(
           request.url.path,
-          endsWith('/rest/v1/rpc/get_home_mom_transactions_v4'),
+          endsWith('/rest/v1/rpc/get_home_mom_transactions_v5'),
         );
         final rows = <Map<String, dynamic>>[
           for (var index = 0; index < classes.length; index++)

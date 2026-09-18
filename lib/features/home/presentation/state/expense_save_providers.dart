@@ -317,10 +317,16 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
               savedEntry.merchantId == optimisticEntry.merchantId
           ? optimisticEntry.merchantDomain
           : null;
+      final matchingOptimisticMerchantLogoUrl = savedEntry.merchantId != null &&
+              savedEntry.merchantId == optimisticEntry.merchantId
+          ? optimisticEntry.merchantLogoUrl
+          : null;
       final reconciledEntry = savedEntry.copyWith(
         receiptImageUrl: savedEntry.receiptImageUrl ?? receiptImageUrl,
         merchantDomain:
             savedEntry.merchantDomain ?? matchingOptimisticMerchantDomain,
+        merchantLogoUrl:
+            savedEntry.merchantLogoUrl ?? matchingOptimisticMerchantLogoUrl,
         clientRecordId: mutationMetadata.clientRecordId,
         clientMutationId: mutationMetadata.clientMutationId,
         idempotencyKey: mutationMetadata.idempotencyKey,
@@ -507,6 +513,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       merchant: expense.merchant,
       merchantId: expense.merchantId,
       merchantDomain: expense.merchantDomain,
+      merchantLogoUrl: expense.merchantLogoUrl,
       merchantStructuredName: expense.merchantStructuredName,
       breakdown: expense.breakdown,
       receiptImageUrl: receiptImageUrl,

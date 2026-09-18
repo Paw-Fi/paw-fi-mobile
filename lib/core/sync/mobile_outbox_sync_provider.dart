@@ -237,9 +237,16 @@ Future<void> _dispatchMobileMutation(
                     parsedSavedEntry.merchantId == queuedEntry?.merchantId
                 ? queuedEntry?.merchantDomain
                 : null;
+        final matchingQueuedMerchantLogoUrl =
+            parsedSavedEntry.merchantId != null &&
+                    parsedSavedEntry.merchantId == queuedEntry?.merchantId
+                ? queuedEntry?.merchantLogoUrl
+                : null;
         final savedEntry = parsedSavedEntry.copyWith(
           merchantDomain:
               parsedSavedEntry.merchantDomain ?? matchingQueuedMerchantDomain,
+          merchantLogoUrl:
+              parsedSavedEntry.merchantLogoUrl ?? matchingQueuedMerchantLogoUrl,
           clientRecordId: mutation.entityId,
           clientMutationId: mutation.clientMutationId,
           idempotencyKey:

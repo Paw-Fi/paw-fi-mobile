@@ -213,7 +213,7 @@ List<_KeyedRecentEntry> _keyedLatestRecentEntries(
 int _recentExpensesSignature(List<ExpenseEntry> expenses) {
   var hash = expenses.length;
   for (final expense in expenses) {
-    hash = Object.hash(
+    hash = Object.hashAll([
       hash,
       expense.id,
       expense.date.millisecondsSinceEpoch,
@@ -226,6 +226,7 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.merchant,
       expense.merchantId,
       expense.merchantDomain,
+      expense.merchantLogoUrl,
       expense.merchantStructuredName,
       expense.receiptImageUrl,
       expense.localReceiptImagePath,
@@ -234,7 +235,7 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.providerPending,
       expense.analyticsIsFinal,
       expense.isRecurring,
-    );
+    ]);
   }
   return hash;
 }

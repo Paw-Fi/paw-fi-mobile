@@ -34,6 +34,7 @@ class ParsedExpense {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantLogoUrl;
   final String? merchantStructuredName;
   final String? merchantEvidenceDescriptor;
   final bool merchantEvidenceAllowsStructuredLearning;
@@ -55,6 +56,7 @@ class ParsedExpense {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantLogoUrl,
     this.merchantStructuredName,
     this.merchantEvidenceDescriptor,
     this.merchantEvidenceAllowsStructuredLearning = false,
@@ -94,6 +96,7 @@ class ParsedExpense {
           : null,
       merchantId: json['merchant_id']?.toString(),
       merchantDomain: json['merchant_domain']?.toString(),
+      merchantLogoUrl: json['merchant_logo_url']?.toString(),
       merchantStructuredName: json['merchant_structured_name']?.toString(),
       merchantEvidenceDescriptor:
           json['merchant_evidence_descriptor']?.toString(),
@@ -133,6 +136,7 @@ class ParsedExpense {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_logo_url': merchantLogoUrl,
       'merchant_structured_name': merchantStructuredName,
       'merchant_evidence_descriptor': merchantEvidenceDescriptor,
       'merchant_evidence_allow_structured':
@@ -158,6 +162,7 @@ class ParsedExpense {
     Object? merchant = _copyWithUnset,
     Object? merchantId = _copyWithUnset,
     Object? merchantDomain = _copyWithUnset,
+    Object? merchantLogoUrl = _copyWithUnset,
     Object? merchantStructuredName = _copyWithUnset,
     Object? merchantEvidenceDescriptor = _copyWithUnset,
     bool? merchantEvidenceAllowsStructuredLearning,
@@ -186,6 +191,9 @@ class ParsedExpense {
       merchantDomain: identical(merchantDomain, _copyWithUnset)
           ? this.merchantDomain
           : merchantDomain as String?,
+      merchantLogoUrl: identical(merchantLogoUrl, _copyWithUnset)
+          ? this.merchantLogoUrl
+          : merchantLogoUrl as String?,
       merchantStructuredName: identical(merchantStructuredName, _copyWithUnset)
           ? this.merchantStructuredName
           : merchantStructuredName as String?,

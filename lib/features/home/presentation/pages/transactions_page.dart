@@ -2295,6 +2295,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           accountLabel: accountLabel,
                           merchantId: expense.merchantId,
                           merchantDomain: expense.merchantDomain,
+                          merchantLogoUrl: expense.merchantLogoUrl,
                           useCustomCategoryStyleOverrides:
                               expense.householdId?.trim().isEmpty ?? true,
                         ),

@@ -140,6 +140,8 @@ class AddRecurringSheet extends HookConsumerWidget {
         useState<String?>(existingTransaction?.merchantId);
     final selectedMerchantDomain =
         useState<String?>(existingTransaction?.merchantDomain);
+    final selectedMerchantLogoUrl =
+        useState<String?>(existingTransaction?.merchantLogoUrl);
     final selectedMerchantStructuredName =
         useState<String?>(existingTransaction?.merchantStructuredName);
 
@@ -1574,12 +1576,14 @@ class AddRecurringSheet extends HookConsumerWidget {
         merchantController.text = result.merchant ?? '';
         selectedMerchantId.value = null;
         selectedMerchantDomain.value = null;
+        selectedMerchantLogoUrl.value = null;
         selectedMerchantStructuredName.value = null;
       } else {
         merchantController.text =
             result.merchantName ?? result.descriptor ?? '';
         selectedMerchantId.value = result.merchantId;
         selectedMerchantDomain.value = result.merchantDomain;
+        selectedMerchantLogoUrl.value = null;
         selectedMerchantStructuredName.value = result.merchantName;
       }
     }
@@ -1762,9 +1766,11 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     final merchantDomain = selectedMerchantDomain.value;
     final merchantId = selectedMerchantId.value;
-    final hasResolvableMerchantLogo = buildLogoDevMerchantUrl(
-          merchantId,
-          merchantDomain,
+    final merchantLogoUrl = selectedMerchantLogoUrl.value;
+    final hasResolvableMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: merchantLogoUrl,
+          merchantId: merchantId,
+          domain: merchantDomain,
         ) !=
         null;
     final isIncomeMode = !isExpense;
@@ -1841,7 +1847,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 duration: const Duration(milliseconds: 300),
                                 child: Container(
                                   key: ValueKey(
-                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|$displayCategory',
+                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
                                   ),
                                   padding: hasResolvableMerchantLogo
                                       ? EdgeInsets.zero
@@ -1873,6 +1879,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                           child: MerchantLogo(
                                             merchantId: merchantId,
                                             domain: merchantDomain,
+                                            logoUrl: merchantLogoUrl,
                                             fallback: Center(
                                               child: Icon(
                                                 getCategoryIcon(

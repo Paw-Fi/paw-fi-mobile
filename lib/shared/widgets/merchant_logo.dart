@@ -22,21 +22,47 @@ String? buildLogoDevMerchantUrl(String? merchantId, String? domain) {
   }).toString();
 }
 
+String? sanitizePlaidMerchantLogoUrl(String? value) {
+  final uri = Uri.tryParse(value?.trim() ?? '');
+  if (uri == null || uri.scheme != 'https') return null;
+  if (uri.host != 'plaid-merchant-logos.plaid.com' &&
+      uri.host != 'plaid-counterparty-logos.plaid.com') {
+    return null;
+  }
+  return uri.toString();
+}
+
+String? buildMerchantLogoUrl({
+  required String? logoUrl,
+  required String? merchantId,
+  required String? domain,
+}) {
+  if (merchantId?.trim().isEmpty ?? true) return null;
+  return sanitizePlaidMerchantLogoUrl(logoUrl) ??
+      buildLogoDevMerchantUrl(merchantId, domain);
+}
+
 class MerchantLogo extends StatelessWidget {
   const MerchantLogo({
     super.key,
     required this.merchantId,
     required this.domain,
+    this.logoUrl,
     required this.fallback,
   });
 
   final String? merchantId;
   final String? domain;
+  final String? logoUrl;
   final Widget fallback;
 
   @override
   Widget build(BuildContext context) {
-    final url = buildLogoDevMerchantUrl(merchantId, domain);
+    final url = buildMerchantLogoUrl(
+      logoUrl: logoUrl,
+      merchantId: merchantId,
+      domain: domain,
+    );
     if (url == null) return fallback;
 
     return Semantics(

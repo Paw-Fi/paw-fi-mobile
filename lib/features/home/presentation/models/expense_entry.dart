@@ -40,6 +40,7 @@ class ExpenseEntry {
   final String? merchant;
   final String? merchantId;
   final String? merchantDomain;
+  final String? merchantLogoUrl;
   final String? merchantStructuredName;
   final List<String>? breakdown;
   final String? receiptImageUrl;
@@ -85,6 +86,7 @@ class ExpenseEntry {
     this.merchant,
     this.merchantId,
     this.merchantDomain,
+    this.merchantLogoUrl,
     this.merchantStructuredName,
     this.breakdown,
     this.receiptImageUrl,
@@ -197,6 +199,10 @@ class ExpenseEntry {
         json['merchant_domain'] as String? ??
             merchantData?['domain'] as String?,
       ),
+      merchantLogoUrl: _sanitizeNullable(
+        json['merchant_logo_url'] as String? ??
+            merchantData?['logo_identifier'] as String?,
+      ),
       merchantStructuredName:
           _sanitizeNullable(json['merchant_structured_name'] as String?),
       breakdown: json['breakdown'] != null
@@ -270,6 +276,7 @@ class ExpenseEntry {
       'merchant': merchant,
       'merchant_id': merchantId,
       'merchant_domain': merchantDomain,
+      'merchant_logo_url': merchantLogoUrl,
       'merchant_structured_name': merchantStructuredName,
       'breakdown': breakdown,
       'receipt_image_url': receiptImageUrl,
@@ -320,6 +327,7 @@ class ExpenseEntry {
     String? merchant,
     String? merchantId,
     String? merchantDomain,
+    String? merchantLogoUrl,
     String? merchantStructuredName,
     List<String>? breakdown,
     String? receiptImageUrl,
@@ -366,6 +374,7 @@ class ExpenseEntry {
       merchant: merchant ?? this.merchant,
       merchantId: merchantId ?? this.merchantId,
       merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantLogoUrl: merchantLogoUrl ?? this.merchantLogoUrl,
       merchantStructuredName:
           merchantStructuredName ?? this.merchantStructuredName,
       breakdown: breakdown ?? this.breakdown,

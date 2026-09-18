@@ -90,6 +90,7 @@ RecurringTransaction recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
     merchant: entry.merchant,
     merchantId: entry.merchantId,
     merchantDomain: entry.merchantDomain,
+    merchantLogoUrl: entry.merchantLogoUrl,
     merchantStructuredName: entry.merchantStructuredName,
     amount: entry.amount,
     currency: entry.currency ?? 'USD',
@@ -141,6 +142,7 @@ ExpenseEntry _expenseEntryFromRecurringTransaction(
     merchant: transaction.merchant,
     merchantId: transaction.merchantId,
     merchantDomain: transaction.merchantDomain,
+    merchantLogoUrl: transaction.merchantLogoUrl,
     merchantStructuredName: transaction.merchantStructuredName,
     splitGroupId: transaction.splitGroupId,
     walletId: transaction.accountId,
@@ -1276,6 +1278,7 @@ class RecurringOccurrenceConfirmationController {
       merchant: command.recurringTransaction.merchant,
       merchantId: command.recurringTransaction.merchantId,
       merchantDomain: command.recurringTransaction.merchantDomain,
+      merchantLogoUrl: command.recurringTransaction.merchantLogoUrl,
       merchantStructuredName:
           command.recurringTransaction.merchantStructuredName,
       walletId: command.accountId,
@@ -1756,7 +1759,7 @@ class RecurringTransactionsNotifier
         final baseQuery = supabase
             .from('expenses')
             .select(
-              'id, date, category, raw_text, merchant, merchant_id, merchant_structured_name, merchants(domain), breakdown, source, amount_cents, '
+              'id, date, category, raw_text, merchant, merchant_id, merchant_structured_name, merchants(domain, logo_identifier), breakdown, source, amount_cents, '
               'currency, owner_type, privacy_scope, household_id, is_recurring, '
               'user_id, split_group_id, account_id, bank_account_id, provider, '
               'provider_fields, recurrence_rule, type, attachments, created_at, updated_at, '

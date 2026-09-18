@@ -67,6 +67,7 @@ ExpenseEntry _entryFromRecurringTransaction(RecurringTransaction transaction) {
     merchant: transaction.merchant,
     merchantId: transaction.merchantId,
     merchantDomain: transaction.merchantDomain,
+    merchantLogoUrl: transaction.merchantLogoUrl,
     merchantStructuredName: transaction.merchantStructuredName,
     walletId: transaction.accountId,
     type: transaction.type,
