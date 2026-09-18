@@ -84,6 +84,7 @@ const double _minimumVoicePeakDb = -55.0;
 const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
 const int _smartInputMemoryLimit = 25;
 const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
+const Duration _kAiRequestTimeout = Duration(minutes: 1);
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -1245,7 +1246,7 @@ Future<void> _persistAiTransactions(
             'isPortfolio': isPortfolio,
           'transactions': batch,
         },
-      );
+      ).timeout(_kAiRequestTimeout);
 
       if (response.data == null) {
         throw Exception('No response from save-transactions-batch');
@@ -1382,10 +1383,12 @@ Future<void> _persistAiTransactions(
       for (final prepared in preparedMutations) {
         final item = prepared.item;
         try {
-          final response = await supabase.functions.invoke(
-            prepared.functionName,
-            body: prepared.individualRequestBody,
-          );
+          final response = await supabase.functions
+              .invoke(
+                prepared.functionName,
+                body: prepared.individualRequestBody,
+              )
+              .timeout(_kAiRequestTimeout);
 
           final savedPayload = _extractSavedEntryPayload(response.data);
 
@@ -2512,15 +2515,17 @@ Future<void> _processExpense(
       // Explicitly pass JWT so the Edge Function can enrich household context
       // (householdMembers) under RLS. This is required for reliable split output.
       final session = supabase.auth.currentSession;
-      final response = await supabase.functions.invoke(
-        'analyze-expense',
-        body: body,
-        headers: session != null
-            ? <String, String>{
-                'Authorization': 'Bearer ${session.accessToken}',
-              }
-            : null,
-      );
+      final response = await supabase.functions
+          .invoke(
+            'analyze-expense',
+            body: body,
+            headers: session != null
+                ? <String, String>{
+                    'Authorization': 'Bearer ${session.accessToken}',
+                  }
+                : null,
+          )
+          .timeout(_kAiRequestTimeout);
 
       final parsedResponse = _asStringDynamicMap(response.data);
       if (parsedResponse != null) {
