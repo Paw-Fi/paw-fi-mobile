@@ -310,6 +310,11 @@ extension AppColorScheme on ColorScheme {
         alpha: brightness == Brightness.dark ? 0.3 : 0.05,
       );
 
+  /// Stronger outline for the exposed portion of collapsed wallet cards.
+  Color get walletCardCollapsedBorder => brightness == Brightness.dark
+      ? Colors.white.withValues(alpha: 0.86)
+      : Colors.black.withValues(alpha: 0.86);
+
   /// Pockets: Progress track
   Color get pocketProgressTrack => brightness == Brightness.dark
       ? foreground.withValues(alpha: 0.08)
