@@ -388,7 +388,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       slivers: [
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: PlatformInfo.isIOS26OrHigher() ? 120 : 24,
+            ),
+          ),
         ] else ...[
           // Personal mode - show customizable dashboard
           const SliverToBoxAdapter(child: ConnectSocialBanner()),
@@ -576,7 +580,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             },
           ),
           // Edit Button
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: PlatformInfo.isIOS26OrHigher() ? 120 : 24,
+            ),
+          ),
         ], // end of else block for Personal mode
       ],
     );

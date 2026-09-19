@@ -665,8 +665,10 @@ class _RecurringTransactionsPageState
 
     // Bottom spacing
     slivers.add(
-      const SliverToBoxAdapter(
-        child: SizedBox(height: 40),
+      SliverToBoxAdapter(
+        child: SizedBox(
+          height: PlatformInfo.isIOS26OrHigher() ? 120 : 40,
+        ),
       ),
     );
 

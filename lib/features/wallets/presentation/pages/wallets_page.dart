@@ -599,7 +599,8 @@ class AccountsPage extends HookConsumerWidget {
                 onRefresh: onRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: EdgeInsets.fromLTRB(
+                      16, 8, 16, PlatformInfo.isIOS26OrHigher() ? 120 : 24),
                   children: [
                     RepaintBoundary(
                       child: SizedBox(
@@ -1672,7 +1673,8 @@ class _WalletsPageSkeleton extends StatelessWidget {
       ),
       child: ListView(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+            16, 8, 16, PlatformInfo.isIOS26OrHigher() ? 120 : 24),
         children: [
           // Skeleton for _WalletsOverviewCard
           Container(

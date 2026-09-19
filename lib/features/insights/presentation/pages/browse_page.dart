@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -299,6 +301,7 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final canUsePlusFeatures = !subscriptionAsync.hasValue ||
         hasPremiumFeatureAccess(subscriptionAsync.valueOrNull);
+
     final tools = _browseTools(
       context,
       canUsePlusFeatures: canUsePlusFeatures,
@@ -307,6 +310,7 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
           (tool) => query.isEmpty || tool.title.toLowerCase().contains(query),
         )
         .toList(growable: false);
+
     final groupedTools = <String, List<_BrowseTool>>{};
     for (final tool in tools) {
       groupedTools.putIfAbsent(tool.category, () => <_BrowseTool>[]).add(tool);
@@ -330,54 +334,69 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
       body: CustomScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
+          // Search Field
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _searchController,
-                    onChanged: (value) => setState(() => _query = value),
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: context.l10n.search,
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'Clear search',
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                              },
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                      filled: true,
-                      fillColor: colorScheme.inputBackground,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide:
-                            BorderSide(color: colorScheme.controlBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide:
-                            BorderSide(color: colorScheme.controlBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide(
-                          color: colorScheme.primary,
-                          width: 1.5,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                textInputAction: TextInputAction.search,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 15,
+                ),
+                decoration: InputDecoration(
+                  hintText: context.l10n.search,
+                  hintStyle: TextStyle(
+                    color: colorScheme.mutedForeground,
+                    fontSize: 15,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: colorScheme.mutedForeground,
+                    size: 22,
+                  ),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: colorScheme.mutedForeground,
+                            size: 20,
+                          ),
                         ),
-                      ),
+                  filled: true,
+                  fillColor: colorScheme.inputBackground,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colorScheme.controlBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colorScheme.controlBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary,
+                      width: 1.5,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
+
           if (tools.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
@@ -386,9 +405,10 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                   padding: const EdgeInsets.all(32),
                   child: Text(
                     'No tools match your search.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.mutedForeground,
-                        ),
+                    style: TextStyle(
+                      color: colorScheme.mutedForeground,
+                      fontSize: 14,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -399,20 +419,20 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
               (entry) => <Widget>[
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
                     child: Text(
-                      entry.key,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: colorScheme.foreground,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                              ),
+                      entry.key.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: colorScheme.mutedForeground,
+                      ),
                     ),
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, rowIndex) {
@@ -480,7 +500,11 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                 ),
               ],
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: PlatformInfo.isIOS26OrHigher() ? 120 : 40,
+              ),
+            ),
           ],
         ],
       ),
@@ -493,10 +517,11 @@ double _browseToolHeight(
   _BrowseTool tool,
   double cardWidth,
 ) {
-  final textStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-        height: 1.1,
-      );
+  const textStyle = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    height: 1.15,
+  );
   final titlePainter = TextPainter(
     text: TextSpan(text: tool.title, style: textStyle),
     textDirection: Directionality.of(context),
@@ -504,7 +529,7 @@ double _browseToolHeight(
     maxLines: 2,
   )..layout(maxWidth: cardWidth - 28);
 
-  return titlePainter.computeLineMetrics().length > 1 ? 128 : 104;
+  return titlePainter.computeLineMetrics().length > 1 ? 116 : 98;
 }
 
 int _browseToolOrder(_BrowseTool tool) {
@@ -544,6 +569,19 @@ int _browseCategoryOrder(String category) {
   };
 }
 
+Color _browseCategoryAccent(ColorScheme colorScheme, String category) {
+  return switch (category) {
+    'Financial health' => colorScheme.browseIconBackground(colorScheme.success),
+    'Account' => colorScheme.browseIconBackground(colorScheme.info),
+    'Capture & integrations' =>
+      colorScheme.browseIconBackground(colorScheme.warning),
+    'App experience' =>
+      colorScheme.browseIconBackground(colorScheme.progressOrange),
+    'Support' => colorScheme.browseIconBackground(colorScheme.errorAccent),
+    _ => colorScheme.browseIconBackground(colorScheme.primary),
+  };
+}
+
 enum _BrowseDestination {
   report,
   scenario,
@@ -566,19 +604,6 @@ enum _BrowseDestination {
   changelog,
   reportBug,
   featureRequest,
-}
-
-Color _browseCategoryAccent(ColorScheme colorScheme, String category) {
-  return switch (category) {
-    'Financial health' => colorScheme.browseIconBackground(colorScheme.success),
-    'Account' => colorScheme.browseIconBackground(colorScheme.info),
-    'Capture & integrations' =>
-      colorScheme.browseIconBackground(colorScheme.warning),
-    'App experience' =>
-      colorScheme.browseIconBackground(colorScheme.progressOrange),
-    'Support' => colorScheme.browseIconBackground(colorScheme.errorAccent),
-    _ => colorScheme.browseIconBackground(colorScheme.primary),
-  };
 }
 
 class _BrowseTool {
@@ -819,6 +844,7 @@ class _BrowseToolCardState extends State<_BrowseToolCard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final iconBackground = _browseCategoryAccent(
       colorScheme,
@@ -829,62 +855,84 @@ class _BrowseToolCardState extends State<_BrowseToolCard> {
       button: true,
       label: widget.tool.title,
       child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1,
+        scale: _pressed ? 0.97 : 1.0,
         duration:
             reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
-        child: Material(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(24),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: widget.onTap,
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapCancel: () => setState(() => _pressed = false),
-            onTapUp: (_) => setState(() => _pressed = false),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: iconBackground,
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            widget.tool.icon,
-                            color: colorScheme.foreground,
-                            size: 27,
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.surfaceBorder,
+            ),
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: colorScheme.foreground.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            color: colorScheme.surface.withValues(alpha: 0.0),
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                widget.onTap();
+              },
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapCancel: () => setState(() => _pressed = false),
+              onTapUp: (_) => setState(() => _pressed = false),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: iconBackground,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              widget.tool.icon,
+                              color: colorScheme.foreground,
+                              size: 22,
+                            ),
                           ),
                         ),
+                        if (widget.tool.isLocked)
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            color: colorScheme.mutedForeground,
+                            size: 17,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.tool.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.15,
+                        color: colorScheme.foreground,
                       ),
-                      if (widget.tool.isLocked)
-                        Icon(
-                          Icons.lock_outline_rounded,
-                          color: colorScheme.mutedForeground,
-                          size: 19,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.tool.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colorScheme.foreground,
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
-                        ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

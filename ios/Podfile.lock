@@ -397,7 +397,7 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/wakelock_plus/ios"
 
 SPEC CHECKSUMS:
-  adaptive_platform_ui: dcd588cb59eb4c5bd1a430158b00b98b0493b3f0
+  adaptive_platform_ui: 76b089c653197e733139d9774b97a90e50275cbe
   app_badge_plus: c5b2717990b9c52e565809444414f41015d81b68
   app_links: 585674be3c6661708e6cd794ab4f39fb9d8356f9
   app_settings: 58017cd26b604ae98c3e65acbdd8ba173703cc82

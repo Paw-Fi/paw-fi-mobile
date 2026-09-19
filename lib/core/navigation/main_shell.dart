@@ -379,6 +379,8 @@ class MainShell extends HookConsumerWidget {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
+    final isTopRoute = ModalRoute.of(context)?.isCurrent ?? true;
+    final useNativeIosTabBar = PlatformInfo.isIOS26OrHigher();
     final previewState = ref.watch(previewModeProvider);
     final hasNetworkAccess =
         ref.watch(networkReachabilityProvider).valueOrNull ?? true;
@@ -875,114 +877,151 @@ class MainShell extends HookConsumerWidget {
                 ),
               ),
             ),
-            bottomNavigationBar: AdaptiveBottomNavigationBar(
-              useNativeBottomBar: false,
-              items: [
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.house_fill
-                      : Icons.home_filled,
-                  label: 'Home',
-                ),
-                AdaptiveNavigationDestination(
-                  icon:
-                      PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
-                  label: context.l10n.recurring,
-                ),
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.chart_pie
-                      : Icons.pie_chart_outline,
-                  label: context.l10n.budget,
-                ),
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.creditcard
-                      : Icons.account_balance_wallet_outlined,
-                  label: context.l10n.wallet,
-                ),
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.square_grid_2x2
-                      : Icons.apps_rounded,
-                  label: 'Browse',
-                ),
-              ],
-              cupertinoTabBar: CupertinoTabBar(
-                currentIndex: currentIndex,
+            bottomNavigationBar: useNativeIosTabBar
+                ? null
+                : AdaptiveBottomNavigationBar(
+                    useNativeBottomBar: false,
+                    items: [
+                      const AdaptiveNavigationDestination(
+                        icon: 'house.fill',
+                        label: 'Home',
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'repeat',
+                        label: context.l10n.recurring,
+                        badgeCount:
+                            hasUnconfirmedRecurringOccurrences ? 1 : null,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'chart.pie',
+                        label: context.l10n.budget,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'creditcard',
+                        label: context.l10n.wallet,
+                      ),
+                      const AdaptiveNavigationDestination(
+                        icon: 'square.grid.2x2',
+                        label: 'Browse',
+                      ),
+                    ],
+                    cupertinoTabBar: CupertinoTabBar(
+                      currentIndex: currentIndex,
+                      onTap: (index) {
+                        if (index == currentIndex) return;
+                        ref.read(mainShellTabIndexProvider.notifier).state =
+                            index;
+                      },
+                      items: [
+                        const BottomNavigationBarItem(
+                          icon: Icon(CupertinoIcons.house_fill),
+                          label: 'Home',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: NotificationDotIndicator(
+                            isVisible: hasUnconfirmedRecurringOccurrences,
+                            isLoading: isRecurringBadgeLoading,
+                            right: -10,
+                            child: const Icon(CupertinoIcons.repeat),
+                          ),
+                          label: context.l10n.recurring,
+                        ),
+                        BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.chart_pie),
+                          label: context.l10n.budget,
+                        ),
+                        BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.creditcard),
+                          label: context.l10n.wallet,
+                        ),
+                        const BottomNavigationBarItem(
+                          icon: Icon(CupertinoIcons.square_grid_2x2),
+                          label: 'Browse',
+                        ),
+                      ],
+                    ),
+                    bottomNavigationBar: NavigationBar(
+                      selectedIndex: currentIndex,
+                      onDestinationSelected: (index) {
+                        if (index == currentIndex) return;
+                        ref.read(mainShellTabIndexProvider.notifier).state =
+                            index;
+                      },
+                      destinations: [
+                        const NavigationDestination(
+                          icon: Icon(Icons.home_filled),
+                          label: 'Home',
+                        ),
+                        NavigationDestination(
+                          icon: NotificationDotIndicator(
+                            right: -10,
+                            isVisible: hasUnconfirmedRecurringOccurrences,
+                            isLoading: isRecurringBadgeLoading,
+                            child: const Icon(Icons.repeat),
+                          ),
+                          label: context.l10n.recurring,
+                        ),
+                        NavigationDestination(
+                          icon: const Icon(Icons.pie_chart_outline),
+                          label: context.l10n.budget,
+                        ),
+                        NavigationDestination(
+                          icon:
+                              const Icon(Icons.account_balance_wallet_outlined),
+                          label: context.l10n.wallet,
+                        ),
+                        const NavigationDestination(
+                          icon: Icon(Icons.apps_rounded),
+                          label: 'Browse',
+                        ),
+                      ],
+                    ),
+                    selectedIndex: currentIndex,
+                    onTap: (index) {
+                      if (index == currentIndex) return;
+                      ref.read(mainShellTabIndexProvider.notifier).state =
+                          index;
+                    },
+                  ),
+          ),
+          if (useNativeIosTabBar)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: IOS26NativeTabBar(
+                destinations: [
+                  const AdaptiveNavigationDestination(
+                    icon: 'house.fill',
+                    label: 'Home',
+                  ),
+                  AdaptiveNavigationDestination(
+                    icon: 'repeat',
+                    label: context.l10n.recurring,
+                    badgeCount: hasUnconfirmedRecurringOccurrences ? 1 : null,
+                  ),
+                  AdaptiveNavigationDestination(
+                    icon: 'chart.pie',
+                    label: context.l10n.budget,
+                  ),
+                  AdaptiveNavigationDestination(
+                    icon: 'creditcard',
+                    label: context.l10n.wallet,
+                  ),
+                  const AdaptiveNavigationDestination(
+                    icon: 'square.grid.2x2',
+                    label: 'Browse',
+                  ),
+                ],
+                selectedIndex: currentIndex,
                 onTap: (index) {
                   if (index == currentIndex) return;
                   ref.read(mainShellTabIndexProvider.notifier).state = index;
                 },
-                items: [
-                  const BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.house_fill),
-                    label: 'Home',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: NotificationDotIndicator(
-                      isVisible: hasUnconfirmedRecurringOccurrences,
-                      isLoading: isRecurringBadgeLoading,
-                      right: -10,
-                      child: const Icon(CupertinoIcons.repeat),
-                    ),
-                    label: context.l10n.recurring,
-                  ),
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.chart_pie),
-                    label: context.l10n.budget,
-                  ),
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.creditcard),
-                    label: context.l10n.wallet,
-                  ),
-                  const BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.square_grid_2x2),
-                    label: 'Browse',
-                  ),
-                ],
+                minimizeBehavior: TabBarMinimizeBehavior.never,
+                showNativeView: isTopRoute,
               ),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: currentIndex,
-                onDestinationSelected: (index) {
-                  if (index == currentIndex) return;
-                  ref.read(mainShellTabIndexProvider.notifier).state = index;
-                },
-                destinations: [
-                  const NavigationDestination(
-                    icon: Icon(Icons.home_filled),
-                    label: 'Home',
-                  ),
-                  NavigationDestination(
-                    icon: NotificationDotIndicator(
-                      right: -10,
-                      isVisible: hasUnconfirmedRecurringOccurrences,
-                      isLoading: isRecurringBadgeLoading,
-                      child: const Icon(Icons.repeat),
-                    ),
-                    label: context.l10n.recurring,
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.pie_chart_outline),
-                    label: context.l10n.budget,
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    label: context.l10n.wallet,
-                  ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.apps_rounded),
-                    label: 'Browse',
-                  ),
-                ],
-              ),
-              selectedIndex: currentIndex,
-              onTap: (index) {
-                if (index == currentIndex) return;
-                ref.read(mainShellTabIndexProvider.notifier).state = index;
-              },
             ),
-          ),
           const HomeAiBackdropOverlay(),
           if (showAiFab && currentIndex != 4)
             Positioned(
