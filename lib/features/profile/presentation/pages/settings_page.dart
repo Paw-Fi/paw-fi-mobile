@@ -2399,6 +2399,45 @@ Future<void> _showSubmitFeedbackSheet(BuildContext context) async {
   );
 }
 
+/// Shared entry points for the Browse catalog. Settings keeps its original
+/// tiles, while Browse can open the same existing flows without duplicating
+/// their private sheet implementations.
+Future<void> showSiriExpenseTutorialSheet(BuildContext context) async {
+  await MonekoBottomSheet.show<void>(
+    context: context,
+    isScrollControlled: true,
+    title: context.l10n.logExpenseWithSiri,
+    onClose: () => Navigator.of(context).pop(),
+    builder: (_) => const _SiriExpenseTutorial(),
+  );
+}
+
+Future<void> showReportBugFlow(BuildContext context) async {
+  final option = await SupportContactOptionsSheet.show(context);
+  if (!context.mounted || option == null) return;
+  if (option == SupportContactOption.ticket) {
+    await _showReportBugSheet(context);
+    return;
+  }
+  await launchUrl(
+    Uri.parse(Links.redditCommunity),
+    mode: LaunchMode.externalApplication,
+  );
+}
+
+Future<void> showFeatureRequestFlow(BuildContext context) async {
+  final option = await SupportContactOptionsSheet.show(context);
+  if (!context.mounted || option == null) return;
+  if (option == SupportContactOption.ticket) {
+    await _showSubmitFeedbackSheet(context);
+    return;
+  }
+  await launchUrl(
+    Uri.parse(Links.redditCommunity),
+    mode: LaunchMode.externalApplication,
+  );
+}
+
 Future<void> _showSupportSheet({
   required BuildContext context,
   required _SupportSheetMode mode,

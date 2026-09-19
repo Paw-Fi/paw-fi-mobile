@@ -126,6 +126,18 @@ class TransactionListTile extends StatelessWidget {
         final displayTitle = trimmedDescription.isNotEmpty
             ? trimmedDescription
             : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
+        final hasMerchantLogo = buildMerchantLogoUrl(
+              logoUrl: merchantLogoUrl,
+              merchantId: merchantId,
+              domain: merchantDomain,
+            ) !=
+            null;
+        final merchantLogo = MerchantLogo(
+          merchantId: merchantId,
+          domain: merchantDomain,
+          logoUrl: merchantLogoUrl,
+          fallback: Icon(icon, color: color, size: 20),
+        );
 
         // Build badge chips
         final chips = <Widget>[];
@@ -262,20 +274,17 @@ class TransactionListTile extends StatelessWidget {
           onTap: onTap,
           dense: dense,
           contentPadding: EdgeInsets.zero,
-          leading: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colorScheme.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: MerchantLogo(
-              merchantId: merchantId,
-              domain: merchantDomain,
-              logoUrl: merchantLogoUrl,
-              fallback: Icon(icon, color: color, size: 20),
-            ),
-          ),
+          leading: hasMerchantLogo
+              ? SizedBox(width: 36, height: 36, child: merchantLogo)
+              : Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurface.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: merchantLogo,
+                ),
           title: Text(
             displayTitle,
             maxLines: 1,

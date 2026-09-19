@@ -67,6 +67,11 @@ extension AppColorScheme on ColorScheme {
       ? AppTheme.darkCardBg
       : AppTheme.lightCardBg;
 
+  /// Bright, softened tint for Browse tool icon containers.
+  Color browseIconBackground(Color accent) =>
+      Color.lerp(card, accent, brightness == Brightness.dark ? 0.24 : 0.16) ??
+      card;
+
   Color get appBackground => brightness == Brightness.dark
       ? AppTheme.darkBackground
       : AppTheme.lightBackground;
@@ -375,18 +380,17 @@ extension AppColorScheme on ColorScheme {
   Color get householdMember => AppTheme.householdMember;
 
   /// Recurring summary card gradient colors
-  List<Color> get recurringSummaryGradient =>
-      brightness == Brightness.dark
-          ? [
-              primary.withValues(alpha: 0.12),
-              surface.withValues(alpha: 0.04),
-            ]
-          : [
-              AppTheme.lightRecurringSummaryGradientStart,
-              AppTheme.lightRecurringSummaryGradientBlush,
-              AppTheme.lightRecurringSummaryGradientCool,
-              AppTheme.lightRecurringSummaryGradientEnd,
-            ];
+  List<Color> get recurringSummaryGradient => brightness == Brightness.dark
+      ? [
+          primary.withValues(alpha: 0.12),
+          surface.withValues(alpha: 0.04),
+        ]
+      : [
+          AppTheme.lightRecurringSummaryGradientStart,
+          AppTheme.lightRecurringSummaryGradientBlush,
+          AppTheme.lightRecurringSummaryGradientCool,
+          AppTheme.lightRecurringSummaryGradientEnd,
+        ];
 
   /// Recurring summary card border
   Color get recurringSummaryBorder => brightness == Brightness.dark

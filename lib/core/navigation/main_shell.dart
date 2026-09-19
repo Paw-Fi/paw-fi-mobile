@@ -14,7 +14,7 @@ import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
 
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
-import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
+import 'package:moneko/features/insights/presentation/pages/browse_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
@@ -775,7 +775,7 @@ class MainShell extends HookConsumerWidget {
       () => const RecurringTransactionsPage(),
       () => const PocketsPage(),
       () => const AccountsPage(),
-      () => const AnalyticsPage(),
+      () => const BrowsePage(),
     ];
 
     final pages = List<Widget>.generate(pageBuilders.length, (index) {
@@ -880,9 +880,9 @@ class MainShell extends HookConsumerWidget {
               items: [
                 AdaptiveNavigationDestination(
                   icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.square_grid_2x2_fill
-                      : Icons.dashboard,
-                  label: context.l10n.overview,
+                      ? CupertinoIcons.house_fill
+                      : Icons.home_filled,
+                  label: 'Home',
                 ),
                 AdaptiveNavigationDestination(
                   icon:
@@ -903,9 +903,9 @@ class MainShell extends HookConsumerWidget {
                 ),
                 AdaptiveNavigationDestination(
                   icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.chart_bar_alt_fill
-                      : Icons.bar_chart,
-                  label: context.l10n.insights,
+                      ? CupertinoIcons.square_grid_2x2
+                      : Icons.apps_rounded,
+                  label: 'Browse',
                 ),
               ],
               cupertinoTabBar: CupertinoTabBar(
@@ -915,9 +915,9 @@ class MainShell extends HookConsumerWidget {
                   ref.read(mainShellTabIndexProvider.notifier).state = index;
                 },
                 items: [
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.square_grid_2x2_fill),
-                    label: context.l10n.overview,
+                  const BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.house_fill),
+                    label: 'Home',
                   ),
                   BottomNavigationBarItem(
                     icon: NotificationDotIndicator(
@@ -936,9 +936,9 @@ class MainShell extends HookConsumerWidget {
                     icon: const Icon(CupertinoIcons.creditcard),
                     label: context.l10n.wallet,
                   ),
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
-                    label: context.l10n.insights,
+                  const BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.square_grid_2x2),
+                    label: 'Browse',
                   ),
                 ],
               ),
@@ -949,9 +949,9 @@ class MainShell extends HookConsumerWidget {
                   ref.read(mainShellTabIndexProvider.notifier).state = index;
                 },
                 destinations: [
-                  NavigationDestination(
-                    icon: const Icon(Icons.dashboard),
-                    label: context.l10n.overview,
+                  const NavigationDestination(
+                    icon: Icon(Icons.home_filled),
+                    label: 'Home',
                   ),
                   NavigationDestination(
                     icon: NotificationDotIndicator(
@@ -970,9 +970,9 @@ class MainShell extends HookConsumerWidget {
                     icon: const Icon(Icons.account_balance_wallet_outlined),
                     label: context.l10n.wallet,
                   ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.bar_chart),
-                    label: context.l10n.insights,
+                  const NavigationDestination(
+                    icon: Icon(Icons.apps_rounded),
+                    label: 'Browse',
                   ),
                 ],
               ),

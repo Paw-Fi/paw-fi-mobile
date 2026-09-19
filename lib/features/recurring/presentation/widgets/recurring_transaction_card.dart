@@ -83,6 +83,22 @@ class RecurringTransactionCard extends StatelessWidget {
     final adaptedCategoryColor =
         AppTheme.adaptCategoryColorForTheme(categoryColor, colorScheme);
     final categoryIcon = getCategoryIcon(transaction.category);
+    final hasMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: transaction.merchantLogoUrl,
+          merchantId: transaction.merchantId,
+          domain: transaction.merchantDomain,
+        ) !=
+        null;
+    final merchantLogo = MerchantLogo(
+      merchantId: transaction.merchantId,
+      domain: transaction.merchantDomain,
+      logoUrl: transaction.merchantLogoUrl,
+      fallback: Icon(
+        categoryIcon,
+        color: adaptedCategoryColor,
+        size: 22,
+      ),
+    );
 
     // Format amount
     final sign = isIncome ? '+' : '-';
@@ -141,29 +157,26 @@ class RecurringTransactionCard extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    // Category Icon with adapted background color and soft glow
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: adaptedCategoryColor.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: adaptedCategoryColor.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: MerchantLogo(
-                        merchantId: transaction.merchantId,
-                        domain: transaction.merchantDomain,
-                        logoUrl: transaction.merchantLogoUrl,
-                        fallback: Icon(
-                          categoryIcon,
-                          color: adaptedCategoryColor,
-                          size: 22,
-                        ),
-                      ),
-                    ),
+                    // Merchant logos stay rounded but are not placed on a
+                    // category-colored background. Category fallbacks retain
+                    // the existing background treatment.
+                    hasMerchantLogo
+                        ? SizedBox(width: 46, height: 46, child: merchantLogo)
+                        : Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color:
+                                  adaptedCategoryColor.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    adaptedCategoryColor.withValues(alpha: 0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: merchantLogo,
+                          ),
                     const SizedBox(width: 14),
                     // Title and subtitle info
                     Expanded(
