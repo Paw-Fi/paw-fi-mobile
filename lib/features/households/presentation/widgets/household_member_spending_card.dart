@@ -265,46 +265,47 @@ Widget _buildMemberRow(
   final symbol = resolveCurrencySymbol(currency);
 
   // Get member data from the members list to ensure we have the correct name
-  final memberData = members?.firstWhere(
-    (m) => m.userId == member.userId,
-    orElse: () => HouseholdMember(
-      id: '',
-      householdId: '',
-      userId: member.userId,
-      role: HouseholdRole.member,
-      joinedAt: DateTime.now(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      userEmail: member.userEmail,
-      userName: member.userName,
-    ),
+  final now = DateTime.now();
+  final fallbackMember = HouseholdMember(
+    id: '',
+    householdId: householdId ?? '',
+    userId: member.userId,
+    role: HouseholdRole.member,
+    joinedAt: now,
+    createdAt: now,
+    updatedAt: now,
+    userEmail: member.userEmail,
+    userName: member.userName,
   );
+  final memberData = members?.firstWhere(
+        (m) => m.userId == member.userId,
+        orElse: () => fallbackMember,
+      ) ??
+      fallbackMember;
 
-  final name = memberData?.userName?.trim() ?? member.userName?.trim();
+  final name = memberData.userName?.trim() ?? member.userName?.trim();
   final displayName = (name != null && name.isNotEmpty)
       ? name
-      : (memberData?.userEmail ?? member.userEmail ?? 'Unknown');
+      : (memberData.userEmail ?? member.userEmail ?? 'Unknown');
 
   final isCurrentUser = currentUserId != null && member.userId == currentUserId;
 
   return GestureDetector(
     onTap: () {
-      if (memberData != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => HouseholdMemberDetailsPage(
-              member: memberData,
-              transactions: transactions,
-              splits: splits,
-              currency: currency,
-              currencyRates: currencyRates,
-              householdId: householdId,
-              initialStartDate: from,
-              initialEndDate: to,
-            ),
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => HouseholdMemberDetailsPage(
+            member: memberData,
+            transactions: transactions,
+            splits: splits,
+            currency: currency,
+            currencyRates: currencyRates,
+            householdId: householdId,
+            initialStartDate: from,
+            initialEndDate: to,
           ),
-        );
-      }
+        ),
+      );
     },
     behavior: HitTestBehavior.opaque,
     child: Padding(
@@ -330,7 +331,7 @@ Widget _buildMemberRow(
                 child: MonekoAvatar.supabaseUser(
                   size: 44,
                   userId: member.userId,
-                  fallbackImageUrl: memberData?.avatarUrl,
+                  fallbackImageUrl: memberData.avatarUrl,
                   borderWidth: 1,
                   borderColor: colorScheme.border.withValues(alpha: 0.15),
                 ),

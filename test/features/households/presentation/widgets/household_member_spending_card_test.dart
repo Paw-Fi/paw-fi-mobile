@@ -93,6 +93,39 @@ void main() {
     },
   );
 
+  testWidgets(
+    'opens member details from summary data while members are unavailable',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: AppTheme.lightTheme(),
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => buildHouseholdMemberSpendingCard(
+                  context,
+                  AppTheme.lightTheme().colorScheme,
+                  _summary(),
+                  householdId: 'household-1',
+                  selectedCurrency: 'USD',
+                  dateRangeFilter: DateRangeFilter.custom,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Avery'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HouseholdMemberDetailsPage), findsOneWidget);
+    },
+  );
+
   testWidgets('uses the dashboard-selected range in member details',
       (tester) async {
     final member = HouseholdMember(
