@@ -222,7 +222,7 @@ class RecurringTransactionCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color:
                                       colorScheme.muted.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: colorScheme.border
                                         .withValues(alpha: 0.1),

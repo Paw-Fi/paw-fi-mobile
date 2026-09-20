@@ -3562,5 +3562,6 @@
   "workingForElapsed": "In elaborazione da {elapsed}",
   "bankConnectionNotConnectedYet": "Non ancora collegato",
   "merchantWebsite": "Sito web dell'esercente",
-  "addMerchantWebsite": "Aggiungi il sito web dell'esercente"
+  "addMerchantWebsite": "Aggiungi il sito web dell'esercente",
+  "browse": "Esplora"
 }

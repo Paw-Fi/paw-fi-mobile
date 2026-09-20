@@ -3617,5 +3617,6 @@
   "workingForElapsed": "Procesando desde hace {elapsed}",
   "bankConnectionNotConnectedYet": "Aún no conectado",
   "merchantWebsite": "Sitio web del comercio",
-  "addMerchantWebsite": "Añadir sitio web del comercio"
+  "addMerchantWebsite": "Añadir sitio web del comercio",
+  "browse": "Explorar"
 }

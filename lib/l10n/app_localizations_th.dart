@@ -4216,7 +4216,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get syncBankAccountsTooltip => 'ดูวิธีผูกบัญชีผ่าน Plaid';
 
   @override
-  String get syncBankAccountsComingSoon => 'ฟีเจอร์ผูกธนาคารกำลังจะมาเร็วๆ นี้';
+  String get syncBankAccountsComingSoon => 'ขณะนี้การเชื่อมต่อบัญชีธนาคารยังไม่พร้อมใช้งานในภูมิภาคของคุณ';
 
   @override
   String get integrations => 'ผูกแอปอื่น';
@@ -8523,7 +8523,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get bankConnection => 'การเชื่อมต่อธนาคาร';
 
   @override
-  String get bankConnectionNotConnectedYet => 'Not connected yet';
+  String get bankConnectionNotConnectedYet => 'ยังไม่ได้เชื่อมต่อ';
 
   @override
   String get bankConnectionUnavailable => 'ไม่สามารถเชื่อมต่อธนาคารได้';
@@ -10220,4 +10220,13 @@ class AppLocalizationsTh extends AppLocalizations {
   String workingForElapsed(Object elapsed) {
     return 'กำลังประมวลผลมาแล้ว $elapsed';
   }
+
+  @override
+  String get merchantWebsite => 'เว็บไซต์ร้านค้า';
+
+  @override
+  String get addMerchantWebsite => 'เพิ่มเว็บไซต์ร้านค้า';
+
+  @override
+  String get browse => 'สำรวจ';
 }

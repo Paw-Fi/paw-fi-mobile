@@ -21,7 +21,7 @@ class SubtleAdaptiveButton extends StatelessWidget {
       return CupertinoButton(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         color: scheme.inputBackground,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         onPressed: onPressed,
         minimumSize: const Size(0, 0),
         child: SizedBox(
@@ -43,15 +43,15 @@ class SubtleAdaptiveButton extends StatelessWidget {
     }
 
     return Material(
-      color: Colors.transparent,
+      color: scheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Ink(
           decoration: BoxDecoration(
             color: scheme.inputBackground,
-            border: Border.all(color: scheme.border),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: scheme.border.withValues(alpha: 0.6)),
+            borderRadius: BorderRadius.circular(10),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Center(

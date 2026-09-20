@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -59,7 +58,7 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
             ),
           ],
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -94,7 +93,7 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
                   ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             if (filteredExpenses.isEmpty)
               _EmptyState(colorScheme: colorScheme)
             else
@@ -300,15 +299,16 @@ class _CategoryRow extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        AnimatedAmountText(
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: AnimatedAmountText(
                           value: amount,
                           symbol: symbol,
                           style: TextStyle(
@@ -318,7 +318,7 @@ class _CategoryRow extends StatelessWidget {
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

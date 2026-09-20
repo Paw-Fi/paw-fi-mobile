@@ -3615,5 +3615,6 @@
   "workingForElapsed": "Seit {elapsed} in Bearbeitung",
   "bankConnectionNotConnectedYet": "Noch nicht verbunden",
   "merchantWebsite": "Händler-Website",
-  "addMerchantWebsite": "Händler-Website hinzufügen"
+  "addMerchantWebsite": "Händler-Website hinzufügen",
+  "browse": "Entdecken"
 }

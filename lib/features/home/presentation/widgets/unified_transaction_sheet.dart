@@ -1788,7 +1788,7 @@ class _UnifiedTransactionSheetV2State
     }
 
     return MonekoInput(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

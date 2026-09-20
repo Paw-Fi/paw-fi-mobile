@@ -111,7 +111,7 @@ class MonekoSegmentedControl extends StatelessWidget {
               segmentWidth * selectedIndex.clamp(0, _segmentCount - 1);
 
           return ClipRRect(
-            borderRadius: BorderRadius.circular(height / 2),
+            borderRadius: BorderRadius.circular(10),
             child: Stack(
               children: [
                 Container(
@@ -127,7 +127,7 @@ class MonekoSegmentedControl extends StatelessWidget {
                     width: segmentWidth,
                     decoration: BoxDecoration(
                       color: colorScheme.tabThumb,
-                      borderRadius: BorderRadius.circular(height / 2),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
@@ -136,7 +136,7 @@ class MonekoSegmentedControl extends StatelessWidget {
                     for (int i = 0; i < _segmentCount; i++)
                       Expanded(
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(height / 2),
+                          borderRadius: BorderRadius.circular(10),
                           onTap: () => onValueChanged(i),
                           child: Center(
                             child: _buildSegmentContent(

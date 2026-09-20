@@ -22,7 +22,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         color: scheme.destructive.withValues(alpha: 0.1),
         disabledColor: scheme.destructive.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         pressedOpacity: 0.7,
         onPressed: onPressed,
         child: DefaultTextStyle.merge(

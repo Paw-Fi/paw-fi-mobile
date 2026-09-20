@@ -147,13 +147,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(skipButton);
     await tester.pumpAndSettle();
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
 
     expect(find.text('Dashboard'), findsOneWidget);
     expect(prefs.getBool('onboarding_completed:u1'), true);
   });
 
   testWidgets(
-      'final action navigates without waiting for notification or subscription work',
+      'notification action advances without waiting for notification work',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final notificationsCompleter = Completer<void>();
@@ -184,10 +186,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Dashboard'), findsOneWidget);
-    expect(prefs.getBool('onboarding_completed:u1'), true);
+    expect(find.text('Plus Plan'), findsOneWidget);
+    expect(prefs.getBool('onboarding_completed:u1'), isNull);
     expect(notificationsCompleter.isCompleted, false);
     expect(subscriptionRefreshCompleter.isCompleted, false);
+
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(prefs.getBool('onboarding_completed:u1'), true);
 
     notificationsCompleter.complete();
     subscriptionRefreshCompleter.complete();

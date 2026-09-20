@@ -288,12 +288,12 @@ class CategoryPicker extends HookWidget {
                                     ),
                                   ),
                                   Icon(
-                                    Icons.settings,
+                                    Icons.apps_rounded,
                                     size: 14,
                                     color: colorScheme.mutedForeground,
                                   ),
                                   Text(
-                                    " ${context.l10n.settings}",
+                                    " ${context.l10n.browse}",
                                     style: TextStyle(
                                       color: colorScheme.mutedForeground,
                                       fontSize: 12,
@@ -544,32 +544,62 @@ class _CategoryGroupSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            groupTitle,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              groupTitle,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+            ),
           ),
-          const SizedBox(height: 8),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              for (final key in categories)
-                _CategoryTile(
-                  categoryKey: key,
-                  isSelected: selected.contains(key),
-                  isCustomCategory: isCustomGroup,
-                  onTap: () => onToggle(key),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: colorScheme.card,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.homeCardShadow,
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-            ],
+              ],
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const columnGap = 8.0;
+                final tileWidth = (constraints.maxWidth - columnGap * 3) / 4;
+
+                return Wrap(
+                  spacing: columnGap,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.start,
+                  children: [
+                    for (final key in categories)
+                      SizedBox(
+                        width: tileWidth,
+                        child: _CategoryTile(
+                          categoryKey: key,
+                          isSelected: selected.contains(key),
+                          isCustomCategory: isCustomGroup,
+                          onTap: () => onToggle(key),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -593,8 +623,8 @@ class _CategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color =
-        _categoryColor(context, categoryKey, isCustomCategory: isCustomCategory);
+    final color = _categoryColor(context, categoryKey,
+        isCustomCategory: isCustomCategory);
     final icon = _categoryIcon(categoryKey, isCustomCategory: isCustomCategory);
     final label = _categoryLabel(
       context,
@@ -607,52 +637,65 @@ class _CategoryTile extends StatelessWidget {
         ? colorScheme.primaryForeground
         : color.withValues(alpha: 0.4);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 72,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: circleColor,
-                border: isSelected
-                    ? null
-                    : Border.all(
-                        color: color.withValues(alpha: 0.2),
-                        width: 1.5,
-                      ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ]
-                    : null,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: circleColor,
+                  border: isSelected
+                      ? null
+                      : Border.all(
+                          color: color.withValues(alpha: 0.2),
+                          width: 1.5,
+                        ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 22,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 26,
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 30,
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1.15,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -670,7 +713,8 @@ String _categoryLabel(
   return getCategoryTranslation(context, categoryKey);
 }
 
-Color _categoryColor(BuildContext context, String categoryKey, {required bool isCustomCategory}) {
+Color _categoryColor(BuildContext context, String categoryKey,
+    {required bool isCustomCategory}) {
   if (!isCustomCategory) {
     return getCategoryColor(categoryKey, context);
   }

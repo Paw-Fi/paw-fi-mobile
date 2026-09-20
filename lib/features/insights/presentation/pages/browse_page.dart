@@ -345,13 +345,13 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                 textInputAction: TextInputAction.search,
                 style: TextStyle(
                   color: colorScheme.foreground,
-                  fontSize: 15,
+                  fontSize: 14,
                 ),
                 decoration: InputDecoration(
                   hintText: context.l10n.search,
                   hintStyle: TextStyle(
                     color: colorScheme.mutedForeground,
-                    fontSize: 15,
+                    fontSize: 14,
                   ),
                   prefixIcon: Icon(
                     Icons.search_rounded,
@@ -379,15 +379,15 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                     vertical: 12,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(color: colorScheme.controlBorder),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(color: colorScheme.controlBorder),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
                       color: colorScheme.primary,
                       width: 1.5,
@@ -423,12 +423,11 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                     padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
                     child: Text(
                       entry.key,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: colorScheme.foreground,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                              ),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: colorScheme.foreground,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                          ),
                     ),
                   ),
                 ),

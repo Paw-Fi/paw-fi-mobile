@@ -3614,5 +3614,6 @@
   "workingForElapsed": "Đã xử lý trong {elapsed}",
   "bankConnectionNotConnectedYet": "Chưa kết nối",
   "merchantWebsite": "Trang web của cửa hàng",
-  "addMerchantWebsite": "Thêm trang web của cửa hàng"
+  "addMerchantWebsite": "Thêm trang web của cửa hàng",
+  "browse": "Khám phá"
 }

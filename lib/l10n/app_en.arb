@@ -3660,5 +3660,6 @@
   "pocketsChangedWhilePreparingPlan": "Your pockets changed while your plan was being prepared. Please try again.",
   "workingForElapsed": "Working for {elapsed}",
   "merchantWebsite": "Merchant website",
-  "addMerchantWebsite": "Add merchant website"
+  "addMerchantWebsite": "Add merchant website",
+  "browse": "Browse"
 }

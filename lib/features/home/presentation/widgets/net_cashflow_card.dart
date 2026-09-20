@@ -53,14 +53,14 @@ Widget buildNetCashflowCard(
         ),
       ],
     ),
-    padding: const EdgeInsets.all(18.0),
+    padding: const EdgeInsets.all(16.0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           context.l10n.netCashFlow.toUpperCase(),
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.0,
             color: colorScheme.mutedForeground,
@@ -84,7 +84,7 @@ Widget buildNetCashflowCard(
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(

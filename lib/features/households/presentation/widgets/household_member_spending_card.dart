@@ -130,7 +130,7 @@ Widget buildHouseholdMemberSpendingCard(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             child: Text(
               context.l10n.spent,
               style: TextStyle(
@@ -148,7 +148,7 @@ Widget buildHouseholdMemberSpendingCard(
 
           // Member list section
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: sortedMembers.isEmpty
                 ? _buildEmptyState(context, colorScheme)
                 : Column(
@@ -355,7 +355,7 @@ Widget _buildMemberRow(
                               height: 1.3,
                             ),
                             overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                            maxLines: 2,
                           ),
                         ),
                         if (isCurrentUser) ...[
@@ -393,8 +393,7 @@ Widget _buildMemberRow(
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground
-                                .withValues(alpha: 0.6),
+                            color: colorScheme.mutedForeground,
                             letterSpacing: -0.1,
                           ),
                         ),
@@ -431,8 +430,7 @@ Widget _buildMemberRow(
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.5),
+                        color: colorScheme.mutedForeground,
                         letterSpacing: -0.1,
                       ),
                     ),

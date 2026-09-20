@@ -61,8 +61,9 @@ class AsyncDataSkeleton extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.border),
+            borderRadius: BorderRadius.circular(10),
+            border:
+                Border.all(color: colorScheme.border.withValues(alpha: 0.6)),
           ),
           child: const Row(
             children: [

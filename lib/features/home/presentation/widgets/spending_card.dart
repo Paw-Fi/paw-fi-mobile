@@ -222,7 +222,7 @@ class _SpendingCardState extends State<SpendingCard> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -273,7 +273,7 @@ class _SpendingCardState extends State<SpendingCard> {
                       value: totalSpent,
                       symbol: symbol,
                       style: TextStyle(
-                        fontSize: 36,
+                        fontSize: 34,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -1.0,
                         color: widget.colorScheme.foreground,
@@ -288,7 +288,7 @@ class _SpendingCardState extends State<SpendingCard> {
             ],
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
           // Chart Section
           RepaintBoundary(

@@ -988,7 +988,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   floating: true,
                   snap: true,
                   backgroundColor: colorScheme.appleGroupedBackground,
-                  surfaceTintColor: Colors.transparent,
+                  surfaceTintColor: colorScheme.surface.withValues(alpha: 0.0),
                   title: Text(
                     _isSelectionMode
                         ? '${_selectedIds.length} Selected'
@@ -1067,35 +1067,36 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: Container(
-                      height: 44,
+                      height: 42,
                       decoration: BoxDecoration(
                         color: colorScheme.card,
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? null
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                )
-                              ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.homeCardShadow,
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: TextField(
                         controller: _searchController,
                         onChanged: _onSearchChanged,
                         style: TextStyle(
-                            color: colorScheme.foreground, fontSize: 17),
+                          color: colorScheme.foreground,
+                          fontSize: 14,
+                        ),
                         decoration: InputDecoration(
                           hintText: context.l10n.search,
                           hintStyle: TextStyle(
-                              color: colorScheme.mutedForeground, fontSize: 17),
+                            color: colorScheme.mutedForeground,
+                            fontSize: 14,
+                          ),
                           prefixIcon: Icon(Icons.search,
                               color: colorScheme.mutedForeground, size: 22),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                              horizontal: 14, vertical: 8),
                         ),
                       ),
                     ),
@@ -1150,7 +1151,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   SliverToBoxAdapter(
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(48.0),
+                        padding: const EdgeInsets.all(32.0),
                         child: isInitialTransactionsLoad
                             ? const CircularProgressIndicator()
                             : Column(
@@ -1279,7 +1280,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       child: Text(
         dateLabel,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: colorScheme.mutedForeground,
           letterSpacing: -0.2,
@@ -1346,7 +1347,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           Text(
             dateLabel,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: colorScheme.mutedForeground,
             ),
@@ -1363,7 +1364,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             Text(
               totalString,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: colorScheme.mutedForeground,
               ),
@@ -1390,8 +1391,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required bool isLast,
   }) {
     final radius = BorderRadius.vertical(
-      top: isFirst ? const Radius.circular(24) : Radius.zero,
-      bottom: isLast ? const Radius.circular(24) : Radius.zero,
+      top: isFirst ? const Radius.circular(10) : Radius.zero,
+      bottom: isLast ? const Radius.circular(10) : Radius.zero,
     );
     final shouldShadow = isFirst || isLast;
 
@@ -1597,7 +1598,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? colorScheme.primary : colorScheme.card,
           borderRadius: BorderRadius.circular(20),
@@ -1611,7 +1612,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             color: isSelected
                 ? colorScheme.primaryForeground
@@ -1644,7 +1645,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 )
               ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -2178,7 +2179,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       child: Material(
         color: isSelected
             ? colorScheme.primary.withValues(alpha: 0.1)
-            : Colors.transparent, // Background handled by container
+            : colorScheme.surface.withValues(alpha: 0.0),
         child: InkWell(
           onTap: () {
             if (_isSelectionMode) {
@@ -2257,7 +2258,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? colorScheme.primary
-                                        : Colors.transparent,
+                                        : colorScheme.surface
+                                            .withValues(alpha: 0.0),
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: isSelected
@@ -2309,7 +2311,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     height: 1,
                     thickness: 0.5,
                     indent: 56, // Indent 56px per spec
-                    color: Colors.grey.withValues(alpha: 0.2),
+                    color: colorScheme.border.withValues(alpha: 0.2),
                   ),
               ],
             ),
@@ -2327,15 +2329,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
-      backgroundColor: colorScheme.appBackground,
+      backgroundColor: colorScheme.sheetBackground,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2357,7 +2359,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Text(
                     context.l10n.category,
                     style: TextStyle(

@@ -70,7 +70,7 @@ Widget buildHouseholdBudgetOverviewCard(
         ),
       ],
     ),
-    padding: const EdgeInsets.all(24.0),
+    padding: const EdgeInsets.all(16.0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -78,17 +78,19 @@ Widget buildHouseholdBudgetOverviewCard(
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.spentByHousehold,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.mutedForeground,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.spentByHousehold,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.mutedForeground,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(width: 4),
             Builder(
@@ -207,10 +209,9 @@ Widget buildHouseholdBudgetOverviewCard(
                     Text(
                       context.l10n.spent,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color: colorScheme.mutedForeground,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -241,8 +242,7 @@ Widget buildHouseholdBudgetOverviewCard(
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color: colorScheme.mutedForeground,
                         letterSpacing: 0.3,
                       ),
                     ),

@@ -22,6 +22,7 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_au
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
@@ -34,7 +35,7 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
-const _kTotalSteps = 3;
+const _kTotalSteps = 4;
 const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
 const _kTrialGrantTimeout = Duration(seconds: 20);
 
@@ -239,11 +240,25 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           }),
         );
         notificationFlowCompleted.value = true;
-        await showFinishPage();
+        next();
       } finally {
         if (context.mounted) {
           notificationFlowStarted.value = false;
         }
+      }
+    }
+
+    Future<void> handleSubscriptionFlow() async {
+      await PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.spaceCreation,
+      );
+      if (!context.mounted) return;
+
+      final subscription =
+          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+      if (subscription?.isSubscribed ?? false) {
+        await showFinishPage();
       }
     }
 
@@ -333,6 +348,9 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           case 2:
             await handleNotificationsFlow();
             return;
+          case 3:
+            await handleSubscriptionFlow();
+            return;
           default:
             next();
         }
@@ -357,6 +375,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           ? context.l10n.continueAction
           : context.l10n.importExpenses,
       2 => context.l10n.turnOnNotifications,
+      3 => context.l10n.viewPlans,
       _ => context.l10n.continueAction,
     };
 
@@ -395,6 +414,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                       },
                     ),
                     const _NotificationsStep(),
+                    const _SubscriptionStep(),
                   ],
                 ),
               ),
@@ -601,7 +621,6 @@ Future<void> _showLoggedExpenseResultSheet(
             label: l10n.description,
             value: descriptionText,
           ),
-      
       ];
 
       return SafeArea(
@@ -1446,6 +1465,128 @@ class _NotificationsStep extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionStep extends StatelessWidget {
+  const _SubscriptionStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 20, 10, 0),
+            child: Text(
+              context.l10n.plusPlan,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                letterSpacing: -0.5,
+                height: 1.15,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              context.l10n.plusLockedDescription,
+              style: TextStyle(
+                fontSize: 15,
+                color: colorScheme.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            height: 190,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.16),
+              ),
+            ),
+            alignment: Alignment.bottomCenter,
+            child: Image.asset(
+              'lib/assets/images/household/budget-together.png',
+              height: 190,
+              fit: BoxFit.contain,
+              semanticLabel: context.l10n.paywallBenefit0,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _SubscriptionBenefitTile(
+            icon: Icons.family_restroom_rounded,
+            label: context.l10n.paywallBenefit0,
+          ),
+          const SizedBox(height: 10),
+          _SubscriptionBenefitTile(
+            icon: Icons.group_work_rounded,
+            label: context.l10n.plusLockedSharedBudgets,
+          ),
+          const SizedBox(height: 10),
+          _SubscriptionBenefitTile(
+            icon: Icons.account_balance_wallet_rounded,
+            label: context.l10n.walletCreation,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionBenefitTile extends StatelessWidget {
+  const _SubscriptionBenefitTile({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colorScheme.primary, size: 21),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.check_circle_rounded,
+            color: colorScheme.primary,
+            size: 20,
           ),
         ],
       ),

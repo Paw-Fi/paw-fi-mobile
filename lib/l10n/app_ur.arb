@@ -3561,5 +3561,6 @@
   "workingForElapsed": "{elapsed} سے کارروائی جاری ہے",
   "bankConnectionNotConnectedYet": "ابھی منسلک نہیں ہے",
   "merchantWebsite": "مرچنٹ کی ویب سائٹ",
-  "addMerchantWebsite": "مرچنٹ کی ویب سائٹ شامل کریں"
+  "addMerchantWebsite": "مرچنٹ کی ویب سائٹ شامل کریں",
+  "browse": "دریافت کریں"
 }

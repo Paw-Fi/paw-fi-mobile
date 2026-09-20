@@ -3615,5 +3615,6 @@
   "workingForElapsed": "{elapsed}経過",
   "bankConnectionNotConnectedYet": "まだ接続されていません",
   "merchantWebsite": "店舗のウェブサイト",
-  "addMerchantWebsite": "店舗のウェブサイトを追加"
+  "addMerchantWebsite": "店舗のウェブサイトを追加",
+  "browse": "探す"
 }

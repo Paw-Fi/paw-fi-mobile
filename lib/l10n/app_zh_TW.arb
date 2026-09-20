@@ -3559,5 +3559,6 @@
   "workingForElapsed": "已處理 {elapsed}",
   "bankConnectionNotConnectedYet": "尚未連結",
   "merchantWebsite": "商家網站",
-  "addMerchantWebsite": "新增商家網站"
+  "addMerchantWebsite": "新增商家網站",
+  "browse": "探索"
 }

@@ -882,9 +882,9 @@ class MainShell extends HookConsumerWidget {
                 : AdaptiveBottomNavigationBar(
                     useNativeBottomBar: false,
                     items: [
-                      const AdaptiveNavigationDestination(
+                       AdaptiveNavigationDestination(
                         icon: 'house.fill',
-                        label: 'Home',
+                        label: context.l10n.home,
                       ),
                       AdaptiveNavigationDestination(
                         icon: 'repeat',
@@ -901,9 +901,9 @@ class MainShell extends HookConsumerWidget {
                         icon: 'creditcard',
                         label: context.l10n.wallet,
                       ),
-                      const AdaptiveNavigationDestination(
+                       AdaptiveNavigationDestination(
                         icon: 'square.grid.2x2',
-                        label: 'Browse',
+                        label: context.l10n.browse,
                       ),
                     ],
                     cupertinoTabBar: CupertinoTabBar(
@@ -914,9 +914,9 @@ class MainShell extends HookConsumerWidget {
                             index;
                       },
                       items: [
-                        const BottomNavigationBarItem(
-                          icon: Icon(CupertinoIcons.house_fill),
-                          label: 'Home',
+                         BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.house_fill),
+                          label: context.l10n.home,
                         ),
                         BottomNavigationBarItem(
                           icon: NotificationDotIndicator(
@@ -935,9 +935,9 @@ class MainShell extends HookConsumerWidget {
                           icon: const Icon(CupertinoIcons.creditcard),
                           label: context.l10n.wallet,
                         ),
-                        const BottomNavigationBarItem(
-                          icon: Icon(CupertinoIcons.square_grid_2x2),
-                          label: 'Browse',
+                         BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.square_grid_2x2),
+                          label: context.l10n.browse,
                         ),
                       ],
                     ),
@@ -949,9 +949,9 @@ class MainShell extends HookConsumerWidget {
                             index;
                       },
                       destinations: [
-                        const NavigationDestination(
-                          icon: Icon(Icons.home_filled),
-                          label: 'Home',
+                         NavigationDestination(
+                          icon: const Icon(Icons.home_filled),
+                          label: context.l10n.home,
                         ),
                         NavigationDestination(
                           icon: NotificationDotIndicator(
@@ -971,9 +971,9 @@ class MainShell extends HookConsumerWidget {
                               const Icon(Icons.account_balance_wallet_outlined),
                           label: context.l10n.wallet,
                         ),
-                        const NavigationDestination(
-                          icon: Icon(Icons.apps_rounded),
-                          label: 'Browse',
+                         NavigationDestination(
+                          icon: const Icon(Icons.apps_rounded),
+                          label: context.l10n.browse,
                         ),
                       ],
                     ),
@@ -996,9 +996,9 @@ class MainShell extends HookConsumerWidget {
                 // resolves after first frame never reaches the native side.
                 key: ValueKey(MediaQuery.platformBrightnessOf(context)),
                 destinations: [
-                  const AdaptiveNavigationDestination(
+                   AdaptiveNavigationDestination(
                     icon: 'house.fill',
-                    label: 'Home',
+                    label: context.l10n.home,
                   ),
                   AdaptiveNavigationDestination(
                     icon: 'repeat',
@@ -1015,9 +1015,9 @@ class MainShell extends HookConsumerWidget {
                     icon: 'creditcard',
                     label: context.l10n.wallet,
                   ),
-                  const AdaptiveNavigationDestination(
+                   AdaptiveNavigationDestination(
                     icon: 'square.grid.2x2',
-                    label: 'Browse',
+                    label: context.l10n.browse,
                   ),
                 ],
                 selectedIndex: currentIndex,

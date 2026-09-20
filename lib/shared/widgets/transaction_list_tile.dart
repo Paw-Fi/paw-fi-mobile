@@ -147,7 +147,7 @@ class TransactionListTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 'You',
@@ -167,7 +167,7 @@ class TransactionListTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: colorScheme.tertiary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -187,7 +187,7 @@ class TransactionListTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.warningSurface,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   context.l10n.pending,
@@ -234,7 +234,7 @@ class TransactionListTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: colorScheme.mutedForeground,
                       ),
                     ),
@@ -252,7 +252,7 @@ class TransactionListTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: colorScheme.mutedForeground,
                 ),
               );
@@ -264,7 +264,7 @@ class TransactionListTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               color: colorScheme.mutedForeground,
             ),
           );
@@ -273,6 +273,7 @@ class TransactionListTile extends StatelessWidget {
         return ListTile(
           onTap: onTap,
           dense: dense,
+          minVerticalPadding: 6,
           contentPadding: EdgeInsets.zero,
           leading: hasMerchantLogo
               ? ClipOval(
@@ -291,11 +292,11 @@ class TransactionListTile extends StatelessWidget {
                 ),
           title: Text(
             displayTitle,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: colorScheme.foreground,
             ),
           ),

@@ -49,13 +49,13 @@ class UpcomingRecurringBanner extends StatelessWidget {
     return Material(
       color: colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
             color: colorScheme.muted,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: colorScheme.border.withValues(alpha: 0.18),
             ),

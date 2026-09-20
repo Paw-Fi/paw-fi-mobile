@@ -3632,5 +3632,6 @@
   "workingForElapsed": "กำลังประมวลผลมาแล้ว {elapsed}",
   "bankConnectionNotConnectedYet": "ยังไม่ได้เชื่อมต่อ",
   "merchantWebsite": "เว็บไซต์ร้านค้า",
-  "addMerchantWebsite": "เพิ่มเว็บไซต์ร้านค้า"
+  "addMerchantWebsite": "เพิ่มเว็บไซต์ร้านค้า",
+  "browse": "สำรวจ"
 }

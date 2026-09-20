@@ -3562,5 +3562,6 @@
   "workingForElapsed": "Al {elapsed} bezig",
   "bankConnectionNotConnectedYet": "Nog niet gekoppeld",
   "merchantWebsite": "Website van de verkoper",
-  "addMerchantWebsite": "Website van de verkoper toevoegen"
+  "addMerchantWebsite": "Website van de verkoper toevoegen",
+  "browse": "Ontdekken"
 }

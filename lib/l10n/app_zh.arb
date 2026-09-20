@@ -3611,5 +3611,6 @@
   "workingForElapsed": "已处理 {elapsed}",
   "bankConnectionNotConnectedYet": "尚未连接",
   "merchantWebsite": "商家网站",
-  "addMerchantWebsite": "添加商家网站"
+  "addMerchantWebsite": "添加商家网站",
+  "browse": "探索"
 }

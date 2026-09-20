@@ -1186,7 +1186,7 @@ class _PocketsMonthPlaceholder extends StatelessWidget {
               height: 180,
               decoration: BoxDecoration(
                 color: colorScheme.cardSurface,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: colorScheme.outline.withValues(alpha: 0.08),
                 ),
@@ -1235,7 +1235,7 @@ class _CopyBudgetBanner extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: 0.2),
         ),
@@ -1309,7 +1309,7 @@ class _CreateFromTemplateBanner extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: colorScheme.cardSurface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.1),
           ),

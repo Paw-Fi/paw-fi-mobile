@@ -476,10 +476,10 @@ class _PeriodItem extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1),
           child: Material(
-            color: Colors.transparent,
+            color: colors.surface.withValues(alpha: 0.0),
             child: InkWell(
               onTap: enabled ? onTap : null,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               splashColor: colors.primary.withValues(alpha: 0.08),
               highlightColor: colors.primary.withValues(alpha: 0.04),
               child: AnimatedContainer(
@@ -490,7 +490,7 @@ class _PeriodItem extends StatelessWidget {
                   color: selected
                       ? colors.surface
                       : colors.surface.withValues(alpha: 0),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: selected
                       ? [
                           BoxShadow(

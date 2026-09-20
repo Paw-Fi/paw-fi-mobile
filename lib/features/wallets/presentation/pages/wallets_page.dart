@@ -840,7 +840,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: colorScheme.pocketHeaderBorder,
           width: 1,
@@ -1682,7 +1682,7 @@ class _WalletsPageSkeleton extends StatelessWidget {
             height: 260,
             decoration: BoxDecoration(
               color: colorScheme.cardSurface,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: colorScheme.pocketHeaderBorder,
                 width: 1,

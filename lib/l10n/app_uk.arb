@@ -3607,5 +3607,6 @@
   "workingForElapsed": "В обробці вже {elapsed}",
   "bankConnectionNotConnectedYet": "Ще не підключено",
   "merchantWebsite": "Сайт продавця",
-  "addMerchantWebsite": "Додати сайт продавця"
+  "addMerchantWebsite": "Додати сайт продавця",
+  "browse": "Огляд"
 }

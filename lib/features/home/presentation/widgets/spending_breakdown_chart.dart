@@ -176,12 +176,12 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                 Center(
                   child: hasData
                       ? SizedBox(
-                          width: 110,
+                          width: 130,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(
-                                height: 18,
+                                height: 32,
                                 child: Text(
                                   selected == null
                                       ? ''
@@ -190,7 +190,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                                           selected.category,
                                         ),
                                   textAlign: TextAlign.center,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 13,
@@ -290,16 +290,18 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Flexible(
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 150),
                   child: Text(
                     getCategoryTranslation(context, category.category),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: colorScheme.foreground,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

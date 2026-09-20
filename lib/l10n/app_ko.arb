@@ -3428,5 +3428,6 @@
   "workingForElapsed": "{elapsed}째 처리 중",
   "bankConnectionNotConnectedYet": "아직 연결되지 않았어요",
   "merchantWebsite": "가맹점 웹사이트",
-  "addMerchantWebsite": "가맹점 웹사이트 추가"
+  "addMerchantWebsite": "가맹점 웹사이트 추가",
+  "browse": "둘러보기"
 }

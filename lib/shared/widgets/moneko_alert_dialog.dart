@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Configuration for an optional text input inside the dialog.
 class MonekoAlertDialogInputConfig {
@@ -296,14 +297,14 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
     final scheme = theme.colorScheme;
 
     return Material(
-      color: Colors.transparent,
+      color: scheme.surface.withValues(alpha: 0.0),
       elevation: 0,
       child: Container(
         width: width,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh, // Material 3 surface container
-          borderRadius: BorderRadius.circular(28), // M3 conversational radii
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
               color: scheme.shadow.withValues(alpha: 0.2),
@@ -394,26 +395,20 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
   Widget _buildIOSDialog(BuildContext context, double width) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
 
-    // Glassmorphism background for iOS
     return Material(
-      color: Colors.transparent,
+      color: scheme.surface.withValues(alpha: 0.0),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20), // Apple-like rounded corners
+        borderRadius: BorderRadius.circular(10),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             width: width,
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF252525).withValues(alpha: 0.85)
-                  : const Color(0xFFF2F2F2).withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(20),
+              color: scheme.sheetBackground.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.05),
+                color: scheme.sheetBorder,
                 width: 0.5,
               ),
             ),
