@@ -3616,5 +3616,7 @@
   "bankConnectionNotConnectedYet": "まだ接続されていません",
   "merchantWebsite": "店舗のウェブサイト",
   "addMerchantWebsite": "店舗のウェブサイトを追加",
-  "browse": "探す"
+  "browse": "探す",
+  "captureAndIntegrations": "記録と連携",
+  "healthReport": "家計診断"
 }

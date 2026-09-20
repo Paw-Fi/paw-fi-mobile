@@ -3563,5 +3563,7 @@
   "bankConnectionNotConnectedYet": "Non ancora collegato",
   "merchantWebsite": "Sito web dell'esercente",
   "addMerchantWebsite": "Aggiungi il sito web dell'esercente",
-  "browse": "Esplora"
+  "browse": "Esplora",
+  "captureAndIntegrations": "Acquisizione e integrazioni",
+  "healthReport": "Salute finanziaria"
 }

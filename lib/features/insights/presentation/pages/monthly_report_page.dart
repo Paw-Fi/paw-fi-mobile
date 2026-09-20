@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -272,8 +273,7 @@ class MonthlyReportPage extends HookConsumerWidget {
       queryState.value = normalized;
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: AnimatedSwitcher(
         duration: animationsDisabled
             ? Duration.zero
@@ -1389,8 +1389,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     final isCompletedPeriod =
         isMonthlyReportPeriodCompleted(effectiveQuery, now: now);
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
@@ -2851,8 +2850,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
             .toList(growable: true);
     transactions.sort((a, b) => b.date.compareTo(a.date));
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: SafeArea(
         child: _MonthlyReportDetailShell(
           colorScheme: colorScheme,

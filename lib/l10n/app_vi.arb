@@ -3615,5 +3615,7 @@
   "bankConnectionNotConnectedYet": "Chưa kết nối",
   "merchantWebsite": "Trang web của cửa hàng",
   "addMerchantWebsite": "Thêm trang web của cửa hàng",
-  "browse": "Khám phá"
+  "browse": "Khám phá",
+  "captureAndIntegrations": "Ghi nhận và tích hợp",
+  "healthReport": "Sức khỏe tài chính"
 }

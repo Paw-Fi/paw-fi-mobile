@@ -3562,5 +3562,7 @@
   "bankConnectionNotConnectedYet": "ابھی منسلک نہیں ہے",
   "merchantWebsite": "مرچنٹ کی ویب سائٹ",
   "addMerchantWebsite": "مرچنٹ کی ویب سائٹ شامل کریں",
-  "browse": "دریافت کریں"
+  "browse": "دریافت کریں",
+  "captureAndIntegrations": "اندراج اور انٹیگریشنز",
+  "healthReport": "مالی صحت"
 }

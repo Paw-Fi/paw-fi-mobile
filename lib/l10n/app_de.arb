@@ -3616,5 +3616,7 @@
   "bankConnectionNotConnectedYet": "Noch nicht verbunden",
   "merchantWebsite": "Händler-Website",
   "addMerchantWebsite": "Händler-Website hinzufügen",
-  "browse": "Entdecken"
+  "browse": "Entdecken",
+  "captureAndIntegrations": "Erfassung & Integrationen",
+  "healthReport": "Finanzcheck"
 }

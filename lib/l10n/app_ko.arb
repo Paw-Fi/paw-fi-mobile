@@ -3429,5 +3429,7 @@
   "bankConnectionNotConnectedYet": "아직 연결되지 않았어요",
   "merchantWebsite": "가맹점 웹사이트",
   "addMerchantWebsite": "가맹점 웹사이트 추가",
-  "browse": "둘러보기"
+  "browse": "둘러보기",
+  "captureAndIntegrations": "기록 및 연동",
+  "healthReport": "재정 건강"
 }

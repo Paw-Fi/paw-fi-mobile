@@ -3612,5 +3612,7 @@
   "bankConnectionNotConnectedYet": "尚未连接",
   "merchantWebsite": "商家网站",
   "addMerchantWebsite": "添加商家网站",
-  "browse": "探索"
+  "browse": "探索",
+  "captureAndIntegrations": "记录与集成",
+  "healthReport": "财务健康"
 }

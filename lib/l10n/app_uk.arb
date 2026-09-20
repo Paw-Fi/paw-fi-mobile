@@ -3608,5 +3608,7 @@
   "bankConnectionNotConnectedYet": "Ще не підключено",
   "merchantWebsite": "Сайт продавця",
   "addMerchantWebsite": "Додати сайт продавця",
-  "browse": "Огляд"
+  "browse": "Огляд",
+  "captureAndIntegrations": "Введення та інтеграції",
+  "healthReport": "Фінансове здоров'я"
 }

@@ -3560,5 +3560,7 @@
   "bankConnectionNotConnectedYet": "尚未連結",
   "merchantWebsite": "商家網站",
   "addMerchantWebsite": "新增商家網站",
-  "browse": "探索"
+  "browse": "探索",
+  "captureAndIntegrations": "記錄與整合",
+  "healthReport": "財務健康"
 }

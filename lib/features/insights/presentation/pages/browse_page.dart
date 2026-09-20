@@ -422,7 +422,7 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
                     child: Text(
-                      entry.key,
+                      _browseCategoryTitle(context, entry.key),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: colorScheme.foreground,
                             fontWeight: FontWeight.w700,
@@ -447,50 +447,27 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                           padding: EdgeInsets.only(
                             bottom: rowIndex == rowCount - 1 ? 0 : 12,
                           ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final cardWidth = (constraints.maxWidth - 12) / 2;
-                              final leftHeight = _browseToolHeight(
-                                context,
-                                leftTool,
-                                cardWidth,
-                              );
-                              final rightHeight = rightTool == null
-                                  ? 0.0
-                                  : _browseToolHeight(
-                                      context,
-                                      rightTool,
-                                      cardWidth,
-                                    );
-                              final rowHeight = leftHeight > rightHeight
-                                  ? leftHeight
-                                  : rightHeight;
-
-                              return SizedBox(
-                                height: rowHeight,
-                                child: Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(
-                                      child: _BrowseToolCard(
-                                        tool: leftTool,
-                                        onTap: () => _openTool(leftTool),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: rightTool == null
-                                          ? const SizedBox.shrink()
-                                          : _BrowseToolCard(
-                                              tool: rightTool,
-                                              onTap: () => _openTool(rightTool),
-                                            ),
-                                    ),
-                                  ],
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _BrowseToolCard(
+                                    tool: leftTool,
+                                    onTap: () => _openTool(leftTool),
+                                  ),
                                 ),
-                              );
-                            },
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: rightTool == null
+                                      ? const SizedBox.shrink()
+                                      : _BrowseToolCard(
+                                          tool: rightTool,
+                                          onTap: () => _openTool(rightTool),
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -510,26 +487,6 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
       ),
     );
   }
-}
-
-double _browseToolHeight(
-  BuildContext context,
-  _BrowseTool tool,
-  double cardWidth,
-) {
-  const textStyle = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w600,
-    height: 1.15,
-  );
-  final titlePainter = TextPainter(
-    text: TextSpan(text: tool.title, style: textStyle),
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-    maxLines: 2,
-  )..layout(maxWidth: cardWidth - 28);
-
-  return titlePainter.computeLineMetrics().length > 1 ? 116 : 98;
 }
 
 int _browseToolOrder(_BrowseTool tool) {
@@ -555,6 +512,17 @@ int _browseToolOrder(_BrowseTool tool) {
     _BrowseDestination.changelog => 1,
     _BrowseDestination.reportBug => 2,
     _BrowseDestination.featureRequest => 3,
+  };
+}
+
+String _browseCategoryTitle(BuildContext context, String category) {
+  return switch (category) {
+    'Account' => context.l10n.account,
+    'Financial health' => context.l10n.financialHealth,
+    'Capture & integrations' => context.l10n.captureAndIntegrations,
+    'App experience' => context.l10n.appExperience,
+    'Support' => context.l10n.support,
+    _ => category,
   };
 }
 
@@ -663,7 +631,7 @@ List<_BrowseTool> _browseTools(
 }) =>
     [
       _BrowseTool(
-        title: 'Health report',
+        title: context.l10n.healthReport,
         description: 'See your financial health at a glance.',
         icon: Icons.health_and_safety_rounded,
         accent: (scheme) => scheme.successSurface,

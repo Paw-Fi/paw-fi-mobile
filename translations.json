@@ -1,19 +1,19 @@
 {
-  "browse": {
-    "en": "Browse",
-    "de": "Entdecken",
-    "es": "Explorar",
-    "fr": "Explorer",
-    "it": "Esplora",
-    "ja": "探す",
-    "ko": "둘러보기",
-    "nl": "Ontdekken",
-    "ur": "دریافت کریں",
-    "ru": "Обзор",
-    "th": "สำรวจ",
-    "uk": "Огляд",
-    "zh": "探索",
-    "zh_TW": "探索",
-    "vi": "Khám phá"
+  "healthReport": {
+    "en": "Financial Health",
+    "de": "Finanzcheck",
+    "es": "Salud financiera",
+    "fr": "Santé financière",
+    "it": "Salute finanziaria",
+    "ja": "家計診断",
+    "ko": "재정 건강",
+    "nl": "Financiële gezondheid",
+    "ur": "مالی صحت",
+    "ru": "Финансовое здоровье",
+    "th": "สุขภาพการเงิน",
+    "uk": "Фінансове здоров'я",
+    "zh": "财务健康",
+    "zh_TW": "財務健康",
+    "vi": "Sức khỏe tài chính"
   }
 }

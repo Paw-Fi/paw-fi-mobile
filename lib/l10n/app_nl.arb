@@ -3563,5 +3563,7 @@
   "bankConnectionNotConnectedYet": "Nog niet gekoppeld",
   "merchantWebsite": "Website van de verkoper",
   "addMerchantWebsite": "Website van de verkoper toevoegen",
-  "browse": "Ontdekken"
+  "browse": "Ontdekken",
+  "captureAndIntegrations": "Vastleggen en integraties",
+  "healthReport": "Financiële gezondheid"
 }

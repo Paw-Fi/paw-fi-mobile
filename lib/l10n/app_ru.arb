@@ -3566,5 +3566,7 @@
   "bankConnectionNotConnectedYet": "Пока не подключено",
   "merchantWebsite": "Сайт продавца",
   "addMerchantWebsite": "Добавить сайт продавца",
-  "browse": "Обзор"
+  "browse": "Обзор",
+  "captureAndIntegrations": "Ввод и интеграции",
+  "healthReport": "Финансовое здоровье"
 }

@@ -10229,4 +10229,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get browse => 'สำรวจ';
+
+  @override
+  String get captureAndIntegrations => 'การบันทึกและการเชื่อมต่อ';
+
+  @override
+  String get healthReport => 'สุขภาพการเงิน';
 }

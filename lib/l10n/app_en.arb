@@ -3661,5 +3661,7 @@
   "workingForElapsed": "Working for {elapsed}",
   "merchantWebsite": "Merchant website",
   "addMerchantWebsite": "Add merchant website",
-  "browse": "Browse"
+  "browse": "Browse",
+  "captureAndIntegrations": "Capture & integrations",
+  "healthReport": "Financial Health"
 }

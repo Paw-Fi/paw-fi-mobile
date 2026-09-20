@@ -35,7 +35,6 @@ import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
-import 'package:moneko/features/profile/presentation/widgets/category_customization_sheet.dart';
 import 'package:moneko/features/profile/presentation/widgets/support_contact_options_sheet.dart';
 // import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -43,7 +42,6 @@ import 'package:moneko/features/subscription/presentation/pages/plan_selection_p
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
@@ -81,7 +79,6 @@ import 'package:moneko/features/profile/presentation/pages/financial_month_setti
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
-import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/app_lock/data/app_lock_config.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_setup_page.dart';
@@ -1170,27 +1167,6 @@ class SettingsPage extends HookConsumerWidget {
                   _SettingsGroup(
                     title: context.l10n.account,
                     children: [
-                      _SettingsTile(
-                        icon: Icons.pie_chart,
-                        label: context.l10n.accountOverview,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  const OverviewDashboardPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.account_balance_outlined,
-                        label: context.l10n.bankConnections,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const BankConnectionsPage(),
-                          ),
-                        ),
-                      ),
                       FutureBuilder<Map<String, dynamic>?>(
                         key: ValueKey('name-${nameReloadKey.value}'),
                         future: () async {
@@ -1474,21 +1450,6 @@ class SettingsPage extends HookConsumerWidget {
                           ref
                               .read(themeModeProvider.notifier)
                               .setThemeMode(pickedTheme);
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.category_rounded,
-                        label: context.l10n.categories,
-                        value: context.l10n.settingsCustomCategoriesAction,
-                        onTap: () async {
-                          await MonekoBottomSheet.show(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: colorScheme.sheetBackground,
-                            builder: (sheetContext) {
-                              return const CategoryCustomizationSheet();
-                            },
-                          );
                         },
                       ),
                     ],
