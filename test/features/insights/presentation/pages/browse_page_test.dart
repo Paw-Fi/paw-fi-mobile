@@ -33,8 +33,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify category header
-    expect(find.text('ACCOUNT'), findsOneWidget);
-    expect(find.text('FINANCIAL HEALTH'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Financial health'), findsOneWidget);
 
     // Verify cards are rendered by title
     expect(find.text('Health report'), findsOneWidget);
@@ -64,6 +64,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No tools match your search.'), findsNothing);
-    expect(find.text('ACCOUNT'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
   });
 }

@@ -12,10 +12,7 @@ final bankAccountsProvider =
   ref.watch(bankSyncResultProvider);
   if (user.uid.isEmpty) return const [];
 
-  final response = await supabase.rpc('list_mobile_bank_accounts');
-
-  final rows = (response as List?)?.cast<Map<String, dynamic>>() ?? const [];
-  final allAccounts = rows.map(BankAccount.fromJson).toList();
+  final allAccounts = await _fetchBankAccounts();
 
   List<BankAccount> scoped;
   switch (scope.activeAccountType) {
@@ -43,3 +40,24 @@ final bankAccountsProvider =
   scoped.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   return scoped;
 });
+
+/// All visible accounts, intentionally unfiltered by the currently selected
+/// wallet/household scope. This is used by the connection-management surface,
+/// whose connection list is also intentionally unscoped.
+final allVisibleBankAccountsProvider =
+    FutureProvider.autoDispose<List<BankAccount>>((ref) async {
+  final user = ref.watch(authProvider);
+  ref.watch(bankSyncResultProvider);
+  if (user.uid.isEmpty) return const [];
+
+  final accounts = await _fetchBankAccounts();
+  accounts.removeWhere((account) => account.connectionStatus == 'disabled');
+  accounts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  return accounts;
+});
+
+Future<List<BankAccount>> _fetchBankAccounts() async {
+  final response = await supabase.rpc('list_mobile_bank_accounts');
+  final rows = (response as List?)?.cast<Map<String, dynamic>>() ?? const [];
+  return rows.map(BankAccount.fromJson).toList();
+}

@@ -697,18 +697,18 @@ class RecurringSeriesPageNotifier extends FamilyAsyncNotifier<
 
 final recurringActionableBadgeProvider = AsyncNotifierProvider.family<
     RecurringActionableBadgeNotifier,
-    bool,
+    int,
     RecurringReadScope>(RecurringActionableBadgeNotifier.new);
 
 class RecurringActionableBadgeNotifier
-    extends FamilyAsyncNotifier<bool, RecurringReadScope> {
+    extends FamilyAsyncNotifier<int, RecurringReadScope> {
   late RecurringReadScope _scope;
 
   Future<RecurringReadRepository> get _repository =>
       ref.read(recurringReadRepositoryProvider.future);
 
   @override
-  Future<bool> build(RecurringReadScope arg) async {
+  Future<int> build(RecurringReadScope arg) async {
     _scope = arg;
     ref.watch(recurringReadRefreshSignalProvider);
     ref.watch(recurringSeriesOptimisticProvider);
@@ -741,16 +741,21 @@ class RecurringActionableBadgeNotifier
     }));
   }
 
-  Future<bool> _withOptimisticSeries(
+  Future<int> _withOptimisticSeries(
     bool fallback,
     RecurringReadRepository repository,
   ) async {
     final cachedPage = await repository.readCachedSeriesPage(scope: _scope);
-    if (cachedPage == null || cachedPage.hasMore) return fallback;
+    if (cachedPage == null || cachedPage.hasMore) return fallback ? 1 : 0;
     final overlaid = ref
         .read(recurringSeriesOptimisticProvider.notifier)
         .apply(_scope, cachedPage.items);
-    return overlaid.any((summary) => summary.hasActionableOccurrence);
+    var count = 0;
+    for (final summary in overlaid) {
+      if (!summary.hasActionableOccurrence) continue;
+      count += summary.actionableCount > 0 ? summary.actionableCount : 1;
+    }
+    return count;
   }
 }
 

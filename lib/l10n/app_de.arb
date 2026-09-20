@@ -1733,7 +1733,7 @@
   "syncBankAccountsTitle": "Bankkonten synchronisieren",
   "syncBankAccountsSubtitle": "Verbinde deine Banken sicher, um Salden und Transaktionen automatisch zu importieren.",
   "syncBankAccountsTooltip": "Sieh dir vorab die Plaid-Anleitung an, die dich durch die Synchronisierung führt.",
-  "syncBankAccountsComingSoon": "Die Banksynchronisierung kommt bald.",
+  "syncBankAccountsComingSoon": "Bankverbindungen sind in deiner Region derzeit nicht verfügbar.",
   "integrations": "Integrationen",
   "account": "Konto",
   "preferences": "Einstellungen",
@@ -3612,5 +3612,8 @@
   "introFreshStartDescription": "Ein neuer Monat und ein klarer Ausgangspunkt. Erstelle deinen Plan und Moneko lernt aus deinem Ausgabeverhalten.",
   "monthsWithMoneko": "{count} Monate mit Moneko",
   "pocketsChangedWhilePreparingPlan": "Deine Budgettöpfe wurden während der Erstellung des Plans geändert. Bitte versuche es noch einmal.",
-  "workingForElapsed": "Seit {elapsed} in Bearbeitung"
+  "workingForElapsed": "Seit {elapsed} in Bearbeitung",
+  "bankConnectionNotConnectedYet": "Noch nicht verbunden",
+  "merchantWebsite": "Händler-Website",
+  "addMerchantWebsite": "Händler-Website hinzufügen"
 }

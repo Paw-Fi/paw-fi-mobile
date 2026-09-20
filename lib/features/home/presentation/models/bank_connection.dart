@@ -4,6 +4,7 @@ class BankConnection {
     this.householdId,
     this.provider,
     this.status,
+    this.institutionLogoUrl,
     this.itemStatus,
     this.itemHealthState,
     this.relinkState,
@@ -25,6 +26,7 @@ class BankConnection {
   final String? householdId;
   final String? provider;
   final String? status;
+  final String? institutionLogoUrl;
   final String? itemStatus;
   final String? itemHealthState;
   final String? relinkState;
@@ -48,6 +50,9 @@ class BankConnection {
       householdId: _nullableString(json['household_id']),
       provider: _nullableString(json['provider']),
       status: _nullableString(json['status']),
+      institutionLogoUrl: _nullableHttpsUrl(
+        metadata['institution_logo_url'] ?? metadata['institution_logo'],
+      ),
       itemStatus: _nullableString(json['item_status']),
       itemHealthState: _nullableString(json['item_health_state']),
       relinkState: _nullableString(json['relink_state']),
@@ -103,12 +108,13 @@ class BankConnection {
     return needsRepair;
   }
 
-  bool get isHealthy =>
-      !isPendingRemoval &&
-      (itemHealthState == null || itemHealthState == 'healthy');
+  bool get isHealthy => itemStatus == 'active' && itemHealthState == 'healthy';
 
   bool get canRequestManualRefresh =>
-      isHealthy && !needsReconnect && !hasNewAccountsAvailable;
+      itemStatus == 'active' &&
+      itemHealthState == 'healthy' &&
+      !needsReconnect &&
+      !hasNewAccountsAvailable;
 
   bool get isRemoved => itemStatus == 'removed' || status == 'disabled';
   bool get needsFinishSetup =>
@@ -131,6 +137,14 @@ String? _nullableString(dynamic value) {
   if (value == null) return null;
   final result = value.toString().trim();
   return result.isEmpty ? null : result;
+}
+
+String? _nullableHttpsUrl(dynamic value) {
+  final normalized = _nullableString(value);
+  if (normalized == null) return null;
+  final uri = Uri.tryParse(normalized);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+  return normalized;
 }
 
 DateTime? _nullableDateTime(dynamic value) {

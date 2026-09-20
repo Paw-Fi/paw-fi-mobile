@@ -1733,7 +1733,7 @@
   "syncBankAccountsTitle": "銀行口座を同期",
   "syncBankAccountsSubtitle": "銀行を安全に連携して、残高と取引を自動で取り込みます。",
   "syncBankAccountsTooltip": "同期の手順を案内するPlaidのウォークスルーをプレビューできます。",
-  "syncBankAccountsComingSoon": "銀行同期は近日公開です。",
+  "syncBankAccountsComingSoon": "現在、お住まいの地域では銀行口座の連携をご利用いただけません。",
   "integrations": "連携",
   "account": "アカウント",
   "preferences": "設定",
@@ -3612,5 +3612,8 @@
   "introFreshStartDescription": "新しい月、新しいスタート地点です。プランを設定すると、Monekoがあなたの使い方を学んでいきます。",
   "monthsWithMoneko": "Monekoと{count}か月",
   "pocketsChangedWhilePreparingPlan": "プランの作成中にポケットが変更されました。もう一度お試しください。",
-  "workingForElapsed": "{elapsed}経過"
+  "workingForElapsed": "{elapsed}経過",
+  "bankConnectionNotConnectedYet": "まだ接続されていません",
+  "merchantWebsite": "店舗のウェブサイト",
+  "addMerchantWebsite": "店舗のウェブサイトを追加"
 }

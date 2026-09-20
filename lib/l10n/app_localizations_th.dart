@@ -8523,6 +8523,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get bankConnection => 'การเชื่อมต่อธนาคาร';
 
   @override
+  String get bankConnectionNotConnectedYet => 'Not connected yet';
+
+  @override
   String get bankConnectionUnavailable => 'ไม่สามารถเชื่อมต่อธนาคารได้';
 
   @override

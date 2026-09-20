@@ -3,12 +3,11 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
-enum AddWalletOption { manual, bank, bankConnections }
+enum AddWalletOption { manual, bank }
 
 Future<AddWalletOption?> showAddWalletOptionSheet(
   BuildContext context, {
   required bool showBankConnectionOption,
-  required bool showBankConnectionsOption,
 }) {
   return MonekoBottomSheet.show<AddWalletOption>(
     context: context,
@@ -45,16 +44,6 @@ Future<AddWalletOption?> showAddWalletOptionSheet(
                     subtitle: context.l10n.connectBankAccountAutomaticSyncing,
                     onTap: () =>
                         Navigator.of(context).pop(AddWalletOption.bank),
-                  ),
-                ],
-                if (showBankConnectionsOption) ...[
-                  const SizedBox(height: 8),
-                  _AddWalletOptionTile(
-                    icon: Icons.link_rounded,
-                    title: context.l10n.bankConnections,
-                    subtitle: context.l10n.manualSyncPullsLatestTransactions,
-                    onTap: () => Navigator.of(context)
-                        .pop(AddWalletOption.bankConnections),
                   ),
                 ],
               ],

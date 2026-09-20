@@ -44,7 +44,6 @@ import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_overflow_menu_button.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WalletDetailsPage extends HookConsumerWidget {
   const WalletDetailsPage({
@@ -139,9 +138,6 @@ class WalletDetailsPage extends HookConsumerWidget {
         .where(
           (connection) => connection.requiresUserAction,
         )
-        .toList(growable: false);
-    final removablePlaidConnections = walletPlaidConnections
-        .where((connection) => !connection.isPendingRemoval)
         .toList(growable: false);
     final manualSyncCandidates = walletPlaidConnections
         .where(
@@ -457,99 +453,6 @@ class WalletDetailsPage extends HookConsumerWidget {
         return;
       }
       await refreshWalletsAfterPlaidFlow();
-    }
-
-    Future<void> onDisconnectBank() async {
-      final selectedConnection = await _selectDisconnectBankConnection(
-        context,
-        removablePlaidConnections,
-      );
-      if (selectedConnection == null || !context.mounted) {
-        return;
-      }
-
-      final confirmation = await MonekoAlertDialog.show(
-        context: context,
-        title: context.l10n.disconnectBankQuestion,
-        description: context.l10n.disconnectBankDescription,
-        confirmLabel: context.l10n.disconnect,
-        cancelLabel: context.l10n.cancel,
-        isDestructive: true,
-      );
-      if (confirmation?.confirmed != true || !context.mounted) {
-        return;
-      }
-
-      showBlockingProcessingDialog(
-        context: context,
-        message: context.l10n.disconnectingBank,
-      );
-
-      try {
-        final response = await supabase.functions.invoke(
-          'plaid-item-control',
-          body: {
-            'action': 'remove_item',
-            'connectionId': selectedConnection.id,
-            'reason': 'user_disconnect',
-          },
-        );
-
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
-
-        final responseData = response.data;
-        final payload =
-            responseData is Map<String, dynamic> ? responseData : null;
-        if (response.status >= 400) {
-          if (!context.mounted) {
-            return;
-          }
-          AppToast.error(
-            context,
-            payload?['error']?.toString() ??
-                context.l10n.couldNotDisconnectThisBankRightNow,
-          );
-          return;
-        }
-
-        await refreshWalletsAfterPlaidFlow();
-
-        if (!context.mounted) {
-          return;
-        }
-        final status = payload?['status']?.toString().trim();
-        if (status == 'pending_removal') {
-          final message = payload?['message']?.toString().trim();
-          AppToast.info(
-            context,
-            message != null && message.isNotEmpty
-                ? message
-                : context.l10n.bankDisconnectQueuedDescription,
-          );
-        } else {
-          AppToast.success(
-            context,
-            context.l10n.bankDisconnectedSyncsDisabled,
-          );
-        }
-      } catch (error, stackTrace) {
-        final debugId = _functionErrorDebugId(error);
-        debugPrint(
-          '[wallets] Plaid disconnect failed '
-          'connectionId=${selectedConnection.id} '
-          'debugId=${debugId ?? '<none>'} '
-          'error=$error\n$stackTrace',
-        );
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-          AppToast.error(
-            context,
-            ErrorHandler.getUserFriendlyMessage(error),
-          );
-        }
-      }
     }
 
     Future<void> onManualBankSync() async {
@@ -1021,14 +924,6 @@ class WalletDetailsPage extends HookConsumerWidget {
               : Icons.refresh_rounded,
           value: 'review_bank',
         ),
-      if (removablePlaidConnections.isNotEmpty)
-        AdaptivePopupMenuItem<String>(
-          label: context.l10n.disconnectBank,
-          icon: PlatformInfo.isIOS26OrHigher()
-              ? 'xmark.circle'
-              : Icons.link_off_rounded,
-          value: 'disconnect_bank',
-        ),
       if (bankSyncStatusLabel != null)
         AdaptivePopupMenuItem<String>(
           label: context.l10n.syncBank,
@@ -1056,9 +951,6 @@ class WalletDetailsPage extends HookConsumerWidget {
         case 'review_bank':
           unawaited(onReviewBankAction());
           break;
-        case 'disconnect_bank':
-          unawaited(onDisconnectBank());
-          break;
         case 'sync_bank':
           unawaited(onManualBankSync());
           break;
@@ -1074,8 +966,7 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     final hasGoal = latestWallet.goalAmountCents != null &&
         latestWallet.goalAmountCents! > 0;
-    final hasBankSync =
-        shouldShowBankSyncStatus && bankSyncStatusLabel != null;
+    final hasBankSync = shouldShowBankSyncStatus && bankSyncStatusLabel != null;
     final hasBadges = latestWallet.isDefault ||
         latestWallet.excludeFromAnalytics ||
         latestWallet.isArchived ||
@@ -1650,66 +1541,6 @@ Future<BankConnection?> _selectPlaidActionConnection(
   );
 }
 
-Future<BankConnection?> _selectDisconnectBankConnection(
-  BuildContext context,
-  List<BankConnection> connections,
-) async {
-  if (connections.isEmpty) {
-    return null;
-  }
-
-  if (connections.length == 1) {
-    return connections.first;
-  }
-
-  return showModalBottomSheet<BankConnection>(
-    context: context,
-    backgroundColor: Theme.of(context).colorScheme.sheetBackground,
-    showDragHandle: true,
-    useSafeArea: true,
-    builder: (context) {
-      final colorScheme = Theme.of(context).colorScheme;
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                context.l10n.chooseBankToDisconnect,
-                style: TextStyle(
-                  color: colorScheme.foreground,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.l10n.disconnectingRemovesPlaidAccess,
-                style: TextStyle(color: colorScheme.mutedForeground),
-              ),
-              const SizedBox(height: 16),
-              for (final connection in connections)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    Icons.link_off_rounded,
-                    color: colorScheme.destructive,
-                  ),
-                  title: Text(_bankConnectionDisplayName(context, connection)),
-                  subtitle: Text(context.l10n.disconnectPlaidAccess),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(context).pop(connection),
-                ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
 Future<BankConnection?> _selectManualSyncBankConnection(
   BuildContext context,
   List<BankConnection> connections,
@@ -1891,20 +1722,6 @@ String _bankConnectionActionDescription(
     newAccountsAvailable: context.l10n.newBankAccountsAvailableToReview,
     needsRepair: context.l10n.bankNeedsRepairBeforeSyncing,
   );
-}
-
-String? _functionErrorDebugId(Object error) {
-  if (error is! FunctionException) {
-    return null;
-  }
-
-  final details = error.details;
-  if (details is! Map) {
-    return null;
-  }
-
-  final debugId = details['debugId']?.toString().trim();
-  return debugId == null || debugId.isEmpty ? null : debugId;
 }
 
 String _formatDurationCompact(BuildContext context, Duration duration) {

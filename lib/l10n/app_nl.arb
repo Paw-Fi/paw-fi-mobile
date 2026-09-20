@@ -1680,7 +1680,7 @@
   "syncBankAccountsTitle": "Bankrekeningen synchroniseren",
   "syncBankAccountsSubtitle": "Koppel je banken veilig om saldo’s en transacties automatisch te importeren.",
   "syncBankAccountsTooltip": "Bekijk alvast de Plaid-handleiding die je door het synchroniseren leidt.",
-  "syncBankAccountsComingSoon": "Banksynchronisatie komt binnenkort.",
+  "syncBankAccountsComingSoon": "Bankkoppelingen zijn momenteel niet beschikbaar in jouw regio.",
   "integrations": "Integraties",
   "account": "Account",
   "preferences": "Voorkeuren",
@@ -3559,5 +3559,8 @@
   "introFreshStartDescription": "Een nieuwe maand en een frisse start. Stel je plan op en Moneko leert van je uitgaven.",
   "monthsWithMoneko": "{count} maanden met Moneko",
   "pocketsChangedWhilePreparingPlan": "Je budgetpotjes zijn gewijzigd terwijl je plan werd voorbereid. Probeer het opnieuw.",
-  "workingForElapsed": "Al {elapsed} bezig"
+  "workingForElapsed": "Al {elapsed} bezig",
+  "bankConnectionNotConnectedYet": "Nog niet gekoppeld",
+  "merchantWebsite": "Website van de verkoper",
+  "addMerchantWebsite": "Website van de verkoper toevoegen"
 }

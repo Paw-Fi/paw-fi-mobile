@@ -1742,7 +1742,7 @@
   "syncBankAccountsTitle": "Sync bank accounts",
   "syncBankAccountsSubtitle": "Securely link banks to auto-import balances and transactions.",
   "syncBankAccountsTooltip": "Preview the Plaid walkthrough that guides syncing.",
-  "syncBankAccountsComingSoon": "Bank syncing is coming soon.",
+  "syncBankAccountsComingSoon": "Bank connections aren't available in your region at this time.",
   "integrations": "Integrations",
   "account": "Account",
   "preferences": "Preferences",
@@ -3154,6 +3154,7 @@
   "bankAlreadyQueuedForPlaidRemoval": "This bank is already queued for Plaid removal. Plaid removal is usually immediate once accepted; if cleanup is still pending, Moneko retries about every 15 minutes. Syncing is disabled while removal is pending.",
   "bankConnectedInitialSyncPending": "Bank connected. Initial sync pending",
   "bankConnection": "Bank connection",
+  "bankConnectionNotConnectedYet": "Not connected yet",
   "bankConnectionUnavailable": "Bank connection unavailable",
   "bankConnectionFailed": "Bank connection failed: {error}",
   "bankConnectionFailedMissingSecurityState": "Bank connection failed: missing security state",
@@ -3657,5 +3658,7 @@
   "introFreshStartDescription": "A new month and a clean starting point. Set up your plan and Moneko will learn from how you spend.",
   "monthsWithMoneko": "{count} months with Moneko",
   "pocketsChangedWhilePreparingPlan": "Your pockets changed while your plan was being prepared. Please try again.",
-  "workingForElapsed": "Working for {elapsed}"
+  "workingForElapsed": "Working for {elapsed}",
+  "merchantWebsite": "Merchant website",
+  "addMerchantWebsite": "Add merchant website"
 }

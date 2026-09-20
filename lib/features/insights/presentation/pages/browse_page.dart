@@ -38,6 +38,7 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/shared/widgets/messaging_app_logo.dart';
 import 'monthly_report_page.dart';
 
 class BrowsePage extends ConsumerStatefulWidget {
@@ -419,15 +420,15 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
               (entry) => <Widget>[
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
                     child: Text(
-                      entry.key.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                        color: colorScheme.mutedForeground,
-                      ),
+                      entry.key,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
                     ),
                   ),
                 ),
@@ -614,6 +615,7 @@ class _BrowseTool {
     required this.accent,
     required this.destination,
     this.plusFeature,
+    this.customIcon,
     this.isLocked = false,
   });
 
@@ -623,6 +625,7 @@ class _BrowseTool {
   final Color Function(ColorScheme) accent;
   final _BrowseDestination destination;
   final PlusFeature? plusFeature;
+  final MessagingAppLogoType? customIcon;
   final bool isLocked;
 
   String get category => switch (destination) {
@@ -684,14 +687,14 @@ List<_BrowseTool> _browseTools(
       _BrowseTool(
         title: context.l10n.accountOverview,
         description: 'Review your financial dashboard.',
-        icon: Icons.pie_chart_rounded,
+        icon: Icons.pie_chart,
         accent: (scheme) => scheme.primaryContainer,
         destination: _BrowseDestination.accountOverview,
       ),
       _BrowseTool(
         title: context.l10n.bankConnections,
         description: 'Connect and manage linked bank accounts.',
-        icon: Icons.account_balance_rounded,
+        icon: Icons.account_balance_outlined,
         accent: (scheme) => scheme.secondaryContainer,
         destination: _BrowseDestination.bankConnections,
       ),
@@ -747,6 +750,7 @@ List<_BrowseTool> _browseTools(
         title: context.l10n.connectTelegram,
         description: 'Capture expenses through Telegram.',
         icon: Icons.send_rounded,
+        customIcon: MessagingAppLogoType.telegram,
         accent: (scheme) => scheme.primaryContainer,
         destination: _BrowseDestination.telegram,
         plusFeature: PlusFeature.messagingAppCapture,
@@ -756,6 +760,7 @@ List<_BrowseTool> _browseTools(
         title: context.l10n.whatsAppConnected,
         description: 'Capture expenses through WhatsApp.',
         icon: Icons.chat_rounded,
+        customIcon: MessagingAppLogoType.whatsapp,
         accent: (scheme) => scheme.successSurface,
         destination: _BrowseDestination.whatsapp,
         plusFeature: PlusFeature.messagingAppCapture,
@@ -819,7 +824,7 @@ List<_BrowseTool> _browseTools(
       _BrowseTool(
         title: context.l10n.submitNewFeatureRequest,
         description: 'Share an idea for a future improvement.',
-        icon: Icons.lightbulb_rounded,
+        icon: Icons.chat_bubble_rounded,
         accent: (scheme) => scheme.tertiaryContainer,
         destination: _BrowseDestination.featureRequest,
       ),
@@ -904,11 +909,17 @@ class _BrowseToolCardState extends State<_BrowseToolCard> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Center(
-                            child: Icon(
-                              widget.tool.icon,
-                              color: colorScheme.foreground,
-                              size: 22,
-                            ),
+                            child: widget.tool.customIcon == null
+                                ? Icon(
+                                    widget.tool.icon,
+                                    color: colorScheme.foreground,
+                                    size: 22,
+                                  )
+                                : MessagingAppLogo(
+                                    type: widget.tool.customIcon!,
+                                    color: colorScheme.foreground,
+                                    size: 22,
+                                  ),
                           ),
                         ),
                         if (widget.tool.isLocked)

@@ -1732,7 +1732,7 @@
   "syncBankAccountsTitle": "Đồng bộ tài khoản ngân hàng",
   "syncBankAccountsSubtitle": "Liên kết ngân hàng an toàn để tự động nhập số dư và giao dịch.",
   "syncBankAccountsTooltip": "Xem trước hướng dẫn Plaid để biết quy trình đồng bộ.",
-  "syncBankAccountsComingSoon": "Tính năng đồng bộ ngân hàng sắp ra mắt.",
+  "syncBankAccountsComingSoon": "Tính năng kết nối tài khoản ngân hàng hiện chưa khả dụng tại khu vực của bạn.",
   "integrations": "Tích hợp",
   "account": "Tài khoản",
   "preferences": "Tùy chọn",
@@ -3611,5 +3611,8 @@
   "introFreshStartDescription": "Tháng mới, một điểm khởi đầu mới. Hãy thiết lập kế hoạch và Moneko sẽ học từ cách bạn chi tiêu.",
   "monthsWithMoneko": "{count} tháng cùng Moneko",
   "pocketsChangedWhilePreparingPlan": "Các hũ ngân sách của bạn đã thay đổi trong lúc kế hoạch đang được chuẩn bị. Vui lòng thử lại.",
-  "workingForElapsed": "Đã xử lý trong {elapsed}"
+  "workingForElapsed": "Đã xử lý trong {elapsed}",
+  "bankConnectionNotConnectedYet": "Chưa kết nối",
+  "merchantWebsite": "Trang web của cửa hàng",
+  "addMerchantWebsite": "Thêm trang web của cửa hàng"
 }

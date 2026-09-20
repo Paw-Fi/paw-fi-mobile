@@ -417,10 +417,10 @@ class MainShell extends HookConsumerWidget {
       currencies: recurringCurrencies,
     );
     final recurringBadge = previewState.isActive || auth.uid.isEmpty
-        ? const AsyncValue<bool>.data(false)
+        ? const AsyncValue<int>.data(0)
         : ref.watch(recurringActionableBadgeProvider(recurringReadScope));
-    final hasUnconfirmedRecurringOccurrences =
-        recurringBadge.valueOrNull == true;
+    final unconfirmedRecurringCount = recurringBadge.valueOrNull ?? 0;
+    final hasUnconfirmedRecurringOccurrences = unconfirmedRecurringCount > 0;
     final isRecurringBadgeLoading =
         recurringBadge.isLoading && !recurringBadge.hasValue;
     ref.listen<AppMutationErrorEvent?>(appMutationErrorProvider,
@@ -889,8 +889,9 @@ class MainShell extends HookConsumerWidget {
                       AdaptiveNavigationDestination(
                         icon: 'repeat',
                         label: context.l10n.recurring,
-                        badgeCount:
-                            hasUnconfirmedRecurringOccurrences ? 1 : null,
+                        badgeCount: hasUnconfirmedRecurringOccurrences
+                            ? unconfirmedRecurringCount
+                            : null,
                       ),
                       AdaptiveNavigationDestination(
                         icon: 'chart.pie',
@@ -998,7 +999,9 @@ class MainShell extends HookConsumerWidget {
                   AdaptiveNavigationDestination(
                     icon: 'repeat',
                     label: context.l10n.recurring,
-                    badgeCount: hasUnconfirmedRecurringOccurrences ? 1 : null,
+                    badgeCount: hasUnconfirmedRecurringOccurrences
+                        ? unconfirmedRecurringCount
+                        : null,
                   ),
                   AdaptiveNavigationDestination(
                     icon: 'chart.pie',

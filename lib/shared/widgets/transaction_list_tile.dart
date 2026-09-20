@@ -275,15 +275,19 @@ class TransactionListTile extends StatelessWidget {
           dense: dense,
           contentPadding: EdgeInsets.zero,
           leading: hasMerchantLogo
-              ? SizedBox(width: 36, height: 36, child: merchantLogo)
-              : Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurface.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(8),
+              ? ClipOval(
+                  child: SizedBox(width: 36, height: 36, child: merchantLogo),
+                )
+              : ClipOval(
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurface.withValues(alpha: 0.04),
+                      shape: BoxShape.circle,
+                    ),
+                    child: merchantLogo,
                   ),
-                  child: merchantLogo,
                 ),
           title: Text(
             displayTitle,

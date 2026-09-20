@@ -1725,7 +1725,7 @@
   "syncBankAccountsTitle": "Синхронізувати банківські рахунки",
   "syncBankAccountsSubtitle": "Безпечно підключайте банки, щоб автоматично імпортувати баланси та операції.",
   "syncBankAccountsTooltip": "Перегляньте попередній гід Plaid, який проведе вас через синхронізацію.",
-  "syncBankAccountsComingSoon": "Синхронізація банків незабаром буде доступна.",
+  "syncBankAccountsComingSoon": "Підключення банківських рахунків наразі недоступне у вашому регіоні.",
   "integrations": "Інтеграції",
   "account": "Обліковий запис",
   "preferences": "Налаштування",
@@ -3604,5 +3604,8 @@
   "introFreshStartDescription": "Новий місяць і нова точка відліку. Створіть план, а Moneko навчатиметься на ваших витратах.",
   "monthsWithMoneko": "{count} місяців із Moneko",
   "pocketsChangedWhilePreparingPlan": "Поки план готувався, ваші конверти змінилися. Спробуйте ще раз.",
-  "workingForElapsed": "В обробці вже {elapsed}"
+  "workingForElapsed": "В обробці вже {elapsed}",
+  "bankConnectionNotConnectedYet": "Ще не підключено",
+  "merchantWebsite": "Сайт продавця",
+  "addMerchantWebsite": "Додати сайт продавця"
 }

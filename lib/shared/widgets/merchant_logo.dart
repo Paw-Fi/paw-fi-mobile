@@ -68,8 +68,7 @@ class MerchantLogo extends StatelessWidget {
     return Semantics(
       label: 'Merchant logo',
       image: true,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+      child: ClipOval(
         child: Image.network(
           url,
           fit: BoxFit.contain,

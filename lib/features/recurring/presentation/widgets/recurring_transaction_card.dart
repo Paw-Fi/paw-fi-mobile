@@ -56,6 +56,7 @@ class RecurringTransactionCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
   final bool showCurrencyFlag;
+  final bool grouped;
 
   const RecurringTransactionCard({
     super.key,
@@ -65,6 +66,7 @@ class RecurringTransactionCard extends StatelessWidget {
     this.onTap,
     this.onDelete,
     this.showCurrencyFlag = false,
+    this.grouped = false,
   });
 
   @override
@@ -111,7 +113,7 @@ class RecurringTransactionCard extends StatelessWidget {
     final canConfirm = latestActionableOccurrenceDate != null;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: grouped ? EdgeInsets.zero : const EdgeInsets.only(bottom: 8),
       child: Slidable(
         key: ValueKey(transaction.id),
         endActionPane: ActionPane(
@@ -127,58 +129,73 @@ class RecurringTransactionCard extends StatelessWidget {
               backgroundColor: colorScheme.destructive,
               foregroundColor: colorScheme.onError,
               icon: Icons.delete,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
             ),
           ],
         ),
         child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.homeCardSurface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: colorScheme.homeCardBorder,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.homeCardShadow,
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-                spreadRadius: -4,
-              ),
-            ],
-          ),
+          decoration: grouped
+              ? null
+              : BoxDecoration(
+                  color: colorScheme.homeCardSurface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: colorScheme.homeCardBorder,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.homeCardShadow,
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                      spreadRadius: -4,
+                    ),
+                  ],
+                ),
           child: Material(
             color: colorScheme.surface.withValues(alpha: 0.0),
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     // Merchant logos stay rounded but are not placed on a
                     // category-colored background. Category fallbacks retain
                     // the existing background treatment.
                     hasMerchantLogo
-                        ? SizedBox(width: 46, height: 46, child: merchantLogo)
-                        : Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color:
-                                  adaptedCategoryColor.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color:
-                                    adaptedCategoryColor.withValues(alpha: 0.2),
-                                width: 1,
-                              ),
+                        ? ClipOval(
+                            child: SizedBox(
+                              width: 46,
+                              height: 46,
+                              child: merchantLogo,
                             ),
-                            child: merchantLogo,
+                          )
+                        : ClipOval(
+                            child: Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: adaptedCategoryColor.withValues(
+                                  alpha: 0.12,
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: adaptedCategoryColor.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  width: 1,
+                                ),
+                              ),
+                              child: merchantLogo,
+                            ),
                           ),
                     const SizedBox(width: 14),
-                    // Title and subtitle info
+                    // Keep the row compact: title plus schedule metadata.
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,19 +210,6 @@ class RecurringTransactionCard extends StatelessWidget {
                               color: colorScheme.foreground,
                             ),
                           ),
-                          if (hasDescription) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              localizedCategory,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colorScheme.mutedForeground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
                           const SizedBox(height: 6),
                           Row(
                             children: [
@@ -218,7 +222,7 @@ class RecurringTransactionCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color:
                                       colorScheme.muted.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: colorScheme.border
                                         .withValues(alpha: 0.1),
@@ -336,7 +340,7 @@ class RecurringTransactionCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: colorScheme.muted.withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               context.l10n.ended.toUpperCase(),

@@ -1546,7 +1546,7 @@
   "syncBankAccountsTitle": "은행 계좌 동기화",
   "syncBankAccountsSubtitle": "은행을 안전하게 연결해 잔액과 거래 내역을 자동으로 가져오세요.",
   "syncBankAccountsTooltip": "동기화 과정을 안내하는 Plaid 안내 화면을 미리 확인하세요.",
-  "syncBankAccountsComingSoon": "은행 동기화 기능이 곧 제공됩니다.",
+  "syncBankAccountsComingSoon": "현재 해당 지역에서는 은행 계좌 연결을 이용할 수 없어요.",
   "integrations": "연동",
   "account": "계정",
   "preferences": "환경설정",
@@ -3425,5 +3425,8 @@
   "introFreshStartDescription": "새로운 달, 새로운 출발점이에요. 계획을 세우면 Moneko가 소비 패턴을 학습해요.",
   "monthsWithMoneko": "Moneko와 함께한 {count}개월",
   "pocketsChangedWhilePreparingPlan": "계획을 준비하는 동안 포켓이 변경되었어요. 다시 시도해 주세요.",
-  "workingForElapsed": "{elapsed}째 처리 중"
+  "workingForElapsed": "{elapsed}째 처리 중",
+  "bankConnectionNotConnectedYet": "아직 연결되지 않았어요",
+  "merchantWebsite": "가맹점 웹사이트",
+  "addMerchantWebsite": "가맹점 웹사이트 추가"
 }

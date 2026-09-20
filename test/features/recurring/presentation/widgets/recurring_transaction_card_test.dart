@@ -58,4 +58,26 @@ void main() {
 
     expect(find.byType(TransactionCurrencyFlagBadge), findsNothing);
   });
+
+  testWidgets('keeps recurring rows to a title and schedule line',
+      (tester) async {
+    final recurring = transaction().copyWith(description: 'Monthly rent');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: RecurringTransactionCard(
+            transaction: recurring,
+            nextOccurrenceDate: DateTime(2026, 8, 1),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Monthly rent'), findsOneWidget);
+    expect(find.text('Housing'), findsNothing);
+    expect(find.byIcon(Icons.calendar_today_rounded), findsOneWidget);
+  });
 }

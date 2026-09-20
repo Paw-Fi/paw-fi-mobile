@@ -29,7 +29,6 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
-import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -177,6 +176,8 @@ class AccountsPage extends HookConsumerWidget {
     final hasDismissedSwipeHintState =
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final addWalletSheetRequest =
+        ref.watch(walletsAddWalletSheetRequestProvider);
     final locale = Localizations.localeOf(context);
     final shouldShowConnectBankButton = isPlaidSupportedTimezone(
       preferredTimezone,
@@ -268,12 +269,6 @@ class AccountsPage extends HookConsumerWidget {
         .toList(growable: false);
     final hasPendingPlaidRemoval = scopedPlaidConnections.any(
       (connection) => connection.isPendingRemoval,
-    );
-    final hasActivePlaidConnection = scopedPlaidConnections.any(
-      (connection) =>
-          connection.isHealthy &&
-          !connection.isRemoved &&
-          !connection.needsReconnect,
     );
     Future<void> refreshWalletsAfterPlaidFlow() async {
       ref.invalidate(bankConnectionsProvider);
@@ -496,7 +491,6 @@ class AccountsPage extends HookConsumerWidget {
       final selectedOption = await showAddWalletOptionSheet(
         context,
         showBankConnectionOption: shouldShowConnectBankButton,
-        showBankConnectionsOption: hasActivePlaidConnection,
       );
       if (selectedOption == null || !context.mounted) {
         return;
@@ -509,15 +503,21 @@ class AccountsPage extends HookConsumerWidget {
         case AddWalletOption.bank:
           await onConnectBankAccount();
           break;
-        case AddWalletOption.bankConnections:
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const BankConnectionsPage(),
-            ),
-          );
-          break;
       }
     }
+
+    useEffect(() {
+      if (addWalletSheetRequest == 0 || currentTabIndex != 3) {
+        return null;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ref.read(walletsAddWalletSheetRequestProvider.notifier).state = 0;
+        onAddAccount();
+      });
+      return null;
+    }, [addWalletSheetRequest, currentTabIndex]);
 
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(

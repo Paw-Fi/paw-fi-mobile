@@ -498,7 +498,7 @@ class _RecurringTransactionsPageState
     // Build summary card
     final summaryCardSliver = SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: _buildSummaryCard(
           colorScheme: colorScheme,
           total: totalCommitted,
@@ -517,24 +517,14 @@ class _RecurringTransactionsPageState
       return [
         summaryCardSliver,
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final summary = summaries[index];
-                final latestActionableOccurrenceDate =
-                    _latestActionableOccurrenceDate(summary);
-                return RecurringTransactionCard(
-                  transaction: summary.transaction,
-                  nextOccurrenceDate: summary.nextOccurrenceDate,
-                  latestActionableOccurrenceDate:
-                      latestActionableOccurrenceDate,
-                  showCurrencyFlag: hasMultipleSelectedCurrencies,
-                  onTap: null,
-                  onDelete: null,
-                );
-              },
-              childCount: summaries.length,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          sliver: SliverToBoxAdapter(
+            child: _buildRecurringGroupCard(
+              colorScheme: colorScheme,
+              summaries: summaries,
+              showCurrencyFlag: hasMultipleSelectedCurrencies,
+              onTransactionTap: null,
+              onTransactionDelete: null,
             ),
           ),
         ),
@@ -550,7 +540,7 @@ class _RecurringTransactionsPageState
 
     Widget buildSectionHeader(String title, int count) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
         child: Row(
           children: [
             Text(
@@ -596,25 +586,16 @@ class _RecurringTransactionsPageState
       );
       slivers.add(
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final summary = groupTransactions[index];
-                final transaction = summary.transaction;
-                final latestActionableOccurrenceDate =
-                    _latestActionableOccurrenceDate(summary);
-                return RecurringTransactionCard(
-                  transaction: transaction,
-                  nextOccurrenceDate: summary.nextOccurrenceDate,
-                  latestActionableOccurrenceDate:
-                      latestActionableOccurrenceDate,
-                  showCurrencyFlag: hasMultipleSelectedCurrencies,
-                  onTap: () => _showTransactionDetails(transaction),
-                  onDelete: () => _deleteTransaction(transaction, householdId),
-                );
-              },
-              childCount: groupTransactions.length,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverToBoxAdapter(
+            child: _buildRecurringGroupCard(
+              colorScheme: colorScheme,
+              summaries: groupTransactions,
+              showCurrencyFlag: hasMultipleSelectedCurrencies,
+              onTransactionTap: (transaction) =>
+                  _showTransactionDetails(transaction),
+              onTransactionDelete: (transaction) =>
+                  _deleteTransaction(transaction, householdId),
             ),
           ),
         ),
@@ -642,7 +623,7 @@ class _RecurringTransactionsPageState
       slivers.add(
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Skeletonizer(
               enabled: paginationState?.isLoadingMore == true,
               effect: ShimmerEffect(
@@ -673,6 +654,58 @@ class _RecurringTransactionsPageState
     );
 
     return slivers;
+  }
+
+  Widget _buildRecurringGroupCard({
+    required ColorScheme colorScheme,
+    required List<RecurringSeriesSummary> summaries,
+    required bool showCurrencyFlag,
+    required ValueChanged<RecurringTransaction>? onTransactionTap,
+    required ValueChanged<RecurringTransaction>? onTransactionDelete,
+  }) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < summaries.length; index++) ...[
+            RecurringTransactionCard(
+              transaction: summaries[index].transaction,
+              nextOccurrenceDate: summaries[index].nextOccurrenceDate,
+              latestActionableOccurrenceDate:
+                  _latestActionableOccurrenceDate(summaries[index]),
+              showCurrencyFlag: showCurrencyFlag,
+              grouped: true,
+              onTap: onTransactionTap == null
+                  ? null
+                  : () => onTransactionTap(summaries[index].transaction),
+              onDelete: onTransactionDelete == null
+                  ? null
+                  : () => onTransactionDelete(summaries[index].transaction),
+            ),
+            if (index < summaries.length - 1)
+              const SizedBox(
+                height: 8,
+              ),
+          ],
+        ],
+      ),
+    );
   }
 
   DateTime? _latestActionableOccurrenceDate(RecurringSeriesSummary summary) {
@@ -712,7 +745,7 @@ class _RecurringTransactionsPageState
     final isDark = colorScheme.brightness == Brightness.dark;
 
     final content = Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -747,7 +780,7 @@ class _RecurringTransactionsPageState
                       title: label,
                       allowSingleCurrency: true,
                     ),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(8),
                     child: Padding(
                       padding: const EdgeInsets.all(4),
                       child: Row(
@@ -821,7 +854,7 @@ class _RecurringTransactionsPageState
           end: Alignment.bottomRight,
           colors: colorScheme.recurringSummaryGradient,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
             color: isDark
@@ -842,7 +875,7 @@ class _RecurringTransactionsPageState
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         child: isDark
             ? BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),

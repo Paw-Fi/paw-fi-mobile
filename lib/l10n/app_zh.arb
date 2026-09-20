@@ -1729,7 +1729,7 @@
   "syncBankAccountsTitle": "同步银行账户",
   "syncBankAccountsSubtitle": "安全连接银行，自动导入余额和交易记录。",
   "syncBankAccountsTooltip": "预览 Plaid 的引导流程，了解如何完成同步。",
-  "syncBankAccountsComingSoon": "银行同步功能即将推出。",
+  "syncBankAccountsComingSoon": "你所在的地区目前暂不支持连接银行账户。",
   "integrations": "集成",
   "account": "账户",
   "preferences": "偏好设置",
@@ -3608,5 +3608,8 @@
   "introFreshStartDescription": "新月份，新的起点。设好计划后，Moneko 会从你的消费方式中逐渐学习。",
   "monthsWithMoneko": "与 Moneko 一起 {count} 个月",
   "pocketsChangedWhilePreparingPlan": "生成计划期间，你的预算袋发生了变化。请重试。",
-  "workingForElapsed": "已处理 {elapsed}"
+  "workingForElapsed": "已处理 {elapsed}",
+  "bankConnectionNotConnectedYet": "尚未连接",
+  "merchantWebsite": "商家网站",
+  "addMerchantWebsite": "添加商家网站"
 }

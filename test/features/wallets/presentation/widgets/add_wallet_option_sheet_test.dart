@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/wallets/presentation/widgets/add_wallet_option_sheet.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
-Widget _testApp({required bool showBankConnectionsOption}) {
+Widget _testApp({required bool showBankConnectionOption}) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
@@ -13,8 +13,7 @@ Widget _testApp({required bool showBankConnectionsOption}) {
           child: ElevatedButton(
             onPressed: () => showAddWalletOptionSheet(
               context,
-              showBankConnectionOption: true,
-              showBankConnectionsOption: showBankConnectionsOption,
+              showBankConnectionOption: showBankConnectionOption,
             ),
             child: const Text('New wallet'),
           ),
@@ -25,21 +24,24 @@ Widget _testApp({required bool showBankConnectionsOption}) {
 }
 
 void main() {
-  testWidgets('hides bank connection management without an active connection',
+  testWidgets(
+      'does not show bank connection management in the add wallet sheet',
       (tester) async {
-    await tester.pumpWidget(_testApp(showBankConnectionsOption: false));
+    await tester.pumpWidget(_testApp(showBankConnectionOption: true));
     await tester.tap(find.text('New wallet'));
     await tester.pumpAndSettle();
 
     expect(find.text('Bank connections'), findsNothing);
+    expect(find.text('Connect Bank'), findsOneWidget);
   });
 
-  testWidgets('shows bank connection management with an active connection',
+  testWidgets('still hides bank linking when it is unavailable',
       (tester) async {
-    await tester.pumpWidget(_testApp(showBankConnectionsOption: true));
+    await tester.pumpWidget(_testApp(showBankConnectionOption: false));
     await tester.tap(find.text('New wallet'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bank connections'), findsOneWidget);
+    expect(find.text('Connect Bank'), findsNothing);
+    expect(find.text('Bank connections'), findsNothing);
   });
 }
