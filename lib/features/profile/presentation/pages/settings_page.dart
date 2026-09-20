@@ -62,7 +62,6 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_settings_tile.dart';
-import 'package:moneko/shared/widgets/merchant_logo_bootstrap_sheet.dart';
 import 'package:moneko/shared/widgets/messaging_app_logo.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';

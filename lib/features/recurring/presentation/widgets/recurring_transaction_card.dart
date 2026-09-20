@@ -170,15 +170,15 @@ class RecurringTransactionCard extends StatelessWidget {
                     hasMerchantLogo
                         ? ClipOval(
                             child: SizedBox(
-                              width: 46,
-                              height: 46,
+                              width: 36,
+                              height: 36,
                               child: merchantLogo,
                             ),
                           )
                         : ClipOval(
                             child: Container(
-                              width: 46,
-                              height: 46,
+                              width: 36,
+                              height: 36,
                               decoration: BoxDecoration(
                                 color: adaptedCategoryColor.withValues(
                                   alpha: 0.12,
@@ -194,7 +194,7 @@ class RecurringTransactionCard extends StatelessWidget {
                               child: merchantLogo,
                             ),
                           ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 16),
                     // Keep the row compact: title plus schedule metadata.
                     Expanded(
                       child: Column(
@@ -205,7 +205,7 @@ class RecurringTransactionCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.foreground,
                             ),
@@ -277,10 +277,9 @@ class RecurringTransactionCard extends StatelessWidget {
                         Text(
                           amountText,
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
                             color: amountColor,
-                            fontFamily: 'monospace',
                           ),
                         ),
                         const SizedBox(height: 6),

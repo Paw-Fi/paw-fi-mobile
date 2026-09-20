@@ -991,6 +991,10 @@ class MainShell extends HookConsumerWidget {
               right: 0,
               bottom: 0,
               child: IOS26NativeTabBar(
+                // Recreate the platform view when brightness flips: the
+                // package snapshots isDark at creation, so a theme that
+                // resolves after first frame never reaches the native side.
+                key: ValueKey(MediaQuery.platformBrightnessOf(context)),
                 destinations: [
                   const AdaptiveNavigationDestination(
                     icon: 'house.fill',
