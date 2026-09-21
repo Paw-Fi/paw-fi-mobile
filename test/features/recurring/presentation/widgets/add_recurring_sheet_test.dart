@@ -53,6 +53,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
+    String? reminderMode,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -83,6 +84,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
       'hasReminder': hasReminder,
       'reminderValue': reminderValue,
       'reminderUnit': reminderUnit,
+      'reminderMode': reminderMode,
       'ownerType': ownerType,
       'privacyScope': privacyScope,
       'householdId': householdId,
@@ -111,6 +113,10 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
         anchorDate: startDate,
         interval: interval,
         endDate: endDate,
+        reminderEnabled: hasReminder,
+        reminderValue: reminderValue,
+        reminderUnit: reminderUnit,
+        reminderMode: reminderMode,
       ),
       type: 'expense',
       attachments: const [],
@@ -1428,10 +1434,10 @@ void main() {
                 id: 'exp_move_scope',
                 accountId: 'w_personal_default',
                 recurrenceRule: RecurrenceRule(
-                  frequency: 'monthly',
+                  frequency: 'daily',
                   anchorDate: DateTime(2026, 1, 1),
                   endDate: DateTime(2026, 12, 31),
-                  interval: 2,
+                  interval: 25,
                   reminderEnabled: true,
                   reminderValue: 3,
                   reminderUnit: 'days',
@@ -1449,13 +1455,26 @@ void main() {
     final l10n = AppLocalizations.of(context)!;
 
     expect(find.text(l10n.space), findsOneWidget);
+    final oneTimeReminder = find.text(l10n.oneTime);
+    await tester.ensureVisible(oneTimeReminder);
+    await tester.pumpAndSettle();
+    await tester.tap(oneTimeReminder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.daily).last);
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text(l10n.space));
+    final spaceRow = find.text(l10n.space);
+    await tester.ensureVisible(spaceRow);
+    await tester.pumpAndSettle();
+    await tester.tap(spaceRow);
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Test Household').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(l10n.wallet));
+    final walletRow = find.text(l10n.wallet);
+    await tester.ensureVisible(walletRow);
+    await tester.pumpAndSettle();
+    await tester.tap(walletRow);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Family Card').last);
     await tester.pumpAndSettle();
@@ -1469,8 +1488,8 @@ void main() {
     expect(saveNotifier!.lastUpdateArgs?['householdId'], 'h1');
     expect(saveNotifier!.lastUpdateArgs?['previousHouseholdId'], isNull);
     expect(saveNotifier!.lastUpdateArgs?['accountId'], 'w_household_alt');
-    expect(saveNotifier!.lastUpdateArgs?['frequency'], 'monthly');
-    expect(saveNotifier!.lastUpdateArgs?['interval'], 2);
+    expect(saveNotifier!.lastUpdateArgs?['frequency'], 'daily');
+    expect(saveNotifier!.lastUpdateArgs?['interval'], 25);
     expect(
       saveNotifier!.lastUpdateArgs?['endDate'],
       DateTime(2026, 12, 31),
@@ -1478,6 +1497,10 @@ void main() {
     expect(saveNotifier!.lastUpdateArgs?['hasReminder'], isTrue);
     expect(saveNotifier!.lastUpdateArgs?['reminderValue'], 3);
     expect(saveNotifier!.lastUpdateArgs?['reminderUnit'], 'days');
+    expect(
+      saveNotifier!.lastUpdateArgs?['reminderMode'],
+      recurringReminderModeDailyUntilDue,
+    );
     await tester.pump(const Duration(seconds: 6));
   });
 }

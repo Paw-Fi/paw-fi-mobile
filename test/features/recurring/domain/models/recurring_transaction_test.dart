@@ -945,6 +945,33 @@ void main() {
       expect(rule.reminderEnabled, true);
       expect(rule.reminderValue, 1);
       expect(rule.reminderUnit, 'days');
+      expect(rule.effectiveReminderMode, recurringReminderModeOnce);
+    });
+
+    test('daily reminder mode round-trips through JSON and copyWith', () {
+      final rule = RecurrenceRule.fromJson({
+        'frequency': 'monthly',
+        'anchor_date': '2026-10-15',
+        'reminder': {
+          'enabled': true,
+          'value': 7,
+          'unit': 'days',
+          'mode': recurringReminderModeDailyUntilDue,
+        },
+      });
+
+      expect(
+        rule.effectiveReminderMode,
+        recurringReminderModeDailyUntilDue,
+      );
+      expect(
+        rule.toJson()['reminder']['mode'],
+        recurringReminderModeDailyUntilDue,
+      );
+      expect(
+        rule.copyWith(reminderValue: 3).effectiveReminderMode,
+        recurringReminderModeDailyUntilDue,
+      );
     });
 
     test('fromJson preserves date-only end_date without drift', () {
@@ -998,6 +1025,7 @@ void main() {
       expect(json['reminder']['enabled'], true);
       expect(json['reminder']['value'], 1);
       expect(json['reminder']['unit'], 'days');
+      expect(json['reminder'].containsKey('mode'), isFalse);
     });
 
     test('copyWith creates new rule with updated values', () {

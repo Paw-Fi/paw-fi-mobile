@@ -175,6 +175,7 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
   bool? hasReminder,
   int? reminderValue,
   String? reminderUnit,
+  String? reminderMode,
   bool projectionEnabled = true,
   String ownerType = 'me',
   String privacyScope = 'full',
@@ -211,6 +212,7 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
       reminderEnabled: hasReminder,
       reminderValue: hasReminder == true ? reminderValue : null,
       reminderUnit: hasReminder == true ? reminderUnit : null,
+      reminderMode: hasReminder == true ? reminderMode : null,
       projectionEnabled: projectionEnabled,
     ),
     type: type,
@@ -2556,6 +2558,30 @@ class RecurringTransactionSaveNotifier
   RecurringTransactionSaveNotifier(this.ref)
       : super(const AsyncValue.data(null));
 
+  Map<String, dynamic>? _buildReminder({
+    required bool? enabled,
+    required int? value,
+    required String? unit,
+    required String? mode,
+  }) {
+    if (enabled != true || value == null || unit == null) return null;
+    if (mode != null && !RecurrenceRule.validReminderModes.contains(mode)) {
+      throw ArgumentError.value(mode, 'mode', 'Unsupported reminder mode');
+    }
+    if (mode == recurringReminderModeDailyUntilDue &&
+        (unit != 'days' || value < 1 || value > 31)) {
+      throw ArgumentError(
+        'Daily reminders require a lead time of 1 to 31 days',
+      );
+    }
+    return {
+      'enabled': true,
+      'value': value,
+      'unit': unit,
+      if (mode == recurringReminderModeDailyUntilDue) 'mode': mode,
+    };
+  }
+
   bool get _isPreview => ref.read(previewModeProvider).isActive;
 
   bool _guardPreviewWrites() {
@@ -2584,6 +2610,7 @@ class RecurringTransactionSaveNotifier
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
+    String? reminderMode,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -2609,20 +2636,19 @@ class RecurringTransactionSaveNotifier
       final anchorDateYmd = _buildAnchorDateYmd(startDate);
       final endDateYmd = _buildEndDateYmd(endDate);
       final clientCreatedAtIso = _buildClientCreatedAtIso(ref);
+      final reminder = _buildReminder(
+        enabled: hasReminder,
+        value: reminderValue,
+        unit: reminderUnit,
+        mode: reminderMode,
+      );
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
         'anchor_date': anchorDateYmd,
         if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
-        if (hasReminder == true &&
-            reminderValue != null &&
-            reminderUnit != null)
-          'reminder': {
-            'enabled': true,
-            'value': reminderValue,
-            'unit': reminderUnit,
-          },
+        if (reminder != null) 'reminder': reminder,
       };
 
       final Map<String, dynamic> requestBody = {
@@ -2706,6 +2732,7 @@ class RecurringTransactionSaveNotifier
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
+        reminderMode: reminderMode,
         ownerType: ownerType,
         privacyScope: privacyScope,
         householdId: householdId,
@@ -2862,6 +2889,7 @@ class RecurringTransactionSaveNotifier
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
+    String? reminderMode,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -2887,20 +2915,19 @@ class RecurringTransactionSaveNotifier
       final anchorDateYmd = _buildAnchorDateYmd(startDate);
       final endDateYmd = _buildEndDateYmd(endDate);
       final clientCreatedAtIso = _buildClientCreatedAtIso(ref);
+      final reminder = _buildReminder(
+        enabled: hasReminder,
+        value: reminderValue,
+        unit: reminderUnit,
+        mode: reminderMode,
+      );
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
         'anchor_date': anchorDateYmd,
         if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
-        if (hasReminder == true &&
-            reminderValue != null &&
-            reminderUnit != null)
-          'reminder': {
-            'enabled': true,
-            'value': reminderValue,
-            'unit': reminderUnit,
-          },
+        if (reminder != null) 'reminder': reminder,
       };
 
       optimisticTransaction = _buildOptimisticRecurringTransaction(
@@ -2922,6 +2949,7 @@ class RecurringTransactionSaveNotifier
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
+        reminderMode: reminderMode,
         ownerType: ownerType,
         privacyScope: privacyScope,
         householdId: householdId,
@@ -3293,6 +3321,7 @@ class RecurringTransactionSaveNotifier
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
+    String? reminderMode,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -3353,6 +3382,12 @@ class RecurringTransactionSaveNotifier
       final formattedAccountingDate = dateFormatter.format(startDate);
       final anchorDateYmd = _buildAnchorDateYmd(startDate);
       final endDateYmd = _buildEndDateYmd(endDate);
+      final reminder = _buildReminder(
+        enabled: hasReminder,
+        value: reminderValue,
+        unit: reminderUnit,
+        mode: reminderMode,
+      );
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
@@ -3361,14 +3396,7 @@ class RecurringTransactionSaveNotifier
             originalExpense?.recurrenceRule?.projectionEnabled ?? true,
         if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
-        if (hasReminder == true &&
-            reminderValue != null &&
-            reminderUnit != null)
-          'reminder': {
-            'enabled': true,
-            'value': reminderValue,
-            'unit': reminderUnit,
-          },
+        if (reminder != null) 'reminder': reminder,
       };
 
       final updates = <String, dynamic>{
@@ -3501,6 +3529,7 @@ class RecurringTransactionSaveNotifier
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
+        reminderMode: reminderMode,
         projectionEnabled:
             originalExpense?.recurrenceRule?.projectionEnabled ?? true,
         ownerType: ownerType,
@@ -3692,6 +3721,7 @@ class RecurringTransactionSaveNotifier
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
+    String? reminderMode,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -3751,6 +3781,12 @@ class RecurringTransactionSaveNotifier
       final formattedAccountingDate = dateFormatter.format(startDate);
       final anchorDateYmd = _buildAnchorDateYmd(startDate);
       final endDateYmd = _buildEndDateYmd(endDate);
+      final reminder = _buildReminder(
+        enabled: hasReminder,
+        value: reminderValue,
+        unit: reminderUnit,
+        mode: reminderMode,
+      );
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
@@ -3759,14 +3795,7 @@ class RecurringTransactionSaveNotifier
             originalIncome?.recurrenceRule?.projectionEnabled ?? true,
         if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
-        if (hasReminder == true &&
-            reminderValue != null &&
-            reminderUnit != null)
-          'reminder': {
-            'enabled': true,
-            'value': reminderValue,
-            'unit': reminderUnit,
-          },
+        if (reminder != null) 'reminder': reminder,
       };
 
       final updatesIncome = <String, dynamic>{
@@ -3813,6 +3842,7 @@ class RecurringTransactionSaveNotifier
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
+        reminderMode: reminderMode,
         projectionEnabled:
             originalIncome?.recurrenceRule?.projectionEnabled ?? true,
         ownerType: ownerType,

@@ -15,27 +15,29 @@ void main() {
     expect(selection.interval, isNull);
   });
 
-  test('custom interval preserves supported arbitrary values', () {
-    expect(
+  test('custom interval preserves reminder scheduler cadence values', () {
+    final selections = [
       recurrenceSelectionFromCustomInterval(
         unit: RecurrenceIntervalUnit.days,
-        number: 45,
-      ).interval,
-      45,
-    );
-    expect(
+        number: 25,
+      ),
       recurrenceSelectionFromCustomInterval(
         unit: RecurrenceIntervalUnit.weeks,
         number: 3,
-      ).frequency,
-      'weekly',
-    );
-    expect(
+      ),
       recurrenceSelectionFromCustomInterval(
         unit: RecurrenceIntervalUnit.years,
         number: 2,
-      ).interval,
-      2,
+      ),
+    ];
+
+    expect(
+      selections.map((selection) => selection.frequency),
+      ['daily', 'weekly', 'yearly'],
+    );
+    expect(
+      selections.map((selection) => selection.interval),
+      [25, 3, 2],
     );
   });
 
@@ -103,7 +105,7 @@ void main() {
                 selection = await showRecurrencePicker(
                   context: context,
                   currentFrequency: 'daily',
-                  currentInterval: 45,
+                  currentInterval: 25,
                 );
               },
               child: const Text('Open'),
@@ -116,9 +118,9 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('45'), findsOneWidget);
+    expect(find.text('25'), findsOneWidget);
     expect(find.text('Days'), findsOneWidget);
-    expect(find.text('45 days'), findsOneWidget);
+    expect(find.text('25 days'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
@@ -130,7 +132,62 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selection?.frequency, 'daily');
-    expect(selection?.interval, 45);
+    expect(selection?.interval, 25);
+  });
+
+  testWidgets('custom picker preserves week and year intervals',
+      (tester) async {
+    RecurrenceSelection? selection;
+
+    Future<void> select({
+      required String frequency,
+      required int interval,
+      required String expectedLabel,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  selection = await showRecurrencePicker(
+                    context: context,
+                    currentFrequency: frequency,
+                    currentInterval: interval,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text(expectedLabel), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+    }
+
+    await select(
+      frequency: 'weekly',
+      interval: 3,
+      expectedLabel: '3 weeks',
+    );
+    expect(selection?.frequency, 'weekly');
+    expect(selection?.interval, 3);
+
+    selection = null;
+    await select(
+      frequency: 'yearly',
+      interval: 2,
+      expectedLabel: '2 years',
+    );
+    expect(selection?.frequency, 'yearly');
+    expect(selection?.interval, 2);
   });
 
   testWidgets('custom picker returns one month as monthly with null interval',

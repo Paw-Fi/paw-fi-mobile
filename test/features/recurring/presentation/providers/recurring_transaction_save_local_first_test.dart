@@ -94,6 +94,59 @@ void main() {
     expect(capturedBody?['merchant'], 'Fresh Market');
   });
 
+  test('daily reminder mode persists through optimistic row and outbox',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    Map<String, dynamic>? capturedBody;
+    requestHandler = (request) async {
+      capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return _successResponse(request, capturedBody!);
+    };
+    final container = _container(database);
+    addTearDown(container.dispose);
+
+    final saved = await container
+        .read(recurringTransactionSaveProvider.notifier)
+        .saveRecurringExpense(
+          userId: 'user_1',
+          amount: 19.99,
+          category: 'subscriptions',
+          currency: 'USD',
+          startDate: DateTime(2026, 10, 15),
+          frequency: 'monthly',
+          hasReminder: true,
+          reminderValue: 7,
+          reminderUnit: 'days',
+          reminderMode: recurringReminderModeDailyUntilDue,
+        );
+
+    final mutation = (await database.getOutboxMutations()).single;
+    final payload = jsonDecode(mutation.payloadJson) as Map<String, dynamic>;
+    final requestBody = payload['requestBody'] as Map<String, dynamic>;
+    final requestRule = requestBody['recurrence_rule'] as Map<String, dynamic>;
+    final requestReminder = requestRule['reminder'] as Map<String, dynamic>;
+    final localRows = await database.getRecurringTransactions(
+      userId: 'user_1',
+      householdId: null,
+    );
+
+    expect(saved?.recurrenceRule?.effectiveReminderMode,
+        recurringReminderModeDailyUntilDue);
+    expect(localRows.single.recurrenceRuleJson?['reminder']['mode'],
+        recurringReminderModeDailyUntilDue);
+    expect(requestReminder, {
+      'enabled': true,
+      'value': 7,
+      'unit': 'days',
+      'mode': recurringReminderModeDailyUntilDue,
+    });
+    expect(
+      capturedBody?['recurrence_rule']['reminder']['mode'],
+      recurringReminderModeDailyUntilDue,
+    );
+  });
+
   test('single income occurrence queues the atomic override before replay',
       () async {
     final database = MonekoDatabase.inMemory();
