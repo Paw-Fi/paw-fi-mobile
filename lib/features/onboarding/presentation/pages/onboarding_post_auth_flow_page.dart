@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +27,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/shared/widgets/messaging_app_logo.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -35,7 +38,7 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
-const _kTotalSteps = 4;
+const _kBaseTotalSteps = 3;
 const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
 const _kTrialGrantTimeout = Duration(seconds: 20);
 
@@ -158,6 +161,11 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final pageController = usePageController();
     final currentPage = useState(0);
     final colorScheme = Theme.of(context).colorScheme;
+    final subscriptionAsync = ref.watch(subscriptionManagementProvider);
+    final showSubscriptionStep =
+        subscriptionAsync.valueOrNull?.subscription?.status?.toLowerCase() ==
+            'trialing';
+    final totalSteps = _kBaseTotalSteps + (showSubscriptionStep ? 1 : 0);
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
     final selectedImportApp = useState<String>('YNAB');
@@ -203,7 +211,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
     void next() {
       if (!context.mounted) return;
-      if (currentPage.value < _kTotalSteps - 1) {
+      if (currentPage.value < totalSteps - 1) {
         goToPage(currentPage.value + 1);
       } else {
         unawaited(showFinishPage());
@@ -211,7 +219,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     void skip() {
-      if (currentPage.value == _kTotalSteps - 1) {
+      if (currentPage.value == totalSteps - 1) {
         unawaited(showFinishPage());
         return;
       }
@@ -251,7 +259,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     Future<void> handleSubscriptionFlow() async {
       await PlusLockedSheet.show(
         context,
-        highlightedFeature: PlusFeature.spaceCreation,
+        highlightedFeature: PlusFeature.messagingAppCapture,
       );
       if (!context.mounted) return;
 
@@ -414,7 +422,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                       },
                     ),
                     const _NotificationsStep(),
-                    const _SubscriptionStep(),
+                    if (showSubscriptionStep) const _SubscriptionStep(),
                   ],
                 ),
               ),
@@ -425,7 +433,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_kTotalSteps, (i) {
+                      children: List.generate(totalSteps, (i) {
                         final active = currentPage.value == i;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -654,7 +662,7 @@ Future<void> _showLoggedExpenseResultSheet(
                       Image.asset(
                         _kMonekoSaveGif,
                         height: 150,
-                        semanticLabel: 'Moneko mascot',
+                        excludeFromSemantics: true,
                       ),
                     ],
                   ),
@@ -1185,7 +1193,7 @@ class _LoggedExpenseInlineSummary extends StatelessWidget {
             child: Image.asset(
               _kMonekoSaveGif,
               height: 92,
-              semanticLabel: 'Moneko mascot',
+              excludeFromSemantics: true,
             ),
           ),
           const SizedBox(height: 12),
@@ -1478,6 +1486,9 @@ class _SubscriptionStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final autoCaptureLabel = defaultTargetPlatform == TargetPlatform.iOS
+        ? context.l10n.onboardingIntroSlide5AppleBody
+        : context.l10n.onboardingIntroSlide5AndroidBody;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -1529,18 +1540,30 @@ class _SubscriptionStep extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _SubscriptionBenefitTile(
-            icon: Icons.family_restroom_rounded,
+            leading: Icon(
+              Icons.family_restroom_rounded,
+              color: colorScheme.primary,
+              size: 21,
+            ),
             label: context.l10n.paywallBenefit0,
           ),
           const SizedBox(height: 10),
           _SubscriptionBenefitTile(
-            icon: Icons.group_work_rounded,
-            label: context.l10n.plusLockedSharedBudgets,
+            leading: MessagingAppLogo(
+              type: MessagingAppLogoType.whatsapp,
+              color: colorScheme.onSurface,
+              size: 21,
+            ),
+            label: context.l10n.plusLockedMessagingAppCapture,
           ),
           const SizedBox(height: 10),
           _SubscriptionBenefitTile(
-            icon: Icons.account_balance_wallet_rounded,
-            label: context.l10n.walletCreation,
+            leading: Icon(
+              Icons.account_balance_wallet_rounded,
+              color: colorScheme.primary,
+              size: 21,
+            ),
+            label: autoCaptureLabel,
           ),
         ],
       ),
@@ -1550,11 +1573,11 @@ class _SubscriptionStep extends StatelessWidget {
 
 class _SubscriptionBenefitTile extends StatelessWidget {
   const _SubscriptionBenefitTile({
-    required this.icon,
+    required this.leading,
     required this.label,
   });
 
-  final IconData icon;
+  final Widget leading;
   final String label;
 
   @override
@@ -1572,7 +1595,7 @@ class _SubscriptionBenefitTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: colorScheme.primary, size: 21),
+          leading,
           const SizedBox(width: 12),
           Expanded(
             child: Text(

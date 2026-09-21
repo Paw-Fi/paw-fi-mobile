@@ -13,6 +13,12 @@ extension L10nX on BuildContext {
   }
 }
 
+extension RecurrencePickerL10nX on AppLocalizations {
+  String recurrenceDaysUnit(int count) => count == 1 ? 'day' : 'days';
+  String recurrenceWeeksUnit(int count) => count == 1 ? 'week' : 'weeks';
+  String recurrenceMonthsUnit(int count) => count == 1 ? 'month' : 'months';
+  String recurrenceYearsUnit(int count) => count == 1 ? 'year' : 'years';
+}
 
 extension HomeDashboardL10nX on AppLocalizations {}
 
@@ -105,7 +111,6 @@ extension BankConnectionsRecoveryL10nX on AppLocalizations {
 }
 
 extension PlaidClassificationReviewL10nX on AppLocalizations {
-
   String plaidAnalyticsClassLabel(String analyticsClass) =>
       switch (analyticsClass) {
         'consumer_spend' => plaidConsumerSpend,
@@ -120,4 +125,3 @@ extension PlaidClassificationReviewL10nX on AppLocalizations {
         _ => plaidExcludeFromBudget,
       };
 }
-
