@@ -19,6 +19,7 @@ void main() {
       expect(resolveCurrencySymbol('XOF'), 'CFA');
       expect(resolveCurrencySymbol('MDL'), 'L');
       expect(resolveCurrencySymbol('MUR'), 'Rs');
+      expect(resolveCurrencySymbol('MAD'), 'د.م.');
     });
 
     test('handles null and empty codes', () {
@@ -57,6 +58,9 @@ void main() {
       expect(canonicalizeCurrencyCode('د.إ'), 'AED');
       expect(canonicalizeCurrencyCode('Moldovan Leu'), 'MDL');
       expect(canonicalizeCurrencyCode('Mauritian Rupee'), 'MUR');
+      expect(canonicalizeCurrencyCode('د.م.'), 'MAD');
+      expect(canonicalizeCurrencyCode('DH'), 'MAD');
+      expect(canonicalizeCurrencyCode('Moroccan Dirham'), 'MAD');
     });
 
     test('extracts canonical currency codes from free-form text', () {
@@ -81,6 +85,7 @@ void main() {
       expect(isSupportedCurrencyCode('XOF'), true);
       expect(isSupportedCurrencyCode('MDL'), true);
       expect(isSupportedCurrencyCode('MUR'), true);
+      expect(isSupportedCurrencyCode('MAD'), true);
     });
 
     test('rejects unsupported currencies', () {
@@ -148,6 +153,7 @@ void main() {
       expect(options.containsKey('XOF'), true);
       expect(options.containsKey('MDL'), true);
       expect(options.containsKey('MUR'), true);
+      expect(options.containsKey('MAD'), true);
     });
 
     test('contains correct symbol mappings', () {
@@ -166,6 +172,7 @@ void main() {
       expect(options['XOF'], 'CFA');
       expect(options['MDL'], 'L');
       expect(options['MUR'], 'Rs');
+      expect(options['MAD'], 'د.م.');
     });
   });
 

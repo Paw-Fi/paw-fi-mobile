@@ -60,6 +60,7 @@ const Map<String, String> currencyDisplayNames = {
   'XOF': 'West African CFA Franc',
   'CRC': 'Costa Rican Colon',
   'XAF': 'Central African CFA Franc',
+  'MAD': 'Moroccan Dirham',
 };
 
 String resolveCurrencyDisplayName(String code) {
