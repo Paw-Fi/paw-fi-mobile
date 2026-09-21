@@ -349,7 +349,7 @@ class _TrialEndingReminderBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: colorScheme.info,

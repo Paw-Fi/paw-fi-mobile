@@ -7,7 +7,6 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -46,6 +45,142 @@ const _kStepCalculating = 9;
 const _kStepStarter = 10;
 const _kQuestionStepCount = 8;
 const _kTotalPreAuthSteps = 11;
+const _kMascotViewportHeight = 156.0;
+const _kMascotImageSize = 136.0;
+
+const _kPreAuthMascotStates = <int, _PreAuthMascotState>{
+  _kStepHousingSituation: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-box.png',
+    semanticLabel: 'Moneko at home',
+  ),
+  _kStepBillSplit: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-caring.png',
+    semanticLabel: 'Moneko caring',
+  ),
+  _kStepSubscriptions: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-idea.png',
+    semanticLabel: 'Moneko thinking of an idea',
+  ),
+  _kStepEatingOut: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-boba.png',
+    semanticLabel: 'Moneko enjoying a drink',
+  ),
+  _kStepTestimonial: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-love.png',
+    semanticLabel: 'Moneko showing appreciation',
+  ),
+  _kStepLifestyle: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-exploring.png',
+    semanticLabel: 'Moneko exploring',
+  ),
+  _kStepGoal: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-planning.png',
+    semanticLabel: 'Moneko looking ahead',
+  ),
+  _kStepSavingsTarget: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-saving.png',
+    semanticLabel: 'Moneko saving a coin',
+  ),
+  _kStepCurrency: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-cool.png',
+    semanticLabel: 'Moneko ready to get started',
+  ),
+  _kStepCalculating: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-analyzing.png',
+    semanticLabel: 'Moneko analyzing your answers',
+  ),
+  _kStepStarter: _PreAuthMascotState(
+    assetPath: 'lib/assets/mascots/moneko-celebrating.png',
+    semanticLabel: 'Moneko celebrating your plan',
+  ),
+};
+
+class _PreAuthMascotState {
+  const _PreAuthMascotState({
+    required this.assetPath,
+    required this.semanticLabel,
+  });
+
+  final String assetPath;
+  final String semanticLabel;
+}
+
+class _PreAuthMascot extends StatelessWidget {
+  const _PreAuthMascot({
+    required this.step,
+    required this.direction,
+  });
+
+  final int step;
+  final int direction;
+
+  @override
+  Widget build(BuildContext context) {
+    if (step == _kStepTestimonial ||
+        step == _kStepCalculating ||
+        step == _kStepStarter) {
+      return const SizedBox.shrink();
+    }
+
+    final mascot = _kPreAuthMascotStates[step] ??
+        _kPreAuthMascotStates[_kStepHousingSituation]!;
+    final animationsDisabled = MediaQuery.of(context).disableAnimations;
+    final incomingOffset = Offset(0, direction > 0 ? 0.1 : -0.1);
+    final duration =
+        animationsDisabled ? Duration.zero : const Duration(milliseconds: 320);
+
+    return Semantics(
+      label: mascot.semanticLabel,
+      image: true,
+      child: SizedBox(
+        height: _kMascotViewportHeight,
+        child: ExcludeSemantics(
+          child: AnimatedSwitcher(
+            duration: duration,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.center,
+              children: [
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            ),
+            transitionBuilder: (child, animation) {
+              final curvedAnimation = animation.drive(
+                CurveTween(curve: Curves.easeOutCubic),
+              );
+              final position = curvedAnimation.drive(
+                Tween<Offset>(begin: incomingOffset, end: Offset.zero),
+              );
+              final scale = curvedAnimation.drive(
+                Tween<double>(begin: 0.94, end: 1.0),
+              );
+
+              return FadeTransition(
+                opacity: curvedAnimation,
+                child: SlideTransition(
+                  position: position,
+                  child: ScaleTransition(
+                    scale: scale,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: Image.asset(
+              key: ValueKey(step),
+              mascot.assetPath,
+              width: _kMascotImageSize,
+              height: _kMascotImageSize,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 int _migratePreauthStepIndex(int legacyStep, int flowVersion) {
   if (flowVersion == 5) {
@@ -145,6 +280,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     final draftState = useState(OnboardingPreauthDraft.initial());
     final answeredOptionSteps = useState<Set<int>>(<int>{});
     final isAutoAdvancing = useState(false);
+    final mascotDirection = useState(1);
     final budgetSliderDebounce = useRef<Timer?>(null);
     const totalSteps = _kTotalPreAuthSteps;
 
@@ -372,177 +508,193 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                   ),
                 ),
               Expanded(
-                child: PageView(
-                  controller: pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: (i) => currentPage.value = i,
+                child: Column(
                   children: [
-                    _PreAuthLivingSituationStep(
-                      selectedLiving: draftState.value.housingType,
-                      hasAnswered: answeredOptionSteps.value
-                          .contains(_kStepHousingSituation),
-                      onChanged: (living) {
-                        final nextDraft = switch (living) {
-                          'mortgage' => draftState.value.copyWith(
-                              livingSituation: 'owning',
-                              housingType: 'mortgage',
-                            ),
-                          'family_home' => draftState.value.copyWith(
-                              livingSituation: 'family',
-                              housingType: 'family_home',
-                              householdProfile: 'family',
-                            ),
-                          'paid_off' => draftState.value.copyWith(
-                              livingSituation: 'owning',
-                              housingType: 'paid_off',
-                            ),
-                          _ => draftState.value.copyWith(
-                              livingSituation: 'renting',
-                              housingType: 'rent',
-                            ),
-                        };
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepHousingSituation,
-                            nextDraft: nextDraft,
-                            selectedValue: living,
+                    _PreAuthMascot(
+                      step: currentPage.value,
+                      direction: mascotDirection.value,
+                    ),
+                    Expanded(
+                      child: PageView(
+                        controller: pageController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        onPageChanged: (i) {
+                          mascotDirection.value =
+                              i >= currentPage.value ? 1 : -1;
+                          currentPage.value = i;
+                        },
+                        children: [
+                          _PreAuthLivingSituationStep(
+                            selectedLiving: draftState.value.housingType,
+                            hasAnswered: answeredOptionSteps.value
+                                .contains(_kStepHousingSituation),
+                            onChanged: (living) {
+                              final nextDraft = switch (living) {
+                                'mortgage' => draftState.value.copyWith(
+                                    livingSituation: 'owning',
+                                    housingType: 'mortgage',
+                                  ),
+                                'family_home' => draftState.value.copyWith(
+                                    livingSituation: 'family',
+                                    housingType: 'family_home',
+                                    householdProfile: 'family',
+                                  ),
+                                'paid_off' => draftState.value.copyWith(
+                                    livingSituation: 'owning',
+                                    housingType: 'paid_off',
+                                  ),
+                                _ => draftState.value.copyWith(
+                                    livingSituation: 'renting',
+                                    housingType: 'rent',
+                                  ),
+                              };
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepHousingSituation,
+                                  nextDraft: nextDraft,
+                                  selectedValue: living,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthBillSplitStep(
-                      selectedFrequency: draftState.value.billSplitFrequency,
-                      hasAnswered:
-                          answeredOptionSteps.value.contains(_kStepBillSplit),
-                      onChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          billSplitFrequency: value,
-                          wantsSharedSpace: value != 'none',
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepBillSplit,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          _PreAuthBillSplitStep(
+                            selectedFrequency:
+                                draftState.value.billSplitFrequency,
+                            hasAnswered: answeredOptionSteps.value
+                                .contains(_kStepBillSplit),
+                            onChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                billSplitFrequency: value,
+                                wantsSharedSpace: value != 'none',
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepBillSplit,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthSubscriptionsStep(
-                      selectedLevel: draftState.value.subscriptionsLevel,
-                      hasAnswered: answeredOptionSteps.value
-                          .contains(_kStepSubscriptions),
-                      onChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          subscriptionsLevel: value,
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepSubscriptions,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          _PreAuthSubscriptionsStep(
+                            selectedLevel: draftState.value.subscriptionsLevel,
+                            hasAnswered: answeredOptionSteps.value
+                                .contains(_kStepSubscriptions),
+                            onChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                subscriptionsLevel: value,
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepSubscriptions,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthEatingOutStep(
-                      selectedFrequency: draftState.value.eatingOutFrequency,
-                      hasAnswered:
-                          answeredOptionSteps.value.contains(_kStepEatingOut),
-                      onChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          eatingOutFrequency: value,
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepEatingOut,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          _PreAuthEatingOutStep(
+                            selectedFrequency:
+                                draftState.value.eatingOutFrequency,
+                            hasAnswered: answeredOptionSteps.value
+                                .contains(_kStepEatingOut),
+                            onChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                eatingOutFrequency: value,
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepEatingOut,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    const _PreAuthTestimonialStep(),
-                    _PreAuthLifestyleStep(
-                      selectedLifestyle: draftState.value.lifestyleFocus,
-                      hasAnswered:
-                          answeredOptionSteps.value.contains(_kStepLifestyle),
-                      onLifestyleChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          lifestyleFocus: value,
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepLifestyle,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          const _PreAuthTestimonialStep(),
+                          _PreAuthLifestyleStep(
+                            selectedLifestyle: draftState.value.lifestyleFocus,
+                            hasAnswered: answeredOptionSteps.value
+                                .contains(_kStepLifestyle),
+                            onLifestyleChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                lifestyleFocus: value,
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepLifestyle,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthGoalStep(
-                      selectedGoal: draftState.value.primaryGoal,
-                      hasAnswered:
-                          answeredOptionSteps.value.contains(_kStepGoal),
-                      onGoalChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          primaryGoal: value,
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepGoal,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          _PreAuthGoalStep(
+                            selectedGoal: draftState.value.primaryGoal,
+                            hasAnswered:
+                                answeredOptionSteps.value.contains(_kStepGoal),
+                            onGoalChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                primaryGoal: value,
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepGoal,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthSavingsTargetStep(
-                      selectedMode: draftState.value.savingsMode,
-                      hasAnswered: answeredOptionSteps.value
-                          .contains(_kStepSavingsTarget),
-                      onChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          savingsMode: value,
-                          savingsAmount: 0,
-                          savingsPercent: 0,
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepSavingsTarget,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          _PreAuthSavingsTargetStep(
+                            selectedMode: draftState.value.savingsMode,
+                            hasAnswered: answeredOptionSteps.value
+                                .contains(_kStepSavingsTarget),
+                            onChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                savingsMode: value,
+                                savingsAmount: 0,
+                                savingsPercent: 0,
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepSavingsTarget,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthCurrencyStep(
-                      selectedCurrency: draftState.value.selectedCurrency,
-                      onChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          selectedCurrency: value,
-                        );
-                        unawaited(
-                          answerAndAdvance(
-                            stepIndex: _kStepCurrency,
-                            nextDraft: nextDraft,
-                            selectedValue: value,
+                          _PreAuthCurrencyStep(
+                            selectedCurrency: draftState.value.selectedCurrency,
+                            onChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                selectedCurrency: value,
+                              );
+                              unawaited(
+                                answerAndAdvance(
+                                  stepIndex: _kStepCurrency,
+                                  nextDraft: nextDraft,
+                                  selectedValue: value,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                    _PreAuthCalculatingStep(
-                      isActive: currentPage.value == _kStepCalculating,
-                      onCompleted: () => unawaited(next()),
-                    ),
-                    _PreAuthStarterStep(
-                      draft: derivePreauthBudgetProfile(draftState.value),
-                      onBudgetChanged: (value) {
-                        final nextDraft = draftState.value.copyWith(
-                          monthlyBudget: value,
-                        );
-                        persistBudgetDraftDebounced(nextDraft);
-                      },
+                          _PreAuthCalculatingStep(
+                            isActive: currentPage.value == _kStepCalculating,
+                            onCompleted: () => unawaited(next()),
+                          ),
+                          _PreAuthStarterStep(
+                            draft: derivePreauthBudgetProfile(draftState.value),
+                            onBudgetChanged: (value) {
+                              final nextDraft = draftState.value.copyWith(
+                                monthlyBudget: value,
+                              );
+                              persistBudgetDraftDebounced(nextDraft);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -734,38 +886,41 @@ class _PreAuthTestimonialStep extends StatelessWidget {
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.onboardingPreauthTestimonialTitle,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              context.l10n.onboardingPreauthTestimonialTitle,
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            context.l10n.onboardingPreauthTestimonialSubtitle,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
+            const SizedBox(height: 4),
+            Text(
+              context.l10n.onboardingPreauthTestimonialSubtitle,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: SvgPicture.asset(
-              'lib/assets/images/onboarding/testimonial.svg',
-              height: 185,
-              fit: BoxFit.contain,
+            const SizedBox(height: 12),
+            Center(
+              child: Image.asset(
+                'lib/assets/mascots/moneko-love.png',
+                height: 185,
+                width: 185,
+                fit: BoxFit.contain,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          AppStoreReviewCard(
-            review: qualityReview,
-          ),
-        ],
+            const SizedBox(height: 12),
+            AppStoreReviewCard(
+              review: qualityReview,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1716,10 +1871,11 @@ class _PreAuthCalculatingStep extends HookWidget {
                 ),
               ],
             ),
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              size: 42,
-              color: colorScheme.primary,
+            child: Image.asset(
+              'lib/assets/mascots/moneko-analyzing.png',
+              width: 64,
+              height: 64,
+              fit: BoxFit.contain,
             ),
           ),
           Text(

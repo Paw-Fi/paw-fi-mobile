@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,7 +11,6 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_account
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class _TestAuth extends Auth {
   _TestAuth(this._user);
@@ -57,30 +55,13 @@ void main() {
     );
   });
 
-  testWidgets('Continue stays disabled while setup is still in progress',
+  testWidgets('Continue stays hidden while setup is still in progress',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
 
     await pumpPage(tester, prefs: prefs);
 
-    final continueText = find.text('Continue');
-    expect(continueText, findsOneWidget);
-
-    final ignorePointer = tester.widget<IgnorePointer>(find
-        .ancestor(
-          of: find.byType(PrimaryAdaptiveButton),
-          matching: find.byType(IgnorePointer),
-        )
-        .first);
-    expect(ignorePointer.ignoring, isTrue);
-
-    final cupertinoButton = tester.widget<CupertinoButton>(
-      find.descendant(
-        of: find.byType(PrimaryAdaptiveButton),
-        matching: find.byType(CupertinoButton),
-      ),
-    );
-    expect(cupertinoButton.onPressed, isNull);
+    expect(find.text('Continue'), findsNothing);
   });
 
   test(

@@ -642,25 +642,6 @@ class _SheetHero extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (content.mode == _LockedSheetMode.trialToPlus) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: colorScheme.warningSurface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              content.eyebrow.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-                color: colorScheme.warning,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
         Text(
           content.title,
           style: TextStyle(

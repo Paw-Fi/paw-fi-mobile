@@ -1551,7 +1551,7 @@ class _SubscriptionStep extends StatelessWidget {
           _SubscriptionBenefitTile(
             leading: MessagingAppLogo(
               type: MessagingAppLogoType.whatsapp,
-              color: colorScheme.onSurface,
+              color: colorScheme.primary,
               size: 21,
             ),
             label: context.l10n.plusLockedMessagingAppCapture,
