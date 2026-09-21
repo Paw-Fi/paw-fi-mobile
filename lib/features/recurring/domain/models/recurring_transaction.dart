@@ -661,11 +661,6 @@ class RecurringTransaction {
 
 /// Recurrence rule for recurring transactions
 class RecurrenceRule {
-  static const validReminderModes = {
-    recurringReminderModeOnce,
-    recurringReminderModeDailyUntilDue,
-  };
-
   final String
       frequency; // 'daily', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom'
   final DateTime anchorDate;
@@ -674,7 +669,6 @@ class RecurrenceRule {
   final bool? reminderEnabled;
   final int? reminderValue;
   final String? reminderUnit;
-  final String? reminderMode;
   final bool projectionEnabled;
   final List<DateTime>
       excludedDates; // Dates to skip (for "delete this occurrence")
@@ -687,14 +681,12 @@ class RecurrenceRule {
     this.reminderEnabled,
     this.reminderValue,
     this.reminderUnit,
-    this.reminderMode,
     this.projectionEnabled = true,
     this.excludedDates = const [],
   });
 
   factory RecurrenceRule.fromJson(Map<String, dynamic> json) {
     final reminder = json['reminder'] as Map<String, dynamic>?;
-    final parsedReminderMode = reminder?['mode'];
     final excludedRaw = json['excluded_dates'] as List<dynamic>?;
     return RecurrenceRule(
       frequency: json['frequency'] as String,
@@ -704,9 +696,6 @@ class RecurrenceRule {
       reminderEnabled: reminder?['enabled'] as bool?,
       reminderValue: reminder?['value'] as int?,
       reminderUnit: reminder?['unit'] as String?,
-      reminderMode: validReminderModes.contains(parsedReminderMode)
-          ? parsedReminderMode as String
-          : null,
       projectionEnabled: json['projection_enabled'] != false,
       excludedDates:
           excludedRaw?.map((e) => DateTime.parse(e as String)).toList() ??
@@ -728,7 +717,6 @@ class RecurrenceRule {
           if (reminderEnabled != null) 'enabled': reminderEnabled,
           if (reminderValue != null) 'value': reminderValue,
           if (reminderUnit != null) 'unit': reminderUnit,
-          if (reminderMode != null) 'mode': reminderMode,
         },
       if (excludedDates.isNotEmpty)
         'excluded_dates': excludedDates.map(formatDateOnlyYmd).toList(),
@@ -743,7 +731,6 @@ class RecurrenceRule {
     bool? reminderEnabled,
     int? reminderValue,
     String? reminderUnit,
-    String? reminderMode,
     bool? projectionEnabled,
     List<DateTime>? excludedDates,
   }) {
@@ -755,20 +742,11 @@ class RecurrenceRule {
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderValue: reminderValue ?? this.reminderValue,
       reminderUnit: reminderUnit ?? this.reminderUnit,
-      reminderMode: reminderMode ?? this.reminderMode,
       projectionEnabled: projectionEnabled ?? this.projectionEnabled,
       excludedDates: excludedDates ?? this.excludedDates,
     );
   }
-
-  String get effectiveReminderMode =>
-      reminderMode == recurringReminderModeDailyUntilDue
-          ? recurringReminderModeDailyUntilDue
-          : recurringReminderModeOnce;
 }
-
-const recurringReminderModeOnce = 'once';
-const recurringReminderModeDailyUntilDue = 'daily_until_due';
 
 /// Attachment model for transaction documentation
 class Attachment {

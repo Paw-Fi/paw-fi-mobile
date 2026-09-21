@@ -207,9 +207,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     final reminderUnit = useState<String>(
       existingRule?.reminderUnit ?? 'days',
     );
-    final reminderMode = useState<String>(
-      existingRule?.effectiveReminderMode ?? recurringReminderModeOnce,
-    );
     final reminderBeforeAffixes = resolveReminderBeforeAffixes(
       before: context.l10n.before,
       beforePrefix: context.l10n.beforePrefix,
@@ -1005,11 +1002,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
-                  reminderMode: hasReminder.value &&
-                          reminderMode.value ==
-                              recurringReminderModeDailyUntilDue
-                      ? reminderMode.value
-                      : null,
                   householdId: activeHouseholdId,
                   previousHouseholdId: existingTransaction?.householdId,
                   customSplitType:
@@ -1055,11 +1047,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
-                  reminderMode: hasReminder.value &&
-                          reminderMode.value ==
-                              recurringReminderModeDailyUntilDue
-                      ? reminderMode.value
-                      : null,
                   householdId: activeHouseholdId,
                   customSplitType:
                       shareWithHousehold ? customSplitType.value : null,
@@ -1124,11 +1111,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
-                  reminderMode: hasReminder.value &&
-                          reminderMode.value ==
-                              recurringReminderModeDailyUntilDue
-                      ? reminderMode.value
-                      : null,
                   householdId: activeHouseholdId,
                   previousHouseholdId: existingTransaction?.householdId,
                   customSplitType:
@@ -1174,11 +1156,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
-                  reminderMode: hasReminder.value &&
-                          reminderMode.value ==
-                              recurringReminderModeDailyUntilDue
-                      ? reminderMode.value
-                      : null,
                   householdId: activeHouseholdId,
                   customSplitType:
                       shareWithHousehold ? customSplitType.value : null,
@@ -2269,39 +2246,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 ),
                                 // Row 2: Configuration (when enabled)
                                 if (hasReminder.value) ...[
-                                  _buildDivider(colorScheme),
-                                  _buildDetailCard(
-                                    colorScheme: colorScheme,
-                                    label: context.l10n.frequency,
-                                    value: reminderMode.value ==
-                                            recurringReminderModeDailyUntilDue
-                                        ? context.l10n.daily
-                                        : context.l10n.oneTime,
-                                    onTap: () async {
-                                      final result =
-                                          await showTransactionSelectionSheet<
-                                              String>(
-                                        context: context,
-                                        items: const [
-                                          recurringReminderModeOnce,
-                                          recurringReminderModeDailyUntilDue,
-                                        ],
-                                        getLabel: (mode) => mode ==
-                                                recurringReminderModeDailyUntilDue
-                                            ? context.l10n.daily
-                                            : context.l10n.oneTime,
-                                        initial: reminderMode.value,
-                                      );
-                                      if (result != null) {
-                                        reminderMode.value = result;
-                                        if (result ==
-                                            recurringReminderModeDailyUntilDue) {
-                                          reminderUnit.value = 'days';
-                                        }
-                                      }
-                                    },
-                                  ),
-                                  _buildDivider(colorScheme),
                                   Padding(
                                     padding: const EdgeInsets.only(
                                         left: 16, right: 16, bottom: 8),
@@ -2372,14 +2316,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        // Daily countdown reminders are always
-                                        // measured in calendar days.
+                                        // Unit picker
                                         GestureDetector(
                                           onTap: () async {
-                                            if (reminderMode.value ==
-                                                recurringReminderModeDailyUntilDue) {
-                                              return;
-                                            }
                                             final result =
                                                 await showTransactionSelectionSheet<
                                                     String>(
@@ -2420,14 +2359,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
-                                                if (reminderMode.value !=
-                                                    recurringReminderModeDailyUntilDue)
-                                                  Icon(
-                                                    Icons.arrow_drop_down,
-                                                    color: colorScheme
-                                                        .mutedForeground,
-                                                    size: 20,
-                                                  ),
+                                                Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: colorScheme
+                                                      .mutedForeground,
+                                                  size: 20,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -2449,9 +2386,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   ),
                                 ],
                                 // Row 3: Helper text (when enabled)
-                                if (hasReminder.value &&
-                                    reminderMode.value ==
-                                        recurringReminderModeOnce) ...[
+                                if (hasReminder.value) ...[
                                   Padding(
                                     padding: const EdgeInsets.only(
                                         left: 16, right: 16, bottom: 12),

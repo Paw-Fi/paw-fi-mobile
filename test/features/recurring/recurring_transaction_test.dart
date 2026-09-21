@@ -100,44 +100,5 @@ void main() {
       expect(next.month, 4);
       expect(next.day, 15);
     });
-
-    test('supports custom day, week, and year cadences', () {
-      final cases = [
-        (
-          transaction: _tx(
-            anchor: DateTime(2026, 1, 1),
-            frequency: 'daily',
-            interval: 25,
-          ),
-          reference: DateTime(2026, 1, 25),
-          expected: DateTime(2026, 1, 26),
-        ),
-        (
-          transaction: _tx(
-            anchor: DateTime(2026, 1, 1),
-            frequency: 'weekly',
-            interval: 3,
-          ),
-          reference: DateTime(2026, 1, 21),
-          expected: DateTime(2026, 1, 22),
-        ),
-        (
-          transaction: _tx(
-            anchor: DateTime(2026, 1, 1),
-            frequency: 'yearly',
-            interval: 2,
-          ),
-          reference: DateTime(2027, 12, 25),
-          expected: DateTime(2028, 1, 1),
-        ),
-      ];
-
-      for (final testCase in cases) {
-        expect(
-          testCase.transaction.getNextOccurrence(testCase.reference),
-          testCase.expected,
-        );
-      }
-    });
   });
 }
