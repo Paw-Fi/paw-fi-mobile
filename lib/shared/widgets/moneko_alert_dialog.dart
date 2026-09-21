@@ -3,6 +3,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// Configuration for an optional text input inside the dialog.
 class MonekoAlertDialogInputConfig {
@@ -301,6 +302,9 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
       elevation: 0,
       child: Container(
         width: width,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height - 48,
+        ),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh, // Material 3 surface container
@@ -315,36 +319,43 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment:
-              CrossAxisAlignment.start, // Left align for Android
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon could go here in future, but standard is Title first
-            Text(
-              widget.title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (widget.description != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                widget.description!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.5,
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (widget.description != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.description!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                    if (_hasInput) ...[
+                      const SizedBox(height: 16),
+                      _buildInput(context),
+                    ],
+                    if (_hasSecondaryInput) ...[
+                      const SizedBox(height: 12),
+                      _buildSecondaryInput(context),
+                    ],
+                  ],
                 ),
               ),
-            ],
-            if (_hasInput) ...[
-              const SizedBox(height: 16),
-              _buildInput(context),
-            ],
-            if (_hasSecondaryInput) ...[
-              const SizedBox(height: 12),
-              _buildSecondaryInput(context),
-            ],
+            ),
             const SizedBox(height: 24),
-            // Actions
             Wrap(
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -404,6 +415,9 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             width: width,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height - 48,
+            ),
             decoration: BoxDecoration(
               color: scheme.sheetBackground.withValues(alpha: 0.96),
               borderRadius: BorderRadius.circular(10),
@@ -415,49 +429,54 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(
-                    top: 24,
-                    left: 20,
-                    right: 20,
-                    bottom: 20,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        widget.title,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 17,
-                          letterSpacing: -0.4,
-                        ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: 24,
+                        left: 20,
+                        right: 20,
+                        bottom: 20,
                       ),
-                      if (widget.description != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.description!,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: 13,
-                            color: scheme.onSurface,
-                            height: 1.35,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.title,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                              letterSpacing: -0.4,
+                            ),
                           ),
-                        ),
-                      ],
-                      if (_hasInput) ...[
-                        const SizedBox(height: 16),
-                        _buildInput(context),
-                      ],
-                      if (_hasSecondaryInput) ...[
-                        const SizedBox(height: 12),
-                        _buildSecondaryInput(context),
-                      ],
-                      if (widget.content != null) ...[
-                        const SizedBox(height: 16),
-                        widget.content!,
-                      ],
-                    ],
+                          if (widget.description != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.description!,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 13,
+                                color: scheme.onSurface,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                          if (_hasInput) ...[
+                            const SizedBox(height: 16),
+                            _buildInput(context),
+                          ],
+                          if (_hasSecondaryInput) ...[
+                            const SizedBox(height: 12),
+                            _buildSecondaryInput(context),
+                          ],
+                          if (widget.content != null) ...[
+                            const SizedBox(height: 16),
+                            widget.content!,
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 // Divider
@@ -467,86 +486,90 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                   color: scheme.outlineVariant.withValues(alpha: 0.4),
                 ),
                 // Actions (Full width, split if 2)
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.showCancelButton &&
-                          widget.cancelLabel != null &&
-                          widget.cancelLabel!.trim().isNotEmpty) ...[
+                MonekoTextScale(
+                  mode: MonekoTextScaling.compact,
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.showCancelButton &&
+                            widget.cancelLabel != null &&
+                            widget.cancelLabel!.trim().isNotEmpty) ...[
+                          Expanded(
+                            child: InkWell(
+                              onTap: _handleCancel,
+                              child: Center(
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  child: Text(
+                                    widget.cancelLabel!,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: scheme.onSurface.withValues(
+                                          alpha: 0.65), // Neutral Cancel
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 0.5,
+                            color: scheme.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                        ],
+                        if (widget.secondaryLabel != null) ...[
+                          Expanded(
+                            child: InkWell(
+                              onTap: _canConfirm ? _handleSecondary : null,
+                              child: Center(
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  child: Text(
+                                    widget.secondaryLabel!,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: scheme.onSurface
+                                          .withValues(alpha: 0.65),
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 0.5,
+                            color: scheme.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                        ],
                         Expanded(
                           child: InkWell(
-                            onTap: _handleCancel,
+                            onTap: _canConfirm ? _handleConfirm : null,
                             child: Center(
                               child: Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 16),
                                 child: Text(
-                                  widget.cancelLabel!,
+                                  widget.confirmLabel,
                                   style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: scheme.onSurface.withValues(
-                                        alpha: 0.65), // Neutral Cancel
+                                    color: widget.isDestructive
+                                        ? scheme.error
+                                        : scheme.primary,
+                                    fontWeight: FontWeight.w600,
                                     fontSize: 17,
+                                    // Opacity if disabled
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        VerticalDivider(
-                          width: 1,
-                          thickness: 0.5,
-                          color: scheme.outlineVariant.withValues(alpha: 0.4),
-                        ),
                       ],
-                      if (widget.secondaryLabel != null) ...[
-                        Expanded(
-                          child: InkWell(
-                            onTap: _canConfirm ? _handleSecondary : null,
-                            child: Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                child: Text(
-                                  widget.secondaryLabel!,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: scheme.onSurface
-                                        .withValues(alpha: 0.65),
-                                    fontSize: 17,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        VerticalDivider(
-                          width: 1,
-                          thickness: 0.5,
-                          color: scheme.outlineVariant.withValues(alpha: 0.4),
-                        ),
-                      ],
-                      Expanded(
-                        child: InkWell(
-                          onTap: _canConfirm ? _handleConfirm : null,
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              child: Text(
-                                widget.confirmLabel,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: widget.isDestructive
-                                      ? scheme.error
-                                      : scheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 17,
-                                  // Opacity if disabled
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],

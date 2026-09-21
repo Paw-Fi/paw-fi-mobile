@@ -6,6 +6,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
@@ -264,6 +265,7 @@ class _FinancialCalendarWidgetState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     final DateTime rangeStart;
     final DateTime rangeEnd;
@@ -419,6 +421,7 @@ class _FinancialCalendarWidgetState
                   actualDailyTotals,
                   recurringDailyTotals,
                   isInitialLoading,
+                  isLargeText,
                 )
               else
                 _buildCollapsedView(
@@ -427,6 +430,7 @@ class _FinancialCalendarWidgetState
                   actualDailyTotals,
                   recurringDailyTotals,
                   isInitialLoading,
+                  isLargeText,
                 ),
             ],
           ),
@@ -441,6 +445,7 @@ class _FinancialCalendarWidgetState
     Map<DateTime, Map<String, double>> actualDailyTotals,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
     bool isLoading,
+    bool isLargeText,
   ) {
     final daysInMonth =
         DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
@@ -474,9 +479,9 @@ class _FinancialCalendarWidgetState
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
-            childAspectRatio: 0.85, // More compact
+            childAspectRatio: isLargeText ? 0.7 : 0.85,
             crossAxisSpacing: 4,
             mainAxisSpacing: 4,
           ),
@@ -509,6 +514,7 @@ class _FinancialCalendarWidgetState
     Map<DateTime, Map<String, double>> actualDailyTotals,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
     bool isLoading,
+    bool isLargeText,
   ) {
     final last7Days = List.generate(7, (index) {
       return _focusedWeekStart.add(Duration(days: index));
@@ -529,7 +535,7 @@ class _FinancialCalendarWidgetState
               ),
               const SizedBox(height: 4),
               AspectRatio(
-                aspectRatio: 0.85,
+                aspectRatio: isLargeText ? 0.7 : 0.85,
                 child: _buildDayCell(
                   date,
                   colorScheme,

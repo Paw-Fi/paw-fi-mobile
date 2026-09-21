@@ -10,6 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
 
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -882,7 +883,7 @@ class MainShell extends HookConsumerWidget {
                 : AdaptiveBottomNavigationBar(
                     useNativeBottomBar: false,
                     items: [
-                       AdaptiveNavigationDestination(
+                      AdaptiveNavigationDestination(
                         icon: 'house.fill',
                         label: context.l10n.home,
                       ),
@@ -901,7 +902,7 @@ class MainShell extends HookConsumerWidget {
                         icon: 'creditcard',
                         label: context.l10n.wallet,
                       ),
-                       AdaptiveNavigationDestination(
+                      AdaptiveNavigationDestination(
                         icon: 'square.grid.2x2',
                         label: context.l10n.browse,
                       ),
@@ -914,7 +915,7 @@ class MainShell extends HookConsumerWidget {
                             index;
                       },
                       items: [
-                         BottomNavigationBarItem(
+                        BottomNavigationBarItem(
                           icon: const Icon(CupertinoIcons.house_fill),
                           label: context.l10n.home,
                         ),
@@ -935,47 +936,51 @@ class MainShell extends HookConsumerWidget {
                           icon: const Icon(CupertinoIcons.creditcard),
                           label: context.l10n.wallet,
                         ),
-                         BottomNavigationBarItem(
+                        BottomNavigationBarItem(
                           icon: const Icon(CupertinoIcons.square_grid_2x2),
                           label: context.l10n.browse,
                         ),
                       ],
                     ),
-                    bottomNavigationBar: NavigationBar(
-                      selectedIndex: currentIndex,
-                      onDestinationSelected: (index) {
-                        if (index == currentIndex) return;
-                        ref.read(mainShellTabIndexProvider.notifier).state =
-                            index;
-                      },
-                      destinations: [
-                         NavigationDestination(
-                          icon: const Icon(Icons.home_filled),
-                          label: context.l10n.home,
-                        ),
-                        NavigationDestination(
-                          icon: NotificationDotIndicator(
-                            right: -10,
-                            isVisible: hasUnconfirmedRecurringOccurrences,
-                            isLoading: isRecurringBadgeLoading,
-                            child: const Icon(Icons.repeat),
+                    bottomNavigationBar: MonekoTextScale(
+                      mode: MonekoTextScaling.compact,
+                      child: NavigationBar(
+                        selectedIndex: currentIndex,
+                        onDestinationSelected: (index) {
+                          if (index == currentIndex) return;
+                          ref.read(mainShellTabIndexProvider.notifier).state =
+                              index;
+                        },
+                        destinations: [
+                          NavigationDestination(
+                            icon: const Icon(Icons.home_filled),
+                            label: context.l10n.home,
                           ),
-                          label: context.l10n.recurring,
-                        ),
-                        NavigationDestination(
-                          icon: const Icon(Icons.pie_chart_outline),
-                          label: context.l10n.budget,
-                        ),
-                        NavigationDestination(
-                          icon:
-                              const Icon(Icons.account_balance_wallet_outlined),
-                          label: context.l10n.wallet,
-                        ),
-                         NavigationDestination(
-                          icon: const Icon(Icons.apps_rounded),
-                          label: context.l10n.browse,
-                        ),
-                      ],
+                          NavigationDestination(
+                            icon: NotificationDotIndicator(
+                              right: -10,
+                              isVisible: hasUnconfirmedRecurringOccurrences,
+                              isLoading: isRecurringBadgeLoading,
+                              child: const Icon(Icons.repeat),
+                            ),
+                            label: context.l10n.recurring,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(Icons.pie_chart_outline),
+                            label: context.l10n.budget,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                            label: context.l10n.wallet,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(Icons.apps_rounded),
+                            label: context.l10n.browse,
+                          ),
+                        ],
+                      ),
                     ),
                     selectedIndex: currentIndex,
                     onTap: (index) {
@@ -990,43 +995,46 @@ class MainShell extends HookConsumerWidget {
               left: 0,
               right: 0,
               bottom: 0,
-              child: IOS26NativeTabBar(
-                // Recreate the platform view when brightness flips: the
-                // package snapshots isDark at creation, so a theme that
-                // resolves after first frame never reaches the native side.
-                key: ValueKey(MediaQuery.platformBrightnessOf(context)),
-                destinations: [
-                   AdaptiveNavigationDestination(
-                    icon: 'house.fill',
-                    label: context.l10n.home,
-                  ),
-                  AdaptiveNavigationDestination(
-                    icon: 'repeat',
-                    label: context.l10n.recurring,
-                    badgeCount: hasUnconfirmedRecurringOccurrences
-                        ? unconfirmedRecurringCount
-                        : null,
-                  ),
-                  AdaptiveNavigationDestination(
-                    icon: 'chart.pie',
-                    label: context.l10n.budget,
-                  ),
-                  AdaptiveNavigationDestination(
-                    icon: 'creditcard',
-                    label: context.l10n.wallet,
-                  ),
-                   AdaptiveNavigationDestination(
-                    icon: 'square.grid.2x2',
-                    label: context.l10n.browse,
-                  ),
-                ],
-                selectedIndex: currentIndex,
-                onTap: (index) {
-                  if (index == currentIndex) return;
-                  ref.read(mainShellTabIndexProvider.notifier).state = index;
-                },
-                minimizeBehavior: TabBarMinimizeBehavior.never,
-                showNativeView: isTopRoute,
+              child: MonekoTextScale(
+                mode: MonekoTextScaling.compact,
+                child: IOS26NativeTabBar(
+                  // Keep the platform-view identity stable. Recreating this
+                  // native view during rebuilds can trigger a duplicate-view
+                  // platform exception on iOS.
+                  key: const ValueKey('ios26-native-tab-bar'),
+                  destinations: [
+                    AdaptiveNavigationDestination(
+                      icon: 'house.fill',
+                      label: context.l10n.home,
+                    ),
+                    AdaptiveNavigationDestination(
+                      icon: 'repeat',
+                      label: context.l10n.recurring,
+                      badgeCount: hasUnconfirmedRecurringOccurrences
+                          ? unconfirmedRecurringCount
+                          : null,
+                    ),
+                    AdaptiveNavigationDestination(
+                      icon: 'chart.pie',
+                      label: context.l10n.budget,
+                    ),
+                    AdaptiveNavigationDestination(
+                      icon: 'creditcard',
+                      label: context.l10n.wallet,
+                    ),
+                    AdaptiveNavigationDestination(
+                      icon: 'square.grid.2x2',
+                      label: context.l10n.browse,
+                    ),
+                  ],
+                  selectedIndex: currentIndex,
+                  onTap: (index) {
+                    if (index == currentIndex) return;
+                    ref.read(mainShellTabIndexProvider.notifier).state = index;
+                  },
+                  minimizeBehavior: TabBarMinimizeBehavior.never,
+                  showNativeView: isTopRoute,
+                ),
               ),
             ),
           const HomeAiBackdropOverlay(),

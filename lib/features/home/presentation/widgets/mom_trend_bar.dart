@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -13,6 +14,7 @@ class MoMTrendBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     final mapAsync = ref.watch(momTrendProvider);
     final map = mapAsync.valueOrNull;
@@ -54,7 +56,7 @@ class MoMTrendBar extends ConsumerWidget {
       context,
       colorScheme,
       SizedBox(
-        height: 90,
+        height: isLargeText ? 78 : 90,
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0, end: 1),
           duration: MediaQuery.disableAnimationsOf(context)
@@ -138,53 +140,59 @@ class MoMTrendBar extends ConsumerWidget {
 
   Widget _wrap(BuildContext context, ColorScheme colorScheme, Widget child,
       {String? title, String? subtitle}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+    return MonekoTextScale(
+      mode: MonekoTextScaling.compact,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.homeCardSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.homeCardBorder,
+            width: 1,
           ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            Text(
-              title.toUpperCase(),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-                color: colorScheme.mutedForeground,
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.homeCardShadow,
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
             ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null) ...[
               Text(
-                subtitle,
+                title.toUpperCase(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
                   color: colorScheme.mutedForeground,
                 ),
               ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 16),
+            child,
           ],
-          child,
-        ],
+        ),
       ),
     );
   }

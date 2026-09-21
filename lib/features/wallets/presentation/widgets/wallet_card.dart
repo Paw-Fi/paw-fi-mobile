@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 class WalletCard extends StatelessWidget {
   const WalletCard({
@@ -32,75 +33,126 @@ class WalletCard extends StatelessWidget {
     final amount = (displayBalanceCents ?? wallet.currentBalanceCents) / 100.0;
     final isPositive = amount >= 0;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: colorScheme.secondaryContainer,
-                    child: Text(wallet.icon.isNotEmpty
-                        ? wallet.icon.characters.first
-                        : 'W'),
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isLargeText)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: colorScheme.secondaryContainer,
+                            child: Text(wallet.icon.isNotEmpty
+                                ? wallet.icon.characters.first
+                                : 'W'),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              wallet.name,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (wallet.isDefault || wallet.isSystem) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            if (wallet.isDefault)
+                              _Badge(
+                                text: 'Default',
+                                color: colorScheme.primaryContainer,
+                              ),
+                            if (wallet.isSystem)
+                              _Badge(
+                                text: 'System',
+                                color: colorScheme.tertiaryContainer,
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: colorScheme.secondaryContainer,
+                        child: Text(wallet.icon.isNotEmpty
+                            ? wallet.icon.characters.first
+                            : 'W'),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          wallet.name,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      if (wallet.isDefault)
+                        _Badge(
+                            text: 'Default',
+                            color: colorScheme.primaryContainer),
+                      if (wallet.isSystem) ...[
+                        const SizedBox(width: 8),
+                        _Badge(
+                            text: 'System',
+                            color: colorScheme.tertiaryContainer),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      wallet.name,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  if (wallet.isDefault)
-                    _Badge(
-                        text: 'Default', color: colorScheme.primaryContainer),
-                  if (wallet.isSystem) ...[
-                    const SizedBox(width: 8),
-                    _Badge(
-                        text: 'System', color: colorScheme.tertiaryContainer),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '${isPositive ? '+' : '-'}$symbol${formatAmount(amount.abs())}',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isPositive ? colorScheme.primary : colorScheme.error,
-                ),
-              ),
-              if (wallet.goalAmountCents != null) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
                 Text(
-                  'Goal: $symbol${formatAmount(wallet.goalAmountCents! / 100.0)}',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  '${isPositive ? '+' : '-'}$symbol${formatAmount(amount.abs())}',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: isPositive ? colorScheme.primary : colorScheme.error,
+                  ),
+                ),
+                if (wallet.goalAmountCents != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Goal: $symbol${formatAmount(wallet.goalAmountCents! / 100.0)}',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (!wallet.isDefault)
+                      TextButton(
+                          onPressed: onSetDefault,
+                          child: const Text('Set default')),
+                    TextButton(
+                        onPressed: onAdjustBalance,
+                        child: const Text('Adjust balance')),
+                    if (!wallet.isSystem)
+                      TextButton(
+                          onPressed: onArchive, child: const Text('Archive')),
+                  ],
                 ),
               ],
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                children: [
-                  if (!wallet.isDefault)
-                    TextButton(
-                        onPressed: onSetDefault,
-                        child: const Text('Set default')),
-                  TextButton(
-                      onPressed: onAdjustBalance,
-                      child: const Text('Adjust balance')),
-                  if (!wallet.isSystem)
-                    TextButton(
-                        onPressed: onArchive, child: const Text('Archive')),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),

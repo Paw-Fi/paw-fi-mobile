@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
@@ -50,6 +51,7 @@ Widget buildHouseholdBudgetOverviewCard(
   final budgetPercentage = totalBudgetCents > 0
       ? (totalBudgetSpentCents / totalBudgetCents * 100).clamp(0, 100)
       : 0.0;
+  final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
   final card = Container(
     key: key,
@@ -75,10 +77,12 @@ Widget buildHouseholdBudgetOverviewCard(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header Row: Title and Date Range
-        Row(
+        Flex(
+          direction: isLargeText ? Axis.vertical : Axis.horizontal,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
+            Flexible(
+              fit: FlexFit.loose,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -105,7 +109,7 @@ Widget buildHouseholdBudgetOverviewCard(
                 );
               },
             ),
-            const Spacer(),
+            if (!isLargeText) const Spacer() else const SizedBox(height: 8),
             // Transaction count with icon
             Icon(
               Icons.receipt_outlined,
@@ -198,11 +202,13 @@ Widget buildHouseholdBudgetOverviewCard(
           const SizedBox(height: 12),
 
           // Budget Stats Row
-          Row(
+          Flex(
+            direction: isLargeText ? Axis.vertical : Axis.horizontal,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Spent
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -231,7 +237,8 @@ Widget buildHouseholdBudgetOverviewCard(
               ),
 
               // Remaining
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [

@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -270,26 +271,46 @@ class TransactionListTile extends StatelessWidget {
           );
         }
 
-        return ListTile(
+        final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+        final leading = hasMerchantLogo
+            ? ClipOval(
+                child: SizedBox(width: 36, height: 36, child: merchantLogo),
+              )
+            : ClipOval(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurface.withValues(alpha: 0.04),
+                    shape: BoxShape.circle,
+                  ),
+                  child: merchantLogo,
+                ),
+              );
+        final amountNode = Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formattedAmount,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isIncome ? colorScheme.success : colorScheme.foreground,
+              ),
+            ),
+            if (trailingWidget != null) ...[
+              const SizedBox(height: 2),
+              trailingWidget!,
+            ],
+          ],
+        );
+        final defaultTile = ListTile(
           onTap: onTap,
           dense: dense,
           minVerticalPadding: 6,
           contentPadding: EdgeInsets.zero,
-          leading: hasMerchantLogo
-              ? ClipOval(
-                  child: SizedBox(width: 36, height: 36, child: merchantLogo),
-                )
-              : ClipOval(
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: colorScheme.onSurface.withValues(alpha: 0.04),
-                      shape: BoxShape.circle,
-                    ),
-                    child: merchantLogo,
-                  ),
-                ),
+          leading: leading,
           title: Text(
             displayTitle,
             maxLines: 2,
@@ -301,26 +322,54 @@ class TransactionListTile extends StatelessWidget {
             ),
           ),
           subtitle: subtitleNode,
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                formattedAmount,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color:
-                      isIncome ? colorScheme.success : colorScheme.foreground,
+          trailing: amountNode,
+        );
+        final largeTile = InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leading,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayTitle,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      if (subtitleNode != null) ...[
+                        const SizedBox(height: 2),
+                        subtitleNode,
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              if (trailingWidget != null) ...[
-                const SizedBox(height: 2),
-                trailingWidget!,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: amountNode,
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
+        );
+
+        return MonekoTextScale(
+          mode: MonekoTextScaling.constrained,
+          child: isLargeText ? largeTile : defaultTile,
         );
       },
     );

@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
@@ -468,70 +469,74 @@ class _PeriodItem extends StatelessWidget {
     final textForeground =
         enabled ? colors.onSurface : colors.onSurface.withValues(alpha: 0.35);
 
-    return Semantics(
-      label: semanticLabel,
-      button: enabled,
-      enabled: enabled,
-      child: ExcludeSemantics(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1),
-          child: Material(
-            color: colors.surface.withValues(alpha: 0.0),
-            child: InkWell(
-              onTap: enabled ? onTap : null,
-              borderRadius: BorderRadius.circular(10),
-              splashColor: colors.primary.withValues(alpha: 0.08),
-              highlightColor: colors.primary.withValues(alpha: 0.04),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? colors.surface
-                      : colors.surface.withValues(alpha: 0),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: colors.shadow.withValues(alpha: 0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      mode == HomePeriodMode.daily ? weekdayStr : monthStr,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected
-                            ? colors.onSurface
-                            : textForeground.withValues(
-                                alpha: enabled ? 0.6 : 0.35),
+    return MonekoTextScale(
+      mode: MonekoTextScaling.compact,
+      child: Semantics(
+        label: semanticLabel,
+        button: enabled,
+        enabled: enabled,
+        child: ExcludeSemantics(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1),
+            child: Material(
+              color: colors.surface.withValues(alpha: 0.0),
+              child: InkWell(
+                onTap: enabled ? onTap : null,
+                borderRadius: BorderRadius.circular(10),
+                splashColor: colors.primary.withValues(alpha: 0.08),
+                highlightColor: colors.primary.withValues(alpha: 0.04),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? colors.surface
+                        : colors.surface.withValues(alpha: 0),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: colors.shadow.withValues(alpha: 0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mode == HomePeriodMode.daily ? weekdayStr : monthStr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected
+                              ? colors.onSurface
+                              : textForeground.withValues(
+                                  alpha: enabled ? 0.6 : 0.35),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    SizedBox(
-                      width: 30,
-                      height: 30,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          _buildRing(colors),
-                          _buildCircleContent(colors, textForeground),
-                        ],
+                      const SizedBox(height: 3),
+                      SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            _buildRing(colors),
+                            _buildCircleContent(colors, textForeground),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

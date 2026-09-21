@@ -5,6 +5,7 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -111,249 +112,263 @@ class RecurringTransactionCard extends StatelessWidget {
     final amountText = '$sign$currencySymbol$localizedNumber';
 
     final canConfirm = latestActionableOccurrenceDate != null;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
-    return Container(
-      margin: grouped ? EdgeInsets.zero : const EdgeInsets.only(bottom: 8),
-      child: Slidable(
-        key: ValueKey(transaction.id),
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          extentRatio: 0.22,
-          children: [
-            SlidableAction(
-              onPressed: (_) async {
-                if (onDelete != null) {
-                  onDelete!();
-                }
-              },
-              backgroundColor: colorScheme.destructive,
-              foregroundColor: colorScheme.onError,
-              icon: Icons.delete,
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ],
-        ),
-        child: Container(
-          decoration: grouped
-              ? null
-              : BoxDecoration(
-                  color: colorScheme.homeCardSurface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: colorScheme.homeCardBorder,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.homeCardShadow,
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                      spreadRadius: -4,
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: Container(
+        margin: grouped ? EdgeInsets.zero : const EdgeInsets.only(bottom: 8),
+        child: Slidable(
+          key: ValueKey(transaction.id),
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.22,
+            children: [
+              SlidableAction(
+                onPressed: (_) async {
+                  if (onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                backgroundColor: colorScheme.destructive,
+                foregroundColor: colorScheme.onError,
+                icon: Icons.delete,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ],
+          ),
+          child: Container(
+            decoration: grouped
+                ? null
+                : BoxDecoration(
+                    color: colorScheme.homeCardSurface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.homeCardBorder,
+                      width: 1,
                     ),
-                  ],
-                ),
-          child: Material(
-            color: colorScheme.surface.withValues(alpha: 0.0),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    // Merchant logos stay rounded but are not placed on a
-                    // category-colored background. Category fallbacks retain
-                    // the existing background treatment.
-                    hasMerchantLogo
-                        ? ClipOval(
-                            child: SizedBox(
-                              width: 36,
-                              height: 36,
-                              child: merchantLogo,
-                            ),
-                          )
-                        : ClipOval(
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: adaptedCategoryColor.withValues(
-                                  alpha: 0.12,
-                                ),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: adaptedCategoryColor.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                  width: 1,
-                                ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.homeCardShadow,
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                        spreadRadius: -4,
+                      ),
+                    ],
+                  ),
+            child: Material(
+              color: colorScheme.surface.withValues(alpha: 0.0),
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Flex(
+                    direction: isLargeText ? Axis.vertical : Axis.horizontal,
+                    children: [
+                      // Merchant logos stay rounded but are not placed on a
+                      // category-colored background. Category fallbacks retain
+                      // the existing background treatment.
+                      hasMerchantLogo
+                          ? ClipOval(
+                              child: SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: merchantLogo,
                               ),
-                              child: merchantLogo,
+                            )
+                          : ClipOval(
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: adaptedCategoryColor.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: adaptedCategoryColor.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: merchantLogo,
+                              ),
                             ),
-                          ),
-                    const SizedBox(width: 16),
-                    // Keep the row compact: title plus schedule metadata.
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      SizedBox(
+                        width: isLargeText ? 0 : 16,
+                        height: isLargeText ? 8 : 0,
+                      ),
+                      // Keep the row compact: title plus schedule metadata.
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hasDescription ? description : localizedCategory,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                // Frequency label
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.muted
+                                        .withValues(alpha: 0.8),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: colorScheme.border
+                                          .withValues(alpha: 0.1),
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    getLocalizedFrequencyText(
+                                        context, transaction),
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 11,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    formatLocalizedDate(
+                                        context, nextOccurrence),
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (showCurrencyFlag) ...[
+                                  const SizedBox(width: 6),
+                                  TransactionCurrencyFlagBadge(
+                                    currencyCode: transaction.currency,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: isLargeText ? 0 : 12,
+                        height: isLargeText ? 8 : 0,
+                      ),
+                      // Amount and Action/Status
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            hasDescription ? description : localizedCategory,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            amountText,
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: amountColor,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              // Frequency label
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      colorScheme.muted.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: colorScheme.border
-                                        .withValues(alpha: 0.1),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  getLocalizedFrequencyText(
-                                      context, transaction),
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.calendar_today_rounded,
-                                size: 11,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  formatLocalizedDate(context, nextOccurrence),
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (showCurrencyFlag) ...[
-                                const SizedBox(width: 6),
-                                TransactionCurrencyFlagBadge(
-                                  currencyCode: transaction.currency,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Amount and Action/Status
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          amountText,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: amountColor,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        if (transaction.isActive)
-                          canConfirm
-                              ? InkWell(
-                                  onTap: () =>
-                                      showConfirmRecurringOccurrenceSheet(
-                                    context: context,
-                                    recurringTransaction: transaction,
-                                    scheduledOccurrenceDate:
-                                        latestActionableOccurrenceDate!,
-                                  ),
-                                  borderRadius: BorderRadius.circular(100),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 3.5,
+                          if (transaction.isActive)
+                            canConfirm
+                                ? InkWell(
+                                    onTap: () =>
+                                        showConfirmRecurringOccurrenceSheet(
+                                      context: context,
+                                      recurringTransaction: transaction,
+                                      scheduledOccurrenceDate:
+                                          latestActionableOccurrenceDate!,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.primary
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(100),
-                                      border: Border.all(
+                                    borderRadius: BorderRadius.circular(100),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 3.5,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: colorScheme.primary
-                                            .withValues(alpha: 0.3),
-                                        width: 1,
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(100),
+                                        border: Border.all(
+                                          color: colorScheme.primary
+                                              .withValues(alpha: 0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.check_rounded,
+                                            size: 12,
+                                            color: colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            context.l10n.confirmPayment,
+                                            style: TextStyle(
+                                              color: colorScheme.primary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.check_rounded,
-                                          size: 12,
-                                          color: colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          context.l10n.confirmPayment,
-                                          style: TextStyle(
-                                            color: colorScheme.primary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink()
-                        else
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.muted.withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              context.l10n.ended.toUpperCase(),
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
+                                  )
+                                : const SizedBox.shrink()
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.muted.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                context.l10n.ended.toUpperCase(),
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

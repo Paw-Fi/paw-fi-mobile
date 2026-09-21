@@ -19,6 +19,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// Settlement suggestions card with toggle for express netting mode
 class SettlementSuggestionsCard extends ConsumerStatefulWidget {
@@ -76,6 +77,7 @@ class _SettlementSuggestionsCardState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final currentUserId = widget.currentUserId;
     final selectedCurrency = (widget.currency ??
             ref.watch(selectedHomeCurrencyCodeProvider) ??
@@ -295,7 +297,11 @@ class _SettlementSuggestionsCardState
                   // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: Row(
+                    child: Flex(
+                      direction: isLargeText ? Axis.vertical : Axis.horizontal,
+                      crossAxisAlignment: isLargeText
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
@@ -332,9 +338,15 @@ class _SettlementSuggestionsCardState
                   else ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
+                      child: Flex(
+                        direction:
+                            isLargeText ? Axis.vertical : Axis.horizontal,
+                        crossAxisAlignment: isLargeText
+                            ? CrossAxisAlignment.stretch
+                            : CrossAxisAlignment.center,
                         children: [
-                          Expanded(
+                          Flexible(
+                            fit: FlexFit.loose,
                             child: _StatCard(
                               label: context.l10n.youOwe,
                               amountCents: youOweTotal,
@@ -354,8 +366,12 @@ class _SettlementSuggestionsCardState
                                       : null,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                          SizedBox(
+                            width: isLargeText ? 0 : 12,
+                            height: isLargeText ? 8 : 0,
+                          ),
+                          Flexible(
+                            fit: FlexFit.loose,
                             child: _StatCard(
                               label: context.l10n.youAreOwed,
                               amountCents: owedToYouTotal,
@@ -383,7 +399,7 @@ class _SettlementSuggestionsCardState
                                   color: colorScheme.mutedForeground,
                                   letterSpacing: 0.5,
                                 ),
-                                maxLines: 1,
+                                maxLines: isLargeText ? 2 : 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -406,6 +422,7 @@ class _SettlementSuggestionsCardState
                             isPayer: isPayer,
                             scheme: colorScheme,
                             showCurrencyFlag: hasMultiCurrencySelection,
+                            isLargeText: isLargeText,
                             onTap: () => _openSettleUpSheet(
                               context,
                               householdId: widget.householdId,
@@ -761,6 +778,7 @@ class _SuggestionRow extends StatelessWidget {
   final bool isPayer;
   final ColorScheme scheme;
   final bool showCurrencyFlag;
+  final bool isLargeText;
   final VoidCallback onTap;
 
   const _SuggestionRow({
@@ -768,6 +786,7 @@ class _SuggestionRow extends StatelessWidget {
     required this.isPayer,
     required this.scheme,
     required this.showCurrencyFlag,
+    required this.isLargeText,
     required this.onTap,
   });
 
@@ -794,9 +813,14 @@ class _SuggestionRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
+        child: Flex(
+          direction: isLargeText ? Axis.vertical : Axis.horizontal,
+          crossAxisAlignment: isLargeText
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.center,
           children: [
-            Expanded(
+            Flexible(
+              fit: isLargeText ? FlexFit.loose : FlexFit.tight,
               child: Text(
                 label,
                 style: TextStyle(
@@ -804,12 +828,16 @@ class _SuggestionRow extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   color: scheme.foreground,
                 ),
-                maxLines: 1,
+                maxLines: isLargeText ? 3 : 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(
+              width: isLargeText ? 0 : 8,
+              height: isLargeText ? 6 : 0,
+            ),
             Flexible(
+              fit: FlexFit.loose,
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerRight,

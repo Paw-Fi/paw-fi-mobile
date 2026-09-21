@@ -11,6 +11,7 @@ import 'package:moneko/features/households/presentation/utils/member_spending_at
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
@@ -289,6 +290,7 @@ Widget _buildMemberRow(
       : (memberData.userEmail ?? member.userEmail ?? 'Unknown');
 
   final isCurrentUser = currentUserId != null && member.userId == currentUserId;
+  final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
   return GestureDetector(
     onTap: () {
@@ -314,7 +316,8 @@ Widget _buildMemberRow(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Member info row
-          Row(
+          Flex(
+            direction: isLargeText ? Axis.vertical : Axis.horizontal,
             children: [
               // Avatar with online indicator style
               Container(
@@ -336,10 +339,14 @@ Widget _buildMemberRow(
                   borderColor: colorScheme.border.withValues(alpha: 0.15),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(
+                width: isLargeText ? 0 : 14,
+                height: isLargeText ? 8 : 0,
+              ),
 
               // Name and stats
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -404,39 +411,46 @@ Widget _buildMemberRow(
                 ),
               ),
 
-              const SizedBox(width: 12),
+              SizedBox(
+                width: isLargeText ? 0 : 12,
+                height: isLargeText ? 8 : 0,
+              ),
 
               // Amount with percentage
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  AnimatedAmountText(
-                    value: amount,
-                    symbol: symbol,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                      letterSpacing: -0.4,
-                      height: 1.3,
-                    ),
-                  ),
-                  if (totalMemberSpent > 0) ...[
-                    const SizedBox(height: 2),
+              Align(
+                alignment:
+                    isLargeText ? Alignment.centerRight : Alignment.centerRight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     AnimatedAmountText(
-                      value: percentage,
-                      symbol: '',
-                      suffix: '%',
-                      decimalDigits: 0,
+                      value: amount,
+                      symbol: symbol,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.mutedForeground,
-                        letterSpacing: -0.1,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.4,
+                        height: 1.3,
                       ),
                     ),
+                    if (totalMemberSpent > 0) ...[
+                      const SizedBox(height: 2),
+                      AnimatedAmountText(
+                        value: percentage,
+                        symbol: '',
+                        suffix: '%',
+                        decimalDigits: 0,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),
