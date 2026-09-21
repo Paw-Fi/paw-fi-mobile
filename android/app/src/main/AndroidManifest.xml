@@ -70,6 +70,11 @@
             android:resizeableActivity="true"
             android:screenOrientation="unspecified"
             tools:replace="android:resizeableActivity,android:screenOrientation" />
+        <!-- Required by image_cropper when launching the native Android crop UI. -->
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
         <!-- Default notification channel (used when FCM message has no channel_id) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
