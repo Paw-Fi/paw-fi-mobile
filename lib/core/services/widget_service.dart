@@ -148,14 +148,22 @@ class WidgetService {
   }
 
   Future<void> saveConfigurationOptions({
+    required String userId,
     required List<Map<String, Object?>> households,
+    required List<Map<String, Object?>> wallets,
   }) async {
     try {
       await _ensureAppGroupIdSet();
 
       final householdsJson = jsonEncode(households);
+      final walletsJson = jsonEncode(wallets);
 
       await HomeWidget.saveWidgetData('config_households', householdsJson);
+      await HomeWidget.saveWidgetData('config_wallets', walletsJson);
+      await HomeWidget.saveWidgetData(
+        'shortcut_destination_catalog_user_id',
+        userId,
+      );
       // No need to update widget, just saving data for the intent to read
     } catch (e) {
       debugPrint('Error saving config options: $e');

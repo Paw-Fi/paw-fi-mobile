@@ -118,6 +118,33 @@ final walletsByHouseholdIdProvider =
   }
 });
 
+final shortcutDestinationWalletsByHouseholdIdProvider =
+    FutureProvider.family<List<WalletEntity>, String?>(
+        (ref, householdId) async {
+  final authHeaders = ref.watch(walletAuthHeadersProvider);
+  if (authHeaders == null) return const <WalletEntity>[];
+
+  final response = await supabase.functions.invoke(
+    'list-wallets',
+    headers: authHeaders,
+    body: {
+      if (householdId != null && householdId.trim().isNotEmpty)
+        'householdId': householdId,
+    },
+  );
+  final payload = response.data as Map<String, dynamic>?;
+  if (payload == null || payload['success'] != true) {
+    final message = payload?['error']?.toString() ?? 'Failed to load wallets';
+    throw Exception(message);
+  }
+
+  return (payload['data'] as List<dynamic>? ?? const [])
+      .whereType<Map<String, dynamic>>()
+      .map(WalletEntity.fromJson)
+      .where((wallet) => !wallet.isArchived)
+      .toList(growable: false);
+});
+
 class WalletsCurrencyQuery {
   const WalletsCurrencyQuery({
     required this.householdId,
@@ -1600,6 +1627,7 @@ class WalletActions {
       '[Accounts][Invalidate] start optimisticOverridesBefore=$overridesCountBefore',
     );
     ref.invalidate(walletsByHouseholdIdProvider);
+    ref.invalidate(shortcutDestinationWalletsByHouseholdIdProvider);
     ref.invalidate(walletsByCurrencyProvider);
     ref.invalidate(scopedWalletsProvider);
     ref.invalidate(archivedScopedAccountsProvider);

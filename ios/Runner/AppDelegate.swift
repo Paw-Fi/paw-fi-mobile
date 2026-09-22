@@ -1878,12 +1878,272 @@ struct CaptureWalletTransactionIntent: AppIntent {
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOS 17.0, watchOS 10.0, *)
+struct ShortcutDestinationSpace: AppEntity, Codable, Hashable {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Moneko Space")
+  static var defaultQuery = ShortcutDestinationSpaceQuery()
+
+  let id: String
+  let name: String
+  let isPortfolio: Bool
+
+  var displayRepresentation: DisplayRepresentation {
+    let kind = id == "personal" ? "Personal" : isPortfolio ? "Portfolio" : "Household"
+    return DisplayRepresentation(title: "\(name)", subtitle: "\(kind)")
+  }
+}
+
+@available(iOS 17.0, watchOS 10.0, *)
+struct ShortcutDestinationWallet: AppEntity, Codable, Hashable {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Moneko Wallet")
+  static var defaultQuery = ShortcutDestinationWalletQuery()
+
+  let id: String
+  let name: String
+  let spaceId: String
+  let currency: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: "\(name)", subtitle: "\(currency)")
+  }
+}
+
+@available(iOS 17.0, watchOS 10.0, *)
+struct ShortcutDestinationCatalog {
+  let spaces: [ShortcutDestinationSpace]
+  let wallets: [ShortcutDestinationWallet]
+
+  init(
+    spaces: [ShortcutDestinationSpace],
+    wallets: [ShortcutDestinationWallet]
+  ) {
+    var normalizedSpaces: [ShortcutDestinationSpace] = []
+    var seenSpaceIds = Set<String>()
+    for space in spaces {
+      let id = space.id.trimmingCharacters(in: .whitespacesAndNewlines)
+      let name = space.name.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !id.isEmpty, !name.isEmpty, seenSpaceIds.insert(id).inserted else {
+        continue
+      }
+      normalizedSpaces.append(
+        ShortcutDestinationSpace(
+          id: id,
+          name: name,
+          isPortfolio: id == "personal" ? false : space.isPortfolio
+        )
+      )
+    }
+    if !seenSpaceIds.contains("personal") {
+      normalizedSpaces.insert(
+        ShortcutDestinationSpace(id: "personal", name: "Personal", isPortfolio: false),
+        at: 0
+      )
+      seenSpaceIds.insert("personal")
+    }
+    normalizedSpaces.sort { left, right in
+      if left.id == "personal" { return true }
+      if right.id == "personal" { return false }
+      return left.name.localizedStandardCompare(right.name) == .orderedAscending
+    }
+
+    var normalizedWallets: [ShortcutDestinationWallet] = []
+    var seenWalletIds = Set<String>()
+    for wallet in wallets {
+      let id = wallet.id.trimmingCharacters(in: .whitespacesAndNewlines)
+      let name = wallet.name.trimmingCharacters(in: .whitespacesAndNewlines)
+      let spaceId = wallet.spaceId.trimmingCharacters(in: .whitespacesAndNewlines)
+      let currency = wallet.currency
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .uppercased()
+      let isIsoCurrencyCode = currency.utf8.count == 3 && currency.utf8.allSatisfy {
+        $0 >= 65 && $0 <= 90
+      }
+      guard
+        !id.isEmpty,
+        !name.isEmpty,
+        isIsoCurrencyCode,
+        seenSpaceIds.contains(spaceId),
+        seenWalletIds.insert(id).inserted
+      else {
+        continue
+      }
+      normalizedWallets.append(
+        ShortcutDestinationWallet(
+          id: id,
+          name: name,
+          spaceId: spaceId,
+          currency: currency
+        )
+      )
+    }
+    normalizedWallets.sort { left, right in
+      let nameOrder = left.name.localizedStandardCompare(right.name)
+      return nameOrder == .orderedSame
+        ? left.currency.localizedStandardCompare(right.currency) == .orderedAscending
+        : nameOrder == .orderedAscending
+    }
+
+    self.spaces = normalizedSpaces
+    self.wallets = normalizedWallets
+  }
+
+  func wallets(for spaceId: String?) -> [ShortcutDestinationWallet] {
+    guard let spaceId else { return [] }
+    return wallets.filter { $0.spaceId == spaceId }
+  }
+
+  static func load() -> ShortcutDestinationCatalog? {
+    guard
+      let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId),
+      let currentUserId = SharedKeychainStore.shared.read(
+        account: SiriShortcutKeys.userIdAccount,
+        logFailure: false
+      )?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !currentUserId.isEmpty,
+      defaults.string(forKey: SiriShortcutKeys.shortcutDestinationCatalogUserId) == currentUserId
+    else {
+      return nil
+    }
+
+    let decoder = JSONDecoder()
+    let spaces = defaults.string(forKey: SiriShortcutKeys.shortcutDestinationSpaces)
+      .flatMap { $0.data(using: .utf8) }
+      .flatMap { try? decoder.decode([ShortcutDestinationSpace].self, from: $0) } ?? []
+    let wallets = defaults.string(forKey: SiriShortcutKeys.shortcutDestinationWallets)
+      .flatMap { $0.data(using: .utf8) }
+      .flatMap { try? decoder.decode([ShortcutDestinationWallet].self, from: $0) } ?? []
+    return ShortcutDestinationCatalog(spaces: spaces, wallets: wallets)
+  }
+}
+
+@available(iOS 17.0, watchOS 10.0, *)
+struct ShortcutDestinationSpaceQuery: EntityStringQuery {
+  func entities(for identifiers: [String]) async throws -> [ShortcutDestinationSpace] {
+    guard let catalog = ShortcutDestinationCatalog.load() else { return [] }
+    let requestedIds = Set(identifiers)
+    return catalog.spaces.filter { requestedIds.contains($0.id) }
+  }
+
+  func entities(matching string: String) async throws -> [ShortcutDestinationSpace] {
+    guard let catalog = ShortcutDestinationCatalog.load() else { return [] }
+    let query = string.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else { return catalog.spaces }
+    return catalog.spaces.filter { $0.name.localizedStandardContains(query) }
+  }
+
+  func suggestedEntities() async throws -> [ShortcutDestinationSpace] {
+    ShortcutDestinationCatalog.load()?.spaces ?? []
+  }
+}
+
+@available(iOS 17.0, watchOS 10.0, *)
+struct ShortcutDestinationWalletQuery: EntityStringQuery {
+  @IntentParameterDependency<CaptureTransactionNotificationIntent>(\.$destinationSpace)
+  var intent
+
+  private var selectedSpaceId: String? {
+    intent?.destinationSpace.id
+  }
+
+  func entities(for identifiers: [String]) async throws -> [ShortcutDestinationWallet] {
+    guard
+      let catalog = ShortcutDestinationCatalog.load(),
+      let selectedSpaceId
+    else {
+      return []
+    }
+    let requestedIds = Set(identifiers)
+    return catalog.wallets(for: selectedSpaceId).filter { requestedIds.contains($0.id) }
+  }
+
+  func entities(matching string: String) async throws -> [ShortcutDestinationWallet] {
+    guard
+      let catalog = ShortcutDestinationCatalog.load(),
+      let selectedSpaceId
+    else {
+      return []
+    }
+    let wallets = catalog.wallets(for: selectedSpaceId)
+    let query = string.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else { return wallets }
+    return wallets.filter {
+      $0.name.localizedStandardContains(query) ||
+        $0.currency.localizedStandardContains(query)
+    }
+  }
+
+  func suggestedEntities() async throws -> [ShortcutDestinationWallet] {
+    guard
+      let catalog = ShortcutDestinationCatalog.load(),
+      let selectedSpaceId
+    else {
+      return []
+    }
+    return catalog.wallets(for: selectedSpaceId)
+  }
+}
+
+struct NotificationShortcutDestination {
+  let householdId: String?
+  let isPortfolio: Bool
+  let accountId: String?
+
+  var scopeKey: String {
+    householdId ?? "personal"
+  }
+}
+
+@available(iOS 17.0, watchOS 10.0, *)
+func resolveNotificationShortcutDestination(
+  selectedSpace: ShortcutDestinationSpace?,
+  selectedWallet: ShortcutDestinationWallet?,
+  fallbackScope: SiriShortcutScopeResolution?,
+  fallbackAccountId: String?
+) throws -> NotificationShortcutDestination {
+  if let selectedSpace {
+    let spaceId = selectedSpace.id.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !spaceId.isEmpty else {
+      throw SiriShortcutIntentError.invalidInput
+    }
+
+    var accountId: String?
+    if let selectedWallet {
+      let walletId = selectedWallet.id.trimmingCharacters(in: .whitespacesAndNewlines)
+      let walletSpaceId = selectedWallet.spaceId
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !walletId.isEmpty, walletSpaceId == spaceId else {
+        throw SiriShortcutIntentError.invalidInput
+      }
+      accountId = walletId
+    }
+    return NotificationShortcutDestination(
+      householdId: spaceId == "personal" ? nil : spaceId,
+      isPortfolio: spaceId == "personal" ? false : selectedSpace.isPortfolio,
+      accountId: accountId
+    )
+  }
+
+  guard selectedWallet == nil else {
+    throw SiriShortcutIntentError.invalidInput
+  }
+  guard let fallbackScope else {
+    throw SiriShortcutIntentError.notConfigured
+  }
+  return NotificationShortcutDestination(
+    householdId: fallbackScope.householdId,
+    isPortfolio: fallbackScope.isPortfolio,
+    accountId: fallbackAccountId
+  )
+}
+
+@available(iOS 17.0, watchOS 10.0, *)
 private func performNotificationTransactionCapture(
   notificationTitle: String?,
   notificationSubtitle: String?,
   notificationMessage: String?,
-  sourceAppName: String?
+  sourceAppName: String?,
+  destinationSpace: ShortcutDestinationSpace?,
+  destinationWallet: ShortcutDestinationWallet?
 ) async throws -> String {
   guard let notification = NotificationShortcutCapturePayload.makeNotification(
     title: notificationTitle,
@@ -1896,13 +2156,16 @@ private func performNotificationTransactionCapture(
   guard let context = SiriShortcutAuthContext.load() else {
     throw SiriShortcutIntentError.notConfigured
   }
-  guard let scope = loadWalletCaptureScope(expectedUserId: context.userId) else {
-    throw SiriShortcutIntentError.notConfigured
-  }
+  let destination = try resolveNotificationShortcutDestination(
+    selectedSpace: destinationSpace,
+    selectedWallet: destinationWallet,
+    fallbackScope: loadWalletCaptureScope(expectedUserId: context.userId),
+    fallbackAccountId: loadWalletCaptureAccountId()
+  )
 
   let idempotencyKey = NotificationShortcutCapturePayload.makeIdempotencyKey(
     userId: context.userId,
-    scopeKey: scope.householdId ?? "personal",
+    scopeKey: destination.scopeKey,
     title: notificationTitle,
     subtitle: notificationSubtitle,
     message: notificationMessage,
@@ -1918,11 +2181,11 @@ private func performNotificationTransactionCapture(
     "clientCreatedAt": ISO8601DateFormatter().string(from: Date()),
     "notification": notification,
   ]
-  if let householdId = scope.householdId {
+  if let householdId = destination.householdId {
     body["householdId"] = householdId
-    body["isPortfolio"] = scope.isPortfolio
+    body["isPortfolio"] = destination.isPortfolio
   }
-  if let accountId = loadWalletCaptureAccountId() {
+  if let accountId = destination.accountId {
     body["accountId"] = accountId
   }
 
@@ -1968,7 +2231,7 @@ private func performNotificationTransactionCapture(
   }
 }
 
-@available(iOS 16.0, watchOS 9.0, *)
+@available(iOS 17.0, watchOS 10.0, *)
 struct CaptureTransactionNotificationIntent: AppIntent {
   static var title: LocalizedStringResource = "Capture Transaction Notification"
   static var description = IntentDescription(
@@ -1977,6 +2240,18 @@ struct CaptureTransactionNotificationIntent: AppIntent {
 
   @available(*, deprecated, message: "Use supportedModes when available.")
   static var openAppWhenRun: Bool { false }
+
+  @Parameter(
+    title: "Destination Space",
+    description: "The Moneko space where captured transactions should be saved."
+  )
+  var destinationSpace: ShortcutDestinationSpace?
+
+  @Parameter(
+    title: "Destination Wallet",
+    description: "Choose a wallet after selecting its Moneko space."
+  )
+  var destinationWallet: ShortcutDestinationWallet?
 
   @Parameter(title: "Notification Title")
   var notificationTitle: String?
@@ -1999,7 +2274,9 @@ struct CaptureTransactionNotificationIntent: AppIntent {
         notificationTitle: notificationTitle,
         notificationSubtitle: notificationSubtitle,
         notificationMessage: notificationMessage,
-        sourceAppName: sourceAppName
+        sourceAppName: sourceAppName,
+        destinationSpace: destinationSpace,
+        destinationWallet: destinationWallet
       )
       return .result(dialog: IntentDialog(stringLiteral: message))
     } catch let intentError as SiriShortcutIntentError {
@@ -2043,6 +2320,9 @@ private enum SiriShortcutKeys {
   static let walletIdempotencyTimestamp = "wallet_last_request_at"
   static let walletDebugEntries = "wallet_capture_debug_entries"
   static let walletPendingCaptures = "wallet_pending_captures"
+  static let shortcutDestinationCatalogUserId = "shortcut_destination_catalog_user_id"
+  static let shortcutDestinationSpaces = "config_households"
+  static let shortcutDestinationWallets = "config_wallets"
 }
 
 private func makeDiagnosticsTimestamp() -> String {
@@ -2164,7 +2444,7 @@ private enum SiriShortcutDiagnostics {
   }
 }
 
-private struct SiriShortcutScopeResolution {
+struct SiriShortcutScopeResolution {
   let householdId: String?
   let isPortfolio: Bool
 }
@@ -3124,15 +3404,6 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       ],
       shortTitle: "capture_wallet_transaction_title",
       systemImageName: "wallet.pass.fill"
-    )
-    AppShortcut(
-      intent: CaptureTransactionNotificationIntent(),
-      phrases: [
-        "Capture a transaction notification in \(.applicationName)",
-        "Analyze a payment notification with \(.applicationName)"
-      ],
-      shortTitle: "Capture Notification",
-      systemImageName: "bell.badge.fill"
     )
   }
 
