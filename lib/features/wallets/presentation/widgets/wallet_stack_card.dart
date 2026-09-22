@@ -127,7 +127,8 @@ class WalletStackCard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Flexible(
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 180),
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,

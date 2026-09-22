@@ -61,12 +61,12 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 
 class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
-  final GlobalKey _recurringFabSpotlightKey = GlobalKey();
   final GlobalKey _recurringTabBarSpotlightKey = GlobalKey();
   late final PageController _pageController;
   late SpotlightTourController _recurringTourController;
   Locale? _recurringTourLocale;
   bool _didInitRecurringTour = false;
+  bool _didRequestRecurringTour = false;
 
   /// Force refresh (used by pull-to-refresh)
   Future<void> _refresh(RecurringSeriesPageQuery query) async {
@@ -97,15 +97,6 @@ class _RecurringTransactionsPageState
       tourId: 'recurring_transactions_v1',
       steps: [
         SpotlightStep(
-          id: 'recurring_fab',
-          targetKey: _recurringFabSpotlightKey,
-          title: context.l10n.recurringTourFabTitle,
-          description: context.l10n.recurringTourFabDescription,
-          placement: SpotlightPlacement.top,
-          padding: 6,
-          borderRadius: 34,
-        ),
-        SpotlightStep(
           id: 'recurring_tab_bar',
           targetKey: _recurringTabBarSpotlightKey,
           title: context.l10n.recurringTourTabsTitle,
@@ -122,8 +113,10 @@ class _RecurringTransactionsPageState
 
   Future<void> _startRecurringTourIfNeeded(int currentTabIndex) async {
     if (!_didInitRecurringTour || currentTabIndex != 1) return;
+    if (_didRequestRecurringTour) return;
     if (supabase.auth.currentUser == null) return;
 
+    _didRequestRecurringTour = true;
     await _recurringTourController.start(context);
   }
 

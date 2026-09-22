@@ -62,6 +62,7 @@ class AccountsPage extends HookConsumerWidget {
     final previewSelectedMonthState = useState<DateTime?>(null);
     final monthPageController = usePageController(viewportFraction: 0.96);
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final actions = ref.watch(walletActionsProvider);
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
@@ -605,10 +606,15 @@ class AccountsPage extends HookConsumerWidget {
                   children: [
                     RepaintBoundary(
                       child: SizedBox(
-                        height: (!hasDismissedSwipeHintState.value &&
-                                availableMonths.length > 1)
-                            ? 290
-                            : 260,
+                        height: isLargeText
+                            ? ((!hasDismissedSwipeHintState.value &&
+                                    availableMonths.length > 1)
+                                ? 460
+                                : 420)
+                            : ((!hasDismissedSwipeHintState.value &&
+                                    availableMonths.length > 1)
+                                ? 290
+                                : 260),
                         child: PageView.builder(
                           itemCount: availableMonths.length,
                           controller: monthPageController,

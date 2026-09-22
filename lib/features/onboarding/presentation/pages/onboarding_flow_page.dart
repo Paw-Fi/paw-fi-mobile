@@ -550,7 +550,6 @@ class _GuestHeardAboutPage extends HookWidget {
           SizedBox(
             width: double.infinity,
             height: MediaQuery.textScalerOf(context).scale(16) > 20 ? null : 52,
-            constraints: const BoxConstraints(minHeight: 52),
             child: PrimaryAdaptiveButton(
               onPressed: isBusy ? null : onNext,
               child: Text(context.l10n.continueAction),
@@ -760,7 +759,6 @@ class _GuestCarouselPage extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: MediaQuery.textScalerOf(context).scale(16) > 20 ? null : 52,
-            constraints: const BoxConstraints(minHeight: 52),
             child: PrimaryAdaptiveButton(
               onPressed: onNext,
               child: Text(context.l10n.next),
@@ -887,7 +885,6 @@ class _GuestOrbitPage extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: MediaQuery.textScalerOf(context).scale(16) > 20 ? null : 52,
-            constraints: const BoxConstraints(minHeight: 52),
             child: PrimaryAdaptiveButton(
               onPressed: onNext,
               child: Text(context.l10n.onboardingIntroGetMyPlan),
@@ -901,7 +898,6 @@ class _GuestOrbitPage extends StatelessWidget {
               width: double.infinity,
               height:
                   MediaQuery.textScalerOf(context).scale(16) > 20 ? null : 52,
-              constraints: const BoxConstraints(minHeight: 52),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: colorScheme.card,
@@ -1167,8 +1163,6 @@ class _IntroSlide extends HookWidget {
                                           20
                                       ? null
                                       : 52,
-                                  constraints:
-                                      const BoxConstraints(minHeight: 52),
                                   child: PrimaryAdaptiveButton(
                                     onPressed: onNext,
                                     child: Text(
@@ -1268,7 +1262,6 @@ class _IntroSlide extends HookWidget {
                         height: MediaQuery.textScalerOf(context).scale(16) > 20
                             ? null
                             : 52,
-                        constraints: const BoxConstraints(minHeight: 52),
                         child: PrimaryAdaptiveButton(
                           onPressed: onNext,
                           child: Text(context.l10n.next),
@@ -1761,7 +1754,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
                       height: MediaQuery.textScalerOf(context).scale(16) > 20
                           ? null
                           : 52,
-                      constraints: const BoxConstraints(minHeight: 52),
                       child: PrimaryAdaptiveButton(
                         onPressed: isPrimaryBusy.value
                             ? null

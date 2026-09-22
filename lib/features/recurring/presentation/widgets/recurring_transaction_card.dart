@@ -114,6 +114,75 @@ class RecurringTransactionCard extends StatelessWidget {
     final canConfirm = latestActionableOccurrenceDate != null;
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          hasDescription ? description : localizedCategory,
+          maxLines: isLargeText ? 2 : 1,
+          overflow: isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.foreground,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.muted.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorScheme.border.withValues(alpha: 0.1),
+                  width: 0.5,
+                ),
+              ),
+              child: Text(
+                getLocalizedFrequencyText(context, transaction),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 11,
+              color: colorScheme.mutedForeground,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                formatLocalizedDate(context, nextOccurrence),
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (showCurrencyFlag) ...[
+              const SizedBox(width: 6),
+              TransactionCurrencyFlagBadge(
+                currencyCode: transaction.currency,
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+
     return MonekoTextScale(
       mode: MonekoTextScaling.constrained,
       child: Container(
@@ -166,8 +235,8 @@ class RecurringTransactionCard extends StatelessWidget {
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  child: Flex(
-                    direction: isLargeText ? Axis.vertical : Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Merchant logos stay rounded but are not placed on a
                       // category-colored background. Category fallbacks retain
@@ -200,93 +269,11 @@ class RecurringTransactionCard extends StatelessWidget {
                               ),
                             ),
                       SizedBox(
-                        width: isLargeText ? 0 : 16,
-                        height: isLargeText ? 8 : 0,
+                        width: 16,
                       ),
-                      // Keep the row compact: title plus schedule metadata.
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              hasDescription ? description : localizedCategory,
-                              maxLines: isLargeText ? 3 : 1,
-                              overflow: isLargeText
-                                  ? TextOverflow.visible
-                                  : TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                // Frequency label
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.muted
-                                        .withValues(alpha: 0.8),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: colorScheme.border
-                                          .withValues(alpha: 0.1),
-                                      width: 0.5,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    getLocalizedFrequencyText(
-                                        context, transaction),
-                                    maxLines: isLargeText ? 2 : 1,
-                                    overflow: isLargeText
-                                        ? TextOverflow.visible
-                                        : TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.calendar_today_rounded,
-                                  size: 11,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    formatLocalizedDate(
-                                        context, nextOccurrence),
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (showCurrencyFlag) ...[
-                                  const SizedBox(width: 6),
-                                  TransactionCurrencyFlagBadge(
-                                    currencyCode: transaction.currency,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                      Expanded(child: details),
                       SizedBox(
-                        width: isLargeText ? 0 : 12,
-                        height: isLargeText ? 8 : 0,
+                        width: 12,
                       ),
                       // Amount and Action/Status
                       Column(

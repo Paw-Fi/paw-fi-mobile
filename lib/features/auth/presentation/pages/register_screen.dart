@@ -583,8 +583,10 @@ class RegistrationFormView extends HookConsumerWidget {
                   if (footer != null)
                     footer!
                   else
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      runSpacing: 4,
                       children: [
                         Text(
                           '${context.l10n.alreadyHaveAccount} ',

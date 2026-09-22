@@ -1158,7 +1158,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                                 MediaQuery.textScalerOf(context).scale(16) > 20
                                     ? null
                                     : 52,
-                            constraints: const BoxConstraints(minHeight: 52),
                             child: PrimaryAdaptiveButton(
                               onPressed: () => unawaited(onPrimaryActionTap()),
                               child: Text(context.l10n.continueAction),

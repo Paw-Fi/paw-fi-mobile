@@ -493,8 +493,10 @@ class LoginScreen extends HookConsumerWidget {
                   const SizedBox(height: 24),
 
                   // Sign Up Link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runSpacing: 4,
                     children: [
                       Text(
                         '${context.l10n.newToMoneko} ',
