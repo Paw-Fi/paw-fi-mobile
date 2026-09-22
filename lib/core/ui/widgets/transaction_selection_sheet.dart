@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// Generic selection sheet for picking from a list of items
 /// Shows platform-specific UI (Cupertino for iOS, Material for Android)
@@ -27,6 +28,7 @@ Future<T?> showTransactionSelectionSheet<T>({
   WidgetBuilder? inlineContentBuilder,
 }) async {
   if (Platform.isIOS) {
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.25);
     int selectedIndex = items.indexOf(initial);
     if (selectedIndex < 0) selectedIndex = 0;
 
@@ -48,7 +50,7 @@ Future<T?> showTransactionSelectionSheet<T>({
                     )
                   : Container(
                       key: const ValueKey('selection-content'),
-                      height: 320,
+                      height: isLargeText ? 390 : 320,
                       color:
                           CupertinoColors.systemBackground.resolveFrom(context),
                       child: Column(

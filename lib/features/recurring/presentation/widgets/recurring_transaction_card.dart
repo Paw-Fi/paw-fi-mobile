@@ -211,8 +211,10 @@ class RecurringTransactionCard extends StatelessWidget {
                           children: [
                             Text(
                               hasDescription ? description : localizedCategory,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: isLargeText ? 3 : 1,
+                              overflow: isLargeText
+                                  ? TextOverflow.visible
+                                  : TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -241,6 +243,10 @@ class RecurringTransactionCard extends StatelessWidget {
                                   child: Text(
                                     getLocalizedFrequencyText(
                                         context, transaction),
+                                    maxLines: isLargeText ? 2 : 1,
+                                    overflow: isLargeText
+                                        ? TextOverflow.visible
+                                        : TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: colorScheme.mutedForeground,
                                       fontSize: 10,

@@ -943,9 +943,15 @@ class IosWalletCapturePage extends HookConsumerWidget {
                             ),
                           ],
                           const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: 52,
+                              maxHeight:
+                                  MediaQuery.textScalerOf(context).scale(16) >
+                                          20
+                                      ? double.infinity
+                                      : 52,
+                            ),
                             child: PrimaryAdaptiveButton(
                               onPressed: showSetupSheet,
                               child: Text(

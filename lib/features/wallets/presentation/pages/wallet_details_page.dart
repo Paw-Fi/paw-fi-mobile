@@ -9,6 +9,7 @@ import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/financial_period.dart';
@@ -56,6 +57,7 @@ class WalletDetailsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final scrollController = useScrollController();
     final actions = ref.watch(walletActionsProvider);
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
@@ -1061,7 +1063,11 @@ class WalletDetailsPage extends HookConsumerWidget {
                             const SizedBox(height: 12),
                             Text(
                               latestWallet.name,
-                              maxLines: 1,
+                              maxLines:
+                                  MediaQuery.textScalerOf(context).scale(16) >
+                                          20
+                                      ? 2
+                                      : 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 18,
@@ -1126,7 +1132,10 @@ class WalletDetailsPage extends HookConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
+                        Flex(
+                          direction:
+                              isLargeText ? Axis.vertical : Axis.horizontal,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               context.l10n.keyInsights,
@@ -1136,7 +1145,8 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 color: colorScheme.onSurface,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            if (isLargeText) const SizedBox(height: 4),
+                            if (!isLargeText) const SizedBox(width: 8),
                             Text(
                               '(${context.l10n.thisMonth.toLowerCase()})',
                               style: TextStyle(
@@ -1883,7 +1893,11 @@ class _GoalProgressHeader extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          Flex(
+            direction: MonekoTextScale.isAtLeast(context, 1.5)
+                ? Axis.vertical
+                : Axis.horizontal,
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
@@ -1915,6 +1929,8 @@ class _GoalProgressHeader extends StatelessWidget {
                   ),
                 ],
               ),
+              if (MonekoTextScale.isAtLeast(context, 1.5))
+                const SizedBox(height: 4),
               Text(
                 '$percentage%',
                 style: TextStyle(
@@ -2058,7 +2074,7 @@ class _StatCard extends StatelessWidget {
         children: [
           Text(
             label,
-            maxLines: 1,
+            maxLines: MediaQuery.textScalerOf(context).scale(16) > 20 ? 2 : 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,

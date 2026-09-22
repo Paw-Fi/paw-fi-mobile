@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// A segmented tab view that keeps styling consistent across platforms.
 class MonekoTabBarView extends StatefulWidget {
@@ -47,21 +48,25 @@ class MonekoSegmentedControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = _resolveColorScheme(context);
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     if (PlatformInfo.isIOS) {
-      return _buildCupertinoSegmentedControl(colorScheme);
+      return _buildCupertinoSegmentedControl(colorScheme, isLargeText);
     }
 
-    return _buildAndroidSegmentedControl(colorScheme);
+    return _buildAndroidSegmentedControl(colorScheme, isLargeText);
   }
 
   ColorScheme _resolveColorScheme(BuildContext context) {
     return Theme.of(context).colorScheme;
   }
 
-  Widget _buildCupertinoSegmentedControl(ColorScheme colorScheme) {
+  Widget _buildCupertinoSegmentedControl(
+    ColorScheme colorScheme,
+    bool isLargeText,
+  ) {
     return SizedBox(
-      height: height,
+      height: isLargeText ? height + 8 : height,
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (_segmentCount == 0) {
@@ -83,6 +88,7 @@ class MonekoSegmentedControl extends StatelessWidget {
                       colorScheme,
                       i,
                       isSelected: i == selectedIndex,
+                      isLargeText: isLargeText,
                     ),
                   ),
                 ),
@@ -97,9 +103,12 @@ class MonekoSegmentedControl extends StatelessWidget {
     );
   }
 
-  Widget _buildAndroidSegmentedControl(ColorScheme colorScheme) {
+  Widget _buildAndroidSegmentedControl(
+    ColorScheme colorScheme,
+    bool isLargeText,
+  ) {
     return SizedBox(
-      height: height,
+      height: isLargeText ? height + 8 : height,
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (_segmentCount == 0) {
@@ -143,6 +152,7 @@ class MonekoSegmentedControl extends StatelessWidget {
                               colorScheme,
                               i,
                               isSelected: i == selectedIndex,
+                              isLargeText: isLargeText,
                             ),
                           ),
                         ),
@@ -161,6 +171,7 @@ class MonekoSegmentedControl extends StatelessWidget {
     ColorScheme colorScheme,
     int index, {
     required bool isSelected,
+    required bool isLargeText,
   }) {
     final color = isSelected
         ? colorScheme.tabSelectedForeground
@@ -176,20 +187,32 @@ class MonekoSegmentedControl extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          labels[index],
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-      ),
+      child: isLargeText
+          ? Text(
+              labels[index],
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            )
+          : FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                labels[index],
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
     );
   }
 }

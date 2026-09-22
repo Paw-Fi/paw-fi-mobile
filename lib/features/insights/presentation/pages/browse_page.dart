@@ -12,6 +12,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -298,6 +299,7 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final query = _query.trim().toLowerCase();
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final canUsePlusFeatures = !subscriptionAsync.hasValue ||
@@ -436,6 +438,19 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, rowIndex) {
+                        if (isLargeText) {
+                          final tool = entry.value[rowIndex];
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom:
+                                  rowIndex == entry.value.length - 1 ? 0 : 12,
+                            ),
+                            child: _BrowseToolCard(
+                              tool: tool,
+                              onTap: () => _openTool(tool),
+                            ),
+                          );
+                        }
                         final leftIndex = rowIndex * 2;
                         final leftTool = entry.value[leftIndex];
                         final rightTool = leftIndex + 1 < entry.value.length
@@ -471,7 +486,9 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
                           ),
                         );
                       },
-                      childCount: (entry.value.length + 1) ~/ 2,
+                      childCount: isLargeText
+                          ? entry.value.length
+                          : (entry.value.length + 1) ~/ 2,
                     ),
                   ),
                 ),

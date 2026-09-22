@@ -9,6 +9,7 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
@@ -289,7 +290,8 @@ class ExpiredSubscriptionBannerGate extends HookConsumerWidget {
       productsAsync: productsAsync,
       iapStateAsync: iapStateAsync,
     );
-    final yearlyPlan = plans.where((p) => p.billingInterval == 'yearly').firstOrNull;
+    final yearlyPlan =
+        plans.where((p) => p.billingInterval == 'yearly').firstOrNull;
     final monthlyPrice = yearlyPlan?.priceDisplay;
 
     return Padding(
@@ -330,9 +332,9 @@ class _TrialEndingReminderBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final formattedDate = trialEndsAt != null
-        ? formatLocalizedDate(context, trialEndsAt!)
-        : '';
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+    final formattedDate =
+        trialEndsAt != null ? formatLocalizedDate(context, trialEndsAt!) : '';
     final message = context.l10n.trialActiveUntilDate(formattedDate);
 
     return Container(
@@ -349,8 +351,9 @@ class _TrialEndingReminderBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? null : 2,
+              overflow:
+                  isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
               style: TextStyle(
                 color: colorScheme.info,
                 fontSize: 14,
@@ -369,8 +372,9 @@ class _TrialEndingReminderBanner extends StatelessWidget {
             ),
             child: Text(
               context.l10n.viewPlans,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? 2 : 1,
+              overflow:
+                  isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
             ),
           ),
           IconButton(
@@ -403,6 +407,7 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return Container(
       width: double.infinity,
@@ -418,8 +423,9 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
           Expanded(
             child: Text(
               context.l10n.expiredPlusBannerMessage(monthlyPrice ?? '…'),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? null : 2,
+              overflow:
+                  isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
               style: TextStyle(
                 color: colorScheme.warning,
                 fontSize: 13,
@@ -439,8 +445,9 @@ class _ExpiredSubscriptionBanner extends StatelessWidget {
             ),
             child: Text(
               context.l10n.viewPlans,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? 2 : 1,
+              overflow:
+                  isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
             ),
           ),
           IconButton(

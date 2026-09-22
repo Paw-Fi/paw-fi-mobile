@@ -148,7 +148,8 @@ class _PendingReview extends ConsumerWidget {
                   for (var i = 0; i < review.items.length; i++) ...[
                     if (i > 0)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 40, horizontal: 24),
                         child: Divider(
                           height: 1,
                           thickness: 1,
@@ -156,7 +157,7 @@ class _PendingReview extends ConsumerWidget {
                         ),
                       ),
                     _ReviewItemSection(
-                      item: review.items[i], 
+                      item: review.items[i],
                       index: i,
                       total: review.items.length,
                     ),
@@ -174,7 +175,8 @@ class _PendingReview extends ConsumerWidget {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.error_outline_rounded, color: scheme.errorAccent),
+                            Icon(Icons.error_outline_rounded,
+                                color: scheme.errorAccent),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -223,7 +225,8 @@ class _ReviewItemSection extends ConsumerWidget {
   final int index;
   final int total;
 
-  const _ReviewItemSection({required this.item, required this.index, required this.total});
+  const _ReviewItemSection(
+      {required this.item, required this.index, required this.total});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -237,7 +240,8 @@ class _ReviewItemSection extends ConsumerWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: scheme.surfaceBorder,
                   borderRadius: BorderRadius.circular(20),
@@ -331,7 +335,9 @@ class _ReviewItemSection extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isDeclined ? 'Skipping transaction' : 'Skip this transaction',
+                          isDeclined
+                              ? 'Skipping transaction'
+                              : 'Skip this transaction',
                           style: TextStyle(
                             color: isDeclined
                                 ? scheme.destructive
@@ -342,7 +348,9 @@ class _ReviewItemSection extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          isDeclined ? 'This will not be imported' : 'Exclude this from the import',
+                          isDeclined
+                              ? 'This will not be imported'
+                              : 'Exclude this from the import',
                           style: TextStyle(
                             color: isDeclined
                                 ? scheme.destructive.withValues(alpha: 0.8)
@@ -429,9 +437,8 @@ class _IssueSection extends ConsumerWidget {
                     if (isDeclined) {
                       ref.read(_declineProvider(itemId).notifier).state = false;
                     }
-                    ref
-                        .read(_selectionProvider(selectionKey).notifier)
-                        .state = [choice.id];
+                    ref.read(_selectionProvider(selectionKey).notifier).state =
+                        [choice.id];
                   },
                 );
               }).toList(growable: false),
@@ -514,8 +521,11 @@ class _ChoiceRow extends StatelessWidget {
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
                           fontSize: 17,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                          color: isSelected ? scheme.foreground : scheme.mutedForeground,
+                          fontWeight:
+                              isSelected ? FontWeight.w800 : FontWeight.w500,
+                          color: isSelected
+                              ? scheme.foreground
+                              : scheme.mutedForeground,
                           letterSpacing: isSelected ? -0.3 : 0,
                         ),
                         child: Text(choice.label),
@@ -607,9 +617,13 @@ class _BottomActionBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         bottom: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: 56,
+            maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                ? double.infinity
+                : 56,
+          ),
           child: FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
@@ -675,12 +689,11 @@ class _ReviewSkeleton extends StatelessWidget {
               const SizedBox(height: 8),
               const _ShimmerBox(height: 24, width: 200),
               const SizedBox(height: 48),
-              
               const _ShimmerBox(height: 28, width: 140),
               const SizedBox(height: 24),
-              const _ShimmerBox(height: 100, width: double.infinity, borderRadius: 20),
+              const _ShimmerBox(
+                  height: 100, width: double.infinity, borderRadius: 20),
               const SizedBox(height: 40),
-              
               Row(
                 children: [
                   const _ShimmerBox(height: 32, width: 32, borderRadius: 16),
@@ -689,9 +702,11 @@ class _ReviewSkeleton extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              const _ShimmerBox(height: 80, width: double.infinity, borderRadius: 16),
+              const _ShimmerBox(
+                  height: 80, width: double.infinity, borderRadius: 16),
               const SizedBox(height: 12),
-              const _ShimmerBox(height: 80, width: double.infinity, borderRadius: 16),
+              const _ShimmerBox(
+                  height: 80, width: double.infinity, borderRadius: 16),
             ]),
           ),
         ),
@@ -705,7 +720,7 @@ class _ShimmerBox extends StatefulWidget {
   final double width;
   final double borderRadius;
   const _ShimmerBox({
-    required this.height, 
+    required this.height,
     required this.width,
     this.borderRadius = 8,
   });
@@ -714,7 +729,8 @@ class _ShimmerBox extends StatefulWidget {
   State<_ShimmerBox> createState() => _ShimmerBoxState();
 }
 
-class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderStateMixin {
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -767,7 +783,7 @@ class _MessageView extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final displayColor = color ?? scheme.mutedForeground;
-    
+
     return Scaffold(
       backgroundColor: scheme.appBackground,
       appBar: AppBar(
@@ -811,9 +827,13 @@ class _MessageView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 48),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 56,
+                  maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                      ? double.infinity
+                      : 56,
+                ),
                 child: FilledButton(
                   onPressed: () => _closeImportReview(context),
                   style: FilledButton.styleFrom(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
@@ -26,6 +27,7 @@ class UnifiedPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -65,9 +67,9 @@ class UnifiedPlanCard extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                constraints: const BoxConstraints.tightFor(
+                constraints: BoxConstraints.tightFor(
                   width: 188,
-                  height: 130,
+                  height: isLargeText ? 170 : 130,
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(

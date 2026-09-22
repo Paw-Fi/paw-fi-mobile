@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/moneko_text_scaling.dart';
 
 class DestructiveAdaptiveButton extends StatelessWidget {
   const DestructiveAdaptiveButton({
@@ -19,6 +20,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return SizedBox(
       width: isExpanded ? double.infinity : null,
@@ -42,8 +44,8 @@ class DestructiveAdaptiveButton extends StatelessWidget {
               )
             : DefaultTextStyle.merge(
                 textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: isLargeText ? 3 : 1,
+                overflow: isLargeText ? null : TextOverflow.ellipsis,
                 style: TextStyle(
                   color: scheme.destructive,
                   fontSize: 16,

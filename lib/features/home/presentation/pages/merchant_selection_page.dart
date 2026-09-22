@@ -459,7 +459,12 @@ class _MerchantSelectionHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      height: 56,
+      constraints: BoxConstraints(
+        minHeight: 56,
+        maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+            ? double.infinity
+            : 56,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
@@ -910,7 +915,6 @@ class _MerchantEmptyState extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            
           ],
         ),
       ),

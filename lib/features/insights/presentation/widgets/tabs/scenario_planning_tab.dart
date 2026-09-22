@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -180,6 +181,7 @@ class _ScenarioPlanningTabContentState
     final now = DateTime.now();
     final initial = _scenarioDate ?? now;
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.25);
 
     final platform = Theme.of(context).platform;
     final useCupertino = platform == TargetPlatform.iOS;
@@ -194,7 +196,7 @@ class _ScenarioPlanningTabContentState
           return Material(
             color: colorScheme.surface.withValues(alpha: 0.0),
             child: Container(
-              height: 320,
+              height: isLargeText ? 390 : 320,
               color: bg,
               child: SafeArea(
                 top: false,
@@ -511,8 +513,8 @@ class _ScenarioPlanningTabContentState
                                 ? null
                                 : () async {
                                     if (!preview.isActive) {
-                                      final hasAccess = await
-                                          PlusLockedSheet.ensureAccess(
+                                      final hasAccess =
+                                          await PlusLockedSheet.ensureAccess(
                                         context,
                                         ref,
                                         feature: PlusFeature.aiScenarios,
@@ -999,8 +1001,8 @@ class _ScenarioPlanningTabContentState
                               child: InkWell(
                                 onTap: () async {
                                   if (!preview.isActive) {
-                                    final hasAccess = await
-                                        PlusLockedSheet.ensureAccess(
+                                    final hasAccess =
+                                        await PlusLockedSheet.ensureAccess(
                                       context,
                                       ref,
                                       feature: PlusFeature.aiScenarios,

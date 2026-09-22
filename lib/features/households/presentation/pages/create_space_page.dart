@@ -273,8 +273,13 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 56, // Slightly taller button
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: 56,
+            maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                ? double.infinity
+                : 56,
+          ),
           child: PrimaryAdaptiveButton(
             onPressed: isLoading ? null : _handleCreation,
             child: isLoading

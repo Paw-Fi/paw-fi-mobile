@@ -707,7 +707,10 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                     if (!isAutoAdvanceStep)
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: MediaQuery.textScalerOf(context).scale(16) > 20
+                            ? null
+                            : 52,
+                        constraints: const BoxConstraints(minHeight: 52),
                         child: PrimaryAdaptiveButton(
                           onPressed: _canContinuePreAuth(
                             currentPage: currentPage.value,

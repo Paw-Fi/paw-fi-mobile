@@ -171,7 +171,7 @@ class PocketsHeaderCard extends StatelessWidget {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [                   
+                  children: [
                     Text(
                       monthLabel,
                       style: TextStyle(
@@ -185,7 +185,8 @@ class PocketsHeaderCard extends StatelessWidget {
                     Icon(
                       CupertinoIcons.chevron_down,
                       size: 11,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                   ],
                 ),
@@ -213,8 +214,14 @@ class PocketsHeaderCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Flexible(
-                        child: SizedBox(
-                          height: 52,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: 52,
+                            maxHeight:
+                                MediaQuery.textScalerOf(context).scale(16) > 20
+                                    ? double.infinity
+                                    : 52,
+                          ),
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 240),
                             switchInCurve: Curves.easeOutCubic,
@@ -251,11 +258,10 @@ class PocketsHeaderCard extends StatelessWidget {
                       if (!showCurrencyBreakdown && onTotalChanged != null) ...[
                         const SizedBox(width: 8),
                         Icon(
-                            CupertinoIcons.pencil,
-                            size: 14,
-                            color: subTextColor,
-                          ),
-                        
+                          CupertinoIcons.pencil,
+                          size: 14,
+                          color: subTextColor,
+                        ),
                       ],
                     ],
                   ),
@@ -346,8 +352,8 @@ class PocketsHeaderCard extends StatelessWidget {
                                 nativeBudgets[index].key,
                               ),
                               colorScheme: colorScheme,
-                              isSaving: savingCurrency ==
-                                  nativeBudgets[index].key,
+                              isSaving:
+                                  savingCurrency == nativeBudgets[index].key,
                               onTap: onCurrencyBudgetChanged == null ||
                                       savingCurrency != null
                                   ? null
@@ -355,8 +361,7 @@ class PocketsHeaderCard extends StatelessWidget {
                                         context,
                                         currentAmount:
                                             nativeBudgets[index].value,
-                                        currencyCode:
-                                            nativeBudgets[index].key,
+                                        currencyCode: nativeBudgets[index].key,
                                         onChanged: (value) =>
                                             onCurrencyBudgetChanged!(
                                           nativeBudgets[index].key,
@@ -643,7 +648,8 @@ class _CurrencyBudgetRow extends StatelessWidget {
                           CupertinoIcons.chevron_forward,
                           key: const ValueKey('chevron'),
                           size: 13,
-                          color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.6),
                         ),
                 ),
               ],
@@ -671,4 +677,3 @@ String _formatFinancialCycleLabel(
   return '${formatLocalizedDate(context, period.start, includeYear: includeStartYear)} - '
       '${formatLocalizedDate(context, period.end, includeYear: includeEndYear)}';
 }
-

@@ -7,6 +7,7 @@ import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/models/bank_account.dart';
@@ -656,32 +657,67 @@ class _AccountRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+
+    Widget buildAccountRow(BankAccount account) {
+      final meta = _accountMeta(account);
+      final name = Expanded(
+        child: Text(
+          account.displayName,
+          maxLines: isLargeText ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      );
+      if (isLargeText) {
+        final leading = Row(
+          children: [
+            Icon(Icons.credit_card_outlined, size: 18, color: colors.primary),
+            const SizedBox(width: 9),
+            name,
+          ],
+        );
+        if (meta.isEmpty) return leading;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            leading,
+            Padding(
+              padding: const EdgeInsets.only(left: 27, top: 3),
+              child: Text(
+                meta,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colors.mutedForeground,
+                    ),
+              ),
+            ),
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Icon(Icons.credit_card_outlined, size: 18, color: colors.primary),
+          const SizedBox(width: 9),
+          name,
+          if (meta.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(
+              meta,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.mutedForeground,
+                  ),
+            ),
+          ],
+        ],
+      );
+    }
+
     return Column(
       children: [
         for (var index = 0; index < accounts.length; index++) ...[
-          Row(
-            children: [
-              Icon(Icons.credit_card_outlined, size: 18, color: colors.primary),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  accounts[index].displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-              if (_accountMeta(accounts[index]).isNotEmpty)
-                Text(
-                  _accountMeta(accounts[index]),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.mutedForeground,
-                      ),
-                ),
-            ],
-          ),
+          buildAccountRow(accounts[index]),
           if (index != accounts.length - 1) const SizedBox(height: 9),
         ],
       ],

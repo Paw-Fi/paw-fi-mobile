@@ -198,7 +198,10 @@ class _TransactionExportOptionsSheetState
                                 _format == TransactionExportFormat.excel
                                     ? 0
                                     : 1,
-                            height: 52,
+                            height:
+                                MediaQuery.textScalerOf(context).scale(16) > 20
+                                    ? 64
+                                    : 52,
                             onValueChanged: (index) {
                               setState(() {
                                 _format = index == 0

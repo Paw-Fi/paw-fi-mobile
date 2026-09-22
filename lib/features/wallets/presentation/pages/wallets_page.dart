@@ -14,6 +14,7 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/subscription/plan_access.dart'
     show hasPremiumFeatureAccess;
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -805,6 +806,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final symbol = resolveCurrencySymbol(currencyCode);
     final monthLabel =
         MaterialLocalizations.of(context).formatMonthYear(monthStart);
@@ -836,6 +838,32 @@ class _WalletsOverviewCard extends HookConsumerWidget {
     final highlightX =
         (timeAscendingMonthsSize - 1 - targetMonthIndex).toDouble();
 
+    Widget buildMetric(String label, double value) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: colorScheme.mutedForeground,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _AnimatedNumberText(
+            value: value,
+            symbol: symbol,
+            style: TextStyle(
+              color: colorScheme.foreground,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -859,21 +887,22 @@ class _WalletsOverviewCard extends HookConsumerWidget {
         mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Flex(
+            direction: isLargeText ? Axis.vertical : Axis.horizontal,
+            crossAxisAlignment: isLargeText
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    context.l10n.totalNetWorth,
-                    style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+              Text(
+                context.l10n.totalNetWorth,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+              if (isLargeText) const SizedBox(height: 8),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Container(
@@ -935,60 +964,37 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        isLargeText
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Text(
+                                  buildMetric(
                                     context.l10n.totalIncome,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    snapshot.totalIncome,
                                   ),
-                                  const SizedBox(height: 4),
-                                  _AnimatedNumberText(
-                                    value: snapshot.totalIncome,
-                                    symbol: symbol,
-                                    style: TextStyle(
-                                      color: colorScheme.foreground,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
+                                  const SizedBox(height: 12),
+                                  buildMetric(
                                     context.l10n.totalSpent,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                    snapshot.totalSpent,
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: buildMetric(
+                                      context.l10n.totalIncome,
+                                      snapshot.totalIncome,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  _AnimatedNumberText(
-                                    value: snapshot.totalSpent,
-                                    symbol: symbol,
-                                    style: TextStyle(
-                                      color: colorScheme.foreground,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
+                                  Expanded(
+                                    child: buildMetric(
+                                      context.l10n.totalSpent,
+                                      snapshot.totalSpent,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
             ),

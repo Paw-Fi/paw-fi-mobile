@@ -7,6 +7,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -298,7 +299,13 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                             children: [
                                               Text(
                                                 title,
-                                                maxLines: 1,
+                                                maxLines:
+                                                    MonekoTextScale.isAtLeast(
+                                                  context,
+                                                  1.5,
+                                                )
+                                                        ? 2
+                                                        : 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
                                                   fontSize: 17,

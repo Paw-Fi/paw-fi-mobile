@@ -8,6 +8,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -811,9 +812,12 @@ void showScenarioResultSheet(
 
 Widget _buildStatRow(
     BuildContext context, ColorScheme colorScheme, String label, String value) {
+  final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 6.0),
-    child: Row(
+    child: Flex(
+      direction: isLargeText ? Axis.vertical : Axis.horizontal,
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
@@ -823,6 +827,7 @@ Widget _buildStatRow(
             color: colorScheme.mutedForeground,
           ),
         ),
+        if (isLargeText) const SizedBox(height: 3),
         Text(
           value,
           style: TextStyle(

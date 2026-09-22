@@ -10,6 +10,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -3903,6 +3904,7 @@ class _MonthlyReportDetailShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
@@ -3955,7 +3957,7 @@ class _MonthlyReportDetailShell extends StatelessWidget {
                         color: colorScheme.foreground,
                         height: 1.1,
                       ),
-                      maxLines: 1,
+                      maxLines: isLargeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

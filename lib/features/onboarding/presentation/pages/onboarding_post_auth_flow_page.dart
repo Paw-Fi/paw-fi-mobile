@@ -452,7 +452,10 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: MediaQuery.textScalerOf(context).scale(16) > 20
+                          ? null
+                          : 52,
+                      constraints: const BoxConstraints(minHeight: 52),
                       child: PrimaryAdaptiveButton(
                         onPressed: isPrimaryBusy.value
                             ? null
@@ -770,7 +773,10 @@ Future<void> _showLoggedExpenseResultSheet(
                 delay: const Duration(milliseconds: 250),
                 child: SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: MediaQuery.textScalerOf(context).scale(16) > 20
+                      ? null
+                      : 52,
+                  constraints: const BoxConstraints(minHeight: 52),
                   child: PrimaryAdaptiveButton(
                     onPressed: () => Navigator.of(sheetContext).pop(),
                     child: Text(l10n.looksGood),

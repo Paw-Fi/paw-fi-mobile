@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
@@ -906,27 +907,30 @@ class _PlanComparisonTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 54),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.sheetElementBackground,
-            border: Border.all(color: colorScheme.border),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            children: [
-              _PlanComparisonHeader(content: content),
-              for (var index = 0; index < content.rows.length; index++)
-                _PlanComparisonRow(
-                  data: content.rows[index],
-                  highlightedColumn: content.highlightedColumn,
-                  isLast: index == content.rows.length - 1,
-                  isHighlighted: index == content.highlightedRowIndex,
-                ),
-            ],
+    return MonekoTextScale(
+      mode: MonekoTextScaling.compact,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 54),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: colorScheme.sheetElementBackground,
+              border: Border.all(color: colorScheme.border),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              children: [
+                _PlanComparisonHeader(content: content),
+                for (var index = 0; index < content.rows.length; index++)
+                  _PlanComparisonRow(
+                    data: content.rows[index],
+                    highlightedColumn: content.highlightedColumn,
+                    isLast: index == content.rows.length - 1,
+                    isHighlighted: index == content.highlightedRowIndex,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

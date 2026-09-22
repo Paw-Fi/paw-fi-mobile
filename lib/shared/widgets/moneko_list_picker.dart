@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// Platform-adaptive list picker that shows a Cupertino picker on iOS
 /// and a Material bottom sheet list elsewhere.
@@ -20,6 +21,7 @@ class MonekoListPicker {
     if (items.isEmpty) return null;
 
     if (PlatformInfo.isIOS) {
+      final isLargeText = MonekoTextScale.isAtLeast(context, 1.25);
       int selectedIndex = items.indexOf(initial);
       if (selectedIndex < 0) selectedIndex = 0;
 
@@ -28,7 +30,7 @@ class MonekoListPicker {
         builder: (ctx) {
           T tempValue = items[selectedIndex];
           return Container(
-            height: 340,
+            height: isLargeText ? 400 : 340,
             color: CupertinoColors.systemBackground.resolveFrom(ctx),
             child: Column(
               children: [
@@ -53,9 +55,16 @@ class MonekoListPicker {
                             CupertinoLocalizations.of(ctx).cancelButtonLabel),
                       ),
                       if (title != null)
-                        Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        Flexible(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,

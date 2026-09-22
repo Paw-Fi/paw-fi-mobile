@@ -15,6 +15,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// Zoom drawer content focused on budgeting context:
 /// - Currency selector
@@ -142,6 +143,7 @@ class _HouseholdSection extends ConsumerWidget {
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedState = ref.watch(selectedHouseholdProvider);
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return householdsAsync.when(
       loading: () => const AsyncDataSkeleton(
@@ -265,8 +267,10 @@ class _HouseholdSection extends ConsumerWidget {
                                           : FontWeight.w500,
                                       color: colorScheme.foreground,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: isLargeText ? 3 : 1,
+                                    overflow: isLargeText
+                                        ? TextOverflow.visible
+                                        : TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
@@ -317,6 +321,7 @@ class _ProfileHeader extends ConsumerWidget {
     final profileFullName = user.uid.isEmpty
         ? null
         : ref.watch(userProfileProvider(user.uid)).valueOrNull?.fullName;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     return Row(
       children: [
         SizedBox(
@@ -375,8 +380,9 @@ class _ProfileHeader extends ConsumerWidget {
                   color: colorScheme.foreground,
                   letterSpacing: -0.5,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: isLargeText ? 3 : 1,
+                overflow:
+                    isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
               ),
               Text(
                 user.email,
@@ -384,8 +390,9 @@ class _ProfileHeader extends ConsumerWidget {
                   fontSize: 14,
                   color: colorScheme.mutedForeground,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: isLargeText ? 3 : 1,
+                overflow:
+                    isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
               ),
             ],
           ),

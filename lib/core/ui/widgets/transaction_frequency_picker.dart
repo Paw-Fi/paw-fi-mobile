@@ -5,6 +5,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 /// Frequency option for recurring transactions
 class FrequencyOption {
@@ -428,9 +429,9 @@ class _CustomRecurrencePicker extends HookWidget {
       },
       child: Text(context.l10n.done),
     );
-    final usesLargeTextLayout = MediaQuery.textScalerOf(context).scale(16) > 20;
+    final usesLargeTextLayout = MonekoTextScale.isAtLeast(context, 1.25);
     return Container(
-      height: 340,
+      height: usesLargeTextLayout ? 390 : 340,
       decoration: BoxDecoration(
         color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),

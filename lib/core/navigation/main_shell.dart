@@ -1190,6 +1190,7 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return Container(
       width: double.infinity,
@@ -1216,8 +1217,9 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 height: 1.25,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? null : 2,
+              overflow:
+                  isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1263,6 +1265,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final title = Text(
       context.l10n.previewModeTitle,
       style: TextStyle(
@@ -1350,8 +1353,10 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                       fontWeight: FontWeight.w500,
                       color: colorScheme.foreground,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: isLargeText ? 3 : 1,
+                    overflow: isLargeText
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
                   ),
                 ),
                 GestureDetector(

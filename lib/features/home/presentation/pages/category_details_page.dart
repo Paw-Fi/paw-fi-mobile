@@ -874,7 +874,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     ];
 
     return SizedBox(
-      height: 52,
+      height: MediaQuery.textScalerOf(context).scale(16) > 20 ? 60 : 52,
       child: ListView.separated(
         key: _dateFilterScrollViewKey,
         controller: _dateFilterScrollController,

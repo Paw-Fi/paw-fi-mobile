@@ -83,18 +83,21 @@ class _MonthlyReportHealthRingLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final metric in metrics)
-            _MonthlyReportHealthRingLegendRow(
-              colorScheme: colorScheme,
-              metric: metric,
-            ),
-        ],
+    return MonekoTextScale(
+      mode: MonekoTextScaling.compact,
+      child: _ReportCard(
+        colorScheme: colorScheme,
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final metric in metrics)
+              _MonthlyReportHealthRingLegendRow(
+                colorScheme: colorScheme,
+                metric: metric,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -149,7 +152,8 @@ class _MonthlyReportHealthRingLegendRow extends StatelessWidget {
                     color: colorScheme.foreground,
                     height: 1.12,
                   ),
-                  maxLines: 1,
+                  maxLines:
+                      MediaQuery.textScalerOf(context).scale(16) > 20 ? 2 : 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 5),

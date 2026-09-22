@@ -1154,7 +1154,11 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                         const SizedBox(height: 36),
                         if (isPrimaryActionEnabled)
                           SizedBox(
-                            height: 52,
+                            height:
+                                MediaQuery.textScalerOf(context).scale(16) > 20
+                                    ? null
+                                    : 52,
+                            constraints: const BoxConstraints(minHeight: 52),
                             child: PrimaryAdaptiveButton(
                               onPressed: () => unawaited(onPrimaryActionTap()),
                               child: Text(context.l10n.continueAction),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
@@ -70,6 +71,7 @@ class PocketListTile extends StatelessWidget {
             ),
           )
         : null;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return GestureDetector(
       onTap: onTap,
@@ -132,132 +134,205 @@ class PocketListTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      // Title + progress
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  child: isLargeText
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    pocket.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: titleColor,
-                                    ),
-                                  ),
-                                ),
-                                if (isOverBudget) ...[
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    Icons.priority_high_rounded,
-                                    color: colorScheme.error,
-                                    size: 16,
-                                  ),
-                                ],
-                              ],
+                            _PocketTitleAndProgress(
+                              pocket: pocket,
+                              isOverBudget: isOverBudget,
+                              progress: progress,
+                              rolloverBadgeText: rolloverBadgeText,
+                              titleColor: titleColor,
+                              baseColor: baseColor,
+                              colorScheme: colorScheme,
                             ),
-                            const SizedBox(height: 6),
-                            // Progress Bar
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Container(
-                                height: 4,
-                                width: double.infinity,
-                                color: colorScheme.pocketProgressTrack,
-                                child: FractionallySizedBox(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: progress.clamp(0.0, 1.0),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: getProgressGradient(
-                                          colorScheme,
-                                          baseColor,
-                                          progress,
-                                          isOverBudget,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: _PocketAmounts(
+                                spentDisplay: spentDisplay,
+                                limitDisplay: limitDisplay,
+                                isOverBudget: isOverBudget,
+                                titleColor: titleColor,
+                                subtitleColor: subtitleColor,
+                                colorScheme: colorScheme,
                               ),
                             ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeInOut,
-                              child: rolloverBadgeText == null
-                                  ? const SizedBox.shrink()
-                                  : Padding(
-                                      padding: const EdgeInsets.only(top: 7),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primary
-                                              .withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                          border: Border.all(
-                                            color: colorScheme.primary
-                                                .withValues(alpha: 0.18),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          rolloverBadgeText,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: _PocketTitleAndProgress(
+                                pocket: pocket,
+                                isOverBudget: isOverBudget,
+                                progress: progress,
+                                rolloverBadgeText: rolloverBadgeText,
+                                titleColor: titleColor,
+                                baseColor: baseColor,
+                                colorScheme: colorScheme,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _PocketAmounts(
+                              spentDisplay: spentDisplay,
+                              limitDisplay: limitDisplay,
+                              isOverBudget: isOverBudget,
+                              titleColor: titleColor,
+                              subtitleColor: subtitleColor,
+                              colorScheme: colorScheme,
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Amounts
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            spentDisplay,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color:
-                                  isOverBudget ? colorScheme.error : titleColor,
-                            ),
-                          ),
-                          Text(
-                            '/ $limitDisplay',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: subtitleColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PocketTitleAndProgress extends StatelessWidget {
+  const _PocketTitleAndProgress({
+    required this.pocket,
+    required this.isOverBudget,
+    required this.progress,
+    required this.rolloverBadgeText,
+    required this.titleColor,
+    required this.baseColor,
+    required this.colorScheme,
+  });
+
+  final PocketEnvelope pocket;
+  final bool isOverBudget;
+  final double progress;
+  final String? rolloverBadgeText;
+  final Color titleColor;
+  final Color baseColor;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                pocket.name,
+                maxLines: MonekoTextScale.isAtLeast(context, 1.5) ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: titleColor,
+                ),
+              ),
+            ),
+            if (isOverBudget) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.priority_high_rounded,
+                  color: colorScheme.error, size: 16),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            height: 4,
+            width: double.infinity,
+            color: colorScheme.pocketProgressTrack,
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: progress.clamp(0.0, 1.0),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: getProgressGradient(
+                      colorScheme,
+                      baseColor,
+                      progress,
+                      isOverBudget,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeInOut,
+          child: rolloverBadgeText == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 7),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Text(
+                      rolloverBadgeText!,
+                      maxLines: MonekoTextScale.isAtLeast(context, 1.5) ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PocketAmounts extends StatelessWidget {
+  const _PocketAmounts({
+    required this.spentDisplay,
+    required this.limitDisplay,
+    required this.isOverBudget,
+    required this.titleColor,
+    required this.subtitleColor,
+    required this.colorScheme,
+  });
+
+  final String spentDisplay;
+  final String limitDisplay;
+  final bool isOverBudget;
+  final Color titleColor;
+  final Color subtitleColor;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          spentDisplay,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: isOverBudget ? colorScheme.error : titleColor,
+          ),
+        ),
+        Text('/ $limitDisplay',
+            style: TextStyle(fontSize: 11, color: subtitleColor)),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -126,14 +127,21 @@ class WalletStackCard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
-          style: TextStyle(
-            color:
-                isNegative ? colorScheme.destructive : colorScheme.foreground,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
+              style: TextStyle(
+                color: isNegative
+                    ? colorScheme.destructive
+                    : colorScheme.foreground,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
           ),
         ),
       ],
@@ -295,87 +303,91 @@ class WalletStackCard extends StatelessWidget {
       ],
     );
 
-    return PhysicalShape(
-      clipper: const _OrganicWalletCardClipper(),
-      color: opaqueBackground,
-      elevation: isExpanded ? 8.0 : 4.0,
-      shadowColor: colorScheme.shadow.withValues(alpha: 0.5),
-      child: CustomPaint(
-        foregroundPainter: _OrganicWalletCardBorderPainter(
-          color:colorScheme.walletCardCollapsedBorder,
-          strokeWidth: 0.05,
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 28,
-              left: 20,
-              right: 20,
-              child: AnimatedCrossFade(
-                duration: const Duration(milliseconds: 300),
-                crossFadeState: isExpanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                firstChild: collapsedHeader,
-                secondChild: expandedHeader,
-                alignment: Alignment.topCenter,
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: PhysicalShape(
+        clipper: const _OrganicWalletCardClipper(),
+        color: opaqueBackground,
+        elevation: isExpanded ? 8.0 : 4.0,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.5),
+        child: CustomPaint(
+          foregroundPainter: _OrganicWalletCardBorderPainter(
+            color: colorScheme.walletCardCollapsedBorder,
+            strokeWidth: 0.05,
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 28,
+                left: 20,
+                right: 20,
+                child: AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 300),
+                  crossFadeState: isExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  firstChild: collapsedHeader,
+                  secondChild: expandedHeader,
+                  alignment: Alignment.topCenter,
+                ),
               ),
-            ),
-            Positioned(
-              bottom: 24,
-              left: 20,
-              right: 20,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: isExpanded ? 1.0 : 0.0,
-                child: IgnorePointer(
-                  ignoring: !isExpanded,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (footer != null)
-                        footer!
-                      else if (showGoalProgress) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+              Positioned(
+                bottom: 24,
+                left: 20,
+                right: 20,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: isExpanded ? 1.0 : 0.0,
+                  child: IgnorePointer(
+                    ignoring: !isExpanded,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (footer != null)
+                          footer!
+                        else if (showGoalProgress) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            Text(
-                              '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                              Text(
+                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            minHeight: 6,
-                            value: progress,
-                            backgroundColor: baseColor.withValues(alpha: 0.15),
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(baseColor),
+                            ],
                           ),
-                        ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: LinearProgressIndicator(
+                              minHeight: 6,
+                              value: progress,
+                              backgroundColor:
+                                  baseColor.withValues(alpha: 0.15),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(baseColor),
+                            ),
+                          ),
+                        ],
+                        if (footer == null) const SizedBox(height: 24),
                       ],
-                      if (footer == null) const SizedBox(height: 24),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -207,6 +207,7 @@ class TransactionListTile extends StatelessWidget {
           chips.add(TransactionCurrencyFlagBadge(currencyCode: currency));
         }
 
+        final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
         Widget? subtitleNode;
         if (subtitleWidget != null) {
           subtitleNode = Row(
@@ -232,8 +233,10 @@ class TransactionListTile extends StatelessWidget {
                   Flexible(
                     child: Text(
                       base,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: isLargeText ? 3 : 1,
+                      overflow: isLargeText
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
                         color: colorScheme.mutedForeground,
@@ -250,8 +253,9 @@ class TransactionListTile extends StatelessWidget {
             } else {
               subtitleNode = Text(
                 base,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: isLargeText ? 3 : 1,
+                overflow:
+                    isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.mutedForeground,
@@ -262,8 +266,9 @@ class TransactionListTile extends StatelessWidget {
         } else if (subtitle != null) {
           subtitleNode = Text(
             subtitle!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: isLargeText ? 3 : 1,
+            overflow:
+                isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
               color: colorScheme.mutedForeground,
@@ -271,7 +276,6 @@ class TransactionListTile extends StatelessWidget {
           );
         }
 
-        final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
         final leading = hasMerchantLogo
             ? ClipOval(
                 child: SizedBox(width: 36, height: 36, child: merchantLogo),
