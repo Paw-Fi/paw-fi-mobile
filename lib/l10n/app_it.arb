@@ -3566,8 +3566,8 @@
   "browse": "Esplora",
   "captureAndIntegrations": "Acquisizione e integrazioni",
   "healthReport": "Salute finanziaria",
-  "recurrenceDaysUnit": "Giorni",
-  "recurrenceWeeksUnit": "Settimane",
-  "recurrenceMonthsUnit": "Mesi",
-  "recurrenceYearsUnit": "Anni"
+  "recurrenceDaysUnit": "{count, plural, =1{giorno} other{giorni}}",
+  "recurrenceWeeksUnit": "{count, plural, =1{settimana} other{settimane}}",
+  "recurrenceMonthsUnit": "{count, plural, =1{mese} other{mesi}}",
+  "recurrenceYearsUnit": "{count, plural, =1{anno} other{anni}}"
 }

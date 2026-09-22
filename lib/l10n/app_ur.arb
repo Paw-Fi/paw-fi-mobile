@@ -3565,8 +3565,8 @@
   "browse": "دریافت کریں",
   "captureAndIntegrations": "اندراج اور انٹیگریشنز",
   "healthReport": "مالی صحت",
-  "recurrenceDaysUnit": "دن",
-  "recurrenceWeeksUnit": "ہفتے",
-  "recurrenceMonthsUnit": "مہینے",
-  "recurrenceYearsUnit": "سال"
+  "recurrenceDaysUnit": "{count, plural, other{دن}}",
+  "recurrenceWeeksUnit": "{count, plural, other{ہفتے}}",
+  "recurrenceMonthsUnit": "{count, plural, other{مہینے}}",
+  "recurrenceYearsUnit": "{count, plural, other{سال}}"
 }

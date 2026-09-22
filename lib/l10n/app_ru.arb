@@ -3569,8 +3569,8 @@
   "browse": "Обзор",
   "captureAndIntegrations": "Ввод и интеграции",
   "healthReport": "Финансовое здоровье",
-  "recurrenceDaysUnit": "Дни",
-  "recurrenceWeeksUnit": "Недели",
-  "recurrenceMonthsUnit": "Месяцы",
-  "recurrenceYearsUnit": "Годы"
+  "recurrenceDaysUnit": "{count, plural, other{дни}}",
+  "recurrenceWeeksUnit": "{count, plural, other{недели}}",
+  "recurrenceMonthsUnit": "{count, plural, other{месяцы}}",
+  "recurrenceYearsUnit": "{count, plural, other{годы}}"
 }

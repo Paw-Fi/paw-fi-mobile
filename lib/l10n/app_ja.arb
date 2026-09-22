@@ -3619,8 +3619,8 @@
   "browse": "探す",
   "captureAndIntegrations": "記録と連携",
   "healthReport": "家計診断",
-  "recurrenceDaysUnit": "日",
-  "recurrenceWeeksUnit": "週間",
-  "recurrenceMonthsUnit": "か月",
-  "recurrenceYearsUnit": "年"
+  "recurrenceDaysUnit": "{count, plural, other{日}}",
+  "recurrenceWeeksUnit": "{count, plural, other{週間}}",
+  "recurrenceMonthsUnit": "{count, plural, other{か月}}",
+  "recurrenceYearsUnit": "{count, plural, other{年}}"
 }

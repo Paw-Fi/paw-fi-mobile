@@ -36,6 +36,7 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
@@ -734,6 +735,7 @@ class _RecurringTransactionsPageState
     final subtext = isIncome
         ? context.l10n.activePaycheckCount(activeCount)
         : context.l10n.activeBillCount(activeCount);
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     final isDark = colorScheme.brightness == Brightness.dark;
 
@@ -742,90 +744,176 @@ class _RecurringTransactionsPageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.mutedForeground,
-                      letterSpacing: 0.2,
-                    ),
+          if (isLargeText)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                    letterSpacing: 0.2,
                   ),
-                ],
-              ),
-              if (showCurrencyBreakdown)
-                Semantics(
-                  button: true,
-                  label: label,
-                  child: InkWell(
-                    onTap: () => showMultiCurrencyTotalBreakdownSheet(
-                      context: context,
-                      colorScheme: colorScheme,
-                      currencyTypeTotals: currencyTotals,
-                      rates: rateTable,
-                      targetCurrency: currencyCode,
-                      totalSpent: total,
-                      title: label,
-                      allowSingleCurrency: true,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 12,
-                            color: colorScheme.mutedForeground,
+                ),
+                if (showCurrencyBreakdown)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Semantics(
+                      button: true,
+                      label: label,
+                      child: InkWell(
+                        onTap: () => showMultiCurrencyTotalBreakdownSheet(
+                          context: context,
+                          colorScheme: colorScheme,
+                          currencyTypeTotals: currencyTotals,
+                          rates: rateTable,
+                          targetCurrency: currencyCode,
+                          totalSpent: total,
+                          title: label,
+                          allowSingleCurrency: true,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 12,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'CONVERTED',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.mutedForeground,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'CONVERTED',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.mutedForeground,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
+                if (showCurrencyBreakdown)
+                  Semantics(
+                    button: true,
+                    label: label,
+                    child: InkWell(
+                      onTap: () => showMultiCurrencyTotalBreakdownSheet(
+                        context: context,
+                        colorScheme: colorScheme,
+                        currencyTypeTotals: currencyTotals,
+                        rates: rateTable,
+                        targetCurrency: currencyCode,
+                        totalSpent: total,
+                        title: label,
+                        allowSingleCurrency: true,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 12,
+                              color: colorScheme.mutedForeground,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'CONVERTED',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.mutedForeground,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           const SizedBox(height: 12),
-          Row(
-            textBaseline: TextBaseline.alphabetic,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            children: [
-              Text(
-                '$symbol$localizedTotal',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                  letterSpacing: -1,
+          if (isLargeText)
+            Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '$symbol$localizedTotal',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    letterSpacing: -1,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                currencyCode,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.mutedForeground,
+                Text(
+                  currencyCode,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.mutedForeground,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              children: [
+                Text(
+                  '$symbol$localizedTotal',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  currencyCode,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 8),
           Text(
             subtext,

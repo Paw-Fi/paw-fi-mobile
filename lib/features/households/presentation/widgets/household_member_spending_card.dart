@@ -317,7 +317,7 @@ Widget _buildMemberRow(
         children: [
           // Member info row
           Flex(
-            direction: isLargeText ? Axis.vertical : Axis.horizontal,
+            direction: Axis.horizontal,
             children: [
               // Avatar with online indicator style
               Container(
@@ -340,80 +340,145 @@ Widget _buildMemberRow(
                 ),
               ),
               SizedBox(
-                width: isLargeText ? 0 : 14,
-                height: isLargeText ? 8 : 0,
+                width: 14,
+                height: 0,
               ),
 
               // Name and stats
-              Flexible(
-                fit: FlexFit.loose,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            displayName,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                              letterSpacing: -0.3,
-                              height: 1.3,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                        ),
-                        if (isCurrentUser) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color:
-                                  colorScheme.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+              if (isLargeText)
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
                             child: Text(
-                              context.l10n.you,
+                              displayName,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: colorScheme.primary,
-                                letterSpacing: 0.2,
+                                color: colorScheme.foreground,
+                                letterSpacing: -0.3,
+                                height: 1.3,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ),
+                          if (isCurrentUser) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                context.l10n.you,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.primary,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          AnimatedAmountText(
+                            value: member.transactionCount.toDouble(),
+                            symbol: '',
+                            suffix: ' ${context.l10n.transactions}',
+                            decimalDigits: 0,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
+                              letterSpacing: -0.1,
                             ),
                           ),
                         ],
-                        // Nudge button removed here, moved to details page
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        AnimatedAmountText(
-                          value: member.transactionCount.toDouble(),
-                          symbol: '',
-                          suffix: ' ${context.l10n.transactions}',
-                          decimalDigits: 0,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground,
-                            letterSpacing: -0.1,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                                letterSpacing: -0.3,
+                                height: 1.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          if (isCurrentUser) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                context.l10n.you,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.primary,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                          // Nudge button removed here, moved to details page
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          AnimatedAmountText(
+                            value: member.transactionCount.toDouble(),
+                            symbol: '',
+                            suffix: ' ${context.l10n.transactions}',
+                            decimalDigits: 0,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
               SizedBox(
-                width: isLargeText ? 0 : 12,
-                height: isLargeText ? 8 : 0,
+                width: 12,
+                height: 0,
               ),
 
               // Amount with percentage

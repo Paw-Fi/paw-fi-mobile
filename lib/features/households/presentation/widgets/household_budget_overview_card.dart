@@ -81,9 +81,8 @@ Widget buildHouseholdBudgetOverviewCard(
           direction: isLargeText ? Axis.vertical : Axis.horizontal,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              fit: FlexFit.loose,
-              child: Column(
+            if (isLargeText)
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -94,8 +93,23 @@ Widget buildHouseholdBudgetOverviewCard(
                     ),
                   ),
                 ],
+              )
+            else
+              Flexible(
+                fit: FlexFit.loose,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.spentByHousehold,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(width: 4),
             Builder(
               builder: (context) {
@@ -207,9 +221,8 @@ Widget buildHouseholdBudgetOverviewCard(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Spent
-              Flexible(
-                fit: FlexFit.loose,
-                child: Column(
+              if (isLargeText)
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -233,13 +246,40 @@ Widget buildHouseholdBudgetOverviewCard(
                       ),
                     ),
                   ],
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.spent,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      AnimatedAmountText(
+                        value: budgetSpentAmount,
+                        symbol: symbol,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
               // Remaining
-              Flexible(
-                fit: FlexFit.loose,
-                child: Column(
+              if (isLargeText)
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
@@ -267,8 +307,40 @@ Widget buildHouseholdBudgetOverviewCard(
                       ),
                     ),
                   ],
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        budgetRemainingAmount >= 0
+                            ? context.l10n.remaining
+                            : context.l10n.overBudget,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      AnimatedAmountText(
+                        value: budgetRemainingAmount.abs(),
+                        symbol: symbol,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: budgetRemainingAmount >= 0
+                              ? colorScheme.success
+                              : colorScheme.destructive,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ],

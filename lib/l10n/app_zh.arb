@@ -3615,8 +3615,8 @@
   "browse": "探索",
   "captureAndIntegrations": "记录与集成",
   "healthReport": "财务健康",
-  "recurrenceDaysUnit": "天",
-  "recurrenceWeeksUnit": "周",
-  "recurrenceMonthsUnit": "个月",
-  "recurrenceYearsUnit": "年"
+  "recurrenceDaysUnit": "{count, plural, other{天}}",
+  "recurrenceWeeksUnit": "{count, plural, other{周}}",
+  "recurrenceMonthsUnit": "{count, plural, other{个月}}",
+  "recurrenceYearsUnit": "{count, plural, other{年}}"
 }

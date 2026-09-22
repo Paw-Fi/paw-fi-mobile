@@ -3432,8 +3432,8 @@
   "browse": "둘러보기",
   "captureAndIntegrations": "기록 및 연동",
   "healthReport": "재정 건강",
-  "recurrenceDaysUnit": "일",
-  "recurrenceWeeksUnit": "주",
-  "recurrenceMonthsUnit": "개월",
-  "recurrenceYearsUnit": "년"
+  "recurrenceDaysUnit": "{count, plural, other{일}}",
+  "recurrenceWeeksUnit": "{count, plural, other{주}}",
+  "recurrenceMonthsUnit": "{count, plural, other{개월}}",
+  "recurrenceYearsUnit": "{count, plural, other{년}}"
 }

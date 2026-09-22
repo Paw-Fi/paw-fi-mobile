@@ -3618,8 +3618,8 @@
   "browse": "Khám phá",
   "captureAndIntegrations": "Ghi nhận và tích hợp",
   "healthReport": "Sức khỏe tài chính",
-  "recurrenceDaysUnit": "Ngày",
-  "recurrenceWeeksUnit": "Tuần",
-  "recurrenceMonthsUnit": "Tháng",
-  "recurrenceYearsUnit": "Năm"
+  "recurrenceDaysUnit": "{count, plural, other{ngày}}",
+  "recurrenceWeeksUnit": "{count, plural, other{tuần}}",
+  "recurrenceMonthsUnit": "{count, plural, other{tháng}}",
+  "recurrenceYearsUnit": "{count, plural, other{năm}}"
 }

@@ -3619,8 +3619,8 @@
   "browse": "Entdecken",
   "captureAndIntegrations": "Erfassung & Integrationen",
   "healthReport": "Finanzcheck",
-  "recurrenceDaysUnit": "Tage",
-  "recurrenceWeeksUnit": "Wochen",
-  "recurrenceMonthsUnit": "Monate",
-  "recurrenceYearsUnit": "Jahre"
+  "recurrenceDaysUnit": "{count, plural, =1{Tag} other{Tage}}",
+  "recurrenceWeeksUnit": "{count, plural, =1{Woche} other{Wochen}}",
+  "recurrenceMonthsUnit": "{count, plural, =1{Monat} other{Monate}}",
+  "recurrenceYearsUnit": "{count, plural, =1{Jahr} other{Jahre}}"
 }

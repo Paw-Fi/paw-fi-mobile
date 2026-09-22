@@ -3636,8 +3636,8 @@
   "browse": "สำรวจ",
   "captureAndIntegrations": "การบันทึกและการเชื่อมต่อ",
   "healthReport": "สุขภาพการเงิน",
-  "recurrenceDaysUnit": "วัน",
-  "recurrenceWeeksUnit": "สัปดาห์",
-  "recurrenceMonthsUnit": "เดือน",
-  "recurrenceYearsUnit": "ปี"
+  "recurrenceDaysUnit": "{count, plural, other{วัน}}",
+  "recurrenceWeeksUnit": "{count, plural, other{สัปดาห์}}",
+  "recurrenceMonthsUnit": "{count, plural, other{เดือน}}",
+  "recurrenceYearsUnit": "{count, plural, other{ปี}}"
 }

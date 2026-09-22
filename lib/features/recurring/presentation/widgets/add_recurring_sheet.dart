@@ -1815,6 +1815,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     pinned: true,
                     stretch: true,
                     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+                    forceMaterialTransparency: true,
                     elevation: 0,
                     leading: IconButton(
                       icon: Icon(Icons.close, color: colorScheme.onSurface),
@@ -1837,62 +1838,66 @@ class AddRecurringSheet extends HookConsumerWidget {
                         StretchMode.zoomBackground,
                         StretchMode.fadeTitle,
                       ],
-                      background: SafeArea(
-                        child: GestureDetector(
-                          onTap: handleEditAmount,
-                          behavior: HitTestBehavior.opaque,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(height: 20),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                child: Container(
-                                  key: ValueKey(
-                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
-                                  ),
-                                  padding: hasResolvableMerchantLogo
-                                      ? EdgeInsets.zero
-                                      : const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: textColor.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Semantics(
-                                    button: true,
-                                    label: hasResolvableMerchantLogo
-                                        ? context.l10n.merchant
-                                        : context.l10n.category,
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () {
-                                        if (hasResolvableMerchantLogo) {
-                                          handleEditMerchant();
-                                        } else {
-                                          handleEditCategory();
-                                        }
-                                      },
-                                      child: SizedBox(
-                                        width:
-                                            hasResolvableMerchantLogo ? 68 : 36,
-                                        height:
-                                            hasResolvableMerchantLogo ? 68 : 36,
-                                        child: ClipOval(
-                                          child: MerchantLogo(
-                                            merchantId: merchantId,
-                                            domain: merchantDomain,
-                                            logoUrl: merchantLogoUrl,
-                                            merchantStructuredName:
-                                                selectedMerchantStructuredName
-                                                    .value,
-                                            merchantName:
-                                                merchantController.text,
-                                            fallback: Center(
-                                              child: Icon(
-                                                getCategoryIcon(
-                                                    displayCategory),
-                                                size: 36,
-                                                color: textColor,
+                      background: RepaintBoundary(
+                        child: SafeArea(
+                          child: GestureDetector(
+                            onTap: handleEditAmount,
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(height: 20),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Container(
+                                    key: ValueKey(
+                                      '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
+                                    ),
+                                    padding: hasResolvableMerchantLogo
+                                        ? EdgeInsets.zero
+                                        : const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: textColor.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Semantics(
+                                      button: true,
+                                      label: hasResolvableMerchantLogo
+                                          ? context.l10n.merchant
+                                          : context.l10n.category,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          if (hasResolvableMerchantLogo) {
+                                            handleEditMerchant();
+                                          } else {
+                                            handleEditCategory();
+                                          }
+                                        },
+                                        child: SizedBox(
+                                          width: hasResolvableMerchantLogo
+                                              ? 68
+                                              : 36,
+                                          height: hasResolvableMerchantLogo
+                                              ? 68
+                                              : 36,
+                                          child: ClipOval(
+                                            child: MerchantLogo(
+                                              merchantId: merchantId,
+                                              domain: merchantDomain,
+                                              logoUrl: merchantLogoUrl,
+                                              merchantStructuredName:
+                                                  selectedMerchantStructuredName
+                                                      .value,
+                                              merchantName:
+                                                  merchantController.text,
+                                              fallback: Center(
+                                                child: Icon(
+                                                  getCategoryIcon(
+                                                      displayCategory),
+                                                  size: 36,
+                                                  color: textColor,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1901,40 +1906,40 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '${isIncomeMode ? '+' : ''}${resolveCurrencySymbol(selectedCurrency.value)}${amountController.text.trim().isEmpty ? '0.00' : amountController.text.trim()}',
-                                    style: TextStyle(
-                                      fontSize: 48,
-                                      fontWeight: FontWeight.w800,
-                                      color: textColor,
-                                      letterSpacing: -1,
-                                      height: 1.1,
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${isIncomeMode ? '+' : ''}${resolveCurrencySymbol(selectedCurrency.value)}${amountController.text.trim().isEmpty ? '0.00' : amountController.text.trim()}',
+                                      style: TextStyle(
+                                        fontSize: 48,
+                                        fontWeight: FontWeight.w800,
+                                        color: textColor,
+                                        letterSpacing: -1,
+                                        height: 1.1,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.edit_outlined,
-                                    size: 20,
-                                    color: secondaryTextColor,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${formatRecurrenceSelectionLabel(context, frequency: selectedFrequency.value, interval: customInterval.value)}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: secondaryTextColor,
-                                  fontWeight: FontWeight.w500,
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.edit_outlined,
+                                      size: 20,
+                                      color: secondaryTextColor,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${formatRecurrenceSelectionLabel(context, frequency: selectedFrequency.value, interval: customInterval.value)}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: secondaryTextColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

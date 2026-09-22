@@ -3664,8 +3664,8 @@
   "browse": "Browse",
   "captureAndIntegrations": "Capture & integrations",
   "healthReport": "Financial Health",
-  "recurrenceDaysUnit": "Days",
-  "recurrenceWeeksUnit": "Weeks",
-  "recurrenceMonthsUnit": "Months",
-  "recurrenceYearsUnit": "Years"
+  "recurrenceDaysUnit": "{count, plural, =1{day} other{days}}",
+  "recurrenceWeeksUnit": "{count, plural, =1{week} other{weeks}}",
+  "recurrenceMonthsUnit": "{count, plural, =1{month} other{months}}",
+  "recurrenceYearsUnit": "{count, plural, =1{year} other{years}}"
 }

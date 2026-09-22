@@ -70,9 +70,10 @@
   - Where-the-Money-Went rows stack category amounts below names at `1.5x+`.
 - [x] Household cards
   - Financial calendar uses a taller large-text grid ratio and passes the large-text state through both month and week paths.
-  - Member spending, budget overview, and settlement stats/suggestion rows stack at `1.5x+`.
+  - Member spending and budget overview reflow at `1.5x+`; settlement suggestions use a large-text `Column` instead of a nested shrink-wrapped `ListView`, and suggestion rows avoid cross-axis stretch under unbounded sliver height.
 - [x] Recurring dashboard descendants
   - Recurring cards and upcoming recurring banners stack dense metadata/amount/action content at `1.5x+`.
+  - The recurring page summary header reflows its converted-currency action and total/currency pair at `1.5x+`; the default header remains unchanged.
 - [x] Loading/error descendants
   - Dashboard skeleton and error widgets were traced in both lazy-widget files; fixed heights remain only on chart/decorative skeleton geometry and are not used as text containers in the patched paths.
 - [x] Runtime overflow reports incorporated

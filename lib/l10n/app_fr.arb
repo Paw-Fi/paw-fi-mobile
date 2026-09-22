@@ -3619,8 +3619,8 @@
   "browse": "Explorer",
   "captureAndIntegrations": "Saisie et intégrations",
   "healthReport": "Santé financière",
-  "recurrenceDaysUnit": "Jours",
-  "recurrenceWeeksUnit": "Semaines",
-  "recurrenceMonthsUnit": "Mois",
-  "recurrenceYearsUnit": "Ans"
+  "recurrenceDaysUnit": "{count, plural, =1{jour} other{jours}}",
+  "recurrenceWeeksUnit": "{count, plural, =1{semaine} other{semaines}}",
+  "recurrenceMonthsUnit": "{count, plural, other{mois}}",
+  "recurrenceYearsUnit": "{count, plural, =1{an} other{ans}}"
 }

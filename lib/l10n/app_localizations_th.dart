@@ -10237,14 +10237,42 @@ class AppLocalizationsTh extends AppLocalizations {
   String get healthReport => 'สุขภาพการเงิน';
 
   @override
-  String get recurrenceDaysUnit => 'วัน';
+  String recurrenceDaysUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'วัน',
+    );
+    return '$_temp0';
+  }
 
   @override
-  String get recurrenceWeeksUnit => 'สัปดาห์';
+  String recurrenceWeeksUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'สัปดาห์',
+    );
+    return '$_temp0';
+  }
 
   @override
-  String get recurrenceMonthsUnit => 'เดือน';
+  String recurrenceMonthsUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'เดือน',
+    );
+    return '$_temp0';
+  }
 
   @override
-  String get recurrenceYearsUnit => 'ปี';
+  String recurrenceYearsUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ปี',
+    );
+    return '$_temp0';
+  }
 }

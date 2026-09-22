@@ -3611,8 +3611,8 @@
   "browse": "Огляд",
   "captureAndIntegrations": "Введення та інтеграції",
   "healthReport": "Фінансове здоров'я",
-  "recurrenceDaysUnit": "Дні",
-  "recurrenceWeeksUnit": "Тижні",
-  "recurrenceMonthsUnit": "Місяці",
-  "recurrenceYearsUnit": "Роки"
+  "recurrenceDaysUnit": "{count, plural, other{дні}}",
+  "recurrenceWeeksUnit": "{count, plural, other{тижні}}",
+  "recurrenceMonthsUnit": "{count, plural, other{місяці}}",
+  "recurrenceYearsUnit": "{count, plural, other{роки}}"
 }

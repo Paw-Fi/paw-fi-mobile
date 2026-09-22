@@ -3566,8 +3566,8 @@
   "browse": "Ontdekken",
   "captureAndIntegrations": "Vastleggen en integraties",
   "healthReport": "Financiële gezondheid",
-  "recurrenceDaysUnit": "Dagen",
-  "recurrenceWeeksUnit": "Weken",
-  "recurrenceMonthsUnit": "Maanden",
-  "recurrenceYearsUnit": "Jaren"
+  "recurrenceDaysUnit": "{count, plural, =1{dag} other{dagen}}",
+  "recurrenceWeeksUnit": "{count, plural, =1{week} other{weken}}",
+  "recurrenceMonthsUnit": "{count, plural, =1{maand} other{maanden}}",
+  "recurrenceYearsUnit": "{count, plural, =1{jaar} other{jaren}}"
 }

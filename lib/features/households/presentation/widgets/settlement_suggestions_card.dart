@@ -265,6 +265,28 @@ class _SettlementSuggestionsCardState
         final isAllSettled =
             mySuggestions.isEmpty && youOweTotal == 0 && owedToYouTotal == 0;
 
+        Widget buildSuggestionRow(int index) {
+          final suggestion = mySuggestions[index];
+          final isPayer = suggestion.fromUserId == currentUserId;
+          return _SuggestionRow(
+            suggestion: suggestion,
+            isPayer: isPayer,
+            scheme: colorScheme,
+            showCurrencyFlag: hasMultiCurrencySelection,
+            isLargeText: isLargeText,
+            onTap: () => _openSettleUpSheet(
+              context,
+              householdId: widget.householdId,
+              isExpress: true,
+              amountHintCents: suggestion.amountCents,
+              splits: widget.splits,
+              targetUserId:
+                  isPayer ? suggestion.toUserId : suggestion.fromUserId,
+              currency: suggestion.currency,
+            ),
+          );
+        }
+
         return Material(
           color: colorScheme.surface.withValues(alpha: 0.0),
           child: InkWell(
@@ -298,7 +320,7 @@ class _SettlementSuggestionsCardState
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Flex(
-                      direction: isLargeText ? Axis.vertical : Axis.horizontal,
+                      direction: Axis.horizontal,
                       crossAxisAlignment: isLargeText
                           ? CrossAxisAlignment.start
                           : CrossAxisAlignment.center,
@@ -345,9 +367,8 @@ class _SettlementSuggestionsCardState
                             ? CrossAxisAlignment.stretch
                             : CrossAxisAlignment.center,
                         children: [
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: _StatCard(
+                          if (isLargeText)
+                            _StatCard(
                               label: context.l10n.youOwe,
                               amountCents: youOweTotal,
                               color: colorScheme.destructive,
@@ -364,22 +385,52 @@ class _SettlementSuggestionsCardState
                                             currency: selectedCurrency,
                                           )
                                       : null,
+                            )
+                          else
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: _StatCard(
+                                label: context.l10n.youOwe,
+                                amountCents: youOweTotal,
+                                color: colorScheme.destructive,
+                                currency: selectedCurrency,
+                                onTap: youOweTotal > 0 &&
+                                        !hasMultiCurrencySelection
+                                    ? () => _openSettleUpSheet(
+                                          context,
+                                          householdId: widget.householdId,
+                                          isExpress: true,
+                                          amountHintCents: youOweTotal,
+                                          splits: widget.splits,
+                                          targetUserId: null,
+                                          currency: selectedCurrency,
+                                        )
+                                    : null,
+                              ),
                             ),
-                          ),
                           SizedBox(
                             width: isLargeText ? 0 : 12,
                             height: isLargeText ? 8 : 0,
                           ),
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: _StatCard(
+                          if (isLargeText)
+                            _StatCard(
                               label: context.l10n.youAreOwed,
                               amountCents: owedToYouTotal,
                               color: colorScheme.success,
                               currency: selectedCurrency,
                               onTap: null,
+                            )
+                          else
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: _StatCard(
+                                label: context.l10n.youAreOwed,
+                                amountCents: owedToYouTotal,
+                                color: colorScheme.success,
+                                currency: selectedCurrency,
+                                onTap: null,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -407,34 +458,32 @@ class _SettlementSuggestionsCardState
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                        itemCount: mySuggestions.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final s = mySuggestions[index];
-                          final isPayer = s.fromUserId == currentUserId;
-                          return _SuggestionRow(
-                            suggestion: s,
-                            isPayer: isPayer,
-                            scheme: colorScheme,
-                            showCurrencyFlag: hasMultiCurrencySelection,
-                            isLargeText: isLargeText,
-                            onTap: () => _openSettleUpSheet(
-                              context,
-                              householdId: widget.householdId,
-                              isExpress: true,
-                              amountHintCents: s.amountCents,
-                              splits: widget.splits,
-                              targetUserId: isPayer ? s.toUserId : s.fromUserId,
-                              currency: s.currency,
-                            ),
-                          );
-                        },
-                      ),
+                      if (isLargeText)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: Column(
+                            children: [
+                              for (var index = 0;
+                                  index < mySuggestions.length;
+                                  index++) ...[
+                                buildSuggestionRow(index),
+                                if (index < mySuggestions.length - 1)
+                                  const SizedBox(height: 12),
+                              ],
+                            ],
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          itemCount: mySuggestions.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) =>
+                              buildSuggestionRow(index),
+                        ),
                     ] else
                       const SizedBox(height: 20),
                   ],
@@ -814,31 +863,43 @@ class _SuggestionRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Flex(
-          direction: isLargeText ? Axis.vertical : Axis.horizontal,
-          crossAxisAlignment: isLargeText
-              ? CrossAxisAlignment.stretch
-              : CrossAxisAlignment.center,
+          direction: Axis.horizontal,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Flexible(
-              fit: isLargeText ? FlexFit.loose : FlexFit.tight,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: scheme.foreground,
+            if (isLargeText)
+              Flexible(
+                fit: FlexFit.loose,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.foreground,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: isLargeText ? 3 : 1,
-                overflow: TextOverflow.ellipsis,
+              )
+            else
+              Flexible(
+                fit: FlexFit.tight,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.foreground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
             SizedBox(
               width: isLargeText ? 0 : 8,
               height: isLargeText ? 6 : 0,
             ),
-            Flexible(
-              fit: FlexFit.loose,
-              child: FittedBox(
+            if (isLargeText)
+              FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerRight,
                 child: Row(
@@ -869,8 +930,43 @@ class _SuggestionRow extends StatelessWidget {
                     ),
                   ],
                 ),
+              )
+            else
+              Flexible(
+                fit: FlexFit.loose,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedAmountText(
+                        value: amountValue,
+                        symbol: symbol,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                      if (showCurrencyFlag) ...[
+                        const SizedBox(width: 8),
+                        _CurrencyFlagMark(
+                          currencyCode: rowCurrency,
+                          fallbackSymbol: symbol,
+                          scheme: scheme,
+                        ),
+                      ],
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: scheme.mutedForeground,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),
