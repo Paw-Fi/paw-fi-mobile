@@ -2,6 +2,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -252,7 +253,7 @@ class _MerchantBulkUpdatePageState
     final groups = _groupEntriesForBulkUpdate(entries);
     final merchantName = widget.selection.merchantName ??
         widget.selection.merchant ??
-        'Merchant';
+        context.l10n.merchant;
 
     return AdaptiveScaffold(
       body: Material(
@@ -389,8 +390,10 @@ class _MerchantBulkUpdatePageState
                           )
                         : Text(
                             _selectedIds.isEmpty
-                                ? 'Select Transactions to Update'
-                                : 'Update ${_selectedIds.length} ${_selectedIds.length == 1 ? 'Transaction' : 'Transactions'}',
+                                ? context.l10n.selectTransactionsToUpdate
+                                : context.l10n.updateTransactions(
+                                    _selectedIds.length,
+                                  ),
                           ),
                   ),
                 ),
@@ -435,7 +438,7 @@ class _BulkUpdateHeader extends StatelessWidget {
             width: 40,
             height: 40,
             child: IconButton(
-              tooltip: 'Close',
+              tooltip: context.l10n.close,
               padding: EdgeInsets.zero,
               onPressed: isSaving ? null : onClose,
               icon: Icon(
@@ -447,7 +450,7 @@ class _BulkUpdateHeader extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Apply Merchant',
+              context.l10n.applyMerchant,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.foreground,
@@ -473,7 +476,7 @@ class _BulkUpdateHeader extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         onPressed: canSave ? onSave : null,
                         child: Text(
-                          'Save',
+                          context.l10n.save,
                           style: TextStyle(
                             color: colorScheme.primary,
                             fontSize: 16,
@@ -590,7 +593,7 @@ class _TargetMerchantCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          domain ?? 'Verified merchant',
+                          domain ?? context.l10n.verifiedMerchant,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -603,7 +606,7 @@ class _TargetMerchantCard extends StatelessWidget {
                     ] else
                       Expanded(
                         child: Text(
-                          'Custom merchant text',
+                          context.l10n.customMerchantText,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -637,23 +640,23 @@ class _BulkTransactionTile extends StatelessWidget {
   final MerchantSelection targetSelection;
   final VoidCallback onTap;
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
+  String _formatDate(DateTime date, BuildContext context) {
+    final months = [
+      context.l10n.january,
+      context.l10n.february,
+      context.l10n.march,
+      context.l10n.april,
+      context.l10n.may,
+      context.l10n.june,
+      context.l10n.july,
+      context.l10n.august,
+      context.l10n.september,
+      context.l10n.october,
+      context.l10n.november,
+      context.l10n.december,
     ];
     final month = months[date.month - 1];
-    return '$month ${date.day}, ${date.year}';
+    return context.l10n.transactionDate(month, date.day, date.year);
   }
 
   @override
@@ -663,7 +666,7 @@ class _BulkTransactionTile extends StatelessWidget {
     final amountText =
         '${isIncome ? '+' : ''}${resolveCurrencySymbol(entry.currency ?? 'USD')}${entry.amount.toStringAsFixed(2)}';
 
-    final categoryName = entry.category ?? 'Uncategorized';
+    final categoryName = entry.category ?? context.l10n.uncategorized;
     final categoryColor = AppTheme.adaptCategoryColorForTheme(
       getCategoryColor(categoryName, context),
       colorScheme,
@@ -796,7 +799,7 @@ class _BulkTransactionTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${_formatDate(entry.date)} · $categoryName',
+                      '${_formatDate(entry.date, context)} · $categoryName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -860,7 +863,7 @@ class _BulkUpdateEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No Other Transactions Found',
+              context.l10n.noOtherTransactionsFound,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.foreground,
@@ -871,7 +874,7 @@ class _BulkUpdateEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'No existing transactions in this currency scope match to be reassigned.',
+              context.l10n.noMatchingTransactionsForMerchant,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,

@@ -1,70 +1,68 @@
 {
-  "recurrenceDaysUnit": {
-    "en": "{count, plural, =1{day} other{days}}",
-    "de": "{count, plural, =1{Tag} other{Tage}}",
-    "es": "{count, plural, =1{día} other{días}}",
-    "fr": "{count, plural, =1{jour} other{jours}}",
-    "it": "{count, plural, =1{giorno} other{giorni}}",
-    "ja": "{count, plural, other{日}}",
-    "ko": "{count, plural, other{일}}",
-    "nl": "{count, plural, =1{dag} other{dagen}}",
-    "ur": "{count, plural, other{دن}}",
-    "ru": "{count, plural, other{дни}}",
-    "th": "{count, plural, other{วัน}}",
-    "uk": "{count, plural, other{дні}}",
-    "zh": "{count, plural, other{天}}",
-    "zh_TW": "{count, plural, other{天}}",
-    "vi": "{count, plural, other{ngày}}"
+  "chooseMerchant": {
+    "en": "Choose merchant"
   },
-  "recurrenceWeeksUnit": {
-    "en": "{count, plural, =1{week} other{weeks}}",
-    "de": "{count, plural, =1{Woche} other{Wochen}}",
-    "es": "{count, plural, =1{semana} other{semanas}}",
-    "fr": "{count, plural, =1{semaine} other{semaines}}",
-    "it": "{count, plural, =1{settimana} other{settimane}}",
-    "ja": "{count, plural, other{週間}}",
-    "ko": "{count, plural, other{주}}",
-    "nl": "{count, plural, =1{week} other{weken}}",
-    "ur": "{count, plural, other{ہفتے}}",
-    "ru": "{count, plural, other{недели}}",
-    "th": "{count, plural, other{สัปดาห์}}",
-    "uk": "{count, plural, other{тижні}}",
-    "zh": "{count, plural, other{周}}",
-    "zh_TW": "{count, plural, other{週}}",
-    "vi": "{count, plural, other{tuần}}"
+  "transactionAlreadySaved": {
+    "en": "Optional. Your transaction is already saved."
   },
-  "recurrenceMonthsUnit": {
-    "en": "{count, plural, =1{month} other{months}}",
-    "de": "{count, plural, =1{Monat} other{Monate}}",
-    "es": "{count, plural, =1{mes} other{meses}}",
-    "fr": "{count, plural, other{mois}}",
-    "it": "{count, plural, =1{mese} other{mesi}}",
-    "ja": "{count, plural, other{か月}}",
-    "ko": "{count, plural, other{개월}}",
-    "nl": "{count, plural, =1{maand} other{maanden}}",
-    "ur": "{count, plural, other{مہینے}}",
-    "ru": "{count, plural, other{месяцы}}",
-    "th": "{count, plural, other{เดือน}}",
-    "uk": "{count, plural, other{місяці}}",
-    "zh": "{count, plural, other{个月}}",
-    "zh_TW": "{count, plural, other{個月}}",
-    "vi": "{count, plural, other{tháng}}"
+  "unableToSearchMerchants": {
+    "en": "Unable to search merchants. Try again."
   },
-  "recurrenceYearsUnit": {
-    "en": "{count, plural, =1{year} other{years}}",
-    "de": "{count, plural, =1{Jahr} other{Jahre}}",
-    "es": "{count, plural, =1{año} other{años}}",
-    "fr": "{count, plural, =1{an} other{ans}}",
-    "it": "{count, plural, =1{anno} other{anni}}",
-    "ja": "{count, plural, other{年}}",
-    "ko": "{count, plural, other{년}}",
-    "nl": "{count, plural, =1{jaar} other{jaren}}",
-    "ur": "{count, plural, other{سال}}",
-    "ru": "{count, plural, other{годы}}",
-    "th": "{count, plural, other{ปี}}",
-    "uk": "{count, plural, other{роки}}",
-    "zh": "{count, plural, other{年}}",
-    "zh_TW": "{count, plural, other{年}}",
-    "vi": "{count, plural, other{năm}}"
+  "unableToSaveMerchant": {
+    "en": "Unable to save this merchant. Try again."
+  },
+  "results": {
+    "en": "Results"
+  },
+  "useCustomName": {
+    "en": "Use Custom Name"
+  },
+  "selectMerchant": {
+    "en": "Select {name}"
+  },
+  "searchByNameOrDomain": {
+    "en": "Search by name or domain"
+  },
+  "keepCustomTextEntry": {
+    "en": "Keep query as custom text entry"
+  },
+  "searchMerchantIdentity": {
+    "en": "Search Merchant Identity"
+  },
+  "merchantIdentityDescription": {
+    "en": "Type a merchant name or domain to automatically match official logos"
+  },
+  "selectTransactionsToUpdate": {
+    "en": "Select Transactions to Update"
+  },
+  "updateTransactions": {
+    "en": "{count, plural, =1{Update 1 Transaction} other{Update {count} Transactions}}"
+  },
+  "applyMerchant": {
+    "en": "Apply Merchant"
+  },
+  "verifiedMerchant": {
+    "en": "Verified merchant"
+  },
+  "customMerchantText": {
+    "en": "Custom merchant text"
+  },
+  "transactionDate": {
+    "en": "{month} {day}, {year}"
+  },
+  "noOtherTransactionsFound": {
+    "en": "No Other Transactions Found"
+  },
+  "noMatchingTransactionsForMerchant": {
+    "en": "No existing transactions in this currency scope match to be reassigned."
+  },
+  "applyMerchantToOtherTransactions": {
+    "en": "Apply merchant to other transactions?"
+  },
+  "chooseTransactionsForMerchant": {
+    "en": "Choose other transactions in this space to update with this merchant."
+  },
+  "loadingSavedSplit": {
+    "en": "Loading saved split"
   }
 }

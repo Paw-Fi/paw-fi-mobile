@@ -2700,9 +2700,8 @@ class _UnifiedTransactionSheetV2State
     if (!mounted) return;
     final applyToOthers = await MonekoAlertDialog.show(
       context: context,
-      title: 'Apply merchant to other transactions?',
-      description:
-          'Choose other transactions in this space to update with this merchant.',
+      title: context.l10n.applyMerchantToOtherTransactions,
+      description: context.l10n.chooseTransactionsForMerchant,
       confirmLabel: context.l10n.continueAction,
       cancelLabel: context.l10n.cancel,
     );
@@ -3293,7 +3292,7 @@ class _UnifiedTransactionSheetV2State
         );
 
     return Semantics(
-      label: 'Loading saved split',
+      label: context.l10n.loadingSavedSplit,
       child: MonekoInput(
         padding: const EdgeInsets.all(16),
         child: Column(

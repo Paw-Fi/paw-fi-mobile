@@ -70,7 +70,7 @@
   - Where-the-Money-Went rows stack category amounts below names at `1.5x+`.
 - [x] Household cards
   - Financial calendar uses a taller large-text grid ratio and passes the large-text state through both month and week paths.
-  - Member spending and budget overview reflow at `1.5x+`; settlement suggestions use a large-text `Column` instead of a nested shrink-wrapped `ListView`, and suggestion rows avoid cross-axis stretch under unbounded sliver height.
+  - Member spending and budget overview reflow at `1.5x+`; settlement totals retain a two-column large-text grid using bounded cards, while suggestion rows avoid cross-axis stretch under unbounded sliver height.
 - [x] Recurring dashboard descendants
   - Recurring cards and upcoming recurring banners stack dense metadata/amount/action content at `1.5x+`.
   - The recurring page summary header reflows its converted-currency action and total/currency pair at `1.5x+`; the default header remains unchanged.
@@ -97,6 +97,7 @@
 
 - [x] Pocket cards and pocket detail rows
   - Pocket name, native financial values, rollover badge, progress, and actions must not escape the card.
+  - The unallocated-spend warning title grows modestly at `1.5x+` while its supporting description and default layout remain unchanged.
   - `lib/features/pockets/presentation/widgets/pocket_card.dart`, `pocket_list_tile.dart`, `pockets_grid_section.dart`, `pocket_details_page.dart`.
 - [x] Pocket setup/edit/template/AI sheets
   - Verify long instructions, inputs, chips, recommendation cards, and buttons scroll at large text.

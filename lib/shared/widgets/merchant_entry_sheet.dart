@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,10 +49,10 @@ Future<bool> showAnalyzedMerchantCandidateSheet({
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Choose merchant',
+          Text(sheetContext.l10n.chooseMerchant,
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          const Text('Optional. Your transaction is already saved.'),
+          Text(sheetContext.l10n.transactionAlreadySaved),
           const SizedBox(height: 12),
           Flexible(
             child: ListView.builder(
@@ -76,7 +77,7 @@ Future<bool> showAnalyzedMerchantCandidateSheet({
           ),
           TextButton(
             onPressed: () => Navigator.of(sheetContext).pop(),
-            child: const Text('Not now'),
+            child: Text(sheetContext.l10n.notNow),
           ),
         ],
       ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
@@ -237,7 +238,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
       setState(() => _candidates = candidates);
     } catch (_) {
       if (mounted && version == _searchVersion) {
-        setState(() => _error = 'Unable to search merchants. Try again.');
+        setState(() => _error = context.l10n.unableToSearchMerchants);
       }
     } finally {
       if (mounted && version == _searchVersion) {
@@ -297,7 +298,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Unable to save this merchant. Try again.');
+        setState(() => _error = context.l10n.unableToSaveMerchant);
       }
     } finally {
       if (mounted) setState(() => _isConfirming = false);
@@ -415,7 +416,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
                           if (_isLoading && _candidates.isEmpty)
                             _MerchantLoadingSkeleton(isDark: isDark)
                           else if (candidates.isNotEmpty) ...[
-                            const _SectionHeader(title: 'Results'),
+                            _SectionHeader(title: context.l10n.results),
                             _GroupedCard(
                               isDark: isDark,
                               colorScheme: colorScheme,
@@ -468,8 +469,10 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
                           )
                         : Text(
                             _selectedCandidate!.source == 'custom'
-                                ? 'Use Custom Name'
-                                : 'Select ${_selectedCandidate!.name}',
+                                ? context.l10n.useCustomName
+                                : context.l10n.selectMerchant(
+                                    _selectedCandidate!.name,
+                                  ),
                           ),
                   ),
                 ),
@@ -514,7 +517,7 @@ class _MerchantSelectionHeader extends StatelessWidget {
             width: 40,
             height: 40,
             child: IconButton(
-              tooltip: 'Close',
+              tooltip: context.l10n.close,
               padding: EdgeInsets.zero,
               onPressed: isConfirming ? null : onClose,
               icon: Icon(
@@ -554,7 +557,7 @@ class _MerchantSelectionHeader extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         onPressed: canConfirm ? onConfirm : null,
                         child: Text(
-                          'Done',
+                          context.l10n.done,
                           style: TextStyle(
                             color: colorScheme.primary,
                             fontSize: 16,
@@ -623,7 +626,7 @@ class _MerchantSearchBar extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
           decoration: InputDecoration(
-            hintText: 'Search by name or domain',
+            hintText: context.l10n.searchByNameOrDomain,
             hintStyle: TextStyle(
               color: colorScheme.mutedForeground,
               fontSize: 15,
@@ -825,7 +828,7 @@ class _MerchantCandidateTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             isCustom
-                                ? 'Keep query as custom text entry'
+                                ? context.l10n.keepCustomTextEntry
                                 : candidate.domain,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -940,7 +943,7 @@ class _MerchantEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Search Merchant Identity',
+              context.l10n.searchMerchantIdentity,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.foreground,
@@ -951,7 +954,7 @@ class _MerchantEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Type a merchant name or domain to automatically match official logos',
+              context.l10n.merchantIdentityDescription,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,

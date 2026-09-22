@@ -360,79 +360,89 @@ class _SettlementSuggestionsCardState
                   else ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Flex(
-                        direction:
-                            isLargeText ? Axis.vertical : Axis.horizontal,
-                        crossAxisAlignment: isLargeText
-                            ? CrossAxisAlignment.stretch
-                            : CrossAxisAlignment.center,
-                        children: [
-                          if (isLargeText)
-                            _StatCard(
-                              label: context.l10n.youOwe,
-                              amountCents: youOweTotal,
-                              color: colorScheme.destructive,
-                              currency: selectedCurrency,
-                              onTap:
-                                  youOweTotal > 0 && !hasMultiCurrencySelection
-                                      ? () => _openSettleUpSheet(
-                                            context,
-                                            householdId: widget.householdId,
-                                            isExpress: true,
-                                            amountHintCents: youOweTotal,
-                                            splits: widget.splits,
-                                            targetUserId: null,
-                                            currency: selectedCurrency,
-                                          )
-                                      : null,
+                      child: isLargeText
+                          ? LayoutBuilder(
+                              builder: (context, constraints) {
+                                final cardWidth =
+                                    (constraints.maxWidth - 12) / 2;
+                                return Wrap(
+                                  spacing: 12,
+                                  runSpacing: 8,
+                                  children: [
+                                    SizedBox(
+                                      width: cardWidth,
+                                      child: _StatCard(
+                                        label: context.l10n.youOwe,
+                                        amountCents: youOweTotal,
+                                        color: colorScheme.destructive,
+                                        currency: selectedCurrency,
+                                        onTap: youOweTotal > 0 &&
+                                                !hasMultiCurrencySelection
+                                            ? () => _openSettleUpSheet(
+                                                  context,
+                                                  householdId:
+                                                      widget.householdId,
+                                                  isExpress: true,
+                                                  amountHintCents: youOweTotal,
+                                                  splits: widget.splits,
+                                                  targetUserId: null,
+                                                  currency: selectedCurrency,
+                                                )
+                                            : null,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: cardWidth,
+                                      child: _StatCard(
+                                        label: context.l10n.youAreOwed,
+                                        amountCents: owedToYouTotal,
+                                        color: colorScheme.success,
+                                        currency: selectedCurrency,
+                                        onTap: null,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             )
-                          else
-                            Flexible(
-                              fit: FlexFit.loose,
-                              child: _StatCard(
-                                label: context.l10n.youOwe,
-                                amountCents: youOweTotal,
-                                color: colorScheme.destructive,
-                                currency: selectedCurrency,
-                                onTap: youOweTotal > 0 &&
-                                        !hasMultiCurrencySelection
-                                    ? () => _openSettleUpSheet(
-                                          context,
-                                          householdId: widget.householdId,
-                                          isExpress: true,
-                                          amountHintCents: youOweTotal,
-                                          splits: widget.splits,
-                                          targetUserId: null,
-                                          currency: selectedCurrency,
-                                        )
-                                    : null,
-                              ),
+                          : Flex(
+                              direction: Axis.horizontal,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  fit: FlexFit.loose,
+                                  child: _StatCard(
+                                    label: context.l10n.youOwe,
+                                    amountCents: youOweTotal,
+                                    color: colorScheme.destructive,
+                                    currency: selectedCurrency,
+                                    onTap: youOweTotal > 0 &&
+                                            !hasMultiCurrencySelection
+                                        ? () => _openSettleUpSheet(
+                                              context,
+                                              householdId: widget.householdId,
+                                              isExpress: true,
+                                              amountHintCents: youOweTotal,
+                                              splits: widget.splits,
+                                              targetUserId: null,
+                                              currency: selectedCurrency,
+                                            )
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Flexible(
+                                  fit: FlexFit.loose,
+                                  child: _StatCard(
+                                    label: context.l10n.youAreOwed,
+                                    amountCents: owedToYouTotal,
+                                    color: colorScheme.success,
+                                    currency: selectedCurrency,
+                                    onTap: null,
+                                  ),
+                                ),
+                              ],
                             ),
-                          SizedBox(
-                            width: isLargeText ? 0 : 12,
-                            height: isLargeText ? 8 : 0,
-                          ),
-                          if (isLargeText)
-                            _StatCard(
-                              label: context.l10n.youAreOwed,
-                              amountCents: owedToYouTotal,
-                              color: colorScheme.success,
-                              currency: selectedCurrency,
-                              onTap: null,
-                            )
-                          else
-                            Flexible(
-                              fit: FlexFit.loose,
-                              child: _StatCard(
-                                label: context.l10n.youAreOwed,
-                                amountCents: owedToYouTotal,
-                                color: colorScheme.success,
-                                currency: selectedCurrency,
-                                onTap: null,
-                              ),
-                            ),
-                        ],
-                      ),
                     ),
                     if (mySuggestions.isNotEmpty) ...[
                       const SizedBox(height: 20),
