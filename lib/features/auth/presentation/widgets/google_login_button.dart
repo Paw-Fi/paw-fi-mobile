@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -8,8 +10,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 
-/// Google Sign-In button matching web implementation
-/// Uses Supabase OAuth with Google provider
+const _googleWebClientId =
+    '1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com';
+
+final _googleSignInInitialization = GoogleSignIn.instance.initialize(
+  serverClientId: _googleWebClientId,
+);
+
+/// Google Sign-In button matching the web implementation.
+/// Uses native Google authentication on mobile and Supabase OAuth on web.
 class GoogleLoginButton extends HookConsumerWidget {
   final String? redirectUrl;
   final bool disabled;
@@ -31,33 +40,34 @@ class GoogleLoginButton extends HookConsumerWidget {
       isLoading.value = true;
 
       try {
-        debugPrint('🔐 Starting Google OAuth flow...');
-        debugPrint('🔐 Redirect URL: ${DeepLinks.oauthCallback}');
+        if (kIsWeb) {
+          await supabase.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: DeepLinks.oauthCallback,
+            authScreenLaunchMode: LaunchMode.externalApplication,
+          );
+        } else {
+          await _googleSignInInitialization;
+          final googleAccount = await GoogleSignIn.instance.authenticate();
+          final googleAuthentication = googleAccount.authentication;
+          final idToken = googleAuthentication.idToken;
+          final googleAuthorization = await googleAccount.authorizationClient
+              .authorizationForScopes(const <String>[]);
 
-        // Use Supabase's recommended mobile deep link pattern
-        // Important: Don't add query parameters to redirectTo - handle them in the callback screen
-        final result = await supabase.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: DeepLinks.oauthCallback,
-          authScreenLaunchMode: LaunchMode.externalApplication,
-        );
+          if (idToken == null) {
+            throw const AuthException('Google did not return an ID token.');
+          }
 
-        debugPrint('🔐 OAuth initiated: ${result ? "Success" : "Failed"}');
-
-        // Store the intended redirect location for after auth completes
-        // The DeepLinkService will handle navigation to this route
-        if (redirectUrl != null) {
-          debugPrint('🔐 Will redirect to: $redirectUrl after auth');
+          await supabase.auth.signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idToken,
+            accessToken: googleAuthorization?.accessToken,
+          );
         }
 
-        // signInWithOAuth only initiates the browser flow; it does not
-        // guarantee that the user completed auth. Reset loading state so
-        // that if the user cancels and returns, the button is interactive
-        // again. The actual sign-in completion is still handled via
-        // onAuthStateChange elsewhere.
+        // The actual sign-in completion is handled via onAuthStateChange.
         isLoading.value = false;
       } catch (e) {
-        debugPrint('❌ OAuth error: $e');
         error.value = formatAuthErrorMessage(e);
         isLoading.value = false;
       }

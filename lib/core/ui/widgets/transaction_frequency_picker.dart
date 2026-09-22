@@ -209,18 +209,23 @@ Future<RecurrenceSelection?> showRecurrencePicker({
       );
     },
     initial: initial,
+    opensInlineContent: (value) => value == customKey,
+    inlineContentBuilder: (sheetContext) => _CustomRecurrencePicker(
+      initialUnit: _unitForFrequency(currentFrequency),
+      initialNumber: currentInterval != null && currentInterval > 0
+          ? currentInterval
+          : currentFrequency == 'biweekly'
+              ? 2
+              : 1,
+      onCancel: () => Navigator.pop<String>(sheetContext),
+      onDone: (selection) => Navigator.pop<String>(
+        sheetContext,
+        keyOf(selection),
+      ),
+    ),
   );
 
   if (selectedKey == null) return null;
-
-  if (selectedKey == customKey) {
-    if (!context.mounted) return null;
-    return _showCustomRecurrencePicker(
-      context: context,
-      currentFrequency: currentFrequency,
-      currentInterval: currentInterval,
-    );
-  }
 
   final parts = selectedKey.split(':');
   final freq = parts.first;
@@ -281,13 +286,6 @@ Future<RecurrenceSelection?> _showCustomRecurrencePicker({
     initialUnit: unit,
     initialNumber: number,
   );
-  if (PlatformInfo.isIOS) {
-    return showCupertinoModalPopup<RecurrenceSelection>(
-      context: context,
-      builder: (_) => picker,
-    );
-  }
-
   return showModalBottomSheet<RecurrenceSelection>(
     context: context,
     backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0),
@@ -302,10 +300,14 @@ class _CustomRecurrencePicker extends HookWidget {
 
   final RecurrenceIntervalUnit initialUnit;
   final int initialNumber;
+  final VoidCallback? onCancel;
+  final ValueChanged<RecurrenceSelection>? onDone;
 
   const _CustomRecurrencePicker({
     required this.initialUnit,
     required this.initialNumber,
+    this.onCancel,
+    this.onDone,
   });
 
   @override
@@ -399,6 +401,34 @@ class _CustomRecurrencePicker extends HookWidget {
     }
 
     final colorScheme = Theme.of(context).colorScheme;
+    final intervalLabel = Text(
+      _intervalLabel(context, selectedUnit.value, selectedNumber.value),
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: colorScheme.foreground,
+            fontWeight: FontWeight.w600,
+          ),
+    );
+    final cancelButton = TextButton(
+      onPressed: onCancel ?? () => Navigator.pop(context),
+      child: Text(context.l10n.cancel),
+    );
+    final doneButton = TextButton(
+      onPressed: () {
+        final selection = recurrenceSelectionFromCustomInterval(
+          unit: selectedUnit.value,
+          number: selectedNumber.value,
+        );
+        final callback = onDone;
+        if (callback != null) {
+          callback(selection);
+        } else {
+          Navigator.pop(context, selection);
+        }
+      },
+      child: Text(context.l10n.done),
+    );
+    final usesLargeTextLayout = MediaQuery.textScalerOf(context).scale(16) > 20;
     return Container(
       height: 340,
       decoration: BoxDecoration(
@@ -411,31 +441,31 @@ class _CustomRecurrencePicker extends HookWidget {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(context.l10n.cancel),
-                  ),
-                  Text(
-                    _intervalLabel(
-                        context, selectedUnit.value, selectedNumber.value),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(
-                        context,
-                        recurrenceSelectionFromCustomInterval(
-                          unit: selectedUnit.value,
-                          number: selectedNumber.value,
-                        ),
-                      );
-                    },
-                    child: Text(context.l10n.done),
-                  ),
-                ],
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                child: usesLargeTextLayout
+                    ? Column(
+                        key: const ValueKey('large-text-picker-header'),
+                        children: [
+                          Row(
+                            children: [
+                              cancelButton,
+                              const Spacer(),
+                              doneButton,
+                            ],
+                          ),
+                          intervalLabel,
+                        ],
+                      )
+                    : Row(
+                        key: const ValueKey('picker-header'),
+                        children: [
+                          cancelButton,
+                          Expanded(child: intervalLabel),
+                          doneButton,
+                        ],
+                      ),
               ),
             ),
             Expanded(

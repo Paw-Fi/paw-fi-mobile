@@ -92,6 +92,10 @@
 	<string>We need access to your microphone so you can record voice notes about your expenses.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to unlock Moneko.</string>
+	<key>GIDClientID</key>
+	<string>1075784863194-bge24pslq5ekr1lj52qu947cn5r2g7pe.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -103,6 +107,7 @@
 			<array>
 				<string>moneko</string>
 				<string>io.supabase.moneko</string>
+				<string>com.googleusercontent.apps.1075784863194-bge24pslq5ekr1lj52qu947cn5r2g7pe</string>
 			</array>
 		</dict>
 		<dict>

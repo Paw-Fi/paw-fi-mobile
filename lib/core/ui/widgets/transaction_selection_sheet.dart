@@ -23,6 +23,8 @@ Future<T?> showTransactionSelectionSheet<T>({
   required List<T> items,
   required String Function(T) getLabel,
   required T initial,
+  bool Function(T)? opensInlineContent,
+  WidgetBuilder? inlineContentBuilder,
 }) async {
   if (Platform.isIOS) {
     int selectedIndex = items.indexOf(initial);
@@ -32,52 +34,78 @@ Future<T?> showTransactionSelectionSheet<T>({
       context: context,
       builder: (context) {
         T tempValue = items[selectedIndex];
-        return Container(
-          height: 320,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
-          child: Column(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: CupertinoColors.separator.resolveFrom(context),
-                      width: 0.5,
+        var showInlineContent = false;
+        return StatefulBuilder(
+          builder: (context, setState) => AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: showInlineContent
+                  ? KeyedSubtree(
+                      key: const ValueKey('inline-selection-content'),
+                      child: inlineContentBuilder!(context),
+                    )
+                  : Container(
+                      key: const ValueKey('selection-content'),
+                      height: 320,
+                      color:
+                          CupertinoColors.systemBackground.resolveFrom(context),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: CupertinoColors.separator
+                                      .resolveFrom(context),
+                                  width: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => Navigator.pop<T>(context),
+                                  child: Text(context.l10n.cancel),
+                                ),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () {
+                                    if (opensInlineContent?.call(tempValue) ==
+                                            true &&
+                                        inlineContentBuilder != null) {
+                                      setState(() => showInlineContent = true);
+                                      return;
+                                    }
+                                    Navigator.pop<T>(context, tempValue);
+                                  },
+                                  child: Text(context.l10n.done),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                  initialItem: selectedIndex),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (i) {
+                                tempValue = items[i];
+                              },
+                              children: items
+                                  .map((e) => Center(child: Text(getLabel(e))))
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop<T>(context),
-                      child: Text(context.l10n.cancel),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop<T>(context, tempValue),
-                      child: Text(context.l10n.done),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoPicker(
-                  scrollController:
-                      FixedExtentScrollController(initialItem: selectedIndex),
-                  itemExtent: 40,
-                  onSelectedItemChanged: (i) {
-                    tempValue = items[i];
-                  },
-                  children: items
-                      .map((e) => Center(child: Text(getLabel(e))))
-                      .toList(),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -91,50 +119,80 @@ Future<T?> showTransactionSelectionSheet<T>({
       useSafeArea: true,
       builder: (context) {
         final bottomInset = MediaQuery.of(context).viewPadding.bottom;
-        return Container(
-          decoration: BoxDecoration(
-            color: scheme.card,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 10, bottom: 6),
-                  width: 32,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: scheme.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: items.length + 1,
-                    separatorBuilder: (_, __) => Divider(
-                        height: 1, color: scheme.border.withValues(alpha: 0.4)),
-                    itemBuilder: (context, i) {
-                      if (i == items.length) {
-                        return SizedBox(height: bottomInset + 8);
-                      }
-                      final value = items[i];
-                      final label = getLabel(value);
-                      final selected = value == initial;
-                      return ListTile(
-                        title: Text(label,
-                            style: TextStyle(color: scheme.foreground)),
-                        trailing: selected
-                            ? Icon(Icons.check, color: scheme.primary)
-                            : null,
-                        onTap: () => Navigator.pop<T>(context, value),
-                      );
-                    },
-                  ),
-                ),
-              ],
+        var showInlineContent = false;
+        return StatefulBuilder(
+          builder: (context, setState) => AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: showInlineContent
+                  ? KeyedSubtree(
+                      key: const ValueKey('inline-selection-content'),
+                      child: inlineContentBuilder!(context),
+                    )
+                  : Container(
+                      key: const ValueKey('selection-content'),
+                      decoration: BoxDecoration(
+                        color: scheme.card,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24)),
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 10, bottom: 6),
+                              width: 32,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: scheme.border,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            Flexible(
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: items.length + 1,
+                                separatorBuilder: (_, __) => Divider(
+                                    height: 1,
+                                    color:
+                                        scheme.border.withValues(alpha: 0.4)),
+                                itemBuilder: (context, i) {
+                                  if (i == items.length) {
+                                    return SizedBox(height: bottomInset + 8);
+                                  }
+                                  final value = items[i];
+                                  final label = getLabel(value);
+                                  final selected = value == initial;
+                                  return ListTile(
+                                    title: Text(label,
+                                        style: TextStyle(
+                                            color: scheme.foreground)),
+                                    trailing: selected
+                                        ? Icon(Icons.check,
+                                            color: scheme.primary)
+                                        : null,
+                                    onTap: () {
+                                      if (opensInlineContent?.call(value) ==
+                                              true &&
+                                          inlineContentBuilder != null) {
+                                        setState(
+                                            () => showInlineContent = true);
+                                        return;
+                                      }
+                                      Navigator.pop<T>(context, value);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
             ),
           ),
         );
