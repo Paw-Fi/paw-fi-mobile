@@ -3617,5 +3617,9 @@
   "addMerchantWebsite": "Thêm trang web của cửa hàng",
   "browse": "Khám phá",
   "captureAndIntegrations": "Ghi nhận và tích hợp",
-  "healthReport": "Sức khỏe tài chính"
+  "healthReport": "Sức khỏe tài chính",
+  "recurrenceDaysUnit": "Ngày",
+  "recurrenceWeeksUnit": "Tuần",
+  "recurrenceMonthsUnit": "Tháng",
+  "recurrenceYearsUnit": "Năm"
 }

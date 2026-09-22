@@ -3618,5 +3618,9 @@
   "addMerchantWebsite": "Ajouter le site web du commerçant",
   "browse": "Explorer",
   "captureAndIntegrations": "Saisie et intégrations",
-  "healthReport": "Santé financière"
+  "healthReport": "Santé financière",
+  "recurrenceDaysUnit": "Jours",
+  "recurrenceWeeksUnit": "Semaines",
+  "recurrenceMonthsUnit": "Mois",
+  "recurrenceYearsUnit": "Ans"
 }

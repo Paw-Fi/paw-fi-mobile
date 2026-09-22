@@ -3565,5 +3565,9 @@
   "addMerchantWebsite": "Website van de verkoper toevoegen",
   "browse": "Ontdekken",
   "captureAndIntegrations": "Vastleggen en integraties",
-  "healthReport": "Financiële gezondheid"
+  "healthReport": "Financiële gezondheid",
+  "recurrenceDaysUnit": "Dagen",
+  "recurrenceWeeksUnit": "Weken",
+  "recurrenceMonthsUnit": "Maanden",
+  "recurrenceYearsUnit": "Jaren"
 }

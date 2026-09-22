@@ -3618,5 +3618,9 @@
   "addMerchantWebsite": "Händler-Website hinzufügen",
   "browse": "Entdecken",
   "captureAndIntegrations": "Erfassung & Integrationen",
-  "healthReport": "Finanzcheck"
+  "healthReport": "Finanzcheck",
+  "recurrenceDaysUnit": "Tage",
+  "recurrenceWeeksUnit": "Wochen",
+  "recurrenceMonthsUnit": "Monate",
+  "recurrenceYearsUnit": "Jahre"
 }

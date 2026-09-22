@@ -2363,7 +2363,7 @@
   "paywallBenefit2": "Añade gastos desde WhatsApp o Telegram",
   "paywallBenefit3": "Presupuestos compartidos siempre sincronizados",
   "paywallBenefit4": "Presupuesto por sobres para controlar tus gastos",
-  "paywallLovedBy": "Amada por más de 7,100 usuarios",
+  "paywallLovedBy": "Amada por más de 8,200 usuarios",
   "paywallBadgeSave50": "AHORRA 50%",
   "paywallBadgeLimited": "LIMITADO",
   "pocketsCopyDialogTitle": "¿Copiar los sobres del mes pasado?",
@@ -3620,5 +3620,9 @@
   "addMerchantWebsite": "Añadir sitio web del comercio",
   "browse": "Explorar",
   "captureAndIntegrations": "Registro e integraciones",
-  "healthReport": "Salud financiera"
+  "healthReport": "Salud financiera",
+  "recurrenceDaysUnit": "Días",
+  "recurrenceWeeksUnit": "Semanas",
+  "recurrenceMonthsUnit": "Meses",
+  "recurrenceYearsUnit": "Años"
 }

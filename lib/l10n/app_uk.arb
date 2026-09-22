@@ -3610,5 +3610,9 @@
   "addMerchantWebsite": "Додати сайт продавця",
   "browse": "Огляд",
   "captureAndIntegrations": "Введення та інтеграції",
-  "healthReport": "Фінансове здоров'я"
+  "healthReport": "Фінансове здоров'я",
+  "recurrenceDaysUnit": "Дні",
+  "recurrenceWeeksUnit": "Тижні",
+  "recurrenceMonthsUnit": "Місяці",
+  "recurrenceYearsUnit": "Роки"
 }

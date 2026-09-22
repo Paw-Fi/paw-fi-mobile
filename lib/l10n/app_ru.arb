@@ -3568,5 +3568,9 @@
   "addMerchantWebsite": "Добавить сайт продавца",
   "browse": "Обзор",
   "captureAndIntegrations": "Ввод и интеграции",
-  "healthReport": "Финансовое здоровье"
+  "healthReport": "Финансовое здоровье",
+  "recurrenceDaysUnit": "Дни",
+  "recurrenceWeeksUnit": "Недели",
+  "recurrenceMonthsUnit": "Месяцы",
+  "recurrenceYearsUnit": "Годы"
 }

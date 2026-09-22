@@ -2307,7 +2307,7 @@
   "paywallBenefit2": "واٹس ایپ یا ٹیلی گرام سے اخراجات شامل کریں",
   "paywallBenefit3": "مشترکہ بجٹ جو ہمیشہ ہم آہنگ رہتے ہیں",
   "paywallBenefit4": "خرچ کو کنٹرول کرنے کے لیے سادہ لفافہ بجٹ",
-  "paywallLovedBy": "7,100 سے زیادہ صارفین کا پسندیدہ",
+  "paywallLovedBy": "8,200 سے زیادہ صارفین کا پسندیدہ",
   "paywallBadgeSave50": "50% بچائیں",
   "paywallBadgeLimited": "محدود",
   "pocketsCopyDialogTitle": "پچھلے مہینے کے پاکٹس کاپی کریں؟",
@@ -3564,5 +3564,9 @@
   "addMerchantWebsite": "مرچنٹ کی ویب سائٹ شامل کریں",
   "browse": "دریافت کریں",
   "captureAndIntegrations": "اندراج اور انٹیگریشنز",
-  "healthReport": "مالی صحت"
+  "healthReport": "مالی صحت",
+  "recurrenceDaysUnit": "دن",
+  "recurrenceWeeksUnit": "ہفتے",
+  "recurrenceMonthsUnit": "مہینے",
+  "recurrenceYearsUnit": "سال"
 }

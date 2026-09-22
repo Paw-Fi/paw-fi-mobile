@@ -6130,7 +6130,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallBenefit4 => 'ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว';
 
   @override
-  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 7,100+ คน';
+  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 8,200+ คน';
 
   @override
   String get paywallBadgeSave50 => 'ประหยัด 50%';
@@ -10235,4 +10235,16 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get healthReport => 'สุขภาพการเงิน';
+
+  @override
+  String get recurrenceDaysUnit => 'วัน';
+
+  @override
+  String get recurrenceWeeksUnit => 'สัปดาห์';
+
+  @override
+  String get recurrenceMonthsUnit => 'เดือน';
+
+  @override
+  String get recurrenceYearsUnit => 'ปี';
 }

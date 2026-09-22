@@ -3565,5 +3565,9 @@
   "addMerchantWebsite": "Aggiungi il sito web dell'esercente",
   "browse": "Esplora",
   "captureAndIntegrations": "Acquisizione e integrazioni",
-  "healthReport": "Salute finanziaria"
+  "healthReport": "Salute finanziaria",
+  "recurrenceDaysUnit": "Giorni",
+  "recurrenceWeeksUnit": "Settimane",
+  "recurrenceMonthsUnit": "Mesi",
+  "recurrenceYearsUnit": "Anni"
 }
