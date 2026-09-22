@@ -1,9 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/util/constants.dart';
 
 String? buildLogoDevMerchantUrl(String? merchantId, String? domain) {
   final normalizedDomain = domain?.trim().toLowerCase();
-  if (merchantId?.trim().isEmpty ?? true) return null;
   if (normalizedDomain == null || normalizedDomain.isEmpty) {
     return null;
   }
@@ -22,6 +22,31 @@ String? buildLogoDevMerchantUrl(String? merchantId, String? domain) {
   }).toString();
 }
 
+String? buildLogoDevMerchantNameUrl(String? merchantName) {
+  final name = merchantName?.trim();
+  if (name == null || name.isEmpty) return null;
+
+  String token;
+  try {
+    token = Constants.logoDevPublishableKey.trim();
+  } catch (_) {
+    return null;
+  }
+  if (token.isEmpty) return null;
+
+  return Uri(
+    scheme: 'https',
+    host: 'img.logo.dev',
+    pathSegments: ['name', name],
+    queryParameters: {
+      'token': token,
+      'size': '72',
+      'format': 'png',
+      'fallback': '404',
+    },
+  ).toString();
+}
+
 String? sanitizePlaidMerchantLogoUrl(String? value) {
   final uri = Uri.tryParse(value?.trim() ?? '');
   if (uri == null || uri.scheme != 'https') return null;
@@ -36,10 +61,13 @@ String? buildMerchantLogoUrl({
   required String? logoUrl,
   required String? merchantId,
   required String? domain,
+  String? merchantStructuredName,
+  String? merchantName,
 }) {
-  if (merchantId?.trim().isEmpty ?? true) return null;
+  final structuredName = merchantStructuredName?.trim();
   return sanitizePlaidMerchantLogoUrl(logoUrl) ??
-      buildLogoDevMerchantUrl(merchantId, domain);
+      buildLogoDevMerchantUrl(merchantId, domain) ??
+      buildLogoDevMerchantNameUrl(structuredName);
 }
 
 class MerchantLogo extends StatelessWidget {
@@ -47,12 +75,16 @@ class MerchantLogo extends StatelessWidget {
     super.key,
     required this.merchantId,
     required this.domain,
+    this.merchantStructuredName,
+    this.merchantName,
     this.logoUrl,
     required this.fallback,
   });
 
   final String? merchantId;
   final String? domain;
+  final String? merchantStructuredName;
+  final String? merchantName;
   final String? logoUrl;
   final Widget fallback;
 
@@ -62,6 +94,8 @@ class MerchantLogo extends StatelessWidget {
       logoUrl: logoUrl,
       merchantId: merchantId,
       domain: domain,
+      merchantStructuredName: merchantStructuredName,
+      merchantName: merchantName,
     );
     if (url == null) return fallback;
 
@@ -69,22 +103,13 @@ class MerchantLogo extends StatelessWidget {
       label: 'Merchant logo',
       image: true,
       child: ClipOval(
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.contain,
-          cacheWidth: 72,
-          errorBuilder: (_, __, ___) => fallback,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) return child;
-            return AnimatedOpacity(
-              opacity: frame == null ? 0 : 1,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              child: child,
-            );
-          },
-          loadingBuilder: (context, child, progress) =>
-              progress == null ? child : fallback,
+          memCacheWidth: 72,
+          cacheKey: url,
+          placeholder: (_, __) => fallback,
+          errorWidget: (_, __, ___) => fallback,
         ),
       ),
     );

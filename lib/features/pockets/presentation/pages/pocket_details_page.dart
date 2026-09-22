@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -572,12 +573,13 @@ class PocketDetailsPage extends HookConsumerWidget {
                                             width: 28,
                                             height: 28,
                                             child: ClipOval(
-                                              child: Image.network(
-                                                trimmedLogoUrl,
+                                              child: CachedNetworkImage(
+                                                imageUrl: trimmedLogoUrl,
                                                 fit: BoxFit.contain,
-                                                cacheWidth: cacheSize,
-                                                cacheHeight: cacheSize,
-                                                errorBuilder: (_, __, ___) =>
+                                                memCacheWidth: cacheSize,
+                                                memCacheHeight: cacheSize,
+                                                cacheKey: trimmedLogoUrl,
+                                                errorWidget: (_, __, ___) =>
                                                     iconData != null
                                                         ? Icon(
                                                             iconData,

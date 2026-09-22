@@ -17,18 +17,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('builds a direct Logo.dev URL only for canonical merchant identity', () {
+  test('builds a direct Logo.dev URL for a canonical merchant domain', () {
     dotenv.testLoad(fileInput: 'LOGO_DEV_PUBLISHABLE_KEY=test-logo-token');
     final url = buildLogoDevMerchantUrl('merchant_1', 'Starbucks.COM');
 
     expect(url, isNotNull);
     expect(Uri.parse(url!).host, 'img.logo.dev');
     expect(Uri.parse(url).path, '/starbucks.com');
+
+    final withoutIdentity = buildLogoDevMerchantUrl(null, 'amazon.co.uk');
+    expect(withoutIdentity, isNotNull);
+    expect(Uri.parse(withoutIdentity!).path, '/amazon.co.uk');
   });
 
-  test('returns null so callers retain the category-icon fallback', () {
+  test('builds a name URL without canonical identity', () {
+    dotenv.testLoad(fileInput: 'LOGO_DEV_PUBLISHABLE_KEY=test-logo-token');
+    final url = buildLogoDevMerchantNameUrl('Amazon');
+
+    expect(url, isNotNull);
+    expect(Uri.parse(url!).path, '/name/Amazon');
+    expect(Uri.parse(url).queryParameters['fallback'], '404');
+  });
+
+  test('encodes merchant names as one path segment', () {
+    dotenv.testLoad(fileInput: 'LOGO_DEV_PUBLISHABLE_KEY=test-logo-token');
+    final url = buildLogoDevMerchantNameUrl('Café / 東京');
+
+    expect(Uri.parse(url!).pathSegments, ['name', 'Café / 東京']);
+  });
+
+  test('returns null when no domain or merchant name is available', () {
     dotenv.clean();
-    expect(buildLogoDevMerchantUrl(null, 'starbucks.com'), isNull);
+    expect(buildLogoDevMerchantNameUrl('Amazon'), isNull);
     expect(buildLogoDevMerchantUrl('merchant_1', null), isNull);
   });
 
@@ -60,7 +80,29 @@ void main() {
         merchantId: null,
         domain: 'burgerking.com',
       ),
-      isNull,
+      plaidLogo,
     );
+  });
+
+  test('uses only the structured name for Logo.dev name lookup', () {
+    dotenv.testLoad(fileInput: 'LOGO_DEV_PUBLISHABLE_KEY=test-logo-token');
+
+    final structured = buildMerchantLogoUrl(
+      logoUrl: null,
+      merchantId: null,
+      domain: null,
+      merchantStructuredName: 'Amazon Marketplace',
+      merchantName: 'AMZN MKTP',
+    );
+    final rawOnly = buildMerchantLogoUrl(
+      logoUrl: null,
+      merchantId: null,
+      domain: null,
+      merchantStructuredName: '  ',
+      merchantName: 'AMZN MKTP',
+    );
+
+    expect(Uri.parse(structured!).pathSegments, ['name', 'Amazon Marketplace']);
+    expect(rawOnly, isNull);
   });
 }

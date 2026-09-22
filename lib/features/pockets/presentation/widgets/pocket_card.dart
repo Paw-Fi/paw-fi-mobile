@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
@@ -337,19 +338,19 @@ class _PocketLogoAvatar extends StatelessWidget {
         width: 33,
         height: 33,
         child: ClipOval(
-          child: Image.network(
-            trimmedLogoUrl,
+          child: CachedNetworkImage(
+            imageUrl: trimmedLogoUrl,
             fit: BoxFit.cover,
-            cacheWidth: cacheSize,
-            cacheHeight: cacheSize,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
+            memCacheWidth: cacheSize,
+            memCacheHeight: cacheSize,
+            cacheKey: trimmedLogoUrl,
+            placeholder: (_, __) {
               return _PocketFallbackIcon(
                 iconData: iconData,
                 baseColor: baseColor,
               );
             },
-            errorBuilder: (_, __, ___) => _PocketFallbackIcon(
+            errorWidget: (_, __, ___) => _PocketFallbackIcon(
               iconData: iconData,
               baseColor: baseColor,
             ),

@@ -776,6 +776,8 @@ class _BreakdownRowTile extends StatelessWidget {
         merchantId: sourceTransaction?.merchantId,
         merchantDomain: sourceTransaction?.merchantDomain,
         merchantLogoUrl: sourceTransaction?.merchantLogoUrl,
+        merchantStructuredName: sourceTransaction?.merchantStructuredName,
+        merchantName: sourceTransaction?.merchant,
         onTap: sourceTransaction == null || onShowTransaction == null
             ? null
             : () => onShowTransaction!(sourceTransaction),

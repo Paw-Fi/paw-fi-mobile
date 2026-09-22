@@ -553,6 +553,8 @@ class _TargetMerchantCard extends StatelessWidget {
                 : MerchantLogo(
                     merchantId: selection.merchantId,
                     domain: domain,
+                    merchantStructuredName: selection.merchantName,
+                    merchantName: selection.merchant,
                     fallback: Center(
                       child: Icon(
                         Icons.storefront_outlined,
@@ -730,6 +732,9 @@ class _BulkTransactionTile extends StatelessWidget {
                             child: MerchantLogo(
                               merchantId: targetSelection.merchantId,
                               domain: targetSelection.merchantDomain,
+                              merchantStructuredName:
+                                  targetSelection.merchantName,
+                              merchantName: targetSelection.merchant,
                               fallback: Center(
                                 child: Icon(
                                   categoryIcon,

@@ -1109,6 +1109,8 @@ class _UnifiedTransactionSheetV2State
           logoUrl: merchantLogoUrl,
           merchantId: merchantId,
           domain: merchantDomain,
+          merchantStructuredName: merchantStructuredName,
+          merchantName: displayMerchant,
         ) !=
         null;
 
@@ -1227,6 +1229,9 @@ class _UnifiedTransactionSheetV2State
                                             merchantId: merchantId,
                                             domain: merchantDomain,
                                             logoUrl: merchantLogoUrl,
+                                            merchantStructuredName:
+                                                merchantStructuredName,
+                                            merchantName: displayMerchant,
                                             fallback: Center(
                                               child: Icon(
                                                 getCategoryIcon(

@@ -1771,6 +1771,8 @@ class AddRecurringSheet extends HookConsumerWidget {
           logoUrl: merchantLogoUrl,
           merchantId: merchantId,
           domain: merchantDomain,
+          merchantStructuredName: selectedMerchantStructuredName.value,
+          merchantName: merchantController.text,
         ) !=
         null;
     final isIncomeMode = !isExpense;
@@ -1880,6 +1882,11 @@ class AddRecurringSheet extends HookConsumerWidget {
                                             merchantId: merchantId,
                                             domain: merchantDomain,
                                             logoUrl: merchantLogoUrl,
+                                            merchantStructuredName:
+                                                selectedMerchantStructuredName
+                                                    .value,
+                                            merchantName:
+                                                merchantController.text,
                                             fallback: Center(
                                               child: Icon(
                                                 getCategoryIcon(

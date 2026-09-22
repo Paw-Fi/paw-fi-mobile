@@ -87,6 +87,8 @@ class DashboardTransactionsList extends StatelessWidget {
             merchantId: tx.entry.merchantId,
             merchantDomain: tx.entry.merchantDomain,
             merchantLogoUrl: tx.entry.merchantLogoUrl,
+            merchantStructuredName: tx.entry.merchantStructuredName,
+            merchantName: tx.entry.merchant,
             date: tx.entry.date,
             subtitleWidget: Row(
               children: [

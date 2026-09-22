@@ -168,10 +168,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       final merchantStructuredName = expense.merchantStructuredName;
-      if (merchantStructuredName != null &&
-          merchantStructuredName.trim().isNotEmpty) {
-        requestBody['merchantStructuredName'] = merchantStructuredName;
-      }
+      // Send null explicitly when the user chose custom merchant text so the
+      // backend clears any previous structured identity instead of deriving
+      // one from the raw merchant value.
+      requestBody['merchantStructuredName'] = merchantStructuredName;
 
       final merchantEvidenceDescriptor = expense.merchantEvidenceDescriptor;
       if (merchantEvidenceDescriptor != null &&

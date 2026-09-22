@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 IconData resolveWalletIcon(String? iconName) {
@@ -112,20 +113,20 @@ class WalletLogoAvatar extends StatelessWidget {
                 baseColor: baseColor,
                 iconSize: iconSize,
               )
-            : Image.network(
-                trimmedLogoUrl,
+            : CachedNetworkImage(
+                imageUrl: trimmedLogoUrl,
                 fit: BoxFit.contain,
-                cacheWidth: cacheSize,
-                cacheHeight: cacheSize,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
+                memCacheWidth: cacheSize,
+                memCacheHeight: cacheSize,
+                cacheKey: trimmedLogoUrl,
+                placeholder: (_, __) {
                   return _WalletFallbackIcon(
                     icon: icon,
                     baseColor: baseColor,
                     iconSize: iconSize,
                   );
                 },
-                errorBuilder: (_, __, ___) => _WalletFallbackIcon(
+                errorWidget: (_, __, ___) => _WalletFallbackIcon(
                   icon: icon,
                   baseColor: baseColor,
                   iconSize: iconSize,

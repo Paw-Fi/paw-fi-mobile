@@ -1,6 +1,7 @@
 // Shared UI utilities for household features
 // Prevents code duplication across household widgets
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../domain/entities/household.dart';
 import '../../../../core/l10n/l10n.dart';
@@ -100,7 +101,7 @@ class MemberAvatar extends StatelessWidget {
       return CircleAvatar(
         radius: radius,
         backgroundColor: color,
-        backgroundImage: NetworkImage(avatarUrl!),
+        backgroundImage: CachedNetworkImageProvider(avatarUrl!),
         onBackgroundImageError: (_, __) {},
       );
     }

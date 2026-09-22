@@ -67,6 +67,7 @@ Future<MerchantSelection?> showMerchantSelectionPage({
 }) {
   return Navigator.of(context).push<MerchantSelection>(
     MaterialPageRoute(
+      requestFocus: false,
       builder: (_) => MerchantSelectionPage(
         title: title,
         category: category,
@@ -97,6 +98,9 @@ class MerchantSelectionPage extends StatefulWidget {
 
 class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   late final TextEditingController _queryController;
+  late final FocusNode _queryFocusNode;
+  Animation<double>? _routeAnimation;
+  bool _hasRequestedInitialFocus = false;
   Timer? _debounce;
   String _lastSearchedQuery = '';
   List<MerchantSearchCandidate> _candidates = const [];
@@ -111,6 +115,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   void initState() {
     super.initState();
     _queryController = TextEditingController(text: widget.initialQuery);
+    _queryFocusNode = FocusNode();
     _candidates = widget.initialCandidates;
     _hasCompletedSearch = widget.initialCandidates.isNotEmpty;
     _lastSearchedQuery =
@@ -122,8 +127,44 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final routeAnimation = ModalRoute.of(context)?.animation;
+    if (identical(_routeAnimation, routeAnimation)) return;
+
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _routeAnimation = routeAnimation;
+    if (routeAnimation == null) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _requestInitialFocus());
+      return;
+    }
+
+    routeAnimation.addStatusListener(_handleRouteAnimationStatus);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (routeAnimation.status == AnimationStatus.completed) {
+        _handleRouteAnimationStatus(AnimationStatus.completed);
+      }
+    });
+  }
+
+  void _handleRouteAnimationStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _requestInitialFocus();
+  }
+
+  void _requestInitialFocus() {
+    if (!mounted || _hasRequestedInitialFocus) return;
+    _hasRequestedInitialFocus = true;
+    _queryFocusNode.requestFocus();
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _queryFocusNode.dispose();
     _queryController
       ..removeListener(_onQueryChanged)
       ..dispose();
@@ -319,6 +360,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
               ),
               _MerchantSearchBar(
                 controller: _queryController,
+                focusNode: _queryFocusNode,
                 isLoading: _isLoading,
                 onSubmitted: (_) => _search(),
                 onClear: _clearQuery,
@@ -532,12 +574,14 @@ class _MerchantSelectionHeader extends StatelessWidget {
 class _MerchantSearchBar extends StatelessWidget {
   const _MerchantSearchBar({
     required this.controller,
+    required this.focusNode,
     required this.isLoading,
     required this.onSubmitted,
     required this.onClear,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool isLoading;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
@@ -570,7 +614,7 @@ class _MerchantSearchBar extends StatelessWidget {
         ),
         child: TextField(
           controller: controller,
-          autofocus: true,
+          focusNode: focusNode,
           textInputAction: TextInputAction.search,
           onSubmitted: onSubmitted,
           style: TextStyle(

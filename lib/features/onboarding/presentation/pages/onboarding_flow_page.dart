@@ -2886,6 +2886,8 @@ class _AiLogStep extends HookConsumerWidget {
                         amount: items[i].amount,
                         currency: items[i].currency,
                         isIncome: items[i].isIncome,
+                        merchantStructuredName: items[i].merchantStructuredName,
+                        merchantName: items[i].merchant,
                       ),
                     ),
                   ],

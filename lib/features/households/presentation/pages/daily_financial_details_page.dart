@@ -510,6 +510,9 @@ class _DailyFinancialDetailsPageState
                                       merchantId: t.merchantId,
                                       merchantDomain: t.merchantDomain,
                                       merchantLogoUrl: t.merchantLogoUrl,
+                                      merchantStructuredName:
+                                          t.merchantStructuredName,
+                                      merchantName: t.merchant,
                                       date: t.date,
                                       useCustomCategoryStyleOverrides:
                                           t.householdId?.trim().isEmpty ?? true,
@@ -949,6 +952,11 @@ class _RecurringTransactionTile extends StatelessWidget {
             amount: transaction.amount,
             currency: transaction.currency,
             isIncome: isIncome,
+            merchantId: transaction.merchantId,
+            merchantDomain: transaction.merchantDomain,
+            merchantLogoUrl: transaction.merchantLogoUrl,
+            merchantStructuredName: transaction.merchantStructuredName,
+            merchantName: transaction.merchant,
             showRecurringChip: true,
             useCustomCategoryStyleOverrides:
                 transaction.householdId?.trim().isEmpty ?? true,

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -239,8 +240,9 @@ class _HouseholdSection extends ConsumerWidget {
                                 color: colorScheme.surfaceContainerHighest,
                                 image: household.coverImageUrl != null
                                     ? DecorationImage(
-                                        image: NetworkImage(
-                                            household.coverImageUrl!),
+                                        image: CachedNetworkImageProvider(
+                                          household.coverImageUrl!,
+                                        ),
                                         fit: BoxFit.cover,
                                       )
                                     : null,
@@ -345,7 +347,7 @@ class _ProfileHeader extends ConsumerWidget {
                           avatarUrl.isNotEmpty &&
                           avatarUrl != 'SKIPPED'
                       ? DecorationImage(
-                          image: NetworkImage(avatarUrl),
+                          image: CachedNetworkImageProvider(avatarUrl),
                           fit: BoxFit.cover,
                         )
                       : null,

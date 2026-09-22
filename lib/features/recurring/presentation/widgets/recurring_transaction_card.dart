@@ -90,12 +90,16 @@ class RecurringTransactionCard extends StatelessWidget {
           logoUrl: transaction.merchantLogoUrl,
           merchantId: transaction.merchantId,
           domain: transaction.merchantDomain,
+          merchantStructuredName: transaction.merchantStructuredName,
+          merchantName: transaction.merchant,
         ) !=
         null;
     final merchantLogo = MerchantLogo(
       merchantId: transaction.merchantId,
       domain: transaction.merchantDomain,
       logoUrl: transaction.merchantLogoUrl,
+      merchantStructuredName: transaction.merchantStructuredName,
+      merchantName: transaction.merchant,
       fallback: Icon(
         categoryIcon,
         color: adaptedCategoryColor,

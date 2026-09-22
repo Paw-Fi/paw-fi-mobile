@@ -971,6 +971,8 @@ class _MerchantLogoBadge extends StatelessWidget {
         merchantId: item.merchantId,
         domain: item.merchantDomain,
         logoUrl: item.merchantLogoUrl,
+        merchantStructuredName: item.merchantStructuredName,
+        merchantName: item.merchant,
         fallback: Center(
           child: Icon(fallbackIcon, size: 19, color: fallbackColor),
         ),
