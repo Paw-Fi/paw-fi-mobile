@@ -793,17 +793,6 @@ Future<void> _persistAiTransactions(
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
 
-  bool resolveIsRecurring(Map<String, dynamic> raw) {
-    final dynamicValue = raw['is_recurring'] ?? raw['isRecurring'];
-    if (dynamicValue is bool) return dynamicValue;
-    if (dynamicValue is num) return dynamicValue != 0;
-    if (dynamicValue is String) {
-      final normalized = dynamicValue.trim().toLowerCase();
-      return normalized == 'true' || normalized == '1' || normalized == 'yes';
-    }
-    return false;
-  }
-
   Map<String, dynamic>? normalizeRecurrenceRule(
     Map<String, dynamic> raw,
     String fallbackAnchorDate,
@@ -1069,7 +1058,7 @@ Future<void> _persistAiTransactions(
   final preparedMutations = transactions.map((item) {
     final tx = item.transaction;
     final isIncome = tx.isIncome;
-    final isRecurring = resolveIsRecurring(item.raw);
+    final isRecurring = resolveAiIsRecurring(item.raw);
     final mutationMetadata = buildTransactionMutationMetadata(
       item.optimisticId,
     );
@@ -1117,7 +1106,8 @@ Future<void> _persistAiTransactions(
       if (resolvedAccountIdForTransaction != null &&
           resolvedAccountIdForTransaction.isNotEmpty)
         'accountId': resolvedAccountIdForTransaction,
-      'clientCreatedAt': clientCreatedAtIso,
+      'clientCreatedAt':
+          item.optimisticEntry.createdAt.toUtc().toIso8601String(),
       ...mutationMetadata.toRequestJson(),
       if (isRecurring) 'isRecurring': true,
       if (isRecurring && recurrenceRule != null)
@@ -1794,6 +1784,33 @@ List<List<T>> chunkList<T>(List<T> items, int maxSize) {
     chunks.add(items.sublist(i, end));
   }
   return chunks;
+}
+
+bool resolveAiIsRecurring(Map<String, dynamic> raw) {
+  final dynamicValue = raw['is_recurring'] ?? raw['isRecurring'];
+  if (dynamicValue is bool) return dynamicValue;
+  if (dynamicValue is num) return dynamicValue != 0;
+  if (dynamicValue is String) {
+    final normalized = dynamicValue.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+  return false;
+}
+
+DateTime resolveAiTransactionCreatedAt({
+  required ParsedExpense transaction,
+  required bool isRecurring,
+  required String? preferredTimezone,
+  DateTime? fallbackNow,
+}) {
+  final explicitLocalDateTime = transaction.explicitTransactionLocalDateTime;
+  if (!isRecurring && explicitLocalDateTime != null) {
+    return utcInstantFromEffectiveLocalDateTime(
+      localDateTimeWall: explicitLocalDateTime,
+      preferredTimezone: preferredTimezone,
+    );
+  }
+  return fallbackNow ?? DateTime.now();
 }
 
 Future<void> handleAiCameraCapture(
@@ -2679,6 +2696,7 @@ Future<void> _processExpense(
                   currency: currency,
                   currencySymbol: item['currencySymbol'] as String? ?? '\$',
                   date: accountingDate,
+                  transactionTime: item['transactionTime'],
                   description: item['description'] is String
                       ? sanitizeUtf16(item['description'] as String)
                       : null,
@@ -2720,6 +2738,12 @@ Future<void> _processExpense(
                 );
 
                 final optimisticId = makeOptimisticTransactionId();
+                final isRecurring = resolveAiIsRecurring(item);
+                final createdAt = resolveAiTransactionCreatedAt(
+                  transaction: transaction,
+                  isRecurring: isRecurring,
+                  preferredTimezone: contact?.preferredTimezone,
+                );
                 final optimisticSplitGroup = householdId != null &&
                         householdId.isNotEmpty &&
                         !isPortfolio &&
@@ -2756,6 +2780,7 @@ Future<void> _processExpense(
                   ),
                   type: isIncome ? 'income' : 'expense',
                   splitGroupId: optimisticSplitGroup?.id,
+                  createdAt: createdAt,
                 );
                 addOptimisticTransaction(
                   ref: ref,

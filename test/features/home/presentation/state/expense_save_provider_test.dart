@@ -39,6 +39,7 @@ void main() {
 
   test('saveExpense sends client mutation metadata for idempotent retries',
       () async {
+    final transactionOccurredAt = DateTime.utc(2026, 4, 20, 18, 45, 27);
     Map<String, dynamic>? capturedSaveBody;
     requestHandler = (request) async {
       if (request.url.path.endsWith('/functions/v1/save-expense')) {
@@ -100,6 +101,7 @@ void main() {
               clientRecordId: 'optimistic_abc',
               clientMutationId: 'mobile:optimistic_abc',
               idempotencyKey: 'mobile:optimistic_abc',
+              clientCreatedAt: transactionOccurredAt,
               invalidateProviders: false,
             );
 
@@ -113,6 +115,10 @@ void main() {
     expect(capturedSaveBody!['idempotencyKey'], 'mobile:optimistic_abc');
     expect(capturedSaveBody!['merchantId'], 'merchant-tesco');
     expect(capturedSaveBody!['merchantStructuredName'], 'Tesco');
+    expect(
+      capturedSaveBody!['clientCreatedAt'],
+      transactionOccurredAt.toIso8601String(),
+    );
   });
 
   test('saveExpense sends household custom splits and payer user id', () async {

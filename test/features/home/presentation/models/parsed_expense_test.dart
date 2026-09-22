@@ -74,6 +74,40 @@ void main() {
   });
 
   group('ParsedExpense - JSON Serialization', () {
+    test('preserves explicit transaction time through JSON and copyWith', () {
+      final expense = ParsedExpense.fromJson({
+        'type': 'expense',
+        'amount': 30,
+        'category': 'Food',
+        'currency': 'USD',
+        'date': '2026-09-02',
+        'transactionTime': '18:45:27',
+      });
+
+      expect(expense.transactionTime, '18:45:27');
+      expect(
+        expense.explicitTransactionLocalDateTime,
+        DateTime(2026, 9, 2, 18, 45, 27),
+      );
+      expect(expense.toJson()['transactionTime'], '18:45:27');
+      expect(expense.copyWith().transactionTime, '18:45:27');
+    });
+
+    test('rejects invalid transaction time without inferring one', () {
+      final expense = ParsedExpense.fromJson({
+        'type': 'expense',
+        'amount': 30,
+        'category': 'Food',
+        'currency': 'USD',
+        'date': '2026-09-02',
+        'transactionTime': '24:15:00',
+      });
+
+      expect(expense.transactionTime, isNull);
+      expect(expense.explicitTransactionLocalDateTime, isNull);
+      expect(expense.toJson().containsKey('transactionTime'), isFalse);
+    });
+
     test('fromJson parses expense correctly with type field', () {
       final json = {
         'type': 'expense',

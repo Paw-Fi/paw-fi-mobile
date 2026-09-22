@@ -222,6 +222,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    DateTime? clientCreatedAt,
   }) async {
     state = const AsyncValue.loading();
 
@@ -230,6 +231,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           ref.read(householdScopeProvider).isPortfolioId(householdId);
       final accountingDate = DateTime(date.year, date.month, date.day);
       final now = DateTime.now();
+      final effectiveCreatedAt = clientCreatedAt ?? now;
       final optimisticId = clientRecordId?.trim().isNotEmpty == true
           ? clientRecordId!.trim()
           : 'optimistic-income-${now.microsecondsSinceEpoch}';
@@ -246,7 +248,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         'category': category,
         'currency': currency,
         'date': formatDateOnlyYmd(accountingDate),
-        'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+        'clientCreatedAt': effectiveCreatedAt.toUtc().toIso8601String(),
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
@@ -334,7 +336,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
             ? null
             : RecurrenceRule.fromJson(recurrenceRule),
         attachments: const [],
-        createdAt: now,
+        createdAt: effectiveCreatedAt,
         privacyRedacted: false,
       );
       final database = await ref.read(localDatabaseProvider.future);
@@ -347,7 +349,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           amountCents: (amount * 100).round(),
           currency: currency,
           category: category,
-          createdAt: now,
+          createdAt: effectiveCreatedAt,
           rawText: description,
           merchant: merchant,
           merchantId: merchantId,

@@ -91,6 +91,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     String? clientRecordId,
     String? clientMutationId,
     String? idempotencyKey,
+    DateTime? clientCreatedAt,
     bool addHouseholdOptimisticData = true,
     bool invalidateProviders = true,
     bool queueLocalMutation = true,
@@ -134,6 +135,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         expense.date.month,
         expense.date.day,
       );
+      final effectiveCreatedAt = clientCreatedAt ?? DateTime.now();
 
       final Map<String, dynamic> requestBody = {
         'userId': user.uid,
@@ -142,8 +144,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         'currency': expense.currency,
         // Date is accounting date semantics (calendar day).
         'date': formatDateOnlyYmd(accountingDate),
-        // UTC instant for audit/ordering only.
-        'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+        // Explicit occurrence time when supplied; insertion time otherwise.
+        'clientCreatedAt': effectiveCreatedAt.toUtc().toIso8601String(),
         // Explicitly set type for new expenses
         'type': 'expense',
       };
@@ -265,7 +267,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         householdId: householdId,
         userId: user.uid,
         receiptImageUrl: receiptImageUrl,
-        createdAt: DateTime.now(),
+        createdAt: effectiveCreatedAt,
         accountId: accountId,
       );
       MonekoDatabase? database;

@@ -200,6 +200,8 @@ class _UnifiedTransactionSheetV2State
   ActiveWalletType _lastNonHouseholdAccountType = ActiveWalletType.personal;
   String? _lastNonHouseholdHouseholdId;
   TimeOfDay _selectedTime = TimeOfDay.now();
+  int _selectedTimeSecond = 0;
+  bool _hasExplicitTransactionTime = false;
   SplitType? _customSplitType;
   List<MemberSplit>? _customSplits;
   String? _initialSplitSignature;
@@ -241,11 +243,12 @@ class _UnifiedTransactionSheetV2State
 
   DateTime get _effectiveNow => DateTime.now().toLocal();
 
-  DateTime _toDeviceWallTime(DateTime utcOrLocalInstant) {
-    return utcOrLocalInstant.isUtc
-        ? utcOrLocalInstant.toLocal()
-        : utcOrLocalInstant;
-  }
+  DateTime _toTransactionWallTime(DateTime utcOrLocalInstant) =>
+      toEffectiveWallTime(
+        utcOrLocalInstant: utcOrLocalInstant,
+        preferredTimezone: widget.contact?.preferredTimezone ??
+            ref.read(analyticsProvider).contact?.preferredTimezone,
+      );
 
   /// Get localized category name
   String _getLocalizedCategory(String category) =>
@@ -278,8 +281,10 @@ class _UnifiedTransactionSheetV2State
 
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
-      final dateTime = _toDeviceWallTime(widget.existingExpense!.createdAt);
+      final dateTime =
+          _toTransactionWallTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
+      _selectedTimeSecond = dateTime.second;
 
       // DEBUG: Log expense details for household sharing
       debugPrint('🏠 [HOUSEHOLD SHARE] Existing expense context loaded');
@@ -333,10 +338,18 @@ class _UnifiedTransactionSheetV2State
         });
       }
     } else if (widget.newExpense != null) {
-      // For new expenses, default to current local time (BE usually returns date-only)
-      _selectedTime = TimeOfDay.now();
-
       final newExpense = widget.newExpense!;
+      final explicitDateTime = newExpense.explicitTransactionLocalDateTime;
+      if (explicitDateTime != null) {
+        _selectedTime = TimeOfDay(
+          hour: explicitDateTime.hour,
+          minute: explicitDateTime.minute,
+        );
+        _selectedTimeSecond = explicitDateTime.second;
+        _hasExplicitTransactionTime = true;
+      } else {
+        _selectedTime = TimeOfDay.now();
+      }
       if (newExpense.payerUserId != null &&
           newExpense.payerUserId!.isNotEmpty) {
         _selectedPayerUserId = newExpense.payerUserId;
@@ -563,7 +576,7 @@ class _UnifiedTransactionSheetV2State
 
     final existing = widget.existingExpense;
     if (existing == null) return false;
-    final originalTime = _toDeviceWallTime(existing.createdAt);
+    final originalTime = _toTransactionWallTime(existing.createdAt);
     if (_selectedTime.hour != originalTime.hour ||
         _selectedTime.minute != originalTime.minute) {
       return true;
@@ -578,6 +591,7 @@ class _UnifiedTransactionSheetV2State
         left.currency.trim().toUpperCase() ==
             right.currency.trim().toUpperCase() &&
         _sameCalendarDate(left.date, right.date) &&
+        left.transactionTime == right.transactionTime &&
         (left.description ?? '') == (right.description ?? '') &&
         (left.merchant ?? '') == (right.merchant ?? '') &&
         left.merchantId == right.merchantId &&
@@ -2526,6 +2540,8 @@ class _UnifiedTransactionSheetV2State
     if (result != null) {
       setState(() {
         _selectedTime = result!;
+        _selectedTimeSecond = 0;
+        _hasExplicitTransactionTime = true;
       });
     }
   }
@@ -3821,6 +3837,7 @@ class _UnifiedTransactionSheetV2State
     required List<MemberSplit>? customSplits,
     required String? payerUserId,
     required String? localImagePath,
+    required DateTime clientCreatedAt,
   }) async {
     final localDatabase = await localWrite;
     String? receiptUrl;
@@ -3860,6 +3877,7 @@ class _UnifiedTransactionSheetV2State
               customSplitType: canUseHouseholdSplits ? customSplitType : null,
               customSplits: canUseHouseholdSplits ? customSplits : null,
               payerUserId: canUseHouseholdSplits ? payerUserId : null,
+              clientCreatedAt: clientCreatedAt,
             );
 
         if (saved == null) {
@@ -3912,6 +3930,7 @@ class _UnifiedTransactionSheetV2State
               invalidateProviders: false,
               queueLocalMutation: false,
               returnQueuedOnRetry: false,
+              clientCreatedAt: clientCreatedAt,
             );
 
         if (saved == null) {
@@ -4072,8 +4091,16 @@ class _UnifiedTransactionSheetV2State
       expenseLocalDate.day,
       _selectedTime.hour,
       _selectedTime.minute,
+      _selectedTimeSecond,
     );
-    var expenseWithTime = expense.copyWith(date: expenseDateTime);
+    var expenseWithTime = expense.copyWith(
+      date: expenseDateTime,
+      transactionTime: _hasExplicitTransactionTime
+          ? '${_selectedTime.hour.toString().padLeft(2, '0')}:'
+              '${_selectedTime.minute.toString().padLeft(2, '0')}:'
+              '${_selectedTimeSecond.toString().padLeft(2, '0')}'
+          : null,
+    );
     final normalizedCategory = expenseWithTime.category.trim().toLowerCase();
     if (normalizedCategory.isEmpty ||
         normalizedCategory == 'other' ||
@@ -4116,6 +4143,14 @@ class _UnifiedTransactionSheetV2State
     }
     final optimisticId = makeOptimisticTransactionId();
     final mutationMetadata = buildTransactionMutationMetadata(optimisticId);
+    final preferredTimezone =
+        ref.read(analyticsProvider).contact?.preferredTimezone;
+    final explicitCreatedAt = _hasExplicitTransactionTime
+        ? utcInstantFromEffectiveLocalDateTime(
+            localDateTimeWall: expenseDateTime,
+            preferredTimezone: preferredTimezone,
+          )
+        : null;
     final optimisticSplitGroup = _buildOptimisticSplitGroupForSheet(
       expenseId: optimisticId,
       householdId: effectiveHouseholdId,
@@ -4136,6 +4171,7 @@ class _UnifiedTransactionSheetV2State
           _localImagePath ??
           widget.localImagePath,
       splitGroupId: optimisticSplitGroup?.id,
+      createdAt: explicitCreatedAt,
     );
     final container = ProviderScope.containerOf(context, listen: false);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -4214,6 +4250,7 @@ class _UnifiedTransactionSheetV2State
       localImagePath: expenseWithTime.localImagePath ??
           _localImagePath ??
           widget.localImagePath,
+      clientCreatedAt: optimisticEntry.createdAt,
     ));
   }
 
@@ -4874,7 +4911,7 @@ class _UnifiedTransactionSheetV2State
           originalDate.day,
         );
         final originalCreatedAtLocal =
-            _toDeviceWallTime(widget.existingExpense!.createdAt);
+            _toTransactionWallTime(widget.existingExpense!.createdAt);
         final originalTime = TimeOfDay(
           hour: originalCreatedAtLocal.hour,
           minute: originalCreatedAtLocal.minute,

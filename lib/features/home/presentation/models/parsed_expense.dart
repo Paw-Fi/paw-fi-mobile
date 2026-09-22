@@ -7,6 +7,19 @@ import 'package:moneko/features/utils/currency.dart';
 
 const Object _copyWithUnset = Object();
 
+String? normalizeExplicitTransactionTime(Object? value) {
+  final raw = value?.toString().trim();
+  if (raw == null || raw.isEmpty) return null;
+  final match = RegExp(r'^(\d{2}):(\d{2}):(\d{2})$').firstMatch(raw);
+  if (match == null) return null;
+
+  final hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final second = int.parse(match.group(3)!);
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  return raw;
+}
+
 class ParsedMerchantCandidate {
   const ParsedMerchantCandidate({required this.name, required this.domain});
 
@@ -30,6 +43,7 @@ class ParsedExpense {
   final String currency;
   final String currencySymbol;
   final DateTime date;
+  final String? transactionTime;
   final String? description;
   final String? merchant;
   final String? merchantId;
@@ -52,6 +66,7 @@ class ParsedExpense {
     required this.currency,
     required this.currencySymbol,
     required this.date,
+    String? transactionTime,
     this.description,
     this.merchant,
     this.merchantId,
@@ -65,7 +80,7 @@ class ParsedExpense {
     this.localImagePath,
     this.payerUserId,
     this.payerHint,
-  });
+  }) : transactionTime = normalizeExplicitTransactionTime(transactionTime);
 
   factory ParsedExpense.fromJson(Map<String, dynamic> json) {
     final rawDate = json['date']?.toString();
@@ -88,6 +103,7 @@ class ParsedExpense {
       currency: json['currency'] as String,
       currencySymbol: json['currencySymbol'] as String? ?? '\$',
       date: date,
+      transactionTime: json['transactionTime'],
       description: json['description'] is String
           ? sanitizeUtf16(json['description'] as String)
           : null,
@@ -132,6 +148,7 @@ class ParsedExpense {
       'currency': currency,
       'currencySymbol': currencySymbol,
       'date': formatDateOnlyYmd(date),
+      if (transactionTime != null) 'transactionTime': transactionTime,
       'description': description,
       'merchant': merchant,
       'merchant_id': merchantId,
@@ -158,6 +175,7 @@ class ParsedExpense {
     String? currency,
     String? currencySymbol,
     DateTime? date,
+    Object? transactionTime = _copyWithUnset,
     Object? description = _copyWithUnset,
     Object? merchant = _copyWithUnset,
     Object? merchantId = _copyWithUnset,
@@ -179,6 +197,9 @@ class ParsedExpense {
       currency: currency ?? this.currency,
       currencySymbol: currencySymbol ?? this.currencySymbol,
       date: date ?? this.date,
+      transactionTime: identical(transactionTime, _copyWithUnset)
+          ? this.transactionTime
+          : transactionTime as String?,
       description: identical(description, _copyWithUnset)
           ? this.description
           : description as String?,
@@ -222,6 +243,20 @@ class ParsedExpense {
 
   // Convert to amount in cents for backend
   int get amountCents => (amount * 100).round();
+
+  DateTime? get explicitTransactionLocalDateTime {
+    final normalized = transactionTime;
+    if (normalized == null) return null;
+    final parts = normalized.split(':').map(int.parse).toList(growable: false);
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      parts[0],
+      parts[1],
+      parts[2],
+    );
+  }
 
   // Format for display
   String get formattedAmount => '$currencySymbol${formatAmount(amount)}';
